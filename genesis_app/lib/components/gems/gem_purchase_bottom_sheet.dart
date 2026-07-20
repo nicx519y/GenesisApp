@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
@@ -20,6 +21,7 @@ typedef GemPurchaseProductsLoader = Future<List<GemProduct>> Function();
 Future<void> showGemPurchaseBottomSheet(
   BuildContext context, {
   required GemBalanceAlert alert,
+  String? analyticsTrigger,
   GemPurchaseProductsLoader? productsLoader,
   GemWalletStore? walletStore,
   BillingService? billingService,
@@ -41,6 +43,8 @@ Future<void> showGemPurchaseBottomSheet(
     return;
   }
 
+  _trackGemPurchaseSheetShow(analyticsTrigger);
+
   await showGenesisModalBottomSheet<void>(
     context: context,
     useRootNavigator: true,
@@ -57,6 +61,16 @@ Future<void> showGemPurchaseBottomSheet(
         billingService: resolvedBillingService,
       ),
     ),
+  );
+}
+
+void _trackGemPurchaseSheetShow(String? analyticsTrigger) {
+  final trigger = analyticsTrigger?.trim() ?? '';
+  if (trigger.isEmpty) return;
+  GenesisTelemetry.collectLog(
+    actionType: 'pay_event',
+    action: 'buy_gems_sheet_show',
+    object1: trigger,
   );
 }
 

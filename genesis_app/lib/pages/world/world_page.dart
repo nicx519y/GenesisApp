@@ -1054,6 +1054,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 kind: GemBalanceAlertKind.insufficient,
                 message: error is ApiException ? error.message : '',
               ),
+              analyticsTrigger: gemPurchaseSheetTriggerTick,
             ),
           );
           return;
