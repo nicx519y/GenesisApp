@@ -313,6 +313,66 @@ void main() {
   });
 
   test(
+    'report timeout closes the foreground flow and ignores late UI',
+    () async {
+      service.dispose();
+      uiEvents = <BillingUiEvent>[];
+      final reportCompleter = Completer<GemPurchaseReport>();
+      service = GooglePlayBillingService(
+        platform: platform,
+        pendingPurchaseStore: pendingStore,
+        loadBillingAccountId: () async =>
+            '4b74ec68-7abc-4cce-a223-e997e31dc811',
+        loadProductCatalog: () async => [_product],
+        reportPurchase: (request) {
+          reports.add(request);
+          return reportCompleter.future;
+        },
+        refreshWallet: () async => refreshCount += 1,
+        readUid: () async => 'u_1',
+        readDeviceId: () async => 'device-1',
+        analytics: analytics,
+        reportTimeout: const Duration(milliseconds: 10),
+      );
+      service.events.listen(uiEvents.add);
+
+      await service.purchaseGem(_product);
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await _settle();
+
+      expect(uiEvents, hasLength(2));
+      expect(uiEvents.first.kind, BillingUiEventKind.processing);
+      expect(uiEvents.last.kind, BillingUiEventKind.failure);
+      expect(uiEvents.last.message, 'purchase timeout');
+      expect(service.state.value.hasBusyPurchase, isFalse);
+      expect(
+        analytics.records
+            .where(
+              (record) =>
+                  record.action == 'flow_result' &&
+                  record.properties['status'] == 'report_timeout',
+            )
+            .single
+            .properties['result'],
+        'timeout',
+      );
+
+      reportCompleter.complete(
+        const GemPurchaseReport(status: GemPurchaseReportStatus.completed),
+      );
+      await _settle();
+
+      expect(uiEvents, hasLength(2));
+      expect(refreshCount, 1);
+      expect(
+        (await pendingStore.loadAll()).single.status,
+        BillingPendingPurchaseStatus.reported,
+      );
+    },
+  );
+
+  test(
     'records the purchase, persistence, and report telemetry stages',
     () async {
       platform.queryResult = BillingProductQueryResult.success(

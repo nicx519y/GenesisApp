@@ -113,6 +113,8 @@ void main() {
     expect(tags, isNot(contains("label: 'Cast'")));
     expect(tags, isNot(contains("label: 'Map'")));
     expect(bottomTags, contains('Color(0xFFFFFFFF)'));
+    expect(bottomTags, contains('alignment: Alignment.centerLeft'));
+    expect(bottomTags, isNot(contains('alignment: Alignment.center,')));
     expect(bottomTags, contains('physics: const ClampingScrollPhysics()'));
     expect(bottomTags, contains('overscroll: false'));
     expect(eventsSectionBuilder, contains('ScrollConfiguration'));

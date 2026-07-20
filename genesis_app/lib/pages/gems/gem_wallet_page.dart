@@ -10,6 +10,7 @@ import '../../app/debug_page_tracker.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
+import '../../components/gems/daily_check_in_dialog.dart';
 import '../../components/gems/gem_assets.dart';
 import '../../components/gems/gem_billing_purchase_dialog.dart';
 import '../../components/gems/gem_colors.dart';
@@ -104,6 +105,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       ValueNotifier<BillingState>(BillingState());
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
+  bool _billingPurchaseDialogDismissing = false;
 
   @override
   void initState() {
@@ -255,7 +257,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     final status = _taskStatus(task);
     if (status == 'claimed') return;
     if (status == 'claimable') {
-      await _claimTaskReward(taskCode);
+      await _claimTaskReward(taskCode, rewardGems: task.rewardGems);
       return;
     }
     if (status != 'in_progress') return;
@@ -298,7 +300,7 @@ class _GemWalletPageState extends State<GemWalletPage>
         );
         return;
       case 'daily_checkin':
-        await _reportTaskAction(taskCode);
+        await _reportTaskAction(taskCode, rewardGems: task.rewardGems);
         return;
       case 'discord_follow':
         await Future.wait<void>([_openDiscord(), _reportTaskAction(taskCode)]);
@@ -344,20 +346,44 @@ class _GemWalletPageState extends State<GemWalletPage>
     }
   }
 
-  Future<void> _reportTaskAction(String taskCode) async {
+  Future<void> _reportTaskAction(
+    String taskCode, {
+    int rewardGems = dailyCheckInPreviewReward,
+  }) async {
     if (!_beginTaskAction(taskCode)) return;
+    final isDailyCheckIn = taskCode == dailyCheckInTaskCode;
+    var claimingDailyReward = false;
     try {
-      final result = await _reportTask(taskCode);
-      if (!mounted) return;
-      setState(() => _taskStatusOverrides[taskCode] = result.status);
-      if (taskCode == 'daily_checkin') {
-        showGenesisToast(context, 'Check in successful.');
+      var result = await _reportTask(taskCode);
+      if (isDailyCheckIn && result.status == 'claimable') {
+        claimingDailyReward = true;
+        result = await _claimTask(taskCode);
       }
-      await _refreshTasksAndWallet();
+      if (!mounted) return;
+      if (isDailyCheckIn && result.status != 'claimed') {
+        setState(() => _taskStatusOverrides[taskCode] = result.status);
+        showGenesisToast(
+          context,
+          claimingDailyReward ? 'Claim failed.' : 'Check in failed.',
+        );
+        return;
+      }
+      setState(() => _taskStatusOverrides[taskCode] = result.status);
+      if (isDailyCheckIn && mounted) {
+        final successDialog = showDailyCheckInSuccessDialog(
+          context,
+          rewardGems: rewardGems,
+        );
+        unawaited(_refreshTasksAndWallet());
+        await successDialog;
+      } else {
+        await _refreshTasksAndWallet();
+      }
     } catch (_) {
       if (!mounted) return;
       final message = switch (taskCode) {
-        'daily_checkin' => 'Check in failed.',
+        'daily_checkin' =>
+          claimingDailyReward ? 'Claim failed.' : 'Check in failed.',
         'discord_follow' => 'Follow failed.',
         _ => 'Task update failed.',
       };
@@ -367,7 +393,10 @@ class _GemWalletPageState extends State<GemWalletPage>
     }
   }
 
-  Future<void> _claimTaskReward(String taskCode) async {
+  Future<void> _claimTaskReward(
+    String taskCode, {
+    int rewardGems = dailyCheckInPreviewReward,
+  }) async {
     if (!_beginTaskAction(taskCode)) return;
     try {
       final result = await _claimTask(taskCode);
@@ -377,8 +406,15 @@ class _GemWalletPageState extends State<GemWalletPage>
         return;
       }
       setState(() => _taskStatusOverrides[taskCode] = result.status);
-      showGenesisToast(context, 'Reward claimed');
-      await _refreshTasksAndWallet();
+      final successDialog = taskCode == dailyCheckInTaskCode
+          ? showDailyCheckInSuccessDialog(context, rewardGems: rewardGems)
+          : showGemTaskSuccessDialog(
+              context,
+              title: 'Claim successful!',
+              rewardGems: rewardGems,
+            );
+      unawaited(_refreshTasksAndWallet());
+      await successDialog;
     } catch (_) {
       if (mounted) showGenesisToast(context, 'Claim failed.');
     } finally {
@@ -422,10 +458,21 @@ class _GemWalletPageState extends State<GemWalletPage>
       return;
     }
     _bindBillingService(service);
-    await service.purchaseGem(product);
+    if (service.state.value.hasBusyPurchase) return;
+    _showBillingPurchaseProcessing();
+    try {
+      await service.purchaseGem(product);
+    } catch (_) {
+      if (!mounted) return;
+      _dismissBillingPurchaseDialog();
+      showGenesisToast(context, 'Purchase failed.');
+      return;
+    }
     if (!mounted) return;
-    if (service.state.value.hasBusyPurchase) {
-      _presentBillingPurchaseDialog();
+    if (!service.state.value.hasBusyPurchase &&
+        _billingPurchaseDialogState?.value.phase ==
+            GemBillingPurchaseDialogPhase.processing) {
+      _dismissBillingPurchaseDialog();
     }
   }
 
@@ -433,7 +480,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     if (!mounted) return;
     switch (event.kind) {
       case BillingUiEventKind.processing:
-        _showBillingPurchaseDialog(event);
+        _showBillingPurchaseProcessing(attemptId: event.attemptId);
         return;
       case BillingUiEventKind.success:
         _showBillingPurchaseSuccess(event);
@@ -450,9 +497,9 @@ class _GemWalletPageState extends State<GemWalletPage>
     }
   }
 
-  void _showBillingPurchaseDialog(BillingUiEvent event) {
+  void _showBillingPurchaseProcessing({String attemptId = ''}) {
     final nextState = GemBillingPurchaseDialogState.processing(
-      attemptId: event.attemptId,
+      attemptId: attemptId,
     );
     final notifier = _billingPurchaseDialogState;
     if (notifier != null) {
@@ -527,6 +574,7 @@ class _GemWalletPageState extends State<GemWalletPage>
           return;
         }
         _billingPurchaseDialogShowing = false;
+        _billingPurchaseDialogDismissing = false;
         _disposeBillingPurchaseDialogState();
         setState(() {});
       }),
@@ -538,7 +586,9 @@ class _GemWalletPageState extends State<GemWalletPage>
       _disposeBillingPurchaseDialogState();
       return;
     }
-    Navigator.of(context, rootNavigator: true).maybePop();
+    if (_billingPurchaseDialogDismissing) return;
+    _billingPurchaseDialogDismissing = true;
+    Navigator.of(context, rootNavigator: true).pop();
   }
 
   void _disposeBillingPurchaseDialogState() {

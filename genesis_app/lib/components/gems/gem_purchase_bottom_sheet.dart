@@ -87,6 +87,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
   final Set<String> _startedProductIds = <String>{};
   ValueNotifier<GemBillingPurchaseDialogState>? _purchaseDialogState;
   bool _purchaseDialogShowing = false;
+  bool _purchaseDialogDismissing = false;
   bool _closeSheetAfterDialog = false;
 
   @override
@@ -132,7 +133,15 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
     if (widget.billingService.state.value.hasBusyPurchase) return;
     _startedProductIds.add(product.productId);
     _showPurchaseProcessing(attemptId: '');
-    await widget.billingService.purchaseGem(product);
+    try {
+      await widget.billingService.purchaseGem(product);
+    } catch (_) {
+      if (!mounted) return;
+      _startedProductIds.remove(product.productId);
+      _dismissPurchaseDialog();
+      showGenesisToast(context, 'Purchase failed.');
+      return;
+    }
     if (!mounted) return;
     if (!widget.billingService.state.value.hasBusyPurchase &&
         _purchaseDialogState?.value.phase ==
@@ -236,6 +245,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
         }
         final shouldCloseSheet = _closeSheetAfterDialog;
         _purchaseDialogShowing = false;
+        _purchaseDialogDismissing = false;
         _closeSheetAfterDialog = false;
         _disposePurchaseDialogState();
         if (shouldCloseSheet) Navigator.of(context).maybePop();
@@ -253,7 +263,9 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
       _disposePurchaseDialogState();
       return;
     }
-    Navigator.of(context, rootNavigator: true).maybePop();
+    if (_purchaseDialogDismissing) return;
+    _purchaseDialogDismissing = true;
+    Navigator.of(context, rootNavigator: true).pop();
   }
 
   void _disposePurchaseDialogState() {

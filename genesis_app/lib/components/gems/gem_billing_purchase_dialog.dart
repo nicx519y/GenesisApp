@@ -69,56 +69,59 @@ class GemBillingPurchaseDialog extends StatelessWidget {
       valueListenable: state,
       builder: (context, value, _) {
         final isSuccess = value.phase == GemBillingPurchaseDialogPhase.success;
-        return GenesisActionBox<bool>(
-          title: '',
-          titleHeight: isSuccess ? _successContentHeight : _processingHeight,
-          titleHorizontalPadding: isSuccess ? 0 : 18,
-          titleWidget: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isSuccess) ...[
-                SvgPicture.asset(
-                  gemStackIconAsset,
-                  width: gemStackIconWidth,
-                  height: gemStackIconHeight,
-                ),
-                const SizedBox(height: 18),
-              ] else ...[
-                const SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.6,
-                    color: kGemAccentColor,
+        return PopScope(
+          canPop: isSuccess,
+          child: GenesisActionBox<bool>(
+            title: '',
+            titleHeight: isSuccess ? _successContentHeight : _processingHeight,
+            titleHorizontalPadding: isSuccess ? 0 : 18,
+            titleWidget: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSuccess) ...[
+                  SvgPicture.asset(
+                    gemStackIconAsset,
+                    width: gemStackIconWidth,
+                    height: gemStackIconHeight,
                   ),
-                ),
-                const SizedBox(height: 18),
+                  const SizedBox(height: 18),
+                ] else ...[
+                  const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.6,
+                      color: kGemAccentColor,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                ],
+                if (isSuccess)
+                  !value.isGrantedSuccess
+                      ? Text(
+                          value.message,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 20 / 15,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFF111111),
+                          ),
+                        )
+                      : _GemBillingPurchaseGrantedMessage(
+                          grantedText: value.grantedText,
+                        )
+                else
+                  const _ProcessingPaymentText(),
               ],
-              if (isSuccess)
-                !value.isGrantedSuccess
-                    ? Text(
-                        value.message,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          height: 20 / 15,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xFF111111),
-                        ),
-                      )
-                    : _GemBillingPurchaseGrantedMessage(
-                        grantedText: value.grantedText,
-                      )
-              else
-                const _ProcessingPaymentText(),
-            ],
+            ),
+            actions: isSuccess
+                ? const [GenesisActionBoxAction<bool>(label: 'OK', value: true)]
+                : const [],
+            showCancel: false,
+            onActionSelected: (_) => onConfirm(),
+            onCancel: onConfirm,
           ),
-          actions: isSuccess
-              ? const [GenesisActionBoxAction<bool>(label: 'OK', value: true)]
-              : const [],
-          showCancel: false,
-          onActionSelected: (_) => onConfirm(),
-          onCancel: onConfirm,
         );
       },
     );
@@ -223,29 +226,38 @@ class _ProcessingPaymentTextState extends State<_ProcessingPaymentText> {
     const style = TextStyle(
       fontSize: 15,
       height: 20 / 15,
+      letterSpacing: 0,
       fontWeight: FontWeight.w400,
       color: Color(0xFF111111),
     );
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text(
-          'Purchasing Gems',
-          textAlign: TextAlign.center,
-          style: style,
-        ),
-        SizedBox(
-          width: 18,
-          child: Text(
-            '.' * _dotCount,
-            textAlign: TextAlign.left,
-            maxLines: 1,
-            softWrap: false,
-            style: style,
+    return SizedBox(
+      width: double.infinity,
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Purchasing Gems',
+                textAlign: TextAlign.center,
+                style: style,
+              ),
+              SizedBox(
+                width: 18,
+                child: Text(
+                  '.' * _dotCount,
+                  textAlign: TextAlign.left,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: style,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

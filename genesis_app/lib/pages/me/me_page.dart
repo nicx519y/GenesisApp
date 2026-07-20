@@ -34,12 +34,14 @@ class MePage extends StatefulWidget {
     super.key,
     this.onLoggedOut,
     this.onLogin,
+    this.onLoginCompleted,
     this.activationListenable,
     this.isActiveListenable,
   });
 
   final VoidCallback? onLoggedOut;
   final Future<bool> Function(IdentityProvider provider)? onLogin;
+  final Future<void> Function()? onLoginCompleted;
   final ValueListenable<int>? activationListenable;
   final ValueListenable<bool>? isActiveListenable;
 
@@ -576,14 +578,21 @@ class _MePageState extends State<MePage> {
       showGenesisToast(context, 'Sign-in unavailable');
       return;
     }
+    final sessionRevisionBeforeLogin = _sessionRevisionListenable?.value;
     setState(() => _loggingInProvider = provider);
     try {
       final ok = await login(provider);
       if (!mounted) return;
       if (ok) {
-        setState(() {
-          _future = _loadData();
-        });
+        if (_sessionRevisionListenable?.value == sessionRevisionBeforeLogin) {
+          setState(() {
+            _future = _loadData();
+          });
+        }
+        final onLoginCompleted = widget.onLoginCompleted;
+        if (onLoginCompleted != null) {
+          unawaited(_runPostLoginFlow(onLoginCompleted));
+        }
       } else {
         showGenesisToast(context, 'Sign-in failed');
       }
@@ -597,6 +606,15 @@ class _MePageState extends State<MePage> {
       showGenesisToast(context, message.isEmpty ? 'Sign-in failed' : message);
     } finally {
       if (mounted) setState(() => _loggingInProvider = null);
+    }
+  }
+
+  Future<void> _runPostLoginFlow(Future<void> Function() flow) async {
+    try {
+      await flow();
+    } catch (e, st) {
+      debugPrint('[Auth][MePage] post-login flow failed: $e');
+      debugPrint('[Auth][MePage] stacktrace:\n$st');
     }
   }
 
