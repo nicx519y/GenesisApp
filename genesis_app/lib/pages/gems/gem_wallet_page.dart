@@ -105,7 +105,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   final Map<String, String> _taskStatusOverrides = <String, String>{};
   final ValueNotifier<BillingState> _idleBillingState =
       ValueNotifier<BillingState>(BillingState());
-  late final String _payTrackId = newBillingAttemptId();
+  late final String _payTrackPageId = newBillingTrackPageId();
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
   bool _billingPurchaseDialogDismissing = false;
@@ -165,7 +165,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       actionType: 'pay_event',
       action: 'buy_page_show',
       object1: BillingPurchaseSource.buyGemsPage.value,
-      object2: _payTrackId,
+      object2: billingPageTrackId(_payTrackPageId),
     );
   }
 
@@ -481,7 +481,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       await service.purchaseGem(
         product,
         source: BillingPurchaseSource.buyGemsPage,
-        payTrackId: _payTrackId,
+        payTrackId: billingPurchaseTrackId(_payTrackPageId),
       );
     } catch (_) {
       if (!mounted) return;

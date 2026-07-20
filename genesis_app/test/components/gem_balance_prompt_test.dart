@@ -171,7 +171,17 @@ void main() {
       (event) =>
           event.category == 'collect.log' && event.name == 'buy_page_show',
     );
-    expect(fixture.billing.purchaseTrackIds, [showEvent.data['object2']]);
+    expect(fixture.billing.purchaseTrackIds, hasLength(1));
+    final showMatch = RegExp(
+      r'^track_id_([^_]+)$',
+    ).firstMatch('${showEvent.data['object2']}');
+    final purchaseMatch = RegExp(
+      r'^track_id_([^_]+)_([^_]+)$',
+    ).firstMatch(fixture.billing.purchaseTrackIds.single);
+    expect(showMatch, isNotNull);
+    expect(purchaseMatch, isNotNull);
+    expect(purchaseMatch!.group(1), showMatch!.group(1));
+    expect(purchaseMatch.group(2), isNotEmpty);
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
       find.descendant(
@@ -258,7 +268,9 @@ void _expectSheetShowEvent(_CapturingTelemetrySink telemetry, String trigger) {
   expect(events.single.data['action'], 'buy_page_show');
   expect(events.single.data['object1'], 'buy_gems_sheet');
   expect(events.single.data['object2'], isA<String>());
-  expect('${events.single.data['object2']}', startsWith('track_id_'));
+  final trackId = '${events.single.data['object2']}';
+  final match = RegExp(r'^track_id_([^_]+)$').firstMatch(trackId);
+  expect(match, isNotNull);
   expect(events.single.data['object3'], trigger);
 }
 

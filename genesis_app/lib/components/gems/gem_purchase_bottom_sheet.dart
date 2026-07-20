@@ -43,8 +43,8 @@ Future<void> showGemPurchaseBottomSheet(
     return;
   }
 
-  final payTrackId = newBillingAttemptId();
-  _trackGemPurchaseSheetShow(analyticsTrigger, payTrackId);
+  final payTrackPageId = newBillingTrackPageId();
+  _trackGemPurchaseSheetShow(analyticsTrigger, payTrackPageId);
 
   await showGenesisModalBottomSheet<void>(
     context: context,
@@ -60,19 +60,22 @@ Future<void> showGemPurchaseBottomSheet(
         productsLoader: resolvedProductsLoader,
         walletStore: resolvedWalletStore,
         billingService: resolvedBillingService,
-        payTrackId: payTrackId,
+        payTrackPageId: payTrackPageId,
       ),
     ),
   );
 }
 
-void _trackGemPurchaseSheetShow(String? analyticsTrigger, String payTrackId) {
+void _trackGemPurchaseSheetShow(
+  String? analyticsTrigger,
+  String payTrackPageId,
+) {
   final trigger = analyticsTrigger?.trim() ?? '';
   GenesisTelemetry.collectLog(
     actionType: 'pay_event',
     action: 'buy_page_show',
     object1: BillingPurchaseSource.buyGemsSheet.value,
-    object2: payTrackId,
+    object2: billingPageTrackId(payTrackPageId),
     object3: trigger.isEmpty ? null : trigger,
   );
 }
@@ -84,14 +87,14 @@ class GemPurchaseBottomSheet extends StatefulWidget {
     required this.productsLoader,
     required this.walletStore,
     required this.billingService,
-    required this.payTrackId,
+    required this.payTrackPageId,
   });
 
   final GemBalanceAlert alert;
   final GemPurchaseProductsLoader productsLoader;
   final GemWalletStore walletStore;
   final BillingService billingService;
-  final String payTrackId;
+  final String payTrackPageId;
 
   @override
   State<GemPurchaseBottomSheet> createState() => _GemPurchaseBottomSheetState();
@@ -156,7 +159,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
       await widget.billingService.purchaseGem(
         product,
         source: BillingPurchaseSource.buyGemsSheet,
-        payTrackId: widget.payTrackId,
+        payTrackId: billingPurchaseTrackId(widget.payTrackPageId),
       );
     } catch (_) {
       if (!mounted) return;

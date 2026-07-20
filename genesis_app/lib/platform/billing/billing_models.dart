@@ -250,7 +250,26 @@ class BillingPlatformException implements Exception {
   String toString() => 'BillingPlatformException($code)';
 }
 
-String newBillingAttemptId() {
+String newBillingTrackPageId() {
+  return DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+}
+
+String newBillingTrackClickId() {
   final random = Random.secure().nextInt(1 << 32);
-  return 'track_id_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}_${random.toRadixString(36)}';
+  return random.toRadixString(36);
+}
+
+String billingPageTrackId(String pageId) {
+  final normalized = pageId.trim();
+  return normalized.isEmpty ? '' : 'track_id_$normalized';
+}
+
+String billingPurchaseTrackId(String pageId) {
+  final normalized = pageId.trim();
+  if (normalized.isEmpty) return newBillingAttemptId();
+  return 'track_id_${normalized}_${newBillingTrackClickId()}';
+}
+
+String newBillingAttemptId() {
+  return billingPurchaseTrackId(newBillingTrackPageId());
 }
