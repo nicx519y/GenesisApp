@@ -146,7 +146,6 @@ void main() {
       },
       refreshWallet: () async => refreshCount += 1,
       readUid: () async => 'u_1',
-      readDeviceId: () async => 'device-1',
       analytics: analytics,
     );
     service.events.listen(uiEvents.add);
@@ -220,8 +219,6 @@ void main() {
       );
       expect(result.properties['result'], 'failure');
       expect(result.properties['error_code'], 'offer_not_available');
-      expect(result.properties['uid'], 'u_1');
-      expect(result.properties['device_id'], 'device-1');
       expect(
         analytics.records
             .where((record) => record.action == 'flow_result')
@@ -243,8 +240,6 @@ void main() {
     );
     expect(result.properties['result'], 'failure');
     expect(result.properties['status'], 'rejected');
-    expect(result.properties['uid'], 'u_1');
-    expect(result.properties['device_id'], 'device-1');
     expect(
       analytics.records
           .where((record) => record.action == 'flow_result')
@@ -330,7 +325,6 @@ void main() {
         },
         refreshWallet: () async => refreshCount += 1,
         readUid: () async => 'u_1',
-        readDeviceId: () async => 'device-1',
         analytics: analytics,
         reportTimeout: const Duration(milliseconds: 10),
       );

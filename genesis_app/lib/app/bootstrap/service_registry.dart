@@ -235,7 +235,6 @@ class ServiceRegistry {
       reportPurchase: api.v1.gem.reportPurchase,
       refreshWallet: gemWallet.refreshAfterEntitlementGranted,
       readUid: sessionStore.readUid,
-      readDeviceId: deviceId.getDeviceId,
     );
     final directMessageConversations = DirectMessageConversationStore(
       api: api,

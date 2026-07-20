@@ -450,53 +450,55 @@ void main() {
     expect(collect.payloads, isEmpty);
   });
 
-  test('one billing event is sent to PostHog and anonymized Collect', () async {
-    final postHog = _FakePostHogClient();
-    final collect = _FakeCollectClient();
-    final composite = CompositeGenesisTelemetrySink([
-      PostHogGenesisTelemetrySink(client: postHog),
-      CollectGenesisTelemetrySink(client: collect),
-    ]);
-    await composite.setContext(GenesisTelemetry.contextForTesting);
-    await composite.setUserId('user-1');
+  test(
+    'one billing event is sent to PostHog and identity-header Collect',
+    () async {
+      final postHog = _FakePostHogClient();
+      final collect = _FakeCollectClient();
+      final composite = CompositeGenesisTelemetrySink([
+        PostHogGenesisTelemetrySink(client: postHog),
+        CollectGenesisTelemetrySink(client: collect),
+      ]);
+      await composite.setContext(GenesisTelemetry.contextForTesting);
+      await composite.setUserId('user-1');
 
-    await composite.record(
-      GenesisTelemetryEvent(
-        name: 'pay_event',
-        category: 'billing.purchase',
-        data: const {
-          'action': 'report_result',
-          'attempt_id': 'attempt-1',
-          'product_id': 'gem_pack_500',
-          'result': 'completed',
-        },
-        context: GenesisTelemetry.contextForTesting,
-        collectPayload: const {
-          'action_type': 'pay_event',
-          'action': 'report_result',
-          'object1': 'gem_pack_500',
-          'object2': 'attempt-1',
-          'object3': '{"result":"completed"}',
-        },
-        includeCollectIdentityHeaders: false,
-      ),
-    );
+      await composite.record(
+        GenesisTelemetryEvent(
+          name: 'pay_event',
+          category: 'billing.purchase',
+          data: const {
+            'action': 'report_result',
+            'attempt_id': 'attempt-1',
+            'product_id': 'gem_pack_500',
+            'result': 'completed',
+          },
+          context: GenesisTelemetry.contextForTesting,
+          collectPayload: const {
+            'action_type': 'pay_event',
+            'action': 'report_result',
+            'object1': 'gem_pack_500',
+            'object2': 'attempt-1',
+            'object3': '{"result":"completed"}',
+          },
+        ),
+      );
 
-    expect(postHog.captures.single.eventName, 'pay_event');
-    expect(postHog.captures.single.properties['action'], 'report_result');
-    expect(postHog.captures.single.properties['attempt_id'], 'attempt-1');
-    expect(collect.payloads.single, {
-      'action_type': 'pay_event',
-      'action': 'report_result',
-      'object1': 'gem_pack_500',
-      'object2': 'attempt-1',
-      'object3': '{"result":"completed"}',
-    });
-    expect(collect.headers.single['X-Platform'], 'android');
-    expect(collect.headers.single['X-App-Version'], '1.2.3');
-    expect(collect.headers.single, isNot(contains('X-Device-ID')));
-    expect(collect.headers.single, isNot(contains('X-UID')));
-  });
+      expect(postHog.captures.single.eventName, 'pay_event');
+      expect(postHog.captures.single.properties['action'], 'report_result');
+      expect(postHog.captures.single.properties['attempt_id'], 'attempt-1');
+      expect(collect.payloads.single, {
+        'action_type': 'pay_event',
+        'action': 'report_result',
+        'object1': 'gem_pack_500',
+        'object2': 'attempt-1',
+        'object3': '{"result":"completed"}',
+      });
+      expect(collect.headers.single['X-Platform'], 'android');
+      expect(collect.headers.single['X-App-Version'], '1.2.3');
+      expect(collect.headers.single['X-Device-ID'], 'device-test-1');
+      expect(collect.headers.single['X-UID'], 'user-1');
+    },
+  );
 
   test('GenesisTelemetry.collectLog sends pageview payload', () async {
     final collect = _FakeCollectClient();

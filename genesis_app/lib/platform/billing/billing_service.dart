@@ -16,7 +16,6 @@ typedef BillingPurchaseReporter =
     Future<GemPurchaseReport> Function(GemPurchaseReportRequest request);
 typedef BillingWalletRefresher = Future<void> Function();
 typedef BillingUidReader = Future<String?> Function();
-typedef BillingDeviceIdReader = Future<String> Function();
 
 abstract interface class BillingService {
   ValueListenable<BillingState> get state;
@@ -43,7 +42,6 @@ class GooglePlayBillingService implements BillingService {
     required BillingPurchaseReporter reportPurchase,
     required BillingWalletRefresher refreshWallet,
     required BillingUidReader readUid,
-    required BillingDeviceIdReader readDeviceId,
     BillingAnalytics analytics = const GenesisBillingAnalytics(),
     Duration reportTimeout = const Duration(minutes: 1),
   }) : _platform = platform,
@@ -53,7 +51,6 @@ class GooglePlayBillingService implements BillingService {
        _reportPurchase = reportPurchase,
        _refreshWallet = refreshWallet,
        _readUid = readUid,
-       _readDeviceId = readDeviceId,
        _analytics = analytics,
        _reportTimeout = reportTimeout;
 
@@ -64,7 +61,6 @@ class GooglePlayBillingService implements BillingService {
   final BillingPurchaseReporter _reportPurchase;
   final BillingWalletRefresher _refreshWallet;
   final BillingUidReader _readUid;
-  final BillingDeviceIdReader _readDeviceId;
   final BillingAnalytics _analytics;
   final Duration _reportTimeout;
   final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
@@ -1283,56 +1279,18 @@ class GooglePlayBillingService implements BillingService {
     String storeProductId = '',
     Map<String, Object?> data = const <String, Object?>{},
   }) {
-    unawaited(
-      _trackWithIdentity(
-        action,
-        attemptId: attemptId,
-        productId: productId,
-        storeProductId: storeProductId,
-        data: data,
-      ),
-    );
-  }
-
-  Future<void> _trackWithIdentity(
-    String action, {
-    String attemptId = '',
-    String productId = '',
-    String storeProductId = '',
-    Map<String, Object?> data = const <String, Object?>{},
-  }) async {
     try {
-      final uid = await _safeReadUid();
-      final deviceId = await _safeReadDeviceId();
       _analytics.track(
         action,
         properties: <String, Object?>{
           'attempt_id': attemptId,
           'product_id': productId,
           'store_product_id': storeProductId,
-          'uid': uid,
-          'device_id': deviceId,
           ...data,
         },
       );
     } catch (_) {
       // A custom analytics sink must not be able to break billing.
-    }
-  }
-
-  Future<String> _safeReadUid() async {
-    try {
-      return (await _readUid())?.trim() ?? '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  Future<String> _safeReadDeviceId() async {
-    try {
-      return (await _readDeviceId()).trim();
-    } catch (_) {
-      return '';
     }
   }
 

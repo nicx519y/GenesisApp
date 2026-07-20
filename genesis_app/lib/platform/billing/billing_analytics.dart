@@ -28,7 +28,6 @@ class GenesisBillingAnalytics implements BillingAnalytics {
         category: 'billing.purchase',
         data: data,
         collectPayload: _billingCollectPayload(data),
-        includeCollectIdentityHeaders: false,
       );
     } catch (_) {
       // Analytics must never interrupt billing.
@@ -84,8 +83,6 @@ const Set<String> _allowedBillingAnalyticsKeys = <String>{
   'price_amount_micros',
   'offer_token_present',
   'billing_account_id_present',
-  'uid',
-  'device_id',
   'purchase_status',
   'purchase_token_present',
   'transaction_id_present',
