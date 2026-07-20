@@ -149,8 +149,17 @@ class GooglePlayBillingService implements BillingService {
     );
     await start();
     if (_disposed) return;
-    if (!product.canPurchase || product.googleProductId.trim().isEmpty) {
-      _trackPrecheckFailure(product, attemptId, 'product_unavailable');
+    if (!product.canPurchase) {
+      _trackPrecheckFailure(product, attemptId, 'product_not_purchasable');
+      _emitFailure(
+        product.productId,
+        attemptId,
+        'This product is unavailable.',
+      );
+      return;
+    }
+    if (product.googleProductId.trim().isEmpty) {
+      _trackPrecheckFailure(product, attemptId, 'store_product_id_missing');
       _emitFailure(
         product.productId,
         attemptId,
@@ -159,7 +168,7 @@ class GooglePlayBillingService implements BillingService {
       return;
     }
     if (!_state.value.storeAvailable) {
-      _trackPrecheckFailure(product, attemptId, 'store_unavailable');
+      _trackPrecheckFailure(product, attemptId, 'gp_unavailable');
       _emitFailure(product.productId, attemptId, 'Google Play is unavailable.');
       return;
     }
@@ -185,12 +194,12 @@ class GooglePlayBillingService implements BillingService {
     try {
       billingAccountId = await _resolveBillingAccountId();
     } catch (_) {
-      _trackPrecheckFailure(product, attemptId, 'billing_account_load_failed');
+      _trackPrecheckFailure(product, attemptId, 'uuid_unavailable');
       _emitFailure(product.productId, attemptId, 'Purchase failed.');
       return;
     }
     if (billingAccountId.isEmpty) {
-      _trackPrecheckFailure(product, attemptId, 'billing_account_unavailable');
+      _trackPrecheckFailure(product, attemptId, 'uuid_unavailable');
       _emitFailure(product.productId, attemptId, 'Purchase failed.');
       return;
     }
@@ -573,6 +582,12 @@ class GooglePlayBillingService implements BillingService {
           _attemptByPurchaseToken[token] = attempt;
         }
         _setBusy(productId, false);
+        _trackFailedById(
+          attemptId: attemptId,
+          productId: productId,
+          storeProductId: purchase.productId,
+          reason: 'purchase_callback_pending',
+        );
         _events.add(
           BillingUiEvent(
             kind: BillingUiEventKind.pending,
@@ -1394,6 +1409,66 @@ class GooglePlayBillingService implements BillingService {
         'error_code': errorCode,
       },
     );
+    final failedReason = _failedReasonForFlowResult(
+      status: status,
+      errorCode: errorCode,
+    );
+    if (failedReason != null) {
+      _trackFailedById(
+        attemptId: attemptId,
+        productId: productId,
+        storeProductId: storeProductId,
+        reason: failedReason,
+      );
+    }
+  }
+
+  void _trackFailedById({
+    required String attemptId,
+    required String productId,
+    required String storeProductId,
+    required String reason,
+  }) {
+    final normalizedReason = reason.trim();
+    if (normalizedReason.isEmpty) return;
+    _track(
+      'failed',
+      attemptId: attemptId,
+      productId: productId,
+      storeProductId: storeProductId,
+      data: <String, Object?>{'reason': normalizedReason},
+    );
+  }
+
+  String? _failedReasonForFlowResult({
+    required String status,
+    String? errorCode,
+  }) {
+    return switch (status) {
+      'completed' || 'accepted' => null,
+      'precheck_failed' => _precheckFailedReason(errorCode),
+      'query_failed' => 'query_failed',
+      'launch_rejected' || 'launch_failed' => 'launch_failed',
+      'canceled' => 'canceled',
+      'store_failed' =>
+        errorCode == 'purchase_token_missing'
+            ? 'purchase_token_missing'
+            : 'purchase_callback_error',
+      'report_deferred' => 'report_failed',
+      'timeout' || 'report_timeout' => 'timeout',
+      _ => 'report_rejected',
+    };
+  }
+
+  String? _precheckFailedReason(String? errorCode) {
+    return switch (errorCode) {
+      'gp_unavailable' => 'gp_unavailable',
+      'uuid_unavailable' => 'uuid_unavailable',
+      'product_not_purchasable' => 'product_not_purchasable',
+      'store_product_id_missing' => 'store_product_id_missing',
+      'purchase_in_progress' => 'purchase_in_progress',
+      _ => null,
+    };
   }
 
   Map<String, Object?> _storeProductAnalytics(BillingStoreProduct product) {

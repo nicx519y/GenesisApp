@@ -57,6 +57,15 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
       if (data['attempt_id'] != null) 'object2': data['attempt_id'],
     };
   }
+  if (action == 'failed') {
+    return <String, Object?>{
+      'action_type': 'pay_event',
+      'action': action,
+      if (productId != null) 'object1': productId,
+      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
+      if (data['reason'] != null) 'object3': data['reason'],
+    };
+  }
 
   final details = Map<String, Object?>.of(data)
     ..remove('action')

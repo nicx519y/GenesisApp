@@ -144,4 +144,29 @@ void main() {
       'object2': 'attempt-1',
     });
   });
+
+  test('failed collect projection keeps reason as object3 text', () async {
+    final sink = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(sink);
+
+    const GenesisBillingAnalytics().track(
+      'failed',
+      properties: <String, Object?>{
+        'attempt_id': 'attempt-1',
+        'product_id': 'gem_pack_500',
+        'reason': 'query_failed',
+        'error_code': 'offer_not_available',
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final event = sink.events.single;
+    expect(event.collectPayload, {
+      'action_type': 'pay_event',
+      'action': 'failed',
+      'object1': 'gem_pack_500',
+      'object2': 'attempt-1',
+      'object3': 'query_failed',
+    });
+  });
 }

@@ -205,6 +205,11 @@ void main() {
           .properties['purchase_status'],
       'pending',
     );
+    final failed = analytics.records.singleWhere(
+      (record) => record.action == 'failed',
+    );
+    expect(failed.properties['product_id'], 'gem_pack_500');
+    expect(failed.properties['reason'], 'purchase_callback_pending');
   });
 
   test(
@@ -230,6 +235,11 @@ void main() {
             .properties['status'],
         'query_failed',
       );
+      final failed = analytics.records.singleWhere(
+        (record) => record.action == 'failed',
+      );
+      expect(failed.properties['product_id'], 'gem_pack_500');
+      expect(failed.properties['reason'], 'query_failed');
     },
   );
 
@@ -251,6 +261,10 @@ void main() {
           .properties['status'],
       'launch_rejected',
     );
+    final failed = analytics.records.singleWhere(
+      (record) => record.action == 'failed',
+    );
+    expect(failed.properties['reason'], 'launch_failed');
   });
 
   test('local order write failure is tracked and blocks report', () async {
@@ -285,6 +299,11 @@ void main() {
     expect(uiEvents, hasLength(2));
     expect(uiEvents.first.kind, BillingUiEventKind.processing);
     expect(uiEvents.last.kind, BillingUiEventKind.deferred);
+    final failed = analytics.records.singleWhere(
+      (record) => record.action == 'failed',
+    );
+    expect(failed.properties['product_id'], 'gem_pack_500');
+    expect(failed.properties['reason'], 'report_failed');
 
     reportError = false;
     await service.recover(BillingRecoverySource.foreground);
@@ -355,6 +374,11 @@ void main() {
             .properties['result'],
         'timeout',
       );
+      final failed = analytics.records.singleWhere(
+        (record) => record.action == 'failed',
+      );
+      expect(failed.properties['product_id'], 'gem_pack_500');
+      expect(failed.properties['reason'], 'timeout');
 
       reportCompleter.complete(
         const GemPurchaseReport(status: GemPurchaseReportStatus.completed),
@@ -492,6 +516,11 @@ void main() {
     expect(uiEvents.first.kind, BillingUiEventKind.processing);
     expect(uiEvents.last.kind, BillingUiEventKind.failure);
     expect(uiEvents.last.message, 'Purchase was refunded.');
+    final failed = analytics.records.singleWhere(
+      (record) => record.action == 'failed',
+    );
+    expect(failed.properties['product_id'], 'gem_pack_500');
+    expect(failed.properties['reason'], 'report_rejected');
   });
 
   test('recovery clears a checkout that Google no longer reports', () async {
