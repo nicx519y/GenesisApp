@@ -938,6 +938,8 @@ void main() {
   testWidgets('daily check-in reports once and refreshes task and wallet', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     final reportResult = Completer<GemTaskActionResult>();
     var reportCalls = 0;
     var claimCalls = 0;
@@ -1007,6 +1009,7 @@ void main() {
     expect(walletLoadCount, 2);
     expect(find.text('Received'), findsOneWidget);
     expect(find.text('Check in successful!'), findsOneWidget);
+    _expectTaskClaimedEvent(telemetry, 'daily_checkin');
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -1384,6 +1387,8 @@ void main() {
   testWidgets('claimable task shows its reward in success dialog', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     var productsLoadCount = 0;
     var tasksLoadCount = 0;
     final claimedCodes = <String>[];
@@ -1433,6 +1438,7 @@ void main() {
     expect(productsLoadCount, 1);
     expect(tasksLoadCount, 2);
     expect(find.text('Claim successful!'), findsOneWidget);
+    _expectTaskClaimedEvent(telemetry, 'discord_follow');
     expect(
       tester
           .widget<Text>(
@@ -1511,6 +1517,24 @@ void _expectGrantedSuccessDialog(WidgetTester tester) {
     GenesisActionBox.defaultRowHeight,
   );
   expect(find.byType(SvgPicture), findsWidgets);
+}
+
+void _expectTaskClaimedEvent(
+  _CapturingTelemetrySink telemetry,
+  String taskCode,
+) {
+  final events = telemetry.events
+      .where(
+        (event) =>
+            event.category == 'collect.log' && event.name == 'task_claimed',
+      )
+      .toList();
+  expect(events, hasLength(1));
+  expect(events.single.data, <String, Object?>{
+    'action_type': 'pay_event',
+    'action': 'task_claimed',
+    'object1': taskCode,
+  });
 }
 
 class _FakeBillingService implements BillingService {

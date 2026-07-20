@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/debug_page_tracker.dart';
+import '../../app/gems/gem_task_analytics.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -377,6 +378,9 @@ class _GemWalletPageState extends State<GemWalletPage>
         );
         return;
       }
+      if (isDailyCheckIn && claimingDailyReward) {
+        trackGemTaskClaimedIfNeeded(taskCode: taskCode, status: result.status);
+      }
       setState(() => _taskStatusOverrides[taskCode] = result.status);
       if (isDailyCheckIn && mounted) {
         final successDialog = showDailyCheckInSuccessDialog(
@@ -414,6 +418,7 @@ class _GemWalletPageState extends State<GemWalletPage>
         showGenesisToast(context, 'Claim failed.');
         return;
       }
+      trackGemTaskClaimedIfNeeded(taskCode: taskCode, status: result.status);
       setState(() => _taskStatusOverrides[taskCode] = result.status);
       final successDialog = taskCode == dailyCheckInTaskCode
           ? showDailyCheckInSuccessDialog(context, rewardGems: rewardGems)

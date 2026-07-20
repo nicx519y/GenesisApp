@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/daily_check_in_coordinator.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/gems/daily_check_in_dialog.dart';
 import 'package:genesis_flutter_android/network/models/gem_task.dart';
 import 'package:genesis_flutter_android/network/models/gem_task_action.dart';
 
 void main() {
+  tearDown(GenesisTelemetry.resetForTesting);
+
   testWidgets('daily check-in reports and claims with one user action', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     var reportCalls = 0;
     var claimCalls = 0;
     var refreshCalls = 0;
@@ -49,6 +54,7 @@ void main() {
     expect(refreshCalls, 1);
     expect(find.text('Claim'), findsNothing);
     expect(find.text('Check in successful!'), findsOneWidget);
+    _expectTaskClaimedEvent(telemetry, dailyCheckInTaskCode);
 
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
@@ -95,6 +101,42 @@ void main() {
     expect(claimCalls, 0);
     expect(refreshCalls, 0);
   });
+}
+
+void _expectTaskClaimedEvent(
+  _CapturingTelemetrySink telemetry,
+  String taskCode,
+) {
+  final events = telemetry.events
+      .where(
+        (event) =>
+            event.category == 'collect.log' && event.name == 'task_claimed',
+      )
+      .toList();
+  expect(events, hasLength(1));
+  expect(events.single.data, <String, Object?>{
+    'action_type': 'pay_event',
+    'action': 'task_claimed',
+    'object1': taskCode,
+  });
+}
+
+class _CapturingTelemetrySink implements GenesisTelemetrySink {
+  final events = <GenesisTelemetryEvent>[];
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    events.add(event);
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {}
+
+  @override
+  Future<void> setUserId(String? uid) async {}
 }
 
 GemTask _dailyTask({required String status}) {
