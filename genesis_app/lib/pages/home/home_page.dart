@@ -210,9 +210,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted) return;
     final trackingAuthorizationStatus = await _resolveTrackingAuthorization();
     if (!mounted) return;
-    setState(() {
-      _resolveInitialTabIndex();
-    });
     await WidgetsBinding.instance.endOfFrame;
     await widget.initializeRuntime(services, trackingAuthorizationStatus);
     if (!mounted) return;

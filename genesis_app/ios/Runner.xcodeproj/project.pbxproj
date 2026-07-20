@@ -309,7 +309,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ] || [ \"$EFFECTIVE_PLATFORM_NAME\" = \"-iphonesimulator\" ]; then\n  echo \"Skipping Crashlytics upload-symbols for $CONFIGURATION $EFFECTIVE_PLATFORM_NAME.\"\n  exit 0\nfi\nUPLOAD_SYMBOLS=\"$PODS_ROOT/FirebaseCrashlytics/upload-symbols\"\nif [ ! -x \"$UPLOAD_SYMBOLS\" ]; then\n  UPLOAD_SYMBOLS=\"$PROJECT_DIR/../build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols\"\nfi\nif [ -x \"$UPLOAD_SYMBOLS\" ]; then\n  \"$UPLOAD_SYMBOLS\" --flutter-project \"$PROJECT_DIR/firebase_app_id_file.json\"\nelse\n  echo \"warning: Firebase Crashlytics upload-symbols not found; skipping symbols upload.\"\nfi\n";
+			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ] || [ \"$EFFECTIVE_PLATFORM_NAME\" = \"-iphonesimulator\" ]; then\n  echo \"Skipping Crashlytics upload-symbols for $CONFIGURATION $EFFECTIVE_PLATFORM_NAME.\"\n  exit 0\nfi\nif [ \"$ACTION\" != \"install\" ]; then\n  echo \"Skipping Crashlytics upload-symbols for non-archive action $ACTION.\"\n  exit 0\nfi\nUPLOAD_SYMBOLS=\"$PODS_ROOT/FirebaseCrashlytics/upload-symbols\"\nif [ ! -x \"$UPLOAD_SYMBOLS\" ]; then\n  UPLOAD_SYMBOLS=\"$PROJECT_DIR/../build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols\"\nfi\nif [ -x \"$UPLOAD_SYMBOLS\" ]; then\n  \"$UPLOAD_SYMBOLS\" --flutter-project \"$PROJECT_DIR/firebase_app_id_file.json\"\nelse\n  echo \"warning: Firebase Crashlytics upload-symbols not found; skipping symbols upload.\"\nfi\n";
 		};
 		1FD8FBE8CA8FC5E77FDAF774 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;

@@ -342,13 +342,18 @@ class _FakeIdentityAuthService implements IdentityAuthService {
   const _FakeIdentityAuthService({
     this.hasLocalSession = false,
     this.signInSession,
+    this.throwOnCurrentProfile = false,
   });
 
   final bool hasLocalSession;
   final AuthSession? signInSession;
+  final bool throwOnCurrentProfile;
 
   @override
   IdentityProfile? currentProfile() {
+    if (throwOnCurrentProfile) {
+      throw StateError('Firebase identity profile is unavailable');
+    }
     if (!hasLocalSession) return null;
     return const IdentityProfile(
       uid: 'identity_uid',
@@ -4436,6 +4441,9 @@ void main() {
         ),
         findsNothing,
       );
+      final cachedFeedElement = tester.element(
+        find.byKey(const PageStorageKey<String>('home-feed-popular')),
+      );
       expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
       expect(runtimeInitialized, isFalse);
 
@@ -4451,6 +4459,12 @@ void main() {
       }
 
       expect(find.text('#iOS Cached Origin'), findsWidgets);
+      expect(
+        tester.element(
+          find.byKey(const PageStorageKey<String>('home-feed-popular')),
+        ),
+        same(cachedFeedElement),
+      );
       expect(runtimeInitialized, isTrue);
       expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
 
@@ -6913,6 +6927,7 @@ void main() {
       useMock: false,
       initialUid: 'u_cached',
       initialAuthToken: 'backend-token',
+      identityAuth: const _FakeIdentityAuthService(throwOnCurrentProfile: true),
       initialUserInfo: {
         'uid': 'u_cached',
         'name': 'Cached User',
@@ -6927,6 +6942,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to continue'), findsNothing);
+    expect(find.text('Load failed'), findsNothing);
     expect(find.text('Cached User'), findsOneWidget);
     expect(find.text('11'), findsOneWidget);
     expect(backendAuth.sessionCheckCount, 0);
