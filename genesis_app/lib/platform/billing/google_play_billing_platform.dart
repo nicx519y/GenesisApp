@@ -317,6 +317,9 @@ OneTimePurchaseOfferDetailsWrapper? selectGooglePlayOneTimeOffer(
     if (offer.offerId != requestedOfferId) {
       continue;
     }
+    if (offer.offerToken?.trim().isEmpty != false) {
+      continue;
+    }
     return offer;
   }
   return null;

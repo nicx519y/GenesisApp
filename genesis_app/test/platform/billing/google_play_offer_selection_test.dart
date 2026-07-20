@@ -102,4 +102,22 @@ void main() {
 
     expect(selected, isNull);
   });
+
+  test('returns no offer when the matched offer has no token', () {
+    final selected = selectGooglePlayOneTimeOffer(
+      const <OneTimePurchaseOfferDetailsWrapper>[
+        OneTimePurchaseOfferDetailsWrapper(
+          formattedPrice: r'HK$16.32',
+          priceAmountMicros: 16320000,
+          priceCurrencyCode: 'HKD',
+          purchaseOptionId: '500-gems-new',
+          offerId: '500-gems-new-discount',
+        ),
+      ],
+      purchaseOptionId: '500-gems-new',
+      offerId: '500-gems-new-discount',
+    );
+
+    expect(selected, isNull);
+  });
 }

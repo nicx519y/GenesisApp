@@ -893,11 +893,6 @@ class GooglePlayBillingService implements BillingService {
     );
   }
 
-  String? _nonEmpty(String value) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
   String _purchaseFailureMessage(Object error) {
     if (error is BillingPlatformException && error.code.isNotEmpty) {
       return 'Purchase failed (${error.code}).';
