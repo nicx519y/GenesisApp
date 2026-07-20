@@ -23,6 +23,7 @@ import '../debug/location_chat_debug_storage.dart';
 import '../gems/gem_wallet_store.dart';
 import '../startup/startup_network_gate.dart';
 import '../version/app_version_check_service.dart';
+import '../../platform/billing/app_store_billing_platform.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/google_play_billing_platform.dart';
 import '../../platform/billing/pending_purchase_store.dart';
@@ -78,6 +79,11 @@ class AppServices {
     gemWallet.reset();
     billing?.resetForSession();
     sessionRevision.value += 1;
+  }
+
+  void dispose() {
+    billing?.dispose();
+    gemWallet.dispose();
   }
 }
 
@@ -220,22 +226,30 @@ class ServiceRegistry {
       readUid: sessionStore.readUid,
     );
     gemWalletStore = gemWallet;
-    final billing = GooglePlayBillingService(
-      platform: GooglePlayBillingPlatform(),
-      pendingPurchaseStore: SqfliteBillingPendingPurchaseStore(),
-      loadBillingAccountId: () async {
-        final userInfo = await api.v1.user.info();
-        await cacheCurrentUserInfoResponse(
-          sessionStore: sessionStore,
-          response: userInfo,
-        );
-        return asString(userInfo['uuid']);
-      },
-      loadProductCatalog: () async => (await api.v1.gem.products()).products,
-      reportPurchase: api.v1.gem.reportPurchase,
-      refreshWallet: gemWallet.refreshAfterEntitlementGranted,
-      readUid: sessionStore.readUid,
-    );
+    final billingPlatform = switch (defaultTargetPlatform) {
+      TargetPlatform.android => GooglePlayBillingPlatform(),
+      TargetPlatform.iOS => AppStoreBillingPlatform(),
+      _ => null,
+    };
+    final billing = billingPlatform == null
+        ? null
+        : GooglePlayBillingService(
+            platform: billingPlatform,
+            pendingPurchaseStore: SqfliteBillingPendingPurchaseStore(),
+            loadBillingAccountId: () async {
+              final userInfo = await api.v1.user.info();
+              await cacheCurrentUserInfoResponse(
+                sessionStore: sessionStore,
+                response: userInfo,
+              );
+              return asString(userInfo['uuid']);
+            },
+            loadProductCatalog: () async =>
+                (await api.v1.gem.products()).products,
+            reportPurchase: api.v1.gem.reportPurchase,
+            refreshWallet: gemWallet.refreshAfterEntitlementGranted,
+            readUid: sessionStore.readUid,
+          );
     final directMessageConversations = DirectMessageConversationStore(
       api: api,
       sessionStore: sessionStore,

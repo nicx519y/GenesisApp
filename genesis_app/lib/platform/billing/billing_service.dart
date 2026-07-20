@@ -129,6 +129,7 @@ class GooglePlayBillingService implements BillingService {
     final attemptId = payTrackId.trim().isNotEmpty
         ? payTrackId.trim()
         : newBillingAttemptId();
+    final storeProductId = _storeProductIdFor(product, _platform.provider);
     _trackProduct(
       'product_click',
       product: product,
@@ -146,7 +147,7 @@ class GooglePlayBillingService implements BillingService {
       );
       return;
     }
-    if (product.googleProductId.trim().isEmpty) {
+    if (storeProductId.trim().isEmpty) {
       _trackPrecheckFailure(product, attemptId, 'store_product_id_missing');
       _emitFailure(
         product.productId,
@@ -157,7 +158,7 @@ class GooglePlayBillingService implements BillingService {
     }
     if (!_state.value.storeAvailable) {
       _trackPrecheckFailure(product, attemptId, 'gp_unavailable');
-      _emitFailure(product.productId, attemptId, 'Google Play is unavailable.');
+      _emitFailure(product.productId, attemptId, _storeUnavailableMessage());
       return;
     }
     if (_state.value.hasBusyPurchase) {
@@ -198,22 +199,24 @@ class GooglePlayBillingService implements BillingService {
       source: BillingRecoverySource.direct,
       startedAt: startedAt,
     );
-    _attemptByStoreProductId[product.googleProductId] = attempt;
+    _attemptByStoreProductId[storeProductId] = attempt;
 
     late final BillingProductQueryResult queryResult;
     try {
       final googlePurchaseOptionId = product.googlePurchaseOptionId.trim();
       final googleOfferId = product.googleOfferId.trim();
       final shouldUseGoogleOffer =
-          googlePurchaseOptionId.isNotEmpty && googleOfferId.isNotEmpty;
+          _platform.provider == BillingProvider.googlePlay &&
+          googlePurchaseOptionId.isNotEmpty &&
+          googleOfferId.isNotEmpty;
       queryResult = await _platform.queryProduct(
-        product.googleProductId,
+        storeProductId,
         BillingStoreProductType.inApp,
         purchaseOptionId: shouldUseGoogleOffer ? googlePurchaseOptionId : null,
         offerId: shouldUseGoogleOffer ? googleOfferId : null,
       );
     } catch (error) {
-      _clearActiveAttempt(product.googleProductId, attempt);
+      _clearActiveAttempt(storeProductId, attempt);
       _emitFailure(
         product.productId,
         attemptId,
@@ -223,7 +226,7 @@ class GooglePlayBillingService implements BillingService {
       return;
     }
     if (!queryResult.isSuccess) {
-      _clearActiveAttempt(product.googleProductId, attempt);
+      _clearActiveAttempt(storeProductId, attempt);
       _emitFailure(
         product.productId,
         attemptId,
@@ -240,15 +243,15 @@ class GooglePlayBillingService implements BillingService {
         billingAccountId: billingAccountId,
       );
       if (!accepted) {
-        _clearActiveAttempt(product.googleProductId, attempt);
+        _clearActiveAttempt(storeProductId, attempt);
         _emitFailure(product.productId, attemptId, 'Purchase failed.');
         _trackFlowResult(product, attemptId, 'launch_rejected');
       } else {
-        _scheduleAttemptTimeout(product, attemptId);
+        _scheduleAttemptTimeout(product, storeProductId, attemptId);
       }
     } catch (error) {
       debugPrint('[Billing] purchase launch failed: $error');
-      _clearActiveAttempt(product.googleProductId, attempt);
+      _clearActiveAttempt(storeProductId, attempt);
       _emitFailure(
         product.productId,
         attemptId,
@@ -313,7 +316,9 @@ class GooglePlayBillingService implements BillingService {
     // A native Play error dialog can be dismissed without emitting a
     // PurchaseDetails error/cancelled callback. A successful empty query is
     // the authoritative signal that this checkout did not create an order.
-    if (pastPurchaseQuerySucceeded && _processingPurchaseKeys.isEmpty) {
+    if (_platform.provider == BillingProvider.googlePlay &&
+        pastPurchaseQuerySucceeded &&
+        _processingPurchaseKeys.isEmpty) {
       final activeAttempts = _attemptByStoreProductId.entries.toList(
         growable: false,
       );
@@ -335,7 +340,8 @@ class GooglePlayBillingService implements BillingService {
         continue;
       }
       if (record.status == BillingPendingPurchaseStatus.reported) {
-        if (pastPurchaseQuerySucceeded &&
+        if (_platform.provider == BillingProvider.googlePlay &&
+            pastPurchaseQuerySucceeded &&
             !pastPurchaseKeys.contains(record.key)) {
           try {
             await _pendingPurchaseStore.remove(
@@ -374,7 +380,9 @@ class GooglePlayBillingService implements BillingService {
     final attemptId = attempt?.id ?? newBillingAttemptId();
     final productId = attempt?.product.productId ?? purchase.productId;
     _cancelAttemptTimeout(
-      attempt?.product.googleProductId ?? purchase.productId,
+      attempt == null
+          ? purchase.productId
+          : _storeProductIdFor(attempt.product, purchase.provider),
     );
 
     switch (purchase.status) {
@@ -448,7 +456,9 @@ class GooglePlayBillingService implements BillingService {
         storeProductId: purchase.productId,
         status: 'store_failed',
         source: source,
-        errorCode: 'purchase_token_missing',
+        errorCode: purchase.provider == BillingProvider.appStore
+            ? 'store_error'
+            : 'purchase_token_missing',
       );
       return;
     }
@@ -558,7 +568,10 @@ class GooglePlayBillingService implements BillingService {
     try {
       final products = await _loadProductCatalog();
       final product = products.cast<GemProduct?>().firstWhere(
-        (candidate) => candidate!.googleProductId == purchase.productId,
+        (candidate) =>
+            candidate != null &&
+            _storeProductIdFor(candidate, purchase.provider) ==
+                purchase.productId,
         orElse: () => null,
       );
       if (product == null ||
@@ -611,11 +624,14 @@ class GooglePlayBillingService implements BillingService {
           productId: record.productId,
           storeProductId: record.storeProductId,
           transactionId: record.transactionId,
-          purchaseToken: record.purchaseToken,
+          purchaseToken: record.provider == BillingProvider.googlePlay
+              ? record.purchaseToken
+              : null,
           requestId: record.attemptId,
           payload: <String, Object?>{
             'purchase_time': record.purchaseTime,
-            'original_json': record.originalJson,
+            if (record.provider == BillingProvider.googlePlay)
+              'original_json': record.originalJson,
           },
         ),
       );
@@ -748,6 +764,20 @@ class GooglePlayBillingService implements BillingService {
     return accountId;
   }
 
+  String _storeProductIdFor(GemProduct product, BillingProvider provider) {
+    return switch (provider) {
+      BillingProvider.googlePlay => product.googleProductId.trim(),
+      BillingProvider.appStore => product.appleProductId.trim(),
+    };
+  }
+
+  String _storeUnavailableMessage() {
+    return switch (_platform.provider) {
+      BillingProvider.googlePlay => 'Google Play is unavailable.',
+      BillingProvider.appStore => 'Payment service is unavailable.',
+    };
+  }
+
   void _clearAttempt(
     BillingPurchase purchase,
     BillingPurchaseAttempt? attempt,
@@ -755,7 +785,10 @@ class GooglePlayBillingService implements BillingService {
     final activeAttempt =
         attempt ?? _attemptByStoreProductId[purchase.productId];
     if (activeAttempt != null) {
-      _clearActiveAttempt(activeAttempt.product.googleProductId, activeAttempt);
+      _clearActiveAttempt(
+        _storeProductIdFor(activeAttempt.product, purchase.provider),
+        activeAttempt,
+      );
     } else {
       _cancelAttemptTimeout(purchase.productId);
       _attemptByStoreProductId.remove(purchase.productId);
@@ -856,18 +889,19 @@ class GooglePlayBillingService implements BillingService {
     _reportTimeouts.remove(purchaseKey)?.cancel();
   }
 
-  void _scheduleAttemptTimeout(GemProduct product, String attemptId) {
-    _cancelAttemptTimeout(product.googleProductId);
-    _attemptTimeouts[product.googleProductId] = Timer(
-      const Duration(seconds: 90),
-      () {
-        _attemptTimeouts.remove(product.googleProductId);
-        final activeAttempt = _attemptByStoreProductId[product.googleProductId];
-        if (activeAttempt?.id != attemptId) return;
-        _trackFlowResult(product, attemptId, 'timeout');
-        _clearActiveAttempt(product.googleProductId, activeAttempt!);
-      },
-    );
+  void _scheduleAttemptTimeout(
+    GemProduct product,
+    String storeProductId,
+    String attemptId,
+  ) {
+    _cancelAttemptTimeout(storeProductId);
+    _attemptTimeouts[storeProductId] = Timer(const Duration(seconds: 90), () {
+      _attemptTimeouts.remove(storeProductId);
+      final activeAttempt = _attemptByStoreProductId[storeProductId];
+      if (activeAttempt?.id != attemptId) return;
+      _trackFlowResult(product, attemptId, 'timeout');
+      _clearActiveAttempt(storeProductId, activeAttempt!);
+    });
   }
 
   void _cancelAttemptTimeout(String storeProductId) {
@@ -949,7 +983,7 @@ class GooglePlayBillingService implements BillingService {
       action,
       attemptId: attemptId,
       productId: product.productId,
-      storeProductId: product.googleProductId,
+      storeProductId: _storeProductIdFor(product, _platform.provider),
       data: <String, Object?>{
         'provider': _platform.provider.apiValue,
         'trigger': BillingRecoverySource.direct.value,
@@ -980,7 +1014,7 @@ class GooglePlayBillingService implements BillingService {
     _trackFlowResultById(
       attemptId: attemptId,
       productId: product.productId,
-      storeProductId: product.googleProductId,
+      storeProductId: _storeProductIdFor(product, _platform.provider),
       status: status,
       source: BillingRecoverySource.direct,
       errorCode: errorCode,

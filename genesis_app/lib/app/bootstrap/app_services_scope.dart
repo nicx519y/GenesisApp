@@ -52,7 +52,9 @@ class AppServicesScope extends StatefulWidget {
     if (state != null) {
       state.replaceServices(updated);
     } else {
+      final previous = _fallbackServices;
       _fallbackServices = updated;
+      if (!identical(previous, updated)) previous?.dispose();
     }
     return updated;
   }
@@ -74,13 +76,23 @@ class _AppServicesScopeState extends State<AppServicesScope> {
   void didUpdateWidget(AppServicesScope oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(widget.services, oldWidget.services)) {
+      final previous = _services;
       _services = widget.services;
+      if (!identical(previous, widget.services)) previous.dispose();
     }
   }
 
   void replaceServices(AppServices services) {
     if (identical(_services, services)) return;
+    final previous = _services;
     setState(() => _services = services);
+    previous.dispose();
+  }
+
+  @override
+  void dispose() {
+    _services.dispose();
+    super.dispose();
   }
 
   @override

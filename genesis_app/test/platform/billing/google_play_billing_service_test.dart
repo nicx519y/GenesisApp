@@ -11,15 +11,23 @@ import 'package:genesis_flutter_android/platform/billing/google_play_billing_pla
 import 'package:genesis_flutter_android/platform/billing/pending_purchase_store.dart';
 
 class _FakeBillingPlatform implements BillingPlatform {
+  _FakeBillingPlatform({
+    this.providerValue = BillingProvider.googlePlay,
+    this.expectedStoreProductId = 'worldo_gems_500',
+  });
+
   final StreamController<List<BillingPurchase>> _controller =
       StreamController<List<BillingPurchase>>.broadcast(sync: true);
-  BillingProductQueryResult queryResult = BillingProductQueryResult.success(
-    const BillingStoreProduct(
-      id: 'worldo_gems_500',
-      type: BillingStoreProductType.inApp,
-      nativeProduct: Object(),
-    ),
-  );
+  final BillingProvider providerValue;
+  final String expectedStoreProductId;
+  late BillingProductQueryResult queryResult =
+      BillingProductQueryResult.success(
+        BillingStoreProduct(
+          id: expectedStoreProductId,
+          type: BillingStoreProductType.inApp,
+          nativeProduct: const Object(),
+        ),
+      );
   bool available = true;
   bool buyAccepted = true;
   int queryCount = 0;
@@ -30,7 +38,7 @@ class _FakeBillingPlatform implements BillingPlatform {
   List<BillingPurchase> pastPurchases = const <BillingPurchase>[];
 
   @override
-  BillingProvider get provider => BillingProvider.googlePlay;
+  BillingProvider get provider => providerValue;
 
   @override
   Stream<List<BillingPurchase>> get purchaseStream => _controller.stream;
@@ -45,7 +53,7 @@ class _FakeBillingPlatform implements BillingPlatform {
   }) async {
     buyCount += 1;
     purchasedOfferToken = product.offerToken;
-    expect(product.id, 'worldo_gems_500');
+    expect(product.id, expectedStoreProductId);
     expect(product.type, BillingStoreProductType.inApp);
     expect(billingAccountId, '4b74ec68-7abc-4cce-a223-e997e31dc811');
     return buyAccepted;
@@ -66,7 +74,7 @@ class _FakeBillingPlatform implements BillingPlatform {
     queryCount += 1;
     queriedPurchaseOptionId = purchaseOptionId;
     queriedOfferId = offerId;
-    expect(storeProductId, 'worldo_gems_500');
+    expect(storeProductId, expectedStoreProductId);
     expect(expectedType, BillingStoreProductType.inApp);
     return queryResult;
   }
@@ -497,6 +505,113 @@ void main() {
       expect(platform.purchasedOfferToken, isNull);
     },
   );
+
+  test(
+    'app store purchases report apple store product id without token',
+    () async {
+      service.dispose();
+      await platform.close();
+      platform = _FakeBillingPlatform(
+        providerValue: BillingProvider.appStore,
+        expectedStoreProductId: 'com.worldo.gems.500',
+      );
+      reports = <GemPurchaseReportRequest>[];
+      uiEvents = <BillingUiEvent>[];
+      service = GooglePlayBillingService(
+        platform: platform,
+        pendingPurchaseStore: pendingStore,
+        loadBillingAccountId: () async =>
+            '4b74ec68-7abc-4cce-a223-e997e31dc811',
+        loadProductCatalog: () async => [_product],
+        reportPurchase: (request) async {
+          reports.add(request);
+          return const GemPurchaseReport(
+            status: GemPurchaseReportStatus.completed,
+            grantedGems: 550,
+          );
+        },
+        refreshWallet: () async => refreshCount += 1,
+        readUid: () async => 'u_1',
+        analytics: analytics,
+      );
+      service.events.listen(uiEvents.add);
+
+      await service.purchaseGem(_product, payTrackId: 'track_id_page_click');
+      platform.emit(
+        _purchase(
+          BillingPurchaseStatus.purchased,
+          provider: BillingProvider.appStore,
+          storeProductId: 'com.worldo.gems.500',
+          purchaseToken: '2000000123456789',
+          transactionId: '2000000123456789',
+          originalJson: '{"transactionId":"2000000123456789"}',
+        ),
+      );
+      await _settle();
+
+      expect(platform.queryCount, 1);
+      expect(platform.buyCount, 1);
+      expect(reports, hasLength(1));
+      final request = reports.single;
+      expect(request.provider, 'apple');
+      expect(request.productId, 'gem_pack_500');
+      expect(request.storeProductId, 'com.worldo.gems.500');
+      expect(request.transactionId, '2000000123456789');
+      expect(request.purchaseToken, isNull);
+      expect(request.requestId, 'track_id_page_click');
+      expect(request.payload, {'purchase_time': '1000'});
+      final success = analytics.records.singleWhere(
+        (record) => record.action == 'purchase_success',
+      );
+      expect(success.properties['transaction_id'], '2000000123456789');
+    },
+  );
+
+  test(
+    'app store recovery does not clear active checkout on empty purchase query',
+    () async {
+      service.dispose();
+      await platform.close();
+      platform = _FakeBillingPlatform(
+        providerValue: BillingProvider.appStore,
+        expectedStoreProductId: 'com.worldo.gems.500',
+      );
+      reports = <GemPurchaseReportRequest>[];
+      service = GooglePlayBillingService(
+        platform: platform,
+        pendingPurchaseStore: pendingStore,
+        loadBillingAccountId: () async =>
+            '4b74ec68-7abc-4cce-a223-e997e31dc811',
+        loadProductCatalog: () async => [_product],
+        reportPurchase: (request) async {
+          reports.add(request);
+          return const GemPurchaseReport(
+            status: GemPurchaseReportStatus.completed,
+            grantedGems: 550,
+          );
+        },
+        refreshWallet: () async => refreshCount += 1,
+        readUid: () async => 'u_1',
+        analytics: analytics,
+      );
+
+      await service.purchaseGem(_product, payTrackId: 'track_id_original');
+      await service.recover(BillingRecoverySource.foreground);
+      platform.emit(
+        _purchase(
+          BillingPurchaseStatus.purchased,
+          provider: BillingProvider.appStore,
+          storeProductId: 'com.worldo.gems.500',
+          purchaseToken: '2000000123456790',
+          transactionId: '2000000123456790',
+        ),
+      );
+      await _settle();
+
+      expect(reports, hasLength(1));
+      expect(reports.single.requestId, 'track_id_original');
+    },
+  );
 }
 
 const _product = GemProduct(
@@ -511,14 +626,21 @@ const _product = GemProduct(
   activityType: 'none',
 );
 
-BillingPurchase _purchase(BillingPurchaseStatus status) {
+BillingPurchase _purchase(
+  BillingPurchaseStatus status, {
+  BillingProvider provider = BillingProvider.googlePlay,
+  String storeProductId = 'worldo_gems_500',
+  String purchaseToken = 'purchase-token-1',
+  String transactionId = 'GPA.1',
+  String originalJson = '{"purchaseToken":"purchase-token-1"}',
+}) {
   return BillingPurchase(
-    provider: BillingProvider.googlePlay,
-    productId: 'worldo_gems_500',
-    purchaseToken: 'purchase-token-1',
-    transactionId: 'GPA.1',
+    provider: provider,
+    productId: storeProductId,
+    purchaseToken: purchaseToken,
+    transactionId: transactionId,
     originalTransactionId: '',
-    originalJson: '{"purchaseToken":"purchase-token-1"}',
+    originalJson: originalJson,
     purchaseTime: '1000',
     status: status,
   );
