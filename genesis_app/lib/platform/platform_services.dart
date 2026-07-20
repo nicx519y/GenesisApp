@@ -1,8 +1,8 @@
 export 'auth/auth_cancelled_exception.dart';
 export 'auth/auth_session.dart';
 export 'auth/backend_auth_coordinator.dart';
-export 'auth/google_firebase_auth_service.dart';
 export 'auth/identity_auth_service.dart';
+export 'auth/provider_identity_auth_service.dart';
 export 'channels/genesis_method_channels.dart';
 export 'app/external_url_opener.dart';
 export 'device/device_id_service.dart';

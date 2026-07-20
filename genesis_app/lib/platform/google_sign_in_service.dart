@@ -1,13 +1,12 @@
 import 'dart:io';
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class GoogleSignInService {
   GoogleSignInService._();
+
   static const MethodChannel _deviceChannel = MethodChannel(
     'com.worldo.ai/device',
   );
@@ -33,31 +32,17 @@ class GoogleSignInService {
     return init;
   }
 
-  static bool hasFirebaseSession() {
-    try {
-      return Firebase.apps.isNotEmpty &&
-          FirebaseAuth.instance.currentUser != null;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  static Future<GoogleFirebaseSession> signInToFirebase() async {
-    debugPrint('[Auth][GoogleSignInService] signInToFirebase start');
+  static Future<GoogleIdentitySession> signIn() async {
+    debugPrint('[Auth][GoogleSignInService] signIn start');
     if (!kIsWeb && !Platform.isAndroid && !Platform.isIOS) {
       debugPrint('[Auth][GoogleSignInService] unsupported platform');
       throw const _GoogleSignInFailure('当前平台不支持 Google 登录');
-    }
-    if (Firebase.apps.isEmpty) {
-      throw const _GoogleSignInFailure(
-        'Firebase 尚未初始化，请先在 Firebase 控制台下载并放置 google-services.json。',
-      );
     }
     final diagnostics = await _fetchSignInDiagnostics();
     final serverClientId = _resolveServerClientId(diagnostics);
     if (!kIsWeb && Platform.isAndroid && serverClientId.isEmpty) {
       throw const _GoogleSignInFailure(
-        '未找到 Web Client ID。请在 Firebase 启用 Google 登录、补齐 SHA-1 后重新下载 google-services.json。',
+        '未找到 Google OAuth Web Client ID，请检查 Google 登录配置和 SHA-1。',
       );
     }
     if (!kIsWeb && Platform.isAndroid) {
@@ -77,27 +62,12 @@ class GoogleSignInService {
     final account = await GoogleSignIn.instance.authenticate(
       scopeHint: _scopeHint,
     );
-
-    final googleIdToken = account.authentication.idToken?.trim() ?? '';
-    if (googleIdToken.isEmpty) {
-      debugPrint(
-        '[Auth][GoogleSignInService] idToken empty after authenticate',
-      );
-      throw const _GoogleSignInFailure(
-        'Google 未返回 idToken，请确认 Firebase Google 登录配置和 SHA-1 是否正确',
-      );
-    }
-    final session = await _signInToFirebaseWithGoogleIdToken(
-      googleIdToken,
-      forceRefreshFirebaseIdToken: false,
-    );
-    debugPrint(
-      '[Auth][GoogleSignInService] signInToFirebase success uid=${session.firebaseUid}',
-    );
+    final session = _sessionFromAccount(account);
+    debugPrint('[Auth][GoogleSignInService] signIn success');
     return session;
   }
 
-  static Future<GoogleFirebaseSession> _signInWithLegacyAndroid(
+  static Future<GoogleIdentitySession> _signInWithLegacyAndroid(
     String serverClientId,
   ) async {
     final Object? raw;
@@ -121,45 +91,19 @@ class GoogleSignInService {
     if (googleIdToken.isEmpty) {
       throw const _GoogleSignInFailure('Google 未返回 idToken，请稍后重试');
     }
-    final session = await _signInToFirebaseWithGoogleIdToken(
-      googleIdToken,
-      forceRefreshFirebaseIdToken: false,
-    );
-    debugPrint(
-      '[Auth][GoogleSignInService] legacy Android sign-in success uid=${session.firebaseUid}',
-    );
-    return GoogleFirebaseSession(
+    debugPrint('[Auth][GoogleSignInService] legacy Android sign-in success');
+    return GoogleIdentitySession(
       googleIdToken: googleIdToken,
-      firebaseIdToken: session.firebaseIdToken,
-      firebaseUid: session.firebaseUid,
-      email: session.email.isNotEmpty
-          ? session.email
-          : (result['email'] ?? '').toString().trim(),
-      displayName: session.displayName.isNotEmpty
-          ? session.displayName
-          : (result['displayName'] ?? '').toString().trim(),
-      photoUrl: session.photoUrl.isNotEmpty
-          ? session.photoUrl
-          : (result['photoUrl'] ?? '').toString().trim(),
+      displayName: (result['displayName'] ?? '').toString().trim(),
+      photoUrl: (result['photoUrl'] ?? '').toString().trim(),
     );
   }
 
-  static Future<String> signInAndGetIdToken() async {
-    final session = await signInToFirebase();
-    return session.googleIdToken;
-  }
-
-  static Future<GoogleFirebaseSession?> refreshTokenOrSignInSilently() async {
+  static Future<GoogleIdentitySession?> refreshSilently() async {
     debugPrint('[Auth][GoogleSignInService] silent refresh start');
     if (!kIsWeb && !Platform.isAndroid && !Platform.isIOS) {
       debugPrint(
         '[Auth][GoogleSignInService] silent refresh unsupported platform',
-      );
-      return null;
-    }
-    if (Firebase.apps.isEmpty) {
-      debugPrint(
-        '[Auth][GoogleSignInService] silent refresh skipped: Firebase not initialized',
       );
       return null;
     }
@@ -174,7 +118,6 @@ class GoogleSignInService {
         return null;
       }
       await _ensureInitialized(serverClientId: serverClientId);
-      await _refreshFirebaseIdTokenIfPossible();
 
       final lightweightAttempt = GoogleSignIn.instance
           .attemptLightweightAuthentication();
@@ -195,14 +138,12 @@ class GoogleSignInService {
         );
         return null;
       }
-
-      final session = await _signInToFirebaseWithGoogleIdToken(
-        googleIdToken,
-        forceRefreshFirebaseIdToken: true,
+      final session = GoogleIdentitySession(
+        googleIdToken: googleIdToken,
+        displayName: account.displayName?.trim() ?? '',
+        photoUrl: account.photoUrl?.trim() ?? '',
       );
-      debugPrint(
-        '[Auth][GoogleSignInService] silent refresh success uid=${session.firebaseUid}',
-      );
+      debugPrint('[Auth][GoogleSignInService] silent refresh success');
       return session;
     } catch (e, st) {
       debugPrint('[Auth][GoogleSignInService] silent refresh failed: $e');
@@ -211,19 +152,31 @@ class GoogleSignInService {
     }
   }
 
-  static Future<void> signOutFirebase() async {
+  static Future<void> signOut() async {
     try {
       await GoogleSignIn.instance.signOut();
     } catch (e) {
-      debugPrint('[Auth][GoogleSignInService] google signOut failed: $e');
+      debugPrint('[Auth][GoogleSignInService] Google sign out failed: $e');
     }
-    try {
-      if (Firebase.apps.isNotEmpty) {
-        await FirebaseAuth.instance.signOut();
-      }
-    } catch (e) {
-      debugPrint('[Auth][GoogleSignInService] firebase signOut failed: $e');
+  }
+
+  static GoogleIdentitySession _sessionFromAccount(
+    GoogleSignInAccount account,
+  ) {
+    final googleIdToken = account.authentication.idToken?.trim() ?? '';
+    if (googleIdToken.isEmpty) {
+      debugPrint(
+        '[Auth][GoogleSignInService] idToken empty after authenticate',
+      );
+      throw const _GoogleSignInFailure(
+        'Google 未返回 idToken，请检查 Google OAuth 配置和 SHA-1。',
+      );
     }
+    return GoogleIdentitySession(
+      googleIdToken: googleIdToken,
+      displayName: account.displayName?.trim() ?? '',
+      photoUrl: account.photoUrl?.trim() ?? '',
+    );
   }
 
   static Future<Map<String, Object?>> _fetchSignInDiagnostics() async {
@@ -237,54 +190,12 @@ class GoogleSignInService {
       final map = raw is Map
           ? raw.map((key, value) => MapEntry(key.toString(), value))
           : const <String, Object?>{};
-      debugPrint('[Auth][GoogleSignInService] signIn diagnostics: $map');
+      debugPrint('[Auth][GoogleSignInService] sign-in diagnostics: $map');
       return map;
     } catch (e) {
       debugPrint('[Auth][GoogleSignInService] diagnostics unavailable: $e');
       return const <String, Object?>{};
     }
-  }
-
-  static Future<void> _refreshFirebaseIdTokenIfPossible() async {
-    final current = FirebaseAuth.instance.currentUser;
-    if (current == null) return;
-    try {
-      await current.getIdToken(true);
-      debugPrint(
-        '[Auth][GoogleSignInService] refreshed Firebase token uid=${current.uid}',
-      );
-    } catch (e) {
-      debugPrint(
-        '[Auth][GoogleSignInService] refresh Firebase token failed: $e',
-      );
-    }
-  }
-
-  static Future<GoogleFirebaseSession> _signInToFirebaseWithGoogleIdToken(
-    String googleIdToken, {
-    required bool forceRefreshFirebaseIdToken,
-  }) async {
-    final credential = GoogleAuthProvider.credential(idToken: googleIdToken);
-    final userCredential = await FirebaseAuth.instance.signInWithCredential(
-      credential,
-    );
-    final firebaseUser = userCredential.user;
-    if (firebaseUser == null) {
-      throw const _GoogleSignInFailure('Firebase 登录失败，请稍后重试');
-    }
-
-    final firebaseIdToken =
-        (await firebaseUser.getIdToken(forceRefreshFirebaseIdToken))?.trim() ??
-        '';
-
-    return GoogleFirebaseSession(
-      googleIdToken: googleIdToken,
-      firebaseIdToken: firebaseIdToken,
-      firebaseUid: firebaseUser.uid,
-      email: firebaseUser.email?.trim() ?? '',
-      displayName: firebaseUser.displayName?.trim() ?? '',
-      photoUrl: firebaseUser.photoURL?.trim() ?? '',
-    );
   }
 
   static String _resolveServerClientId(Map<String, Object?> diagnostics) {
@@ -305,20 +216,14 @@ class GoogleSignInService {
   }
 }
 
-class GoogleFirebaseSession {
-  const GoogleFirebaseSession({
+class GoogleIdentitySession {
+  const GoogleIdentitySession({
     required this.googleIdToken,
-    required this.firebaseIdToken,
-    required this.firebaseUid,
-    required this.email,
     required this.displayName,
     required this.photoUrl,
   });
 
   final String googleIdToken;
-  final String firebaseIdToken;
-  final String firebaseUid;
-  final String email;
   final String displayName;
   final String photoUrl;
 }

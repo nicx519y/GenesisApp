@@ -28,7 +28,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>FirebaseAuthRedirect</string>
+			<string>GoogleSignInRedirect</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j</string>

@@ -9,9 +9,6 @@ PODS:
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - PromisesObjC (~> 2.4)
-  - Firebase/Auth (12.14.0):
-    - Firebase/CoreOnly
-    - FirebaseAuth (~> 12.14.0)
   - Firebase/CoreOnly (12.14.0):
     - FirebaseCore (~> 12.14.0)
   - Firebase/Crashlytics (12.14.0):
@@ -20,10 +17,6 @@ PODS:
   - Firebase/Performance (12.14.0):
     - Firebase/CoreOnly
     - FirebasePerformance (~> 12.14.0)
-  - firebase_auth (6.5.1):
-    - Firebase/Auth (= 12.14.0)
-    - firebase_core
-    - Flutter
   - firebase_core (4.11.0):
     - Firebase/CoreOnly (= 12.14.0)
     - Flutter
@@ -37,17 +30,6 @@ PODS:
     - Flutter
   - FirebaseABTesting (12.14.0):
     - FirebaseCore (~> 12.14.0)
-  - FirebaseAppCheckInterop (12.14.0)
-  - FirebaseAuth (12.14.0):
-    - FirebaseAppCheckInterop (~> 12.14.0)
-    - FirebaseAuthInterop (~> 12.14.0)
-    - FirebaseCore (~> 12.14.0)
-    - FirebaseCoreExtension (~> 12.14.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
-    - GoogleUtilities/Environment (~> 8.1)
-    - GTMSessionFetcher/Core (< 6.0, >= 3.4)
-    - RecaptchaInterop (~> 101.0)
-  - FirebaseAuthInterop (12.14.0)
   - FirebaseCore (12.14.0):
     - FirebaseCoreInternal (~> 12.14.0)
     - GoogleUtilities/Environment (~> 8.1)
@@ -113,11 +95,6 @@ PODS:
     - AppCheckCore (~> 11.0)
     - GTMAppAuth (~> 5.0)
     - GTMSessionFetcher/Core (~> 3.3)
-  - GoogleUtilities/AppDelegateSwizzler (8.1.0):
-    - GoogleUtilities/Environment
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Network
-    - GoogleUtilities/Privacy
   - GoogleUtilities/Environment (8.1.0):
     - GoogleUtilities/Privacy
   - GoogleUtilities/Logger (8.1.0):
@@ -126,17 +103,9 @@ PODS:
   - GoogleUtilities/MethodSwizzler (8.1.0):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Network (8.1.0):
-    - GoogleUtilities/Logger
-    - "GoogleUtilities/NSData+zlib"
-    - GoogleUtilities/Privacy
-    - GoogleUtilities/Reachability
   - "GoogleUtilities/NSData+zlib (8.1.0)":
     - GoogleUtilities/Privacy
   - GoogleUtilities/Privacy (8.1.0)
-  - GoogleUtilities/Reachability (8.1.0):
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Privacy
   - GoogleUtilities/UserDefaults (8.1.0):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
@@ -169,7 +138,6 @@ PODS:
   - PromisesObjC (2.4.0)
   - PromisesSwift (2.4.0):
     - PromisesObjC (= 2.4.0)
-  - RecaptchaInterop (101.0.0)
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -186,7 +154,6 @@ PODS:
     - FlutterMacOS
 
 DEPENDENCIES:
-  - firebase_auth (from `.symlinks/plugins/firebase_auth/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_crashlytics (from `.symlinks/plugins/firebase_crashlytics/ios`)
   - firebase_performance (from `.symlinks/plugins/firebase_performance/ios`)
@@ -208,9 +175,6 @@ SPEC REPOS:
     - AppCheckCore
     - Firebase
     - FirebaseABTesting
-    - FirebaseAppCheckInterop
-    - FirebaseAuth
-    - FirebaseAuthInterop
     - FirebaseCore
     - FirebaseCoreExtension
     - FirebaseCoreInternal
@@ -230,11 +194,8 @@ SPEC REPOS:
     - PostHog
     - PromisesObjC
     - PromisesSwift
-    - RecaptchaInterop
 
 EXTERNAL SOURCES:
-  firebase_auth:
-    :path: ".symlinks/plugins/firebase_auth/ios"
   firebase_core:
     :path: ".symlinks/plugins/firebase_core/ios"
   firebase_crashlytics:
@@ -268,14 +229,10 @@ SPEC CHECKSUMS:
   AppAuth: 1c1a8afa7e12f2ec3a294d9882dfa5ab7d3cb063
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   Firebase: 7cc10425300768ec86292688af5cb228f0604bde
-  firebase_auth: 58d05e974d9ee6e77043c9c402210e2d86910413
   firebase_core: a443eb6a97ea56eee65cc9dbc607b344ae643158
   firebase_crashlytics: f7972a9d3c11a95b824b2c248beded790b55b080
   firebase_performance: 310b245ce54bf80866c8d2dec1e450c9c8826218
   FirebaseABTesting: 1645e4c026dc11b2c82e717fd02d187535e65944
-  FirebaseAppCheckInterop: f123c0261a7b46f060e98fc2961651f1ac68f384
-  FirebaseAuth: 01a77d472aec77ec008141e7d859d1b9cb8dc2cf
-  FirebaseAuthInterop: 63056ef7f9602e79a8f8d756d4cb35f38e2927c3
   FirebaseCore: 4939b340b9c598dc1f965d68f8fe57e630b65407
   FirebaseCoreExtension: ee3e3697acea1062288b1900bcdcab4d59ab93b4
   FirebaseCoreInternal: 090369a5fffd7423cf88006ab4d2ccc2173a8db9
@@ -301,7 +258,6 @@ SPEC CHECKSUMS:
   posthog_flutter: 35d27c0ca7b0afe0e24789b1c6594e88dfffe066
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PromisesSwift: 9d77319bbe72ebf6d872900551f7eeba9bce2851
-  RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sign_in_with_apple: 5e34677a4e74c5f42760f41b3bbe05343e84d171
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0

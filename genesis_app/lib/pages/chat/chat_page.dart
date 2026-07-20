@@ -144,10 +144,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
     final userInfo = await services.sessionStore.readUserInfo();
-    final profile = services.identityAuth.currentProfile();
     final myAvatarUrl = _resolvedProfileAvatar(
       userInfo ?? const <String, dynamic>{},
-      profile?.photoUrl ?? '',
+      '',
     );
     if (!mounted) return;
     setState(() {
