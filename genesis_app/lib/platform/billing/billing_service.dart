@@ -36,12 +36,6 @@ abstract interface class BillingService {
   void dispose();
 }
 
-const Set<String> _reportedPurchaseActions = <String>{
-  'product_click',
-  'success',
-  'failed',
-};
-
 class GooglePlayBillingService implements BillingService {
   GooglePlayBillingService({
     required BillingPlatform platform,
@@ -689,10 +683,11 @@ class GooglePlayBillingService implements BillingService {
 
     if (report.status == GemPurchaseReportStatus.completed) {
       _track(
-        'success',
+        'purchase_success',
         attemptId: record.attemptId,
         productId: record.productId,
         storeProductId: record.storeProductId,
+        data: <String, Object?>{'transaction_id': record.transactionId},
       );
       try {
         await _refreshWallet();
@@ -930,7 +925,6 @@ class GooglePlayBillingService implements BillingService {
     String storeProductId = '',
     Map<String, Object?> data = const <String, Object?>{},
   }) {
-    if (!_reportedPurchaseActions.contains(action)) return;
     try {
       _analytics.track(
         action,
@@ -1025,7 +1019,7 @@ class GooglePlayBillingService implements BillingService {
     final normalizedReason = reason.trim();
     if (normalizedReason.isEmpty) return;
     _track(
-      'failed',
+      'purchase_failed',
       attemptId: attemptId,
       productId: productId,
       storeProductId: storeProductId,

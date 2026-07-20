@@ -183,7 +183,7 @@ void main() {
     await _settle();
     expect(reports, hasLength(1));
     expect(
-      analytics.records.where((record) => record.action == 'success'),
+      analytics.records.where((record) => record.action == 'purchase_success'),
       hasLength(1),
     );
   });
@@ -196,7 +196,7 @@ void main() {
     expect(await pendingStore.loadAll(), isEmpty);
     expect(uiEvents.single.kind, BillingUiEventKind.pending);
     final failed = analytics.records.singleWhere(
-      (record) => record.action == 'failed',
+      (record) => record.action == 'purchase_failed',
     );
     expect(failed.properties['product_id'], 'gem_pack_500');
     expect(failed.properties['reason'], 'purchase_callback_pending');
@@ -214,7 +214,7 @@ void main() {
 
       expect(platform.buyCount, 0);
       final failed = analytics.records.singleWhere(
-        (record) => record.action == 'failed',
+        (record) => record.action == 'purchase_failed',
       );
       expect(failed.properties['product_id'], 'gem_pack_500');
       expect(failed.properties['reason'], 'query_failed');
@@ -228,7 +228,7 @@ void main() {
     await _settle();
 
     final failed = analytics.records.singleWhere(
-      (record) => record.action == 'failed',
+      (record) => record.action == 'purchase_failed',
     );
     expect(failed.properties['reason'], 'launch_failed');
   });
@@ -259,7 +259,7 @@ void main() {
     expect(uiEvents.first.kind, BillingUiEventKind.processing);
     expect(uiEvents.last.kind, BillingUiEventKind.deferred);
     final failed = analytics.records.singleWhere(
-      (record) => record.action == 'failed',
+      (record) => record.action == 'purchase_failed',
     );
     expect(failed.properties['product_id'], 'gem_pack_500');
     expect(failed.properties['reason'], 'report_failed');
@@ -305,7 +305,7 @@ void main() {
       expect(uiEvents.last.message, 'purchase timeout');
       expect(service.state.value.hasBusyPurchase, isFalse);
       final failed = analytics.records.singleWhere(
-        (record) => record.action == 'failed',
+        (record) => record.action == 'purchase_failed',
       );
       expect(failed.properties['product_id'], 'gem_pack_500');
       expect(failed.properties['reason'], 'timeout');
@@ -348,10 +348,13 @@ void main() {
     await _settle();
 
     final actions = analytics.records.map((record) => record.action).toList();
-    expect(actions, containsAllInOrder(<String>['product_click', 'success']));
+    expect(
+      actions,
+      containsAllInOrder(<String>['product_click', 'purchase_success']),
+    );
     expect(
       actions.where(
-        (action) => action == 'product_click' || action == 'success',
+        (action) => action == 'product_click' || action == 'purchase_success',
       ),
       hasLength(actions.length),
     );
@@ -361,10 +364,11 @@ void main() {
     expect(click.properties['source'], 'buy_gems_sheet');
     expect(click.properties['attempt_id'], 'pay_sheet_track');
     final success = analytics.records.singleWhere(
-      (record) => record.action == 'success',
+      (record) => record.action == 'purchase_success',
     );
     expect(success.properties['product_id'], 'gem_pack_500');
     expect(success.properties['attempt_id'], 'pay_sheet_track');
+    expect(success.properties['transaction_id'], 'GPA.1');
 
     final serialized = analytics.records
         .expand((record) => record.properties.entries)
@@ -373,7 +377,6 @@ void main() {
     expect(serialized, isNot(contains('purchase-token-1')));
     expect(serialized, isNot(contains('sensitive-offer-token')));
     expect(serialized, isNot(contains('4b74ec68-7abc-4cce-a223-e997e31dc811')));
-    expect(serialized, isNot(contains('GPA.1')));
     expect(serialized, isNot(contains('original_json')));
   });
 
@@ -421,7 +424,7 @@ void main() {
     expect(uiEvents.last.kind, BillingUiEventKind.failure);
     expect(uiEvents.last.message, 'Purchase was refunded.');
     final failed = analytics.records.singleWhere(
-      (record) => record.action == 'failed',
+      (record) => record.action == 'purchase_failed',
     );
     expect(failed.properties['product_id'], 'gem_pack_500');
     expect(failed.properties['reason'], 'report_rejected');

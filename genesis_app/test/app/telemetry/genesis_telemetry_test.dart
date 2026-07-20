@@ -467,29 +467,32 @@ void main() {
           name: 'pay_event',
           category: 'billing.purchase',
           data: const {
-            'action': 'success',
+            'action': 'purchase_success',
             'attempt_id': 'attempt-1',
             'product_id': 'gem_pack_500',
             'result': 'completed',
+            'transaction_id': 'GPA.1',
           },
           context: GenesisTelemetry.contextForTesting,
           collectPayload: const {
             'action_type': 'pay_event',
-            'action': 'success',
+            'action': 'purchase_success',
             'object1': 'gem_pack_500',
             'object2': 'attempt-1',
+            'object3': 'GPA.1',
           },
         ),
       );
 
       expect(postHog.captures.single.eventName, 'pay_event');
-      expect(postHog.captures.single.properties['action'], 'success');
+      expect(postHog.captures.single.properties['action'], 'purchase_success');
       expect(postHog.captures.single.properties['attempt_id'], 'attempt-1');
       expect(collect.payloads.single, {
         'action_type': 'pay_event',
-        'action': 'success',
+        'action': 'purchase_success',
         'object1': 'gem_pack_500',
         'object2': 'attempt-1',
+        'object3': 'GPA.1',
       });
       expect(collect.headers.single['X-Platform'], 'android');
       expect(collect.headers.single['X-App-Version'], '1.2.3');

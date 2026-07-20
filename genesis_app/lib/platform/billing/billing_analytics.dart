@@ -20,7 +20,6 @@ class GenesisBillingAnalytics implements BillingAnalytics {
       ...properties,
     });
     if (data['action'] == null) return;
-    if (!_reportedBillingActions.contains(data['action'])) return;
     try {
       GenesisTelemetry.event(
         'pay_event',
@@ -48,15 +47,16 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
       if (data['source'] != null) 'object3': data['source'],
     };
   }
-  if (action == 'success') {
+  if (action == 'purchase_success') {
     return <String, Object?>{
       'action_type': 'pay_event',
       'action': action,
       if (productId != null) 'object1': productId,
       if (data['attempt_id'] != null) 'object2': data['attempt_id'],
+      if (data['transaction_id'] != null) 'object3': data['transaction_id'],
     };
   }
-  if (action == 'failed') {
+  if (action == 'purchase_failed') {
     return <String, Object?>{
       'action_type': 'pay_event',
       'action': action,
@@ -69,14 +69,8 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
   return const {};
 }
 
-const Set<String> _reportedBillingActions = <String>{
-  'product_click',
-  'success',
-  'failed',
-};
-
-// Billing events intentionally use an allowlist. Purchase tokens, account
-// identifiers, transaction identifiers, and raw store payloads cannot pass
+// Billing events intentionally sanitize properties. Purchase tokens, account
+// identifiers, and raw store payloads cannot pass
 // through this boundary even if a caller adds them by mistake.
 const Set<String> _allowedBillingAnalyticsKeys = <String>{
   'action',
@@ -107,6 +101,7 @@ const Set<String> _allowedBillingAnalyticsKeys = <String>{
   'billing_account_id_present',
   'purchase_status',
   'purchase_token_present',
+  'transaction_id',
   'transaction_id_present',
   'operation',
   'order_status',

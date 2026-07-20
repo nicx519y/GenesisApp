@@ -23,7 +23,7 @@ class _CapturingTelemetrySink implements GenesisTelemetrySink {
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
 
-  test('billing analytics uses an allowlist for sensitive properties', () {
+  test('billing analytics sanitizes sensitive properties', () {
     final result = sanitizeBillingAnalyticsProperties(<String, Object?>{
       'action': 'product_click',
       'attempt_id': 'attempt-1',
@@ -49,6 +49,7 @@ void main() {
       'offer_token_present': true,
       'billing_account_id_present': true,
       'source': 'buy_gems_sheet',
+      'transaction_id': 'GPA.1',
     });
   });
 
@@ -81,16 +82,17 @@ void main() {
     },
   );
 
-  test('success collect projection only sends product and track id', () async {
+  test('success collect projection sends transaction id as object3', () async {
     final sink = _CapturingTelemetrySink();
     GenesisTelemetry.setSinkForTesting(sink);
 
     const GenesisBillingAnalytics().track(
-      'success',
+      'purchase_success',
       properties: <String, Object?>{
         'attempt_id': 'attempt-1',
         'product_id': 'gem_pack_500',
         'store_product_id': 'worldo_gem_pack_500',
+        'transaction_id': 'GPA.1',
       },
     );
     await Future<void>.delayed(Duration.zero);
@@ -98,9 +100,10 @@ void main() {
     final event = sink.events.single;
     expect(event.collectPayload, {
       'action_type': 'pay_event',
-      'action': 'success',
+      'action': 'purchase_success',
       'object1': 'gem_pack_500',
       'object2': 'attempt-1',
+      'object3': 'GPA.1',
     });
   });
 
@@ -109,7 +112,7 @@ void main() {
     GenesisTelemetry.setSinkForTesting(sink);
 
     const GenesisBillingAnalytics().track(
-      'failed',
+      'purchase_failed',
       properties: <String, Object?>{
         'attempt_id': 'attempt-1',
         'product_id': 'gem_pack_500',
@@ -122,7 +125,7 @@ void main() {
     final event = sink.events.single;
     expect(event.collectPayload, {
       'action_type': 'pay_event',
-      'action': 'failed',
+      'action': 'purchase_failed',
       'object1': 'gem_pack_500',
       'object2': 'attempt-1',
       'object3': 'query_failed',
