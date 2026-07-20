@@ -183,11 +183,8 @@ void main() {
     await _settle();
     expect(reports, hasLength(1));
     expect(
-      analytics.records
-          .where((record) => record.action == 'duplicate_callback_ignored')
-          .single
-          .properties['reason'],
-      'already_completed',
+      analytics.records.where((record) => record.action == 'success'),
+      hasLength(1),
     );
   });
 
@@ -198,13 +195,6 @@ void main() {
 
     expect(await pendingStore.loadAll(), isEmpty);
     expect(uiEvents.single.kind, BillingUiEventKind.pending);
-    expect(
-      analytics.records
-          .where((record) => record.action == 'store_callback')
-          .single
-          .properties['purchase_status'],
-      'pending',
-    );
     final failed = analytics.records.singleWhere(
       (record) => record.action == 'failed',
     );
@@ -223,18 +213,6 @@ void main() {
       await _settle();
 
       expect(platform.buyCount, 0);
-      final result = analytics.records.singleWhere(
-        (record) => record.action == 'product_query_result',
-      );
-      expect(result.properties['result'], 'failure');
-      expect(result.properties['error_code'], 'offer_not_available');
-      expect(
-        analytics.records
-            .where((record) => record.action == 'flow_result')
-            .single
-            .properties['status'],
-        'query_failed',
-      );
       final failed = analytics.records.singleWhere(
         (record) => record.action == 'failed',
       );
@@ -249,18 +227,6 @@ void main() {
     await service.purchaseGem(_product);
     await _settle();
 
-    final result = analytics.records.singleWhere(
-      (record) => record.action == 'purchase_launch_result',
-    );
-    expect(result.properties['result'], 'failure');
-    expect(result.properties['status'], 'rejected');
-    expect(
-      analytics.records
-          .where((record) => record.action == 'flow_result')
-          .single
-          .properties['status'],
-      'launch_rejected',
-    );
     final failed = analytics.records.singleWhere(
       (record) => record.action == 'failed',
     );
@@ -276,13 +242,6 @@ void main() {
 
     expect(reports, isEmpty);
     expect(await pendingStore.loadAll(), isEmpty);
-    final persistence = analytics.records.singleWhere(
-      (record) =>
-          record.action == 'local_order_persist_result' &&
-          record.properties['operation'] == 'insert_received',
-    );
-    expect(persistence.properties['result'], 'failure');
-    expect(persistence.properties['error_code'], 'local_save_failed');
     expect(uiEvents.last.kind, BillingUiEventKind.deferred);
   });
 
@@ -310,24 +269,6 @@ void main() {
     await _settle();
 
     expect(reports, hasLength(2));
-    final starts = analytics.records
-        .where((record) => record.action == 'report_start')
-        .toList(growable: false);
-    expect(starts, hasLength(2));
-    expect(starts.first.properties['report_type'], 'initial');
-    expect(starts.first.properties['trigger'], 'direct');
-    expect(starts.first.properties['retry_count'], 0);
-    expect(starts.last.properties['report_type'], 'retry');
-    expect(starts.last.properties['trigger'], 'foreground');
-    expect(starts.last.properties['retry_count'], 1);
-    expect(
-      analytics.records.any((record) => record.action == 'recovery_start'),
-      isTrue,
-    );
-    expect(
-      analytics.records.any((record) => record.action == 'recovery_result'),
-      isTrue,
-    );
   });
 
   test(
@@ -363,17 +304,6 @@ void main() {
       expect(uiEvents.last.kind, BillingUiEventKind.failure);
       expect(uiEvents.last.message, 'purchase timeout');
       expect(service.state.value.hasBusyPurchase, isFalse);
-      expect(
-        analytics.records
-            .where(
-              (record) =>
-                  record.action == 'flow_result' &&
-                  record.properties['status'] == 'report_timeout',
-            )
-            .single
-            .properties['result'],
-        'timeout',
-      );
       final failed = analytics.records.singleWhere(
         (record) => record.action == 'failed',
       );
@@ -394,84 +324,58 @@ void main() {
     },
   );
 
-  test(
-    'records the purchase, persistence, and report telemetry stages',
-    () async {
-      platform.queryResult = BillingProductQueryResult.success(
-        const BillingStoreProduct(
-          id: 'worldo_gems_500',
-          type: BillingStoreProductType.inApp,
-          nativeProduct: Object(),
-          purchaseOptionId: '500-gems-new',
-          offerId: '500-gems-new-discount',
-          offerToken: 'sensitive-offer-token',
-          formattedPrice: r'$1.49',
-          priceAmountMicros: 1490000,
-          priceCurrencyCode: 'USD',
-        ),
-      );
+  test('records only the simplified purchase telemetry stages', () async {
+    platform.queryResult = BillingProductQueryResult.success(
+      const BillingStoreProduct(
+        id: 'worldo_gems_500',
+        type: BillingStoreProductType.inApp,
+        nativeProduct: Object(),
+        purchaseOptionId: '500-gems-new',
+        offerId: '500-gems-new-discount',
+        offerToken: 'sensitive-offer-token',
+        formattedPrice: r'$1.49',
+        priceAmountMicros: 1490000,
+        priceCurrencyCode: 'USD',
+      ),
+    );
 
-      await service.purchaseGem(
-        _product,
-        source: BillingPurchaseSource.buyGemsSheet,
-        payTrackId: 'pay_sheet_track',
-      );
-      platform.emit(_purchase(BillingPurchaseStatus.purchased));
-      await _settle();
+    await service.purchaseGem(
+      _product,
+      source: BillingPurchaseSource.buyGemsSheet,
+      payTrackId: 'pay_sheet_track',
+    );
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
 
-      final actions = analytics.records.map((record) => record.action).toList();
-      expect(
-        actions,
-        containsAllInOrder(<String>[
-          'product_click',
-          'purchase_precheck_result',
-          'product_query_start',
-          'product_query_result',
-          'purchase_launch_start',
-          'purchase_launch_result',
-          'store_callback',
-          'local_order_persist_result',
-          'report_start',
-          'report_result',
-          'local_order_persist_result',
-          'success',
-          'flow_result',
-        ]),
-      );
-      final click = analytics.records.singleWhere(
-        (record) => record.action == 'product_click',
-      );
-      expect(click.properties['source'], 'buy_gems_sheet');
-      expect(click.properties['attempt_id'], 'pay_sheet_track');
-      final success = analytics.records.singleWhere(
-        (record) => record.action == 'success',
-      );
-      expect(success.properties['product_id'], 'gem_pack_500');
-      expect(success.properties['attempt_id'], 'pay_sheet_track');
-      final launch = analytics.records.singleWhere(
-        (record) => record.action == 'purchase_launch_start',
-      );
-      expect(launch.properties['product_id'], 'gem_pack_500');
-      expect(launch.properties['purchase_option_id'], '500-gems-new');
-      expect(launch.properties['offer_id'], '500-gems-new-discount');
-      expect(launch.properties['offer_token_present'], isTrue);
-      expect(launch.properties['billing_account_id_present'], isTrue);
-      expect(launch.properties['formatted_price'], r'$1.49');
+    final actions = analytics.records.map((record) => record.action).toList();
+    expect(actions, containsAllInOrder(<String>['product_click', 'success']));
+    expect(
+      actions.where(
+        (action) => action == 'product_click' || action == 'success',
+      ),
+      hasLength(actions.length),
+    );
+    final click = analytics.records.singleWhere(
+      (record) => record.action == 'product_click',
+    );
+    expect(click.properties['source'], 'buy_gems_sheet');
+    expect(click.properties['attempt_id'], 'pay_sheet_track');
+    final success = analytics.records.singleWhere(
+      (record) => record.action == 'success',
+    );
+    expect(success.properties['product_id'], 'gem_pack_500');
+    expect(success.properties['attempt_id'], 'pay_sheet_track');
 
-      final serialized = analytics.records
-          .expand((record) => record.properties.entries)
-          .map((entry) => '${entry.key}=${entry.value}')
-          .join('|');
-      expect(serialized, isNot(contains('purchase-token-1')));
-      expect(serialized, isNot(contains('sensitive-offer-token')));
-      expect(
-        serialized,
-        isNot(contains('4b74ec68-7abc-4cce-a223-e997e31dc811')),
-      );
-      expect(serialized, isNot(contains('GPA.1')));
-      expect(serialized, isNot(contains('original_json')));
-    },
-  );
+    final serialized = analytics.records
+        .expand((record) => record.properties.entries)
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join('|');
+    expect(serialized, isNot(contains('purchase-token-1')));
+    expect(serialized, isNot(contains('sensitive-offer-token')));
+    expect(serialized, isNot(contains('4b74ec68-7abc-4cce-a223-e997e31dc811')));
+    expect(serialized, isNot(contains('GPA.1')));
+    expect(serialized, isNot(contains('original_json')));
+  });
 
   test('accepted is terminal for report and waits for the server', () async {
     reportStatus = GemPurchaseReportStatus.accepted;

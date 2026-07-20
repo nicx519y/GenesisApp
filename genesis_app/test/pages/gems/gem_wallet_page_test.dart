@@ -61,7 +61,7 @@ void main() {
     expect(events.single.data['action'], 'buy_page_show');
     expect(events.single.data['object1'], 'buy_gems_page');
     expect(events.single.data['object2'], isA<String>());
-    expect('${events.single.data['object2']}', startsWith('pay_'));
+    expect('${events.single.data['object2']}', startsWith('track_id_'));
   });
 
   testWidgets('GemWalletPage renders split data and refreshes on resume', (

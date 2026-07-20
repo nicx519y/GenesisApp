@@ -258,7 +258,7 @@ void _expectSheetShowEvent(_CapturingTelemetrySink telemetry, String trigger) {
   expect(events.single.data['action'], 'buy_page_show');
   expect(events.single.data['object1'], 'buy_gems_sheet');
   expect(events.single.data['object2'], isA<String>());
-  expect('${events.single.data['object2']}', startsWith('pay_'));
+  expect('${events.single.data['object2']}', startsWith('track_id_'));
   expect(events.single.data['object3'], trigger);
 }
 

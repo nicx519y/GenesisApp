@@ -252,5 +252,5 @@ class BillingPlatformException implements Exception {
 
 String newBillingAttemptId() {
   final random = Random.secure().nextInt(1 << 32);
-  return 'pay_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}_${random.toRadixString(36)}';
+  return 'track_id_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}_${random.toRadixString(36)}';
 }

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../network/api_exception.dart';
 import '../../network/models/gem_product.dart';
 import '../../network/models/gem_purchase_report.dart';
 import 'billing_analytics.dart';
@@ -36,6 +35,12 @@ abstract interface class BillingService {
 
   void dispose();
 }
+
+const Set<String> _reportedPurchaseActions = <String>{
+  'product_click',
+  'success',
+  'failed',
+};
 
 class GooglePlayBillingService implements BillingService {
   GooglePlayBillingService({
@@ -134,18 +139,7 @@ class GooglePlayBillingService implements BillingService {
       'product_click',
       product: product,
       attemptId: attemptId,
-      data: <String, Object?>{
-        'source': source.value,
-        'can_purchase': product.canPurchase,
-        'billing_type': product.billingType,
-        'base_gems': product.baseGems,
-        'bonus_gems': product.bonusGems,
-        'price_amount': product.priceAmount,
-        'price_currency_code': product.priceCurrencyCode,
-        'activity_type': product.activityType,
-        'purchase_option_id': product.googlePurchaseOptionId,
-        'offer_id': product.googleOfferId,
-      },
+      data: <String, Object?>{'source': source.value},
     );
     await start();
     if (_disposed) return;
@@ -203,13 +197,6 @@ class GooglePlayBillingService implements BillingService {
       _emitFailure(product.productId, attemptId, 'Purchase failed.');
       return;
     }
-    _trackProduct(
-      'purchase_precheck_result',
-      product: product,
-      attemptId: attemptId,
-      data: const <String, Object?>{'result': 'success'},
-    );
-
     final attempt = BillingPurchaseAttempt(
       id: attemptId,
       product: product,
@@ -219,17 +206,6 @@ class GooglePlayBillingService implements BillingService {
     );
     _attemptByStoreProductId[product.googleProductId] = attempt;
 
-    final queryStartedAt = DateTime.now();
-    _trackProduct(
-      'product_query_start',
-      product: product,
-      attemptId: attemptId,
-      data: <String, Object?>{
-        'product_type': BillingStoreProductType.inApp.value,
-        'purchase_option_id': product.googlePurchaseOptionId,
-        'offer_id': product.googleOfferId,
-      },
-    );
     late final BillingProductQueryResult queryResult;
     try {
       queryResult = await _platform.queryProduct(
@@ -239,102 +215,31 @@ class GooglePlayBillingService implements BillingService {
         offerId: _nonEmpty(product.googleOfferId),
       );
     } catch (error) {
-      final errorCode = _safeErrorCode(error, fallback: 'query_failed');
-      _trackProduct(
-        'product_query_result',
-        product: product,
-        attemptId: attemptId,
-        data: <String, Object?>{
-          'result': 'failure',
-          'error_code': errorCode,
-          'duration_ms': _elapsedMilliseconds(queryStartedAt),
-        },
-      );
       _clearActiveAttempt(product.googleProductId, attempt);
       _emitFailure(
         product.productId,
         attemptId,
         _purchaseFailureMessage(error),
       );
-      _trackFlowResult(
-        product,
-        attemptId,
-        'query_failed',
-        errorCode: errorCode,
-      );
+      _trackFlowResult(product, attemptId, 'query_failed');
       return;
     }
     if (!queryResult.isSuccess) {
-      final errorCode = queryResult.errorCode?.trim().isNotEmpty == true
-          ? queryResult.errorCode!.trim()
-          : 'product_unavailable';
-      _trackProduct(
-        'product_query_result',
-        product: product,
-        attemptId: attemptId,
-        data: <String, Object?>{
-          'result': 'failure',
-          'error_code': errorCode,
-          'duration_ms': _elapsedMilliseconds(queryStartedAt),
-        },
-      );
       _clearActiveAttempt(product.googleProductId, attempt);
       _emitFailure(
         product.productId,
         attemptId,
         _productQueryFailureMessage(queryResult.errorCode),
       );
-      _trackFlowResult(
-        product,
-        attemptId,
-        'query_failed',
-        errorCode: errorCode,
-      );
+      _trackFlowResult(product, attemptId, 'query_failed');
       return;
     }
 
     final storeProduct = queryResult.product!;
-    _trackProduct(
-      'product_query_result',
-      product: product,
-      attemptId: attemptId,
-      data: <String, Object?>{
-        'result': 'success',
-        ..._storeProductAnalytics(storeProduct),
-        'duration_ms': _elapsedMilliseconds(queryStartedAt),
-      },
-    );
-
-    final launchStartedAt = DateTime.now();
-    _trackProduct(
-      'purchase_launch_start',
-      product: product,
-      attemptId: attemptId,
-      data: <String, Object?>{
-        ..._storeProductAnalytics(storeProduct),
-        'can_purchase': product.canPurchase,
-        'billing_type': product.billingType,
-        'base_gems': product.baseGems,
-        'bonus_gems': product.bonusGems,
-        'price_amount': product.priceAmount,
-        'activity_type': product.activityType,
-        'billing_account_id_present': billingAccountId.isNotEmpty,
-      },
-    );
     try {
       final accepted = await _platform.buyConsumable(
         product: storeProduct,
         billingAccountId: billingAccountId,
-      );
-      _trackProduct(
-        'purchase_launch_result',
-        product: product,
-        attemptId: attemptId,
-        data: <String, Object?>{
-          'result': accepted ? 'success' : 'failure',
-          'status': accepted ? 'accepted' : 'rejected',
-          'duration_ms': _elapsedMilliseconds(launchStartedAt),
-        },
       );
       if (!accepted) {
         _clearActiveAttempt(product.googleProductId, attempt);
@@ -345,29 +250,13 @@ class GooglePlayBillingService implements BillingService {
       }
     } catch (error) {
       debugPrint('[Billing] purchase launch failed: $error');
-      final errorCode = _safeErrorCode(error, fallback: 'launch_failed');
-      _trackProduct(
-        'purchase_launch_result',
-        product: product,
-        attemptId: attemptId,
-        data: <String, Object?>{
-          'result': 'failure',
-          'error_code': errorCode,
-          'duration_ms': _elapsedMilliseconds(launchStartedAt),
-        },
-      );
       _clearActiveAttempt(product.googleProductId, attempt);
       _emitFailure(
         product.productId,
         attemptId,
         _purchaseFailureMessage(error),
       );
-      _trackFlowResult(
-        product,
-        attemptId,
-        'launch_failed',
-        errorCode: errorCode,
-      );
+      _trackFlowResult(product, attemptId, 'launch_failed');
     }
   }
 
@@ -383,67 +272,33 @@ class GooglePlayBillingService implements BillingService {
   }
 
   Future<void> _recoverInternal(BillingRecoverySource source) async {
-    final recoveryStartedAt = DateTime.now();
-    _track(
-      'recovery_start',
-      data: <String, Object?>{
-        'provider': _platform.provider.apiValue,
-        'trigger': source.value,
-      },
-    );
     String uid;
     try {
       uid = (await _readUid())?.trim() ?? '';
     } catch (_) {
-      _trackRecoveryResult(
-        source,
-        recoveryStartedAt,
-        result: 'failure',
-        reason: 'user_read_failed',
-      );
       return;
     }
     if (uid.isEmpty || uid.startsWith('guest_')) {
-      _trackRecoveryResult(
-        source,
-        recoveryStartedAt,
-        result: 'skipped',
-        reason: 'user_unavailable',
-      );
       return;
     }
     String billingAccountId;
     try {
       billingAccountId = await _resolveBillingAccountId();
     } catch (_) {
-      _trackRecoveryResult(
-        source,
-        recoveryStartedAt,
-        result: 'failure',
-        reason: 'billing_account_load_failed',
-      );
       return;
     }
     if (billingAccountId.isEmpty) {
-      _trackRecoveryResult(
-        source,
-        recoveryStartedAt,
-        result: 'skipped',
-        reason: 'billing_account_unavailable',
-      );
       return;
     }
 
     final pastPurchaseKeys = <String>{};
     final reportedStoreProductIds = <String>{};
     var pastPurchaseQuerySucceeded = false;
-    var googlePurchaseCount = 0;
     try {
       final purchases = await _platform.queryPastPurchases(
         billingAccountId: billingAccountId,
       );
       pastPurchaseQuerySucceeded = true;
-      googlePurchaseCount = purchases.length;
       for (final purchase in purchases) {
         if (purchase.productId.trim().isNotEmpty) {
           reportedStoreProductIds.add(purchase.productId.trim());
@@ -474,22 +329,11 @@ class GooglePlayBillingService implements BillingService {
     try {
       records = await _pendingPurchaseStore.loadAll();
     } catch (_) {
-      _trackRecoveryResult(
-        source,
-        recoveryStartedAt,
-        result: 'failure',
-        reason: 'local_order_load_failed',
-        googlePurchaseCount: googlePurchaseCount,
-        pastPurchaseQuerySucceeded: pastPurchaseQuerySucceeded,
-      );
       return;
     }
-    var retryOrderCount = 0;
-    var skippedOrderCount = 0;
     for (final record in records) {
       if (record.provider != _platform.provider ||
           record.billingAccountId != billingAccountId) {
-        skippedOrderCount += 1;
         continue;
       }
       if (record.status == BillingPendingPurchaseStatus.reported) {
@@ -500,42 +344,15 @@ class GooglePlayBillingService implements BillingService {
               provider: record.provider,
               purchaseToken: record.purchaseToken,
             );
-            _trackRecordPersistence(
-              record,
-              operation: 'delete_terminal',
-              result: 'success',
-              source: source,
-            );
-          } catch (_) {
-            _trackRecordPersistence(
-              record,
-              operation: 'delete_terminal',
-              result: 'failure',
-              source: source,
-              errorCode: 'local_delete_failed',
-            );
-          }
+          } catch (_) {}
         }
-        skippedOrderCount += 1;
         continue;
       }
       if (pastPurchaseKeys.contains(record.key)) {
-        skippedOrderCount += 1;
         continue;
       }
-      retryOrderCount += 1;
       await _processRecord(record, source: source);
     }
-    _trackRecoveryResult(
-      source,
-      recoveryStartedAt,
-      result: pastPurchaseQuerySucceeded ? 'success' : 'partial',
-      localOrderCount: records.length,
-      retryOrderCount: retryOrderCount,
-      skippedOrderCount: skippedOrderCount,
-      googlePurchaseCount: googlePurchaseCount,
-      pastPurchaseQuerySucceeded: pastPurchaseQuerySucceeded,
-    );
   }
 
   Future<void> _handlePurchases(
@@ -560,20 +377,6 @@ class GooglePlayBillingService implements BillingService {
     final productId = attempt?.product.productId ?? purchase.productId;
     _cancelAttemptTimeout(
       attempt?.product.googleProductId ?? purchase.productId,
-    );
-    _track(
-      'store_callback',
-      attemptId: attemptId,
-      productId: productId,
-      storeProductId: purchase.productId,
-      data: <String, Object?>{
-        'provider': purchase.provider.apiValue,
-        'trigger': source.value,
-        'purchase_status': purchase.status.name,
-        'purchase_token_present': token.isNotEmpty,
-        'transaction_id_present': purchase.transactionId.trim().isNotEmpty,
-        'error_code': purchase.errorCode,
-      },
     );
 
     switch (purchase.status) {
@@ -655,33 +458,9 @@ class GooglePlayBillingService implements BillingService {
 
     final processingKey = '${purchase.provider.name}:$token';
     if (_completedPurchaseKeys.contains(processingKey)) {
-      _track(
-        'duplicate_callback_ignored',
-        attemptId: attemptId,
-        productId: productId,
-        storeProductId: purchase.productId,
-        data: <String, Object?>{
-          'provider': purchase.provider.apiValue,
-          'trigger': source.value,
-          'purchase_status': purchase.status.name,
-          'reason': 'already_completed',
-        },
-      );
       return;
     }
     if (!_processingPurchaseKeys.add(processingKey)) {
-      _track(
-        'duplicate_callback_ignored',
-        attemptId: attemptId,
-        productId: productId,
-        storeProductId: purchase.productId,
-        data: <String, Object?>{
-          'provider': purchase.provider.apiValue,
-          'trigger': source.value,
-          'purchase_status': purchase.status.name,
-          'reason': 'already_processing',
-        },
-      );
       return;
     }
     final suppressUiForTimedOutReport = _timedOutReportKeys.contains(
@@ -713,19 +492,6 @@ class GooglePlayBillingService implements BillingService {
           purchaseToken: token,
         );
       } catch (_) {
-        _track(
-          'local_order_persist_result',
-          attemptId: attemptId,
-          productId: productId,
-          storeProductId: purchase.productId,
-          data: <String, Object?>{
-            'provider': purchase.provider.apiValue,
-            'trigger': source.value,
-            'operation': 'lookup',
-            'result': 'failure',
-            'error_code': 'local_lookup_failed',
-          },
-        );
         _cancelReportTimeout(processingKey);
         if (suppressUiForTimedOutReport) {
           _setBusy(productId, false);
@@ -743,19 +509,6 @@ class GooglePlayBillingService implements BillingService {
               fallbackAttemptId: attemptId,
             );
         if (resolvedAttempt == null) {
-          _track(
-            'local_order_persist_result',
-            attemptId: attemptId,
-            productId: productId,
-            storeProductId: purchase.productId,
-            data: <String, Object?>{
-              'provider': purchase.provider.apiValue,
-              'trigger': source.value,
-              'operation': 'insert_received',
-              'result': 'failure',
-              'error_code': 'product_mapping_unavailable',
-            },
-          );
           return;
         }
         final now = DateTime.now();
@@ -776,20 +529,7 @@ class GooglePlayBillingService implements BillingService {
         );
         try {
           await _pendingPurchaseStore.upsert(record);
-          _trackRecordPersistence(
-            record,
-            operation: 'insert_received',
-            result: 'success',
-            source: source,
-          );
         } catch (_) {
-          _trackRecordPersistence(
-            record,
-            operation: 'insert_received',
-            result: 'failure',
-            source: source,
-            errorCode: 'local_save_failed',
-          );
           _cancelReportTimeout(processingKey);
           if (suppressUiForTimedOutReport) {
             _setBusy(resolvedAttempt.product.productId, false);
@@ -798,13 +538,6 @@ class GooglePlayBillingService implements BillingService {
           _emitDeferred(resolvedAttempt.product.productId, resolvedAttempt.id);
           return;
         }
-      } else {
-        _trackRecordPersistence(
-          record,
-          operation: 'insert_received',
-          result: 'already_exists',
-          source: source,
-        );
       }
       await _processRecord(record, purchase: purchase, source: source);
     } finally {
@@ -872,29 +605,6 @@ class GooglePlayBillingService implements BillingService {
       return;
     }
 
-    final reportType =
-        source == BillingRecoverySource.direct && record.retryCount == 0
-        ? 'initial'
-        : 'retry';
-    final reportStartedAt = DateTime.now();
-    final reportData = <String, Object?>{
-      'provider': record.provider.apiValue,
-      'trigger': source.value,
-      'report_type': reportType,
-      'retry_count': record.retryCount,
-      'order_age_ms': DateTime.now()
-          .difference(record.createdAt)
-          .inMilliseconds
-          .clamp(0, 0x7fffffff),
-    };
-    _track(
-      'report_start',
-      attemptId: record.attemptId,
-      productId: record.productId,
-      storeProductId: record.storeProductId,
-      data: reportData,
-    );
-
     late final GemPurchaseReport report;
     try {
       report = await _reportPurchase(
@@ -911,41 +621,14 @@ class GooglePlayBillingService implements BillingService {
           },
         ),
       );
-    } catch (error) {
-      final errorCode = _safeReportErrorCode(error);
-      _track(
-        'report_result',
-        attemptId: record.attemptId,
-        productId: record.productId,
-        storeProductId: record.storeProductId,
-        data: <String, Object?>{
-          ...reportData,
-          'result': 'failure',
-          'error_code': errorCode,
-          'duration_ms': _elapsedMilliseconds(reportStartedAt),
-        },
-      );
+    } catch (_) {
       final next = record.copyWith(
         retryCount: record.retryCount + 1,
         updatedAt: DateTime.now(),
       );
       try {
         await _pendingPurchaseStore.upsert(next);
-        _trackRecordPersistence(
-          next,
-          operation: 'update_retry',
-          result: 'success',
-          source: source,
-        );
-      } catch (_) {
-        _trackRecordPersistence(
-          next,
-          operation: 'update_retry',
-          result: 'failure',
-          source: source,
-          errorCode: 'local_retry_update_failed',
-        );
-      }
+      } catch (_) {}
       if (_timedOutReportKeys.contains(record.key)) {
         _setBusy(record.productId, false);
         return;
@@ -959,65 +642,24 @@ class GooglePlayBillingService implements BillingService {
         storeProductId: record.storeProductId,
         status: 'report_deferred',
         source: source,
-        errorCode: errorCode,
       );
       return;
     }
 
-    _track(
-      'report_result',
-      attemptId: record.attemptId,
-      productId: record.productId,
-      storeProductId: record.storeProductId,
-      data: <String, Object?>{
-        ...reportData,
-        'result': 'success',
-        'status': report.status.name,
-        'granted_gems': report.grantedGems,
-        'duration_ms': _elapsedMilliseconds(reportStartedAt),
-      },
-    );
     final reported = record.copyWith(
       status: BillingPendingPurchaseStatus.reported,
       updatedAt: DateTime.now(),
     );
     try {
       await _pendingPurchaseStore.upsert(reported);
-      _trackRecordPersistence(
-        reported,
-        operation: 'mark_reported',
-        result: 'success',
-        source: source,
-      );
     } catch (_) {
-      _trackRecordPersistence(
-        reported,
-        operation: 'mark_reported',
-        result: 'failure',
-        source: source,
-        errorCode: 'local_mark_reported_failed',
-      );
       final next = record.copyWith(
         retryCount: record.retryCount + 1,
         updatedAt: DateTime.now(),
       );
       try {
         await _pendingPurchaseStore.upsert(next);
-        _trackRecordPersistence(
-          next,
-          operation: 'update_retry',
-          result: 'success',
-          source: source,
-        );
-      } catch (_) {
-        _trackRecordPersistence(
-          next,
-          operation: 'update_retry',
-          result: 'failure',
-          source: source,
-          errorCode: 'local_retry_update_failed',
-        );
-      }
+      } catch (_) {}
       if (_timedOutReportKeys.contains(record.key)) {
         _setBusy(record.productId, false);
         return;
@@ -1182,7 +824,6 @@ class GooglePlayBillingService implements BillingService {
   }) {
     _cancelReportTimeout(purchaseKey);
     if (_reportTimeout <= Duration.zero) return;
-    final startedAt = DateTime.now();
     _reportTimeouts[purchaseKey] = Timer(_reportTimeout, () {
       _reportTimeouts.remove(purchaseKey);
       if (_disposed ||
@@ -1192,24 +833,12 @@ class GooglePlayBillingService implements BillingService {
         return;
       }
       _timedOutReportKeys.add(purchaseKey);
-      _track(
-        'purchase_timeout',
-        attemptId: attemptId,
-        productId: productId,
-        storeProductId: storeProductId,
-        data: <String, Object?>{
-          'result': 'failure',
-          'status': 'report_timeout',
-          'duration_ms': _elapsedMilliseconds(startedAt),
-        },
-      );
       _trackFlowResultById(
         attemptId: attemptId,
         productId: productId,
         storeProductId: storeProductId,
         status: 'report_timeout',
         source: source,
-        errorCode: 'purchase_timeout',
       );
       _clearAttempt(purchase, _attemptByPurchaseToken[purchase.purchaseToken]);
       _setBusy(productId, false);
@@ -1236,18 +865,8 @@ class GooglePlayBillingService implements BillingService {
         _attemptTimeouts.remove(product.googleProductId);
         final activeAttempt = _attemptByStoreProductId[product.googleProductId];
         if (activeAttempt?.id != attemptId) return;
-        _trackProduct(
-          'purchase_timeout',
-          product: product,
-          attemptId: attemptId,
-          data: <String, Object?>{
-            'result': 'failure',
-            'status': 'timeout',
-            'duration_ms': _elapsedMilliseconds(activeAttempt!.startedAt),
-          },
-        );
         _trackFlowResult(product, attemptId, 'timeout');
-        _clearActiveAttempt(product.googleProductId, activeAttempt);
+        _clearActiveAttempt(product.googleProductId, activeAttempt!);
       },
     );
   }
@@ -1311,6 +930,7 @@ class GooglePlayBillingService implements BillingService {
     String storeProductId = '',
     Map<String, Object?> data = const <String, Object?>{},
   }) {
+    if (!_reportedPurchaseActions.contains(action)) return;
     try {
       _analytics.track(
         action,
@@ -1350,12 +970,6 @@ class GooglePlayBillingService implements BillingService {
     String attemptId,
     String errorCode,
   ) {
-    _trackProduct(
-      'purchase_precheck_result',
-      product: product,
-      attemptId: attemptId,
-      data: <String, Object?>{'result': 'failure', 'error_code': errorCode},
-    );
     _trackFlowResult(
       product,
       attemptId,
@@ -1388,27 +1002,6 @@ class GooglePlayBillingService implements BillingService {
     required BillingRecoverySource source,
     String? errorCode,
   }) {
-    final result = switch (status) {
-      'completed' => 'success',
-      'accepted' => 'accepted',
-      'report_deferred' => 'deferred',
-      'timeout' => 'timeout',
-      'report_timeout' => 'timeout',
-      _ => 'failure',
-    };
-    _track(
-      'flow_result',
-      attemptId: attemptId,
-      productId: productId,
-      storeProductId: storeProductId,
-      data: <String, Object?>{
-        'provider': _platform.provider.apiValue,
-        'trigger': source.value,
-        'result': result,
-        'status': status,
-        'error_code': errorCode,
-      },
-    );
     final failedReason = _failedReasonForFlowResult(
       status: status,
       errorCode: errorCode,
@@ -1469,104 +1062,6 @@ class GooglePlayBillingService implements BillingService {
       'purchase_in_progress' => 'purchase_in_progress',
       _ => null,
     };
-  }
-
-  Map<String, Object?> _storeProductAnalytics(BillingStoreProduct product) {
-    return <String, Object?>{
-      'product_type': product.type.value,
-      'purchase_option_id': product.purchaseOptionId,
-      'offer_id': product.offerId,
-      'formatted_price': product.formattedPrice,
-      'price_amount_micros': product.priceAmountMicros,
-      'price_currency_code': product.priceCurrencyCode,
-      'offer_token_present': product.offerToken?.trim().isNotEmpty == true,
-    };
-  }
-
-  void _trackRecordPersistence(
-    BillingPendingPurchase record, {
-    required String operation,
-    required String result,
-    required BillingRecoverySource source,
-    String? errorCode,
-  }) {
-    _track(
-      'local_order_persist_result',
-      attemptId: record.attemptId,
-      productId: record.productId,
-      storeProductId: record.storeProductId,
-      data: <String, Object?>{
-        'provider': record.provider.apiValue,
-        'trigger': source.value,
-        'operation': operation,
-        'result': result,
-        'order_status': record.status.name,
-        'retry_count': record.retryCount,
-        'error_code': errorCode,
-      },
-    );
-  }
-
-  void _trackRecoveryResult(
-    BillingRecoverySource source,
-    DateTime startedAt, {
-    required String result,
-    String? reason,
-    int localOrderCount = 0,
-    int retryOrderCount = 0,
-    int skippedOrderCount = 0,
-    int googlePurchaseCount = 0,
-    bool pastPurchaseQuerySucceeded = false,
-  }) {
-    _track(
-      'recovery_result',
-      data: <String, Object?>{
-        'provider': _platform.provider.apiValue,
-        'trigger': source.value,
-        'result': result,
-        'reason': reason,
-        'duration_ms': _elapsedMilliseconds(startedAt),
-        'local_order_count': localOrderCount,
-        'retry_order_count': retryOrderCount,
-        'skipped_order_count': skippedOrderCount,
-        'google_purchase_count': googlePurchaseCount,
-        'past_purchase_query_succeeded': pastPurchaseQuerySucceeded,
-      },
-    );
-  }
-
-  int _elapsedMilliseconds(DateTime startedAt) {
-    return DateTime.now()
-        .difference(startedAt)
-        .inMilliseconds
-        .clamp(0, 0x7fffffff);
-  }
-
-  String _safeErrorCode(Object error, {required String fallback}) {
-    if (error is BillingPlatformException && error.code.trim().isNotEmpty) {
-      return error.code.trim();
-    }
-    if (error is TimeoutException) return 'timeout';
-    return fallback;
-  }
-
-  String _safeReportErrorCode(Object error) {
-    if (error is ApiException) {
-      final prefix = switch (error.kind) {
-        ApiExceptionKind.timeout => 'timeout',
-        ApiExceptionKind.transport => 'transport',
-        ApiExceptionKind.httpStatus => 'http_status',
-        ApiExceptionKind.response => 'invalid_response',
-        ApiExceptionKind.business => 'business',
-        ApiExceptionKind.gatewayAuth => 'gateway_auth',
-        ApiExceptionKind.cancelled => 'cancelled',
-        ApiExceptionKind.unknown => 'report_failed',
-      };
-      final code = error.code;
-      return code == null ? prefix : '${prefix}_$code';
-    }
-    if (error is TimeoutException) return 'timeout';
-    return 'report_failed';
   }
 
   @override

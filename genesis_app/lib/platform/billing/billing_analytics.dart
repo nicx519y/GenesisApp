@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../../app/telemetry/genesis_telemetry.dart';
 
 abstract interface class BillingAnalytics {
@@ -22,6 +20,7 @@ class GenesisBillingAnalytics implements BillingAnalytics {
       ...properties,
     });
     if (data['action'] == null) return;
+    if (!_reportedBillingActions.contains(data['action'])) return;
     try {
       GenesisTelemetry.event(
         'pay_event',
@@ -67,19 +66,14 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
     };
   }
 
-  final details = Map<String, Object?>.of(data)
-    ..remove('action')
-    ..remove('product_id')
-    ..remove('attempt_id');
-
-  return <String, Object?>{
-    'action_type': 'pay_event',
-    'action': action,
-    if (productId != null) 'object1': productId,
-    if (data['attempt_id'] != null) 'object2': data['attempt_id'],
-    if (details.isNotEmpty) 'object3': jsonEncode(details),
-  };
+  return const {};
 }
+
+const Set<String> _reportedBillingActions = <String>{
+  'product_click',
+  'success',
+  'failed',
+};
 
 // Billing events intentionally use an allowlist. Purchase tokens, account
 // identifiers, transaction identifiers, and raw store payloads cannot pass
