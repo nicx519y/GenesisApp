@@ -732,7 +732,7 @@ class GooglePlayBillingService implements BillingService {
           productId: record.productId,
           attemptId: record.attemptId,
           message:
-              'Payment received. Your Gems will be added shortly. Please check your balance again in a moment.',
+              'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
         ),
       );
     } else {
