@@ -155,7 +155,7 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   @override
   void didPopNext() {
-    unawaited(_refreshAll(silent: _hasPageData));
+    // Do not refresh Gems data when an overlay route is dismissed.
   }
 
   bool get _hasPageData => _products != null || _taskGroups != null;

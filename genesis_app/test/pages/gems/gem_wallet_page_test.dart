@@ -394,8 +394,8 @@ void main() {
     Navigator.of(tester.element(find.text('Gem Records'))).pop();
     await tester.pumpAndSettle();
 
-    expect(productsLoadCount, 2);
-    expect(tasksLoadCount, 2);
+    expect(productsLoadCount, 1);
+    expect(tasksLoadCount, 1);
   });
 
   testWidgets('task section remains available when products fail', (
