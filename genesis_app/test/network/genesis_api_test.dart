@@ -309,6 +309,66 @@ void main() {
     expect(tasks.groups.single.tasks.single.actionText, 'Go');
   });
 
+  test('v1 unread summary coalesces concurrent requests', () async {
+    final unreadCompleter = Completer<TransportResponse>();
+    var unreadResponseCount = 0;
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        if (request.uri.path == '/api/v1/message/unread') {
+          unreadResponseCount += 1;
+          if (unreadResponseCount == 1) return unreadCompleter.future;
+        }
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":0,"err_msg":"succ","data":{"world_apply_unread":1,"follow_unread":1,"interaction_unread":1,"direct_message_unread":1,"total_unread":4}}',
+        );
+      },
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final first = api.v1.messages.unreadSummary();
+    final second = api.v1.messages.unreadSummary();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      apiTransport.requests
+          .where((request) => request.uri.path == '/api/v1/message/unread')
+          .length,
+      1,
+    );
+
+    unreadCompleter.complete(
+      const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"world_apply_unread":1,"follow_unread":1,"interaction_unread":1,"direct_message_unread":1,"total_unread":4}}',
+      ),
+    );
+    final summaries = await Future.wait([first, second]);
+    expect(summaries.map((summary) => summary.totalUnread), [4, 4]);
+
+    await api.v1.messages.unreadSummary();
+
+    expect(
+      apiTransport.requests
+          .where((request) => request.uri.path == '/api/v1/message/unread')
+          .length,
+      2,
+    );
+  });
+
   test('v1 gem wallet parses the server balance', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
