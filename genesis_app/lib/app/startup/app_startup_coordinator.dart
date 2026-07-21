@@ -70,7 +70,9 @@ class AppStartupCoordinator {
       config: services.config,
       deviceIdService: services.deviceId,
       appVersion: version,
-      trackingEnabled: trackingAuthorizationStatus.allowsTracking,
+      // ATT only controls the tracking permission state; first-party telemetry
+      // remains enabled even when the user denies or cannot answer the prompt.
+      trackingEnabled: true,
     );
     _recordStartupFirstReport();
     if (_telemetryLifecycleObserverAdded) return;
