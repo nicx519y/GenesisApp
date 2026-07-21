@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/network/models/gem_model.dart';
 import 'package:genesis_flutter_android/pages/gems/memory_model_page.dart';
 
 void main() {
+  tearDown(GenesisTelemetry.resetForTesting);
+
   testWidgets('initial loading indicator uses the Gem red color', (
     tester,
   ) async {
@@ -72,6 +75,15 @@ void main() {
 
     final saveButton = tester.widget<TextButton>(
       find.byKey(const ValueKey('gem-model-save')),
+    );
+    expect(saveButton.onPressed, isNull);
+    expect(
+      find.byKey(const ValueKey('gem-model-current-top_pick_v3')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('gem-model-current-sake_pro')),
+      findsNothing,
     );
     final saveStyle = saveButton.style?.textStyle?.resolve(<WidgetState>{});
     expect(saveStyle?.fontSize, 14);
@@ -157,9 +169,36 @@ void main() {
     expect(_tagContainer(tester, 'new').radius, 8);
   });
 
+  testWidgets('reports model page view once with the world id', (tester) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemoryModelPage(
+          worldId: 'W_000004',
+          catalogLoader: (_) async => _catalog(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final events = telemetry.events
+        .where((event) => event.name == 'switch_model_page')
+        .toList();
+    expect(events, hasLength(1));
+    expect(events.single.data, <String, Object?>{
+      'action_type': 'pay_event',
+      'action': 'switch_model_page',
+      'object1': 'W_000004',
+    });
+  });
+
   testWidgets('save submits the pending model for the current world', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     final selections = <(String, String)>[];
     final cachedModelCodes = <String>[];
     final selectionCompleter = Completer<GemModelSelection>();
@@ -190,11 +229,35 @@ void main() {
     expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFFF2442));
     expect(_tileColor(tester, 'top_pick_v3'), Colors.white);
     expect(_tileColor(tester, 'sake_pro'), const Color(0xFFFFF4F6));
+    expect(
+      find.byKey(const ValueKey('gem-model-current-top_pick_v3')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('gem-model-current-sake_pro')),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<TextButton>(find.byKey(const ValueKey('gem-model-save')))
+          .onPressed,
+      isNotNull,
+    );
 
     await tester.tap(find.byKey(const ValueKey('gem-model-save')));
     await tester.pump();
 
     expect(selections, [('W_000002', 'sake_pro')]);
+    final saveEvents = telemetry.events
+        .where((event) => event.name == 'switch_model_save')
+        .toList();
+    expect(saveEvents, hasLength(1));
+    expect(saveEvents.single.data, <String, Object?>{
+      'action_type': 'pay_event',
+      'action': 'switch_model_save',
+      'object1': 'W_000002',
+      'object2': 'sake_pro',
+    });
     expect(
       find.byKey(const ValueKey('gem-model-save-loading')),
       findsOneWidget,
@@ -216,6 +279,8 @@ void main() {
   });
 
   testWidgets('failed save restores the server-selected model', (tester) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     await tester.pumpWidget(
       MaterialApp(
         home: MemoryModelPage(
@@ -236,8 +301,30 @@ void main() {
     expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFFF2442));
     expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFE1E1E1));
     expect(find.text('Switched failed'), findsOneWidget);
+    expect(
+      telemetry.events.where((event) => event.name == 'switch_model_save'),
+      hasLength(1),
+    );
     await tester.pump(const Duration(seconds: 2));
   });
+}
+
+class _CapturingTelemetrySink implements GenesisTelemetrySink {
+  final events = <GenesisTelemetryEvent>[];
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    events.add(event);
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {}
+
+  @override
+  Future<void> setUserId(String? uid) async {}
 }
 
 BorderSide _tileBorder(WidgetTester tester, String modelCode) {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../components/page_header.dart';
@@ -39,10 +40,12 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   bool _saving = false;
   String _pendingModelCode = '';
   int _loadGeneration = 0;
+  String _trackedPageWorldId = '';
 
   @override
   void initState() {
     super.initState();
+    _trackSwitchModelPage();
     unawaited(_refresh());
   }
 
@@ -50,8 +53,20 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   void didUpdateWidget(covariant MemoryModelPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.worldId != widget.worldId) {
+      _trackSwitchModelPage();
       unawaited(_refresh());
     }
+  }
+
+  void _trackSwitchModelPage() {
+    final worldId = widget.worldId.trim();
+    if (worldId.isEmpty || worldId == _trackedPageWorldId) return;
+    _trackedPageWorldId = worldId;
+    GenesisTelemetry.collectLog(
+      actionType: 'pay_event',
+      action: 'switch_model_page',
+      object1: worldId,
+    );
   }
 
   Future<GemModelCatalog> _loadCatalog() {
@@ -117,6 +132,15 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   Future<void> _submitSelection() async {
     final modelCode = _pendingModelCode.trim();
     if (modelCode.isEmpty || _saving) return;
+    final worldId = widget.worldId.trim();
+    if (worldId.isNotEmpty) {
+      GenesisTelemetry.collectLog(
+        actionType: 'pay_event',
+        action: 'switch_model_save',
+        object1: worldId,
+        object2: modelCode,
+      );
+    }
     final cacheWriter = _resolveSelectedModelCodeCacheWriter();
     setState(() => _saving = true);
     try {
@@ -167,7 +191,11 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         actions: [
           _ModelSaveAction(
             saving: _saving,
-            enabled: !_loading && _pendingModelCode.trim().isNotEmpty,
+            enabled:
+                !_loading &&
+                _pendingModelCode.trim().isNotEmpty &&
+                _pendingModelCode.trim() !=
+                    (_catalog?.selectedModelCode.trim() ?? ''),
             onPressed: _submitSelection,
           ),
         ],
@@ -226,6 +254,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
             child: _GemModelGroupSection(
               group: group,
               selectedModelCode: _pendingModelCode,
+              currentModelCode: catalog.selectedModelCode,
               enabled: !_saving,
               onModelTap: _selectModel,
             ),
@@ -285,12 +314,14 @@ class _GemModelGroupSection extends StatelessWidget {
   const _GemModelGroupSection({
     required this.group,
     required this.selectedModelCode,
+    required this.currentModelCode,
     required this.enabled,
     required this.onModelTap,
   });
 
   final GemModelGroup group;
   final String selectedModelCode;
+  final String currentModelCode;
   final bool enabled;
   final ValueChanged<GemModel> onModelTap;
 
@@ -313,6 +344,8 @@ class _GemModelGroupSection extends StatelessWidget {
           _GemModelTile(
             model: group.models[index],
             selected: group.models[index].modelCode == selectedModelCode,
+            isCurrentModel:
+                group.models[index].modelCode == currentModelCode.trim(),
             enabled: enabled,
             onTap: () => onModelTap(group.models[index]),
           ),
@@ -327,12 +360,14 @@ class _GemModelTile extends StatelessWidget {
   const _GemModelTile({
     required this.model,
     required this.selected,
+    required this.isCurrentModel,
     required this.enabled,
     required this.onTap,
   });
 
   final GemModel model;
   final bool selected;
+  final bool isCurrentModel;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -360,7 +395,12 @@ class _GemModelTile extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _GemModelTileContent(model: model)),
+                Expanded(
+                  child: _GemModelTileContent(
+                    model: model,
+                    isCurrentModel: isCurrentModel,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
@@ -376,9 +416,13 @@ class _GemModelTile extends StatelessWidget {
 }
 
 class _GemModelTileContent extends StatelessWidget {
-  const _GemModelTileContent({required this.model});
+  const _GemModelTileContent({
+    required this.model,
+    required this.isCurrentModel,
+  });
 
   final GemModel model;
+  final bool isCurrentModel;
 
   @override
   Widget build(BuildContext context) {
@@ -389,6 +433,18 @@ class _GemModelTileContent extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if (isCurrentModel) ...[
+              Container(
+                key: ValueKey<String>('gem-model-current-${model.modelCode}'),
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF34C759),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+            ],
             Flexible(
               child: Text(
                 model.title,
