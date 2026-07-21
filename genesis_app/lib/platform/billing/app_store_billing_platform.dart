@@ -9,8 +9,6 @@ class AppStoreBillingPlatform implements BillingPlatform {
     : _inAppPurchase = inAppPurchase ?? InAppPurchase.instance;
 
   final InAppPurchase _inAppPurchase;
-  final Map<String, PurchaseDetails> _nativePurchasesByToken =
-      <String, PurchaseDetails>{};
 
   @override
   BillingProvider get provider => BillingProvider.appStore;
@@ -21,7 +19,7 @@ class AppStoreBillingPlatform implements BillingPlatform {
       return const Stream<List<BillingPurchase>>.empty();
     }
     return _inAppPurchase.purchaseStream.map(
-      (purchases) => purchases.map(_rememberPurchase).toList(growable: false),
+      (purchases) => purchases.map(_toBillingPurchase).toList(growable: false),
     );
   }
 
@@ -110,32 +108,10 @@ class AppStoreBillingPlatform implements BillingPlatform {
   }
 
   @override
-  Future<void> completePurchase(BillingPurchase purchase) async {
-    if (defaultTargetPlatform != TargetPlatform.iOS) return;
-    final token = purchase.purchaseToken.trim();
-    final nativePurchase = _nativePurchasesByToken[token];
-    if (nativePurchase == null) {
-      throw const BillingPlatformException('purchase_completion_unavailable');
-    }
-    await _inAppPurchase.completePurchase(nativePurchase);
-    _nativePurchasesByToken.remove(token);
-    debugPrint('[Billing][AppStore] purchase completed id=$token');
-  }
-
-  @override
   Future<List<BillingPurchase>> queryPastPurchases({
     required String billingAccountId,
   }) async {
     return const <BillingPurchase>[];
-  }
-
-  BillingPurchase _rememberPurchase(PurchaseDetails purchase) {
-    final billingPurchase = _toBillingPurchase(purchase);
-    final token = billingPurchase.purchaseToken.trim();
-    if (token.isNotEmpty) {
-      _nativePurchasesByToken[token] = purchase;
-    }
-    return billingPurchase;
   }
 }
 

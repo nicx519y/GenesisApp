@@ -355,7 +355,10 @@ class GooglePlayBillingService implements BillingService {
       if (pastPurchaseKeys.contains(record.key)) {
         continue;
       }
-      await _processRecord(record, source: source);
+      await _runExclusivePurchase(
+        record.key,
+        () => _processRecord(record, source: source),
+      );
     }
   }
 
@@ -465,12 +468,8 @@ class GooglePlayBillingService implements BillingService {
     if (attempt != null) _attemptByPurchaseToken[token] = attempt;
 
     final processingKey = '${purchase.provider.name}:$token';
-    if (_completedPurchaseKeys.contains(processingKey)) {
-      return;
-    }
-    if (!_processingPurchaseKeys.add(processingKey)) {
-      return;
-    }
+    if (_disposed || _completedPurchaseKeys.contains(processingKey)) return;
+    if (!_beginExclusivePurchase(processingKey)) return;
     final suppressUiForTimedOutReport = _timedOutReportKeys.contains(
       processingKey,
     );
@@ -549,7 +548,30 @@ class GooglePlayBillingService implements BillingService {
       }
       await _processRecord(record, purchase: purchase, source: source);
     } finally {
-      _processingPurchaseKeys.remove(processingKey);
+      _endExclusivePurchase(processingKey);
+    }
+  }
+
+  bool _beginExclusivePurchase(String processingKey) {
+    if (_disposed || _completedPurchaseKeys.contains(processingKey)) {
+      return false;
+    }
+    return _processingPurchaseKeys.add(processingKey);
+  }
+
+  void _endExclusivePurchase(String processingKey) {
+    _processingPurchaseKeys.remove(processingKey);
+  }
+
+  Future<void> _runExclusivePurchase(
+    String processingKey,
+    Future<void> Function() action,
+  ) async {
+    if (!_beginExclusivePurchase(processingKey)) return;
+    try {
+      await action();
+    } finally {
+      _endExclusivePurchase(processingKey);
     }
   }
 
@@ -605,7 +627,6 @@ class GooglePlayBillingService implements BillingService {
     if (accountId.isEmpty || accountId != record.billingAccountId) return;
 
     if (record.status == BillingPendingPurchaseStatus.reported) {
-      await _completeAppStorePurchase(purchase);
       _completedPurchaseKeys.add(record.key);
       _cancelReportTimeout(record.key);
       _timedOutReportKeys.remove(record.key);
@@ -693,8 +714,6 @@ class GooglePlayBillingService implements BillingService {
       return;
     }
 
-    await _completeAppStorePurchase(purchase);
-    _completedPurchaseKeys.add(record.key);
     final reportTimedOut = _timedOutReportKeys.remove(record.key);
     _cancelReportTimeout(record.key);
     if (purchase != null) {
@@ -711,37 +730,38 @@ class GooglePlayBillingService implements BillingService {
         storeProductId: record.storeProductId,
         data: <String, Object?>{'transaction_id': record.transactionId},
       );
-      try {
-        await _refreshWallet();
-      } catch (_) {}
-      if (reportTimedOut) return;
-      _events.add(
-        BillingUiEvent(
-          kind: BillingUiEventKind.success,
-          productId: record.productId,
-          attemptId: record.attemptId,
-          message: 'Purchase successful!',
-          grantedGems: report.grantedGems,
-        ),
-      );
+      if (!reportTimedOut) {
+        _events.add(
+          BillingUiEvent(
+            kind: BillingUiEventKind.success,
+            productId: record.productId,
+            attemptId: record.attemptId,
+            message: 'Purchase successful!',
+            grantedGems: report.grantedGems,
+          ),
+        );
+      }
+      _refreshWalletInBackground();
     } else if (report.status == GemPurchaseReportStatus.accepted) {
-      if (reportTimedOut) return;
-      _events.add(
-        BillingUiEvent(
-          kind: BillingUiEventKind.accepted,
-          productId: record.productId,
-          attemptId: record.attemptId,
-          message:
-              'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
-        ),
-      );
+      if (!reportTimedOut) {
+        _events.add(
+          BillingUiEvent(
+            kind: BillingUiEventKind.accepted,
+            productId: record.productId,
+            attemptId: record.attemptId,
+            message:
+                'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
+          ),
+        );
+      }
     } else {
-      if (reportTimedOut) return;
-      _emitFailure(
-        record.productId,
-        record.attemptId,
-        'Purchase was refunded.',
-      );
+      if (!reportTimedOut) {
+        _emitFailure(
+          record.productId,
+          record.attemptId,
+          'Purchase was refunded.',
+        );
+      }
     }
     _trackFlowResultById(
       attemptId: record.attemptId,
@@ -750,19 +770,16 @@ class GooglePlayBillingService implements BillingService {
       status: report.status.name,
       source: source,
     );
+
+    _completedPurchaseKeys.add(record.key);
   }
 
-  Future<void> _completeAppStorePurchase(BillingPurchase? purchase) async {
-    if (purchase == null || purchase.provider != BillingProvider.appStore) {
-      return;
-    }
-    try {
-      await _platform.completePurchase(purchase);
-    } catch (error) {
-      // Server fulfillment is already durable; retry StoreKit finalization on
-      // the next callback/app start instead of reporting the purchase again.
-      debugPrint('[Billing][AppStore] purchase completion failed: $error');
-    }
+  void _refreshWalletInBackground() {
+    unawaited(
+      _refreshWallet().catchError((error, stackTrace) {
+        debugPrint('[Billing] wallet refresh failed after purchase: $error');
+      }),
+    );
   }
 
   Future<String> _resolveBillingAccountId() async {
