@@ -605,6 +605,7 @@ class GooglePlayBillingService implements BillingService {
     if (accountId.isEmpty || accountId != record.billingAccountId) return;
 
     if (record.status == BillingPendingPurchaseStatus.reported) {
+      await _completeAppStorePurchase(purchase);
       _completedPurchaseKeys.add(record.key);
       _cancelReportTimeout(record.key);
       _timedOutReportKeys.remove(record.key);
@@ -692,6 +693,7 @@ class GooglePlayBillingService implements BillingService {
       return;
     }
 
+    await _completeAppStorePurchase(purchase);
     _completedPurchaseKeys.add(record.key);
     final reportTimedOut = _timedOutReportKeys.remove(record.key);
     _cancelReportTimeout(record.key);
@@ -730,7 +732,7 @@ class GooglePlayBillingService implements BillingService {
           productId: record.productId,
           attemptId: record.attemptId,
           message:
-              'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+              'Payment received. Your Gems will be added shortly. Please check your balance again in a moment.',
         ),
       );
     } else {
@@ -748,6 +750,19 @@ class GooglePlayBillingService implements BillingService {
       status: report.status.name,
       source: source,
     );
+  }
+
+  Future<void> _completeAppStorePurchase(BillingPurchase? purchase) async {
+    if (purchase == null || purchase.provider != BillingProvider.appStore) {
+      return;
+    }
+    try {
+      await _platform.completePurchase(purchase);
+    } catch (error) {
+      // Server fulfillment is already durable; retry StoreKit finalization on
+      // the next callback/app start instead of reporting the purchase again.
+      debugPrint('[Billing][AppStore] purchase completion failed: $error');
+    }
   }
 
   Future<String> _resolveBillingAccountId() async {

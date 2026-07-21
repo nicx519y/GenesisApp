@@ -25,6 +25,8 @@ abstract interface class BillingPlatform {
     required String billingAccountId,
   });
 
+  Future<void> completePurchase(BillingPurchase purchase);
+
   Future<List<BillingPurchase>> queryPastPurchases({
     required String billingAccountId,
   });
@@ -189,6 +191,11 @@ class GooglePlayBillingPlatform implements BillingPlatform {
       throw const BillingPlatformException('purchase_rejected');
     }
     return true;
+  }
+
+  @override
+  Future<void> completePurchase(BillingPurchase purchase) async {
+    // Google purchase acknowledgement/consumption remains server-owned.
   }
 
   @override

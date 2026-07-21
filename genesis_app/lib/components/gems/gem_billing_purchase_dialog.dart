@@ -62,6 +62,7 @@ class GemBillingPurchaseDialog extends StatelessWidget {
   final VoidCallback onConfirm;
   static const double _processingHeight = 202;
   static const double _successContentHeight = 150;
+  static const double _titleHorizontalPadding = 24;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +75,7 @@ class GemBillingPurchaseDialog extends StatelessWidget {
           child: GenesisActionBox<bool>(
             title: '',
             titleHeight: isSuccess ? _successContentHeight : _processingHeight,
-            titleHorizontalPadding: isSuccess ? 0 : 18,
+            titleHorizontalPadding: _titleHorizontalPadding,
             titleWidget: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

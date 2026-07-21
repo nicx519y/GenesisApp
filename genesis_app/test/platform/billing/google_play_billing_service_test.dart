@@ -60,6 +60,9 @@ class _FakeBillingPlatform implements BillingPlatform {
   }
 
   @override
+  Future<void> completePurchase(BillingPurchase purchase) async {}
+
+  @override
   Future<List<BillingPurchase>> queryPastPurchases({
     required String billingAccountId,
   }) async => pastPurchases;

@@ -850,7 +850,7 @@ void main() {
 
     expect(
       find.text(
-        'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+        'Payment received. Your Gems will be added shortly. Please check your balance again in a moment.',
       ),
       findsOneWidget,
     );
@@ -860,7 +860,7 @@ void main() {
 
     expect(
       find.text(
-        'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+        'Payment received. Your Gems will be added shortly. Please check your balance again in a moment.',
       ),
       findsNothing,
     );
@@ -1630,7 +1630,7 @@ class _FakeBillingService implements BillingService {
         productId: 'gem_pack_500',
         attemptId: 'pay_test',
         message:
-            'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+            'Payment received. Your Gems will be added shortly. Please check your balance again in a moment.',
       ),
     );
   }
