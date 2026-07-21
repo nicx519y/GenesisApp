@@ -1590,16 +1590,12 @@ Future<ChatroomConnectionIdentity> _agentChatroomIdentity(
 ) async {
   final uid = (await services.sessionStore.readUid())?.trim() ?? '';
   final userInfo = await services.sessionStore.readUserInfo();
-  final profile = services.identityAuth.currentProfile();
   final senderId = _firstNonEmpty([
     uid,
     _jsonString(userInfo, const ['uid', 'id']),
-    profile?.uid,
     'local-user',
   ]);
   final senderName = _firstNonEmpty([
-    profile?.displayName,
-    profile?.email,
     _jsonString(userInfo, const ['display_name', 'nickname', 'name']),
     senderId == 'local-user'
         ? null

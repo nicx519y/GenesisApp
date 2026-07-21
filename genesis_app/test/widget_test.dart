@@ -30,6 +30,7 @@ import 'package:genesis_flutter_android/components/common/copyable_id_label.dart
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
+import 'package:genesis_flutter_android/components/bottom_tabs.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
@@ -343,27 +344,9 @@ class _FakeBillingService implements BillingService {
 }
 
 class _FakeIdentityAuthService implements IdentityAuthService {
-  const _FakeIdentityAuthService({
-    this.hasLocalSession = false,
-    this.signInSession,
-  });
+  const _FakeIdentityAuthService({this.signInSession});
 
-  final bool hasLocalSession;
   final AuthSession? signInSession;
-
-  @override
-  IdentityProfile? currentProfile() {
-    if (!hasLocalSession) return null;
-    return const IdentityProfile(
-      uid: 'identity_uid',
-      displayName: 'Identity User',
-      email: 'identity@example.com',
-      photoUrl: '',
-    );
-  }
-
-  @override
-  bool hasLocalIdentitySession() => hasLocalSession;
 
   @override
   Future<AuthSession?> refreshSilently() async => null;
@@ -375,9 +358,6 @@ class _FakeIdentityAuthService implements IdentityAuthService {
       return AuthSession(
         provider: provider,
         providerIdToken: session.providerIdToken,
-        firebaseIdToken: session.firebaseIdToken,
-        identityUid: session.identityUid,
-        email: session.email,
         displayName: session.displayName,
         photoUrl: session.photoUrl,
       );
@@ -429,7 +409,7 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
         _loginUser ??
         User(
           id: 1,
-          uid: session.identityUid,
+          uid: 'identity_uid',
           did: '',
           nickname: session.displayName,
           avatar: session.photoUrl,
@@ -4442,6 +4422,9 @@ void main() {
         ),
         findsNothing,
       );
+      final cachedFeedElement = tester.element(
+        find.byKey(const PageStorageKey<String>('home-feed-popular')),
+      );
       expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
       expect(runtimeInitialized, isFalse);
 
@@ -4457,6 +4440,12 @@ void main() {
       }
 
       expect(find.text('#iOS Cached Origin'), findsWidgets);
+      expect(
+        tester.element(
+          find.byKey(const PageStorageKey<String>('home-feed-popular')),
+        ),
+        same(cachedFeedElement),
+      );
       expect(runtimeInitialized, isTrue);
       expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
 
@@ -6828,7 +6817,7 @@ void main() {
       await tester.pumpWidget(
         GenesisApp(
           services: await _testServices(
-            identityAuth: const _FakeIdentityAuthService(hasLocalSession: true),
+            identityAuth: const _FakeIdentityAuthService(),
             backendAuth: backendAuth,
           ),
         ),
@@ -6919,6 +6908,7 @@ void main() {
       useMock: false,
       initialUid: 'u_cached',
       initialAuthToken: 'backend-token',
+      identityAuth: const _FakeIdentityAuthService(),
       initialUserInfo: {
         'uid': 'u_cached',
         'name': 'Cached User',
@@ -6933,6 +6923,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to continue'), findsNothing);
+    expect(find.text('Load failed'), findsNothing);
     expect(find.text('Cached User'), findsOneWidget);
     expect(find.text('11'), findsOneWidget);
     expect(backendAuth.sessionCheckCount, 0);
@@ -7647,9 +7638,6 @@ void main() {
             signInSession: AuthSession(
               provider: IdentityProvider.google,
               providerIdToken: 'google-token',
-              firebaseIdToken: 'firebase-token',
-              identityUid: 'identity_uid',
-              email: 'identity@example.com',
               displayName: 'Identity User',
               photoUrl: '',
             ),
@@ -7696,9 +7684,6 @@ void main() {
             signInSession: AuthSession(
               provider: IdentityProvider.google,
               providerIdToken: 'google-token',
-              firebaseIdToken: 'firebase-token',
-              identityUid: 'identity_uid',
-              email: 'identity@example.com',
               displayName: 'Identity User',
               photoUrl: '',
             ),
@@ -7722,7 +7707,7 @@ void main() {
     expect(backendAuth.loginCount, 1);
     expect(await sessionStore.readUid(), 'backend_uid');
 
-    await tester.tap(find.text('Me'));
+    tester.widget<BottomTabs>(find.byType(BottomTabs)).onTap(4);
     await tester.pumpAndSettle();
 
     expect(find.text('Continue with Google'), findsNothing);
@@ -7754,9 +7739,6 @@ void main() {
             signInSession: AuthSession(
               provider: IdentityProvider.apple,
               providerIdToken: 'apple-token',
-              firebaseIdToken: 'firebase-token',
-              identityUid: 'identity_uid',
-              email: 'identity@example.com',
               displayName: 'Identity User',
               photoUrl: '',
             ),
@@ -7795,9 +7777,6 @@ void main() {
             signInSession: AuthSession(
               provider: IdentityProvider.google,
               providerIdToken: 'google-token',
-              firebaseIdToken: 'firebase-token',
-              identityUid: 'identity_uid',
-              email: 'identity@example.com',
               displayName: 'Identity User',
               photoUrl: '',
             ),

@@ -141,7 +141,7 @@ class _MePageState extends State<MePage> {
   }
 
   Future<void> _loadRecentChatMarker() async {
-    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    final uid = await _readCurrentBackendUid();
     final record = await recentWorldChatStore.loadForUid(uid);
     if (!_canUpdateAsyncState) return;
     final nextWorldId = record?.uid == uid ? record?.worldId ?? '' : '';
@@ -176,18 +176,10 @@ class _MePageState extends State<MePage> {
     }
     final services = AppServicesScope.read(context);
     final api = services.api;
-    final profile = services.identityAuth.currentProfile();
-    final localUid = await _readCurrentBackendUid();
-    final displayName = (profile?.displayName ?? '').trim().isNotEmpty
-        ? profile!.displayName.trim()
-        : ((profile?.email ?? '').trim().isNotEmpty
-              ? profile!.email.trim()
-              : 'User');
-    final avatarUrl = (profile?.photoUrl ?? '').trim();
-    final profileUid = (profile?.uid ?? '').trim();
-    final uid = localUid.isNotEmpty ? localUid : profileUid;
+    final uid = await _readCurrentBackendUid();
+    const displayName = 'User';
     var resolvedDisplayName = displayName;
-    var resolvedAvatarUrl = avatarUrl;
+    var resolvedAvatarUrl = '';
     var resolvedFollowingCount = 0;
     var resolvedFollowerCount = 0;
 
@@ -476,11 +468,7 @@ class _MePageState extends State<MePage> {
       debugPrint('[MePage] current uid from sessionStore: $sessionUid');
       return sessionUid;
     }
-
-    final profileUid = (services.identityAuth.currentProfile()?.uid ?? '')
-        .trim();
-    debugPrint('[MePage] current uid from identity profile: $profileUid');
-    return profileUid;
+    return '';
   }
 
   Future<Map<String, dynamic>?> _fetchAndCacheUserInfo(

@@ -512,15 +512,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (!mounted) return null;
     final services = AppServicesScope.read(context);
     final userInfo = await services.sessionStore.readUserInfo();
-    final profile = services.identityAuth.currentProfile();
-    if ((userInfo == null || userInfo.isEmpty) && profile == null) {
+    if (userInfo == null || userInfo.isEmpty) {
       if (mounted) {
         showGenesisToast(context, 'No saved profile found');
       }
       return null;
     }
-    final cachedUser = userInfo ?? const <String, dynamic>{};
-    final profileAvatar = profile?.photoUrl.trim() ?? '';
+    final cachedUser = userInfo;
     final cachedName = _mapString(cachedUser, const [
       'name',
       'nickname',
@@ -528,14 +526,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       'displayName',
       'display_name',
     ]);
-    final profileName = (profile?.displayName.trim().isNotEmpty ?? false)
-        ? profile!.displayName.trim()
-        : (profile?.email.trim() ?? '');
-    final resolvedAvatar = _resolvedProfileAvatar(cachedUser, profileAvatar);
+    final resolvedAvatar = _resolvedProfileAvatar(cachedUser, '');
 
     return OriginCustomRoleDraft(
       avatarUrl: resolvedAvatar,
-      name: cachedName.isNotEmpty ? cachedName : profileName,
+      name: cachedName,
       identity: _mapString(cachedUser, const ['identity']),
       bio: _mapString(cachedUser, const ['bio', 'description']),
     );

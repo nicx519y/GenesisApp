@@ -649,26 +649,20 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final uid = (await services.sessionStore.readUid())?.trim() ?? '';
       final userInfo = await services.sessionStore.readUserInfo();
       final cachedUid = _mapString(userInfo, 'uid');
-      final profile = services.identityAuth.currentProfile();
       _myAvatarUrl = _resolvedProfileAvatar(
         userInfo ?? const <String, dynamic>{},
-        profile?.photoUrl ?? '',
+        '',
       );
-      final senderId = firstNonEmpty([
-        uid,
-        cachedUid,
-        profile?.uid,
-        'local-user',
-      ]);
+      final senderId = firstNonEmpty([uid, cachedUid, 'local-user']);
       final senderName = firstNonEmpty([
-        profile?.displayName,
-        profile?.email,
+        _mapString(userInfo, 'display_name'),
+        _mapString(userInfo, 'nickname'),
+        _mapString(userInfo, 'name'),
         formatUidForDisplay(uid),
         'Me',
       ]);
       _rememberMyUserId(uid);
       _rememberMyUserId(cachedUid);
-      _rememberMyUserId(profile?.uid);
       _rememberMyUserId(senderId);
       _rememberMySenderId(senderId);
       _mySenderName = senderName;
@@ -818,8 +812,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final userInfo = await services.sessionStore.readUserInfo();
       if (!_isCurrentService(service, generation)) return;
       final cachedUid = _mapString(userInfo, 'uid');
-      final profile = services.identityAuth.currentProfile();
-      final ownerUid = firstNonEmpty([uid, cachedUid, profile?.uid]);
+      final ownerUid = firstNonEmpty([uid, cachedUid]);
       if (ownerUid.isEmpty) {
         _logPanelMetric(
           'hydrateLocal skipped noOwner elapsed=${stopwatch?.elapsedMilliseconds}ms',
@@ -1550,18 +1543,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
     final userInfo = await services.sessionStore.readUserInfo();
     final cachedUid = _mapString(userInfo, 'uid');
-    final profile = services.identityAuth.currentProfile();
     final avatarUrl = _resolvedProfileAvatar(
       userInfo ?? const <String, dynamic>{},
-      profile?.photoUrl ?? '',
+      '',
     );
     final avatarChanged = avatarUrl != _myAvatarUrl;
     _myAvatarUrl = avatarUrl;
     final changed =
-        _rememberMyUserId(uid) |
-        _rememberMyUserId(cachedUid) |
-        _rememberMyUserId(profile?.uid) |
-        avatarChanged;
+        _rememberMyUserId(uid) | _rememberMyUserId(cachedUid) | avatarChanged;
     if (!changed || !mounted) return;
     final changedMessages = _reconcileMessages(
       _chatroomState.messagesByLocation[widget.locationId] ??

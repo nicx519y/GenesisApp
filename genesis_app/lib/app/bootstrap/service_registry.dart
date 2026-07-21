@@ -103,7 +103,8 @@ class ServiceRegistry {
     final deviceId = deviceIdOverride ?? const NativeDeviceIdService();
     final sessionStore = sessionStoreOverride ?? NativeUserSessionStore();
     final identityAuth =
-        identityAuthOverride ?? const FirebaseIdentityAuthService();
+        identityAuthOverride ??
+        ProviderIdentityAuthService(sessionStore: sessionStore);
     final sessionRevision = sessionRevisionOverride ?? ValueNotifier<int>(0);
     GemWalletStore? gemWalletStore;
     final startupNetworkGate =

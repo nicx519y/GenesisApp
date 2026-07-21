@@ -55,7 +55,7 @@ genesis_flutter_android/
         identity_auth_service.dart
         backend_auth_coordinator.dart
         auth_session.dart
-        google_firebase_auth_service.dart
+        provider_identity_auth_service.dart
   android/
   ios/
   assets/
@@ -83,7 +83,7 @@ Flutter/Dart 主源码目录。这里的代码默认应当是 **Android 和 iOS 
 
 - `MethodChannel`
 - `Platform.isAndroid` / `Platform.isIOS`
-- `firebase_auth` / `google_sign_in` 等 SDK 直接调用
+- `google_sign_in` / `sign_in_with_apple` 等 SDK 直接调用
 - `GenesisApi()` 随处直接构造
 
 这些应通过 `app/bootstrap/`、`app/config/`、`platform/` 中的边界来访问。
@@ -364,7 +364,7 @@ components/origin/*
 
 - 组件可以接收 callback、view model、service interface。
 - 组件不应直接 import `GoogleSignInService`、`UserSession`、`MethodChannel`。
-- `google_login_sheet.dart` 后续应依赖 `IdentityAuthService` 或由外层传入登录 action，而不是直接调用 Google/Firebase 实现。
+- 登录弹层应依赖 `IdentityAuthService` 或由外层传入登录 action，而不是直接调用 Google/Apple SDK 实现。
 
 ---
 
@@ -398,13 +398,13 @@ pages/chat/
 - 页面默认是 Android/iOS 共享的。
 - 页面不应直接依赖平台实现。
 - 页面不应直接调用 `MethodChannel`。
-- 页面不应直接 import `firebase_auth` / `google_sign_in`。
+- 页面不应直接 import `google_sign_in` / `sign_in_with_apple`。
 - 页面中的 `GenesisApi()` 直接构造后续应迁移到 `AppServicesScope`。
 
 典型改造方向：
 
 - `AppShellPage`：认证流程改为调用 `BackendAuthCoordinator` 和 `IdentityAuthService`。
-- `MePage`：不要直接读取 `FirebaseAuth.instance.currentUser`，改为 identity profile/service。
+- `MePage`：读取 Genesis session/cache，不直接读取第三方 provider profile。
 - `ChatPage`：不要直接读取 `UserSession` 或构造 `GenesisApi()`，改用 scoped services。
 - `Home/Search/Messages/World/Origin/Create`：API 调用从 `GenesisApi()` 迁到 scope 注入。
 
@@ -691,7 +691,7 @@ abstract interface class UserSessionStore {
 
 这里需要拆清楚三件事：
 
-1. Google/Firebase identity 登录
+1. Google/Apple identity 登录
 2. 后端 auth/session 绑定
 3. 本地 uid/session 存储
 
@@ -700,11 +700,9 @@ abstract interface class UserSessionStore {
 职责：
 
 - 定义登录后返回的共享 session DTO
-- 承接当前 `GoogleFirebaseSession` 字段：
-  - `googleIdToken`
-  - `firebaseIdToken`
-  - `firebaseUid`
-  - `email`
+- 承接 Google/Apple provider 字段：
+  - `provider`
+  - `providerIdToken`
   - `displayName`
   - `photoUrl`
 
@@ -714,21 +712,21 @@ abstract interface class UserSessionStore {
 
 ```dart
 abstract interface class IdentityAuthService {
-  bool hasLocalIdentitySession();
-  Future<AuthSession> signInWithGoogle();
+  Future<AuthSession> signIn(IdentityProvider provider);
   Future<AuthSession?> refreshSilently();
   Future<void> signOutIdentity();
 }
 ```
 
-它只处理平台 identity（Google/Apple/Firebase），不直接处理后端业务登录。
+它只处理平台 identity（Google/Apple），不直接处理后端业务登录。
 
-#### `google_firebase_auth_service.dart`
+#### `provider_identity_auth_service.dart`
 
 职责：
 
-- 包装当前 `GoogleSignInService`
-- 保留现有 Google/Firebase 登录行为
+- 包装 `GoogleSignInService` 和 `AppleSignInService`
+- 将 Google/Apple 原始 ID token 映射为共享 `AuthSession`
+- Google 可按缓存的 `login_provider` 静默恢复；Apple 会话失效后重新登录
 - Android diagnostics 仍可保留，但应在实现内部，不暴露给 UI 页面
 
 #### `backend_auth_coordinator.dart`
@@ -775,8 +773,8 @@ cd /Users/ionix/Works/GenesisApp/genesis_flutter_android
 # pages/components 不应 import 具体 platform 服务
 if grep -R "\.\./.*platform/\|\.\./\.\./.*platform/" -n lib/pages lib/components; then exit 1; fi
 
-# shared UI 不应直接 import Firebase/Google SDK 或当前 concrete auth service
-if grep -R "package:firebase_auth\|package:google_sign_in\|GoogleSignInService" -n lib/pages lib/components; then exit 1; fi
+# shared UI 不应直接 import Google/Apple SDK 或具体 auth service
+if grep -R "package:google_sign_in\|package:sign_in_with_apple\|GoogleSignInService\|AppleSignInService" -n lib/pages lib/components; then exit 1; fi
 
 # MethodChannel 应集中在 lib/platform/**
 if grep -R "MethodChannel" -n lib | grep -v "lib/platform/"; then exit 1; fi
