@@ -36,8 +36,22 @@ class GemWalletStore {
   ValueListenable<GemWalletState> get state => _state;
 
   int _requestGeneration = 0;
+  Future<void>? _refreshFuture;
 
-  Future<void> refresh() async {
+  Future<void> refresh() {
+    final inFlight = _refreshFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _refreshInternal();
+    late Future<void> trackedFuture;
+    trackedFuture = future.whenComplete(() {
+      if (identical(_refreshFuture, trackedFuture)) _refreshFuture = null;
+    });
+    _refreshFuture = trackedFuture;
+    return trackedFuture;
+  }
+
+  Future<void> _refreshInternal() async {
     final uid = await _readCurrentUid();
     if (uid.isEmpty || uid.startsWith('guest_')) {
       reset();
@@ -91,11 +105,13 @@ class GemWalletStore {
 
   void reset() {
     _requestGeneration += 1;
+    _refreshFuture = null;
     _state.value = const GemWalletState();
   }
 
   void dispose() {
     _requestGeneration += 1;
+    _refreshFuture = null;
     _state.dispose();
   }
 

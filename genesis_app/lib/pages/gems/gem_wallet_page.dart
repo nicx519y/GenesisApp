@@ -505,7 +505,8 @@ class _GemWalletPageState extends State<GemWalletPage>
         return;
       case BillingUiEventKind.success:
         _showBillingPurchaseSuccess(event);
-        unawaited(_refreshAll(silent: true));
+        unawaited(_refreshProducts(silent: true));
+        unawaited(_refreshTasks(silent: true));
         return;
       case BillingUiEventKind.accepted:
         _showBillingPurchaseAccepted(event);

@@ -718,7 +718,7 @@ void main() {
 
     expect(productsLoadCount, 2);
     expect(tasksLoadCount, 2);
-    expect(walletLoadCount, 2);
+    expect(walletLoadCount, 1);
     _expectGrantedSuccessDialog(tester);
     await tester.pump(const Duration(seconds: 3));
   });

@@ -184,7 +184,6 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
         return;
       case BillingUiEventKind.success:
         _showPurchaseSuccess(event);
-        unawaited(widget.walletStore.refresh());
         return;
       case BillingUiEventKind.accepted:
         _showPurchaseAccepted(event);
