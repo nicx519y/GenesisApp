@@ -1119,6 +1119,7 @@ class GooglePlayBillingService implements BillingService {
       'product_not_purchasable' => 'product_not_purchasable',
       'store_product_id_missing' => 'store_product_id_missing',
       'purchase_in_progress' => 'purchase_in_progress',
+      'unsupported_product_type' => 'unsupported_product_type',
       _ => null,
     };
   }

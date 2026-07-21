@@ -289,6 +289,35 @@ void main() {
     expect(failed.properties['reason'], 'launch_failed');
   });
 
+  test(
+    'unsupported product type is tracked before launching billing',
+    () async {
+      const subscriptionProduct = GemProduct(
+        productId: 'gem_subscription',
+        appleProductId: 'com.worldo.gems.subscription',
+        googleProductId: 'worldo_gems_subscription',
+        baseGems: 500,
+        bonusGems: 0,
+        priceCurrencyCode: 'USD',
+        priceAmount: 149,
+        canPurchase: true,
+        activityType: 'none',
+        billingType: 'subscription',
+      );
+
+      await service.purchaseGem(subscriptionProduct);
+      await _settle();
+
+      expect(platform.queryCount, 0);
+      expect(platform.buyCount, 0);
+      final failed = analytics.records.singleWhere(
+        (record) => record.action == 'purchase_failed',
+      );
+      expect(failed.properties['product_id'], 'gem_subscription');
+      expect(failed.properties['reason'], 'unsupported_product_type');
+    },
+  );
+
   test('local order write failure is tracked and blocks report', () async {
     pendingStore.failNextUpsert = true;
 
