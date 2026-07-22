@@ -216,6 +216,35 @@ void main() {
     );
   });
 
+  testWidgets('product without bonus keeps price close to amount', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 105,
+            height: 142,
+            child: GemProductCard(
+              product: _product(bonusGems: 0, canPurchase: false),
+              isBuying: false,
+              isPurchaseInProgress: false,
+              onPurchase: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final amountRect = tester.getRect(find.text('+500'));
+    final priceButtonRect = tester.getRect(
+      find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
+    );
+    final gap = priceButtonRect.top - amountRect.bottom;
+    expect(gap, greaterThanOrEqualTo(0));
+    expect(gap, lessThanOrEqualTo(6));
+  });
+
   testWidgets('other unavailable products remain greyed out', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -247,13 +276,14 @@ GemProduct _product({
   String activityColor = '',
   String priceCurrencyCode = 'USD',
   bool canPurchase = true,
+  int bonusGems = 50,
 }) {
   return GemProduct(
     productId: productId,
     appleProductId: 'com.worldo.gems.500',
     googleProductId: 'worldo_gems_500',
     baseGems: 500,
-    bonusGems: 50,
+    bonusGems: bonusGems,
     priceCurrencyCode: priceCurrencyCode,
     priceAmount: 149,
     canPurchase: canPurchase,

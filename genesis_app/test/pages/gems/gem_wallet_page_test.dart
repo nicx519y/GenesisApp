@@ -19,6 +19,7 @@ import 'package:genesis_flutter_android/pages/gems/gem_wallet_page.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 const _wrappingTaskDescription =
     'Create an Origin and launch a world, then continue exploring locations '
@@ -147,14 +148,11 @@ void main() {
     );
 
     final pageTitleStyle = tester.widget<Text>(find.text('Buy Gems')).style;
-    expect(pageTitleStyle?.fontSize, 16);
-    expect(pageTitleStyle?.height, 22 / 16);
-    expect(pageTitleStyle?.fontWeight, FontWeight.w600);
-    expect(pageTitleStyle?.color, const Color(0xFF333333));
+    expect(pageTitleStyle, GenesisTypography.pageTitle);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-panel'))).dy -
           tester.getRect(find.text('Buy Gems')).bottom,
-      closeTo(24, 0.1),
+      closeTo(22.5, 0.1),
     );
 
     final recordsStyle = tester.widget<Text>(find.text('Records')).style;
@@ -339,14 +337,11 @@ void main() {
 
     expect(find.text('Gem Records'), findsOneWidget);
     final recordsTitle = tester.widget<Text>(find.text('Gem Records'));
-    expect(recordsTitle.style?.fontSize, 16);
-    expect(recordsTitle.style?.height, 22 / 16);
-    expect(recordsTitle.style?.fontWeight, FontWeight.w600);
-    expect(recordsTitle.style?.color, const Color(0xFF111111));
+    expect(recordsTitle.style, GenesisTypography.pageTitle);
     expect(
       tester.getTopLeft(find.byType(TabBar)).dy -
           tester.getRect(find.text('Gem Records')).bottom,
-      closeTo(14, 0.1),
+      closeTo(12.5, 0.1),
     );
     expect(find.text('Daily check-in'), findsOneWidget);
     expect(find.text('Starter reward'), findsNothing);

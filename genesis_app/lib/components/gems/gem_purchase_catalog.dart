@@ -151,6 +151,8 @@ class GemProductCard extends StatelessWidget {
     final isNewUserProduct = product.productId.trim() == 'gem_pack_500';
     final isSoldOut = isNewUserProduct && !product.canPurchase;
     final tag = product.tagText;
+    final hasBonusGems = product.bonusGems > 0;
+    final priceButtonBottom = hasBonusGems ? 10.0 : 34.0;
     final defaultTagColor = isNewUserProduct
         ? const Color(0xFFE85C39)
         : const Color(0xFFB53B52);
@@ -249,7 +251,7 @@ class GemProductCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (product.bonusGems > 0)
+                  if (hasBonusGems)
                     Positioned(
                       top: 80,
                       bottom: 38,
@@ -274,7 +276,7 @@ class GemProductCard extends StatelessWidget {
                   Positioned(
                     left: 10,
                     right: 10,
-                    bottom: 10,
+                    bottom: priceButtonBottom,
                     height: 24,
                     child: Container(
                       key: ValueKey<String>(
