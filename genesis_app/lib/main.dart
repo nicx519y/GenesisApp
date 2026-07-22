@@ -9,6 +9,7 @@ import 'app/config/app_config.dart';
 import 'app/config/app_endpoint_overrides.dart';
 import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
+import 'app/telemetry/genesis_telemetry.dart';
 import 'components/common/genesis_modal_routes.dart';
 
 export 'app/genesis_app.dart';
@@ -30,6 +31,8 @@ Future<void> main() async {
   );
 
   void runGenesisApp() {
+    GenesisTelemetry.prepareCollect(appConfig);
+    AppStartupCoordinator.recordStartupFirstReport();
     final services = AppBootstrap.createInitialServices(config: appConfig);
     final initialIndexFuture = _resolveInitialBottomTab(services);
     AppStartupCoordinator.configure(startedAt: appStartedAt);

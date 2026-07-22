@@ -11,11 +11,15 @@ const commonFields = [
   ["Header", "X-Device-ID", "App 当前设备 ID", "否"],
   ["Header", "X-App-Version", "App version name", "否"],
   ["Header", "X-UID", "已登录用户 uid；未登录不传", "否"],
-  ["Body", "action_type", "pageview 或 event", "是"],
-  ["Body", "action", "页面名或事件名", "是"],
-  ["Body", "object1", "业务对象 ID / query，按具体统计项传", "是，非空才传"],
-  ["Body", "object2", "第二业务对象 ID / tickN，按具体统计项传", "是，非空才传"],
-  ["Body", "object3", "第三业务对象 ID，按具体统计项传", "是，非空才传"],
+  ["Header", "x-app-environment", "production 或 test", "否"],
+  ["Body", "events", "本次从本地队列领取的事件数组，最多 500 条", "是"],
+  ["Body", "events[].event_id", "客户端生成并在重试中保持不变的 UUID v4", "是"],
+  ["Body", "events[].action_type", "pageview、event 或 pay_event", "是"],
+  ["Body", "events[].action", "页面名或事件名", "是"],
+  ["Body", "events[].app_timestamp", "事件发生时的 Unix 毫秒时间戳", "是"],
+  ["Body", "events[].object1", "业务对象 ID / query；无值传空字符串", "是"],
+  ["Body", "events[].object2", "第二业务对象 ID / tickN；无值传空字符串", "是"],
+  ["Body", "events[].object3", "第三业务对象 ID；无值传空字符串", "是"],
   ["服务端", "IP address", "collect 服务端从请求来源 IP 获取", "否"],
   ["服务端", "created_at", "collect 服务端生成", "否"],
 ];
@@ -51,6 +55,7 @@ const pageViews = [
 
 const events = [
   ["统计", "加入场景", "方法", "action_type", "action", "object1", "object2", "object3", "参数值来源"],
+  ["startup_first_report", "Collect recorder 准备完成后立即记录，早于 runApp 和 GenesisTelemetry.initialize()", "GenesisTelemetry.collectLog", "event", "startup_first_report", "", "", "", "main.runGenesisApp / AppStartupCoordinator"],
   ["create_worldo_submit_start", "点击 Create 后，调用 create 接口前", "GenesisTelemetry.collectLog", "event", "create_worldo_submit_start", "", "", "", "此时还没有 oid，不传 object1"],
   ["create_worldo_submit_success", "create 接口返回 oid 后", "GenesisTelemetry.collectLog", "event", "create_worldo_submit_success", "oid", "", "", "CreateOriginResult.oid"],
   ["create_worldo_async_complete", "轮询 origin/info 确认完成后", "GenesisTelemetry.collectLog", "event", "create_worldo_async_complete", "oid", "", "", "OriginPendingSubmissionCoordinator completed outcome"],
@@ -133,7 +138,7 @@ writeSheet(workbook, "页面访问统计", pageViews, "PageViewStatsTable", [28,
 writeSheet(workbook, "行为统计", events, "BehaviorStatsTable", [30, 42, 28, 16, 32, 18, 18, 18, 52]);
 
 for (const [sheetName, range] of [
-  ["公共字段", "A1:D12"],
+  ["公共字段", `A1:D${commonFields.length}`],
   ["页面访问统计", `A1:I${pageViews.length}`],
   ["行为统计", `A1:I${events.length}`],
 ]) {
@@ -151,9 +156,9 @@ for (const [sheetName, range] of [
 
 const inspectCommon = await workbook.inspect({
   kind: "table",
-  range: "公共字段!A1:D12",
+  range: `公共字段!A1:D${commonFields.length}`,
   include: "values",
-  tableMaxRows: 12,
+  tableMaxRows: commonFields.length,
   tableMaxCols: 4,
 });
 console.log(inspectCommon.ndjson);

@@ -9,6 +9,7 @@ import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_ugc_text.dart';
 import '../create/create_origin_draft_store.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
@@ -219,7 +220,9 @@ class _EditOriginPageState extends State<EditOriginPage> {
       payload['deleted_char_ids'] = repository.deletedCharacterIds(draft);
       payload['deleted_location_ids'] = repository.deletedLocationIds(draft);
     }
-    payload['update_notes'] = _updateNotesController.text.trim();
+    payload['update_notes'] = normalizeGenesisUgcTextForSubmission(
+      _updateNotesController.text,
+    );
     GenesisTelemetry.collectLog(
       actionType: 'event',
       action: 'edit_worldo_submit_start',

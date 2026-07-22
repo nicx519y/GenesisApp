@@ -19,6 +19,25 @@ import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 
 void main() {
+  test('preserves returned UGC backslashes in posts and replies', () {
+    final page = OriginDiscussPage.fromJson({
+      'list': [
+        {
+          'comment': {'discuss_id': 'post-1', 'content': r'post\ncontent'},
+          'latest_replies': [
+            {'discuss_id': 'reply-1', 'content': r'reply\ncontent'},
+          ],
+        },
+      ],
+    });
+
+    expect(page.items.single.content, r'post\ncontent');
+    expect(
+      page.items.single.latestReplies.single['content'],
+      r'reply\ncontent',
+    );
+  });
+
   test('ignores first page completion after controller dispose', () async {
     final pageCompleter = Completer<OriginDiscussPage>();
     final controller = OriginDiscussListController()

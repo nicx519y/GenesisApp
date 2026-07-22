@@ -74,7 +74,7 @@ class AppStartupCoordinator {
       // remains enabled even when the user denies or cannot answer the prompt.
       trackingEnabled: true,
     );
-    _recordStartupFirstReport();
+    GenesisTelemetry.startCollectUploader();
     if (_telemetryLifecycleObserverAdded) return;
     _telemetryLifecycleObserverAdded = true;
     WidgetsBinding.instance.addObserver(
@@ -84,7 +84,7 @@ class AppStartupCoordinator {
     );
   }
 
-  static void _recordStartupFirstReport() {
+  static void recordStartupFirstReport() {
     if (_startupFirstReportRecorded) return;
     _startupFirstReportRecorded = true;
     GenesisTelemetry.collectLog(

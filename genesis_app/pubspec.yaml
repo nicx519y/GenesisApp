@@ -51,7 +51,6 @@ dependencies:
   url_launcher: ^6.3.1
   firebase_performance: ^0.11.4+3
   firebase_crashlytics: ^5.2.4
-  posthog_flutter: ^5.28.0
   in_app_purchase: ^3.3.0
   in_app_purchase_android: ^0.5.1
   in_app_purchase_platform_interface: ^1.4.1
@@ -61,8 +60,6 @@ dependency_overrides:
     path: third_party/firebase_performance
   in_app_purchase_android:
     path: third_party/in_app_purchase_android
-  posthog_flutter:
-    path: third_party/posthog_flutter
   sign_in_with_apple:
     path: third_party/sign_in_with_apple
   path_provider_foundation: 2.4.2
@@ -71,6 +68,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   file: ^7.0.1
+  sqflite_common_ffi: ^2.4.0+3
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

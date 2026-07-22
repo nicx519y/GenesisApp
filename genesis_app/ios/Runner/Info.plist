@@ -37,8 +37,6 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-		<key>com.posthog.posthog.AUTO_INIT</key>
-		<false/>
 		<key>FirebaseCrashlyticsCollectionEnabled</key>
 		<false/>
 		<key>FirebaseDataCollectionDefaultEnabled</key>

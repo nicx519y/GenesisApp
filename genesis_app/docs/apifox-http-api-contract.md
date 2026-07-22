@@ -15,6 +15,7 @@
 - Apifox notify 通知列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874828e0
 - Apifox notify 标记已读页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874829e0
 - Apifox search 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/465724653e0
+- Collect 客户端批量上报协议：当前 Flutter 实现
 - Report 提交举报：`/Users/ionix/Downloads/report.md`
 - Feedback 提交反馈：`/Users/ionix/Downloads/feedback.md`
 - Apifox chatroom 获取角色位置列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/470909609e0
@@ -34,7 +35,7 @@
 
 ## 总览
 
-本文档当前覆盖 48 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback` 和 `upload` 十二组：
+本文档当前覆盖 49 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -85,6 +86,7 @@
 | notify | POST | `/api/v1/message/read` | 标记非私信通知已读 |
 | report | POST | `/api/v1/report/create` | 提交举报 |
 | feedback | POST | `/api/v1/feedback/create` | 提交反馈 |
+| collect | POST | `https://collect.worldo.ai/api/v1/collect` | 批量提交客户端行为事件 |
 | upload | POST | `/api/v1/upload/image` | 上传图片到阿里云 OSS |
 
 所有 Apifox 200 响应都使用 envelope：
@@ -1542,6 +1544,61 @@ query：
 - `4004`：`content` 为空
 - `20901`：`content` 超过 1000 字符
 
+## Collect 接口
+
+### POST `https://collect.worldo.ai/api/v1/collect`
+
+批量提交客户端行为事件。客户端在事件发生时先写入独立 SQLite 队列；冷启动的 `startup_first_report` 在 Collect recorder 准备完成后立即记录，早于 `runApp` 和 `GenesisTelemetry.initialize()`。Telemetry 初始化完成后再由独立上传器消费；每次按 FIFO 最多领取 500 条，批次成功后删除，失败时整批恢复为待发送状态。
+
+请求 header 在实际上传时按当前上下文生成：
+
+- `X-Platform`: `android` 或 `ios`
+- `X-App-Version`: 当前 App version name
+- `x-app-environment`: `production` 或 `test`
+- `X-Device-ID`: 当前设备 ID；允许匿名事件明确省略
+- `X-UID`: 已登录用户 uid；未登录或允许匿名事件不传
+
+请求 body：
+
+- `events*`: array，本批事件，按本地入队顺序排列，最多 500 条
+- `events[].event_id*`: string，客户端生成的 UUID v4；重试保持不变，供服务端幂等去重
+- `events[].action_type*`: string，事件类型，例如 `pageview`、`event`、`pay_event`
+- `events[].action*`: string，页面名或事件名
+- `events[].app_timestamp*`: integer，事件发生时的本地 Unix 毫秒时间戳，不是上传时间
+- `events[].object1*`: string，第一个业务对象；无值传 `""`
+- `events[].object2*`: string，第二个业务对象；无值传 `""`
+- `events[].object3*`: string，第三个业务对象；无值传 `""`
+
+请求示例：
+
+```json
+{
+  "events": [
+    {
+      "event_id": "813b862f-e8c7-44a5-92ea-5fe5cb4df9ab",
+      "action_type": "pageview",
+      "action": "home_my_worlds",
+      "app_timestamp": 1784692855123,
+      "object1": "",
+      "object2": "",
+      "object3": ""
+    }
+  ]
+}
+```
+
+成功判定：HTTP 状态码为 2xx，且 JSON 响应中的 `err_no` 为数值 `0` 或字符串 `"0"`。非 2xx、超时、网络异常、无效 JSON 或非零 `err_no` 都视为整批失败，不支持单批部分成功。
+
+响应示例：
+
+```json
+{
+  "err_no": 0,
+  "err_msg": "succ",
+  "data": {}
+}
+```
+
 ## Upload 接口
 
 ### POST `/api/v1/upload/image`
@@ -1584,7 +1641,7 @@ query：
 
 ## 当前代码对齐状态
 
-截至 2026-06-18，本文档覆盖的 46 个接口已完成主要 HTTP 契约对齐；本次更新的 App 版本升级检查接口已按文档补齐当前封装、本地 mock 与测试：
+截至 2026-07-22，本文档覆盖的 49 个接口已完成主要 HTTP 契约对齐；Collect 已切换为 SQLite 持久化队列和 `events[]` 批量协议，其余接口继续按各自文档维护当前封装、本地 mock 与测试：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
