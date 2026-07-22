@@ -4443,8 +4443,6 @@ void main() {
               startupPlatform: TargetPlatform.iOS,
               initialTabIndex: HomePage.myWorldsTabIndex,
               initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: Duration.zero,
-              postSystemDialogResumeDelay: Duration.zero,
               primeNetworkPermission: (_) async => true,
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.notDetermined,
@@ -4525,8 +4523,6 @@ void main() {
             startupPlatform: TargetPlatform.iOS,
             initialTabIndex: HomePage.myWorldsTabIndex,
             initialRequestMetricWindow: Duration.zero,
-            networkPermissionDialogSettleTimeout: Duration.zero,
-            postSystemDialogResumeDelay: Duration.zero,
             primeNetworkPermission: (_) async => true,
             trackingAuthorizationStatus: () async =>
                 AppTrackingAuthorizationStatus.notDetermined,
@@ -4600,8 +4596,6 @@ void main() {
             startupPlatform: TargetPlatform.iOS,
             initialTabIndex: HomePage.myWorldsTabIndex,
             initialRequestMetricWindow: Duration.zero,
-            networkPermissionDialogSettleTimeout: Duration.zero,
-            postSystemDialogResumeDelay: Duration.zero,
             primeNetworkPermission: (_) async => true,
             trackingAuthorizationStatus: () async =>
                 AppTrackingAuthorizationStatus.notDetermined,
@@ -4660,62 +4654,56 @@ void main() {
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
   });
 
-  testWidgets(
-    'Home iOS startup gate requests ATT after network dialog resume',
-    (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport();
-      var networkPrimed = false;
-      var trackingRequested = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialAuthToken: 'backend-token',
-            ),
-            child: HomePage(
-              startupPlatform: TargetPlatform.iOS,
-              initialTabIndex: HomePage.myWorldsTabIndex,
-              initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: const Duration(seconds: 5),
-              postSystemDialogResumeDelay: Duration.zero,
-              primeNetworkPermission: (_) async {
-                networkPrimed = true;
-                return true;
-              },
-              trackingAuthorizationStatus: () async =>
-                  AppTrackingAuthorizationStatus.notDetermined,
-              requestTrackingAuthorization: () async {
-                trackingRequested = true;
-                return AppTrackingAuthorizationStatus.denied;
-              },
-              initializeRuntime:
-                  (services, trackingAuthorizationStatus) async {},
-            ),
+  testWidgets('Home iOS startup gate requests network after ATT completes', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    final networkPrime = Completer<bool>();
+    var networkPrimed = false;
+    var trackingRequested = false;
+    final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: HomePage(
+            startupPlatform: TargetPlatform.iOS,
+            initialTabIndex: HomePage.myWorldsTabIndex,
+            initialRequestMetricWindow: Duration.zero,
+            primeNetworkPermission: (_) {
+              networkPrimed = true;
+              return networkPrime.future;
+            },
+            trackingAuthorizationStatus: () async =>
+                AppTrackingAuthorizationStatus.notDetermined,
+            requestTrackingAuthorization: () {
+              trackingRequested = true;
+              return trackingAuthorization.future;
+            },
+            initializeRuntime: (services, trackingAuthorizationStatus) async {},
           ),
         ),
-      );
+      ),
+    );
 
-      await tester.pump();
-      await tester.pump();
+    await tester.pump();
+    await tester.pump();
 
-      expect(networkPrimed, isTrue);
-      expect(trackingRequested, isFalse);
+    expect(networkPrimed, isFalse);
+    expect(trackingRequested, isTrue);
 
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      await tester.pump();
+    trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
+    await tester.pump();
+    expect(trackingRequested, isTrue);
+    expect(networkPrimed, isTrue);
 
-      expect(trackingRequested, isFalse);
-
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      for (var i = 0; i < 10 && !trackingRequested; i += 1) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(trackingRequested, isTrue);
-    },
-  );
+    networkPrime.complete(true);
+    await tester.pump();
+  });
 
   testWidgets(
     'Home iOS startup gate renders cached popular before ATT completes',
@@ -4752,8 +4740,6 @@ void main() {
             child: HomePage(
               startupPlatform: TargetPlatform.iOS,
               initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: Duration.zero,
-              postSystemDialogResumeDelay: Duration.zero,
               primeNetworkPermission: (_) async => true,
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.notDetermined,
@@ -4834,8 +4820,6 @@ void main() {
             child: HomePage(
               startupPlatform: TargetPlatform.iOS,
               initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: Duration.zero,
-              postSystemDialogResumeDelay: Duration.zero,
               primeNetworkPermission: (_) async => true,
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.notDetermined,
@@ -4896,8 +4880,6 @@ void main() {
             child: HomePage(
               startupPlatform: TargetPlatform.iOS,
               initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: Duration.zero,
-              postSystemDialogResumeDelay: Duration.zero,
               primeNetworkPermission: (_) async => true,
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.authorized,

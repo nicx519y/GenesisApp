@@ -114,8 +114,6 @@ class HomePage extends StatefulWidget {
         AppTrackingTransparencyService.requestAuthorization,
     this.initializeRuntime = _initializeDefaultStartupRuntime,
     this.initialRequestMetricWindow = Duration.zero,
-    this.networkPermissionDialogSettleTimeout = Duration.zero,
-    this.postSystemDialogResumeDelay = Duration.zero,
   });
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
@@ -132,8 +130,6 @@ class HomePage extends StatefulWidget {
   final TrackingAuthorizationRequester requestTrackingAuthorization;
   final StartupRuntimeInitializer initializeRuntime;
   final Duration initialRequestMetricWindow;
-  final Duration networkPermissionDialogSettleTimeout;
-  final Duration postSystemDialogResumeDelay;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -223,9 +219,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       await _waitForAppResumed();
       if (!mounted) return;
-      await _primeNetworkPermissionThenWaitForSystemDialog(services);
-      if (!mounted) return;
       final trackingAuthorizationStatus = await _resolveTrackingAuthorization();
+      if (!mounted) return;
+      await _primeNetworkPermissionThenWaitForSystemDialog(services);
       if (!mounted) return;
       await WidgetsBinding.instance.endOfFrame;
       await widget
@@ -259,7 +255,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     await _waitForAppResumed();
     final requestedStatus = await widget.requestTrackingAuthorization();
-    await _waitForSystemDialogToClose();
+    // The native method completes after the ATT decision. If iOS has not
+    // delivered the resumed lifecycle event yet, keep the network step behind
+    // it instead of starting another permission flow under the system dialog.
+    await _waitForAppResumed();
     return requestedStatus;
   }
 
@@ -270,59 +269,42 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final inactiveCompleter = Completer<void>();
     _inactiveCompleter = inactiveCompleter;
     try {
+      final primeFuture =
+          Future<bool>.sync(
+            () => widget.primeNetworkPermission(services),
+          ).catchError((Object error, StackTrace stackTrace) {
+            debugPrint(
+              '[Home][StartupGate] network permission prime failed: $error',
+            );
+            debugPrint('[Home][StartupGate] stacktrace:\n$stackTrace');
+            return false;
+          });
+      final primeCompleted = Completer<void>();
       unawaited(
-        widget.primeNetworkPermission(services).catchError((
-          Object error,
-          StackTrace stackTrace,
-        ) {
-          debugPrint(
-            '[Home][StartupGate] network permission prime failed: $error',
-          );
-          debugPrint('[Home][StartupGate] stacktrace:\n$stackTrace');
-          return false;
+        primeFuture.whenComplete(() {
+          if (!primeCompleted.isCompleted) primeCompleted.complete();
         }),
       );
-      await _waitForNetworkPermissionDialogToSettle();
+
+      // Continue as soon as the network probe finishes when no system dialog
+      // was shown. If iOS transitions to inactive first, wait for both the
+      // probe and the resumed lifecycle event so ATT cannot overlap it.
+      await Future.any<void>([primeCompleted.future, inactiveCompleter.future]);
+      if (inactiveCompleter.isCompleted) {
+        await Future.wait<void>([primeCompleted.future, _waitForAppResumed()]);
+      } else {
+        // Let a lifecycle transition already queued by iOS be delivered.
+        await WidgetsBinding.instance.endOfFrame;
+        if (inactiveCompleter.isCompleted) {
+          await _waitForAppResumed();
+        }
+      }
     } finally {
       _watchingNetworkPermissionDialog = false;
       if (identical(_inactiveCompleter, inactiveCompleter)) {
         _inactiveCompleter = null;
       }
     }
-  }
-
-  Future<void> _waitForNetworkPermissionDialogToSettle() async {
-    final inactiveCompleter = _inactiveCompleter ?? Completer<void>();
-    _inactiveCompleter = inactiveCompleter;
-    final timeout = widget.networkPermissionDialogSettleTimeout;
-    if (timeout <= Duration.zero) {
-      // Give the platform one frame to report a real system-dialog transition,
-      // without imposing a fixed delay when no dialog was shown.
-      await WidgetsBinding.instance.endOfFrame;
-      if (!inactiveCompleter.isCompleted) return;
-    } else {
-      final inactiveObserved = await inactiveCompleter.future
-          .then((_) => true)
-          .timeout(timeout, onTimeout: () => false);
-      if (!inactiveObserved) return;
-    }
-    await _waitForAppResumed();
-    await _waitAfterSystemDialogResume();
-  }
-
-  Future<void> _waitForSystemDialogToClose() async {
-    await _waitAfterSystemDialogResume();
-    if (_lifecycleState == AppLifecycleState.resumed ||
-        _lifecycleState == null) {
-      return;
-    }
-    final completer = _resumedCompleter ?? Completer<void>();
-    _resumedCompleter = completer;
-    await completer.future.timeout(
-      const Duration(seconds: 30),
-      onTimeout: () {},
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 150));
   }
 
   Future<void> _waitForAppResumed() async {
@@ -332,16 +314,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     final completer = _resumedCompleter ?? Completer<void>();
     _resumedCompleter = completer;
-    await completer.future.timeout(
-      const Duration(seconds: 30),
-      onTimeout: () {},
-    );
-  }
-
-  Future<void> _waitAfterSystemDialogResume() async {
-    final delay = widget.postSystemDialogResumeDelay;
-    if (delay <= Duration.zero) return;
-    await Future<void>.delayed(delay);
+    await completer.future;
   }
 
   Future<int> _initialTabIndexFromSession() async {
