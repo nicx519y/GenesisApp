@@ -62,7 +62,8 @@ class GemBillingPurchaseDialog extends StatelessWidget {
       builder: (context, value, _) {
         final isSuccess = value.phase == GemBillingPurchaseDialogPhase.success;
         return PopScope(
-          canPop: isSuccess,
+          // The purchase result must be acknowledged explicitly with OK.
+          canPop: false,
           child: GenesisActionBox<bool>(
             title: '',
             titleHeight: isSuccess ? _successContentHeight : _processingHeight,
