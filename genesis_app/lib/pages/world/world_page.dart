@@ -770,16 +770,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final cachedUid = userInfo == null
         ? ''
         : worldMapString(userInfo, const ['uid']);
-    final profile = services.identityAuth.currentProfile();
-    final senderId = worldFirstNonEmpty([
-      uid,
-      cachedUid,
-      profile?.uid,
-      'local-user',
-    ]);
+    final senderId = worldFirstNonEmpty([uid, cachedUid, 'local-user']);
     final senderName = worldFirstNonEmpty([
-      profile?.displayName,
-      profile?.email,
+      worldMapString(userInfo ?? const <String, dynamic>{}, const [
+        'display_name',
+        'nickname',
+        'name',
+      ]),
       formatUidForDisplay(uid),
       'Me',
     ]);
@@ -1054,6 +1051,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 kind: GemBalanceAlertKind.insufficient,
                 message: error is ApiException ? error.message : '',
               ),
+              analyticsTrigger: gemPurchaseSheetTriggerTick,
             ),
           );
           return;
@@ -1306,15 +1304,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!mounted) return null;
     final services = AppServicesScope.read(context);
     final userInfo = await services.sessionStore.readUserInfo();
-    final profile = services.identityAuth.currentProfile();
-    if ((userInfo == null || userInfo.isEmpty) && profile == null) {
+    if (userInfo == null || userInfo.isEmpty) {
       if (mounted) {
         showGenesisToast(context, 'No saved profile found');
       }
       return null;
     }
-    final cachedUser = userInfo ?? const <String, dynamic>{};
-    final profileAvatar = profile?.photoUrl.trim() ?? '';
+    final cachedUser = userInfo;
     final cachedName = worldMapString(cachedUser, const [
       'name',
       'nickname',
@@ -1322,12 +1318,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'displayName',
       'display_name',
     ]);
-    final profileName = (profile?.displayName.trim().isNotEmpty ?? false)
-        ? profile!.displayName.trim()
-        : (profile?.email.trim() ?? '');
     return OriginCustomRoleDraft(
-      avatarUrl: worldResolvedProfileAvatar(cachedUser, profileAvatar),
-      name: cachedName.isNotEmpty ? cachedName : profileName,
+      avatarUrl: worldResolvedProfileAvatar(cachedUser, ''),
+      name: cachedName,
       identity: worldMapString(cachedUser, const ['identity']),
       bio: worldMapString(cachedUser, const ['bio', 'description']),
     );

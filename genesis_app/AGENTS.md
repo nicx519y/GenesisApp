@@ -28,7 +28,7 @@ GenesisApp 是 Flutter App，入口在 `lib/main.dart`。`AppBootstrap.initializ
 - `lib/pages/`：页面级业务逻辑。页面负责拉取/组合数据、导航、刷新、分页和本页面状态。
 - `lib/components/`：跨页面 UI 组件。共享样式、弹窗、头像、地图、聊天 UI、讨论列表等应改这里，避免页面局部复制。
 - `lib/network/`：HTTP client、Genesis API facade、V1 API resource、chatroom WebSocket/HTTP、mock transport、SQLite 缓存和网络模型。
-- `lib/platform/`：设备 ID、session store、Google/Apple/Firebase 登录、原生图片选择等平台能力。
+- `lib/platform/`：设备 ID、session store、Google/Apple 登录、原生图片选择等平台能力。
 - `lib/utils/`：图片资源选择、上传图片处理、显示名、相对时间、数字格式化等纯工具。
 - `lib/ui/`：主题和基础 UI token。
 - `assets/`：静态图片、自定义图标 png/svg/font。

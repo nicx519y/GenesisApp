@@ -309,6 +309,66 @@ void main() {
     expect(tasks.groups.single.tasks.single.actionText, 'Go');
   });
 
+  test('v1 unread summary coalesces concurrent requests', () async {
+    final unreadCompleter = Completer<TransportResponse>();
+    var unreadResponseCount = 0;
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        if (request.uri.path == '/api/v1/message/unread') {
+          unreadResponseCount += 1;
+          if (unreadResponseCount == 1) return unreadCompleter.future;
+        }
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":0,"err_msg":"succ","data":{"world_apply_unread":1,"follow_unread":1,"interaction_unread":1,"direct_message_unread":1,"total_unread":4}}',
+        );
+      },
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final first = api.v1.messages.unreadSummary();
+    final second = api.v1.messages.unreadSummary();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      apiTransport.requests
+          .where((request) => request.uri.path == '/api/v1/message/unread')
+          .length,
+      1,
+    );
+
+    unreadCompleter.complete(
+      const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"world_apply_unread":1,"follow_unread":1,"interaction_unread":1,"direct_message_unread":1,"total_unread":4}}',
+      ),
+    );
+    final summaries = await Future.wait([first, second]);
+    expect(summaries.map((summary) => summary.totalUnread), [4, 4]);
+
+    await api.v1.messages.unreadSummary();
+
+    expect(
+      apiTransport.requests
+          .where((request) => request.uri.path == '/api/v1/message/unread')
+          .length,
+      2,
+    );
+  });
+
   test('v1 gem wallet parses the server balance', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -2079,6 +2139,7 @@ void main() {
           if (request.uri.path.endsWith('/v1/user/oauth/google')) {
             final body =
                 jsonDecode(utf8.decode(request.bodyBytes ?? const [])) as Map;
+            expect(body.keys.toSet(), {'id_token', 'name', 'avatar'});
             expect(body['id_token'], 'google-token');
             expect(body['name'], 'Neo');
             expect(body['avatar'], 'https://cdn/neo.png');
@@ -2128,6 +2189,7 @@ void main() {
         if (request.uri.path.endsWith('/v1/user/oauth/apple')) {
           final body =
               jsonDecode(utf8.decode(request.bodyBytes ?? const [])) as Map;
+          expect(body.keys.toSet(), {'id_token', 'name', 'avatar'});
           expect(body['id_token'], 'apple-token');
           expect(body.containsKey('firebase_id_token'), isFalse);
           expect(body['name'], 'Ava');
@@ -2157,9 +2219,6 @@ void main() {
       const AuthSession(
         provider: IdentityProvider.apple,
         providerIdToken: 'apple-token',
-        firebaseIdToken: 'firebase-token',
-        identityUid: 'firebase-uid',
-        email: 'ava@example.com',
         displayName: 'Ava',
         photoUrl: '',
       ),
@@ -2168,7 +2227,131 @@ void main() {
     expect(await sessionStore.readUid(), 'apple_uid');
     expect(await sessionStore.readAuthToken(), 'apple-backend-token');
     expect(await sessionStore.readUserInfo(), containsPair('uid', 'apple_uid'));
+    expect(
+      await sessionStore.readUserInfo(),
+      containsPair('login_provider', 'apple'),
+    );
   });
+
+  test(
+    'expired Google session silently reuses the original OAuth endpoint',
+    () async {
+      var userInfoCount = 0;
+      final apiTransport = _FakeTransport(
+        handler: (request) {
+          if (request.uri.path.endsWith('/v1/user/info')) {
+            userInfoCount += 1;
+            if (userInfoCount == 1) {
+              return const TransportResponse(
+                statusCode: 401,
+                headers: {'content-type': 'application/json'},
+                body: '{"err_no":401,"err_msg":"expired","data":{}}',
+              );
+            }
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body:
+                  '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_google"}}}',
+            );
+          }
+          if (request.uri.path.endsWith('/v1/user/oauth/google')) {
+            final body =
+                jsonDecode(utf8.decode(request.bodyBytes ?? const [])) as Map;
+            expect(body.keys.toSet(), {'id_token', 'name', 'avatar'});
+            expect(body['id_token'], 'refreshed-google-token');
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body:
+                  '{"err_no":0,"err_msg":"succ","data":{"token":"new-backend-token","user":{"uid":"u_google"}}}',
+            );
+          }
+          return const TransportResponse(
+            statusCode: 404,
+            headers: {'content-type': 'application/json'},
+            body: '{"error":"not_found"}',
+          );
+        },
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_google');
+      await sessionStore.saveAuthToken('expired-backend-token');
+      await sessionStore.saveUserInfo({
+        'uid': 'u_google',
+        'login_provider': 'google',
+      });
+      final identityAuth = _FakeIdentityAuthService(
+        refreshSession: const AuthSession(
+          provider: IdentityProvider.google,
+          providerIdToken: 'refreshed-google-token',
+          displayName: 'Google User',
+          photoUrl: '',
+        ),
+      );
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: identityAuth,
+      );
+
+      expect(await api.hasAuthenticatedSession(), isTrue);
+      expect(identityAuth.refreshCount, 1);
+      expect(await sessionStore.readAuthToken(), 'new-backend-token');
+      expect(
+        await sessionStore.readUserInfo(),
+        containsPair('login_provider', 'google'),
+      );
+      expect(
+        apiTransport.requests.where(
+          (request) => request.uri.path.endsWith('/v1/user/oauth/google'),
+        ),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'expired Apple session clears local state without OAuth fallback',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 401,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":401,"err_msg":"expired","data":{}}',
+        ),
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_apple');
+      await sessionStore.saveAuthToken('expired-backend-token');
+      await sessionStore.saveUserInfo({
+        'uid': 'u_apple',
+        'login_provider': 'apple',
+      });
+      final identityAuth = _FakeIdentityAuthService();
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: identityAuth,
+      );
+
+      expect(await api.hasAuthenticatedSession(), isFalse);
+      expect(identityAuth.refreshCount, 1);
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
+      expect(
+        apiTransport.requests.where(
+          (request) => request.uri.path.contains('/v1/user/oauth/'),
+        ),
+        isEmpty,
+      );
+    },
+  );
 
   test(
     'loginWithIdentity does not persist uid when backend omits user id',
@@ -2203,9 +2386,6 @@ void main() {
           const AuthSession(
             provider: IdentityProvider.apple,
             providerIdToken: 'apple-token',
-            firebaseIdToken: 'firebase-token',
-            identityUid: 'firebase-uid',
-            email: 'ava@example.com',
             displayName: 'Ava',
             photoUrl: '',
           ),
@@ -2258,9 +2438,6 @@ void main() {
           const AuthSession(
             provider: IdentityProvider.google,
             providerIdToken: 'google-token',
-            firebaseIdToken: 'firebase-token',
-            identityUid: 'firebase-uid',
-            email: 'user@example.com',
             displayName: 'User',
             photoUrl: '',
           ),
@@ -3259,16 +3436,17 @@ class _TestDeviceIdService implements DeviceIdService {
 }
 
 class _FakeIdentityAuthService implements IdentityAuthService {
+  _FakeIdentityAuthService({this.refreshSession});
+
+  final AuthSession? refreshSession;
   int signOutCount = 0;
+  int refreshCount = 0;
 
   @override
-  IdentityProfile? currentProfile() => null;
-
-  @override
-  bool hasLocalIdentitySession() => false;
-
-  @override
-  Future<AuthSession?> refreshSilently() async => null;
+  Future<AuthSession?> refreshSilently() async {
+    refreshCount += 1;
+    return refreshSession;
+  }
 
   @override
   Future<AuthSession> signIn(IdentityProvider provider) {

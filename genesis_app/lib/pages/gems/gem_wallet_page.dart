@@ -7,7 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/debug_page_tracker.dart';
+import '../../app/gems/gem_task_analytics.dart';
 import '../../app/gems/gem_wallet_store.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/gems/daily_check_in_dialog.dart';
@@ -101,6 +103,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   final Map<String, String> _taskStatusOverrides = <String, String>{};
   final ValueNotifier<BillingState> _idleBillingState =
       ValueNotifier<BillingState>(BillingState());
+  late final String _payTrackPageId = newBillingTrackPageId();
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
   bool _billingPurchaseDialogDismissing = false;
@@ -109,6 +112,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _trackBuyGemsPageView();
     unawaited(_refreshAll());
   }
 
@@ -149,10 +153,19 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   @override
   void didPopNext() {
-    unawaited(_refreshAll(silent: _hasPageData));
+    // Do not refresh Gems data when an overlay route is dismissed.
   }
 
   bool get _hasPageData => _products != null || _taskGroups != null;
+
+  void _trackBuyGemsPageView() {
+    GenesisTelemetry.collectLog(
+      actionType: 'pay_event',
+      action: 'buy_page_show',
+      object1: BillingPurchaseSource.buyGemsPage.value,
+      object2: billingPageTrackId(_payTrackPageId),
+    );
+  }
 
   Future<void> _refreshAll({bool silent = false}) async {
     unawaited(_walletStore.refresh());
@@ -366,6 +379,9 @@ class _GemWalletPageState extends State<GemWalletPage>
         );
         return;
       }
+      if (isDailyCheckIn && claimingDailyReward) {
+        trackGemTaskClaimedIfNeeded(taskCode: taskCode, status: result.status);
+      }
       setState(() => _taskStatusOverrides[taskCode] = result.status);
       if (isDailyCheckIn && mounted) {
         final successDialog = showDailyCheckInSuccessDialog(
@@ -403,6 +419,7 @@ class _GemWalletPageState extends State<GemWalletPage>
         showGenesisToast(context, 'Claim failed.');
         return;
       }
+      trackGemTaskClaimedIfNeeded(taskCode: taskCode, status: result.status);
       setState(() => _taskStatusOverrides[taskCode] = result.status);
       final successDialog = taskCode == dailyCheckInTaskCode
           ? showDailyCheckInSuccessDialog(context, rewardGems: rewardGems)
@@ -459,7 +476,11 @@ class _GemWalletPageState extends State<GemWalletPage>
     if (service.state.value.hasBusyPurchase) return;
     _showBillingPurchaseProcessing();
     try {
-      await service.purchaseGem(product);
+      await service.purchaseGem(
+        product,
+        source: BillingPurchaseSource.buyGemsPage,
+        payTrackId: billingPurchaseTrackId(_payTrackPageId),
+      );
     } catch (_) {
       if (!mounted) return;
       _dismissBillingPurchaseDialog();
@@ -482,7 +503,8 @@ class _GemWalletPageState extends State<GemWalletPage>
         return;
       case BillingUiEventKind.success:
         _showBillingPurchaseSuccess(event);
-        unawaited(_refreshAll(silent: true));
+        unawaited(_refreshProducts(silent: true));
+        unawaited(_refreshTasks(silent: true));
         return;
       case BillingUiEventKind.accepted:
         // Accepted is an internal settlement state. Keep the user-facing

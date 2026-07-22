@@ -396,8 +396,13 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   Widget _buildTabSlot(int index) {
-    if (!_visitedTabIndexes.contains(index)) {
+    final shouldBuildIosStartupHome =
+        defaultTargetPlatform == TargetPlatform.iOS && index == 0;
+    if (!_visitedTabIndexes.contains(index) && !shouldBuildIosStartupHome) {
       return const SizedBox.shrink();
+    }
+    if (!_visitedTabIndexes.contains(index) && shouldBuildIosStartupHome) {
+      return const HomePage(startupOnly: true);
     }
     switch (index) {
       case 0:

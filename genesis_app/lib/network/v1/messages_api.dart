@@ -2,7 +2,9 @@ import '../models/unread_summary.dart';
 import 'v1_api_resource.dart';
 
 class MessagesV1Api extends V1ApiResource {
-  const MessagesV1Api(super.client);
+  MessagesV1Api(super.client);
+
+  Future<UnreadSummary>? _unreadSummaryInFlight;
 
   /// GET /api/v1/message/unread
   ///
@@ -12,7 +14,20 @@ class MessagesV1Api extends V1ApiResource {
   /// ```json
   /// {"err_no":0,"err_msg":"succ","data":{"total_unread":12,"world_apply_unread":2,"follow_unread":3,"interaction_unread":4,"direct_message_unread":3}}
   /// ```
-  Future<UnreadSummary> unreadSummary() async {
+  Future<UnreadSummary> unreadSummary() {
+    final inFlight = _unreadSummaryInFlight;
+    if (inFlight != null) return inFlight;
+    late final Future<UnreadSummary> request;
+    request = _fetchUnreadSummary().whenComplete(() {
+      if (identical(_unreadSummaryInFlight, request)) {
+        _unreadSummaryInFlight = null;
+      }
+    });
+    _unreadSummaryInFlight = request;
+    return request;
+  }
+
+  Future<UnreadSummary> _fetchUnreadSummary() async {
     return UnreadSummary.fromJson(await getMap('message/unread'));
   }
 

@@ -7,7 +7,7 @@ enum WorldBottomSheetKind { detail, locations, events, status, cast }
 
 String worldBottomSheetPageName(WorldBottomSheetKind kind) {
   return switch (kind) {
-    WorldBottomSheetKind.detail => 'world_detail',
+    WorldBottomSheetKind.detail => 'world_detail_shell',
     WorldBottomSheetKind.locations => 'world_locations',
     WorldBottomSheetKind.events => 'world_events',
     WorldBottomSheetKind.status => 'world_status',

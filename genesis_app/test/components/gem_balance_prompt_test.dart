@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/gems/gem_balance_prompt.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
@@ -14,9 +15,13 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 
 void main() {
+  tearDown(GenesisTelemetry.resetForTesting);
+
   testWidgets('insufficient balance opens the purchase bottom sheet', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     final fixture = _PromptFixture();
     addTearDown(fixture.dispose);
     await _pumpPrompt(
@@ -76,11 +81,14 @@ void main() {
       find.byKey(const ValueKey<String>('gem-purchase-sheet-size')),
     );
     expect(sheet.heightFactor, 0.8);
+    _expectSheetShowEvent(telemetry, gemPurchaseSheetTriggerMessageNoBalance);
   });
 
   testWidgets('low balance uses the same purchase sheet with low copy', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     final fixture = _PromptFixture();
     addTearDown(fixture.dispose);
     await _pumpPrompt(
@@ -91,6 +99,25 @@ void main() {
 
     expect(find.text(lowGemBalancePrompt), findsOneWidget);
     expect(find.text('+550'), findsOneWidget);
+    _expectSheetShowEvent(telemetry, gemPurchaseSheetTriggerMessageLowBalance);
+  });
+
+  testWidgets('tick balance prompt reports tick purchase sheet trigger', (
+    tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    final fixture = _PromptFixture();
+    addTearDown(fixture.dispose);
+    await _pumpPrompt(
+      tester,
+      const GemBalanceAlert(kind: GemBalanceAlertKind.insufficient),
+      fixture,
+      analyticsTrigger: gemPurchaseSheetTriggerTick,
+    );
+
+    expect(find.text(insufficientGemBalancePrompt), findsOneWidget);
+    _expectSheetShowEvent(telemetry, gemPurchaseSheetTriggerTick);
   });
 
   testWidgets('purchase sheet uses the standard bottom safe area', (
@@ -118,6 +145,8 @@ void main() {
   testWidgets('purchase sheet starts one purchase and closes on success', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     final fixture = _PromptFixture(
       products: [_product('gem_pack_500'), _product('gem_pack_1100')],
     );
@@ -135,6 +164,24 @@ void main() {
 
     expect(fixture.billing.purchasedProducts, hasLength(1));
     expect(fixture.billing.purchasedProducts.single.productId, 'gem_pack_500');
+    expect(fixture.billing.purchaseSources, [
+      BillingPurchaseSource.buyGemsSheet,
+    ]);
+    final showEvent = telemetry.events.singleWhere(
+      (event) =>
+          event.category == 'collect.log' && event.name == 'buy_page_show',
+    );
+    expect(fixture.billing.purchaseTrackIds, hasLength(1));
+    final showMatch = RegExp(
+      r'^track_id_([^_]+)$',
+    ).firstMatch('${showEvent.data['object2']}');
+    final purchaseMatch = RegExp(
+      r'^track_id_([^_]+)_([^_]+)$',
+    ).firstMatch(fixture.billing.purchaseTrackIds.single);
+    expect(showMatch, isNotNull);
+    expect(purchaseMatch, isNotNull);
+    expect(purchaseMatch!.group(1), showMatch!.group(1));
+    expect(purchaseMatch.group(2), isNotEmpty);
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
       find.descendant(
@@ -179,6 +226,7 @@ Future<void> _pumpPrompt(
   WidgetTester tester,
   GemBalanceAlert alert,
   _PromptFixture fixture, {
+  String? analyticsTrigger,
   double bottomViewPadding = 0,
 }) async {
   tester.view.viewPadding = FakeViewPadding(
@@ -193,6 +241,7 @@ Future<void> _pumpPrompt(
             onPressed: () => showGemBalancePrompt(
               context,
               alert,
+              analyticsTrigger: analyticsTrigger,
               productsLoader: () async => fixture.products,
               walletStore: fixture.walletStore,
               billingService: fixture.billing,
@@ -205,6 +254,42 @@ Future<void> _pumpPrompt(
   );
   await tester.tap(find.text('Show prompt'));
   await tester.pumpAndSettle();
+}
+
+void _expectSheetShowEvent(_CapturingTelemetrySink telemetry, String trigger) {
+  final events = telemetry.events
+      .where(
+        (event) =>
+            event.category == 'collect.log' && event.name == 'buy_page_show',
+      )
+      .toList();
+  expect(events, hasLength(1));
+  expect(events.single.data['action_type'], 'pay_event');
+  expect(events.single.data['action'], 'buy_page_show');
+  expect(events.single.data['object1'], 'buy_gems_sheet');
+  expect(events.single.data['object2'], isA<String>());
+  final trackId = '${events.single.data['object2']}';
+  final match = RegExp(r'^track_id_([^_]+)$').firstMatch(trackId);
+  expect(match, isNotNull);
+  expect(events.single.data['object3'], trigger);
+}
+
+class _CapturingTelemetrySink implements GenesisTelemetrySink {
+  final events = <GenesisTelemetryEvent>[];
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    events.add(event);
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {}
+
+  @override
+  Future<void> setUserId(String? uid) async {}
 }
 
 class _PromptFixture {
@@ -232,6 +317,8 @@ class _FakeBillingService implements BillingService {
   final StreamController<BillingUiEvent> _events =
       StreamController<BillingUiEvent>.broadcast();
   final List<GemProduct> purchasedProducts = <GemProduct>[];
+  final List<BillingPurchaseSource> purchaseSources = <BillingPurchaseSource>[];
+  final List<String> purchaseTrackIds = <String>[];
 
   @override
   Stream<BillingUiEvent> get events => _events.stream;
@@ -240,9 +327,15 @@ class _FakeBillingService implements BillingService {
   ValueListenable<BillingState> get state => _state;
 
   @override
-  Future<void> purchaseGem(GemProduct product) async {
+  Future<void> purchaseGem(
+    GemProduct product, {
+    BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
+    String payTrackId = '',
+  }) async {
     if (_state.value.hasBusyPurchase) return;
     purchasedProducts.add(product);
+    purchaseSources.add(source);
+    purchaseTrackIds.add(payTrackId);
     _state.value = BillingState(
       storeAvailable: true,
       busyProductIds: <String>{product.productId},

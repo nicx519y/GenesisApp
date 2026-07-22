@@ -51,6 +51,7 @@ Future<void> _waitHomeInitialRequestMetricWindow(Duration delay) async {
 }
 
 const Duration _homeInitialNetworkRetryDelay = Duration(seconds: 2);
+const Duration _startupInitializationTimeout = Duration(seconds: 5);
 
 bool _isNetworkLikeHomeError(Object error) {
   if (error is ApiException) {
@@ -72,7 +73,9 @@ Future<void> _initializeDefaultStartupRuntime(
   AppServices services,
   AppTrackingAuthorizationStatus trackingAuthorizationStatus,
 ) async {
-  await AppBootstrap.ensureFirebasePerformanceMonitoring();
+  // Firebase performance is diagnostic-only and must not delay the first
+  // business request after the permission flow completes.
+  unawaited(AppBootstrap.ensureFirebasePerformanceMonitoring());
   await AppStartupCoordinator.initializeTelemetry(
     services: services,
     trackingAuthorizationStatus: trackingAuthorizationStatus,
@@ -84,6 +87,7 @@ class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     this.initialTabIndex,
+    this.startupOnly = false,
     this.activationListenable,
     this.startupPlatform,
     this.primeNetworkPermission = AppBootstrap.primeNetworkPermission,
@@ -92,9 +96,9 @@ class HomePage extends StatefulWidget {
     this.requestTrackingAuthorization =
         AppTrackingTransparencyService.requestAuthorization,
     this.initializeRuntime = _initializeDefaultStartupRuntime,
-    this.initialRequestMetricWindow = const Duration(milliseconds: 200),
-    this.networkPermissionDialogSettleTimeout = const Duration(seconds: 2),
-    this.postSystemDialogResumeDelay = const Duration(milliseconds: 350),
+    this.initialRequestMetricWindow = Duration.zero,
+    this.networkPermissionDialogSettleTimeout = Duration.zero,
+    this.postSystemDialogResumeDelay = Duration.zero,
   });
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
@@ -102,6 +106,7 @@ class HomePage extends StatefulWidget {
   static const int popularTabIndex = 1;
 
   final int? initialTabIndex;
+  final bool startupOnly;
   final ValueListenable<int>? activationListenable;
   final TargetPlatform? startupPlatform;
   final Future<bool> Function(AppServices services) primeNetworkPermission;
@@ -204,21 +209,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _runIosStartupGate() async {
     final services = AppServicesScope.read(context);
-    await _waitForAppResumed();
-    if (!mounted) return;
-    await _primeNetworkPermissionThenWaitForSystemDialog(services);
-    if (!mounted) return;
-    final trackingAuthorizationStatus = await _resolveTrackingAuthorization();
-    if (!mounted) return;
-    setState(() {
-      _resolveInitialTabIndex();
-    });
-    await WidgetsBinding.instance.endOfFrame;
-    await widget.initializeRuntime(services, trackingAuthorizationStatus);
-    if (!mounted) return;
-    AppStartupCoordinator.markPostLaunchWorkAllowed();
-    services.startupNetworkGate.open();
-    _homeNetworkRequestsAllowed.value = true;
+    try {
+      await _waitForAppResumed();
+      if (!mounted) return;
+      await _primeNetworkPermissionThenWaitForSystemDialog(services);
+      if (!mounted) return;
+      final trackingAuthorizationStatus = await _resolveTrackingAuthorization();
+      if (!mounted) return;
+      await WidgetsBinding.instance.endOfFrame;
+      await widget
+          .initializeRuntime(services, trackingAuthorizationStatus)
+          .timeout(
+            _startupInitializationTimeout,
+            onTimeout: () {
+              debugPrint(
+                '[Home][StartupGate] runtime initialization timed out; '
+                'opening business network',
+              );
+            },
+          );
+    } catch (error, stackTrace) {
+      debugPrint('[Home][StartupGate] startup initialization failed: $error');
+      debugPrint('[Home][StartupGate] stacktrace:\n$stackTrace');
+    } finally {
+      // A failed or disposed startup widget must not leave the shared service
+      // gate closed forever for later routes.
+      AppStartupCoordinator.markPostLaunchWorkAllowed();
+      services.startupNetworkGate.open();
+      if (mounted) _homeNetworkRequestsAllowed.value = true;
+    }
   }
 
   Future<AppTrackingAuthorizationStatus> _resolveTrackingAuthorization() async {
@@ -237,7 +256,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     AppServices services,
   ) async {
     _watchingNetworkPermissionDialog = true;
-    _inactiveCompleter ??= Completer<void>();
+    final inactiveCompleter = Completer<void>();
+    _inactiveCompleter = inactiveCompleter;
     try {
       unawaited(
         widget.primeNetworkPermission(services).catchError((
@@ -254,6 +274,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await _waitForNetworkPermissionDialogToSettle();
     } finally {
       _watchingNetworkPermissionDialog = false;
+      if (identical(_inactiveCompleter, inactiveCompleter)) {
+        _inactiveCompleter = null;
+      }
     }
   }
 
@@ -261,11 +284,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final inactiveCompleter = _inactiveCompleter ?? Completer<void>();
     _inactiveCompleter = inactiveCompleter;
     final timeout = widget.networkPermissionDialogSettleTimeout;
-    if (timeout <= Duration.zero) return;
-    final inactiveObserved = await inactiveCompleter.future
-        .then((_) => true)
-        .timeout(timeout, onTimeout: () => false);
-    if (!inactiveObserved) return;
+    if (timeout <= Duration.zero) {
+      // Give the platform one frame to report a real system-dialog transition,
+      // without imposing a fixed delay when no dialog was shown.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!inactiveCompleter.isCompleted) return;
+    } else {
+      final inactiveObserved = await inactiveCompleter.future
+          .then((_) => true)
+          .timeout(timeout, onTimeout: () => false);
+      if (!inactiveObserved) return;
+    }
     await _waitForAppResumed();
     await _waitAfterSystemDialogResume();
   }
@@ -331,6 +360,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.startupOnly) return const SizedBox.shrink();
     final initialTabIndex = _initialTabIndex;
     if (initialTabIndex != null) {
       return _HomeTabScaffold(

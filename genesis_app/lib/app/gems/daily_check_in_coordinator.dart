@@ -7,6 +7,7 @@ import '../../components/gems/daily_check_in_dialog.dart';
 import '../../network/models/gem_task.dart';
 import '../../network/models/gem_task_action.dart';
 import '../bootstrap/app_services_scope.dart';
+import 'gem_task_analytics.dart';
 
 typedef DailyCheckInTaskAction = Future<GemTaskActionResult> Function();
 typedef DailyCheckInWalletRefresh = Future<void> Function();
@@ -56,10 +57,22 @@ Future<void> runDailyCheckInFlow(
         DailyCheckInDialogStatus.claimed => null,
       };
       if (action == null) return;
-      status = _dialogStatusForValue((await action).status);
+      final result = await action;
+      status = _dialogStatusForValue(result.status);
+      if (actionStatus == DailyCheckInDialogStatus.claim) {
+        trackGemTaskClaimedIfNeeded(
+          taskCode: dailyCheckInTaskCode,
+          status: result.status,
+        );
+      }
       if (actionStatus == DailyCheckInDialogStatus.checkIn &&
           status == DailyCheckInDialogStatus.claim) {
-        status = _dialogStatusForValue((await claimTask()).status);
+        final claimResult = await claimTask();
+        status = _dialogStatusForValue(claimResult.status);
+        trackGemTaskClaimedIfNeeded(
+          taskCode: dailyCheckInTaskCode,
+          status: claimResult.status,
+        );
       }
       if (!context.mounted) return;
       if (status == DailyCheckInDialogStatus.claimed) {

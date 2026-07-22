@@ -270,8 +270,7 @@ Future<String> resolveRecentWorldChatUid(AppServices services) async {
   final userInfo = await services.sessionStore.readUserInfo();
   final cachedUid = _mapString(userInfo, 'uid');
   if (cachedUid.isNotEmpty) return cachedUid;
-
-  return (services.identityAuth.currentProfile()?.uid ?? '').trim();
+  return '';
 }
 
 String _mapString(Map<dynamic, dynamic>? map, String key) {

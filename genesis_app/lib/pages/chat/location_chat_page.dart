@@ -76,19 +76,66 @@ const Set<String> _locationChatDraftRecoverableFailureCodes = <String>{
   '5000',
 };
 
+const Set<String> _locationChatDraftRecoverableSendFailureCodes = <String>{
+  'ack_timeout',
+  'connect_failed',
+  'send_message_send_failed',
+  'socket_closed',
+  'socket_error',
+  'stream_missing',
+};
+
 String? recoverLocationChatDraftAfterRetriableAckFailure({
   required Object failure,
   required ChatMessageVm localMessage,
   required List<ChatMessageVm> messages,
+  bool activeSendFailure = false,
 }) {
   if (failure is! ChatroomFailureEvent ||
-      !_locationChatDraftRecoverableFailureCodes.contains(
-        failure.code.trim(),
+      !_shouldRecoverLocationChatDraftAfterFailure(
+        failure,
+        activeSendFailure: activeSendFailure,
       )) {
     return null;
   }
   messages.removeWhere((message) => identical(message, localMessage));
   return localMessage.text;
+}
+
+bool _shouldRecoverLocationChatDraftAfterFailure(
+  ChatroomFailureEvent failure, {
+  required bool activeSendFailure,
+}) {
+  final code = failure.code.trim();
+  if (_locationChatDraftRecoverableFailureCodes.contains(code)) return true;
+  if (!activeSendFailure && failure.requestType.trim() != 'send_message') {
+    return false;
+  }
+  return _locationChatDraftRecoverableSendFailureCodes.contains(code) ||
+      _locationChatDraftRecoverableSendFailureCodes.contains(
+        failure.sourceType.trim(),
+      );
+}
+
+String _locationChatDraftRestoreToastMessage(Object failure) {
+  if (failure is! ChatroomFailureEvent) {
+    return 'Something went wrong. Please try again later.';
+  }
+  final code = failure.code.trim();
+  final sourceType = failure.sourceType.trim();
+  if (_locationChatDraftRecoverableSendFailureCodes.contains(code) ||
+      _locationChatDraftRecoverableSendFailureCodes.contains(sourceType)) {
+    return 'Something went wrong. Please try again later.';
+  }
+  return chatroomFailureToastMessage(failure);
+}
+
+bool _shouldShowDraftRestoreToast(Object failure) {
+  if (failure is! ChatroomFailureEvent) return true;
+  final code = failure.code.trim();
+  final sourceType = failure.sourceType.trim();
+  return _locationChatDraftRecoverableSendFailureCodes.contains(code) ||
+      _locationChatDraftRecoverableSendFailureCodes.contains(sourceType);
 }
 
 class LocationChatPage extends StatelessWidget {
@@ -602,26 +649,20 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final uid = (await services.sessionStore.readUid())?.trim() ?? '';
       final userInfo = await services.sessionStore.readUserInfo();
       final cachedUid = _mapString(userInfo, 'uid');
-      final profile = services.identityAuth.currentProfile();
       _myAvatarUrl = _resolvedProfileAvatar(
         userInfo ?? const <String, dynamic>{},
-        profile?.photoUrl ?? '',
+        '',
       );
-      final senderId = firstNonEmpty([
-        uid,
-        cachedUid,
-        profile?.uid,
-        'local-user',
-      ]);
+      final senderId = firstNonEmpty([uid, cachedUid, 'local-user']);
       final senderName = firstNonEmpty([
-        profile?.displayName,
-        profile?.email,
+        _mapString(userInfo, 'display_name'),
+        _mapString(userInfo, 'nickname'),
+        _mapString(userInfo, 'name'),
         formatUidForDisplay(uid),
         'Me',
       ]);
       _rememberMyUserId(uid);
       _rememberMyUserId(cachedUid);
-      _rememberMyUserId(profile?.uid);
       _rememberMyUserId(senderId);
       _rememberMySenderId(senderId);
       _mySenderName = senderName;
@@ -771,8 +812,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final userInfo = await services.sessionStore.readUserInfo();
       if (!_isCurrentService(service, generation)) return;
       final cachedUid = _mapString(userInfo, 'uid');
-      final profile = services.identityAuth.currentProfile();
-      final ownerUid = firstNonEmpty([uid, cachedUid, profile?.uid]);
+      final ownerUid = firstNonEmpty([uid, cachedUid]);
       if (ownerUid.isEmpty) {
         _logPanelMetric(
           'hydrateLocal skipped noOwner elapsed=${stopwatch?.elapsedMilliseconds}ms',
@@ -1503,18 +1543,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
     final userInfo = await services.sessionStore.readUserInfo();
     final cachedUid = _mapString(userInfo, 'uid');
-    final profile = services.identityAuth.currentProfile();
     final avatarUrl = _resolvedProfileAvatar(
       userInfo ?? const <String, dynamic>{},
-      profile?.photoUrl ?? '',
+      '',
     );
     final avatarChanged = avatarUrl != _myAvatarUrl;
     _myAvatarUrl = avatarUrl;
     final changed =
-        _rememberMyUserId(uid) |
-        _rememberMyUserId(cachedUid) |
-        _rememberMyUserId(profile?.uid) |
-        avatarChanged;
+        _rememberMyUserId(uid) | _rememberMyUserId(cachedUid) | avatarChanged;
     if (!changed || !mounted) return;
     final changedMessages = _reconcileMessages(
       _chatroomState.messagesByLocation[widget.locationId] ??
@@ -1737,12 +1773,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       );
     } catch (e) {
       if (!mounted) return;
+      final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
+        failure: e,
+        localMessage: localMessage,
+        messages: _messages,
+        activeSendFailure: true,
+      );
       setState(() {
-        final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-          failure: e,
-          localMessage: localMessage,
-          messages: _messages,
-        );
         if (restoredDraft != null) {
           _hasDraftText = restoredDraft.trim().isNotEmpty;
           _textController.value = TextEditingValue(
@@ -1757,6 +1794,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _awaitingAiResponseRoundId = '';
         _sending = false;
       });
+      if (restoredDraft != null && _shouldShowDraftRestoreToast(e)) {
+        showGenesisToast(
+          context,
+          _locationChatDraftRestoreToastMessage(e),
+          duration: const Duration(seconds: 4),
+        );
+      }
       _recordPanelDebug(
         action: 'sendFailed',
         details: {'clientMsgId': clientMsgId, 'error': '$e'},

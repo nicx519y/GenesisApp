@@ -362,6 +362,7 @@ void main() {
         'action': 'home-my worlds',
       });
       expect(collect.headers.single['X-Platform'], 'android');
+      expect(collect.headers.single['x-app-environment'], 'test');
       expect(collect.headers.single['X-Device-ID'], 'device-test-1');
       expect(collect.headers.single['X-App-Version'], '1.2.3');
       expect(collect.headers.single['X-UID'], 'user-1');
@@ -450,53 +451,56 @@ void main() {
     expect(collect.payloads, isEmpty);
   });
 
-  test('one billing event is sent to PostHog and anonymized Collect', () async {
-    final postHog = _FakePostHogClient();
-    final collect = _FakeCollectClient();
-    final composite = CompositeGenesisTelemetrySink([
-      PostHogGenesisTelemetrySink(client: postHog),
-      CollectGenesisTelemetrySink(client: collect),
-    ]);
-    await composite.setContext(GenesisTelemetry.contextForTesting);
-    await composite.setUserId('user-1');
+  test(
+    'one billing event is sent to PostHog and identity-header Collect',
+    () async {
+      final postHog = _FakePostHogClient();
+      final collect = _FakeCollectClient();
+      final composite = CompositeGenesisTelemetrySink([
+        PostHogGenesisTelemetrySink(client: postHog),
+        CollectGenesisTelemetrySink(client: collect),
+      ]);
+      await composite.setContext(GenesisTelemetry.contextForTesting);
+      await composite.setUserId('user-1');
 
-    await composite.record(
-      GenesisTelemetryEvent(
-        name: 'pay_event',
-        category: 'billing.purchase',
-        data: const {
-          'action': 'report_result',
-          'attempt_id': 'attempt-1',
-          'product_id': 'gem_pack_500',
-          'result': 'completed',
-        },
-        context: GenesisTelemetry.contextForTesting,
-        collectPayload: const {
-          'action_type': 'pay_event',
-          'action': 'report_result',
-          'object1': 'gem_pack_500',
-          'object2': 'attempt-1',
-          'object3': '{"result":"completed"}',
-        },
-        includeCollectIdentityHeaders: false,
-      ),
-    );
+      await composite.record(
+        GenesisTelemetryEvent(
+          name: 'pay_event',
+          category: 'billing.purchase',
+          data: const {
+            'action': 'purchase_success',
+            'attempt_id': 'attempt-1',
+            'product_id': 'gem_pack_500',
+            'result': 'completed',
+            'transaction_id': 'GPA.1',
+          },
+          context: GenesisTelemetry.contextForTesting,
+          collectPayload: const {
+            'action_type': 'pay_event',
+            'action': 'purchase_success',
+            'object1': 'gem_pack_500',
+            'object2': 'attempt-1',
+            'object3': 'GPA.1',
+          },
+        ),
+      );
 
-    expect(postHog.captures.single.eventName, 'pay_event');
-    expect(postHog.captures.single.properties['action'], 'report_result');
-    expect(postHog.captures.single.properties['attempt_id'], 'attempt-1');
-    expect(collect.payloads.single, {
-      'action_type': 'pay_event',
-      'action': 'report_result',
-      'object1': 'gem_pack_500',
-      'object2': 'attempt-1',
-      'object3': '{"result":"completed"}',
-    });
-    expect(collect.headers.single['X-Platform'], 'android');
-    expect(collect.headers.single['X-App-Version'], '1.2.3');
-    expect(collect.headers.single, isNot(contains('X-Device-ID')));
-    expect(collect.headers.single, isNot(contains('X-UID')));
-  });
+      expect(postHog.captures.single.eventName, 'pay_event');
+      expect(postHog.captures.single.properties['action'], 'purchase_success');
+      expect(postHog.captures.single.properties['attempt_id'], 'attempt-1');
+      expect(collect.payloads.single, {
+        'action_type': 'pay_event',
+        'action': 'purchase_success',
+        'object1': 'gem_pack_500',
+        'object2': 'attempt-1',
+        'object3': 'GPA.1',
+      });
+      expect(collect.headers.single['X-Platform'], 'android');
+      expect(collect.headers.single['X-App-Version'], '1.2.3');
+      expect(collect.headers.single['X-Device-ID'], 'device-test-1');
+      expect(collect.headers.single['X-UID'], 'user-1');
+    },
+  );
 
   test('GenesisTelemetry.collectLog sends pageview payload', () async {
     final collect = _FakeCollectClient();
@@ -532,6 +536,7 @@ void main() {
     expect(collect.payloads.single.keys, isNot(contains('app_version')));
     expect(collect.payloads.single.keys, isNot(contains('created_at')));
     expect(collect.headers.single['X-UID'], 'u_1');
+    expect(collect.headers.single['x-app-environment'], 'test');
   });
 
   test('PostHog sink captures events and maps user identity', () async {

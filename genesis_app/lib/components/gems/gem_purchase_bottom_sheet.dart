@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
@@ -20,6 +21,7 @@ typedef GemPurchaseProductsLoader = Future<List<GemProduct>> Function();
 Future<void> showGemPurchaseBottomSheet(
   BuildContext context, {
   required GemBalanceAlert alert,
+  String? analyticsTrigger,
   GemPurchaseProductsLoader? productsLoader,
   GemWalletStore? walletStore,
   BillingService? billingService,
@@ -41,6 +43,9 @@ Future<void> showGemPurchaseBottomSheet(
     return;
   }
 
+  final payTrackPageId = newBillingTrackPageId();
+  _trackGemPurchaseSheetShow(analyticsTrigger, payTrackPageId);
+
   await showGenesisModalBottomSheet<void>(
     context: context,
     useRootNavigator: true,
@@ -55,8 +60,23 @@ Future<void> showGemPurchaseBottomSheet(
         productsLoader: resolvedProductsLoader,
         walletStore: resolvedWalletStore,
         billingService: resolvedBillingService,
+        payTrackPageId: payTrackPageId,
       ),
     ),
+  );
+}
+
+void _trackGemPurchaseSheetShow(
+  String? analyticsTrigger,
+  String payTrackPageId,
+) {
+  final trigger = analyticsTrigger?.trim() ?? '';
+  GenesisTelemetry.collectLog(
+    actionType: 'pay_event',
+    action: 'buy_page_show',
+    object1: BillingPurchaseSource.buyGemsSheet.value,
+    object2: billingPageTrackId(payTrackPageId),
+    object3: trigger.isEmpty ? null : trigger,
   );
 }
 
@@ -67,12 +87,14 @@ class GemPurchaseBottomSheet extends StatefulWidget {
     required this.productsLoader,
     required this.walletStore,
     required this.billingService,
+    required this.payTrackPageId,
   });
 
   final GemBalanceAlert alert;
   final GemPurchaseProductsLoader productsLoader;
   final GemWalletStore walletStore;
   final BillingService billingService;
+  final String payTrackPageId;
 
   @override
   State<GemPurchaseBottomSheet> createState() => _GemPurchaseBottomSheetState();
@@ -134,7 +156,11 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
     _startedProductIds.add(product.productId);
     _showPurchaseProcessing(attemptId: '');
     try {
-      await widget.billingService.purchaseGem(product);
+      await widget.billingService.purchaseGem(
+        product,
+        source: BillingPurchaseSource.buyGemsSheet,
+        payTrackId: billingPurchaseTrackId(widget.payTrackPageId),
+      );
     } catch (_) {
       if (!mounted) return;
       _startedProductIds.remove(product.productId);
@@ -158,7 +184,6 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
         return;
       case BillingUiEventKind.success:
         _showPurchaseSuccess(event);
-        unawaited(widget.walletStore.refresh());
         return;
       case BillingUiEventKind.accepted:
         // Accepted is an internal settlement state. Keep the user-facing

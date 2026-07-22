@@ -264,12 +264,6 @@ class _FakeIdentityAuthService implements IdentityAuthService {
   const _FakeIdentityAuthService();
 
   @override
-  IdentityProfile? currentProfile() => null;
-
-  @override
-  bool hasLocalIdentitySession() => false;
-
-  @override
   Future<AuthSession?> refreshSilently() async => null;
 
   @override

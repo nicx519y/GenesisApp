@@ -39,6 +39,28 @@ void main() {
     expect(store.state.value.lastError, isA<StateError>());
   });
 
+  test('concurrent refresh calls share one wallet request', () async {
+    var requestCount = 0;
+    final response = Completer<GemWallet>();
+    final store = GemWalletStore(
+      loadWallet: () {
+        requestCount += 1;
+        return response.future;
+      },
+      readUid: () async => 'u_user',
+    );
+    addTearDown(store.dispose);
+
+    final first = store.refresh();
+    final second = store.refresh();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(requestCount, 1);
+    response.complete(const GemWallet(balance: 980));
+    await Future.wait<void>([first, second]);
+    expect(store.state.value.balance, 980);
+  });
+
   test('an old account response is ignored after reset', () async {
     var uid = 'u_first';
     final response = Completer<GemWallet>();

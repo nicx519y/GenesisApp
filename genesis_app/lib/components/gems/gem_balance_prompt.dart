@@ -9,6 +9,9 @@ import 'gem_purchase_bottom_sheet.dart';
 
 const String insufficientGemBalancePrompt = 'Insufficient Gems';
 const String lowGemBalancePrompt = 'Low Gems';
+const String gemPurchaseSheetTriggerTick = 'tick_no_balance';
+const String gemPurchaseSheetTriggerMessageLowBalance = 'msg_low_balance';
+const String gemPurchaseSheetTriggerMessageNoBalance = 'msg_no_balance';
 
 StreamSubscription<GemBalanceAlert> bindGemBalancePrompt(
   BuildContext context,
@@ -30,6 +33,7 @@ StreamSubscription<GemBalanceAlert> bindGemBalancePrompt(
 Future<void> showGemBalancePrompt(
   BuildContext context,
   GemBalanceAlert alert, {
+  String? analyticsTrigger,
   GemPurchaseProductsLoader? productsLoader,
   GemWalletStore? walletStore,
   BillingService? billingService,
@@ -37,8 +41,21 @@ Future<void> showGemBalancePrompt(
   return showGemPurchaseBottomSheet(
     context,
     alert: alert,
+    analyticsTrigger: _resolvedGemPurchaseSheetTrigger(alert, analyticsTrigger),
     productsLoader: productsLoader,
     walletStore: walletStore,
     billingService: billingService,
   );
+}
+
+String _resolvedGemPurchaseSheetTrigger(
+  GemBalanceAlert alert,
+  String? analyticsTrigger,
+) {
+  final trigger = analyticsTrigger?.trim() ?? '';
+  if (trigger.isNotEmpty) return trigger;
+  return switch (alert.kind) {
+    GemBalanceAlertKind.low => gemPurchaseSheetTriggerMessageLowBalance,
+    GemBalanceAlertKind.insufficient => gemPurchaseSheetTriggerMessageNoBalance,
+  };
 }

@@ -20,8 +20,8 @@ import 'v1/genesis_v1_api.dart';
 import '../app/config/platform_config.dart';
 import '../app/debug/location_chat_debug_http.dart';
 import '../platform/auth/auth_session.dart';
-import '../platform/auth/google_firebase_auth_service.dart';
 import '../platform/auth/identity_auth_service.dart';
+import '../platform/auth/provider_identity_auth_service.dart';
 import '../platform/device/device_id_service.dart';
 import '../platform/device/method_channel_device_id_service.dart';
 import '../platform/session/method_channel_user_session_store.dart';
@@ -70,7 +70,8 @@ class GenesisApi {
     _deviceIdService = deviceIdService ?? const NativeDeviceIdService();
     _sessionStore = sessionStore ?? NativeUserSessionStore();
     _identityAuthService =
-        identityAuthService ?? const GoogleFirebaseAuthService();
+        identityAuthService ??
+        ProviderIdentityAuthService(sessionStore: _sessionStore);
     _appHeaderProvider =
         appHeaderProvider ?? AppRequestHeaderProvider().headers;
     _onSessionExpired = onSessionExpired;
@@ -320,9 +321,9 @@ class GenesisApi {
       );
 
       final session = await _identityAuthService.refreshSilently();
-      if (session == null ||
-          (!session.hasProviderToken && !session.hasFirebaseToken)) {
+      if (session == null || !session.hasProviderToken) {
         debugPrint('[Auth][GenesisApi] silent refresh unavailable');
+        await _sessionStore.clearUid();
         return false;
       }
 
@@ -387,22 +388,25 @@ class GenesisApi {
     );
   }
 
-  Future<User> loginWithIdentity(AuthSession session) {
-    switch (session.provider) {
-      case IdentityProvider.google:
-        return _loginWithGoogle(
-          idToken: session.providerIdToken,
-          name: session.displayName,
-          avatar: session.photoUrl,
-        );
-      case IdentityProvider.apple:
-        return loginWithApple(
-          identityToken: session.providerIdToken,
-          firebaseIdToken: session.firebaseIdToken,
-          name: session.displayName,
-          avatar: session.photoUrl,
-        );
-    }
+  Future<User> loginWithIdentity(AuthSession session) async {
+    final user = switch (session.provider) {
+      IdentityProvider.google => await _loginWithGoogle(
+        idToken: session.providerIdToken,
+        name: session.displayName,
+        avatar: session.photoUrl,
+      ),
+      IdentityProvider.apple => await loginWithApple(
+        identityToken: session.providerIdToken,
+        name: session.displayName,
+        avatar: session.photoUrl,
+      ),
+    };
+    final cachedUserInfo = await _sessionStore.readUserInfo();
+    await _sessionStore.saveUserInfo({
+      if (cachedUserInfo != null) ...cachedUserInfo,
+      'login_provider': session.provider.name,
+    });
+    return user;
   }
 
   Future<User> _loginWithGoogle({
@@ -427,18 +431,12 @@ class GenesisApi {
 
   Future<User> loginWithApple({
     required String identityToken,
-    required String firebaseIdToken,
     String? name,
     String? avatar,
   }) async {
     debugPrint('[Auth][GenesisApi] POST /api/v1/user/oauth/apple start');
-    final trimmedIdentityToken = identityToken.trim();
-    final trimmedFirebaseIdToken = firebaseIdToken.trim();
-    final idToken = trimmedIdentityToken.isNotEmpty
-        ? trimmedIdentityToken
-        : trimmedFirebaseIdToken;
     final json = await v1.user.appleAuth(
-      idToken: idToken,
+      idToken: identityToken.trim(),
       name: name,
       avatar: avatar,
     );

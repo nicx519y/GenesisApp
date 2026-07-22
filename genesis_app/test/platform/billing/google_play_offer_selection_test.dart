@@ -64,7 +64,7 @@ void main() {
     expect(selected, isNull);
   });
 
-  test('selects the regular offer when only purchase option is specified', () {
+  test('returns no offer when only purchase option is specified', () {
     final selected =
         selectGooglePlayOneTimeOffer(const <OneTimePurchaseOfferDetailsWrapper>[
           OneTimePurchaseOfferDetailsWrapper(
@@ -84,7 +84,40 @@ void main() {
           ),
         ], purchaseOptionId: '500-gems-new');
 
-    expect(selected?.offerId, isNull);
-    expect(selected?.offerToken, 'regular-token');
+    expect(selected, isNull);
+  });
+
+  test('returns no offer when only offer id is specified', () {
+    final selected =
+        selectGooglePlayOneTimeOffer(const <OneTimePurchaseOfferDetailsWrapper>[
+          OneTimePurchaseOfferDetailsWrapper(
+            formattedPrice: r'HK$16.32',
+            priceAmountMicros: 16320000,
+            priceCurrencyCode: 'HKD',
+            purchaseOptionId: '500-gems-new',
+            offerId: '500-gems-new-discount',
+            offerToken: 'discount-token',
+          ),
+        ], offerId: '500-gems-new-discount');
+
+    expect(selected, isNull);
+  });
+
+  test('returns no offer when the matched offer has no token', () {
+    final selected = selectGooglePlayOneTimeOffer(
+      const <OneTimePurchaseOfferDetailsWrapper>[
+        OneTimePurchaseOfferDetailsWrapper(
+          formattedPrice: r'HK$16.32',
+          priceAmountMicros: 16320000,
+          priceCurrencyCode: 'HKD',
+          purchaseOptionId: '500-gems-new',
+          offerId: '500-gems-new-discount',
+        ),
+      ],
+      purchaseOptionId: '500-gems-new',
+      offerId: '500-gems-new-discount',
+    );
+
+    expect(selected, isNull);
   });
 }

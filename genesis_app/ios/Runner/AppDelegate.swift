@@ -380,18 +380,30 @@ import UniformTypeIdentifiers
 
   private func deviceId() -> String {
     if let existing = readKeychainDeviceId() {
-      return existing
+      let normalized = normalizeDeviceId(existing)
+      if normalized != existing {
+        saveKeychainDeviceId(normalized)
+      }
+      return normalized
     }
 
     if let legacy = prefs.string(forKey: deviceIdKey), !legacy.isEmpty {
-      saveKeychainDeviceId(legacy)
-      return legacy
+      let normalized = normalizeDeviceId(legacy)
+      saveKeychainDeviceId(normalized)
+      return normalized
     }
 
-    let generated = UUID().uuidString
-    let value = "ios:\(generated)"
+    let value = UUID().uuidString
     saveKeychainDeviceId(value)
     return value
+  }
+
+  private func normalizeDeviceId(_ value: String) -> String {
+    let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    if normalized.lowercased().hasPrefix("ios:") {
+      return String(normalized.dropFirst(4)).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    return normalized
   }
 
   private func readKeychainDeviceId() -> String? {

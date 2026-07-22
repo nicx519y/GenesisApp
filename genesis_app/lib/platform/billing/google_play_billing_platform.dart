@@ -87,22 +87,27 @@ class GooglePlayBillingPlatform implements BillingPlatform {
         };
         if (type != expectedType) continue;
         _logGoogleProductDetails(product);
+        final requestedPurchaseOptionId = purchaseOptionId?.trim() ?? '';
+        final requestedOfferId = offerId?.trim() ?? '';
+        final shouldMatchDiscount =
+            requestedPurchaseOptionId.isNotEmpty && requestedOfferId.isNotEmpty;
         final selectedOffer = selectGooglePlayOneTimeOffer(
           product.productDetails.oneTimePurchaseOfferDetailsList,
-          purchaseOptionId: purchaseOptionId,
-          offerId: offerId,
+          purchaseOptionId: shouldMatchDiscount
+              ? requestedPurchaseOptionId
+              : null,
+          offerId: shouldMatchDiscount ? requestedOfferId : null,
         );
         if (type == BillingStoreProductType.inApp &&
-            (purchaseOptionId?.trim().isNotEmpty == true ||
-                offerId?.trim().isNotEmpty == true) &&
+            shouldMatchDiscount &&
             (selectedOffer == null ||
                 selectedOffer.offerToken?.trim().isEmpty != false)) {
           debugPrint(
-            '[Billing] requested offer unavailable id=$storeProductId '
+            '[Billing] requested offer unavailable, fallback to base price '
+            'id=$storeProductId '
             'purchaseOption=$purchaseOptionId offer=$offerId '
             'availableOffers=${product.productDetails.oneTimePurchaseOfferDetailsList?.length ?? 0}',
           );
-          return const BillingProductQueryResult.failure('offer_not_available');
         }
         debugPrint(
           '[Billing] product ready id=$storeProductId '
@@ -302,18 +307,17 @@ OneTimePurchaseOfferDetailsWrapper? selectGooglePlayOneTimeOffer(
   final requestedOfferId = offerId?.trim() ?? '';
   final availableOffers =
       offers ?? const <OneTimePurchaseOfferDetailsWrapper>[];
-  if (requestedPurchaseOptionId.isEmpty && requestedOfferId.isEmpty) {
+  if (requestedPurchaseOptionId.isEmpty || requestedOfferId.isEmpty) {
     return null;
   }
   for (final offer in availableOffers) {
-    if (requestedPurchaseOptionId.isNotEmpty &&
-        offer.purchaseOptionId != requestedPurchaseOptionId) {
+    if (offer.purchaseOptionId != requestedPurchaseOptionId) {
       continue;
     }
-    if (requestedOfferId.isNotEmpty && offer.offerId != requestedOfferId) {
+    if (offer.offerId != requestedOfferId) {
       continue;
     }
-    if (requestedOfferId.isEmpty && offer.offerId?.trim().isNotEmpty == true) {
+    if (offer.offerToken?.trim().isEmpty != false) {
       continue;
     }
     return offer;

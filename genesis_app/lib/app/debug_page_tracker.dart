@@ -23,6 +23,7 @@ class _GenesisRouteObserver extends NavigatorObserver {
     Route<dynamic>? route, {
     Route<dynamic>? previousRoute,
     required String navigationType,
+    bool recordCollectPageView = true,
   }) {
     if (route == null || route is PopupRoute) return;
     final pageClassName = AppRouter.pageClassNameForRouteName(
@@ -40,7 +41,9 @@ class _GenesisRouteObserver extends NavigatorObserver {
           : AppRouter.pageClassNameForRouteName(previousRoute.settings.name),
       navigationType: navigationType,
     );
-    _recordCollectPageView(route.settings);
+    if (recordCollectPageView) {
+      _recordCollectPageView(route.settings);
+    }
   }
 
   @override
@@ -52,7 +55,12 @@ class _GenesisRouteObserver extends NavigatorObserver {
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPop(route, previousRoute);
-    _sync(previousRoute, previousRoute: route, navigationType: 'pop');
+    _sync(
+      previousRoute,
+      previousRoute: route,
+      navigationType: 'pop',
+      recordCollectPageView: route is! PopupRoute,
+    );
   }
 
   @override

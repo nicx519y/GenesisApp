@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
@@ -24,6 +25,47 @@ const _wrappingTaskDescription =
     'and interacting with characters to move its story forward.';
 
 void main() {
+  tearDown(GenesisTelemetry.resetForTesting);
+
+  testWidgets('GemWalletPage reports buy gems page view pay event', (
+    tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => _products(),
+          tasksLoader: (_) async => _taskGroups(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final events = telemetry.events
+        .where(
+          (event) =>
+              event.category == 'collect.log' && event.name == 'buy_page_show',
+        )
+        .toList();
+    expect(events, hasLength(1));
+    expect(events.single.data['action_type'], 'pay_event');
+    expect(events.single.data['action'], 'buy_page_show');
+    expect(events.single.data['object1'], 'buy_gems_page');
+    expect(events.single.data['object2'], isA<String>());
+    final trackId = '${events.single.data['object2']}';
+    final match = RegExp(r'^track_id_([^_]+)$').firstMatch(trackId);
+    expect(match, isNotNull);
+  });
+
   testWidgets('GemWalletPage renders split data and refreshes on resume', (
     tester,
   ) async {
@@ -352,8 +394,8 @@ void main() {
     Navigator.of(tester.element(find.text('Gem Records'))).pop();
     await tester.pumpAndSettle();
 
-    expect(productsLoadCount, 2);
-    expect(tasksLoadCount, 2);
+    expect(productsLoadCount, 1);
+    expect(tasksLoadCount, 1);
   });
 
   testWidgets('task section remains available when products fail', (
@@ -482,6 +524,8 @@ void main() {
   testWidgets('tapping a product immediately shows purchase processing', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
@@ -511,6 +555,22 @@ void main() {
 
     expect(billing.purchasedProducts, hasLength(1));
     expect(billing.purchasedProducts.single.productId, 'gem_pack_500');
+    expect(billing.purchaseSources, [BillingPurchaseSource.buyGemsPage]);
+    expect(billing.purchaseTrackIds, hasLength(1));
+    final showEvent = telemetry.events.singleWhere(
+      (event) =>
+          event.category == 'collect.log' && event.name == 'buy_page_show',
+    );
+    final showMatch = RegExp(
+      r'^track_id_([^_]+)$',
+    ).firstMatch('${showEvent.data['object2']}');
+    final purchaseMatch = RegExp(
+      r'^track_id_([^_]+)_([^_]+)$',
+    ).firstMatch(billing.purchaseTrackIds.single);
+    expect(showMatch, isNotNull);
+    expect(purchaseMatch, isNotNull);
+    expect(purchaseMatch!.group(1), showMatch!.group(1));
+    expect(purchaseMatch.group(2), isNotEmpty);
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
       find.descendant(
@@ -658,7 +718,7 @@ void main() {
 
     expect(productsLoadCount, 2);
     expect(tasksLoadCount, 2);
-    expect(walletLoadCount, 2);
+    expect(walletLoadCount, 1);
     _expectGrantedSuccessDialog(tester);
     await tester.pump(const Duration(seconds: 3));
   });
@@ -788,9 +848,22 @@ void main() {
     billing.emitAccepted();
     await tester.pump();
 
-    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
-    expect(find.text('Purchase successful!'), findsNothing);
-    expect(find.text('OK'), findsNothing);
+    expect(
+      find.text(
+        'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('task button always displays backend action text', (
@@ -885,6 +958,8 @@ void main() {
   testWidgets('daily check-in reports once and refreshes task and wallet', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     final reportResult = Completer<GemTaskActionResult>();
     var reportCalls = 0;
     var claimCalls = 0;
@@ -954,6 +1029,7 @@ void main() {
     expect(walletLoadCount, 2);
     expect(find.text('Received'), findsOneWidget);
     expect(find.text('Check in successful!'), findsOneWidget);
+    _expectTaskClaimedEvent(telemetry, 'daily_checkin');
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -1331,6 +1407,8 @@ void main() {
   testWidgets('claimable task shows its reward in success dialog', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     var productsLoadCount = 0;
     var tasksLoadCount = 0;
     final claimedCodes = <String>[];
@@ -1380,6 +1458,7 @@ void main() {
     expect(productsLoadCount, 1);
     expect(tasksLoadCount, 2);
     expect(find.text('Claim successful!'), findsOneWidget);
+    _expectTaskClaimedEvent(telemetry, 'discord_follow');
     expect(
       tester
           .widget<Text>(
@@ -1395,6 +1474,24 @@ void main() {
     expect(find.text('Received'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
+}
+
+class _CapturingTelemetrySink implements GenesisTelemetrySink {
+  final events = <GenesisTelemetryEvent>[];
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    events.add(event);
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {}
+
+  @override
+  Future<void> setUserId(String? uid) async {}
 }
 
 void _expectGrantedSuccessDialog(WidgetTester tester) {
@@ -1442,6 +1539,24 @@ void _expectGrantedSuccessDialog(WidgetTester tester) {
   expect(find.byType(SvgPicture), findsWidgets);
 }
 
+void _expectTaskClaimedEvent(
+  _CapturingTelemetrySink telemetry,
+  String taskCode,
+) {
+  final events = telemetry.events
+      .where(
+        (event) =>
+            event.category == 'collect.log' && event.name == 'task_claimed',
+      )
+      .toList();
+  expect(events, hasLength(1));
+  expect(events.single.data, <String, Object?>{
+    'action_type': 'pay_event',
+    'action': 'task_claimed',
+    'object1': taskCode,
+  });
+}
+
 class _FakeBillingService implements BillingService {
   final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
     BillingState(storeAvailable: true),
@@ -1449,6 +1564,8 @@ class _FakeBillingService implements BillingService {
   final StreamController<BillingUiEvent> _events =
       StreamController<BillingUiEvent>.broadcast();
   final List<GemProduct> purchasedProducts = <GemProduct>[];
+  final List<BillingPurchaseSource> purchaseSources = <BillingPurchaseSource>[];
+  final List<String> purchaseTrackIds = <String>[];
   Completer<void>? purchaseCompleter;
 
   @override
@@ -1458,8 +1575,14 @@ class _FakeBillingService implements BillingService {
   ValueListenable<BillingState> get state => _state;
 
   @override
-  Future<void> purchaseGem(GemProduct product) async {
+  Future<void> purchaseGem(
+    GemProduct product, {
+    BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
+    String payTrackId = '',
+  }) async {
     purchasedProducts.add(product);
+    purchaseSources.add(source);
+    purchaseTrackIds.add(payTrackId);
     final completer = purchaseCompleter;
     if (completer != null) await completer.future;
     _state.value = BillingState(
@@ -1507,7 +1630,7 @@ class _FakeBillingService implements BillingService {
         productId: 'gem_pack_500',
         attemptId: 'pay_test',
         message:
-            'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+            'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
       ),
     );
   }

@@ -19,6 +19,7 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		FDDA7C89300F1BE0007E6082 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDDA7C88300F1BE0007E6082 /* StoreKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,6 +72,7 @@
 		F21AA103462912979D5C06E9 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		F660EE0A0E6D5F085503D8EC /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		FA2ACD900DACE1D5E67B656D /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDDA7C88300F1BE0007E6082 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +80,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FDDA7C89300F1BE0007E6082 /* StoreKit.framework in Frameworks */,
 				78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */,
 				5B8520B66B2812405E27F41E /* Pods_Runner.framework in Frameworks */,
 			);
@@ -118,6 +121,7 @@
 		796FB52C2C0768F51689FB61 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				FDDA7C88300F1BE0007E6082 /* StoreKit.framework */,
 				DB7C391BBF3F9B220CEC33AE /* Pods_Runner.framework */,
 				FA2ACD900DACE1D5E67B656D /* Pods_RunnerTests.framework */,
 			);
@@ -309,7 +313,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ] || [ \"$EFFECTIVE_PLATFORM_NAME\" = \"-iphonesimulator\" ]; then\n  echo \"Skipping Crashlytics upload-symbols for $CONFIGURATION $EFFECTIVE_PLATFORM_NAME.\"\n  exit 0\nfi\nUPLOAD_SYMBOLS=\"$PODS_ROOT/FirebaseCrashlytics/upload-symbols\"\nif [ ! -x \"$UPLOAD_SYMBOLS\" ]; then\n  UPLOAD_SYMBOLS=\"$PROJECT_DIR/../build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols\"\nfi\nif [ -x \"$UPLOAD_SYMBOLS\" ]; then\n  \"$UPLOAD_SYMBOLS\" --flutter-project \"$PROJECT_DIR/firebase_app_id_file.json\"\nelse\n  echo \"warning: Firebase Crashlytics upload-symbols not found; skipping symbols upload.\"\nfi\n";
+			shellScript = "if [ \"$CONFIGURATION\" = \"Debug\" ] || [ \"$EFFECTIVE_PLATFORM_NAME\" = \"-iphonesimulator\" ]; then\n  echo \"Skipping Crashlytics upload-symbols for $CONFIGURATION $EFFECTIVE_PLATFORM_NAME.\"\n  exit 0\nfi\nif [ \"$ACTION\" != \"install\" ]; then\n  echo \"Skipping Crashlytics upload-symbols for non-archive action $ACTION.\"\n  exit 0\nfi\nUPLOAD_SYMBOLS=\"$PODS_ROOT/FirebaseCrashlytics/upload-symbols\"\nif [ ! -x \"$UPLOAD_SYMBOLS\" ]; then\n  UPLOAD_SYMBOLS=\"$PROJECT_DIR/../build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols\"\nfi\nif [ -x \"$UPLOAD_SYMBOLS\" ]; then\n  \"$UPLOAD_SYMBOLS\" --flutter-project \"$PROJECT_DIR/firebase_app_id_file.json\"\nelse\n  echo \"warning: Firebase Crashlytics upload-symbols not found; skipping symbols upload.\"\nfi\n";
 		};
 		1FD8FBE8CA8FC5E77FDAF774 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
