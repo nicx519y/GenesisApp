@@ -1,17 +1,16 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:posthog_flutter/posthog_flutter.dart';
 
-import '../../network/http_transport.dart';
-import '../../network/io_http_transport.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/device/device_id_service.dart';
 import '../config/app_config.dart';
 import '../debug_page_tracker.dart';
+import 'collect_telemetry.dart';
 import 'firebase_crash_reporting.dart';
+
+export 'collect_telemetry.dart';
 
 enum GenesisTelemetryLevel { debug, info, warning, error, fatal }
 
@@ -112,265 +111,17 @@ class NoopGenesisTelemetrySink implements GenesisTelemetrySink {
   Future<void> captureException(Object error, StackTrace stackTrace) async {}
 }
 
-class CompositeGenesisTelemetrySink implements GenesisTelemetrySink {
-  const CompositeGenesisTelemetrySink(this.sinks);
-
-  final List<GenesisTelemetrySink> sinks;
-
-  @override
-  Future<void> record(GenesisTelemetryEvent event) async {
-    await Future.wait(sinks.map((sink) => sink.record(event)));
-  }
-
-  @override
-  Future<void> setContext(GenesisTelemetryContext context) async {
-    await Future.wait(sinks.map((sink) => sink.setContext(context)));
-  }
-
-  @override
-  Future<void> setUserId(String? uid) async {
-    await Future.wait(sinks.map((sink) => sink.setUserId(uid)));
-  }
-
-  @override
-  Future<void> captureException(Object error, StackTrace stackTrace) async {
-    await Future.wait(
-      sinks.map((sink) => sink.captureException(error, stackTrace)),
-    );
-  }
-}
-
-@visibleForTesting
-abstract interface class PostHogTelemetryClient {
-  Future<void> setup(PostHogConfig config);
-  Future<void> capture({
-    required String eventName,
-    Map<String, Object>? properties,
-  });
-  Future<void> identify({
-    required String userId,
-    Map<String, Object>? userProperties,
-  });
-  Future<void> reset();
-  Future<void> captureException({
-    required Object error,
-    StackTrace? stackTrace,
-    Map<String, Object>? properties,
-  });
-}
-
-class SdkPostHogTelemetryClient implements PostHogTelemetryClient {
-  const SdkPostHogTelemetryClient();
-
-  @override
-  Future<void> setup(PostHogConfig config) => Posthog().setup(config);
-
-  @override
-  Future<void> capture({
-    required String eventName,
-    Map<String, Object>? properties,
-  }) {
-    return Posthog().capture(eventName: eventName, properties: properties);
-  }
-
-  @override
-  Future<void> identify({
-    required String userId,
-    Map<String, Object>? userProperties,
-  }) {
-    return Posthog().identify(userId: userId, userProperties: userProperties);
-  }
-
-  @override
-  Future<void> reset() => Posthog().reset();
-
-  @override
-  Future<void> captureException({
-    required Object error,
-    StackTrace? stackTrace,
-    Map<String, Object>? properties,
-  }) {
-    return Posthog().captureException(
-      error: error,
-      stackTrace: stackTrace,
-      properties: properties,
-    );
-  }
-}
-
-class PostHogGenesisTelemetrySink implements GenesisTelemetrySink {
-  PostHogGenesisTelemetrySink({required PostHogTelemetryClient client})
-    : _client = client;
-
-  final PostHogTelemetryClient _client;
-  GenesisTelemetryContext _context = const GenesisTelemetryContext();
-
-  @override
-  Future<void> record(GenesisTelemetryEvent event) async {
-    if (!event.capture) return;
-    if (event.category == 'collect.log') return;
-    await _safePostHogCall(
-      () => _client.capture(
-        eventName: event.name,
-        properties: _compact(<String, Object?>{
-          ...event.fullData,
-          'category': event.category,
-          'level': event.level.name,
-        }),
-      ),
-    );
-  }
-
-  @override
-  Future<void> setContext(GenesisTelemetryContext context) async {
-    _context = context;
-  }
-
-  @override
-  Future<void> setUserId(String? uid) async {
-    final userId = uid?.trim() ?? '';
-    await _safePostHogCall(() {
-      if (userId.isEmpty) return _client.reset();
-      return _client.identify(
-        userId: userId,
-        userProperties: _compact(_context.toMap()),
-      );
-    });
-  }
-
-  @override
-  Future<void> captureException(Object error, StackTrace stackTrace) async {
-    await _safePostHogCall(
-      () => _client.captureException(
-        error: error,
-        stackTrace: stackTrace,
-        properties: _compact(<String, Object?>{
-          ..._context.toMap(),
-          'error_type': error.runtimeType.toString(),
-          'handled': true,
-        }),
-      ),
-    );
-  }
-}
-
-@visibleForTesting
-abstract interface class CollectTelemetryClient {
-  Future<void> collect(
-    Map<String, Object> payload, {
-    Map<String, String> headers = const <String, String>{},
-  });
-}
-
-class SdkCollectTelemetryClient implements CollectTelemetryClient {
-  SdkCollectTelemetryClient({
-    required String endpoint,
-    HttpTransport? transport,
-    this.timeoutMs = 5000,
-  }) : _endpoint = Uri.parse(endpoint),
-       _transport = transport ?? IoHttpTransport();
-
-  final Uri _endpoint;
-  final HttpTransport _transport;
-  final int timeoutMs;
-
-  @override
-  Future<void> collect(
-    Map<String, Object> payload, {
-    Map<String, String> headers = const <String, String>{},
-  }) async {
-    final response = await _transport.send(
-      TransportRequest(
-        method: 'POST',
-        uri: _endpoint,
-        headers: {
-          'content-type': 'application/json',
-          'accept': 'application/json',
-          ...headers,
-        },
-        bodyBytes: utf8.encode(jsonEncode(payload)),
-        timeoutMs: timeoutMs,
-      ),
-    );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError('Collect request failed: ${response.statusCode}');
-    }
-  }
-}
-
-class CollectGenesisTelemetrySink implements GenesisTelemetrySink {
-  CollectGenesisTelemetrySink({
-    required CollectTelemetryClient client,
-    String? appEnvironment,
-  }) : _client = client,
-       _appEnvironment = appEnvironment;
-
-  final CollectTelemetryClient _client;
-  final String? _appEnvironment;
-  GenesisTelemetryContext _context = const GenesisTelemetryContext();
-  String? _userId;
-
-  @override
-  Future<void> record(GenesisTelemetryEvent event) async {
-    if (!event.capture) return;
-    final payload = event.category == 'collect.log'
-        ? _collectLogPayload(event.data)
-        : _collectLogPayload(event.collectPayload ?? const {});
-    if (payload.isEmpty) return;
-    await _safeCollectCall(
-      () => _client.collect(
-        payload,
-        headers: _collectHeaders(
-          includeIdentity: event.includeCollectIdentityHeaders,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Future<void> setContext(GenesisTelemetryContext context) async {
-    _context = context;
-  }
-
-  @override
-  Future<void> setUserId(String? uid) async {
-    final normalized = uid?.trim() ?? '';
-    _userId = normalized.isEmpty ? null : normalized;
-  }
-
-  @override
-  Future<void> captureException(Object error, StackTrace stackTrace) async {
-    // Collect is reserved for product behavior logs.
-  }
-
-  Map<String, String> _collectHeaders({required bool includeIdentity}) {
-    return <String, String>{
-      for (final entry in <String, String?>{
-        'X-Platform': _collectPlatformHeaderValue(_context.platform),
-        'X-App-Version': _context.appVersion,
-        'x-app-environment': _resolvedAppEnvironment,
-        if (includeIdentity) 'X-Device-ID': _context.deviceId,
-        if (includeIdentity) 'X-UID': _userId,
-      }.entries)
-        if ((entry.value ?? '').trim().isNotEmpty)
-          entry.key: entry.value!.trim(),
-    };
-  }
-
-  String get _resolvedAppEnvironment {
-    final explicit = _appEnvironment?.trim().toLowerCase();
-    if (explicit == 'test' || explicit == 'production') return explicit!;
-    return _collectEnvironmentFromConfigValue(_context.environment);
-  }
-}
-
 class GenesisTelemetry {
   GenesisTelemetry._();
 
   static GenesisTelemetrySink _sink = const NoopGenesisTelemetrySink();
+  static CollectTelemetryUploader _collectUploader = CollectTelemetryUploader(
+    store: SqfliteCollectEventStore(),
+  );
   static GenesisTelemetryContext _context = const GenesisTelemetryContext();
   static bool _enabled = true;
   static bool _sinkOverriddenForTesting = false;
+  static bool _collectPrepared = false;
 
   @visibleForTesting
   static GenesisTelemetryContext get contextForTesting => _context;
@@ -383,23 +134,48 @@ class GenesisTelemetry {
   }
 
   @visibleForTesting
-  static void resetForTesting() {
-    _sink = const NoopGenesisTelemetrySink();
-    _context = const GenesisTelemetryContext();
-    _enabled = true;
-    _sinkOverriddenForTesting = false;
+  static void setCollectUploaderForTesting(
+    CollectTelemetryUploader uploader, {
+    bool prepared = true,
+  }) {
+    _collectUploader.dispose();
+    _collectUploader = uploader;
+    _collectPrepared = prepared;
   }
 
   @visibleForTesting
-  static Future<GenesisTelemetrySink> buildDefaultSinkForTesting({
-    required AppConfig config,
-    PostHogTelemetryClient? postHogClient,
-    CollectTelemetryClient? collectClient,
-  }) {
-    return _buildDefaultSink(
-      config: config,
-      postHogClient: postHogClient,
-      collectClient: collectClient,
+  static void resetForTesting() {
+    _collectUploader.dispose();
+    _sink = const NoopGenesisTelemetrySink();
+    _collectUploader = CollectTelemetryUploader(
+      store: MemoryCollectEventStore(),
+    );
+    _context = const GenesisTelemetryContext();
+    _enabled = true;
+    _sinkOverriddenForTesting = false;
+    _collectPrepared = false;
+  }
+
+  static void prepareCollect(AppConfig config) {
+    if (_collectPrepared) return;
+    _collectPrepared = true;
+    final endpoint = config.collectEndpoint.trim();
+    final enabled =
+        config.collectEnabled && config.useMock != true && endpoint.isNotEmpty;
+    CollectTelemetryClient? client;
+    if (enabled) {
+      try {
+        client = SdkCollectTelemetryClient(
+          endpoint: endpoint,
+          debugProxy: config.debugProxy,
+        );
+      } catch (_) {
+        client = null;
+      }
+    }
+    _collectUploader.configure(
+      enabled: enabled && client != null,
+      client: client,
     );
   }
 
@@ -409,6 +185,9 @@ class GenesisTelemetry {
     AppVersionInfo? appVersion,
     bool trackingEnabled = true,
   }) async {
+    if (!_collectPrepared && !_sinkOverriddenForTesting) {
+      prepareCollect(config);
+    }
     final version = appVersion ?? await AppMetadataService.appVersion();
     final deviceId = await _safeDeviceId(deviceIdService);
     _context = _context.copyWith(
@@ -424,12 +203,31 @@ class GenesisTelemetry {
       currentPage: genesisCurrentPageClassName.value,
     );
     if (!_sinkOverriddenForTesting) {
-      _sink = trackingEnabled
-          ? await _buildDefaultSink(config: config)
-          : const NoopGenesisTelemetrySink();
+      _sink = const NoopGenesisTelemetrySink();
     }
     _enabled = trackingEnabled;
     await _sink.setContext(_context);
+    _collectUploader.setContext(
+      CollectUploadContext(
+        platform: _context.platform,
+        appVersion: _context.appVersion,
+        appEnvironment: _collectAppEnvironment(config),
+        deviceId: _context.deviceId,
+      ),
+    );
+  }
+
+  static void startCollectUploader() {
+    _collectUploader.start();
+  }
+
+  static void handleAppResumed() {
+    _collectUploader.handleAppResumed();
+  }
+
+  @visibleForTesting
+  static Future<void> waitForCollectWritesForTesting() {
+    return _collectUploader.waitForPendingWrites();
   }
 
   static void updateCurrentPage(String pageClassName) {
@@ -449,20 +247,25 @@ class GenesisTelemetry {
     bool includeCollectIdentityHeaders = true,
   }) {
     if (!_enabled) return;
-    unawaited(
-      _sink.record(
-        GenesisTelemetryEvent(
-          name: name,
-          category: category,
-          data: <String, Object?>{'event_name': name, ...data},
-          context: _context,
-          level: level,
-          capture: capture,
-          collectPayload: collectPayload,
-          includeCollectIdentityHeaders: includeCollectIdentityHeaders,
-        ),
-      ),
+    final event = GenesisTelemetryEvent(
+      name: name,
+      category: category,
+      data: <String, Object?>{'event_name': name, ...data},
+      context: _context,
+      level: level,
+      capture: capture,
+      collectPayload: collectPayload,
+      includeCollectIdentityHeaders: includeCollectIdentityHeaders,
     );
+    if (capture && collectPayload != null && collectPayload.isNotEmpty) {
+      unawaited(
+        _collectUploader.enqueuePayload(
+          collectPayload,
+          includeIdentityHeaders: includeCollectIdentityHeaders,
+        ),
+      );
+    }
+    unawaited(_sink.record(event));
   }
 
   static void click({
@@ -516,18 +319,20 @@ class GenesisTelemetry {
     if (!_enabled || normalizedActionType.isEmpty || normalizedAction.isEmpty) {
       return;
     }
+    final payload = <String, Object?>{
+      'action_type': normalizedActionType,
+      'action': normalizedAction,
+      'object1': object1,
+      'object2': object2,
+      'object3': object3,
+    };
+    unawaited(_collectUploader.enqueuePayload(payload));
     unawaited(
       _sink.record(
         GenesisTelemetryEvent(
           name: normalizedAction,
           category: 'collect.log',
-          data: _compact(<String, Object?>{
-            'action_type': normalizedActionType,
-            'action': normalizedAction,
-            'object1': object1,
-            'object2': object2,
-            'object3': object3,
-          }),
+          data: _compact(payload),
           context: _context,
         ),
       ),
@@ -535,6 +340,7 @@ class GenesisTelemetry {
   }
 
   static void setUserId(String? uid) {
+    _collectUploader.setUserId(uid);
     unawaited(_sink.setUserId(uid));
   }
 
@@ -554,59 +360,6 @@ class GenesisTelemetry {
       return '';
     }
   }
-
-  static Future<GenesisTelemetrySink> _buildDefaultSink({
-    required AppConfig config,
-    PostHogTelemetryClient? postHogClient,
-    CollectTelemetryClient? collectClient,
-  }) async {
-    final sinks = <GenesisTelemetrySink>[];
-    final collectSink = _buildCollectSink(
-      config: config,
-      collectClient: collectClient,
-    );
-    if (collectSink != null) sinks.add(collectSink);
-
-    final projectToken = config.postHogProjectToken.trim();
-    if (projectToken.isNotEmpty) {
-      final client = postHogClient ?? const SdkPostHogTelemetryClient();
-      final postHogConfig = PostHogConfig(projectToken)
-        ..host = config.postHogHost
-        ..debug = config.postHogDebug
-        ..captureApplicationLifecycleEvents = false
-        ..sessionReplay = false
-        ..surveys = false;
-      await _safeStaticPostHogCall(() => client.setup(postHogConfig));
-      sinks.add(PostHogGenesisTelemetrySink(client: client));
-    }
-
-    if (sinks.isEmpty) return const NoopGenesisTelemetrySink();
-    if (sinks.length == 1) return sinks.single;
-    return CompositeGenesisTelemetrySink(sinks);
-  }
-}
-
-GenesisTelemetrySink? _buildCollectSink({
-  required AppConfig config,
-  CollectTelemetryClient? collectClient,
-}) {
-  if (!config.collectEnabled || config.useMock == true) return null;
-  final endpoint = config.collectEndpoint.trim();
-  if (endpoint.isEmpty) return null;
-  try {
-    final client =
-        collectClient ??
-        SdkCollectTelemetryClient(
-          endpoint: endpoint,
-          transport: IoHttpTransport(proxy: config.debugProxy),
-        );
-    return CollectGenesisTelemetrySink(
-      client: client,
-      appEnvironment: _collectAppEnvironment(config),
-    );
-  } catch (_) {
-    return null;
-  }
 }
 
 Map<String, Object> _compact(Map<String, Object?> data) {
@@ -625,38 +378,6 @@ Object _safeTelemetryValue(Object? value) {
   return safe?.toString() ?? '';
 }
 
-Map<String, Object> _collectLogPayload(Map<String, Object?> data) {
-  return _compact(<String, Object?>{
-    'action_type': data['action_type'],
-    'action': data['action'],
-    'object1': data['object1'],
-    'object2': data['object2'],
-    'object3': data['object3'],
-  });
-}
-
-String _collectPlatformHeaderValue(String platform) {
-  final normalized = platform.trim().toLowerCase();
-  if (normalized == 'ios') return 'ios';
-  if (normalized == 'android') return 'android';
-  return platform.trim();
-}
-
-String _collectEnvironmentFromConfigValue(String value) {
-  final normalized = value.trim().toLowerCase();
-  const testValues = <String>{
-    'debug',
-    'development',
-    'dev',
-    'local',
-    'mock',
-    'stage',
-    'staging',
-    'test',
-  };
-  return testValues.contains(normalized) ? 'test' : 'production';
-}
-
 bool _isProductionEndpoint(String value) {
   final host = Uri.tryParse(value.trim())?.host.trim().toLowerCase();
   return host == 'api.worldo.ai';
@@ -671,30 +392,6 @@ String _collectAppEnvironment(AppConfig config) {
     config.chatroomWsBaseUrl,
   ];
   return endpoints.every(_isProductionEndpoint) ? 'production' : 'test';
-}
-
-Future<void> _safePostHogCall(Future<void> Function() call) async {
-  try {
-    await call();
-  } catch (_) {
-    // Telemetry must not affect app behavior.
-  }
-}
-
-Future<void> _safeCollectCall(Future<void> Function() call) async {
-  try {
-    await call();
-  } catch (_) {
-    // Telemetry must not affect app behavior.
-  }
-}
-
-Future<void> _safeStaticPostHogCall(Future<void> Function() call) async {
-  try {
-    await call();
-  } catch (_) {
-    // Telemetry startup must not affect app behavior.
-  }
 }
 
 class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {
@@ -731,6 +428,7 @@ class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {
       case AppLifecycleState.resumed:
         final backgroundedAt = _backgroundedAt;
         _backgroundedAt = null;
+        GenesisTelemetry.handleAppResumed();
         GenesisTelemetry.event(
           'app_foreground',
           category: 'app.lifecycle',

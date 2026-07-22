@@ -482,9 +482,6 @@ class ChatComposer extends StatelessWidget {
                                 if (sendEnabled) unawaited(onSend());
                               }
                             : null,
-                        inputFormatters: const [
-                          GenesisDisplaySafeTextInputFormatter(),
-                        ],
                         style: GenesisTypography.withFallback(
                           style.inputTextStyle,
                         ),
@@ -1679,20 +1676,6 @@ List<InlineSpan> _inlineMarkdownSpans(
 
   while (index < text.length) {
     final marker = text[index];
-    if (marker == '\\' && index + 1 < text.length) {
-      final escaped = text[index + 1];
-      if (escaped == 'r' &&
-          index + 3 < text.length &&
-          text[index + 2] == '\\' &&
-          text[index + 3] == 'n') {
-        buffer.write('\n');
-        index += 4;
-      } else {
-        buffer.write(escaped == 'n' ? '\n' : escaped);
-        index += 2;
-      }
-      continue;
-    }
     if (marker == '*' && !_isRepeatedMarker(text, index, marker)) {
       final end = _findInlineItalicEnd(text, index + 1, marker);
       if (end != -1 && end > index + 1) {
@@ -1783,10 +1766,6 @@ bool _isRepeatedMarker(String text, int index, String marker) {
 
 int _findInlineItalicEnd(String text, int start, String marker) {
   for (var index = start; index < text.length; index += 1) {
-    if (text[index] == '\\') {
-      index += 1;
-      continue;
-    }
     if (text[index] == marker && !_isRepeatedMarker(text, index, marker)) {
       return index;
     }
