@@ -180,6 +180,36 @@ void main() {
     },
   );
 
+  testWidgets('origin map and info tabs use wider centered spacing', (
+    tester,
+  ) async {
+    final controller = TabController(length: 2, vsync: tester);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 480,
+            height: 300,
+            child: WorldTopOverlayBar(
+              pointsCount: 3,
+              controller: controller,
+              secondaryTabIsIntro: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    final padding = tabBar.labelPadding as EdgeInsets;
+    expect(tabBar.isScrollable, isTrue);
+    expect(tabBar.tabAlignment, TabAlignment.center);
+    expect(padding.left, 20);
+    expect(padding.right, 20);
+  });
+
   testWidgets('world map stage uses fixed overlay and back button heights', (
     tester,
   ) async {
@@ -212,7 +242,7 @@ void main() {
     expect(backButtonRect.height, genesisSearchFieldHeight);
   });
 
-  testWidgets('world map stage uses transparent overlay backgrounds', (
+  testWidgets('world map stage uses translucent white overlay backgrounds', (
     tester,
   ) async {
     final controller = TabController(length: 2, vsync: tester);
@@ -250,6 +280,9 @@ void main() {
         .whereType<Color>()
         .toList();
 
-    expect(colors.where((color) => color == Colors.transparent), hasLength(2));
+    expect(
+      colors.where((color) => color == const Color(0xE6FFFFFF)),
+      hasLength(2),
+    );
   });
 }

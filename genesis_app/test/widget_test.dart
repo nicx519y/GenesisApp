@@ -5231,11 +5231,140 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Launch'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Launch'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-bottom-origin-name')),
+      findsOneWidget,
+    );
+    expect(find.text('#Origin detail o_test_1'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey<String>('origin-bottom-origin-name')),
+        matching: find.byType(FittedBox),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('origin-bottom-launch-icon')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-custom-form')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-role-custom-launch')),
+      findsOneWidget,
+    );
+    const roleId = 'c_o_test_1';
+    final portrait = find.byKey(
+      const ValueKey<String>('origin-setup-role-portrait-$roleId'),
+    );
+    expect(portrait, findsOneWidget);
+    expect(
+      find.descendant(of: portrait, matching: find.text('Guide')),
+      findsOneWidget,
+    );
+    final identityText = tester.widget<Text>(
+      find.descendant(of: portrait, matching: find.text('Guide')),
+    );
+    expect(identityText.maxLines, isNull);
+    expect(identityText.overflow, isNull);
+    expect(identityText.softWrap, isTrue);
+    expect(
+      find.descendant(of: portrait, matching: find.text('Knows the path')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-role-page-dot-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-role-page-dot-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-page-current-1-of-2'),
+      ),
+      findsOneWidget,
+    );
+    final roleToggle = find.byKey(
+      const ValueKey<String>('origin-setup-role-toggle-$roleId'),
+    );
+    await tester.ensureVisible(roleToggle);
+    await tester.pumpAndSettle();
+    await tester.tap(roleToggle);
+    await tester.pumpAndSettle();
+    final details = find.byKey(
+      const ValueKey<String>('origin-setup-role-details-$roleId'),
+    );
+    expect(details, findsOneWidget);
+    expect(
+      find.descendant(of: details, matching: find.text('Name')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: details, matching: find.text('Identity')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: details, matching: find.text('Brief')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: details, matching: find.text('Goal')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: details, matching: find.text('Knows the path')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-role-arrow-up-$roleId')),
+      findsOneWidget,
+    );
+    await tester.tap(roleToggle);
+    await tester.pumpAndSettle();
+    expect(portrait, findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-arrow-down-$roleId'),
+      ),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey<String>('origin-setup-role-custom-launch')),
+      400,
+      scrollable: find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-page-current-2-of-2'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Info.'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('origin-info-stats-row')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-info-stat-copy')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-info-stat-connect')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-info-stat-character')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Map'));
+    await tester.pumpAndSettle();
     final launchButtonFinder = find.widgetWithText(FilledButton, 'Launch');
     expect(tester.getSize(launchButtonFinder), const Size(140, 35));
     final launchButton = tester.widget<FilledButton>(launchButtonFinder);
@@ -5243,9 +5372,15 @@ void main() {
       launchButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
       16,
     );
-    await tester.tap(find.text('Launch'));
+    await tester.tap(launchButtonFinder);
     await tester.pumpAndSettle();
-    expect(find.text('Setup Your Role'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-role-sheet')),
+        matching: find.text('Setup Your Role'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('origin-role-launch-icon')),
       findsNothing,
@@ -5301,6 +5436,58 @@ void main() {
     );
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('Origin inline custom role launches without opening role sheet', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final customForm = find.byKey(
+      const ValueKey<String>('origin-setup-custom-form'),
+    );
+    expect(customForm, findsOneWidget);
+    final fields = find.descendant(
+      of: customForm,
+      matching: find.byType(TextField),
+    );
+    expect(fields, findsNWidgets(3));
+    tester.widget<TextField>(fields.at(0)).controller!.text = 'Inline Hero';
+    tester.widget<TextField>(fields.at(1)).controller!.text = 'Explorer';
+    tester.widget<TextField>(fields.at(2)).controller!.text = 'Inline bio';
+    await tester.pump();
+
+    final customLaunch = find.byKey(
+      const ValueKey<String>('origin-setup-role-custom-launch'),
+    );
+    await tester.ensureVisible(customLaunch);
+    await tester.pumpAndSettle();
+    await tester.tap(customLaunch);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
+    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+    expect(launchRequests, hasLength(1));
+    final launchBody = transport.decodedBody(launchRequests.single);
+    expect(launchBody['custom_role'], containsPair('name', 'Inline Hero'));
+    expect(launchBody['custom_role'], containsPair('identity', 'Explorer'));
+    expect(launchBody['custom_role'], containsPair('bio', 'Inline bio'));
   });
 
   testWidgets('Origin launch records pending world and waits in background', (

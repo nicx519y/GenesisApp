@@ -378,7 +378,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
                                     },
                                   )
                                 : _tabIndex == 1
-                                ? _CustomRoleForm(
+                                ? OriginCustomRoleForm(
                                     key: const ValueKey(
                                       'origin-role-custom-tab',
                                     ),
@@ -790,8 +790,8 @@ class _LaunchedWorldRoleTile extends StatelessWidget {
   }
 }
 
-class _CustomRoleForm extends StatelessWidget {
-  const _CustomRoleForm({
+class OriginCustomRoleForm extends StatelessWidget {
+  const OriginCustomRoleForm({
     super.key,
     required this.form,
     required this.fillingProfile,

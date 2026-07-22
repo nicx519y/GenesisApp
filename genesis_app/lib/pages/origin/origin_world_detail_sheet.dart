@@ -1,5 +1,7 @@
 part of 'origin_world_page.dart';
 
+const Color _originDetailSheetBackgroundColor = Color(0xFFEDEDED);
+
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
@@ -7,6 +9,10 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.minChildSize,
     required this.collapseRequest,
     required this.onOriginChanged,
+    required this.launching,
+    required this.onSelectRole,
+    required this.onLaunchCustomRole,
+    required this.onFillCustomRoleFromProfile,
   });
 
   static const double defaultInitialChildSize = 0.22;
@@ -16,6 +22,10 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final double minChildSize;
   final int collapseRequest;
   final VoidCallback onOriginChanged;
+  final bool launching;
+  final Future<void> Function(OriginCharacter character) onSelectRole;
+  final Future<void> Function(OriginCustomRoleDraft role) onLaunchCustomRole;
+  final OriginRoleProfileLoader onFillCustomRoleFromProfile;
 
   @override
   State<_OriginDetailDraggableSheet> createState() =>
@@ -146,31 +156,13 @@ class _OriginDetailDraggableSheetState
   ) {
     final alpha = _statusBarAlphaForExtent(context, extent);
     if (alpha <= 0.001) return widget.baseStatusBarStyle;
-    final darkIcons = alpha >= 0.5;
     return widget.baseStatusBarStyle.copyWith(
-      statusBarColor: Colors.white.withValues(alpha: alpha),
-      statusBarIconBrightness: darkIcons
-          ? Brightness.dark
-          : widget.baseStatusBarStyle.statusBarIconBrightness,
-      statusBarBrightness: darkIcons
-          ? Brightness.light
-          : widget.baseStatusBarStyle.statusBarBrightness,
+      statusBarColor: _originDetailSheetBackgroundColor.withValues(
+        alpha: alpha,
+      ),
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
     );
-  }
-
-  double _sheetTopProgress(BuildContext context) {
-    final alpha = _statusBarAlphaForExtent(context, _sheetExtent);
-    if (alpha > 0) return alpha;
-    final viewportHeight = MediaQuery.sizeOf(context).height;
-    final sheetHostHeight =
-        viewportHeight - _OriginBottomLaunchBar.heightFor(context);
-    final statusBarHeight = GenesisSafeAreaInsets.top(context);
-    final sheetTop = sheetHostHeight * (1.0 - _sheetExtent);
-    final transitionDistance = statusBarHeight <= 0 ? 1.0 : statusBarHeight;
-    return ((transitionDistance - (sheetTop - statusBarHeight)) /
-            transitionDistance)
-        .clamp(0.0, 1.0)
-        .toDouble();
   }
 
   @override
@@ -180,11 +172,12 @@ class _OriginDetailDraggableSheetState
     final initialChildSize = _effectiveInitialChildSize
         .clamp(minChildSize, maxChildSize)
         .toDouble();
-    final topProgress = _sheetTopProgress(context);
     final topPadding =
         GenesisSafeAreaInsets.top(context) *
         _statusBarAlphaForExtent(context, _sheetExtent);
-    final topRadius = GenesisRadii.sheetTopRadiusValue * (1.0 - topProgress);
+    final initialDialoguePreview = _originFirstInitialDialoguePreview(
+      widget.origin,
+    );
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _statusBarStyleForExtent(context, _sheetExtent),
       child: NotificationListener<DraggableScrollableNotification>(
@@ -199,15 +192,11 @@ class _OriginDetailDraggableSheetState
           builder: (context, scrollController) {
             return DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFFFF),
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(topRadius),
-                ),
+                color: _originDetailSheetBackgroundColor,
+                borderRadius: GenesisRadii.sheet,
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(topRadius),
-                ),
+                borderRadius: GenesisRadii.sheet,
                 child: ScrollConfiguration(
                   behavior: ScrollConfiguration.of(
                     context,
@@ -225,19 +214,20 @@ class _OriginDetailDraggableSheetState
                           topPadding: topPadding,
                         ),
                       ),
-                      SliverPadding(
-                        padding: EdgeInsets.fromLTRB(
-                          originDetailSheetHorizontalPaddingForTesting,
-                          originDetailSheetHeaderBodyGapForTesting,
-                          originDetailSheetHorizontalPaddingForTesting,
-                          32,
+                      if (initialDialoguePreview != null)
+                        SliverToBoxAdapter(
+                          child: _OriginInitialDialogueSection(
+                            preview: initialDialoguePreview,
+                          ),
                         ),
-                        sliver: SliverList.list(
-                          children: [
-                            _OriginCharactersSection(
-                              characters: widget.origin.characters,
-                            ),
-                          ],
+                      SliverToBoxAdapter(
+                        child: _OriginSetupRoleSection(
+                          characters: widget.origin.characters,
+                          launching: widget.launching,
+                          onSelectRole: widget.onSelectRole,
+                          onLaunchCustomRole: widget.onLaunchCustomRole,
+                          onFillCustomRoleFromProfile:
+                              widget.onFillCustomRoleFromProfile,
                         ),
                       ),
                     ],
@@ -306,7 +296,7 @@ class _OriginIntroListState extends State<_OriginIntroList> {
 
   Future<void> _loadCurrentUid() async {
     final uid =
-        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
+        (await AppServicesScope.read(context).sessionStore.readUid())?.trim() ??
         '';
     if (!mounted || uid == _currentUid) return;
     setState(() => _currentUid = uid);
@@ -334,6 +324,8 @@ class _OriginIntroListState extends State<_OriginIntroList> {
       CopyWorldProgressSection(originId: widget.origin.oid),
       const SizedBox(height: originDetailSectionGapForTesting),
       _DiscussSection(origin: widget.origin, controller: _discussController),
+      const SizedBox(height: originDetailSectionGapForTesting),
+      _OriginCharactersSection(characters: widget.origin.characters),
     ]);
     return ListView(
       key: PageStorageKey<String>('origin-intro-${widget.origin.oid}'),
@@ -388,7 +380,7 @@ class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return ColoredBox(
-      color: const Color(0xFFFFFFFF),
+      color: _originDetailSheetBackgroundColor,
       child: Stack(
         children: [
           Positioned(
@@ -504,7 +496,64 @@ class _OriginSheetHeaderContent extends StatelessWidget {
               ),
           ],
         ),
+        const SizedBox(height: 18),
+        Row(
+          key: const ValueKey<String>('origin-info-stats-row'),
+          children: [
+            _OriginInfoStat(
+              key: const ValueKey<String>('origin-info-stat-copy'),
+              iconAsset: copyStatIconAsset,
+              value: origin.copyCount,
+            ),
+            const SizedBox(width: 20),
+            _OriginInfoStat(
+              key: const ValueKey<String>('origin-info-stat-connect'),
+              iconAsset: connectStatIconAsset,
+              value: origin.interactCount,
+            ),
+            const SizedBox(width: 20),
+            _OriginInfoStat(
+              key: const ValueKey<String>('origin-info-stat-character'),
+              iconAsset: characterStatIconAsset,
+              preserveIconAssetColor: true,
+              value: origin.characterCount,
+            ),
+          ],
+        ),
       ],
+    );
+  }
+}
+
+class _OriginInfoStat extends StatelessWidget {
+  const _OriginInfoStat({
+    super.key,
+    required this.iconAsset,
+    this.preserveIconAssetColor = false,
+    required this.value,
+  });
+
+  final String iconAsset;
+  final bool preserveIconAssetColor;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return StatItem(
+      iconAsset: iconAsset,
+      preserveIconAssetColor: preserveIconAssetColor,
+      iconSize: 14,
+      iconAssetScale: 1,
+      iconVerticalOffset: 0,
+      iconColor: const Color(0xFF111111),
+      gap: 4,
+      text: formatStatCount(value),
+      textStyle: const TextStyle(
+        fontSize: 14,
+        height: 1,
+        fontWeight: FontWeight.w400,
+        color: Color(0xFF111111),
+      ),
     );
   }
 }

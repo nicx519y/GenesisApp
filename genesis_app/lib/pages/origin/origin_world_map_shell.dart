@@ -27,6 +27,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _baseStatusBarStyle,
       child: Scaffold(
+        backgroundColor: _originDetailSheetBackgroundColor,
         resizeToAvoidBottomInset: false,
         body: LayoutBuilder(
           builder: (context, constraints) {
@@ -111,7 +112,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(color: Color(0xFFF9F9F9)),
+      decoration: const BoxDecoration(color: Color(0xFFEDEDED)),
       child: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
@@ -120,29 +121,19 @@ class _OriginBottomLaunchBar extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Align(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: SizedBox(
-                    height: 32,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        _LaunchBarStat(
-                          iconAsset: copyStatIconAsset,
-                          value: origin.copyCount,
-                        ),
-                        const SizedBox(width: 20),
-                        _LaunchBarStat(
-                          iconAsset: connectStatIconAsset,
-                          value: origin.interactCount,
-                        ),
-                        const SizedBox(width: 20),
-                        _LaunchBarStat(
-                          iconAsset: characterStatIconAsset,
-                          preserveIconAssetColor: true,
-                          value: origin.characterCount,
-                        ),
-                      ],
+                  child: Text(
+                    originDisplayName(origin.name, fallback: origin.oid),
+                    key: const ValueKey<String>('origin-bottom-origin-name'),
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF4B6192),
                     ),
                   ),
                 ),
@@ -174,41 +165,6 @@ class _OriginBottomLaunchBar extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _LaunchBarStat extends StatelessWidget {
-  const _LaunchBarStat({
-    this.icon,
-    this.iconAsset,
-    this.preserveIconAssetColor = false,
-    required this.value,
-  }) : assert(icon != null || iconAsset != null);
-
-  final IconData? icon;
-  final String? iconAsset;
-  final bool preserveIconAssetColor;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return StatItem(
-      icon: icon,
-      iconAsset: iconAsset,
-      preserveIconAssetColor: preserveIconAssetColor,
-      iconSize: 14,
-      iconAssetScale: 1,
-      iconVerticalOffset: 0,
-      iconColor: const Color(0xFF111111),
-      gap: 4,
-      text: formatStatCount(value),
-      textStyle: const TextStyle(
-        fontSize: 14,
-        height: 1,
-        fontWeight: FontWeight.w400,
-        color: Color(0xFF111111),
       ),
     );
   }

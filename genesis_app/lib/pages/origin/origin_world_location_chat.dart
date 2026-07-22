@@ -108,6 +108,95 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
   }
 }
 
+class _OriginInitialDialoguePreview {
+  const _OriginInitialDialoguePreview({
+    required this.locationName,
+    required this.messages,
+  });
+
+  final String locationName;
+  final List<ChatMessageVm> messages;
+}
+
+_OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
+  OriginDetail origin,
+) {
+  final locationIds = <String>{
+    for (final location in origin.allLocations)
+      if (location.locationId.trim().isNotEmpty) location.locationId.trim(),
+  };
+  if (locationIds.isEmpty || origin.ticks.isEmpty) return null;
+
+  final sourceMessages = originLocationOpeningPreviewMessagesForTesting(
+    origin.ticks,
+    locationIds,
+  );
+  if (!sourceMessages.any((message) => message.senderType != 'tick')) {
+    return null;
+  }
+
+  final locationId = sourceMessages
+      .map((message) => message.locationId.trim())
+      .firstWhere((id) => id.isNotEmpty, orElse: () => '');
+  final location = origin.allLocations
+      .where((item) => item.locationId.trim() == locationId)
+      .firstOrNull;
+  final entities = _originLocationOpeningPreviewEntities(
+    origin.characters,
+    sourceMessages,
+    locationId,
+  );
+  final entitiesById = <String, WorldChatroomEntity>{
+    for (final entity in entities) entity.id.trim().toLowerCase(): entity,
+  };
+  final messages = sourceMessages.indexed
+      .map((entry) {
+        final index = entry.$1;
+        final source = entry.$2;
+        final rawSenderType = source.senderType.trim().toLowerCase();
+        final senderType = switch (rawSenderType) {
+          'ai' => 'character',
+          '' => 'user',
+          _ => rawSenderType,
+        };
+        final entity = entitiesById[source.senderId.trim().toLowerCase()];
+        final senderName = entity?.name.trim().isNotEmpty == true
+            ? entity!.name.trim()
+            : source.senderName.trim();
+        final currentTime =
+            senderType == 'user' ||
+                senderType == 'tick' ||
+                senderType == 'system'
+            ? ''
+            : source.currentTime.trim();
+        return ChatMessageVm(
+          localId: 'origin-initial-dialogue-${source.tickNo}-$index',
+          globalMessageId: source.globalMessageId,
+          messageId: source.messageId,
+          locationMessageId: source.locationMessageId,
+          roundId: source.conversationRoundId,
+          tickNo: source.tickNo,
+          senderId: source.senderId,
+          senderName: senderName,
+          avatarUrl: entity?.avatarUrl ?? '',
+          text: source.content,
+          currentTime: currentTime,
+          isMe: false,
+          status: 'sent',
+          senderType: senderType,
+          createdAt: source.createdAt,
+        );
+      })
+      .toList(growable: false);
+
+  return _OriginInitialDialoguePreview(
+    locationName: location?.name.trim().isNotEmpty == true
+        ? location!.name.trim()
+        : locationId,
+    messages: messages,
+  );
+}
+
 Map<String, Map<String, dynamic>> _originLocationsById(
   List<OriginLocation> locations,
 ) {

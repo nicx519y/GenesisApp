@@ -75,7 +75,9 @@ class WorldTopOverlayBar extends StatelessWidget {
               tabAlignment: TabAlignment.center,
               dividerColor: Colors.transparent,
               padding: EdgeInsets.zero,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+              labelPadding: EdgeInsets.symmetric(
+                horizontal: secondaryTabIsIntro ? 20 : 12,
+              ),
               splashFactory: NoSplash.splashFactory,
               overlayColor: WidgetStateProperty.all(Colors.transparent),
               indicatorSize: TabBarIndicatorSize.label,
@@ -118,7 +120,7 @@ class WorldTopOverlayBar extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         secondaryTabIsIntro
-                            ? 'Intro'
+                            ? 'Info.'
                             : 'Location ($pointsCount)',
                       ),
                     ],

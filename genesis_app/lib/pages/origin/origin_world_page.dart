@@ -20,6 +20,7 @@ import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
+import '../../components/origin/origin_character_form.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
@@ -41,6 +42,7 @@ import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_search_field.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
@@ -413,6 +415,39 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     await _openLaunchRoleSheet(origin);
   }
 
+  Future<void> _selectAndLaunchPresetRole(
+    OriginDetail origin,
+    OriginCharacter character,
+  ) async {
+    if (_launching) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
+    final characterId = _characterStableId(character);
+    if (characterId.isEmpty) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_setup_role_launch',
+      object1: origin.oid,
+      object2: characterId,
+    );
+    await _launchOrigin(origin, OriginRoleLaunchSelection.preset(characterId));
+  }
+
+  Future<void> _selectAndLaunchCustomRole(
+    OriginDetail origin,
+    OriginCustomRoleDraft role,
+  ) async {
+    if (_launching) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_setup_custom_role_launch',
+      object1: origin.oid,
+    );
+    await _launchOrigin(origin, OriginRoleLaunchSelection.custom(role));
+  }
+
   Future<void> _openLaunchRoleSheet(OriginDetail origin) async {
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
@@ -748,6 +783,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                   minChildSize: minChildSize,
                   collapseRequest: _detailSheetCollapseRequest,
                   onOriginChanged: _refreshOriginDetail,
+                  launching: _launching,
+                  onSelectRole: (character) =>
+                      _selectAndLaunchPresetRole(origin, character),
+                  onLaunchCustomRole: (role) =>
+                      _selectAndLaunchCustomRole(origin, role),
+                  onFillCustomRoleFromProfile: _customRoleFromProfile,
                 ),
             bottomOverlay: _OriginBottomLaunchBar(
               origin: origin,
