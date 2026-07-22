@@ -299,10 +299,14 @@ class SdkCollectTelemetryClient implements CollectTelemetryClient {
 }
 
 class CollectGenesisTelemetrySink implements GenesisTelemetrySink {
-  CollectGenesisTelemetrySink({required CollectTelemetryClient client})
-    : _client = client;
+  CollectGenesisTelemetrySink({
+    required CollectTelemetryClient client,
+    String? appEnvironment,
+  }) : _client = client,
+       _appEnvironment = appEnvironment;
 
   final CollectTelemetryClient _client;
+  final String? _appEnvironment;
   GenesisTelemetryContext _context = const GenesisTelemetryContext();
   String? _userId;
 
@@ -344,12 +348,19 @@ class CollectGenesisTelemetrySink implements GenesisTelemetrySink {
       for (final entry in <String, String?>{
         'X-Platform': _collectPlatformHeaderValue(_context.platform),
         'X-App-Version': _context.appVersion,
+        'x-app-environment': _resolvedAppEnvironment,
         if (includeIdentity) 'X-Device-ID': _context.deviceId,
         if (includeIdentity) 'X-UID': _userId,
       }.entries)
         if ((entry.value ?? '').trim().isNotEmpty)
           entry.key: entry.value!.trim(),
     };
+  }
+
+  String get _resolvedAppEnvironment {
+    final explicit = _appEnvironment?.trim().toLowerCase();
+    if (explicit == 'test' || explicit == 'production') return explicit!;
+    return _collectEnvironmentFromConfigValue(_context.environment);
   }
 }
 
@@ -589,7 +600,10 @@ GenesisTelemetrySink? _buildCollectSink({
           endpoint: endpoint,
           transport: IoHttpTransport(proxy: config.debugProxy),
         );
-    return CollectGenesisTelemetrySink(client: client);
+    return CollectGenesisTelemetrySink(
+      client: client,
+      appEnvironment: _collectAppEnvironment(config),
+    );
   } catch (_) {
     return null;
   }
@@ -626,6 +640,37 @@ String _collectPlatformHeaderValue(String platform) {
   if (normalized == 'ios') return 'ios';
   if (normalized == 'android') return 'android';
   return platform.trim();
+}
+
+String _collectEnvironmentFromConfigValue(String value) {
+  final normalized = value.trim().toLowerCase();
+  const testValues = <String>{
+    'debug',
+    'development',
+    'dev',
+    'local',
+    'mock',
+    'stage',
+    'staging',
+    'test',
+  };
+  return testValues.contains(normalized) ? 'test' : 'production';
+}
+
+bool _isProductionEndpoint(String value) {
+  final host = Uri.tryParse(value.trim())?.host.trim().toLowerCase();
+  return host == 'api.worldo.ai';
+}
+
+String _collectAppEnvironment(AppConfig config) {
+  if (!kReleaseMode) return 'test';
+  final endpoints = <String>[
+    config.apiBaseUrl,
+    config.gatewayApiBaseUrl,
+    config.chatroomHttpBaseUrl,
+    config.chatroomWsBaseUrl,
+  ];
+  return endpoints.every(_isProductionEndpoint) ? 'production' : 'test';
 }
 
 Future<void> _safePostHogCall(Future<void> Function() call) async {

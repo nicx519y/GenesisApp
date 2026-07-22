@@ -362,6 +362,7 @@ void main() {
         'action': 'home-my worlds',
       });
       expect(collect.headers.single['X-Platform'], 'android');
+      expect(collect.headers.single['x-app-environment'], 'test');
       expect(collect.headers.single['X-Device-ID'], 'device-test-1');
       expect(collect.headers.single['X-App-Version'], '1.2.3');
       expect(collect.headers.single['X-UID'], 'user-1');
@@ -535,6 +536,7 @@ void main() {
     expect(collect.payloads.single.keys, isNot(contains('app_version')));
     expect(collect.payloads.single.keys, isNot(contains('created_at')));
     expect(collect.headers.single['X-UID'], 'u_1');
+    expect(collect.headers.single['x-app-environment'], 'test');
   });
 
   test('PostHog sink captures events and maps user identity', () async {
