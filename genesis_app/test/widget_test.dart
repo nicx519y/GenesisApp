@@ -3955,43 +3955,11 @@ void main() {
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
   });
 
-  testWidgets('logged in cold start with no worlds opens Home Popular', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport(worldListTotal: 0);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialAuthToken: 'backend-token',
-          ),
-          child: const AppShellPage(initialIndex: 0),
-        ),
-      ),
-    );
-
-    for (var i = 0; i < 20 && find.text('Popular').evaluate().isEmpty; i += 1) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-
-    final worldRequests = transport.requestsFor('/api/v1/world/list');
-    expect(worldRequests, hasLength(1));
-    expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
-    expect(worldRequests.single.uri.queryParameters['pn'], '1');
-    expect(worldRequests.single.uri.queryParameters['rn'], '10');
-    expect(find.text('Popular'), findsOneWidget);
-    expect(find.text('Worldo'), findsNothing);
-  });
-
   testWidgets(
-    'logged in cold start shows Home skeleton while my worlds loads',
+    'logged in cold start without My Worlds cache opens Worldo and Home Popular',
     (WidgetTester tester) async {
-      final worldListCompleter = Completer<TransportResponse>();
-      final transport = _RecordingV1ListTransport(
-        worldListCompleter: worldListCompleter,
-      );
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final transport = _RecordingV1ListTransport();
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
@@ -4007,86 +3975,63 @@ void main() {
 
       for (
         var i = 0;
-        i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        i < 20 && find.text('Worldo').evaluate().isEmpty;
         i += 1
       ) {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-      expect(
-        find.byKey(
-          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('My Worlds'), findsOneWidget);
-      expect(find.text('Popular'), findsOneWidget);
-      final loadingTabBar = tester.widget<TabBar>(find.byType(TabBar));
-      expect(loadingTabBar.labelColor, loadingTabBar.unselectedLabelColor);
-      expect(loadingTabBar.labelStyle, loadingTabBar.unselectedLabelStyle);
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+      expect(find.text('Worldo'), findsOneWidget);
 
-      worldListCompleter.complete(
-        transport._jsonResponse({
-          'err_no': 0,
-          'err_str': 'success',
-          'data': {'list': const <Object?>[], 'total': 0},
-        }),
-      );
+      await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
 
-      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
       expect(find.text('Popular'), findsOneWidget);
-
-      await tester.tap(find.text('My Worlds'));
-      await tester.pumpAndSettle();
-
-      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-      expect(
-        find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-        findsNothing,
-      );
-      expect(
-        find.text('Launch a #Worldo to generate your own World'),
-        findsOneWidget,
-      );
     },
   );
 
-  testWidgets('logged in cold start with worlds opens Home My Worlds', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport(worldListTotal: 1);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialAuthToken: 'backend-token',
+  testWidgets(
+    'logged in cold start with My Worlds cache opens Home My Worlds',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(worldListTotal: 1);
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+          'list': [transport._worldItem(0)],
+          'total': 1,
+        }),
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: const AppShellPage(initialIndex: 0),
           ),
-          child: const AppShellPage(initialIndex: 0),
         ),
-      ),
-    );
+      );
 
-    for (
-      var i = 0;
-      i < 20 && find.text('World tick narrator 1').evaluate().isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
+      for (
+        var i = 0;
+        i < 20 && find.text('World tick narrator 1').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
-    final worldRequests = transport.requestsFor('/api/v1/world/list');
-    expect(worldRequests, hasLength(1));
-    expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
-    expect(worldRequests.single.uri.queryParameters['pn'], '1');
-    expect(worldRequests.single.uri.queryParameters['rn'], '10');
-    expect(find.text('My Worlds'), findsOneWidget);
-    expect(find.text('World tick narrator 1'), findsOneWidget);
-    expect(find.text('Worldo'), findsNothing);
-  });
+      final worldRequests = transport.requestsFor('/api/v1/world/list');
+      expect(worldRequests, hasLength(1));
+      expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
+      expect(worldRequests.single.uri.queryParameters['pn'], '1');
+      expect(worldRequests.single.uri.queryParameters['rn'], '10');
+      expect(find.text('My Worlds'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsOneWidget);
+      expect(find.text('Worldo'), findsNothing);
+    },
+  );
 
   testWidgets('main tabs keep page state after switching away and back', (
     WidgetTester tester,

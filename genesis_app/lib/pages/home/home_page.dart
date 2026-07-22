@@ -263,53 +263,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<int> _initialTabIndexFromSession() async {
-    if (!await _hasLocalLoginSession()) {
-      return HomePage.popularTabIndex;
-    }
-    await _waitForHomeNetworkRequestsAllowed();
-    if (!mounted) return HomePage.myWorldsTabIndex;
-    try {
-      final services = AppServicesScope.read(context);
-      final data = await services.api.v1.world.list(
-        scene: 'mine',
-        pn: 1,
-        rn: 10,
-      );
-      final page = _parseHomeWorldListPage(data);
-      if (!mounted) return HomePage.myWorldsTabIndex;
-      _resolvedInitialMyWorldsData = data;
-      if (page.items.isEmpty && page.total <= 0) {
-        return HomePage.popularTabIndex;
-      }
-      return HomePage.myWorldsTabIndex;
-    } catch (error, stackTrace) {
-      debugPrint('[Home][InitialTab] my worlds probe failed: $error');
-      debugPrint('[Home][InitialTab] stacktrace:\n$stackTrace');
-      _resolvedInitialMyWorldsData = null;
-      return HomePage.myWorldsTabIndex;
-    }
-  }
-
-  Future<void> _waitForHomeNetworkRequestsAllowed() {
-    if (_homeNetworkRequestsAllowed.value) return Future<void>.value();
-    final completer = Completer<void>();
-    void listener() {
-      if (!_homeNetworkRequestsAllowed.value) return;
-      _homeNetworkRequestsAllowed.removeListener(listener);
-      if (!completer.isCompleted) completer.complete();
-    }
-
-    _homeNetworkRequestsAllowed.addListener(listener);
-    return completer.future;
-  }
-
-  Future<bool> _hasLocalLoginSession() async {
-    final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (uid.isEmpty || uid.startsWith('guest_')) return false;
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    return authToken.isNotEmpty;
+    // Normal navigation into Home always starts at Popular. Cold-start
+    // routing is resolved by AppShell from the local My Worlds cache.
+    return HomePage.popularTabIndex;
   }
 
   @override
