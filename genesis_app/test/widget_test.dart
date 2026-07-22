@@ -4443,7 +4443,6 @@ void main() {
               startupPlatform: TargetPlatform.iOS,
               initialTabIndex: HomePage.myWorldsTabIndex,
               initialRequestMetricWindow: Duration.zero,
-              primeNetworkPermission: (_) async => true,
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.notDetermined,
               requestTrackingAuthorization: () async {
@@ -4523,7 +4522,6 @@ void main() {
             startupPlatform: TargetPlatform.iOS,
             initialTabIndex: HomePage.myWorldsTabIndex,
             initialRequestMetricWindow: Duration.zero,
-            primeNetworkPermission: (_) async => true,
             trackingAuthorizationStatus: () async =>
                 AppTrackingAuthorizationStatus.notDetermined,
             requestTrackingAuthorization: () => trackingAuthorization.future,
@@ -4596,7 +4594,6 @@ void main() {
             startupPlatform: TargetPlatform.iOS,
             initialTabIndex: HomePage.myWorldsTabIndex,
             initialRequestMetricWindow: Duration.zero,
-            primeNetworkPermission: (_) async => true,
             trackingAuthorizationStatus: () async =>
                 AppTrackingAuthorizationStatus.notDetermined,
             requestTrackingAuthorization: () => trackingAuthorization.future,
@@ -4658,8 +4655,6 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
-    final networkPrime = Completer<bool>();
-    var networkPrimed = false;
     var trackingRequested = false;
     final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
     await tester.pumpWidget(
@@ -4674,10 +4669,6 @@ void main() {
             startupPlatform: TargetPlatform.iOS,
             initialTabIndex: HomePage.myWorldsTabIndex,
             initialRequestMetricWindow: Duration.zero,
-            primeNetworkPermission: (_) {
-              networkPrimed = true;
-              return networkPrime.future;
-            },
             trackingAuthorizationStatus: () async =>
                 AppTrackingAuthorizationStatus.notDetermined,
             requestTrackingAuthorization: () {
@@ -4693,16 +4684,19 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(networkPrimed, isFalse);
     expect(trackingRequested, isTrue);
 
     trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
     await tester.pump();
     expect(trackingRequested, isTrue);
-    expect(networkPrimed, isTrue);
-
-    networkPrime.complete(true);
-    await tester.pump();
+    for (
+      var i = 0;
+      i < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
   });
 
   testWidgets(
@@ -4740,7 +4734,6 @@ void main() {
             child: HomePage(
               startupPlatform: TargetPlatform.iOS,
               initialRequestMetricWindow: Duration.zero,
-              primeNetworkPermission: (_) async => true,
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.notDetermined,
               requestTrackingAuthorization: () => trackingAuthorization.future,
@@ -4820,7 +4813,6 @@ void main() {
             child: HomePage(
               startupPlatform: TargetPlatform.iOS,
               initialRequestMetricWindow: Duration.zero,
-              primeNetworkPermission: (_) async => true,
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.notDetermined,
               requestTrackingAuthorization: () => trackingAuthorization.future,
@@ -4880,7 +4872,6 @@ void main() {
             child: HomePage(
               startupPlatform: TargetPlatform.iOS,
               initialRequestMetricWindow: Duration.zero,
-              primeNetworkPermission: (_) async => true,
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.authorized,
               initializeRuntime:

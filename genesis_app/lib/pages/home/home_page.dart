@@ -107,7 +107,6 @@ class HomePage extends StatefulWidget {
     this.startupOnly = false,
     this.activationListenable,
     this.startupPlatform,
-    this.primeNetworkPermission = AppBootstrap.primeNetworkPermission,
     this.trackingAuthorizationStatus =
         AppTrackingTransparencyService.authorizationStatus,
     this.requestTrackingAuthorization =
@@ -125,7 +124,6 @@ class HomePage extends StatefulWidget {
   final bool startupOnly;
   final ValueListenable<int>? activationListenable;
   final TargetPlatform? startupPlatform;
-  final Future<bool> Function(AppServices services) primeNetworkPermission;
   final TrackingAuthorizationStatusReader trackingAuthorizationStatus;
   final TrackingAuthorizationRequester requestTrackingAuthorization;
   final StartupRuntimeInitializer initializeRuntime;
@@ -143,8 +141,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   var _startupGateStarted = false;
   AppLifecycleState? _lifecycleState;
   Completer<void>? _resumedCompleter;
-  Completer<void>? _inactiveCompleter;
-  var _watchingNetworkPermissionDialog = false;
 
   @override
   void initState() {
@@ -162,7 +158,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _resumedCompleter?.complete();
-    _inactiveCompleter?.complete();
     _homeNetworkRequestsAllowed.dispose();
     super.dispose();
   }
@@ -173,9 +168,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _resumedCompleter?.complete();
       _resumedCompleter = null;
-    } else if (_watchingNetworkPermissionDialog) {
-      _inactiveCompleter?.complete();
-      _inactiveCompleter = null;
     }
   }
 
@@ -221,8 +213,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (!mounted) return;
       final trackingAuthorizationStatus = await _resolveTrackingAuthorization();
       if (!mounted) return;
-      await _primeNetworkPermissionThenWaitForSystemDialog(services);
-      if (!mounted) return;
       await WidgetsBinding.instance.endOfFrame;
       await widget
           .initializeRuntime(services, trackingAuthorizationStatus)
@@ -260,51 +250,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // it instead of starting another permission flow under the system dialog.
     await _waitForAppResumed();
     return requestedStatus;
-  }
-
-  Future<void> _primeNetworkPermissionThenWaitForSystemDialog(
-    AppServices services,
-  ) async {
-    _watchingNetworkPermissionDialog = true;
-    final inactiveCompleter = Completer<void>();
-    _inactiveCompleter = inactiveCompleter;
-    try {
-      final primeFuture =
-          Future<bool>.sync(
-            () => widget.primeNetworkPermission(services),
-          ).catchError((Object error, StackTrace stackTrace) {
-            debugPrint(
-              '[Home][StartupGate] network permission prime failed: $error',
-            );
-            debugPrint('[Home][StartupGate] stacktrace:\n$stackTrace');
-            return false;
-          });
-      final primeCompleted = Completer<void>();
-      unawaited(
-        primeFuture.whenComplete(() {
-          if (!primeCompleted.isCompleted) primeCompleted.complete();
-        }),
-      );
-
-      // Continue as soon as the network probe finishes when no system dialog
-      // was shown. If iOS transitions to inactive first, wait for both the
-      // probe and the resumed lifecycle event so ATT cannot overlap it.
-      await Future.any<void>([primeCompleted.future, inactiveCompleter.future]);
-      if (inactiveCompleter.isCompleted) {
-        await Future.wait<void>([primeCompleted.future, _waitForAppResumed()]);
-      } else {
-        // Let a lifecycle transition already queued by iOS be delivered.
-        await WidgetsBinding.instance.endOfFrame;
-        if (inactiveCompleter.isCompleted) {
-          await _waitForAppResumed();
-        }
-      }
-    } finally {
-      _watchingNetworkPermissionDialog = false;
-      if (identical(_inactiveCompleter, inactiveCompleter)) {
-        _inactiveCompleter = null;
-      }
-    }
   }
 
   Future<void> _waitForAppResumed() async {
