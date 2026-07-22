@@ -459,10 +459,13 @@ sealed class AppRouter {
     switch (settings.name) {
       case RouteNames.home:
         final args = _HomeRouteArgs.from(settings.arguments);
+        final initialIndex = settings.arguments is int
+            ? settings.arguments! as int
+            : 0;
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => AppShellPage(
-            initialIndex: 0,
+            initialIndex: initialIndex,
             homeInitialTabIndex: args.resolvedHomeInitialTabIndex,
           ),
         );

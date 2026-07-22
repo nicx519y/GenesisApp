@@ -12,12 +12,14 @@ import 'bootstrap/app_services_scope.dart';
 import 'bootstrap/service_registry.dart';
 
 class GenesisApp extends StatelessWidget {
-  const GenesisApp({super.key, this.services});
+  const GenesisApp({super.key, this.services, this.initialIndex = 0});
 
   final AppServices? services;
+  final int initialIndex;
 
   @override
   Widget build(BuildContext context) {
+    var initialRoutePending = true;
     return AppServicesScope(
       services: services ?? ServiceRegistry.build(),
       child: AgentControlHost(
@@ -28,7 +30,17 @@ class GenesisApp extends StatelessWidget {
           initialRoute: RouteNames.home,
           navigatorKey: genesisNavigatorKey,
           navigatorObservers: [genesisRouteObserver, genesisPageRouteObserver],
-          onGenerateRoute: AppRouter.onGenerateRoute,
+          onGenerateRoute: (settings) {
+            if (settings.name == RouteNames.home &&
+                settings.arguments == null &&
+                initialRoutePending) {
+              initialRoutePending = false;
+              return AppRouter.onGenerateRoute(
+                RouteSettings(name: RouteNames.home, arguments: initialIndex),
+              );
+            }
+            return AppRouter.onGenerateRoute(settings);
+          },
           builder: (context, child) {
             return GenesisTelemetryTapRegion(
               child: GenesisBottomSystemBarBoundary(

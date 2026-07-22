@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'app/bootstrap/app_bootstrap.dart';
+import 'app/bootstrap/service_registry.dart';
 import 'app/config/app_config.dart';
 import 'app/config/app_endpoint_overrides.dart';
 import 'app/genesis_app.dart';
@@ -30,10 +31,28 @@ Future<void> main() async {
 
   void runGenesisApp() {
     final services = AppBootstrap.createInitialServices(config: appConfig);
+    final initialIndexFuture = _resolveInitialBottomTab(services);
     AppStartupCoordinator.configure(startedAt: appStartedAt);
     GenesisSystemUiChrome.applyDefault();
-    runApp(GenesisApp(services: services));
+    unawaited(
+      initialIndexFuture.then(
+        (initialIndex) =>
+            runApp(GenesisApp(services: services, initialIndex: initialIndex)),
+      ),
+    );
   }
 
   runGenesisApp();
+}
+
+Future<int> _resolveInitialBottomTab(AppServices services) async {
+  try {
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isEmpty || uid.startsWith('guest_')) return 1;
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    return authToken.isEmpty ? 1 : 0;
+  } catch (_) {
+    return 1;
+  }
 }

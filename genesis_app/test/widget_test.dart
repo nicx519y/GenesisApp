@@ -2071,12 +2071,28 @@ void main() {
     await _pumpGenesisApp(tester);
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
     expect(find.text('#Worldo'), findsOneWidget);
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
+  });
+
+  testWidgets('signed-out cold start opens Worldo and Home opens Popular', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(initialUid: null);
+    await tester.pumpWidget(GenesisApp(services: services, initialIndex: 1));
+    await tester.pump();
+
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
+    expect(find.text('Worldo'), findsOneWidget);
+
+    await tester.tap(find.text('Home'));
+    await tester.pump();
+
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 0);
+    expect(find.text('Popular'), findsOneWidget);
   });
 
   testWidgets('tap header search bar opens search page', (
