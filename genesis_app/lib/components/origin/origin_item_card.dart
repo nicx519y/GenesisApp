@@ -174,8 +174,6 @@ class OriginItemCard extends StatelessWidget {
             fontWeight: FontWeight.w600,
             height: 1.3,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 4),
         Text(

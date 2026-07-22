@@ -819,7 +819,7 @@ void main() {
     expect(find.text('Go Chat Now.'), findsNothing);
   });
 
-  testWidgets('billing accepted keeps dialog until OK', (tester) async {
+  testWidgets('billing accepted keeps the dialog processing', (tester) async {
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
@@ -846,7 +846,7 @@ void main() {
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
     billing.emitAccepted();
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(
       find.text(

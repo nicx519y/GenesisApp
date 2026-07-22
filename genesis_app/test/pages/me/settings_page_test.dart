@@ -84,6 +84,22 @@ void main() {
       tester.getTopLeft(find.byType(Checkbox)).dx,
       lessThan(tester.getTopLeft(agreementTextFinder).dx),
     );
+    final gemsWarningFinder = find.textContaining(
+      'All unused Gems, including purchased and earned Gems',
+    );
+    await tester.scrollUntilVisible(
+      gemsWarningFinder,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(gemsWarningFinder, findsOneWidget);
+    expect(find.textContaining('voluntarily waive them'), findsOneWidget);
+    expect(
+      find.textContaining('account deletion does not automatically entitle'),
+      findsOneWidget,
+    );
+    final gemsWarning = tester.widget<Text>(gemsWarningFinder);
+    expect(gemsWarning.style?.color, const Color(0xFFFF2442));
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Delete'));
     await tester.pump();
     expect(find.text('Agree to our terms to continue.'), findsOneWidget);

@@ -250,6 +250,23 @@ void main() {
     expect(find.text('Ava checks the storefront.'), findsOneWidget);
   });
 
+  testWidgets('tapping a message bubble opens its location', (tester) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      activeBubble: const WorldMapMessageBubble(
+        characterId: 'char_a',
+        content: 'Ava checks the storefront.',
+      ),
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    await tester.tap(find.text('Ava checks the storefront.'));
+
+    expect(tappedIds, ['point-1']);
+  });
+
   testWidgets('world map bubble keeps fixed width with adaptive height', (
     tester,
   ) async {
@@ -1286,6 +1303,32 @@ void main() {
 
     expect(mapTapCount, 1);
     expect(tappedIds, ['point-1']);
+  });
+
+  testWidgets('map point leaves empty marker space untappable', (tester) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const <WorldPoint>[
+        WorldPoint(
+          id: 'point-1',
+          sceneId: 'location-1',
+          name: 'Gate',
+          type: WorldPointType.portal,
+          position: _pointPosition,
+          users: <UserAvatar>[],
+        ),
+      ],
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    final labelRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-label-point-1')),
+    );
+    await tester.tapAt(Offset(labelRect.right + 10, labelRect.center.dy));
+
+    expect(tappedIds, isEmpty);
   });
 
   testWidgets('drillable map tap does not show a location ripple', (

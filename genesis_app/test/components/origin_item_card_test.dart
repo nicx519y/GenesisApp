@@ -114,6 +114,46 @@ void main() {
     expect(find.text('five'), findsOneWidget);
   });
 
+  testWidgets('wraps and fully displays a long title', (
+    WidgetTester tester,
+  ) async {
+    const longTitle =
+        'The Floating City Where Every District Changes at Sunrise';
+    const item = OriginListItem(
+      oid: 'o_alpha',
+      status: 1,
+      versionNum: 3,
+      name: longTitle,
+      cover: '',
+      displaySubtitle: 'Tycoon idols',
+      worldView: '',
+      createdUid: 'u_1',
+      createdUserName: 'Shawn',
+      createdAt: '2026-05-01T00:00:00Z',
+      updatedAt: '2026-05-02T00:00:00Z',
+      tags: <String>[],
+      copyCnt: 0,
+      connectCnt: 0,
+      discussCnt: 0,
+      characterCnt: 0,
+      locationCnt: 0,
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(width: 180, child: OriginItemCard(item: item)),
+        ),
+      ),
+    );
+
+    final titleFinder = find.text('#$longTitle');
+    final title = tester.widget<Text>(titleFinder);
+    expect(title.maxLines, isNull);
+    expect(title.overflow, isNull);
+    expect(tester.getSize(titleFinder).height, greaterThan(14 * 1.3));
+  });
+
   testWidgets('hides tags that would overflow past two rows', (
     WidgetTester tester,
   ) async {

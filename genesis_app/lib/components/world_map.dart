@@ -357,6 +357,8 @@ class _WorldMapState extends State<WorldMap> {
                                         width: viewport.width,
                                         height: viewport.height,
                                         transform: transform,
+                                        onPointerDown: onOverlayPointerDown,
+                                        onTap: _pointTapHandler(p),
                                         messageBubble: _bubbleForPoint(
                                           p,
                                           activeBubble,
@@ -2163,6 +2165,9 @@ const double _worldPointAvatarSize = 42;
 const double _worldPointAvatarSpacing = 4;
 const double _worldPointLabelToDotSpacing = 6;
 const double _worldPointAvatarTopGap = 10;
+// Keep a small, intentional tolerance around the visible controls, without
+// making the empty space between a location's label, pin and avatars tappable.
+const double _worldPointTapTargetPadding = 6;
 
 _WorldPointMarkerGeometry _geometryForPoint(
   WorldPoint point,
@@ -2179,18 +2184,22 @@ _WorldPointMarkerGeometry _geometryForPoint(
   );
   final labelGroupWidth = math.min(labelMaxWidth + recentIconWidth, width);
   final avatarWidth = _worldPointAvatarGroupWidth(users.length);
-  final markerWidth = math.max(
+  final visibleMarkerWidth = math.max(
     math.max(_worldPointDotSize, avatarWidth),
     labelGroupWidth,
   );
   final pointCenterY =
       _worldPointLabelHeight(point.name) +
+      _worldPointTapTargetPadding +
       _worldPointLabelToDotSpacing +
       _worldPointDotSize / 2;
-  final markerHeight = _worldPointMarkerHeight(
-    userCount: users.length,
-    pointCenterY: pointCenterY,
-  );
+  final markerWidth = visibleMarkerWidth + _worldPointTapTargetPadding * 2;
+  final markerHeight =
+      _worldPointMarkerHeight(
+        userCount: users.length,
+        pointCenterY: pointCenterY,
+      ) +
+      _worldPointTapTargetPadding;
   return _WorldPointMarkerGeometry(
     labelMaxWidth: labelMaxWidth,
     markerWidth: markerWidth,
@@ -2401,6 +2410,8 @@ class _WorldPointMessageBubblePositioned extends StatelessWidget {
     required this.point,
     required this.width,
     required this.height,
+    required this.onPointerDown,
+    required this.onTap,
     this.transform,
     required this.messageBubble,
   });
@@ -2408,6 +2419,8 @@ class _WorldPointMessageBubblePositioned extends StatelessWidget {
   final WorldPoint point;
   final double width;
   final double height;
+  final ValueChanged<PointerDownEvent> onPointerDown;
+  final VoidCallback? onTap;
   final Matrix4? transform;
   final WorldMapMessageBubble? messageBubble;
 
@@ -2445,30 +2458,15 @@ class _WorldPointMessageBubblePositioned extends StatelessWidget {
     final left = shouldClamp ? rawLeft.clamp(0.0, maxLeft).toDouble() : rawLeft;
     final top = shouldClamp ? rawTop.clamp(0.0, maxTop).toDouble() : rawTop;
 
-    return Positioned(
-      left: left,
-      top: top,
-      width: markerWidth,
-      height: markerHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          _PositionedMapMessageBubble(
-            text: bubble.content,
-            avatarLeft: _worldPointAvatarLeft(
-              bubbleIndex,
-              users.length,
-              markerWidth,
-            ),
-            avatarTop: _worldPointAvatarTop(
-              bubbleIndex,
-              users.length,
-              pointCenterY,
-            ),
-            markerWidth: markerWidth,
-          ),
-        ],
-      ),
+    return _PositionedMapMessageBubble(
+      text: bubble.content,
+      markerLeft: left,
+      markerTop: top,
+      avatarLeft: _worldPointAvatarLeft(bubbleIndex, users.length, markerWidth),
+      avatarTop: _worldPointAvatarTop(bubbleIndex, users.length, pointCenterY),
+      markerWidth: markerWidth,
+      onPointerDown: onPointerDown,
+      onTap: onTap,
     );
   }
 }
@@ -2517,115 +2515,116 @@ class _WorldPointMarker extends StatelessWidget {
     final hasUsers = users.isNotEmpty;
     final avatars = users;
 
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: onPointerDown,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: SizedBox(
-          width: markerWidth,
-          height: markerHeight,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      if (showRecentChatIcon)
-                        const SizedBox(width: _worldPointRecentIconExtraWidth),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: labelMaxWidth),
-                        child: DecoratedBox(
-                          key: ValueKey<String>(
-                            'world-map-location-label-${point.id}',
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.18),
-                                blurRadius: 6,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 3,
-                              vertical: 4,
+    return SizedBox(
+      width: markerWidth,
+      height: markerHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _WorldPointTapTarget(
+                onPointerDown: onPointerDown,
+                onTap: onTap,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (showRecentChatIcon)
+                      const SizedBox(width: _worldPointRecentIconExtraWidth),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: labelMaxWidth),
+                      child: DecoratedBox(
+                        key: ValueKey<String>(
+                          'world-map-location-label-${point.id}',
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.18),
+                              blurRadius: 6,
+                              offset: const Offset(0, 4),
                             ),
-                            child: _PointLabel(
-                              point: point,
-                              color: Colors.white,
+                          ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 3,
+                            vertical: 4,
+                          ),
+                          child: _PointLabel(point: point, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    if (showRecentChatIcon)
+                      const SizedBox(
+                        width: _worldPointRecentIconExtraWidth,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: DecoratedBox(
+                            key: ValueKey<String>('world-map-recent-chat-icon'),
+                            decoration: BoxDecoration(
+                              color: kRecentChatMarkerBackgroundColor,
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(4),
+                              ),
+                            ),
+                            child: SizedBox.square(
+                              dimension: _worldPointRecentIconBadgeSize,
+                              child: Center(
+                                child: RecentChatIcon(
+                                  size: _worldPointRecentIconSize,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                      if (showRecentChatIcon)
-                        const SizedBox(
-                          width: _worldPointRecentIconExtraWidth,
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: DecoratedBox(
-                              key: ValueKey<String>(
-                                'world-map-recent-chat-icon',
-                              ),
-                              decoration: BoxDecoration(
-                                color: kRecentChatMarkerBackgroundColor,
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(4),
-                                ),
-                              ),
-                              child: SizedBox.square(
-                                dimension: _worldPointRecentIconBadgeSize,
-                                child: Center(
-                                  child: RecentChatIcon(
-                                    size: _worldPointRecentIconSize,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-              Positioned(
-                left: markerWidth / 2 - _pointSize / 2,
-                top: pointCenterY - _pointSize / 2,
-                width: _pointSize,
-                height: _pointSize,
-                child: const DecoratedBox(
-                  key: ValueKey<String>('world-map-location-dot'),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF008D68),
-                  ),
-                ),
-              ),
-              if (hasUsers)
-                for (int i = 0; i < avatars.length; i++)
-                  _PositionedMapAvatar(
-                    key: ValueKey<String>(
-                      'map-positioned-avatar-${_mapAvatarStableKey(avatars[i])}',
-                    ),
-                    user: avatars[i],
-                    left: _avatarLeft(i, avatars.length),
-                    top: _avatarTop(i, avatars.length),
-                    enableScaleReboundHint: enableAvatarScaleReboundHint,
-                  ),
-            ],
+            ),
           ),
-        ),
+          Positioned(
+            left:
+                markerWidth / 2 - _pointSize / 2 - _worldPointTapTargetPadding,
+            top: pointCenterY - _pointSize / 2 - _worldPointTapTargetPadding,
+            width: _pointSize + _worldPointTapTargetPadding * 2,
+            height: _pointSize + _worldPointTapTargetPadding * 2,
+            child: _WorldPointTapTarget(
+              onPointerDown: onPointerDown,
+              onTap: onTap,
+              child: const DecoratedBox(
+                key: ValueKey<String>('world-map-location-dot'),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFF008D68),
+                ),
+              ),
+            ),
+          ),
+          if (hasUsers)
+            for (int i = 0; i < avatars.length; i++)
+              _PositionedMapAvatar(
+                key: ValueKey<String>(
+                  'map-positioned-avatar-${_mapAvatarStableKey(avatars[i])}',
+                ),
+                user: avatars[i],
+                left:
+                    _avatarLeft(i, avatars.length) -
+                    _worldPointTapTargetPadding,
+                top:
+                    _avatarTop(i, avatars.length) - _worldPointTapTargetPadding,
+                enableScaleReboundHint: enableAvatarScaleReboundHint,
+                onPointerDown: onPointerDown,
+                onTap: onTap,
+              ),
+        ],
       ),
     );
   }
@@ -2670,15 +2669,23 @@ class _WorldPointMarker extends StatelessWidget {
 class _PositionedMapMessageBubble extends StatelessWidget {
   const _PositionedMapMessageBubble({
     required this.text,
+    required this.markerLeft,
+    required this.markerTop,
     required this.avatarLeft,
     required this.avatarTop,
     required this.markerWidth,
+    required this.onPointerDown,
+    required this.onTap,
   });
 
   final String text;
+  final double markerLeft;
+  final double markerTop;
   final double avatarLeft;
   final double avatarTop;
   final double markerWidth;
+  final ValueChanged<PointerDownEvent> onPointerDown;
+  final VoidCallback? onTap;
 
   static const double _avatarSize = 42;
   static const double _bubbleGap = 8;
@@ -2695,15 +2702,21 @@ class _PositionedMapMessageBubble extends StatelessWidget {
     );
 
     return Positioned(
-      left: left.toDouble(),
-      top: avatarTop + _avatarSize + _bubbleGap - _pointerHeight,
+      left: markerLeft + left.toDouble(),
+      top: markerTop + avatarTop + _avatarSize + _bubbleGap - _pointerHeight,
       width: _bubbleWidth,
-      child: IgnorePointer(
-        child: _MapMessageBubble(
-          text: text,
-          pointerLeft: (avatarLeft + _avatarSize / 2 - left.toDouble())
-              .clamp(_pointerWidth * 1.5, _bubbleWidth - _pointerWidth * 1.5)
-              .toDouble(),
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: onPointerDown,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: _MapMessageBubble(
+            text: text,
+            pointerLeft: (avatarLeft + _avatarSize / 2 - left.toDouble())
+                .clamp(_pointerWidth * 1.5, _bubbleWidth - _pointerWidth * 1.5)
+                .toDouble(),
+          ),
         ),
       ),
     );
@@ -2844,12 +2857,16 @@ class _PositionedMapAvatar extends StatelessWidget {
     required this.left,
     required this.top,
     required this.enableScaleReboundHint,
+    required this.onPointerDown,
+    required this.onTap,
   });
 
   final UserAvatar user;
   final double left;
   final double top;
   final bool enableScaleReboundHint;
+  final ValueChanged<PointerDownEvent> onPointerDown;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2863,9 +2880,41 @@ class _PositionedMapAvatar extends StatelessWidget {
     return Positioned(
       left: left,
       top: top,
-      child: enableScaleReboundHint
-          ? _MapAvatarScaleReboundHint(child: avatar)
-          : avatar,
+      child: _WorldPointTapTarget(
+        onPointerDown: onPointerDown,
+        onTap: onTap,
+        child: enableScaleReboundHint
+            ? _MapAvatarScaleReboundHint(child: avatar)
+            : avatar,
+      ),
+    );
+  }
+}
+
+class _WorldPointTapTarget extends StatelessWidget {
+  const _WorldPointTapTarget({
+    required this.onPointerDown,
+    required this.onTap,
+    required this.child,
+  });
+
+  final ValueChanged<PointerDownEvent> onPointerDown;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: onPointerDown,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(_worldPointTapTargetPadding),
+          child: child,
+        ),
+      ),
     );
   }
 }

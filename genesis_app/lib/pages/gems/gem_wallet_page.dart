@@ -65,8 +65,6 @@ Future<void> showGemBillingPurchaseOverlayPreview(BuildContext context) async {
   successTimer = Timer(const Duration(milliseconds: 1200), () {
     state.value = GemBillingPurchaseDialogState.success(
       attemptId: 'developer_preview',
-      message: 'Purchase successful!',
-      isGrantedSuccess: true,
       grantedText: '550',
     );
   });
@@ -509,7 +507,8 @@ class _GemWalletPageState extends State<GemWalletPage>
         unawaited(_refreshTasks(silent: true));
         return;
       case BillingUiEventKind.accepted:
-        _showBillingPurchaseAccepted(event);
+        // Accepted is an internal settlement state. Keep the user-facing
+        // dialog in Processing until a definitive success event arrives.
         return;
       case BillingUiEventKind.failure:
       case BillingUiEventKind.pending:
@@ -538,25 +537,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     final grantedText = grantedGems > 0 ? formatGemInteger(grantedGems) : '';
     final nextState = GemBillingPurchaseDialogState.success(
       attemptId: event.attemptId,
-      message: 'Purchase successful!',
-      isGrantedSuccess: true,
       grantedText: grantedText,
-    );
-    final notifier = _billingPurchaseDialogState;
-    if (notifier != null) {
-      notifier.value = nextState;
-      return;
-    }
-    _billingPurchaseDialogState = ValueNotifier<GemBillingPurchaseDialogState>(
-      nextState,
-    );
-    _presentBillingPurchaseDialog();
-  }
-
-  void _showBillingPurchaseAccepted(BillingUiEvent event) {
-    final nextState = GemBillingPurchaseDialogState.success(
-      attemptId: event.attemptId,
-      message: event.message,
     );
     final notifier = _billingPurchaseDialogState;
     if (notifier != null) {
