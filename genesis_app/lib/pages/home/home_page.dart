@@ -22,9 +22,10 @@ import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
 import '../../platform/privacy/app_tracking_transparency_service.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_deleted_list_item_transition.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../ui/theme/genesis_ui_theme.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import 'home_feed_cache_store.dart';
@@ -83,10 +84,26 @@ Future<void> _initializeDefaultStartupRuntime(
   AppStartupCoordinator.startWarmUp(services);
 }
 
+_WorldListPage _parseHomeWorldListPage(
+  Map<String, dynamic> data, {
+  Set<String> locallyDeletedWorldIds = const <String>{},
+}) {
+  final list = data['list'];
+  final items = list is List
+      ? list
+            .whereType<Map>()
+            .map((raw) => WorldListItem.fromJson(asJsonMap(raw)))
+            .where((item) => !locallyDeletedWorldIds.contains(item.wid.trim()))
+            .toList(growable: false)
+      : const <WorldListItem>[];
+  return _WorldListPage(items: items, total: asInt(data['total']));
+}
+
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     this.initialTabIndex,
+    this.initialMyWorldsData,
     this.startupOnly = false,
     this.activationListenable,
     this.startupPlatform,
@@ -106,6 +123,7 @@ class HomePage extends StatefulWidget {
   static const int popularTabIndex = 1;
 
   final int? initialTabIndex;
+  final Map<String, dynamic>? initialMyWorldsData;
   final bool startupOnly;
   final ValueListenable<int>? activationListenable;
   final TargetPlatform? startupPlatform;
@@ -122,10 +140,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
-  static int? _lastResolvedInitialTabIndex;
-
   int? _initialTabIndex;
   Future<int>? _initialTabIndexFuture;
+  Map<String, dynamic>? _resolvedInitialMyWorldsData;
   late final ValueNotifier<bool> _homeNetworkRequestsAllowed;
   var _startupGateStarted = false;
   AppLifecycleState? _lifecycleState;
@@ -176,16 +193,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _resolveInitialTabIndex() {
     final requestedIndex = widget.initialTabIndex;
+    _resolvedInitialMyWorldsData = null;
     if (requestedIndex != null) {
       _initialTabIndex = requestedIndex.clamp(0, HomePage.tabs.length - 1);
       _initialTabIndexFuture = null;
-      return;
-    }
-    final cachedIndex = _lastResolvedInitialTabIndex;
-    if (cachedIndex != null) {
-      _initialTabIndex = cachedIndex;
-      _initialTabIndexFuture = null;
-      unawaited(_refreshInitialTabIndexFromSession());
       return;
     }
     _initialTabIndex = null;
@@ -334,19 +345,44 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<int> _initialTabIndexFromSession() async {
-    final index = await _hasLocalLoginSession()
-        ? HomePage.myWorldsTabIndex
-        : HomePage.popularTabIndex;
-    _lastResolvedInitialTabIndex = index;
-    return index;
+    if (!await _hasLocalLoginSession()) {
+      return HomePage.popularTabIndex;
+    }
+    await _waitForHomeNetworkRequestsAllowed();
+    if (!mounted) return HomePage.myWorldsTabIndex;
+    try {
+      final services = AppServicesScope.read(context);
+      final data = await services.api.v1.world.list(
+        scene: 'mine',
+        pn: 1,
+        rn: 10,
+      );
+      final page = _parseHomeWorldListPage(data);
+      if (!mounted) return HomePage.myWorldsTabIndex;
+      _resolvedInitialMyWorldsData = data;
+      if (page.items.isEmpty && page.total <= 0) {
+        return HomePage.popularTabIndex;
+      }
+      return HomePage.myWorldsTabIndex;
+    } catch (error, stackTrace) {
+      debugPrint('[Home][InitialTab] my worlds probe failed: $error');
+      debugPrint('[Home][InitialTab] stacktrace:\n$stackTrace');
+      _resolvedInitialMyWorldsData = null;
+      return HomePage.myWorldsTabIndex;
+    }
   }
 
-  Future<void> _refreshInitialTabIndexFromSession() async {
-    final index = await _initialTabIndexFromSession();
-    if (!mounted || _initialTabIndex == index) return;
-    setState(() {
-      _initialTabIndex = index;
-    });
+  Future<void> _waitForHomeNetworkRequestsAllowed() {
+    if (_homeNetworkRequestsAllowed.value) return Future<void>.value();
+    final completer = Completer<void>();
+    void listener() {
+      if (!_homeNetworkRequestsAllowed.value) return;
+      _homeNetworkRequestsAllowed.removeListener(listener);
+      if (!completer.isCompleted) completer.complete();
+    }
+
+    _homeNetworkRequestsAllowed.addListener(listener);
+    return completer.future;
   }
 
   Future<bool> _hasLocalLoginSession() async {
@@ -369,22 +405,47 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         networkRequestsAllowed: _homeNetworkRequestsAllowed,
         keepInitialNetworkFailureLoading: _requiresStartupGate,
         initialRequestMetricWindow: widget.initialRequestMetricWindow,
+        initialMyWorldsData: widget.initialMyWorldsData,
       );
     }
 
     return FutureBuilder<int>(
       future: _initialTabIndexFuture,
       builder: (context, snapshot) {
-        final initialIndex = snapshot.data ?? HomePage.myWorldsTabIndex;
+        if (!snapshot.hasData) {
+          return const _HomeInitialLoadingScaffold();
+        }
 
         return _HomeTabScaffold(
-          initialIndex: initialIndex,
+          initialIndex: snapshot.data ?? HomePage.myWorldsTabIndex,
           activationListenable: widget.activationListenable,
           networkRequestsAllowed: _homeNetworkRequestsAllowed,
           keepInitialNetworkFailureLoading: _requiresStartupGate,
           initialRequestMetricWindow: widget.initialRequestMetricWindow,
+          initialMyWorldsData:
+              widget.initialMyWorldsData ?? _resolvedInitialMyWorldsData,
         );
       },
+    );
+  }
+}
+
+class _HomeInitialLoadingScaffold extends StatelessWidget {
+  const _HomeInitialLoadingScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: HomePage.tabs.length,
+      initialIndex: HomePage.myWorldsTabIndex,
+      child: const Column(
+        children: [
+          _HomeHeader(),
+          SizedBox(height: 4),
+          _HomeTabs(showSelectedState: false),
+          Expanded(child: GenesisListLoadingSkeleton.popularOriginList()),
+        ],
+      ),
     );
   }
 }
@@ -396,6 +457,7 @@ class _HomeTabScaffold extends StatelessWidget {
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
+    this.initialMyWorldsData,
   });
 
   final int initialIndex;
@@ -403,6 +465,7 @@ class _HomeTabScaffold extends StatelessWidget {
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
+  final Map<String, dynamic>? initialMyWorldsData;
 
   @override
   Widget build(BuildContext context) {
@@ -422,6 +485,7 @@ class _HomeTabScaffold extends StatelessWidget {
               keepInitialNetworkFailureLoading:
                   keepInitialNetworkFailureLoading,
               initialRequestMetricWindow: initialRequestMetricWindow,
+              initialMyWorldsData: initialMyWorldsData,
             ),
           ),
         ],
@@ -431,14 +495,26 @@ class _HomeTabScaffold extends StatelessWidget {
 }
 
 class _HomeTabs extends StatelessWidget {
-  const _HomeTabs();
+  const _HomeTabs({this.showSelectedState = true});
+
+  final bool showSelectedState;
 
   @override
   Widget build(BuildContext context) {
+    final uiTheme = GenesisUiTheme.of(context);
+    final unselectedColor = showSelectedState
+        ? null
+        : uiTheme.tabUnselectedColor;
+    final unselectedStyle = showSelectedState ? null : uiTheme.bodyStyle;
     return SecendTabs(
       labels: HomePage.tabs,
       verticalPadding: 0,
       tabAlignment: TabAlignment.center,
+      labelColor: unselectedColor,
+      unselectedLabelColor: unselectedColor,
+      labelStyle: unselectedStyle,
+      unselectedLabelStyle: unselectedStyle,
+      indicatorColor: showSelectedState ? null : Colors.transparent,
     );
   }
 }
@@ -449,12 +525,14 @@ class _HomeTabView extends StatelessWidget {
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
+    this.initialMyWorldsData,
   });
 
   final ValueListenable<int>? activationListenable;
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
+  final Map<String, dynamic>? initialMyWorldsData;
 
   @override
   Widget build(BuildContext context) {
@@ -466,6 +544,7 @@ class _HomeTabView extends StatelessWidget {
           networkRequestsAllowed: networkRequestsAllowed,
           keepInitialNetworkFailureLoading: keepInitialNetworkFailureLoading,
           initialRequestMetricWindow: initialRequestMetricWindow,
+          initialPageData: initialMyWorldsData,
         ),
         _PopularOriginFeed(
           index: 1,
@@ -520,6 +599,7 @@ class _MyWorldFeed extends StatefulWidget {
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     this.activationListenable,
+    this.initialPageData,
   });
 
   final int index;
@@ -527,6 +607,7 @@ class _MyWorldFeed extends StatefulWidget {
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final ValueListenable<int>? activationListenable;
+  final Map<String, dynamic>? initialPageData;
 
   @override
   State<_MyWorldFeed> createState() => _MyWorldFeedState();
@@ -565,6 +646,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   void initState() {
     super.initState();
+    _hydrateInitialPageDataIfAvailable();
     widget.activationListenable?.addListener(_handlePageActivated);
     widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
     worldActivityTagStore.listenable.addListener(_handleActivityTagsChanged);
@@ -696,6 +778,28 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _isRefreshing = false;
     _isSignedOut = false;
     _error = null;
+  }
+
+  void _hydrateInitialPageDataIfAvailable() {
+    final data = widget.initialPageData;
+    if (data == null) return;
+    final page = _parseWorldListPage(data);
+    _items
+      ..clear()
+      ..addAll(page.items);
+    _total = page.total;
+    _nextPage = 2;
+    _hasMore = _items.length < _total && page.items.isNotEmpty;
+    _hasRequested = true;
+    _hasAttemptedCachePreload = true;
+    _hasLoadedCachedPage = true;
+    _hasResolvedLocalSession = true;
+    _isSignedOut = false;
+    _isInitialLoading = false;
+    _isLoadingMore = false;
+    _isRefreshing = false;
+    _cacheLoadFuture = Future<bool>.value(true);
+    unawaited(_syncLastTickActivityTagFromItems(page.items));
   }
 
   void _clearDeleteState() {
@@ -908,17 +1012,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   _WorldListPage _parseWorldListPage(Map<String, dynamic> data) {
-    final list = data['list'];
-    final items = list is List
-        ? list
-              .whereType<Map>()
-              .map((raw) => WorldListItem.fromJson(asJsonMap(raw)))
-              .where(
-                (item) => !_locallyDeletedWorldIds.contains(item.wid.trim()),
-              )
-              .toList(growable: false)
-        : const <WorldListItem>[];
-    return _WorldListPage(items: items, total: asInt(data['total']));
+    return _parseHomeWorldListPage(
+      data,
+      locallyDeletedWorldIds: _locallyDeletedWorldIds,
+    );
   }
 
   Future<void> _refreshItems({bool force = false}) async {

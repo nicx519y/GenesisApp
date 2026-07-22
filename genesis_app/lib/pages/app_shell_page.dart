@@ -43,6 +43,9 @@ class _AppShellPageState extends State<AppShellPage>
   late final ValueNotifier<int> _homeTabActivationNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
   int? _homeInitialTabIndexOverride;
+  late final bool _shouldResolveColdStartHomeTarget;
+  var _coldStartHomeTargetResolved = true;
+  Future<void>? _coldStartHomeTargetResolution;
   ValueListenable<int>? _sessionRevisionListenable;
   final Map<int, Widget> _tabPageCache = <int, Widget>{};
   final ValueNotifier<UnreadSummary> _unreadSummaryNotifier =
@@ -63,13 +66,19 @@ class _AppShellPageState extends State<AppShellPage>
     _homeTabActivationNotifier = ValueNotifier<int>(0);
     _meTabActivationNotifier = ValueNotifier<int>(0);
     _homeInitialTabIndexOverride = widget.homeInitialTabIndex;
-    _visitedTabIndexes = <int>{_selectedIndex};
+    _shouldResolveColdStartHomeTarget =
+        widget.initialIndex == 0 && widget.homeInitialTabIndex == null;
+    _coldStartHomeTargetResolved = !_shouldResolveColdStartHomeTarget;
+    _visitedTabIndexes = _coldStartHomeTargetResolved
+        ? <int>{_selectedIndex}
+        : <int>{};
     _messagesPoller = GenesisPollingScheduler(
       interval: _messagesPollInterval,
       onTick: _refreshMessagesData,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startAppRuntime();
+      _startColdStartHomeTargetResolutionIfNeeded();
       _startPostLaunchWorkIfAllowed();
     });
   }
@@ -94,6 +103,8 @@ class _AppShellPageState extends State<AppShellPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       if (AppStartupCoordinator.isPostLaunchWorkAllowed) {
+        _startColdStartHomeTargetResolutionIfNeeded();
+        if (!_coldStartHomeTargetResolved) return;
         _startMessagesPolling();
         _notifyActiveTabActivated();
         unawaited(
@@ -127,11 +138,13 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _handlePostLaunchWorkAllowed() {
+    _startColdStartHomeTargetResolutionIfNeeded();
     _startPostLaunchWorkIfAllowed();
   }
 
   void _startPostLaunchWorkIfAllowed() {
     if (!AppStartupCoordinator.isPostLaunchWorkAllowed) return;
+    if (!_coldStartHomeTargetResolved) return;
     _recordSelectedTabPageView();
     _startMessagesPolling();
     if (_selectedIndex == 4 && _meTabActivationNotifier.value == 0) {
@@ -152,6 +165,31 @@ class _AppShellPageState extends State<AppShellPage>
             AppTrackingAuthorizationStatus.notSupported,
       ),
     );
+  }
+
+  void _startColdStartHomeTargetResolutionIfNeeded() {
+    if (!_shouldResolveColdStartHomeTarget) return;
+    if (_coldStartHomeTargetResolved) return;
+    if (_coldStartHomeTargetResolution != null) return;
+    _coldStartHomeTargetResolution = _resolveColdStartHomeTarget();
+  }
+
+  Future<void> _resolveColdStartHomeTarget() async {
+    final hasSession = await _hasLocalLoginSession();
+    if (!mounted) return;
+    setState(() {
+      _selectedIndex = hasSession ? 0 : 1;
+      _homeInitialTabIndexOverride = hasSession
+          ? null
+          : HomePage.popularTabIndex;
+      _visitedTabIndexes
+        ..clear()
+        ..add(_selectedIndex);
+      _coldStartHomeTargetResolved = true;
+    });
+    _messagesTabActiveNotifier.value = _selectedIndex == 3;
+    _meTabActiveNotifier.value = _selectedIndex == 4;
+    _startPostLaunchWorkIfAllowed();
   }
 
   Future<void> _refreshMessagesData() async {
@@ -419,6 +457,7 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   Widget _buildBody() {
+    if (!_coldStartHomeTargetResolved) return const SizedBox.expand();
     return IndexedStack(
       index: _selectedIndex,
       children: [
@@ -435,7 +474,7 @@ class _AppShellPageState extends State<AppShellPage>
         valueListenable: _unreadSummaryNotifier,
         builder: (context, unreadSummary, _) {
           return BottomTabs(
-            currentIndex: _selectedIndex,
+            currentIndex: _coldStartHomeTargetResolved ? _selectedIndex : -1,
             messagesUnreadCount: unreadSummary.totalUnread,
             onTap: (index) => unawaited(_onTapNav(index)),
           );

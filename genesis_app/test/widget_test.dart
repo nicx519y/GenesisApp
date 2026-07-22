@@ -439,6 +439,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   static const total = 100;
 
   _RecordingV1ListTransport({
+    this.worldListTotal = total,
     this.worldRelationStatus = 'owner',
     this.originDiscussCount = 9,
     this.discussTotalAll = 25,
@@ -470,6 +471,7 @@ class _RecordingV1ListTransport implements HttpTransport {
 
   final requests = <TransportRequest>[];
   static const _defaultHotTags = ['Destroyed'];
+  final int worldListTotal;
   String worldRelationStatus;
   final int originDiscussCount;
   final int discussTotalAll;
@@ -815,8 +817,11 @@ class _RecordingV1ListTransport implements HttpTransport {
         worldListCompleter != null) {
       return worldListCompleter!.future;
     }
-    final start = ((pn - 1) * rn).clamp(0, total);
-    final end = (start + rn).clamp(0, total);
+    final responseTotal = request.uri.path.endsWith('/world/list')
+        ? worldListTotal
+        : total;
+    final start = ((pn - 1) * rn).clamp(0, responseTotal);
+    final end = (start + rn).clamp(0, responseTotal);
     final list = [
       for (var index = start; index < end; index++)
         request.uri.path.endsWith('/world/list')
@@ -826,7 +831,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     return _jsonResponse({
       'err_no': 0,
       'err_str': 'success',
-      'data': {'list': list, 'total': total},
+      'data': {'list': list, 'total': responseTotal},
     });
   }
 
@@ -2071,12 +2076,28 @@ void main() {
     await _pumpGenesisApp(tester);
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
     expect(find.text('#Worldo'), findsOneWidget);
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
+  });
+
+  testWidgets('signed-out cold start opens Worldo and Home opens Popular', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(initialUid: null);
+    await tester.pumpWidget(GenesisApp(services: services, initialIndex: 1));
+    await tester.pump();
+
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
+    expect(find.text('Worldo'), findsOneWidget);
+
+    await tester.tap(find.text('Home'));
+    await tester.pump();
+
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 0);
+    expect(find.text('Popular'), findsOneWidget);
   });
 
   testWidgets('tap header search bar opens search page', (
@@ -3732,9 +3753,11 @@ void main() {
   testWidgets('tap #Worldo switches to Worldo page', (
     WidgetTester tester,
   ) async {
-    await _pumpGenesisApp(tester);
+    await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
+    for (var i = 0; i < 20 && find.text('Popular').evaluate().isEmpty; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
 
-    expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
 
     await tester.tap(find.text('#Worldo'));
@@ -3744,6 +3767,325 @@ void main() {
     expect(find.text('#Worldo'), findsOneWidget);
     expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
+  });
+
+  testWidgets('AppServicesScope delays old GemWallet disposal on replacement', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(useMock: true);
+    late BuildContext scopeContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: Builder(
+            builder: (context) {
+              scopeContext = context;
+              final walletState = AppServicesScope.of(context).gemWallet.state;
+              return Column(
+                children: [
+                  ValueListenableBuilder<GemWalletState>(
+                    valueListenable: walletState,
+                    builder: (context, state, _) {
+                      return Text('balance=${state.balance ?? '-'}');
+                    },
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      AppServicesScope.replaceWithConfig(
+                        scopeContext,
+                        const AppConfig(
+                          useMock: true,
+                          debugProxy: 'http://127.0.0.1:8888',
+                        ),
+                      );
+                    },
+                    child: const Text('Replace services'),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    final oldWalletState = services.gemWallet.state;
+
+    await tester.tap(find.text('Replace services'));
+
+    void listener() {}
+    expect(() => oldWalletState.addListener(listener), returnsNormally);
+    oldWalletState.removeListener(listener);
+
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(() => oldWalletState.addListener(listener), throwsFlutterError);
+  });
+
+  testWidgets('Me settings route does not dispose shared GemWallet service', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(
+      useMock: false,
+      transport: _RecordingV1ListTransport(),
+      initialAuthToken: 'backend-token',
+      initialUserInfo: {
+        'uid': 'u_mock',
+        'name': 'Cached User',
+        'avatar': '',
+        'following_cnt': 0,
+        'follower_cnt': 0,
+      },
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const Scaffold(body: MePage()),
+        ),
+      ),
+    );
+    for (
+      var i = 0;
+      i < 20 && find.text('Cached User').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+    Navigator.of(tester.element(find.byType(SettingsPage))).pop();
+    await tester.pumpAndSettle();
+
+    void listener() {}
+    expect(
+      () => services.gemWallet.state.addListener(listener),
+      returnsNormally,
+    );
+    services.gemWallet.state.removeListener(listener);
+  });
+
+  testWidgets('Me login does not use disposed GemWallet state', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
+    );
+    final services = await _testServices(
+      backendAuth: backendAuth,
+      sessionStoreOverride: sessionStore,
+      identityAuth: const _FakeIdentityAuthService(
+        signInSession: AuthSession(
+          provider: IdentityProvider.google,
+          providerIdToken: 'id-token',
+          displayName: 'Login User',
+          photoUrl: '',
+        ),
+      ),
+      transport: _RecordingV1ListTransport(),
+      useMock: false,
+      initialUid: null,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const AppShellPage(initialIndex: 4),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue with Google'));
+    for (
+      var i = 0;
+      i < 20 && find.text('Continue with Google').evaluate().isNotEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(tester.takeException(), isNull);
+    expect(backendAuth.loginCount, 1);
+    expect(find.text('Continue with Google'), findsNothing);
+    void listener() {}
+    expect(
+      () => services.gemWallet.state.addListener(listener),
+      returnsNormally,
+    );
+    services.gemWallet.state.removeListener(listener);
+  });
+
+  testWidgets('signed out cold start opens Worldo and Home opens Popular', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+          ),
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+
+    expect(find.text('Popular'), findsNothing);
+    expect(find.text('For you'), findsNothing);
+
+    for (var i = 0; i < 20 && find.text('Worldo').evaluate().isEmpty; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('For you'), findsOneWidget);
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Popular'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+  });
+
+  testWidgets('logged in cold start with no worlds opens Home Popular', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldListTotal: 0);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+
+    for (var i = 0; i < 20 && find.text('Popular').evaluate().isEmpty; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    final worldRequests = transport.requestsFor('/api/v1/world/list');
+    expect(worldRequests, hasLength(1));
+    expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
+    expect(worldRequests.single.uri.queryParameters['pn'], '1');
+    expect(worldRequests.single.uri.queryParameters['rn'], '10');
+    expect(find.text('Popular'), findsOneWidget);
+    expect(find.text('Worldo'), findsNothing);
+  });
+
+  testWidgets(
+    'logged in cold start shows Home skeleton while my worlds loads',
+    (WidgetTester tester) async {
+      final worldListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldListCompleter: worldListCompleter,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: const AppShellPage(initialIndex: 0),
+          ),
+        ),
+      );
+
+      for (
+        var i = 0;
+        i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(
+        find.byKey(
+          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('My Worlds'), findsOneWidget);
+      expect(find.text('Popular'), findsOneWidget);
+      final loadingTabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(loadingTabBar.labelColor, loadingTabBar.unselectedLabelColor);
+      expect(loadingTabBar.labelStyle, loadingTabBar.unselectedLabelStyle);
+
+      worldListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {'list': const <Object?>[], 'total': 0},
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(find.text('Popular'), findsOneWidget);
+
+      await tester.tap(find.text('My Worlds'));
+      await tester.pumpAndSettle();
+
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(
+        find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+        findsNothing,
+      );
+      expect(
+        find.text('Launch a #Worldo to generate your own World'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('logged in cold start with worlds opens Home My Worlds', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldListTotal: 1);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+
+    for (
+      var i = 0;
+      i < 20 && find.text('World tick narrator 1').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    final worldRequests = transport.requestsFor('/api/v1/world/list');
+    expect(worldRequests, hasLength(1));
+    expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
+    expect(worldRequests.single.uri.queryParameters['pn'], '1');
+    expect(worldRequests.single.uri.queryParameters['rn'], '10');
+    expect(find.text('My Worlds'), findsOneWidget);
+    expect(find.text('World tick narrator 1'), findsOneWidget);
+    expect(find.text('Worldo'), findsNothing);
   });
 
   testWidgets('main tabs keep page state after switching away and back', (
@@ -3812,7 +4154,7 @@ void main() {
     expect(originRequests.last.uri.queryParameters['tag'], 'Destroyed');
   });
 
-  testWidgets('Origin requests For you list before hot tags return', (
+  testWidgets('Origin starts hot tags before For you list in parallel', (
     WidgetTester tester,
   ) async {
     final hotTagsCompleter = Completer<TransportResponse>();
@@ -3830,10 +4172,19 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(transport.requestsFor('/api/v1/origin/hot_tags'), hasLength(1));
+    var originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(1));
     expect(originRequests.single.uri.queryParameters['scene'], 'foryou');
-    expect(transport.requestsFor('/api/v1/origin/hot_tags'), hasLength(1));
+    final hotTagsIndex = transport.requests.indexWhere(
+      (request) => request.uri.path == '/api/v1/origin/hot_tags',
+    );
+    final listIndex = transport.requests.indexWhere(
+      (request) => request.uri.path == '/api/v1/origin/list',
+    );
+    expect(hotTagsIndex, isNonNegative);
+    expect(listIndex, isNonNegative);
+    expect(hotTagsIndex, lessThan(listIndex));
     expect(find.text('For you'), findsOneWidget);
     expect(find.text('Destroyed'), findsNothing);
 
@@ -3849,6 +4200,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Destroyed'), findsOneWidget);
+    originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(originRequests.single.uri.queryParameters['scene'], 'foryou');
   });
 
   testWidgets('Origin renders cached hot tags then syncs latest tags', (

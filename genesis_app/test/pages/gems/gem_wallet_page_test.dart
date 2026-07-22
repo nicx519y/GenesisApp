@@ -812,6 +812,10 @@ void main() {
       processingActionBoxSize,
     );
 
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Purchase successful!'), findsOneWidget);
+
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
 

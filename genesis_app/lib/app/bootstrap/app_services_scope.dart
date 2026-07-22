@@ -78,7 +78,9 @@ class _AppServicesScopeState extends State<AppServicesScope> {
     if (!identical(widget.services, oldWidget.services)) {
       final previous = _services;
       _services = widget.services;
-      if (!identical(previous, widget.services)) previous.dispose();
+      if (!identical(previous, widget.services)) {
+        _disposeReplacedServicesAfterDependentsUpdate(previous);
+      }
     }
   }
 
@@ -86,7 +88,14 @@ class _AppServicesScopeState extends State<AppServicesScope> {
     if (identical(_services, services)) return;
     final previous = _services;
     setState(() => _services = services);
-    previous.dispose();
+    _disposeReplacedServicesAfterDependentsUpdate(previous);
+  }
+
+  void _disposeReplacedServicesAfterDependentsUpdate(AppServices services) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (identical(_services, services)) return;
+      services.dispose();
+    });
   }
 
   @override

@@ -100,7 +100,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
   });
 
   static double heightFor(BuildContext context) {
-    return 56 + GenesisSafeAreaInsets.bottom(context);
+    return 49 + GenesisSafeAreaInsets.bottom(context);
   }
 
   final OriginDetail origin;
@@ -115,7 +115,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
         top: false,
         minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
         child: SizedBox(
-          height: 56,
+          height: 49,
           child: Row(
             children: [
               Expanded(

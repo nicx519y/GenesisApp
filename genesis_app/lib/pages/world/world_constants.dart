@@ -13,14 +13,14 @@ const String worldDetailIconAsset =
 const double worldMapTabsHeight = 38;
 const double worldMapBackButtonLeft = 9.5;
 const double worldMapIdentityHorizontalGap = 12;
-const double worldMainTabsHeight = 53;
+const double worldMainTabsHeight = 49;
 const double worldBottomTagHeight = 34;
 const double worldBottomTagToStatsGap = 10;
 const double worldStatsTopSpacerHeight =
     (worldMainTabsHeight + worldBottomTagHeight) / 2 -
     WorldDetailsPageScaffold.inlineContentTopPadding +
     worldBottomTagToStatsGap;
-const double worldInfoHeaderHeight = 56;
+const double worldInfoHeaderHeight = 49;
 const double worldInfoHeaderContentHeight = 35;
 const double worldTimePillTopGap = 12;
 const double worldTimePillHeight = 22;

@@ -78,9 +78,13 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     return draft.copyWith(
       basics: draft.basics.copyWith(
         originId: originId ?? draft.basics.originId,
-        originName: _originNameController.text.trim(),
-        worldView: _worldViewController.text.trim(),
-        worldLogic: _worldLogicController.text.trim(),
+        originName: normalizeGenesisUgcTextForDisplay(
+          _originNameController.text,
+        ),
+        worldView: normalizeGenesisUgcTextForDisplay(_worldViewController.text),
+        worldLogic: normalizeGenesisUgcTextForDisplay(
+          _worldLogicController.text,
+        ),
         metricJson: _simulationSettingsJson(),
         startedAt: _worldStartTimeController.text.trim(),
         tickDurationTime: _tickDurationTime(),
@@ -221,9 +225,13 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
 
   String _simulationSettingsJson() {
     final values = <String, String>{
-      'label': _progressMetricController.text.trim(),
-      'label_note': _labelNoteController.text.trim(),
-      'unit': _unitController.text.trim(),
+      'label': normalizeGenesisUgcTextForDisplay(
+        _progressMetricController.text,
+      ),
+      'label_note': normalizeGenesisUgcTextForDisplay(
+        _labelNoteController.text,
+      ),
+      'unit': normalizeGenesisUgcTextForDisplay(_unitController.text),
     }..removeWhere((_, value) => value.isEmpty);
 
     if (values.isEmpty) return _worldMetricFallbackJson();
