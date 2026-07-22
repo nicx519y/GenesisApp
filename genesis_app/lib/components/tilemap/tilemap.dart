@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/tilemap_definition.dart';
+import '../world_map_avatar_logic.dart';
 import '../world_map_location_action.dart';
 import '../world_point.dart';
 import 'tilemap_model.dart';
@@ -20,6 +21,9 @@ class Tilemap extends StatefulWidget {
     this.locationId = 'root',
     this.locationNodes = const <WorldMapLocationNode>[],
     this.drillExitTop = 68,
+    this.showVisualModeToggle = true,
+    this.visualModeToggleTop,
+    this.visualModeToggleRight = 9.5,
     this.onDrillIntoLocation,
     this.onMapTap,
     this.onPointTap,
@@ -32,6 +36,9 @@ class Tilemap extends StatefulWidget {
     this.locationId = 'root',
     this.locationNodes = const <WorldMapLocationNode>[],
     this.drillExitTop = 68,
+    this.showVisualModeToggle = true,
+    this.visualModeToggleTop,
+    this.visualModeToggleRight = 9.5,
     this.onDrillIntoLocation,
     this.onMapTap,
     this.onPointTap,
@@ -43,6 +50,9 @@ class Tilemap extends StatefulWidget {
   final String locationId;
   final List<WorldMapLocationNode> locationNodes;
   final double drillExitTop;
+  final bool showVisualModeToggle;
+  final double? visualModeToggleTop;
+  final double visualModeToggleRight;
   final VoidCallback? onDrillIntoLocation;
   final VoidCallback? onMapTap;
   final FutureOr<void> Function(WorldPoint point)? onPointTap;
@@ -53,10 +63,18 @@ class Tilemap extends StatefulWidget {
 
 class _TilemapState extends State<Tilemap> {
   GenesisApi? _api;
-  Future<_TilemapLoadResult>? _future;
+  final Map<String, Future<_TilemapLoadResult>> _mapRequests =
+      <String, Future<_TilemapLoadResult>>{};
+  final Map<String, _TilemapLoadResult> _mapResults =
+      <String, _TilemapLoadResult>{};
+  TilemapConfig? _currentConfig;
+  Object? _mapError;
   Object? _imageError;
   late String _currentLocationId;
   final List<String> _locationTrail = <String>[];
+  int _cacheGeneration = 0;
+  int _rendererRevision = 0;
+  TilemapVisualMode _visualMode = tilemapDefaultVisualMode;
 
   @override
   void initState() {
@@ -68,31 +86,38 @@ class _TilemapState extends State<Tilemap> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final api = AppServicesScope.read(context).api;
-    if (identical(_api, api) && _future != null) return;
+    if (identical(_api, api)) return;
     _api = api;
-    _future = _loadSafely(api);
-    _imageError = null;
+    _resetMapCache();
+    _loadCurrentLocation(rebuild: false);
   }
 
   @override
   void didUpdateWidget(covariant Tilemap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget._source == widget._source &&
-        oldWidget._entityId == widget._entityId &&
-        oldWidget.locationId == widget.locationId) {
-      return;
-    }
+    final entityChanged =
+        oldWidget._source != widget._source ||
+        oldWidget._entityId != widget._entityId;
+    final initialLocationChanged = oldWidget.locationId != widget.locationId;
+    if (!entityChanged && !initialLocationChanged) return;
     _currentLocationId = widget.locationId.trim();
     _locationTrail.clear();
-    final api = _api;
-    if (api == null) return;
-    _future = _loadSafely(api);
-    _imageError = null;
+    if (entityChanged) _resetMapCache();
+    _loadCurrentLocation(rebuild: false);
   }
 
-  Future<TilemapConfig> _load(GenesisApi api) async {
+  @override
+  void dispose() {
+    _cacheGeneration += 1;
+    super.dispose();
+  }
+
+  Future<TilemapConfig> _load(
+    GenesisApi api, {
+    required String locationId,
+  }) async {
+    final source = widget._source;
     final entityId = widget._entityId.trim();
-    final locationId = _currentLocationId.trim();
     if (entityId.isEmpty) {
       throw const TilemapConfigException('Map entity id must not be empty.');
     }
@@ -100,7 +125,7 @@ class _TilemapState extends State<Tilemap> {
       throw const TilemapConfigException('location_id must not be empty.');
     }
 
-    final definition = switch (widget._source) {
+    final definition = switch (source) {
       _TilemapSource.origin => await api.getOriginMap(
         originId: entityId,
         locationId: locationId,
@@ -112,19 +137,100 @@ class _TilemapState extends State<Tilemap> {
     };
     return _configFromDefinition(
       definition,
-      mapId: '${widget._source.name}:$entityId:$locationId',
+      mapId: '${source.name}:$entityId:$locationId',
     );
   }
 
-  Future<_TilemapLoadResult> _loadSafely(GenesisApi api) async {
+  Future<_TilemapLoadResult> _loadSafely(
+    GenesisApi api, {
+    required String locationId,
+    required bool reportFailure,
+  }) async {
     try {
-      return _TilemapLoadResult.success(await _load(api));
+      return _TilemapLoadResult.success(
+        await _load(api, locationId: locationId),
+      );
     } catch (error) {
-      if (kDebugMode) {
+      if (kDebugMode && reportFailure) {
         debugPrint('[Tilemap] load failed: $error');
       }
       return _TilemapLoadResult.failure(error);
     }
+  }
+
+  Future<_TilemapLoadResult> _requestMap(
+    GenesisApi api,
+    String rawLocationId, {
+    required bool reportFailure,
+  }) {
+    final locationId = rawLocationId.trim();
+    final cached = _mapResults[locationId];
+    if (cached != null) return Future<_TilemapLoadResult>.value(cached);
+
+    final existing = _mapRequests[locationId];
+    if (existing != null) return existing;
+
+    final generation = _cacheGeneration;
+    final request =
+        _loadSafely(api, locationId: locationId, reportFailure: reportFailure)
+            .then((result) {
+              if (generation == _cacheGeneration) {
+                _mapResults[locationId] = result;
+              }
+              return result;
+            })
+            .whenComplete(() {
+              if (generation == _cacheGeneration) {
+                _mapRequests.remove(locationId);
+              }
+            });
+    _mapRequests[locationId] = request;
+    return request;
+  }
+
+  void _resetMapCache() {
+    _cacheGeneration += 1;
+    _mapRequests.clear();
+    _mapResults.clear();
+    _currentConfig = null;
+    _mapError = null;
+    _imageError = null;
+    _rendererRevision = 0;
+  }
+
+  void _loadCurrentLocation({required bool rebuild}) {
+    final api = _api;
+    if (api == null) return;
+    final locationId = _currentLocationId.trim();
+    final cached = _mapResults[locationId];
+
+    void applyPendingOrCached() {
+      _imageError = null;
+      _mapError = cached?.error;
+      _currentConfig = cached?.config;
+    }
+
+    if (rebuild) {
+      setState(applyPendingOrCached);
+    } else {
+      applyPendingOrCached();
+    }
+    if (cached != null) return;
+
+    final generation = _cacheGeneration;
+    unawaited(
+      _requestMap(api, locationId, reportFailure: true).then((result) {
+        if (!mounted ||
+            generation != _cacheGeneration ||
+            locationId != _currentLocationId.trim()) {
+          return;
+        }
+        setState(() {
+          _mapError = result.error;
+          _currentConfig = result.config;
+        });
+      }),
+    );
   }
 
   TilemapConfig _configFromDefinition(
@@ -170,7 +276,7 @@ class _TilemapState extends State<Tilemap> {
     widget.onDrillIntoLocation?.call();
     _locationTrail.add(_currentLocationId);
     _currentLocationId = drillTarget.id.trim();
-    _reloadCurrentLocation();
+    _loadCurrentLocation(rebuild: true);
   }
 
   String? _locationNameForTile(TilemapCell tile) {
@@ -181,28 +287,42 @@ class _TilemapState extends State<Tilemap> {
     return name.isEmpty ? null : name;
   }
 
+  List<UserAvatar> _locationAvatarsForTile(TilemapCell tile) {
+    final locationId = tile.locationId?.trim() ?? '';
+    if (locationId.isEmpty) return const <UserAvatar>[];
+    return worldMapVisibleAvatarsForLocation(
+      findWorldMapLocationNode(widget.locationNodes, locationId),
+    );
+  }
+
   void _exitLocation() {
     if (_locationTrail.isEmpty) return;
     widget.onDrillIntoLocation?.call();
     _currentLocationId = _locationTrail.removeLast();
-    _reloadCurrentLocation();
-  }
-
-  void _reloadCurrentLocation() {
-    final api = _api;
-    if (api == null) return;
-    setState(() {
-      _imageError = null;
-      _future = _loadSafely(api);
-    });
+    _loadCurrentLocation(rebuild: true);
   }
 
   void _retry() {
-    final api = _api;
-    if (api == null) return;
+    if (_imageError != null) {
+      setState(() {
+        _imageError = null;
+        _rendererRevision += 1;
+      });
+      return;
+    }
+
+    final locationId = _currentLocationId.trim();
+    _mapResults.remove(locationId);
+    _mapRequests.remove(locationId);
+    _loadCurrentLocation(rebuild: true);
+  }
+
+  void _toggleVisualMode() {
     setState(() {
-      _imageError = null;
-      _future = _loadSafely(api);
+      _visualMode = switch (_visualMode) {
+        TilemapVisualMode.light => TilemapVisualMode.dark,
+        TilemapVisualMode.dark => TilemapVisualMode.light,
+      };
     });
   }
 
@@ -224,39 +344,43 @@ class _TilemapState extends State<Tilemap> {
   @override
   Widget build(BuildContext context) {
     late final Widget map;
-    final imageError = _imageError;
-    if (imageError != null) {
-      map = _TilemapError(onRetry: _retry);
+    if (_imageError != null || _mapError != null) {
+      map = _TilemapError(visualMode: _visualMode, onRetry: _retry);
     } else {
-      final future = _future;
-      map = future == null
-          ? const _TilemapLoading()
-          : FutureBuilder<_TilemapLoadResult>(
-              future: future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const _TilemapLoading();
-                }
-                final result = snapshot.data;
-                final config = result?.config;
-                if (result == null || result.error != null || config == null) {
-                  return _TilemapError(onRetry: _retry);
-                }
-                return TilemapRenderer(
-                  key: ValueKey<String>('tilemap-renderer-${config.id}'),
-                  config: config,
-                  onTileAction: _handleTileAction,
-                  locationNameForTile: _locationNameForTile,
-                  onMapTap: widget.onMapTap,
-                  onImageError: (error) => _handleImageError(config.id, error),
-                );
-              },
+      final config = _currentConfig;
+      map = config == null
+          ? ColoredBox(
+              key: const ValueKey<String>('tilemap-loading-background'),
+              color: tilemapVisualStyleFor(_visualMode).backgroundColor,
+            )
+          : TilemapRenderer(
+              key: ValueKey<String>(
+                'tilemap-renderer-${config.id}-$_rendererRevision',
+              ),
+              config: config,
+              onTileAction: _handleTileAction,
+              locationNameForTile: _locationNameForTile,
+              locationAvatarsForTile: _locationAvatarsForTile,
+              onMapTap: widget.onMapTap,
+              onImageError: (error) => _handleImageError(config.id, error),
+              visualMode: _visualMode,
             );
     }
     return Stack(
       fit: StackFit.expand,
       children: [
         map,
+        if (widget.showVisualModeToggle)
+          Positioned(
+            right: widget.visualModeToggleRight,
+            top:
+                widget.visualModeToggleTop ??
+                MediaQuery.paddingOf(context).top + 6,
+            child: _TilemapVisualModeToggle(
+              visualMode: _visualMode,
+              onPressed: _toggleVisualMode,
+            ),
+          ),
         if (_locationTrail.isNotEmpty)
           Positioned(
             left: 12,
@@ -264,6 +388,45 @@ class _TilemapState extends State<Tilemap> {
             child: _TilemapExitLocationButton(onPressed: _exitLocation),
           ),
       ],
+    );
+  }
+}
+
+class _TilemapVisualModeToggle extends StatelessWidget {
+  const _TilemapVisualModeToggle({
+    required this.visualMode,
+    required this.onPressed,
+  });
+
+  final TilemapVisualMode visualMode;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLight = visualMode == TilemapVisualMode.light;
+    final nextModeLabel = isLight ? 'dark' : 'light';
+    return Tooltip(
+      message: 'Switch to $nextModeLabel map mode',
+      child: Material(
+        color: const Color(0xE6FFFFFF),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          key: const ValueKey<String>('tilemap-visual-mode-toggle'),
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Icon(
+              isLight ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+              key: ValueKey<String>('tilemap-visual-mode-${visualMode.name}'),
+              color: isLight ? const Color(0xFF37362E) : Colors.black,
+              size: 20,
+              semanticLabel: 'Switch to $nextModeLabel map mode',
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -305,43 +468,38 @@ class _TilemapLoadResult {
   final Object? error;
 }
 
-class _TilemapLoading extends StatelessWidget {
-  const _TilemapLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return const ColoredBox(
-      key: ValueKey<String>('tilemap-loading'),
-      color: Colors.white,
-      child: Center(child: CircularProgressIndicator()),
-    );
-  }
-}
-
 class _TilemapError extends StatelessWidget {
-  const _TilemapError({required this.onRetry});
+  const _TilemapError({required this.visualMode, required this.onRetry});
 
+  final TilemapVisualMode visualMode;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    final visualStyle = tilemapVisualStyleFor(visualMode);
+    final textColor = visualMode == TilemapVisualMode.dark
+        ? Colors.white
+        : Colors.black;
+    return Stack(
       key: const ValueKey<String>('tilemap-error'),
-      color: Colors.white,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Map failed to load'),
-            const SizedBox(height: 10),
-            FilledButton(
-              key: const ValueKey<String>('tilemap-retry'),
-              onPressed: onRetry,
-              child: const Text('Retry'),
-            ),
-          ],
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: visualStyle.backgroundColor),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Map failed to load', style: TextStyle(color: textColor)),
+              const SizedBox(height: 10),
+              FilledButton(
+                key: const ValueKey<String>('tilemap-retry'),
+                onPressed: onRetry,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

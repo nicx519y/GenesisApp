@@ -3,19 +3,97 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../world_point.dart';
+import 'tilemap_location_avatars.dart';
 import 'tilemap_model.dart';
 
 const double tilemapBaseTileExtent = 16;
-const double tilemapInitialScale = 8;
-const double tilemapMinScale = 4;
-const double tilemapMaxScale = 32;
-const double tilemapTransitionZoomTargetScale = 40;
+const double tilemapPlaceholderScale = 10;
+const double tilemapInitialHorizontalMargin = 16;
+const double tilemapMinScale = 5;
+const double tilemapMaxScale = 22;
 
 typedef TilemapTileActionHandler = Future<void> Function(TilemapCell tile);
 typedef TilemapLocationNameResolver = String? Function(TilemapCell tile);
+typedef TilemapLocationAvatarsResolver =
+    List<UserAvatar> Function(TilemapCell tile);
+
+enum TilemapVisualMode { light, dark }
+
+const TilemapVisualMode tilemapDefaultVisualMode = TilemapVisualMode.dark;
+
+@immutable
+class TilemapVisualStyle {
+  const TilemapVisualStyle({
+    required this.backgroundColor,
+    required this.gridLineColor,
+  });
+
+  final Color backgroundColor;
+  final Color gridLineColor;
+}
+
+const TilemapVisualStyle tilemapLightVisualStyle = TilemapVisualStyle(
+  backgroundColor: Color(0xFFFAFAF8),
+  gridLineColor: Color(0xFFD7D6D2),
+);
+const TilemapVisualStyle tilemapDarkVisualStyle = TilemapVisualStyle(
+  backgroundColor: Color(0xFF37362E),
+  gridLineColor: Color(0xFF2E2D26),
+);
+
+TilemapVisualStyle tilemapVisualStyleFor(TilemapVisualMode mode) {
+  return switch (mode) {
+    TilemapVisualMode.light => tilemapLightVisualStyle,
+    TilemapVisualMode.dark => tilemapDarkVisualStyle,
+  };
+}
 
 const Color tilemapLocationHighlightColor = Color(0xFFFFD54F);
-const Color tilemapGridLineColor = Color(0xFFD6D6D6);
+
+class TilemapGridBackground extends StatelessWidget {
+  const TilemapGridBackground({
+    super.key,
+    this.visualMode = tilemapDefaultVisualMode,
+  });
+
+  final TilemapVisualMode visualMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final visualStyle = tilemapVisualStyleFor(visualMode);
+    return ColoredBox(
+      key: const ValueKey<String>('tilemap-grid-background'),
+      color: visualStyle.backgroundColor,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(
+            constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : MediaQuery.sizeOf(context).width,
+            constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : MediaQuery.sizeOf(context).height,
+          );
+          const projection = TilemapProjection(
+            mapWidth: tilemapBaseTileExtent,
+            mapHeight: tilemapBaseTileExtent,
+            tileExtent: tilemapBaseTileExtent,
+            originX: 0,
+          );
+          return CustomPaint(
+            painter: _TilemapInfiniteGridPainter(
+              projection: projection,
+              scale: tilemapPlaceholderScale,
+              translation: size.center(Offset.zero),
+              lineColor: visualStyle.gridLineColor,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
 
 class TilemapProjection {
   const TilemapProjection({
@@ -127,17 +205,42 @@ Matrix4 tilemapInitialTransform({
   required Size viewportSize,
   required Size mapSize,
   Rect? contentBounds,
-  double scale = tilemapInitialScale,
+  double horizontalMargin = tilemapInitialHorizontalMargin,
 }) {
   final bounds = contentBounds ?? Offset.zero & mapSize;
+  final scale = tilemapInitialScaleForContentWidth(
+    viewportWidth: viewportSize.width,
+    contentWidth: bounds.width,
+    horizontalMargin: horizontalMargin,
+  );
   return Matrix4.identity()
     ..setEntry(0, 0, scale)
     ..setEntry(1, 1, scale)
     ..setTranslationRaw(
       viewportSize.width / 2 - bounds.center.dx * scale,
-      viewportSize.height / 2 - bounds.center.dy * scale,
+      viewportSize.height / 2 - bounds.center.dy * scale + 20,
       0,
     );
+}
+
+double tilemapInitialScaleForContentWidth({
+  required double viewportWidth,
+  required double contentWidth,
+  double horizontalMargin = tilemapInitialHorizontalMargin,
+}) {
+  if (!viewportWidth.isFinite ||
+      viewportWidth <= 0 ||
+      !contentWidth.isFinite ||
+      contentWidth <= 0) {
+    return tilemapMinScale;
+  }
+  final resolvedMargin = horizontalMargin.isFinite
+      ? math.max(0.0, horizontalMargin)
+      : 0.0;
+  final usableWidth = math.max(1.0, viewportWidth - resolvedMargin * 2);
+  return (usableWidth / contentWidth)
+      .clamp(tilemapMinScale, tilemapMaxScale)
+      .toDouble();
 }
 
 double tilemapTransformScale(Matrix4 transform) => transform.storage[0].abs();
@@ -179,19 +282,6 @@ Matrix4 tilemapTransformForSceneFocalPoint({
     );
 }
 
-Matrix4 tilemapZoomTowardScenePoint({
-  required Matrix4 currentTransform,
-  required Offset scenePoint,
-  required Offset viewportPoint,
-  double targetScale = tilemapTransitionZoomTargetScale,
-}) {
-  return tilemapTransformForSceneFocalPoint(
-    sceneFocalPoint: scenePoint,
-    viewportFocalPoint: viewportPoint,
-    scale: targetScale,
-  );
-}
-
 Offset tilemapLocationBubbleSceneAnchor(
   TilemapProjection projection,
   TilemapCell tile,
@@ -205,9 +295,10 @@ String resolveTilemapAssetForDisplaySize(
 ) {
   final suffixStart = _tilemapUrlSuffixStart(baseUrl);
   final path = baseUrl.substring(0, suffixStart);
-  if (!path.toLowerCase().endsWith('.png')) {
+  final normalizedPath = path.toLowerCase();
+  if (!normalizedPath.endsWith('.png') && !normalizedPath.endsWith('.webp')) {
     throw TilemapConfigException(
-      'Tile asset base URL must end with .png: $baseUrl.',
+      'Tile asset base URL must end with .png or .webp: $baseUrl.',
     );
   }
   final requestedSize =
@@ -240,35 +331,36 @@ class TilemapRenderer extends StatefulWidget {
     required this.config,
     this.onTileAction,
     this.locationNameForTile,
+    this.locationAvatarsForTile,
     this.onMapTap,
     this.onImageError,
+    this.visualMode = tilemapDefaultVisualMode,
   });
 
   final TilemapConfig config;
   final TilemapTileActionHandler? onTileAction;
   final TilemapLocationNameResolver? locationNameForTile;
+  final TilemapLocationAvatarsResolver? locationAvatarsForTile;
   final VoidCallback? onMapTap;
   final ValueChanged<Object>? onImageError;
+  final TilemapVisualMode visualMode;
 
   @override
   State<TilemapRenderer> createState() => _TilemapRendererState();
 }
 
 class _TilemapRendererState extends State<TilemapRenderer>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late final TransformationController _transformationController;
   late final AnimationController _highlightController;
-  late final AnimationController _tileActionZoomController;
   late final Animation<double> _highlightOpacity;
-  late final Animation<double> _tileActionOpacity;
-  Animation<Matrix4>? _tileActionZoomAnimation;
   Matrix4 _gestureStartTransform = Matrix4.identity();
   Offset _gestureStartFocalPoint = Offset.zero;
   Size? _lastViewportSize;
   Size? _lastMapSize;
   Rect? _lastContentBounds;
   bool _hasUserTransformedMap = false;
-  bool _isRunningTileActionTransition = false;
+  bool _isRunningTileAction = false;
   String? _highlightedTileKey;
 
   @override
@@ -283,26 +375,10 @@ class _TilemapRendererState extends State<TilemapRenderer>
       parent: _highlightController,
       curve: Curves.easeOutCubic,
     ).drive(Tween<double>(begin: 0.48, end: 0));
-    _tileActionZoomController =
-        AnimationController(
-          vsync: this,
-          duration: const Duration(milliseconds: 210),
-        )..addListener(() {
-          final animation = _tileActionZoomAnimation;
-          if (animation == null) return;
-          _transformationController.value = animation.value;
-        });
-    _tileActionOpacity = Tween<double>(begin: 1, end: 0).animate(
-      CurvedAnimation(
-        parent: _tileActionZoomController,
-        curve: Curves.easeInCubic,
-      ),
-    );
   }
 
   @override
   void dispose() {
-    _tileActionZoomController.dispose();
     _highlightController.dispose();
     _transformationController.dispose();
     super.dispose();
@@ -311,91 +387,94 @@ class _TilemapRendererState extends State<TilemapRenderer>
   @override
   Widget build(BuildContext context) {
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final viewportWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width;
-        final viewportHeight = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : MediaQuery.sizeOf(context).height;
-        final projection = TilemapProjection.fixed(
-          mapWidth: widget.config.width,
-          mapHeight: widget.config.height,
-        );
-        final viewportSize = Size(viewportWidth, viewportHeight);
-        final mapSize = Size(projection.mapWidth, projection.mapHeight);
-        final contentBounds = projection.imageBoundsForTiles(
-          widget.config.tiles,
-        );
-        _syncInitialTransform(
-          viewportSize: viewportSize,
-          mapSize: mapSize,
-          contentBounds: contentBounds,
-        );
-        return SizedBox(
-          width: viewportWidth,
-          height: viewportHeight,
-          child: ClipRect(
-            child: GestureDetector(
-              key: const ValueKey<String>('tilemap-gesture-layer'),
-              behavior: HitTestBehavior.opaque,
-              onScaleStart: (details) {
-                _tileActionZoomController.stop();
-                _hasUserTransformedMap = true;
-                _gestureStartTransform = _transformationController.value
-                    .clone();
-                _gestureStartFocalPoint = details.localFocalPoint;
-              },
-              onScaleUpdate: (details) {
-                _transformationController.value = tilemapGestureTransform(
-                  startTransform: _gestureStartTransform,
-                  startFocalPoint: _gestureStartFocalPoint,
-                  currentFocalPoint: details.localFocalPoint,
-                  gestureScale: details.scale,
-                );
-              },
-              onTapUp: (details) {
-                widget.onMapTap?.call();
-                unawaited(_handleTap(details.localPosition, projection));
-              },
-              child: ValueListenableBuilder<Matrix4>(
-                valueListenable: _transformationController,
-                builder: (context, matrix, _) {
-                  final scale = tilemapTransformScale(matrix);
-                  final tilePixelSize = projection.tilePixelSize(
-                    scale: scale,
-                    devicePixelRatio: devicePixelRatio,
+    final visualStyle = tilemapVisualStyleFor(widget.visualMode);
+    return ColoredBox(
+      key: const ValueKey<String>('tilemap-renderer-background'),
+      color: visualStyle.backgroundColor,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final viewportWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : MediaQuery.sizeOf(context).width;
+          final viewportHeight = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : MediaQuery.sizeOf(context).height;
+          final projection = TilemapProjection.fixed(
+            mapWidth: widget.config.width,
+            mapHeight: widget.config.height,
+          );
+          final viewportSize = Size(viewportWidth, viewportHeight);
+          final mapSize = Size(projection.mapWidth, projection.mapHeight);
+          final contentBounds = projection.imageBoundsForTiles(
+            widget.config.tiles,
+          );
+          _syncInitialTransform(
+            viewportSize: viewportSize,
+            mapSize: mapSize,
+            contentBounds: contentBounds,
+          );
+          return SizedBox(
+            width: viewportWidth,
+            height: viewportHeight,
+            child: ClipRect(
+              child: GestureDetector(
+                key: const ValueKey<String>('tilemap-gesture-layer'),
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: (details) {
+                  _hasUserTransformedMap = true;
+                  _gestureStartTransform = _transformationController.value
+                      .clone();
+                  _gestureStartFocalPoint = details.localFocalPoint;
+                },
+                onScaleUpdate: (details) {
+                  _transformationController.value = tilemapGestureTransform(
+                    startTransform: _gestureStartTransform,
+                    startFocalPoint: _gestureStartFocalPoint,
+                    currentFocalPoint: details.localFocalPoint,
+                    gestureScale: details.scale,
                   );
-                  final tiles = widget.config.tiles.toList(growable: false)
-                    ..sort((a, b) {
-                      final diagonal = (a.x + a.y).compareTo(b.x + b.y);
-                      if (diagonal != 0) return diagonal;
-                      return a.x.compareTo(b.x);
-                    });
-                  final locationLabels = <_TilemapLocationLabelData>[
-                    for (final tile in tiles)
-                      if (tile.isLocationTile)
-                        _TilemapLocationLabelData(
-                          tile: tile,
-                          name:
-                              widget.locationNameForTile?.call(tile)?.trim() ??
-                              '',
-                        ),
-                  ].where((label) => label.name.isNotEmpty).toList();
-                  return AnimatedBuilder(
-                    animation: Listenable.merge([
-                      _highlightController,
-                      _tileActionZoomController,
-                    ]),
-                    builder: (context, _) {
-                      final highlightedTile = _highlightedTile(
-                        tiles,
-                        _highlightOpacity.value,
-                      );
-                      return Opacity(
-                        opacity: _tileActionOpacity.value,
-                        child: Stack(
+                },
+                onTapUp: (details) {
+                  widget.onMapTap?.call();
+                  unawaited(_handleTap(details.localPosition, projection));
+                },
+                child: ValueListenableBuilder<Matrix4>(
+                  valueListenable: _transformationController,
+                  builder: (context, matrix, _) {
+                    final scale = tilemapTransformScale(matrix);
+                    final tilePixelSize = projection.tilePixelSize(
+                      scale: scale,
+                      devicePixelRatio: devicePixelRatio,
+                    );
+                    final tiles = widget.config.tiles.toList(growable: false)
+                      ..sort((a, b) {
+                        final diagonal = (a.x + a.y).compareTo(b.x + b.y);
+                        if (diagonal != 0) return diagonal;
+                        return a.x.compareTo(b.x);
+                      });
+                    final locationLabels = <_TilemapLocationLabelData>[
+                      for (final tile in tiles)
+                        if (tile.isLocationTile)
+                          _TilemapLocationLabelData(
+                            tile: tile,
+                            name:
+                                widget.locationNameForTile
+                                    ?.call(tile)
+                                    ?.trim() ??
+                                '',
+                            avatars:
+                                widget.locationAvatarsForTile?.call(tile) ??
+                                const <UserAvatar>[],
+                          ),
+                    ].where((label) => label.name.isNotEmpty).toList();
+                    return AnimatedBuilder(
+                      animation: _highlightController,
+                      builder: (context, _) {
+                        final highlightedTile = _highlightedTile(
+                          tiles,
+                          _highlightOpacity.value,
+                        );
+                        return Stack(
                           fit: StackFit.expand,
                           clipBehavior: Clip.none,
                           children: [
@@ -409,6 +488,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                     matrix.getTranslation().x,
                                     matrix.getTranslation().y,
                                   ),
+                                  lineColor: visualStyle.gridLineColor,
                                 ),
                               ),
                             ),
@@ -460,6 +540,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                   '${label.tile.x}-${label.tile.y}',
                                 ),
                                 name: label.name,
+                                avatars: label.avatars,
                                 anchor: MatrixUtils.transformPoint(
                                   matrix,
                                   tilemapLocationBubbleSceneAnchor(
@@ -469,16 +550,16 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 ),
                               ),
                           ],
-                        ),
-                      );
-                    },
-                  );
-                },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -495,7 +576,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
     Offset localPosition,
     TilemapProjection projection,
   ) async {
-    if (_isRunningTileActionTransition) return;
+    if (_isRunningTileAction) return;
     final scenePosition = MatrixUtils.transformPoint(
       Matrix4.inverted(_transformationController.value),
       localPosition,
@@ -513,46 +594,19 @@ class _TilemapRendererState extends State<TilemapRenderer>
         _highlightedTileKey = tile.cellKey;
       });
       _highlightController.forward(from: 0);
-      await _runTileActionTransition(
-        tile: tile,
-        scenePosition: scenePosition,
-        localPosition: localPosition,
-      );
+      await _runTileAction(tile);
       return;
     }
   }
 
-  Future<void> _runTileActionTransition({
-    required TilemapCell tile,
-    required Offset scenePosition,
-    required Offset localPosition,
-  }) async {
+  Future<void> _runTileAction(TilemapCell tile) async {
     final onTileAction = widget.onTileAction;
     if (onTileAction == null) return;
-    _isRunningTileActionTransition = true;
+    _isRunningTileAction = true;
     try {
-      _tileActionZoomAnimation =
-          Matrix4Tween(
-            begin: _transformationController.value.clone(),
-            end: tilemapZoomTowardScenePoint(
-              currentTransform: _transformationController.value,
-              scenePoint: scenePosition,
-              viewportPoint: localPosition,
-            ),
-          ).animate(
-            CurvedAnimation(
-              parent: _tileActionZoomController,
-              curve: Curves.easeOutCubic,
-            ),
-          );
-      await _tileActionZoomController.forward(from: 0);
-      if (!mounted) return;
       await onTileAction(tile);
-      if (mounted) {
-        await _tileActionZoomController.reverse();
-      }
     } finally {
-      _isRunningTileActionTransition = false;
+      _isRunningTileAction = false;
     }
   }
 
@@ -579,10 +633,15 @@ class _TilemapRendererState extends State<TilemapRenderer>
 }
 
 class _TilemapLocationLabelData {
-  const _TilemapLocationLabelData({required this.tile, required this.name});
+  const _TilemapLocationLabelData({
+    required this.tile,
+    required this.name,
+    required this.avatars,
+  });
 
   final TilemapCell tile;
   final String name;
+  final List<UserAvatar> avatars;
 }
 
 class _TilemapInfiniteGridPainter extends CustomPainter {
@@ -590,11 +649,13 @@ class _TilemapInfiniteGridPainter extends CustomPainter {
     required this.projection,
     required this.scale,
     required this.translation,
+    required this.lineColor,
   });
 
   final TilemapProjection projection;
   final double scale;
   final Offset translation;
+  final Color lineColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -631,7 +692,7 @@ class _TilemapInfiniteGridPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = tilemapGridLineColor
+        ..color = lineColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round
@@ -644,6 +705,7 @@ class _TilemapInfiniteGridPainter extends CustomPainter {
   bool shouldRepaint(covariant _TilemapInfiniteGridPainter oldDelegate) {
     return oldDelegate.scale != scale ||
         oldDelegate.translation != translation ||
+        oldDelegate.lineColor != lineColor ||
         oldDelegate.projection.mapWidth != projection.mapWidth ||
         oldDelegate.projection.mapHeight != projection.mapHeight ||
         oldDelegate.projection.tileExtent != projection.tileExtent ||
@@ -674,10 +736,12 @@ class _TilemapLocationBubble extends StatelessWidget {
   const _TilemapLocationBubble({
     super.key,
     required this.name,
+    required this.avatars,
     required this.anchor,
   });
 
   final String name;
+  final List<UserAvatar> avatars;
   final Offset anchor;
 
   @override
@@ -741,6 +805,10 @@ class _TilemapLocationBubble extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (avatars.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  TilemapLocationAvatars(avatars: avatars),
+                ],
               ],
             ),
           ),

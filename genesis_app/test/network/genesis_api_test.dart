@@ -3000,6 +3000,44 @@ void main() {
       expect(pageNotFoundCount, 0);
     },
   );
+
+  test('tilemap 1404 stays local without page-not-found callback', () async {
+    for (final source in const <String>['origin', 'world']) {
+      var pageNotFoundCount = 0;
+      final transport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":1404,"err_msg":"Page not found","data":{}}',
+        ),
+      );
+      final api = GenesisApi(
+        useMock: false,
+        transport: transport,
+        platformConfig: const _TestPlatformConfig(),
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: MemoryUserSessionStore(),
+        onPageNotFound: (_) async {
+          pageNotFoundCount += 1;
+        },
+      );
+
+      final request = source == 'origin'
+          ? api.getOriginMap(originId: 'o_1', locationId: 'loc_1')
+          : api.getWorldMap(worldId: 'w_1', locationId: 'loc_1');
+      await expectLater(
+        request,
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 1404)
+              .having((error) => error.kind, 'kind', ApiExceptionKind.business),
+        ),
+      );
+
+      expect(transport.lastRequest!.uri.path, '/api/v1/$source/map');
+      expect(pageNotFoundCount, 0);
+    }
+  });
 }
 
 TransportResponse _gatewayAuthResponse(TransportRequest request) {

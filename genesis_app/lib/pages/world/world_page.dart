@@ -18,6 +18,7 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/tilemap/tilemap.dart';
+import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_tick1_wait_dialog.dart';
@@ -1969,6 +1970,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               locationNodes: locationNodes,
               drillExitTop:
                   topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
+              visualModeToggleTop: topPadding + 6,
+              visualModeToggleRight: worldMapBackButtonLeft,
               onDrillIntoLocation: _showMapTab,
               onMapTap: _recordWorldMapClick,
               onPointTap: _openChatForPoint,
@@ -2134,23 +2137,19 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   Widget _buildInitialLoadingScaffold(double topPadding) {
+    final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     return WorldDetailsPageScaffold(
       panelTopGap: 50,
       panelCollapsedHeightOffset: 120,
       scrollPhysics: const NeverScrollableScrollPhysics(),
       persistentTopOverlay: _buildPersistentMapOverlay(topPadding),
-      map: WorldMap(
-        points: const <WorldPoint>[],
-        listPoints: const <WorldPoint>[],
-        locationNodes: const <WorldMapLocationNode>[],
-        fallbackOnEmptyMapUrl: false,
-        dimmed: false,
-        showPointsList: false,
-        recentChatLocationIds: _recentChatLocationIds,
-        pointsListOuterScrollHandoff: false,
-        overlayTop: topPadding + 8 + worldMapContentTopOffset,
-        drillExitTop: topPadding + 8 + worldMapContentTopOffset + 12,
+      map: ColoredBox(
+        key: const ValueKey<String>('world-map-loading-background'),
+        color: tilemapVisualStyleFor(tilemapDefaultVisualMode).backgroundColor,
       ),
+      fixedCollapsedPanelHeight: collapsedPanelHeight,
+      fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
+      contentBottomPaddingOverride: 0,
       slivers: const [WorldDetailsLoadingContent()],
     );
   }

@@ -2,8 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
+import 'package:genesis_flutter_android/components/world_point.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 
 void main() {
+  test('tilemap defaults to dark visual mode', () {
+    expect(tilemapDefaultVisualMode, TilemapVisualMode.dark);
+  });
+
+  test('tilemap visual modes use the specified light and dark palette', () {
+    expect(
+      tilemapVisualStyleFor(TilemapVisualMode.light).backgroundColor,
+      const Color(0xFFFAFAF8),
+    );
+    expect(
+      tilemapVisualStyleFor(TilemapVisualMode.light).gridLineColor,
+      const Color(0xFFD7D6D2),
+    );
+    expect(
+      tilemapVisualStyleFor(TilemapVisualMode.dark).backgroundColor,
+      const Color(0xFF37362E),
+    );
+    expect(
+      tilemapVisualStyleFor(TilemapVisualMode.dark).gridLineColor,
+      const Color(0xFF2E2D26),
+    );
+  });
+
   test('tilemap config uses explicit sparse map bounds', () {
     final config = TilemapConfig.fromTiles(
       id: 'component_map',
@@ -34,6 +59,24 @@ void main() {
       ),
       throwsA(isA<TilemapConfigException>()),
     );
+  });
+
+  test('tilemap config accepts png and webp asset URLs', () {
+    final config = TilemapConfig.fromTiles(
+      id: 'supported_asset_formats',
+      width: 2,
+      height: 1,
+      tileTypes: const {
+        'png': 'https://cdn.example.com/tile/a.png',
+        'webp': 'https://cdn.example.com/tile/b.webp',
+      },
+      tiles: const [
+        TilemapCell(x: 0, y: 0, type: 'png'),
+        TilemapCell(x: 1, y: 0, type: 'webp'),
+      ],
+    );
+
+    expect(config.tileTypes.keys, containsAll(<String>['png', 'webp']));
   });
 
   test('tilemap config rejects duplicate and negative coordinates', () {
@@ -98,7 +141,7 @@ void main() {
     expect(plainTile.isLocationTile, false);
   });
 
-  test('tilemap config rejects empty tiles and pre-sized asset URLs', () {
+  test('tilemap config rejects empty tiles and invalid asset URLs', () {
     expect(
       () => TilemapConfig.fromTiles(
         id: 'component_map',
@@ -106,6 +149,26 @@ void main() {
         height: 1,
         tileTypes: _tileTypes,
         tiles: const <TilemapCell>[],
+      ),
+      throwsA(isA<TilemapConfigException>()),
+    );
+    expect(
+      () => TilemapConfig.fromTiles(
+        id: 'component_map',
+        width: 1,
+        height: 1,
+        tileTypes: const {'a': 'https://cdn.example.com/tile/a_256_256.webp'},
+        tiles: const [TilemapCell(x: 0, y: 0, type: 'a')],
+      ),
+      throwsA(isA<TilemapConfigException>()),
+    );
+    expect(
+      () => TilemapConfig.fromTiles(
+        id: 'component_map',
+        width: 1,
+        height: 1,
+        tileTypes: const {'a': 'https://cdn.example.com/tile/a.jpg'},
+        tiles: const [TilemapCell(x: 0, y: 0, type: 'a')],
       ),
       throwsA(isA<TilemapConfigException>()),
     );
@@ -203,6 +266,50 @@ void main() {
     expect(MatrixUtils.transformPoint(transformed, scenePoint), focalPoint);
   });
 
+  test('initial transform fits visible tile width inside screen margins', () {
+    const viewportSize = Size(320, 640);
+    const contentBounds = Rect.fromLTWH(40, 20, 48, 48);
+    final transform = tilemapInitialTransform(
+      viewportSize: viewportSize,
+      mapSize: const Size(200, 100),
+      contentBounds: contentBounds,
+    );
+    final transformedTopLeft = MatrixUtils.transformPoint(
+      transform,
+      contentBounds.topLeft,
+    );
+    final transformedBottomRight = MatrixUtils.transformPoint(
+      transform,
+      contentBounds.bottomRight,
+    );
+
+    expect(tilemapTransformScale(transform), 6);
+    expect(transformedTopLeft.dx, tilemapInitialHorizontalMargin);
+    expect(
+      transformedBottomRight.dx,
+      viewportSize.width - tilemapInitialHorizontalMargin,
+    );
+    expect(
+      MatrixUtils.transformPoint(transform, contentBounds.center),
+      viewportSize.center(Offset.zero) + const Offset(0, 20),
+    );
+  });
+
+  test('initial scale follows content width within configured limits', () {
+    expect(
+      tilemapInitialScaleForContentWidth(viewportWidth: 360, contentWidth: 64),
+      5.125,
+    );
+    expect(
+      tilemapInitialScaleForContentWidth(viewportWidth: 360, contentWidth: 128),
+      tilemapMinScale,
+    );
+    expect(
+      tilemapInitialScaleForContentWidth(viewportWidth: 360, contentWidth: 8),
+      tilemapMaxScale,
+    );
+  });
+
   test('gesture scale clamps directly at limits without elastic overflow', () {
     final start = tilemapInitialTransform(
       viewportSize: const Size(320, 640),
@@ -269,6 +376,17 @@ void main() {
         200,
       ),
       'https://cdn.example.com/tile/a.png'
+      '?x-oss-process=image/resize,w_256,image/format,webp',
+    );
+  });
+
+  test('tile URL resolution supports webp base assets', () {
+    expect(
+      resolveTilemapAssetForDisplaySize(
+        'https://cdn.example.com/tile/a.webp',
+        200,
+      ),
+      'https://cdn.example.com/tile/a.webp'
       '?x-oss-process=image/resize,w_256,image/format,webp',
     );
   });
@@ -355,7 +473,6 @@ void main() {
     final tileCenter = tileRect.center + Offset(0, tileRect.height / 4);
     await tester.tapAt(tileCenter);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 220));
 
     expect(tappedTile?.locationId, 'loc_1');
     expect(
@@ -391,6 +508,74 @@ void main() {
 
     expect(imageError, isNotNull);
   });
+
+  testWidgets(
+    'location avatars render below the bubble with three per centered row',
+    (tester) async {
+      final config = TilemapConfig.fromTiles(
+        id: 'location_avatars',
+        width: 1,
+        height: 1,
+        tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+        tiles: const [TilemapCell(x: 0, y: 0, type: 'a', locationId: 'loc_1')],
+      );
+      const avatars = <UserAvatar>[
+        UserAvatar('AA', id: 'a', name: 'Ada'),
+        UserAvatar('BB', id: 'b', name: 'Bert'),
+        UserAvatar('CC', id: 'c', name: 'Cara'),
+        UserAvatar('DD', id: 'd', name: 'Drew'),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 320,
+            height: 480,
+            child: TilemapRenderer(
+              config: config,
+              locationNameForTile: (_) => 'June Coffee',
+              locationAvatarsForTile: (_) => avatars,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final bubbleRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>('tile-location-bubble-body-June Coffee'),
+        ),
+      );
+      final avatarRects = <Rect>[
+        for (final id in const ['a', 'b', 'c', 'd'])
+          tester.getRect(
+            find.byKey(ValueKey<String>('tilemap-location-avatar-$id')),
+          ),
+      ];
+
+      expect(avatarRects.first.top, greaterThan(bubbleRect.bottom));
+      expect(avatarRects[0].top, avatarRects[1].top);
+      expect(avatarRects[1].top, avatarRects[2].top);
+      expect(avatarRects[3].top, greaterThan(avatarRects[0].bottom));
+      expect(
+        avatarRects[0].center.dx + avatarRects[2].center.dx,
+        closeTo(bubbleRect.center.dx * 2, 0.01),
+      );
+      expect(avatarRects[3].center.dx, closeTo(bubbleRect.center.dx, 0.01));
+      final avatar = tester.widget<GenesisCharacterAvatar>(
+        find.byType(GenesisCharacterAvatar).first,
+      );
+      expect(
+        avatar.boxShadow.any(
+          (shadow) =>
+              shadow.offset.dy > 0 &&
+              shadow.blurRadius >= 10 &&
+              shadow.spreadRadius > 0,
+        ),
+        isTrue,
+      );
+    },
+  );
 }
 
 const _tileTypes = <String, String>{

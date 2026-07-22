@@ -69,12 +69,17 @@ class TilemapConfig {
         throw const TilemapConfigException('Tile type name must not be empty.');
       }
       final baseUrl = _urlWithoutQueryOrFragment(url);
-      if (!baseUrl.toLowerCase().endsWith('.png')) {
+      final normalizedBaseUrl = baseUrl.toLowerCase();
+      if (!normalizedBaseUrl.endsWith('.png') &&
+          !normalizedBaseUrl.endsWith('.webp')) {
         throw TilemapConfigException(
-          'Tile type $type must point to a .png base URL.',
+          'Tile type $type must point to a .png or .webp base URL.',
         );
       }
-      if (RegExp(r'_\d+_\d+\.png$', caseSensitive: false).hasMatch(baseUrl)) {
+      if (RegExp(
+        r'_\d+_\d+\.(?:png|webp)$',
+        caseSensitive: false,
+      ).hasMatch(baseUrl)) {
         throw TilemapConfigException(
           'Tile type $type must not include a size suffix.',
         );

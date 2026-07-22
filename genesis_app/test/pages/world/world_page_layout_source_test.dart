@@ -39,6 +39,33 @@ void main() {
     expect(source, isNot(contains('class WorldLocationChatPageCache')));
   });
 
+  test('world loading shell keeps the settled panel geometry', () {
+    final source = worldPageSource.readAsStringSync();
+    final loadingShell = source.substring(
+      source.indexOf('Widget _buildInitialLoadingScaffold'),
+      source.indexOf('Widget _buildPersistentMapOverlay'),
+    );
+
+    expect(
+      loadingShell,
+      contains(
+        'final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);',
+      ),
+    );
+    expect(
+      loadingShell,
+      contains('fixedCollapsedPanelHeight: collapsedPanelHeight'),
+    );
+    expect(
+      loadingShell,
+      contains('fixedCollapsedPanelHeightIncludesBottomSafeArea: true'),
+    );
+    expect(loadingShell, contains('contentBottomPaddingOverride: 0'));
+    expect(loadingShell, contains("'world-map-loading-background'"));
+    expect(loadingShell, contains('tilemapDefaultVisualMode'));
+    expect(loadingShell, isNot(contains('map: WorldMap(')));
+  });
+
   test('world map owns identity while collapsed panel keeps only actions', () {
     final source = allWorldSource();
     final headerSource = worldHeaderSource.readAsStringSync();

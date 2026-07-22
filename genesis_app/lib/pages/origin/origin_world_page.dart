@@ -699,7 +699,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                           processedLocationTree.aggregateValues<UserAvatar>(
                             node.id,
                             avatarsByLocation,
-                            idOf: _userAvatarStableId,
+                            idOf: worldMapAvatarStableId,
                           ),
                     )
                     .toList(growable: false),
@@ -726,7 +726,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                           processedLocationTree.aggregateValues<UserAvatar>(
                             node.id,
                             avatarsByLocation,
-                            idOf: _userAvatarStableId,
+                            idOf: worldMapAvatarStableId,
                           ),
                     )
                     .toList(growable: false),
@@ -768,6 +768,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                     locationId: 'root',
                     locationNodes: locationNodes,
                     drillExitTop: topPadding + 68,
+                    showVisualModeToggle: !_showLocationPage,
+                    visualModeToggleTop: topPadding + 8,
+                    visualModeToggleRight: 12,
                     onMapTap: () => _recordWorldoMapClick(origin),
                     onPointTap: (point) => _openChatForPoint(origin, point),
                   ),
@@ -788,6 +791,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             mapOverlay: _buildPersistentMapOverlay(
               topPadding,
               locationCount: locationCount,
+              reserveTilemapVisualModeToggle:
+                  origin.definitionVersion == 2 && !_showLocationPage,
             ),
             bottomSheetOverlayBuilder: (minChildSize) =>
                 _OriginDetailDraggableSheet(

@@ -33,7 +33,7 @@ List<WorldPoint> worldPointsFromLocationNodes(
           (node) => processedLocationTree.aggregateValues<UserAvatar>(
             node.id,
             avatarsByLocation,
-            idOf: worldUserAvatarStableId,
+            idOf: worldMapAvatarStableId,
           ),
         )
         .toList(growable: false),
@@ -258,12 +258,6 @@ List<WorldPoint> worldPointsFromLocations(
           : isLeafLocations[i],
     );
   });
-}
-
-String worldUserAvatarStableId(UserAvatar avatar) {
-  final id = avatar.id.trim();
-  if (id.isNotEmpty) return id;
-  return '${avatar.name ?? ''}|${avatar.avatarUrl}|${avatar.initials}';
 }
 
 List<WorldPoint> worldPointsFromLocationIds(
