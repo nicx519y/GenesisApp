@@ -28,22 +28,22 @@ class _OriginPageState extends State<OriginPage> {
 
   final _hotTagsCache = const _OriginHotTagsCache();
   List<_OriginCategory> _categories = const [_forYouCategory];
+  var _hasSyncedHotTags = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_hydrateCategories());
+    unawaited(_syncHotTags());
+    unawaited(_hydrateCachedCategories());
   }
 
-  Future<void> _hydrateCategories() async {
+  Future<void> _hydrateCachedCategories() async {
     final cachedTags = await _hotTagsCache.load();
     if (!mounted) return;
-    if (cachedTags.isNotEmpty) {
-      setState(() {
-        _categories = _categoriesFromTags(cachedTags);
-      });
-    }
-    await _syncHotTags();
+    if (_hasSyncedHotTags || cachedTags.isEmpty) return;
+    setState(() {
+      _categories = _categoriesFromTags(cachedTags);
+    });
   }
 
   Future<void> _syncHotTags() async {
@@ -53,6 +53,7 @@ class _OriginPageState extends State<OriginPage> {
       await _hotTagsCache.save(normalizedTags);
       if (!mounted) return;
       setState(() {
+        _hasSyncedHotTags = true;
         _categories = _categoriesFromTags(normalizedTags);
       });
     } catch (_) {
