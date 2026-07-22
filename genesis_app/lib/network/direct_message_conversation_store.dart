@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../platform/platform_services.dart';
 import '../utils/genesis_timestamp_formatter.dart';
+import '../utils/genesis_ugc_text.dart';
 import 'direct_message_database.dart';
 import 'genesis_api.dart';
 import 'json_utils.dart';
@@ -34,7 +35,9 @@ class DirectMessageConversationRecord {
       lastMessageId: asString(json['last_message_id']),
       avatarUrl: asImageUrl(peer['avatar']),
       peerName: asString(peer['name'], fallback: 'Unknown user'),
-      lastMessage: asString(json['last_message']),
+      lastMessage: decodeGenesisUgcTextForDisplay(
+        asString(json['last_message']),
+      ),
       lastMessageAt: formatGenesisTimestamp(json['last_message_at']),
       lastMessageAtTime: time,
       unreadCount: asInt(json['unread_cnt']),

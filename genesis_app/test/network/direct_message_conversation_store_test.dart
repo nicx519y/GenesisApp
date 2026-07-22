@@ -8,6 +8,17 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('conversation preview preserves returned UGC backslashes', () {
+    final record = DirectMessageConversationRecord.fromJson({
+      'conv_id': 'conv-1',
+      'peer': {'uid': 'peer-1', 'name': 'Peer'},
+      'last_message_id': 'message-1',
+      'last_message': r'line\nnext',
+    });
+
+    expect(record.lastMessage, r'line\nnext');
+  });
+
   test('full sync requests rn 100 pages until the last partial page', () async {
     final transport = _DmConversationTransport((request) {
       final page = request.uri.queryParameters['pn'];

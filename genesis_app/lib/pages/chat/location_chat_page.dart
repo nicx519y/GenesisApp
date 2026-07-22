@@ -30,6 +30,8 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
+import '../../utils/genesis_ugc_text.dart';
+import '../../utils/llm_stream_escape_decoder.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
 const double _locationChatComposerBottomExtension = 60;
@@ -1211,6 +1213,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         isMe: isMe,
         fallback: existing?.avatarUrl ?? '',
       );
+      final text = _locationChatMessageDisplayText(message);
       final currentTime = _messageCurrentTime(message);
       final createdAt = message.createdAt ?? DateTime.now();
       if (existing != null) {
@@ -1227,7 +1230,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             existing.senderName != senderName ||
             existing.isPlayerControlledRole != isPlayerControlledRole ||
             existing.avatarUrl != avatarUrl ||
-            existing.text != message.content ||
+            existing.text != text ||
             existing.currentTime != currentTime ||
             existing.status != status ||
             existing.localId != localId) {
@@ -1241,7 +1244,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         existing.senderName = senderName;
         existing.isPlayerControlledRole = isPlayerControlledRole;
         existing.avatarUrl = avatarUrl;
-        existing.text = message.content;
+        existing.text = text;
         existing.currentTime = currentTime;
         existing.status = status;
         existing.error = null;
@@ -1260,7 +1263,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           senderName: senderName,
           isPlayerControlledRole: isPlayerControlledRole,
           avatarUrl: avatarUrl,
-          text: message.content,
+          text: text,
           currentTime: currentTime,
           isMe: isMe,
           status: status,
@@ -1477,7 +1480,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     WorldChatroomMessage message, {
     required Set<String> usedLocalIds,
   }) {
-    final content = message.content.trim();
+    final content = _locationChatMessageDisplayText(message).trim();
     if (content.isEmpty) return null;
     final now = DateTime.now();
     for (final candidate in previous.reversed) {
@@ -1657,8 +1660,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _sending) {
       return;
     }
-    final text = _textController.text.trim();
-    if (text.isEmpty) return;
+    final text = normalizeGenesisUgcTextForDisplay(_textController.text);
+    if (isGenesisUgcTextBlank(text)) return;
 
     final clientMsgId = _nextClientMsgId();
     final localMessage = ChatMessageVm(
@@ -3183,6 +3186,25 @@ String _locationChatMessageLocalId(WorldChatroomMessage message) {
     return 'location-${message.locationId}-${message.locationMessageId}';
   }
   return 'stream-${message.locationId}-${message.conversationRoundId}-${message.senderId}';
+}
+
+String _locationChatMessageDisplayText(WorldChatroomMessage message) {
+  if (message.isLlmStreamMessage) {
+    return decodeLlmStreamTextForDisplay(
+      message.content,
+      isStreaming: message.streaming,
+    );
+  }
+  final senderType = message.senderType.trim().toLowerCase();
+  if (senderType.isEmpty || senderType == 'user') {
+    return decodeGenesisUgcTextForDisplay(message.content);
+  }
+  return normalizeGenesisUgcTextForDisplay(message.content);
+}
+
+@visibleForTesting
+String locationChatMessageDisplayTextForTesting(WorldChatroomMessage message) {
+  return _locationChatMessageDisplayText(message);
 }
 
 Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {

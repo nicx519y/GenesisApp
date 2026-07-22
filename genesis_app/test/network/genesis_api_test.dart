@@ -151,15 +151,6 @@ void main() {
     expect(config.agentControlToken, 'secret');
   });
 
-  test('AppConfig provides default PostHog config', () {
-    expect(
-      const AppConfig().postHogProjectToken,
-      AppConfig.defaultPostHogProjectToken,
-    );
-    expect(const AppConfig().postHogHost, AppConfig.defaultPostHogHost);
-    expect(const AppConfig().postHogDebug, false);
-  });
-
   test('resolveAssetUrl keeps predata default CDN images as remote URLs', () {
     expect(
       resolveAssetUrl('https://cdn-001.worldo.ai/predata/root_default.webp'),

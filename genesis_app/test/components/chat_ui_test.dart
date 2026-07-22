@@ -821,6 +821,36 @@ void main() {
     expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
   });
 
+  testWidgets('chat markdown preserves backslash text', (
+    WidgetTester tester,
+  ) async {
+    const raw = r'value\tend\\slash\u1234\*';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageBubble(
+            message: ChatMessageVm(
+              localId: 'escaped-message',
+              senderId: 'me',
+              senderName: 'Me',
+              text: raw,
+              isMe: true,
+              status: 'sent',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final text = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(text.textSpan?.toPlainText(), raw);
+  });
+
   testWidgets(
     'chat message bubble uses decorative unicode visual fallback text',
     (WidgetTester tester) async {
@@ -1256,7 +1286,7 @@ void main() {
     expect(text.textAlign, TextAlign.left);
   });
 
-  testWidgets('escaped newlines render in chat bubbles and narrator text', (
+  testWidgets('real newlines render in user and narrator messages', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -1269,7 +1299,7 @@ void main() {
                   localId: 'peer-1',
                   senderId: 'peer',
                   senderName: 'Peer',
-                  text: r'First\n\nSecond',
+                  text: 'First\n\nSecond',
                   isMe: false,
                   status: 'sent',
                 ),
@@ -1280,7 +1310,7 @@ void main() {
                   localId: 'nar-1',
                   senderId: 'narrator',
                   senderName: 'Narrator',
-                  text: r'Aside\n\nContinues',
+                  text: 'Aside\n\nContinues',
                   isMe: false,
                   status: 'sent',
                   senderType: 'narrator',
@@ -1295,8 +1325,36 @@ void main() {
 
     expect(find.text('First\n\nSecond'), findsOneWidget);
     expect(find.text('Aside\n\nContinues'), findsOneWidget);
-    expect(find.text('FirstnnSecond'), findsNothing);
-    expect(find.text('AsidennContinues'), findsNothing);
+  });
+
+  testWidgets('chat markdown does not restore escaped backslash layers', (
+    WidgetTester tester,
+  ) async {
+    const raw = r'double\\n stays literal';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageBubble(
+            message: ChatMessageVm(
+              localId: 'double-backslash-message',
+              senderId: 'me',
+              senderName: 'Me',
+              text: raw,
+              isMe: true,
+              status: 'sent',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final text = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(text.textSpan?.toPlainText(), raw);
   });
 
   testWidgets('message and narrator bubbles report long press starts', (
@@ -1510,13 +1568,12 @@ void main() {
     expect(sendCount, 1);
   });
 
-  testWidgets('chat composer uses decorative unicode visual fallback input', (
+  testWidgets('chat composer preserves decorative unicode input', (
     WidgetTester tester,
   ) async {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
     const raw = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
-    const rendered = '☛ ˙۵▤▤▤♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀°ₒ✩';
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1535,7 +1592,7 @@ void main() {
     await tester.enterText(find.byType(TextField), raw);
     await tester.pump();
 
-    expect(controller.text, rendered);
+    expect(controller.text, raw);
     final input = tester.widget<TextField>(find.byType(TextField));
     expect(input.style?.fontFamily, isNull);
     expect(input.style?.fontFamilyFallback, isNull);
