@@ -95,6 +95,7 @@ class WorldMap extends StatefulWidget {
     this.fallbackOnEmptyMapUrl = true,
     this.dimmed = false,
     this.showPointsList = false,
+    this.pointsListBuilder,
     this.pointsListPhysics,
     this.pointsListOuterScrollHandoff = true,
     this.overlayTop = 0,
@@ -122,6 +123,7 @@ class WorldMap extends StatefulWidget {
   final bool fallbackOnEmptyMapUrl;
   final bool dimmed;
   final bool showPointsList;
+  final WidgetBuilder? pointsListBuilder;
   final ScrollPhysics? pointsListPhysics;
   final bool pointsListOuterScrollHandoff;
   final double overlayTop;
@@ -389,31 +391,35 @@ class _WorldMapState extends State<WorldMap> {
               Positioned.fill(child: ColoredBox(color: Colors.white)),
             if (widget.showPointsList)
               Positioned.fill(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: WorldLocationList(
-                        points: flattenedPoints,
-                        locationNodes: widget.listLocationNodes.isNotEmpty
-                            ? widget.listLocationNodes
-                            : widget.locationNodes,
-                        recentChatLocationIds: widget.recentChatLocationIds,
-                        physics: widget.pointsListPhysics,
-                        enableOuterScrollHandoff:
-                            widget.pointsListOuterScrollHandoff,
-                        padding: EdgeInsets.fromLTRB(
-                          12,
-                          widget.overlayTop + 8,
-                          12,
-                          12,
+                child:
+                    widget.pointsListBuilder?.call(context) ??
+                    Column(
+                      children: [
+                        Expanded(
+                          child: WorldLocationList(
+                            points: flattenedPoints,
+                            locationNodes: widget.listLocationNodes.isNotEmpty
+                                ? widget.listLocationNodes
+                                : widget.locationNodes,
+                            recentChatLocationIds: widget.recentChatLocationIds,
+                            physics: widget.pointsListPhysics,
+                            enableOuterScrollHandoff:
+                                widget.pointsListOuterScrollHandoff,
+                            padding: EdgeInsets.fromLTRB(
+                              12,
+                              widget.overlayTop + 8,
+                              12,
+                              12,
+                            ),
+                            onPointTap: (point) {
+                              widget.onPointTap?.call(
+                                _withCurrentMapImage(point),
+                              );
+                            },
+                          ),
                         ),
-                        onPointTap: (point) {
-                          widget.onPointTap?.call(_withCurrentMapImage(point));
-                        },
-                      ),
+                      ],
                     ),
-                  ],
-                ),
               ),
             if (_locationTrail.isNotEmpty && !widget.showPointsList)
               Positioned(

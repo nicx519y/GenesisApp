@@ -31,9 +31,6 @@ class _OriginDetailDraggableSheetState
   static const _snapAnimationDuration = Duration(milliseconds: 260);
 
   late final DraggableScrollableController _sheetController;
-  late final OriginDiscussListController _discussController;
-  var _currentUid = '';
-  var _didLoadCurrentUid = false;
   var _sheetExtent = 0.0;
 
   double get _minChildSize => widget.minChildSize.clamp(0.08, 0.42).toDouble();
@@ -59,9 +56,6 @@ class _OriginDetailDraggableSheetState
   void initState() {
     super.initState();
     _sheetController = DraggableScrollableController();
-    _discussController = OriginDiscussListController();
-    _configureDiscuss();
-    unawaited(_discussController.loadInitialIfNeeded());
   }
 
   @override
@@ -71,19 +65,11 @@ class _OriginDetailDraggableSheetState
     if (_sheetExtent == 0.0 || _sheetExtent < initialExtent) {
       _sheetExtent = initialExtent;
     }
-    if (!_didLoadCurrentUid) {
-      _didLoadCurrentUid = true;
-      unawaited(_loadCurrentUid());
-    }
   }
 
   @override
   void didUpdateWidget(covariant _OriginDetailDraggableSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.origin.oid != widget.origin.oid) {
-      _configureDiscuss();
-      unawaited(_discussController.refreshFirstPage());
-    }
     if (oldWidget.minChildSize != widget.minChildSize) {
       final maxChildSize = _expandedChildSize(context);
       final nextExtent = _sheetExtent
@@ -105,7 +91,6 @@ class _OriginDetailDraggableSheetState
   void dispose() {
     SystemChrome.setSystemUIOverlayStyle(widget.baseStatusBarStyle);
     _sheetController.dispose();
-    _discussController.dispose();
     super.dispose();
   }
 
@@ -125,23 +110,6 @@ class _OriginDetailDraggableSheetState
         ),
       );
     });
-  }
-
-  Future<void> _loadCurrentUid() async {
-    final uid =
-        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
-        '';
-    if (!mounted || uid == _currentUid) return;
-    setState(() => _currentUid = uid);
-  }
-
-  void _configureDiscuss() {
-    _discussController.configure(
-      oid: widget.origin.oid,
-      loader: ({required String oid, required int pn, required int rn}) async {
-        return loadOriginDiscussPage(context, oid, pn: pn, rn: rn);
-      },
-    );
   }
 
   bool _handleSheetNotification(DraggableScrollableNotification notification) {
@@ -266,41 +234,6 @@ class _OriginDetailDraggableSheetState
                         ),
                         sliver: SliverList.list(
                           children: [
-                            _OriginSheetHeaderContent(
-                              origin: widget.origin,
-                              currentUid: _currentUid,
-                              onOriginChanged: widget.onOriginChanged,
-                            ),
-                            const SizedBox(
-                              height: originDetailSectionGapForTesting,
-                            ),
-                            _WorldViewSection(origin: widget.origin),
-                            if (_originPreviewTick(widget.origin)
-                                case final tick?) ...[
-                              const SizedBox(
-                                height: originDetailSectionGapForTesting,
-                              ),
-                              _LaunchPreviewSection(
-                                origin: widget.origin,
-                                previewTick: tick,
-                              ),
-                            ],
-                            const SizedBox(
-                              height: originDetailSectionGapForTesting,
-                            ),
-                            CopyWorldProgressSection(
-                              originId: widget.origin.oid,
-                            ),
-                            const SizedBox(
-                              height: originDetailSectionGapForTesting,
-                            ),
-                            _DiscussSection(
-                              origin: widget.origin,
-                              controller: _discussController,
-                            ),
-                            const SizedBox(
-                              height: originDetailSectionGapForTesting,
-                            ),
                             _OriginCharactersSection(
                               characters: widget.origin.characters,
                             ),
@@ -315,6 +248,103 @@ class _OriginDetailDraggableSheetState
           },
         ),
       ),
+    );
+  }
+}
+
+class _OriginIntroList extends StatefulWidget {
+  const _OriginIntroList({
+    required this.origin,
+    required this.topPadding,
+    required this.onOriginChanged,
+  });
+
+  final OriginDetail origin;
+  final double topPadding;
+  final VoidCallback onOriginChanged;
+
+  @override
+  State<_OriginIntroList> createState() => _OriginIntroListState();
+}
+
+class _OriginIntroListState extends State<_OriginIntroList> {
+  late final OriginDiscussListController _discussController;
+  var _currentUid = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _discussController = OriginDiscussListController();
+    _configureDiscuss();
+    unawaited(_discussController.loadInitialIfNeeded());
+    unawaited(_loadCurrentUid());
+  }
+
+  @override
+  void didUpdateWidget(covariant _OriginIntroList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.origin.oid != widget.origin.oid) {
+      _configureDiscuss();
+      unawaited(_discussController.refreshFirstPage());
+      unawaited(_loadCurrentUid());
+    }
+  }
+
+  @override
+  void dispose() {
+    _discussController.dispose();
+    super.dispose();
+  }
+
+  void _configureDiscuss() {
+    _discussController.configure(
+      oid: widget.origin.oid,
+      loader: ({required String oid, required int pn, required int rn}) =>
+          loadOriginDiscussPage(context, oid, pn: pn, rn: rn),
+    );
+  }
+
+  Future<void> _loadCurrentUid() async {
+    final uid =
+        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
+        '';
+    if (!mounted || uid == _currentUid) return;
+    setState(() => _currentUid = uid);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[
+      _OriginSheetHeaderContent(
+        origin: widget.origin,
+        currentUid: _currentUid,
+        onOriginChanged: widget.onOriginChanged,
+      ),
+      const SizedBox(height: originDetailSectionGapForTesting),
+      _WorldViewSection(origin: widget.origin),
+    ];
+    if (_originPreviewTick(widget.origin) case final tick?) {
+      children.addAll([
+        const SizedBox(height: originDetailSectionGapForTesting),
+        _LaunchPreviewSection(origin: widget.origin, previewTick: tick),
+      ]);
+    }
+    children.addAll([
+      const SizedBox(height: originDetailSectionGapForTesting),
+      CopyWorldProgressSection(originId: widget.origin.oid),
+      const SizedBox(height: originDetailSectionGapForTesting),
+      _DiscussSection(origin: widget.origin, controller: _discussController),
+    ]);
+    return ListView(
+      key: PageStorageKey<String>('origin-intro-${widget.origin.oid}'),
+      padding: EdgeInsets.fromLTRB(
+        originDetailSheetHorizontalPaddingForTesting,
+        widget.topPadding + 8,
+        originDetailSheetHorizontalPaddingForTesting,
+        24,
+      ),
+      physics: const ClampingScrollPhysics(),
+      children: children,
     );
   }
 }

@@ -121,14 +121,14 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   List<OriginLaunchedWorldRole>? _preloadedLaunchedWorlds;
   bool _launching = false;
   bool _didResumePendingLaunch = false;
-  bool _showLocationPage = false;
+  bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
   List<GenesisGenerationWaitAvatar> _launchWaitAvatars =
       const <GenesisGenerationWaitAvatar>[];
   _OriginLocationChatDescriptor? _activeChatLocation;
   late final VoidCallback _removeLaunchOutcomeListener;
 
-  SystemUiOverlayStyle get _baseStatusBarStyle => _showLocationPage
+  SystemUiOverlayStyle get _baseStatusBarStyle => _showIntroPage
       ? _transparentDarkStatusBarStyle
       : _transparentStatusBarStyle;
 
@@ -161,7 +161,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _preloadedLaunchedWorlds = null;
       _future = _loadOriginDetail();
       _activeChatLocation = null;
-      _showLocationPage = false;
+      _showIntroPage = false;
       _tabController.index = 0;
       SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
       _didResumePendingLaunch = false;
@@ -389,20 +389,18 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   void _handleMapModeTabTap(int index) {
-    final nextShowsLocationPage = index == 1;
+    final nextShowsIntroPage = index == 1;
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
-      action: nextShowsLocationPage
-          ? 'worldo_detail_location_list'
-          : 'worldo_map',
+      action: nextShowsIntroPage ? 'worldo_detail_intro' : 'worldo_map',
       object1: widget.oid,
     );
     setState(() {
-      _showLocationPage = nextShowsLocationPage;
+      _showIntroPage = nextShowsIntroPage;
       _detailSheetCollapseRequest += 1;
     });
     SystemChrome.setSystemUIOverlayStyle(
-      nextShowsLocationPage
+      nextShowsIntroPage
           ? _transparentDarkStatusBarStyle
           : _transparentStatusBarStyle,
     );
@@ -769,9 +767,16 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                     ? _originMapMessageBubbles(origin)
                     : const <WorldMapMessageBubble>[],
                 messageBubblePlaybackPaused: _activeChatLocation != null,
-                dimmed: _showLocationPage,
-                showPointsList: _showLocationPage,
-                initialZoomScale: _showLocationPage ? 1 : 1.2,
+                dimmed: _showIntroPage,
+                showPointsList: _showIntroPage,
+                pointsListBuilder: _showIntroPage
+                    ? (context) => _OriginIntroList(
+                        origin: origin,
+                        topPadding: topPadding + 8 + 48,
+                        onOriginChanged: _refreshOriginDetail,
+                      )
+                    : null,
+                initialZoomScale: _showIntroPage ? 1 : 1.2,
                 enableAvatarScaleReboundHint: true,
                 pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,

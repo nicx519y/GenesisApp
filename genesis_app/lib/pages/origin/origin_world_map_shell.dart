@@ -10,6 +10,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
         pointsCount: locationCount,
         controller: _tabController,
         onTabTap: _handleMapModeTabTap,
+        secondaryTabIsIntro: true,
       ),
     );
   }

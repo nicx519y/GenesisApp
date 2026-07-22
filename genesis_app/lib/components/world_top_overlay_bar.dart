@@ -17,12 +17,17 @@ class WorldTopOverlayBar extends StatelessWidget {
     required this.controller,
     this.onBack,
     this.onTabTap,
+    this.secondaryTabIsIntro = false,
   });
 
   final int pointsCount;
   final TabController controller;
   final VoidCallback? onBack;
   final ValueChanged<int>? onTabTap;
+
+  /// Uses the origin-detail information view as the second tab instead of
+  /// the map's location list.
+  final bool secondaryTabIsIntro;
 
   void _handleTabTap(BuildContext context, int index) {
     onTabTap?.call(index);
@@ -104,9 +109,18 @@ class WorldTopOverlayBar extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.place_outlined, size: 16),
+                      Icon(
+                        secondaryTabIsIntro
+                            ? Icons.info_outline
+                            : Icons.place_outlined,
+                        size: 16,
+                      ),
                       const SizedBox(width: 6),
-                      Text('Location ($pointsCount)'),
+                      Text(
+                        secondaryTabIsIntro
+                            ? 'Intro'
+                            : 'Location ($pointsCount)',
+                      ),
                     ],
                   ),
                 ),
