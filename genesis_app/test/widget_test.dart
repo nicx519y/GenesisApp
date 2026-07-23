@@ -2089,6 +2089,7 @@ void main() {
     await tester.pumpWidget(GenesisApp(services: services, initialIndex: 1));
     await tester.pump();
 
+    expect(find.byType(AppShellPage, skipOffstage: false), findsOneWidget);
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
     expect(find.text('Worldo'), findsOneWidget);
 

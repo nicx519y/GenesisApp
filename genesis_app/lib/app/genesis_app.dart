@@ -30,6 +30,14 @@ class GenesisApp extends StatelessWidget {
           initialRoute: RouteNames.home,
           navigatorKey: genesisNavigatorKey,
           navigatorObservers: [genesisRouteObserver, genesisPageRouteObserver],
+          onGenerateInitialRoutes: (_) {
+            initialRoutePending = false;
+            return <Route<dynamic>>[
+              AppRouter.onGenerateRoute(
+                RouteSettings(name: RouteNames.home, arguments: initialIndex),
+              ),
+            ];
+          },
           onGenerateRoute: (settings) {
             if (settings.name == RouteNames.home &&
                 settings.arguments == null &&
