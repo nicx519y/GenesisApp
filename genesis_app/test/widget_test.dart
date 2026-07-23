@@ -3992,6 +3992,47 @@ void main() {
   );
 
   testWidgets(
+    'logged in cold start with empty My Worlds cache opens Worldo and Home Popular',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+          'list': <Object>[],
+          'total': 0,
+        }),
+      });
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: const AppShellPage(initialIndex: 0),
+          ),
+        ),
+      );
+
+      for (
+        var i = 0;
+        i < 20 && find.text('Worldo').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+      expect(find.text('Worldo'), findsOneWidget);
+
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Popular'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'logged in cold start with My Worlds cache opens Home My Worlds',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(worldListTotal: 1);
