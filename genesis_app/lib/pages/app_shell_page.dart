@@ -13,6 +13,7 @@ import '../components/login_sheet.dart';
 import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/billing/billing_models.dart';
+import '../platform/privacy/app_tracking_transparency_service.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_feed_cache_store.dart';
 import 'home/home_page.dart';
@@ -20,15 +21,28 @@ import 'me/me_page.dart';
 import 'messages/messages_page.dart';
 import 'origin/origin_page.dart';
 
+typedef AttAuthorizationStatusReader =
+    Future<AppTrackingAuthorizationStatus> Function();
+typedef AttAuthorizationRequester =
+    Future<AppTrackingAuthorizationStatus> Function();
+
 class AppShellPage extends StatefulWidget {
   const AppShellPage({
     super.key,
     required this.initialIndex,
     this.homeInitialTabIndex,
+    this.startupPlatform,
+    this.trackingAuthorizationStatus =
+        AppTrackingTransparencyService.authorizationStatus,
+    this.requestTrackingAuthorization =
+        AppTrackingTransparencyService.requestAuthorization,
   });
 
   final int initialIndex;
   final int? homeInitialTabIndex;
+  final TargetPlatform? startupPlatform;
+  final AttAuthorizationStatusReader trackingAuthorizationStatus;
+  final AttAuthorizationRequester requestTrackingAuthorization;
 
   @override
   State<AppShellPage> createState() => _AppShellPageState();
@@ -53,10 +67,15 @@ class _AppShellPageState extends State<AppShellPage>
       ValueNotifier<UnreadSummary>(UnreadSummary.zero);
   static const _messagesPollInterval = Duration(seconds: 30);
   late final GenesisPollingScheduler _messagesPoller;
+  Timer? _attDelayTimer;
+  var _attWaitingForResume = false;
+  var _attScheduleStarted = false;
+  AppLifecycleState? _lifecycleState;
 
   @override
   void initState() {
     super.initState();
+    _lifecycleState = WidgetsBinding.instance.lifecycleState;
     WidgetsBinding.instance.addObserver(this);
     AppStartupCoordinator.postLaunchWorkAllowedListenable.addListener(
       _handlePostLaunchWorkAllowed,
@@ -82,11 +101,13 @@ class _AppShellPageState extends State<AppShellPage>
       _startAppRuntime();
       _startColdStartHomeTargetResolutionIfNeeded();
       _startPostLaunchWorkIfAllowed();
+      _scheduleAttRequest();
     });
   }
 
   @override
   void dispose() {
+    _attDelayTimer?.cancel();
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     AppStartupCoordinator.postLaunchWorkAllowedListenable.removeListener(
       _handlePostLaunchWorkAllowed,
@@ -103,7 +124,12 @@ class _AppShellPageState extends State<AppShellPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
     if (state == AppLifecycleState.resumed) {
+      if (_attWaitingForResume) {
+        _attWaitingForResume = false;
+        _requestAttIfNeeded();
+      }
       if (AppStartupCoordinator.isPostLaunchWorkAllowed) {
         _startColdStartHomeTargetResolutionIfNeeded();
         if (!_coldStartHomeTargetResolved) return;
@@ -117,6 +143,43 @@ class _AppShellPageState extends State<AppShellPage>
       }
     } else {
       _stopMessagesPolling();
+    }
+  }
+
+  void _scheduleAttRequest() {
+    if (!mounted || _attScheduleStarted) return;
+    if ((widget.startupPlatform ?? defaultTargetPlatform) !=
+        TargetPlatform.iOS) {
+      _attScheduleStarted = true;
+      return;
+    }
+    _attScheduleStarted = true;
+    _attDelayTimer = Timer(const Duration(seconds: 2), () {
+      _attDelayTimer = null;
+      _requestAttIfNeeded();
+    });
+  }
+
+  void _requestAttIfNeeded() {
+    if (!mounted) return;
+    if (_lifecycleState != null &&
+        _lifecycleState != AppLifecycleState.resumed) {
+      _attWaitingForResume = true;
+      return;
+    }
+    if (!AppStartupCoordinator.claimAttRequest()) return;
+    unawaited(_requestAtt());
+  }
+
+  Future<void> _requestAtt() async {
+    try {
+      final status = await widget.trackingAuthorizationStatus();
+      if (status != AppTrackingAuthorizationStatus.notDetermined) return;
+      final result = await widget.requestTrackingAuthorization();
+      debugPrint('[ATT] authorization result: $result');
+    } catch (error, stackTrace) {
+      debugPrint('[ATT] authorization request failed: $error');
+      debugPrint('[ATT] stacktrace:\n$stackTrace');
     }
   }
 
@@ -431,7 +494,6 @@ class _AppShellPageState extends State<AppShellPage>
         0 => HomePage(
           initialTabIndex: _homeInitialTabIndexOverride,
           activationListenable: _homeTabActivationNotifier,
-          activeListenable: _homeTabActiveNotifier,
         ),
         1 => const OriginPage(),
         3 => ValueListenableBuilder<UnreadSummary>(

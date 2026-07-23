@@ -6,7 +6,6 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
-import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/discuss/origin_discuss_preview_list.dart';
@@ -18,7 +17,6 @@ import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
-import '../../platform/privacy/app_tracking_transparency_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_deleted_list_item_transition.dart';
 import '../../ui/components/genesis_safe_area.dart';
@@ -33,11 +31,6 @@ import '../world/world_page_result.dart';
 void _ignoreHomeFeedCacheWrite(Future<void> write) {
   unawaited(write.catchError((_) {}));
 }
-
-typedef TrackingAuthorizationRequester =
-    Future<AppTrackingAuthorizationStatus> Function();
-typedef TrackingAuthorizationStatusReader =
-    Future<AppTrackingAuthorizationStatus> Function();
 
 Future<void> _waitHomeInitialRequestMetricWindow(Duration delay) async {
   if (delay <= Duration.zero) return;
@@ -83,12 +76,6 @@ class HomePage extends StatefulWidget {
     this.initialTabIndex,
     this.initialMyWorldsData,
     this.activationListenable,
-    this.activeListenable,
-    this.startupPlatform,
-    this.trackingAuthorizationStatus =
-        AppTrackingTransparencyService.authorizationStatus,
-    this.requestTrackingAuthorization =
-        AppTrackingTransparencyService.requestAuthorization,
     this.initialRequestMetricWindow = Duration.zero,
   });
 
@@ -99,68 +86,36 @@ class HomePage extends StatefulWidget {
   final int? initialTabIndex;
   final Map<String, dynamic>? initialMyWorldsData;
   final ValueListenable<int>? activationListenable;
-  final ValueListenable<bool>? activeListenable;
-  final TargetPlatform? startupPlatform;
-  final TrackingAuthorizationStatusReader trackingAuthorizationStatus;
-  final TrackingAuthorizationRequester requestTrackingAuthorization;
   final Duration initialRequestMetricWindow;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+class _HomePageState extends State<HomePage> {
   int? _initialTabIndex;
   Future<int>? _initialTabIndexFuture;
   Map<String, dynamic>? _resolvedInitialMyWorldsData;
   // Feed widgets still observe this notifier for their own loading lifecycle;
   // startup permissions never change it.
   late final ValueNotifier<bool> _homeNetworkRequestsAllowed;
-  AppLifecycleState? _lifecycleState;
-  Timer? _attDelayTimer;
-  var _attWaitingForResume = false;
-  var _attScheduleStarted = false;
 
   @override
   void initState() {
     super.initState();
     _homeNetworkRequestsAllowed = ValueNotifier<bool>(true);
-    _lifecycleState = WidgetsBinding.instance.lifecycleState;
-    WidgetsBinding.instance.addObserver(this);
-    widget.activeListenable?.addListener(_handleHomeActiveChanged);
     _resolveInitialTabIndex();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scheduleAttRequestIfHomeIsActive();
-    });
   }
 
   @override
   void dispose() {
-    _attDelayTimer?.cancel();
-    widget.activeListenable?.removeListener(_handleHomeActiveChanged);
-    WidgetsBinding.instance.removeObserver(this);
     _homeNetworkRequestsAllowed.dispose();
     super.dispose();
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _lifecycleState = state;
-    if (state == AppLifecycleState.resumed) {
-      if (_attWaitingForResume && _isHomeActive) {
-        _attWaitingForResume = false;
-        _requestAttIfNeeded();
-      }
-    }
-  }
-
-  @override
   void didUpdateWidget(covariant HomePage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.activeListenable != widget.activeListenable) {
-      oldWidget.activeListenable?.removeListener(_handleHomeActiveChanged);
-      widget.activeListenable?.addListener(_handleHomeActiveChanged);
-    }
     if (oldWidget.initialTabIndex != widget.initialTabIndex) {
       _resolveInitialTabIndex();
     }
@@ -176,57 +131,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     _initialTabIndex = null;
     _initialTabIndexFuture = _initialTabIndexFromSession();
-  }
-
-  bool get _isHomeActive => widget.activeListenable?.value ?? true;
-
-  void _handleHomeActiveChanged() {
-    if (!mounted) return;
-    if (!_isHomeActive) {
-      _attDelayTimer?.cancel();
-      _attDelayTimer = null;
-      _attScheduleStarted = false;
-      _attWaitingForResume = false;
-      return;
-    }
-    _scheduleAttRequestIfHomeIsActive();
-  }
-
-  void _scheduleAttRequestIfHomeIsActive() {
-    if (!mounted || !_isHomeActive || _attScheduleStarted) return;
-    if ((widget.startupPlatform ?? defaultTargetPlatform) !=
-        TargetPlatform.iOS) {
-      _attScheduleStarted = true;
-      return;
-    }
-    _attScheduleStarted = true;
-    _attDelayTimer = Timer(const Duration(seconds: 2), () {
-      _attDelayTimer = null;
-      _requestAttIfNeeded();
-    });
-  }
-
-  void _requestAttIfNeeded() {
-    if (!mounted || !_isHomeActive) return;
-    if (_lifecycleState != null &&
-        _lifecycleState != AppLifecycleState.resumed) {
-      _attWaitingForResume = true;
-      return;
-    }
-    if (!AppStartupCoordinator.claimAttRequest()) return;
-    unawaited(_requestAtt());
-  }
-
-  Future<void> _requestAtt() async {
-    try {
-      final status = await widget.trackingAuthorizationStatus();
-      if (status != AppTrackingAuthorizationStatus.notDetermined) return;
-      final result = await widget.requestTrackingAuthorization();
-      debugPrint('[ATT] authorization result: $result');
-    } catch (error, stackTrace) {
-      debugPrint('[ATT] authorization request failed: $error');
-      debugPrint('[ATT] stacktrace:\n$stackTrace');
-    }
   }
 
   Future<int> _initialTabIndexFromSession() async {

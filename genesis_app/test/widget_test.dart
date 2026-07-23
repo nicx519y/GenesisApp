@@ -27,6 +27,7 @@ import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
+import 'package:genesis_flutter_android/components/common/list_loading_skeleton.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
@@ -1273,6 +1274,54 @@ class _QueuedOriginRefreshTransport implements HttpTransport {
         'total': 1,
       },
     });
+  }
+}
+
+class _OriginPermissionPromptTransport extends _RecordingV1ListTransport {
+  final Completer<TransportResponse> firstOriginResponse =
+      Completer<TransportResponse>();
+  var originListRequestCount = 0;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.uri.path == '/api/v1/origin/list') {
+      originListRequestCount += 1;
+      if (originListRequestCount == 1) {
+        requests.add(request);
+        return firstOriginResponse.future;
+      }
+    }
+    return super.send(request);
+  }
+
+  void failFirstOriginRequest() {
+    firstOriginResponse.complete(
+      _jsonResponse({
+        'err_no': 10001,
+        'err_msg': 'network unavailable',
+        'data': <String, Object?>{},
+      }),
+    );
+  }
+}
+
+class _OriginHotTagsRetryTransport extends _RecordingV1ListTransport {
+  var hotTagsRequestCount = 0;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.uri.path == '/api/v1/origin/hot_tags') {
+      hotTagsRequestCount += 1;
+      if (hotTagsRequestCount == 1) {
+        requests.add(request);
+        return _jsonResponse({
+          'err_no': 10001,
+          'err_msg': 'network unavailable',
+          'data': <String, Object?>{},
+        });
+      }
+    }
+    return super.send(request);
   }
 }
 
@@ -4138,6 +4187,62 @@ void main() {
     expect(originRequests.last.uri.queryParameters['tag'], 'Destroyed');
   });
 
+  testWidgets(
+    'Origin keeps the skeleton during a permission prompt and retries on resume',
+    (WidgetTester tester) async {
+      final transport = _OriginPermissionPromptTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      transport.failFirstOriginRequest();
+      await tester.pump();
+
+      expect(find.byType(GenesisListLoadingSkeleton), findsOneWidget);
+      expect(find.text('Load failed'), findsNothing);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(transport.originListRequestCount, 2);
+      expect(find.text('#Origin 1'), findsOneWidget);
+      expect(find.text('Load failed'), findsNothing);
+    },
+  );
+
+  testWidgets('Origin retries hot tags after returning to foreground', (
+    WidgetTester tester,
+  ) async {
+    final transport = _OriginHotTagsRetryTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(transport.hotTagsRequestCount, 2);
+    expect(find.text('Destroyed'), findsOneWidget);
+    expect(find.text('For you'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(transport.hotTagsRequestCount, 2);
+    expect(find.text('Destroyed'), findsOneWidget);
+  });
+
   testWidgets('Origin starts hot tags before For you list in parallel', (
     WidgetTester tester,
   ) async {
@@ -4249,7 +4354,6 @@ void main() {
               initialAuthToken: 'backend-token',
             ),
             child: const HomePage(
-              startupPlatform: TargetPlatform.android,
               initialTabIndex: HomePage.myWorldsTabIndex,
               initialRequestMetricWindow: Duration.zero,
             ),
@@ -4335,7 +4439,6 @@ void main() {
             initialAuthToken: 'backend-token',
           ),
           child: const HomePage(
-            startupPlatform: TargetPlatform.android,
             initialTabIndex: HomePage.myWorldsTabIndex,
             initialRequestMetricWindow: Duration.zero,
           ),
@@ -4377,10 +4480,7 @@ void main() {
             useMock: false,
             initialUid: null,
           ),
-          child: const HomePage(
-            startupPlatform: TargetPlatform.android,
-            initialRequestMetricWindow: Duration.zero,
-          ),
+          child: const HomePage(initialRequestMetricWindow: Duration.zero),
         ),
       ),
     );
@@ -4407,24 +4507,18 @@ void main() {
   });
 
   testWidgets(
-    'Home iOS starts business requests before the independent ATT prompt',
+    'AppShell iOS starts the independent ATT prompt after the first frame',
     (WidgetTester tester) async {
       AppStartupCoordinator.resetForTesting();
-      final transport = _RecordingV1ListTransport();
       var trackingRequested = false;
 
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialAuthToken: 'backend-token',
-            ),
-            child: HomePage(
+            services: await _testServices(initialAuthToken: 'backend-token'),
+            child: AppShellPage(
+              initialIndex: 1,
               startupPlatform: TargetPlatform.iOS,
-              initialTabIndex: HomePage.myWorldsTabIndex,
-              initialRequestMetricWindow: Duration.zero,
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.notDetermined,
               requestTrackingAuthorization: () async {
@@ -4439,7 +4533,6 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
       expect(trackingRequested, isFalse);
 
       await tester.pump(const Duration(seconds: 2));
@@ -4447,7 +4540,7 @@ void main() {
     },
   );
 
-  testWidgets('Home iOS does not request ATT after a previous decision', (
+  testWidgets('AppShell iOS does not request ATT after a previous decision', (
     WidgetTester tester,
   ) async {
     AppStartupCoordinator.resetForTesting();
@@ -4457,9 +4550,9 @@ void main() {
       MaterialApp(
         home: AppServicesScope(
           services: await _testServices(),
-          child: HomePage(
+          child: AppShellPage(
+            initialIndex: 1,
             startupPlatform: TargetPlatform.iOS,
-            initialTabIndex: HomePage.popularTabIndex,
             trackingAuthorizationStatus: () async =>
                 AppTrackingAuthorizationStatus.authorized,
             requestTrackingAuthorization: () async {

@@ -20,7 +20,7 @@ class OriginPage extends StatefulWidget {
   State<OriginPage> createState() => _OriginPageState();
 }
 
-class _OriginPageState extends State<OriginPage> {
+class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   static const _forYouCategory = _OriginCategory(
     name: 'For you',
     scene: 'foryou',
@@ -29,12 +29,34 @@ class _OriginPageState extends State<OriginPage> {
   final _hotTagsCache = const _OriginHotTagsCache();
   List<_OriginCategory> _categories = const [_forYouCategory];
   var _hasSyncedHotTags = false;
+  var _hotTagsSyncInFlight = false;
+  var _retryHotTagsOnResume = false;
+  AppLifecycleState? _lifecycleState;
 
   @override
   void initState() {
     super.initState();
+    _lifecycleState = WidgetsBinding.instance.lifecycleState;
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_syncHotTags());
     unawaited(_hydrateCachedCategories());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+    if (state != AppLifecycleState.resumed || _hasSyncedHotTags) return;
+    if (_hotTagsSyncInFlight) {
+      _retryHotTagsOnResume = true;
+      return;
+    }
+    unawaited(_syncHotTags());
   }
 
   Future<void> _hydrateCachedCategories() async {
@@ -47,6 +69,8 @@ class _OriginPageState extends State<OriginPage> {
   }
 
   Future<void> _syncHotTags() async {
+    if (_hasSyncedHotTags || _hotTagsSyncInFlight) return;
+    _hotTagsSyncInFlight = true;
     try {
       final tags = await AppServicesScope.read(context).api.v1.origin.hotTags();
       final normalizedTags = _normalizeTags(tags);
@@ -58,7 +82,23 @@ class _OriginPageState extends State<OriginPage> {
       });
     } catch (_) {
       // Keep the already rendered For you tab or cached tabs on sync failure.
+      // A later foreground transition retries this request after a system
+      // network permission sheet or a temporary offline period.
+    } finally {
+      _hotTagsSyncInFlight = false;
+      if (_retryHotTagsOnResume &&
+          _lifecycleState == AppLifecycleState.resumed &&
+          mounted) {
+        _retryHotTagsOnResume = false;
+        unawaited(_syncHotTags());
+      }
     }
+  }
+
+  void _retryHotTagsIfNeeded() {
+    if (_hasSyncedHotTags || _hotTagsSyncInFlight || !mounted) return;
+    _retryHotTagsOnResume = false;
+    unawaited(_syncHotTags());
   }
 
   static List<_OriginCategory> _categoriesFromTags(List<String> tags) {
@@ -100,7 +140,13 @@ class _OriginPageState extends State<OriginPage> {
             child: TabBarView(
               children: [
                 for (final entry in categories.indexed)
-                  _OriginFeed(index: entry.$1, category: entry.$2),
+                  _OriginFeed(
+                    index: entry.$1,
+                    category: entry.$2,
+                    onInitialLoadCompleted: entry.$1 == 0
+                        ? _retryHotTagsIfNeeded
+                        : null,
+                  ),
               ],
             ),
           ),
@@ -144,17 +190,22 @@ class _OriginCategory {
 }
 
 class _OriginFeed extends StatefulWidget {
-  const _OriginFeed({required this.index, required this.category});
+  const _OriginFeed({
+    required this.index,
+    required this.category,
+    this.onInitialLoadCompleted,
+  });
 
   final int index;
   final _OriginCategory category;
+  final VoidCallback? onInitialLoadCompleted;
 
   @override
   State<_OriginFeed> createState() => _OriginFeedState();
 }
 
 class _OriginFeedState extends State<_OriginFeed>
-    with AutomaticKeepAliveClientMixin<_OriginFeed> {
+    with AutomaticKeepAliveClientMixin<_OriginFeed>, WidgetsBindingObserver {
   static const _pageSize = 20;
   static const _loadMoreThreshold = 700.0;
 
@@ -170,9 +221,49 @@ class _OriginFeedState extends State<_OriginFeed>
   var _isLoadingMore = false;
   var _isRefreshing = false;
   Object? _error;
+  var _initialLoadCompleted = false;
+  var _initialLoadInFlight = false;
+  var _permissionPromptMayBeOpen = false;
+  var _retryInitialLoadWhenFinished = false;
 
   @override
   bool get wantKeepAlive => true;
+
+  bool get _isPrimaryFeed =>
+      widget.index == 0 && widget.category.scene == 'foryou';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_isPrimaryFeed || _initialLoadCompleted) return;
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      // The iOS wireless-data permission sheet makes the app inactive. Keep
+      // the first feed in its loading state until the sheet is dismissed.
+      if (_initialLoadInFlight || _isInitialLoading) {
+        _permissionPromptMayBeOpen = true;
+      }
+      return;
+    }
+
+    if (state != AppLifecycleState.resumed || !_permissionPromptMayBeOpen) {
+      return;
+    }
+
+    _permissionPromptMayBeOpen = false;
+    if (_initialLoadInFlight) {
+      _retryInitialLoadWhenFinished = true;
+      return;
+    }
+    unawaited(_refreshItems());
+  }
 
   @override
   void didChangeDependencies() {
@@ -201,6 +292,7 @@ class _OriginFeedState extends State<_OriginFeed>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
       ..removeListener(_handleScroll)
@@ -218,6 +310,10 @@ class _OriginFeedState extends State<_OriginFeed>
     _isLoadingMore = false;
     _isRefreshing = false;
     _error = null;
+    _initialLoadCompleted = false;
+    _initialLoadInFlight = false;
+    _permissionPromptMayBeOpen = false;
+    _retryInitialLoadWhenFinished = false;
   }
 
   void _handleTabChange() {
@@ -262,6 +358,8 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<void> _refreshItems() async {
+    if (_initialLoadInFlight) return;
+    _initialLoadInFlight = _isPrimaryFeed && !_initialLoadCompleted;
     setState(() {
       _error = null;
       _isInitialLoading = _items.isEmpty;
@@ -281,13 +379,32 @@ class _OriginFeedState extends State<_OriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      _initialLoadInFlight = false;
+      if (_isPrimaryFeed) {
+        _initialLoadCompleted = true;
+        widget.onInitialLoadCompleted?.call();
+      }
     } catch (error) {
       if (!mounted) return;
+      final shouldRetryAfterResume = _retryInitialLoadWhenFinished;
+      _retryInitialLoadWhenFinished = false;
+      _initialLoadInFlight = false;
+      if (_permissionPromptMayBeOpen) {
+        setState(() {
+          _error = null;
+          _isInitialLoading = true;
+          _isRefreshing = false;
+        });
+        return;
+      }
       setState(() {
         _error = error;
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      if (shouldRetryAfterResume && mounted) {
+        unawaited(_refreshItems());
+      }
     }
   }
 
@@ -322,7 +439,9 @@ class _OriginFeedState extends State<_OriginFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (!_hasRequested || _isInitialLoading) {
+    if (!_hasRequested ||
+        _isInitialLoading ||
+        (_permissionPromptMayBeOpen && !_initialLoadCompleted)) {
       return const GenesisListLoadingSkeleton.originGrid();
     }
 
