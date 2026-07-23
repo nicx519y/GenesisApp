@@ -3035,11 +3035,9 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: services,
-          child: const AppShellPage(initialIndex: 0),
-        ),
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
       ),
     );
     await tester.pump();
@@ -3067,6 +3065,9 @@ void main() {
       find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
       findsNothing,
     );
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 4);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
 
     await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();

@@ -455,7 +455,7 @@ class _AppShellPageState extends State<AppShellPage>
 
   void _handleMeLoggedOut() {
     _homeInitialTabIndexOverride = HomePage.popularTabIndex;
-    _resetSessionBoundState(selectedIndex: 0);
+    _resetSessionBoundState(selectedIndex: 4);
     unawaited(
       AppServicesScope.read(context).directMessageConversations.loadFromDb(),
     );
