@@ -12,6 +12,7 @@ import '../../components/origin/origin_item_card.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/secend_tabs.dart';
+import 'origin_feed_cache_store.dart';
 
 class OriginPage extends StatefulWidget {
   const OriginPage({super.key});
@@ -169,7 +170,10 @@ class _OriginFeedState extends State<_OriginFeed>
   var _isInitialLoading = false;
   var _isLoadingMore = false;
   var _isRefreshing = false;
+  var _hasCompletedFirstPageNetworkRequest = false;
   Object? _error;
+
+  bool get _usesFirstPageCache => widget.category.scene == 'foryou';
 
   @override
   bool get wantKeepAlive => true;
@@ -217,6 +221,7 @@ class _OriginFeedState extends State<_OriginFeed>
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
+    _hasCompletedFirstPageNetworkRequest = false;
     _error = null;
   }
 
@@ -232,7 +237,8 @@ class _OriginFeedState extends State<_OriginFeed>
       return;
     }
     _hasRequested = true;
-    _refreshItems();
+    if (_usesFirstPageCache) unawaited(_hydrateCachedFirstPage());
+    unawaited(_refreshItems());
   }
 
   void _handleScroll() {
@@ -251,14 +257,56 @@ class _OriginFeedState extends State<_OriginFeed>
       pn: page,
       rn: _pageSize,
     );
-    final list = data['list'];
-    final items = list is List
-        ? list
-              .whereType<Map>()
-              .map((raw) => OriginListItem.fromJson(asJsonMap(raw)))
-              .toList(growable: false)
-        : const <OriginListItem>[];
-    return _OriginListPage(items: items, total: asInt(data['total']));
+    return _parseOriginListPage(data);
+  }
+
+  Future<OriginFeedCacheStore> _cacheStoreForCurrentOwner() async {
+    final services = AppServicesScope.of(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    final ownerUid =
+        uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty
+        ? uid
+        : OriginFeedCacheStore.anonymousOwnerUid;
+    return OriginFeedCacheStore(ownerUid: ownerUid);
+  }
+
+  Future<void> _hydrateCachedFirstPage() async {
+    Map<String, dynamic>? data;
+    try {
+      final cacheStore = await _cacheStoreForCurrentOwner();
+      data = await cacheStore.loadForYouFirstPage();
+    } catch (_) {
+      return;
+    }
+    if (!mounted ||
+        !_usesFirstPageCache ||
+        _hasCompletedFirstPageNetworkRequest ||
+        data == null) {
+      return;
+    }
+    final page = _parseOriginListPage(data);
+    if (!mounted || _hasCompletedFirstPageNetworkRequest) return;
+    setState(() {
+      _items
+        ..clear()
+        ..addAll(page.items);
+      _total = page.total;
+      _nextPage = 2;
+      _hasMore = _items.length < _total && page.items.isNotEmpty;
+      _isInitialLoading = false;
+      _error = null;
+    });
+  }
+
+  Future<void> _saveFirstPageCache(Map<String, dynamic> data) async {
+    try {
+      final cacheStore = await _cacheStoreForCurrentOwner();
+      await cacheStore.saveForYouFirstPage(data);
+    } catch (_) {
+      // Cache writes must not affect the visible network result.
+    }
   }
 
   Future<void> _refreshItems() async {
@@ -271,6 +319,10 @@ class _OriginFeedState extends State<_OriginFeed>
     try {
       final page = await _fetchPage(1);
       if (!mounted) return;
+      _hasCompletedFirstPageNetworkRequest = true;
+      if (_usesFirstPageCache) {
+        unawaited(_saveFirstPageCache(page.rawData));
+      }
       setState(() {
         _items
           ..clear()
@@ -409,8 +461,28 @@ class _OriginFeedState extends State<_OriginFeed>
 }
 
 class _OriginListPage {
-  const _OriginListPage({required this.items, required this.total});
+  const _OriginListPage({
+    required this.items,
+    required this.total,
+    required this.rawData,
+  });
 
   final List<OriginListItem> items;
   final int total;
+  final Map<String, dynamic> rawData;
+}
+
+_OriginListPage _parseOriginListPage(Map<String, dynamic> data) {
+  final list = data['list'];
+  final items = list is List
+      ? list
+            .whereType<Map>()
+            .map((raw) => OriginListItem.fromJson(asJsonMap(raw)))
+            .toList(growable: false)
+      : const <OriginListItem>[];
+  return _OriginListPage(
+    items: items,
+    total: asInt(data['total']),
+    rawData: data,
+  );
 }

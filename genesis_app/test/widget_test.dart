@@ -80,6 +80,7 @@ import 'package:genesis_flutter_android/pages/messages/message_category_list_pag
 import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_feed_cache_store.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_launch_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_launch_pending_store.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
@@ -4234,6 +4235,58 @@ void main() {
     expect(find.text('Remote'), findsOneWidget);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getStringList('origin_hot_tags_v1'), <String>['Remote']);
+  });
+
+  testWidgets('Origin renders cached For you page while refreshing it', (
+    WidgetTester tester,
+  ) async {
+    final originListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      originListCompleter: originListCompleter,
+    );
+    const cacheStore = OriginFeedCacheStore(ownerUid: 'u_mock');
+    await cacheStore.saveForYouFirstPage(<String, dynamic>{
+      'list': <Map<String, Object?>>[transport._originItem(50)],
+      'total': 1,
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    for (
+      var i = 0;
+      i < 5 && find.text('#Origin 51').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump();
+    }
+
+    expect(find.text('#Origin 51'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+
+    originListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': <Map<String, Object?>>[transport._originItem(0)],
+          'total': 1,
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('#Origin 51'), findsNothing);
+    expect(find.text('#Origin 1'), findsOneWidget);
   });
 
   testWidgets(
