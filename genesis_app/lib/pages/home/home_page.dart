@@ -107,15 +107,12 @@ class HomePage extends StatefulWidget {
     this.startupOnly = false,
     this.activationListenable,
     this.startupPlatform,
-    this.primeNetworkPermission = AppBootstrap.primeNetworkPermission,
     this.trackingAuthorizationStatus =
         AppTrackingTransparencyService.authorizationStatus,
     this.requestTrackingAuthorization =
         AppTrackingTransparencyService.requestAuthorization,
     this.initializeRuntime = _initializeDefaultStartupRuntime,
     this.initialRequestMetricWindow = Duration.zero,
-    this.networkPermissionDialogSettleTimeout = Duration.zero,
-    this.postSystemDialogResumeDelay = Duration.zero,
   });
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
@@ -127,13 +124,10 @@ class HomePage extends StatefulWidget {
   final bool startupOnly;
   final ValueListenable<int>? activationListenable;
   final TargetPlatform? startupPlatform;
-  final Future<bool> Function(AppServices services) primeNetworkPermission;
   final TrackingAuthorizationStatusReader trackingAuthorizationStatus;
   final TrackingAuthorizationRequester requestTrackingAuthorization;
   final StartupRuntimeInitializer initializeRuntime;
   final Duration initialRequestMetricWindow;
-  final Duration networkPermissionDialogSettleTimeout;
-  final Duration postSystemDialogResumeDelay;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -147,8 +141,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   var _startupGateStarted = false;
   AppLifecycleState? _lifecycleState;
   Completer<void>? _resumedCompleter;
-  Completer<void>? _inactiveCompleter;
-  var _watchingNetworkPermissionDialog = false;
 
   @override
   void initState() {
@@ -166,7 +158,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _resumedCompleter?.complete();
-    _inactiveCompleter?.complete();
     _homeNetworkRequestsAllowed.dispose();
     super.dispose();
   }
@@ -177,9 +168,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _resumedCompleter?.complete();
       _resumedCompleter = null;
-    } else if (_watchingNetworkPermissionDialog) {
-      _inactiveCompleter?.complete();
-      _inactiveCompleter = null;
     }
   }
 
@@ -223,8 +211,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       await _waitForAppResumed();
       if (!mounted) return;
-      await _primeNetworkPermissionThenWaitForSystemDialog(services);
-      if (!mounted) return;
       final trackingAuthorizationStatus = await _resolveTrackingAuthorization();
       if (!mounted) return;
       await WidgetsBinding.instance.endOfFrame;
@@ -259,70 +245,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     await _waitForAppResumed();
     final requestedStatus = await widget.requestTrackingAuthorization();
-    await _waitForSystemDialogToClose();
-    return requestedStatus;
-  }
-
-  Future<void> _primeNetworkPermissionThenWaitForSystemDialog(
-    AppServices services,
-  ) async {
-    _watchingNetworkPermissionDialog = true;
-    final inactiveCompleter = Completer<void>();
-    _inactiveCompleter = inactiveCompleter;
-    try {
-      unawaited(
-        widget.primeNetworkPermission(services).catchError((
-          Object error,
-          StackTrace stackTrace,
-        ) {
-          debugPrint(
-            '[Home][StartupGate] network permission prime failed: $error',
-          );
-          debugPrint('[Home][StartupGate] stacktrace:\n$stackTrace');
-          return false;
-        }),
-      );
-      await _waitForNetworkPermissionDialogToSettle();
-    } finally {
-      _watchingNetworkPermissionDialog = false;
-      if (identical(_inactiveCompleter, inactiveCompleter)) {
-        _inactiveCompleter = null;
-      }
-    }
-  }
-
-  Future<void> _waitForNetworkPermissionDialogToSettle() async {
-    final inactiveCompleter = _inactiveCompleter ?? Completer<void>();
-    _inactiveCompleter = inactiveCompleter;
-    final timeout = widget.networkPermissionDialogSettleTimeout;
-    if (timeout <= Duration.zero) {
-      // Give the platform one frame to report a real system-dialog transition,
-      // without imposing a fixed delay when no dialog was shown.
-      await WidgetsBinding.instance.endOfFrame;
-      if (!inactiveCompleter.isCompleted) return;
-    } else {
-      final inactiveObserved = await inactiveCompleter.future
-          .then((_) => true)
-          .timeout(timeout, onTimeout: () => false);
-      if (!inactiveObserved) return;
-    }
+    // The native method completes after the ATT decision. If iOS has not
+    // delivered the resumed lifecycle event yet, keep the network step behind
+    // it instead of starting another permission flow under the system dialog.
     await _waitForAppResumed();
-    await _waitAfterSystemDialogResume();
-  }
-
-  Future<void> _waitForSystemDialogToClose() async {
-    await _waitAfterSystemDialogResume();
-    if (_lifecycleState == AppLifecycleState.resumed ||
-        _lifecycleState == null) {
-      return;
-    }
-    final completer = _resumedCompleter ?? Completer<void>();
-    _resumedCompleter = completer;
-    await completer.future.timeout(
-      const Duration(seconds: 30),
-      onTimeout: () {},
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 150));
+    return requestedStatus;
   }
 
   Future<void> _waitForAppResumed() async {
@@ -332,66 +259,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     final completer = _resumedCompleter ?? Completer<void>();
     _resumedCompleter = completer;
-    await completer.future.timeout(
-      const Duration(seconds: 30),
-      onTimeout: () {},
-    );
-  }
-
-  Future<void> _waitAfterSystemDialogResume() async {
-    final delay = widget.postSystemDialogResumeDelay;
-    if (delay <= Duration.zero) return;
-    await Future<void>.delayed(delay);
+    await completer.future;
   }
 
   Future<int> _initialTabIndexFromSession() async {
-    if (!await _hasLocalLoginSession()) {
-      return HomePage.popularTabIndex;
-    }
-    await _waitForHomeNetworkRequestsAllowed();
-    if (!mounted) return HomePage.myWorldsTabIndex;
-    try {
-      final services = AppServicesScope.read(context);
-      final data = await services.api.v1.world.list(
-        scene: 'mine',
-        pn: 1,
-        rn: 10,
-      );
-      final page = _parseHomeWorldListPage(data);
-      if (!mounted) return HomePage.myWorldsTabIndex;
-      _resolvedInitialMyWorldsData = data;
-      if (page.items.isEmpty && page.total <= 0) {
-        return HomePage.popularTabIndex;
-      }
-      return HomePage.myWorldsTabIndex;
-    } catch (error, stackTrace) {
-      debugPrint('[Home][InitialTab] my worlds probe failed: $error');
-      debugPrint('[Home][InitialTab] stacktrace:\n$stackTrace');
-      _resolvedInitialMyWorldsData = null;
-      return HomePage.myWorldsTabIndex;
-    }
-  }
-
-  Future<void> _waitForHomeNetworkRequestsAllowed() {
-    if (_homeNetworkRequestsAllowed.value) return Future<void>.value();
-    final completer = Completer<void>();
-    void listener() {
-      if (!_homeNetworkRequestsAllowed.value) return;
-      _homeNetworkRequestsAllowed.removeListener(listener);
-      if (!completer.isCompleted) completer.complete();
-    }
-
-    _homeNetworkRequestsAllowed.addListener(listener);
-    return completer.future;
-  }
-
-  Future<bool> _hasLocalLoginSession() async {
-    final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (uid.isEmpty || uid.startsWith('guest_')) return false;
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    return authToken.isNotEmpty;
+    // Normal navigation into Home always starts at Popular. Cold-start
+    // routing is resolved by AppShell from the local My Worlds cache.
+    return HomePage.popularTabIndex;
   }
 
   @override

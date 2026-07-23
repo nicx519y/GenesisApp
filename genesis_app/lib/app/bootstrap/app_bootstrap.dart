@@ -13,7 +13,6 @@ class AppBootstrap {
   const AppBootstrap._();
 
   static const _gatewayPrepareTimeout = Duration(seconds: 8);
-  static const _networkPermissionPrimeTimeout = Duration(seconds: 15);
   static const _sessionReadTimeout = Duration(seconds: 2);
   static const _guestBindTimeout = Duration(seconds: 8);
   static Future<void>? _firebasePerformanceInitialization;
@@ -32,17 +31,6 @@ class AppBootstrap {
     final services = createInitialServices();
     await warmUp(services);
     return services;
-  }
-
-  static Future<bool> primeNetworkPermission(AppServices services) async {
-    try {
-      await services.api.health().timeout(_networkPermissionPrimeTimeout);
-      return true;
-    } catch (e, st) {
-      debugPrint('[Auth][Bootstrap] network permission prime failed: $e');
-      debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
-      return false;
-    }
   }
 
   static Future<void> ensureFirebasePerformanceMonitoring() {

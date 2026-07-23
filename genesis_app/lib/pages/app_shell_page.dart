@@ -15,6 +15,7 @@ import '../platform/auth/auth_session.dart';
 import '../platform/privacy/app_tracking_transparency_service.dart';
 import '../platform/billing/billing_models.dart';
 import 'create/create_origin_page.dart';
+import 'home/home_feed_cache_store.dart';
 import 'home/home_page.dart';
 import 'me/me_page.dart';
 import 'messages/messages_page.dart';
@@ -176,11 +177,15 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<void> _resolveColdStartHomeTarget() async {
     final hasSession = await _hasLocalLoginSession();
+    final hasMyWorldsCache = hasSession
+        ? await _hasMyWorldsCacheForLocalSession()
+        : false;
     if (!mounted) return;
+    final openHome = hasSession && hasMyWorldsCache;
     setState(() {
-      _selectedIndex = hasSession ? 0 : 1;
-      _homeInitialTabIndexOverride = hasSession
-          ? null
+      _selectedIndex = openHome ? 0 : 1;
+      _homeInitialTabIndexOverride = openHome
+          ? HomePage.myWorldsTabIndex
           : HomePage.popularTabIndex;
       _visitedTabIndexes
         ..clear()
@@ -190,6 +195,19 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
     _meTabActiveNotifier.value = _selectedIndex == 4;
     _startPostLaunchWorkIfAllowed();
+  }
+
+  Future<bool> _hasMyWorldsCacheForLocalSession() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isEmpty || uid.startsWith('guest_')) return false;
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    if (authToken.isEmpty) return false;
+    final cached = await HomeFeedCacheStore(
+      ownerUid: uid,
+    ).load(HomeFeedCacheKind.myWorlds);
+    return cached != null;
   }
 
   Future<void> _refreshMessagesData() async {
@@ -377,7 +395,9 @@ class _AppShellPageState extends State<AppShellPage>
 
   void _handleSessionChanged() {
     if (!mounted) return;
-    _homeInitialTabIndexOverride = null;
+    // Normal navigation into Home starts at Popular. Cold-start routing sets
+    // My Worlds explicitly when its local cache exists.
+    _homeInitialTabIndexOverride = HomePage.popularTabIndex;
     _resetSessionBoundState(selectedIndex: _selectedIndex);
     final services = AppServicesScope.read(context);
     services.billing?.resetForSession();
