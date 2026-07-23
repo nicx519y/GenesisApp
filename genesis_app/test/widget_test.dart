@@ -4219,6 +4219,35 @@ void main() {
     },
   );
 
+  testWidgets('Origin retries a failed first page after resume', (
+    WidgetTester tester,
+  ) async {
+    final transport = _OriginPermissionPromptTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    transport.failFirstOriginRequest();
+    await tester.pumpAndSettle();
+
+    expect(transport.originListRequestCount, 1);
+    expect(find.text('Load failed'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(transport.originListRequestCount, 2);
+    expect(find.text('#Origin 1'), findsOneWidget);
+    expect(find.text('Load failed'), findsNothing);
+  });
+
   testWidgets('Origin retries hot tags after returning to foreground', (
     WidgetTester tester,
   ) async {

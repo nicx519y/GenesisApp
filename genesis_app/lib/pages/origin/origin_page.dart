@@ -257,10 +257,10 @@ class _OriginFeedState extends State<_OriginFeed>
       return;
     }
 
-    if (state != AppLifecycleState.resumed || !_permissionPromptMayBeOpen) {
-      return;
-    }
+    if (state != AppLifecycleState.resumed || !_hasRequested) return;
 
+    // Any first-page failure can be caused by a transient network or system
+    // permission transition. Retry once when the app is actually foregrounded.
     _permissionPromptMayBeOpen = false;
     if (_initialLoadInFlight) {
       _retryInitialLoadWhenFinished = true;
