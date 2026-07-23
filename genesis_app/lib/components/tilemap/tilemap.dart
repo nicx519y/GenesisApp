@@ -83,12 +83,13 @@ class _TilemapState extends State<Tilemap> {
   TilemapVisualMode _visualMode = tilemapDefaultVisualMode;
   List<TilemapFogControlPoint> _fogControlPoints =
       tilemapDefaultFogControlPoints;
-  bool _blendFogWithShadowTiles = false;
-  bool _showShadowZeroBorders = true;
-  double _initialScaleFactor = 1;
+  bool _blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles;
+  bool _showShadowZeroBorders = tilemapDefaultShowShadowZeroBorders;
+  double _initialScaleFactor = tilemapDefaultInitialScaleFactor;
   bool _showSettings = false;
   bool _settingsReady = false;
   Timer? _settingsSaveTimer;
+  Future<void> _settingsPersistence = Future<void>.value();
 
   @override
   void initState() {
@@ -172,14 +173,18 @@ class _TilemapState extends State<Tilemap> {
     unawaited(_persistSettings(_currentSettings));
   }
 
-  Future<void> _persistSettings(TilemapRenderSettings settings) async {
-    try {
-      await _settingsStore.save(settings);
-    } catch (error) {
-      if (kDebugMode) {
-        debugPrint('[Tilemap] settings save failed: $error');
+  Future<void> _persistSettings(TilemapRenderSettings settings) {
+    final operation = _settingsPersistence.then((_) async {
+      try {
+        await _settingsStore.save(settings);
+      } catch (error) {
+        if (kDebugMode) {
+          debugPrint('[Tilemap] settings save failed: $error');
+        }
       }
-    }
+    });
+    _settingsPersistence = operation;
+    return operation;
   }
 
   Future<void> _copySettingsToClipboard() async {
@@ -193,6 +198,46 @@ class _TilemapState extends State<Tilemap> {
       ..showSnackBar(
         const SnackBar(
           content: Text('Tilemap settings JSON copied'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+  }
+
+  Future<void> _resetSettings() async {
+    _settingsSaveTimer?.cancel();
+    _settingsSaveTimer = null;
+    await _settingsPersistence;
+    try {
+      await _settingsStore.clear();
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[Tilemap] settings reset failed: $error');
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Tilemap settings reset failed'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      return;
+    }
+    if (!mounted) return;
+    final defaults = TilemapRenderSettings.defaults();
+    setState(() {
+      _visualMode = defaults.visualMode;
+      _fogControlPoints = defaults.fogControlPoints;
+      _blendFogWithShadowTiles = defaults.blendFogWithShadowTiles;
+      _showShadowZeroBorders = defaults.showShadowZeroBorders;
+      _initialScaleFactor = defaults.initialScaleFactor;
+    });
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Tilemap settings reset'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -551,6 +596,7 @@ class _TilemapState extends State<Tilemap> {
                   onShowShadowZeroBordersChanged: _setShowShadowZeroBorders,
                   onInitialScaleFactorChanged: _setInitialScaleFactor,
                   onCopySettings: _copySettingsToClipboard,
+                  onResetSettings: _resetSettings,
                   onClose: _closeSettings,
                 ),
               ),
@@ -617,6 +663,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.onShowShadowZeroBordersChanged,
     required this.onInitialScaleFactorChanged,
     required this.onCopySettings,
+    required this.onResetSettings,
     required this.onClose,
   });
 
@@ -631,6 +678,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final ValueChanged<bool> onShowShadowZeroBordersChanged;
   final ValueChanged<double> onInitialScaleFactorChanged;
   final VoidCallback onCopySettings;
+  final VoidCallback onResetSettings;
   final VoidCallback onClose;
 
   @override
@@ -675,6 +723,17 @@ class _TilemapSettingsPanel extends StatelessWidget {
                   onPressed: onCopySettings,
                   icon: Icon(
                     Icons.copy_all_outlined,
+                    color: foregroundColor,
+                    size: 19,
+                  ),
+                ),
+                IconButton(
+                  key: const ValueKey<String>('tilemap-settings-reset'),
+                  tooltip: 'Reset settings',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onResetSettings,
+                  icon: Icon(
+                    Icons.restart_alt,
                     color: foregroundColor,
                     size: 19,
                   ),

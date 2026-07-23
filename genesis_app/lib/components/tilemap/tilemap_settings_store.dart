@@ -17,9 +17,9 @@ class TilemapRenderSettings {
     return const TilemapRenderSettings(
       visualMode: tilemapDefaultVisualMode,
       fogControlPoints: tilemapDefaultFogControlPoints,
-      blendFogWithShadowTiles: false,
-      showShadowZeroBorders: true,
-      initialScaleFactor: 1,
+      blendFogWithShadowTiles: tilemapDefaultBlendFogWithShadowTiles,
+      showShadowZeroBorders: tilemapDefaultShowShadowZeroBorders,
+      initialScaleFactor: tilemapDefaultInitialScaleFactor,
     );
   }
 
@@ -147,5 +147,10 @@ class TilemapSettingsStore {
   Future<void> save(TilemapRenderSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(storageKey, jsonEncode(settings.toJson()));
+  }
+
+  Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(storageKey);
   }
 }

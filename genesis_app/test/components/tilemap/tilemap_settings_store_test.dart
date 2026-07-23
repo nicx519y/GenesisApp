@@ -17,9 +17,12 @@ void main() {
 
     expect(settings.visualMode, tilemapDefaultVisualMode);
     expect(settings.fogControlPoints, tilemapDefaultFogControlPoints);
-    expect(settings.blendFogWithShadowTiles, false);
-    expect(settings.showShadowZeroBorders, true);
-    expect(settings.initialScaleFactor, 1);
+    expect(
+      settings.blendFogWithShadowTiles,
+      tilemapDefaultBlendFogWithShadowTiles,
+    );
+    expect(settings.showShadowZeroBorders, tilemapDefaultShowShadowZeroBorders);
+    expect(settings.initialScaleFactor, tilemapDefaultInitialScaleFactor);
   });
 
   test('round trips every tilemap rendering setting', () async {
@@ -75,6 +78,25 @@ void main() {
     expect(settings.fogControlPoints, tilemapDefaultFogControlPoints);
     expect(settings.blendFogWithShadowTiles, true);
     expect(settings.showShadowZeroBorders, false);
-    expect(settings.initialScaleFactor, 1);
+    expect(settings.initialScaleFactor, tilemapDefaultInitialScaleFactor);
+  });
+
+  test('clear removes cached settings and restores defaults', () async {
+    const store = TilemapSettingsStore();
+    const settings = TilemapRenderSettings(
+      visualMode: TilemapVisualMode.light,
+      fogControlPoints: tilemapDefaultFogControlPoints,
+      blendFogWithShadowTiles: false,
+      showShadowZeroBorders: true,
+      initialScaleFactor: 1.25,
+    );
+    await store.save(settings);
+
+    await store.clear();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey(TilemapSettingsStore.storageKey), false);
+    final restored = await store.load();
+    expect(restored.toJson(), TilemapRenderSettings.defaults().toJson());
   });
 }

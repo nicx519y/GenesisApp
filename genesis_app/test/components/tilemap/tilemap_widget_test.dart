@@ -247,6 +247,7 @@ void main() {
       AppServicesScope(
         services: _servicesWithTransport(transport),
         child: MaterialApp(
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
           home: Scaffold(body: Tilemap.origin(originId: 'o_1')),
         ),
       ),
@@ -276,6 +277,55 @@ void main() {
     expect(renderer.blendFogWithShadowTiles, true);
     expect(renderer.showShadowZeroBorders, false);
     expect(renderer.initialScaleFactor, 1.3);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('tilemap-settings-button')),
+    );
+    await tester.pump();
+    final copyButton = find.byKey(
+      const ValueKey<String>('tilemap-settings-copy-json'),
+    );
+    final resetButton = find.byKey(
+      const ValueKey<String>('tilemap-settings-reset'),
+    );
+    final closeButton = find.byKey(
+      const ValueKey<String>('tilemap-settings-close'),
+    );
+    expect(resetButton, findsOneWidget);
+    expect(
+      tester.getTopLeft(resetButton).dx,
+      greaterThan(tester.getTopLeft(copyButton).dx),
+    );
+    expect(
+      tester.getTopLeft(resetButton).dx,
+      lessThan(tester.getTopLeft(closeButton).dx),
+    );
+    final copiedValues = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            final arguments = call.arguments as Map<dynamic, dynamic>;
+            copiedValues.add('${arguments['text']}');
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await tester.tap(resetButton);
+    await tester.pump();
+    await tester.pump();
+
+    final defaults = TilemapRenderSettings.defaults();
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey(TilemapSettingsStore.storageKey), false);
+    expect(find.text('Tilemap settings reset'), findsOneWidget);
+    await tester.tap(copyButton);
+    await tester.pump();
+    expect(copiedValues, hasLength(1));
+    expect(jsonDecode(copiedValues.single), defaults.toJson());
   });
 
   testWidgets('Tilemap copies all current settings as serialized JSON', (

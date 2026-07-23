@@ -48,17 +48,22 @@ void main() {
         ),
     ];
 
-    expect(sampledOpacities.first, 0);
+    expect(
+      sampledOpacities.first,
+      tilemapDefaultFogControlPoints.first.opacity,
+    );
     for (var index = 1; index < sampledOpacities.length; index += 1) {
       expect(sampledOpacities[index], greaterThan(sampledOpacities[index - 1]));
     }
-    expect(
-      tilemapFogOpacityForDistance(
-        distance: fadeDistance / 2,
-        tileExtent: tileExtent,
-      ),
-      closeTo(tilemapFogMaxOpacity / 2, 0.0001),
-    );
+    for (final point in tilemapDefaultFogControlPoints) {
+      expect(
+        tilemapFogOpacityForDistance(
+          distance: fadeDistance * point.position,
+          tileExtent: tileExtent,
+        ),
+        closeTo(point.opacity, 0.0000001),
+      );
+    }
     expect(
       tilemapFogOpacityForDistance(
         distance: fadeDistance,
@@ -718,7 +723,11 @@ void main() {
         home: SizedBox(
           width: 320,
           height: 480,
-          child: TilemapRenderer(config: config),
+          child: TilemapRenderer(
+            config: config,
+            blendFogWithShadowTiles: false,
+            showShadowZeroBorders: true,
+          ),
         ),
       ),
     );

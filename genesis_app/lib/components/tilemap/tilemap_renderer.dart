@@ -17,6 +17,9 @@ const double tilemapMinScale = 5;
 const double tilemapMaxScale = 22;
 const double tilemapInitialScaleFactorMin = 0.5;
 const double tilemapInitialScaleFactorMax = 2;
+const double tilemapDefaultInitialScaleFactor = 0.86;
+const bool tilemapDefaultBlendFogWithShadowTiles = true;
+const bool tilemapDefaultShowShadowZeroBorders = false;
 
 typedef TilemapTileActionHandler = Future<void> Function(TilemapCell tile);
 typedef TilemapLocationNameResolver = String? Function(TilemapCell tile);
@@ -381,9 +384,9 @@ class TilemapRenderer extends StatefulWidget {
     this.onImageError,
     this.visualMode = tilemapDefaultVisualMode,
     this.fogControlPoints = tilemapDefaultFogControlPoints,
-    this.blendFogWithShadowTiles = false,
-    this.showShadowZeroBorders = true,
-    this.initialScaleFactor = 1,
+    this.blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles,
+    this.showShadowZeroBorders = tilemapDefaultShowShadowZeroBorders,
+    this.initialScaleFactor = tilemapDefaultInitialScaleFactor,
   });
 
   final TilemapConfig config;
