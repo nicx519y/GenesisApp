@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
-import 'package:genesis_flutter_android/app/startup/startup_network_gate.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -363,7 +362,6 @@ AppServices _servicesWithTransport(_DiscussPageTransport transport) {
     directMessageMessages: base.directMessageMessages,
     appVersionCheck: base.appVersionCheck,
     externalUrlOpener: base.externalUrlOpener,
-    startupNetworkGate: StartupNetworkGate.open(),
   );
 }
 

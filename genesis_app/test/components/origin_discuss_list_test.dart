@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
-import 'package:genesis_flutter_android/app/startup/startup_network_gate.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
@@ -1261,7 +1260,6 @@ AppServices _servicesWithTransport(_FakeTransport transport) {
     directMessageMessages: base.directMessageMessages,
     appVersionCheck: base.appVersionCheck,
     externalUrlOpener: base.externalUrlOpener,
-    startupNetworkGate: StartupNetworkGate.open(),
   );
 }
 

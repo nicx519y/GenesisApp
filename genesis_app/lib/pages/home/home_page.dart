@@ -4,9 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
-import '../../app/bootstrap/app_bootstrap.dart';
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../app/bootstrap/service_registry.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
@@ -40,11 +38,6 @@ typedef TrackingAuthorizationRequester =
     Future<AppTrackingAuthorizationStatus> Function();
 typedef TrackingAuthorizationStatusReader =
     Future<AppTrackingAuthorizationStatus> Function();
-typedef StartupRuntimeInitializer =
-    Future<void> Function(
-      AppServices services,
-      AppTrackingAuthorizationStatus trackingAuthorizationStatus,
-    );
 
 Future<void> _waitHomeInitialRequestMetricWindow(Duration delay) async {
   if (delay <= Duration.zero) return;
@@ -52,7 +45,6 @@ Future<void> _waitHomeInitialRequestMetricWindow(Duration delay) async {
 }
 
 const Duration _homeInitialNetworkRetryDelay = Duration(seconds: 2);
-const Duration _startupInitializationTimeout = Duration(seconds: 5);
 
 bool _isNetworkLikeHomeError(Object error) {
   if (error is ApiException) {
@@ -68,20 +60,6 @@ bool _isNetworkLikeHomeError(Object error) {
       text.contains('connection') ||
       text.contains('network') ||
       text.contains('host lookup');
-}
-
-Future<void> _initializeDefaultStartupRuntime(
-  AppServices services,
-  AppTrackingAuthorizationStatus trackingAuthorizationStatus,
-) async {
-  // Firebase performance is diagnostic-only and must not delay the first
-  // business request after the permission flow completes.
-  unawaited(AppBootstrap.ensureFirebasePerformanceMonitoring());
-  await AppStartupCoordinator.initializeTelemetry(
-    services: services,
-    trackingAuthorizationStatus: trackingAuthorizationStatus,
-  );
-  AppStartupCoordinator.startWarmUp(services);
 }
 
 _WorldListPage _parseHomeWorldListPage(
@@ -104,14 +82,13 @@ class HomePage extends StatefulWidget {
     super.key,
     this.initialTabIndex,
     this.initialMyWorldsData,
-    this.startupOnly = false,
     this.activationListenable,
+    this.activeListenable,
     this.startupPlatform,
     this.trackingAuthorizationStatus =
         AppTrackingTransparencyService.authorizationStatus,
     this.requestTrackingAuthorization =
         AppTrackingTransparencyService.requestAuthorization,
-    this.initializeRuntime = _initializeDefaultStartupRuntime,
     this.initialRequestMetricWindow = Duration.zero,
   });
 
@@ -121,12 +98,11 @@ class HomePage extends StatefulWidget {
 
   final int? initialTabIndex;
   final Map<String, dynamic>? initialMyWorldsData;
-  final bool startupOnly;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool>? activeListenable;
   final TargetPlatform? startupPlatform;
   final TrackingAuthorizationStatusReader trackingAuthorizationStatus;
   final TrackingAuthorizationRequester requestTrackingAuthorization;
-  final StartupRuntimeInitializer initializeRuntime;
   final Duration initialRequestMetricWindow;
 
   @override
@@ -137,27 +113,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int? _initialTabIndex;
   Future<int>? _initialTabIndexFuture;
   Map<String, dynamic>? _resolvedInitialMyWorldsData;
+  // Feed widgets still observe this notifier for their own loading lifecycle;
+  // startup permissions never change it.
   late final ValueNotifier<bool> _homeNetworkRequestsAllowed;
-  var _startupGateStarted = false;
   AppLifecycleState? _lifecycleState;
-  Completer<void>? _resumedCompleter;
+  Timer? _attDelayTimer;
+  var _attWaitingForResume = false;
+  var _attScheduleStarted = false;
 
   @override
   void initState() {
     super.initState();
-    _homeNetworkRequestsAllowed = ValueNotifier<bool>(!_requiresStartupGate);
+    _homeNetworkRequestsAllowed = ValueNotifier<bool>(true);
     _lifecycleState = WidgetsBinding.instance.lifecycleState;
     WidgetsBinding.instance.addObserver(this);
+    widget.activeListenable?.addListener(_handleHomeActiveChanged);
     _resolveInitialTabIndex();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startStartupGateIfNeeded();
+      _scheduleAttRequestIfHomeIsActive();
     });
   }
 
   @override
   void dispose() {
+    _attDelayTimer?.cancel();
+    widget.activeListenable?.removeListener(_handleHomeActiveChanged);
     WidgetsBinding.instance.removeObserver(this);
-    _resumedCompleter?.complete();
     _homeNetworkRequestsAllowed.dispose();
     super.dispose();
   }
@@ -166,14 +147,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycleState = state;
     if (state == AppLifecycleState.resumed) {
-      _resumedCompleter?.complete();
-      _resumedCompleter = null;
+      if (_attWaitingForResume && _isHomeActive) {
+        _attWaitingForResume = false;
+        _requestAttIfNeeded();
+      }
     }
   }
 
   @override
   void didUpdateWidget(covariant HomePage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeListenable != widget.activeListenable) {
+      oldWidget.activeListenable?.removeListener(_handleHomeActiveChanged);
+      widget.activeListenable?.addListener(_handleHomeActiveChanged);
+    }
     if (oldWidget.initialTabIndex != widget.initialTabIndex) {
       _resolveInitialTabIndex();
     }
@@ -191,75 +178,55 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _initialTabIndexFuture = _initialTabIndexFromSession();
   }
 
-  bool get _requiresStartupGate {
-    return (widget.startupPlatform ?? defaultTargetPlatform) ==
-        TargetPlatform.iOS;
-  }
+  bool get _isHomeActive => widget.activeListenable?.value ?? true;
 
-  void _startStartupGateIfNeeded() {
-    if (!mounted || _startupGateStarted) return;
-    _startupGateStarted = true;
-    if (!_requiresStartupGate) {
-      _homeNetworkRequestsAllowed.value = true;
+  void _handleHomeActiveChanged() {
+    if (!mounted) return;
+    if (!_isHomeActive) {
+      _attDelayTimer?.cancel();
+      _attDelayTimer = null;
+      _attScheduleStarted = false;
+      _attWaitingForResume = false;
       return;
     }
-    unawaited(_runIosStartupGate());
+    _scheduleAttRequestIfHomeIsActive();
   }
 
-  Future<void> _runIosStartupGate() async {
-    final services = AppServicesScope.read(context);
+  void _scheduleAttRequestIfHomeIsActive() {
+    if (!mounted || !_isHomeActive || _attScheduleStarted) return;
+    if ((widget.startupPlatform ?? defaultTargetPlatform) !=
+        TargetPlatform.iOS) {
+      _attScheduleStarted = true;
+      return;
+    }
+    _attScheduleStarted = true;
+    _attDelayTimer = Timer(const Duration(seconds: 2), () {
+      _attDelayTimer = null;
+      _requestAttIfNeeded();
+    });
+  }
+
+  void _requestAttIfNeeded() {
+    if (!mounted || !_isHomeActive) return;
+    if (_lifecycleState != null &&
+        _lifecycleState != AppLifecycleState.resumed) {
+      _attWaitingForResume = true;
+      return;
+    }
+    if (!AppStartupCoordinator.claimAttRequest()) return;
+    unawaited(_requestAtt());
+  }
+
+  Future<void> _requestAtt() async {
     try {
-      await _waitForAppResumed();
-      if (!mounted) return;
-      final trackingAuthorizationStatus = await _resolveTrackingAuthorization();
-      if (!mounted) return;
-      await WidgetsBinding.instance.endOfFrame;
-      await widget
-          .initializeRuntime(services, trackingAuthorizationStatus)
-          .timeout(
-            _startupInitializationTimeout,
-            onTimeout: () {
-              debugPrint(
-                '[Home][StartupGate] runtime initialization timed out; '
-                'opening business network',
-              );
-            },
-          );
+      final status = await widget.trackingAuthorizationStatus();
+      if (status != AppTrackingAuthorizationStatus.notDetermined) return;
+      final result = await widget.requestTrackingAuthorization();
+      debugPrint('[ATT] authorization result: $result');
     } catch (error, stackTrace) {
-      debugPrint('[Home][StartupGate] startup initialization failed: $error');
-      debugPrint('[Home][StartupGate] stacktrace:\n$stackTrace');
-    } finally {
-      // A failed or disposed startup widget must not leave the shared service
-      // gate closed forever for later routes.
-      AppStartupCoordinator.markPostLaunchWorkAllowed();
-      services.startupNetworkGate.open();
-      if (mounted) _homeNetworkRequestsAllowed.value = true;
+      debugPrint('[ATT] authorization request failed: $error');
+      debugPrint('[ATT] stacktrace:\n$stackTrace');
     }
-  }
-
-  Future<AppTrackingAuthorizationStatus> _resolveTrackingAuthorization() async {
-    final currentStatus = await widget.trackingAuthorizationStatus();
-    if (currentStatus != AppTrackingAuthorizationStatus.notDetermined &&
-        currentStatus != AppTrackingAuthorizationStatus.unknown) {
-      return currentStatus;
-    }
-    await _waitForAppResumed();
-    final requestedStatus = await widget.requestTrackingAuthorization();
-    // The native method completes after the ATT decision. If iOS has not
-    // delivered the resumed lifecycle event yet, keep the network step behind
-    // it instead of starting another permission flow under the system dialog.
-    await _waitForAppResumed();
-    return requestedStatus;
-  }
-
-  Future<void> _waitForAppResumed() async {
-    if (_lifecycleState == AppLifecycleState.resumed ||
-        _lifecycleState == null) {
-      return;
-    }
-    final completer = _resumedCompleter ?? Completer<void>();
-    _resumedCompleter = completer;
-    await completer.future;
   }
 
   Future<int> _initialTabIndexFromSession() async {
@@ -270,14 +237,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.startupOnly) return const SizedBox.shrink();
     final initialTabIndex = _initialTabIndex;
     if (initialTabIndex != null) {
       return _HomeTabScaffold(
         initialIndex: initialTabIndex,
         activationListenable: widget.activationListenable,
         networkRequestsAllowed: _homeNetworkRequestsAllowed,
-        keepInitialNetworkFailureLoading: _requiresStartupGate,
+        keepInitialNetworkFailureLoading: false,
         initialRequestMetricWindow: widget.initialRequestMetricWindow,
         initialMyWorldsData: widget.initialMyWorldsData,
       );
@@ -294,7 +260,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           initialIndex: snapshot.data ?? HomePage.myWorldsTabIndex,
           activationListenable: widget.activationListenable,
           networkRequestsAllowed: _homeNetworkRequestsAllowed,
-          keepInitialNetworkFailureLoading: _requiresStartupGate,
+          keepInitialNetworkFailureLoading: false,
           initialRequestMetricWindow: widget.initialRequestMetricWindow,
           initialMyWorldsData:
               widget.initialMyWorldsData ?? _resolvedInitialMyWorldsData,

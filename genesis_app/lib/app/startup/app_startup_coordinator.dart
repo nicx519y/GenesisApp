@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../platform/app/app_metadata_service.dart';
-import '../../platform/privacy/app_tracking_transparency_service.dart';
 import '../bootstrap/app_bootstrap.dart';
 import '../bootstrap/service_registry.dart';
 import '../telemetry/genesis_telemetry.dart';
@@ -18,6 +17,9 @@ class AppStartupCoordinator {
   static bool _warmUpStarted = false;
   static bool _telemetryLifecycleObserverAdded = false;
   static bool _startupFirstReportRecorded = false;
+  static bool _attRequestClaimed = false;
+  // Kept as a shared startup readiness signal for upgrade/polling work. It is
+  // open from the beginning and is unrelated to ATT or network permission.
   static final ValueNotifier<bool> _postLaunchWorkAllowed = ValueNotifier<bool>(
     true,
   );
@@ -33,16 +35,18 @@ class AppStartupCoordinator {
   }) {
     _startedAt = startedAt;
     _appVersion = appVersion;
-    _postLaunchWorkAllowed.value = defaultTargetPlatform != TargetPlatform.iOS;
-  }
-
-  static void markPostLaunchWorkAllowed() {
-    if (_postLaunchWorkAllowed.value) return;
+    // ATT is an independent post-launch prompt. It never gates startup work.
     _postLaunchWorkAllowed.value = true;
   }
 
   static void startFirebasePerformance() {
     unawaited(AppBootstrap.ensureFirebasePerformanceMonitoring());
+  }
+
+  static bool claimAttRequest() {
+    if (_attRequestClaimed) return false;
+    _attRequestClaimed = true;
+    return true;
   }
 
   static void startWarmUp(AppServices services) {
@@ -51,19 +55,14 @@ class AppStartupCoordinator {
     unawaited(AppBootstrap.warmUp(services));
   }
 
-  static Future<void> initializeTelemetry({
-    required AppServices services,
-    required AppTrackingAuthorizationStatus trackingAuthorizationStatus,
-  }) {
+  static Future<void> initializeTelemetry({required AppServices services}) {
     return _telemetryInitialization ??= _initializeTelemetry(
       services: services,
-      trackingAuthorizationStatus: trackingAuthorizationStatus,
     );
   }
 
   static Future<void> _initializeTelemetry({
     required AppServices services,
-    required AppTrackingAuthorizationStatus trackingAuthorizationStatus,
   }) async {
     final version = _appVersion ?? await AppMetadataService.appVersion();
     await GenesisTelemetry.initialize(
@@ -101,6 +100,7 @@ class AppStartupCoordinator {
     _warmUpStarted = false;
     _telemetryLifecycleObserverAdded = false;
     _startupFirstReportRecorded = false;
+    _attRequestClaimed = false;
     _postLaunchWorkAllowed.value = true;
   }
 }
