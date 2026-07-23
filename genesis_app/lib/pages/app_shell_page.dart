@@ -207,7 +207,12 @@ class _AppShellPageState extends State<AppShellPage>
     final cached = await HomeFeedCacheStore(
       ownerUid: uid,
     ).load(HomeFeedCacheKind.myWorlds);
-    return cached != null;
+    if (cached == null) return false;
+    final list = cached['list'];
+    if (list is List && list.isNotEmpty) return true;
+    final total = cached['total'];
+    if (total is num) return total > 0;
+    return (int.tryParse(total?.toString() ?? '') ?? 0) > 0;
   }
 
   Future<void> _refreshMessagesData() async {
