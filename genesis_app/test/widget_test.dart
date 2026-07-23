@@ -20,7 +20,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_static_network_ima
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
-import 'package:genesis_flutter_android/app/startup/startup_network_gate.dart';
+import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
@@ -55,7 +55,6 @@ import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
-import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
@@ -233,7 +232,6 @@ Future<AppServices> _testServices({
         ),
     appVersionCheck: appVersionCheck ?? const _NoUpgradeVersionCheckService(),
     externalUrlOpener: externalUrlOpener ?? _FakeExternalUrlOpener(),
-    startupNetworkGate: StartupNetworkGate.open(),
     gemWallet: gemWallet,
     billing: billingService,
   );
@@ -4368,14 +4366,12 @@ void main() {
   });
 
   testWidgets(
-    'Home iOS startup gate does not request network before ATT and runtime complete',
+    'Home iOS starts business requests before the independent ATT prompt',
     (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
+      AppStartupCoordinator.resetForTesting();
       final transport = _RecordingV1ListTransport();
-      final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-      final runtimeInitialization = Completer<void>();
       var trackingRequested = false;
-      var runtimeInitialized = false;
+
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
@@ -4392,481 +4388,53 @@ void main() {
                   AppTrackingAuthorizationStatus.notDetermined,
               requestTrackingAuthorization: () async {
                 trackingRequested = true;
-                return trackingAuthorization.future;
-              },
-              initializeRuntime: (services, trackingAuthorizationStatus) {
-                runtimeInitialized = true;
-                expect(
-                  trackingAuthorizationStatus,
-                  AppTrackingAuthorizationStatus.denied,
-                );
-                return runtimeInitialization.future;
+                return AppTrackingAuthorizationStatus.denied;
               },
             ),
           ),
         ),
       );
+
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(
-        find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(
-          const ValueKey<String>(
-            'home-my-worlds-empty-image:'
-            'assets/images/my_worlds_empty_worldo_launch.jpg',
-          ),
-        ),
-        findsOneWidget,
-      );
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(trackingRequested, isTrue);
-      expect(runtimeInitialized, isFalse);
-
-      trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-      for (var i = 0; i < 10 && !runtimeInitialized; i += 1) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(runtimeInitialized, isTrue);
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-
-      runtimeInitialization.complete();
-      for (
-        var i = 0;
-        i < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+      expect(trackingRequested, isFalse);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(trackingRequested, isTrue);
     },
   );
 
-  testWidgets('Home iOS signed-out My Worlds renders empty state during gate', (
+  testWidgets('Home iOS does not request ATT after a previous decision', (
     WidgetTester tester,
   ) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    final transport = _RecordingV1ListTransport();
-    final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: null,
-          ),
-          child: HomePage(
-            startupPlatform: TargetPlatform.iOS,
-            initialTabIndex: HomePage.myWorldsTabIndex,
-            initialRequestMetricWindow: Duration.zero,
-            trackingAuthorizationStatus: () async =>
-                AppTrackingAuthorizationStatus.notDetermined,
-            requestTrackingAuthorization: () => trackingAuthorization.future,
-            initializeRuntime: (services, trackingAuthorizationStatus) async {},
-          ),
-        ),
-      ),
-    );
-
-    for (
-      var i = 0;
-      i < 10 &&
-          find
-              .byKey(
-                const ValueKey<String>(
-                  'home-my-worlds-empty-image:'
-                  'assets/images/my_worlds_empty_worldo_launch.jpg',
-                ),
-              )
-              .evaluate()
-              .isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-
-    expect(
-      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>(
-          'home-my-worlds-empty-image:'
-          'assets/images/my_worlds_empty_worldo_launch.jpg',
-        ),
-      ),
-      findsOneWidget,
-    );
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-
-    trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-  });
-
-  testWidgets('Home iOS My Worlds renders signed-in cache before ATT completes', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    final cachedWorld = transport._worldItem(0)..['name'] = 'iOS Cached World';
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      '${HomeFeedCacheStore.storageKey}.u_cached.my_worlds': jsonEncode({
-        'list': [cachedWorld],
-        'total': 1,
-      }),
-    });
-    final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-    final runtimeInitialization = Completer<void>();
-    var runtimeInitialized = false;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: 'u_cached',
-            initialAuthToken: 'backend-token',
-          ),
-          child: HomePage(
-            startupPlatform: TargetPlatform.iOS,
-            initialTabIndex: HomePage.myWorldsTabIndex,
-            initialRequestMetricWindow: Duration.zero,
-            trackingAuthorizationStatus: () async =>
-                AppTrackingAuthorizationStatus.notDetermined,
-            requestTrackingAuthorization: () => trackingAuthorization.future,
-            initializeRuntime: (services, trackingAuthorizationStatus) {
-              runtimeInitialized = true;
-              return runtimeInitialization.future;
-            },
-          ),
-        ),
-      ),
-    );
-
-    expect(
-      find.byKey(
-        const ValueKey<String>(
-          'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
-        ),
-      ),
-      findsNothing,
-    );
-
-    for (
-      var i = 0;
-      i < 10 && find.text('#iOS Cached World').evaluate().isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-
-    expect(find.text('#iOS Cached World'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-      findsNothing,
-    );
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(runtimeInitialized, isFalse);
-
-    trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-    for (var i = 0; i < 10 && !runtimeInitialized; i += 1) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-
-    expect(runtimeInitialized, isTrue);
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-
-    runtimeInitialization.complete();
-    for (
-      var i = 0;
-      i < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-
-    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-  });
-
-  testWidgets('Home iOS startup gate requests network after ATT completes', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
+    AppStartupCoordinator.resetForTesting();
     var trackingRequested = false;
-    final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
+
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialAuthToken: 'backend-token',
-          ),
+          services: await _testServices(),
           child: HomePage(
             startupPlatform: TargetPlatform.iOS,
-            initialTabIndex: HomePage.myWorldsTabIndex,
-            initialRequestMetricWindow: Duration.zero,
+            initialTabIndex: HomePage.popularTabIndex,
             trackingAuthorizationStatus: () async =>
-                AppTrackingAuthorizationStatus.notDetermined,
-            requestTrackingAuthorization: () {
+                AppTrackingAuthorizationStatus.authorized,
+            requestTrackingAuthorization: () async {
               trackingRequested = true;
-              return trackingAuthorization.future;
+              return AppTrackingAuthorizationStatus.authorized;
             },
-            initializeRuntime: (services, trackingAuthorizationStatus) async {},
           ),
         ),
       ),
     );
 
     await tester.pump();
-    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
 
-    expect(trackingRequested, isTrue);
-
-    trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-    await tester.pump();
-    expect(trackingRequested, isTrue);
-    for (
-      var i = 0;
-      i < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+    expect(trackingRequested, isFalse);
   });
-
-  testWidgets(
-    'Home iOS startup gate renders cached popular before ATT completes',
-    (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        '${HomeFeedCacheStore.storageKey}.${HomeFeedCacheStore.anonymousOwnerUid}.popular':
-            jsonEncode({
-              'list': [
-                {
-                  'oid': 'ios_cached_origin_1',
-                  'name': 'iOS Cached Origin',
-                  'brief': 'Cached subtitle',
-                  'world_view': 'Cached world view',
-                  'owner_name': 'Cached owner',
-                  'updated_at': '2026-07-08T00:00:00Z',
-                  'discusses': <Object?>[],
-                },
-              ],
-              'total': 1,
-            }),
-      });
-      final transport = _RecordingV1ListTransport();
-      final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-      final runtimeInitialization = Completer<void>();
-      var runtimeInitialized = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialUid: null,
-            ),
-            child: HomePage(
-              startupPlatform: TargetPlatform.iOS,
-              initialRequestMetricWindow: Duration.zero,
-              trackingAuthorizationStatus: () async =>
-                  AppTrackingAuthorizationStatus.notDetermined,
-              requestTrackingAuthorization: () => trackingAuthorization.future,
-              initializeRuntime: (services, trackingAuthorizationStatus) {
-                runtimeInitialized = true;
-                return runtimeInitialization.future;
-              },
-            ),
-          ),
-        ),
-      );
-
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('#iOS Cached Origin'), findsWidgets);
-      expect(
-        find.byKey(
-          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-        ),
-        findsNothing,
-      );
-      final cachedFeedElement = tester.element(
-        find.byKey(const PageStorageKey<String>('home-feed-popular')),
-      );
-      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
-      expect(runtimeInitialized, isFalse);
-
-      trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-      for (
-        var i = 0;
-        i < 10 &&
-            (!runtimeInitialized ||
-                find.text('#iOS Cached Origin').evaluate().isEmpty);
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(find.text('#iOS Cached Origin'), findsWidgets);
-      expect(
-        tester.element(
-          find.byKey(const PageStorageKey<String>('home-feed-popular')),
-        ),
-        same(cachedFeedElement),
-      );
-      expect(runtimeInitialized, isTrue);
-      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
-
-      runtimeInitialization.complete();
-      for (
-        var i = 0;
-        i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
-    },
-  );
-
-  testWidgets(
-    'Home iOS startup gate shows popular skeleton instead of No data without cache',
-    (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final transport = _RecordingV1ListTransport();
-      final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialUid: null,
-            ),
-            child: HomePage(
-              startupPlatform: TargetPlatform.iOS,
-              initialRequestMetricWindow: Duration.zero,
-              trackingAuthorizationStatus: () async =>
-                  AppTrackingAuthorizationStatus.notDetermined,
-              requestTrackingAuthorization: () => trackingAuthorization.future,
-              initializeRuntime:
-                  (services, trackingAuthorizationStatus) async {},
-            ),
-          ),
-        ),
-      );
-
-      for (
-        var i = 0;
-        i < 10 &&
-            find
-                .byKey(
-                  const ValueKey<String>(
-                    'genesis-popular-origin-list-skeleton',
-                  ),
-                )
-                .evaluate()
-                .isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-
-      expect(
-        find.byKey(
-          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('No data'), findsNothing);
-      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
-
-      trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-    },
-  );
-
-  testWidgets(
-    'Home iOS initial network timeout keeps skeleton instead of Retry',
-    (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final originListCompleter = Completer<TransportResponse>();
-      final transport = _RecordingV1ListTransport(
-        originListCompleter: originListCompleter,
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialUid: null,
-            ),
-            child: HomePage(
-              startupPlatform: TargetPlatform.iOS,
-              initialRequestMetricWindow: Duration.zero,
-              trackingAuthorizationStatus: () async =>
-                  AppTrackingAuthorizationStatus.authorized,
-              initializeRuntime:
-                  (services, trackingAuthorizationStatus) async {},
-            ),
-          ),
-        ),
-      );
-
-      for (
-        var i = 0;
-        i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
-      originListCompleter.completeError(
-        ApiException(
-          message: 'network permission pending timeout',
-          kind: ApiExceptionKind.timeout,
-          transportErrorKind: TransportErrorKind.timeout,
-        ),
-      );
-      await tester.pump();
-
-      expect(
-        find.byKey(
-          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
-
-      await tester.pump(const Duration(seconds: 3));
-
-      expect(
-        find.byKey(
-          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
-      expect(
-        transport.requestsFor('/api/v1/origin/list').length,
-        greaterThan(1),
-      );
-    },
-  );
 
   testWidgets('Home My Worlds signed-out initial frame shows empty state', (
     WidgetTester tester,

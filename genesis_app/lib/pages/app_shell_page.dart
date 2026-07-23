@@ -12,7 +12,6 @@ import '../components/bottom_tabs.dart';
 import '../components/login_sheet.dart';
 import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
-import '../platform/privacy/app_tracking_transparency_service.dart';
 import '../platform/billing/billing_models.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_feed_cache_store.dart';
@@ -41,6 +40,7 @@ class _AppShellPageState extends State<AppShellPage>
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
   late final ValueNotifier<bool> _meTabActiveNotifier;
+  late final ValueNotifier<bool> _homeTabActiveNotifier;
   late final ValueNotifier<int> _homeTabActivationNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
   int? _homeInitialTabIndexOverride;
@@ -64,6 +64,7 @@ class _AppShellPageState extends State<AppShellPage>
     _selectedIndex = _normalTabIndex(widget.initialIndex);
     _messagesTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 3);
     _meTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 4);
+    _homeTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 0);
     _homeTabActivationNotifier = ValueNotifier<int>(0);
     _meTabActivationNotifier = ValueNotifier<int>(0);
     _homeInitialTabIndexOverride = widget.homeInitialTabIndex;
@@ -94,8 +95,8 @@ class _AppShellPageState extends State<AppShellPage>
     _stopMessagesPolling();
     _messagesTabActiveNotifier.dispose();
     _meTabActiveNotifier.dispose();
+    _homeTabActiveNotifier.dispose();
     _homeTabActivationNotifier.dispose();
-    _meTabActivationNotifier.dispose();
     _unreadSummaryNotifier.dispose();
     super.dispose();
   }
@@ -155,17 +156,10 @@ class _AppShellPageState extends State<AppShellPage>
 
   void _startAppRuntime() {
     if (!mounted) return;
-    if (defaultTargetPlatform == TargetPlatform.iOS) return;
     final services = AppServicesScope.read(context);
     AppStartupCoordinator.startFirebasePerformance();
     AppStartupCoordinator.startWarmUp(services);
-    unawaited(
-      AppStartupCoordinator.initializeTelemetry(
-        services: services,
-        trackingAuthorizationStatus:
-            AppTrackingAuthorizationStatus.notSupported,
-      ),
-    );
+    unawaited(AppStartupCoordinator.initializeTelemetry(services: services));
   }
 
   void _startColdStartHomeTargetResolutionIfNeeded() {
@@ -194,6 +188,7 @@ class _AppShellPageState extends State<AppShellPage>
     });
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
     _meTabActiveNotifier.value = _selectedIndex == 4;
+    _homeTabActiveNotifier.value = _selectedIndex == 0;
     _startPostLaunchWorkIfAllowed();
   }
 
@@ -348,6 +343,7 @@ class _AppShellPageState extends State<AppShellPage>
     });
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
     _meTabActiveNotifier.value = _selectedIndex == 4;
+    _homeTabActiveNotifier.value = _selectedIndex == 0;
     if (previousIndex != index) {
       _recordSelectedTabPageView();
       _notifyActiveTabActivated();
@@ -421,6 +417,7 @@ class _AppShellPageState extends State<AppShellPage>
     _unreadSummaryNotifier.value = UnreadSummary.zero;
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
     _meTabActiveNotifier.value = _selectedIndex == 4;
+    _homeTabActiveNotifier.value = _selectedIndex == 0;
   }
 
   Widget _cachedTabPage(int index) {
@@ -429,6 +426,7 @@ class _AppShellPageState extends State<AppShellPage>
         0 => HomePage(
           initialTabIndex: _homeInitialTabIndexOverride,
           activationListenable: _homeTabActivationNotifier,
+          activeListenable: _homeTabActiveNotifier,
         ),
         1 => const OriginPage(),
         3 => ValueListenableBuilder<UnreadSummary>(
@@ -454,13 +452,8 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   Widget _buildTabSlot(int index) {
-    final shouldBuildIosStartupHome =
-        defaultTargetPlatform == TargetPlatform.iOS && index == 0;
-    if (!_visitedTabIndexes.contains(index) && !shouldBuildIosStartupHome) {
+    if (!_visitedTabIndexes.contains(index)) {
       return const SizedBox.shrink();
-    }
-    if (!_visitedTabIndexes.contains(index) && shouldBuildIosStartupHome) {
-      return const HomePage(startupOnly: true);
     }
     switch (index) {
       case 0:
