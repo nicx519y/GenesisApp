@@ -4248,6 +4248,36 @@ void main() {
     expect(find.text('Load failed'), findsNothing);
   });
 
+  testWidgets(
+    'Initial Worldo keeps the skeleton after its first load failure',
+    (WidgetTester tester) async {
+      final transport = _OriginPermissionPromptTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(isInitialPage: true),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      transport.failFirstOriginRequest();
+      await tester.pump();
+
+      expect(transport.originListRequestCount, 1);
+      expect(find.byType(GenesisListLoadingSkeleton), findsOneWidget);
+      expect(find.text('Load failed'), findsNothing);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(transport.originListRequestCount, 2);
+      expect(find.text('#Origin 1'), findsOneWidget);
+      expect(find.text('Load failed'), findsNothing);
+    },
+  );
+
   testWidgets('Origin retries hot tags after returning to foreground', (
     WidgetTester tester,
   ) async {

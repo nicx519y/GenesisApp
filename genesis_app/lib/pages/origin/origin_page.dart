@@ -15,7 +15,9 @@ import '../../ui/components/secend_tabs.dart';
 import 'origin_feed_cache_store.dart';
 
 class OriginPage extends StatefulWidget {
-  const OriginPage({super.key});
+  const OriginPage({super.key, this.isInitialPage = false});
+
+  final bool isInitialPage;
 
   @override
   State<OriginPage> createState() => _OriginPageState();
@@ -144,6 +146,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                   _OriginFeed(
                     index: entry.$1,
                     category: entry.$2,
+                    isInitialPage: widget.isInitialPage && entry.$1 == 0,
                     onInitialLoadCompleted: entry.$1 == 0
                         ? _retryHotTagsIfNeeded
                         : null,
@@ -194,11 +197,13 @@ class _OriginFeed extends StatefulWidget {
   const _OriginFeed({
     required this.index,
     required this.category,
+    this.isInitialPage = false,
     this.onInitialLoadCompleted,
   });
 
   final int index;
   final _OriginCategory category;
+  final bool isInitialPage;
   final VoidCallback? onInitialLoadCompleted;
 
   @override
@@ -227,6 +232,7 @@ class _OriginFeedState extends State<_OriginFeed>
   var _initialLoadInFlight = false;
   var _permissionPromptMayBeOpen = false;
   var _retryInitialLoadWhenFinished = false;
+  var _hasRetriedInitialStartup = false;
 
   bool get _usesFirstPageCache => widget.category.scene == 'foryou';
 
@@ -266,6 +272,7 @@ class _OriginFeedState extends State<_OriginFeed>
       _retryInitialLoadWhenFinished = true;
       return;
     }
+    _hasRetriedInitialStartup = true;
     unawaited(_refreshItems());
   }
 
@@ -319,6 +326,7 @@ class _OriginFeedState extends State<_OriginFeed>
     _initialLoadInFlight = false;
     _permissionPromptMayBeOpen = false;
     _retryInitialLoadWhenFinished = false;
+    _hasRetriedInitialStartup = false;
   }
 
   void _handleTabChange() {
@@ -441,7 +449,12 @@ class _OriginFeedState extends State<_OriginFeed>
       final shouldRetryAfterResume = _retryInitialLoadWhenFinished;
       _retryInitialLoadWhenFinished = false;
       _initialLoadInFlight = false;
-      if (_permissionPromptMayBeOpen) {
+      final keepInitialStartupSkeleton =
+          _isPrimaryFeed &&
+          widget.isInitialPage &&
+          !_hasRetriedInitialStartup &&
+          !_hasCompletedFirstPageNetworkRequest;
+      if (_permissionPromptMayBeOpen || keepInitialStartupSkeleton) {
         setState(() {
           _error = null;
           _isInitialLoading = true;
@@ -455,6 +468,7 @@ class _OriginFeedState extends State<_OriginFeed>
         _isRefreshing = false;
       });
       if (shouldRetryAfterResume && mounted) {
+        _hasRetriedInitialStartup = true;
         unawaited(_refreshItems());
       }
     }

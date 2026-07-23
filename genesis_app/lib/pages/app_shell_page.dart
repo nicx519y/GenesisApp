@@ -499,7 +499,7 @@ class _AppShellPageState extends State<AppShellPage>
           initialTabIndex: _homeInitialTabIndexOverride,
           activationListenable: _homeTabActivationNotifier,
         ),
-        1 => const OriginPage(),
+        1 => OriginPage(isInitialPage: widget.initialIndex == 1),
         3 => ValueListenableBuilder<UnreadSummary>(
           valueListenable: _unreadSummaryNotifier,
           builder: (context, unreadSummary, _) {
