@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
+import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 
 void main() {
   testWidgets('new user product card uses backend activity label and color', (
@@ -12,7 +13,7 @@ void main() {
         home: Scaffold(
           body: SizedBox(
             width: 105,
-            height: 142,
+            height: kGemProductCardHeight,
             child: GemProductCard(
               product: _product(
                 activityType: 'Backend New User',
@@ -138,7 +139,7 @@ void main() {
         home: Scaffold(
           body: SizedBox(
             width: 105,
-            height: 142,
+            height: kGemProductCardHeight,
             child: GemProductCard(
               product: _product(
                 productId: 'gem_pack_1100',
@@ -179,7 +180,7 @@ void main() {
         home: Scaffold(
           body: SizedBox(
             width: 105,
-            height: 142,
+            height: kGemProductCardHeight,
             child: GemProductCard(
               product: _product(canPurchase: false),
               isBuying: false,
@@ -216,13 +217,42 @@ void main() {
     );
   });
 
+  testWidgets('product without bonus keeps price bottom inset', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 105,
+            height: kGemProductCardHeight,
+            child: GemProductCard(
+              product: _product(bonusGems: 0, canPurchase: false),
+              isBuying: false,
+              isPurchaseInProgress: false,
+              onPurchase: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final stackRect = tester.getRect(
+      find.byWidgetPredicate(
+        (widget) => widget is Stack && widget.clipBehavior == Clip.none,
+      ),
+    );
+    final priceButtonRect = tester.getRect(
+      find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
+    );
+    expect(stackRect.bottom - priceButtonRect.bottom, 10);
+  });
+
   testWidgets('other unavailable products remain greyed out', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
             width: 105,
-            height: 142,
+            height: kGemProductCardHeight,
             child: GemProductCard(
               product: _product(productId: 'gem_pack_1100', canPurchase: false),
               isBuying: false,
@@ -238,6 +268,44 @@ void main() {
     expect(find.byType(ColorFiltered), findsOneWidget);
     expect(find.text('Sold Out'), findsNothing);
   });
+
+  testWidgets('product grid keeps fixed heights and adapts widths', (
+    tester,
+  ) async {
+    final billingState = ValueNotifier<BillingState>(BillingState());
+    addTearDown(billingState.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: GemProductGrid(
+              products: [
+                _product(productId: 'gem_pack_500'),
+                _product(productId: 'gem_pack_1000'),
+                _product(productId: 'gem_pack_4000'),
+              ],
+              billingStateListenable: billingState,
+              onPurchase: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final cardSize = tester.getSize(
+      find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+    );
+    final buttonSize = tester.getSize(
+      find.byKey(const ValueKey<String>('gem-product-price-gem_pack_500')),
+    );
+
+    expect(cardSize.height, kGemProductCardHeight);
+    expect(cardSize.width, greaterThan(105));
+    expect(buttonSize.height, kGemPriceButtonHeight);
+    expect(buttonSize.width, closeTo(cardSize.width - 22, 0.1));
+  });
 }
 
 GemProduct _product({
@@ -247,13 +315,14 @@ GemProduct _product({
   String activityColor = '',
   String priceCurrencyCode = 'USD',
   bool canPurchase = true,
+  int bonusGems = 50,
 }) {
   return GemProduct(
     productId: productId,
     appleProductId: 'com.worldo.gems.500',
     googleProductId: 'worldo_gems_500',
     baseGems: 500,
-    bonusGems: 50,
+    bonusGems: bonusGems,
     priceCurrencyCode: priceCurrencyCode,
     priceAmount: 149,
     canPurchase: canPurchase,

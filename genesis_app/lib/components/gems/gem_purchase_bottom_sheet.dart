@@ -361,7 +361,7 @@ class _GemProductGridSkeleton extends StatelessWidget {
         crossAxisCount: 3,
         crossAxisSpacing: 10,
         mainAxisSpacing: 12,
-        childAspectRatio: 105 / 142,
+        mainAxisExtent: kGemProductCardHeight,
       ),
       itemBuilder: (_, _) => Container(
         decoration: BoxDecoration(

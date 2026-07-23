@@ -614,13 +614,6 @@ class _GemWalletPageState extends State<GemWalletPage>
         backgroundColor: Colors.white,
         appBar: GenesisBackAppBar(
           pageName: 'Buy Gems',
-          titleStyle: const TextStyle(
-            color: Color(0xFF333333),
-            fontSize: 16,
-            height: 22 / 16,
-            fontWeight: FontWeight.w600,
-          ),
-          onBack: () => Navigator.of(context).maybePop(),
           actions: [
             GestureDetector(
               behavior: HitTestBehavior.opaque,
