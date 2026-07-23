@@ -263,14 +263,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void _precacheRoleCardAvatarImages(OriginDetail origin) {
     final mediaQuery = MediaQuery.maybeOf(context);
     if (mediaQuery == null) return;
-    final roleCardWidth =
-        mediaQuery.size.width * _OriginSetupRoleSection._cardWidthFactor;
     final urls = origin.characters
         .map(
           (character) => selectGenesisImageUrl(
             _resolveAssetUrl(character.avatar),
-            logicalWidth: roleCardWidth,
-            logicalHeight: roleCardWidth,
+            logicalWidth: _OriginSetupRoleSection._cardWidth,
+            logicalHeight: _OriginSetupRoleSection._cardWidth,
             devicePixelRatio: mediaQuery.devicePixelRatio,
           ).trim(),
         )
@@ -449,7 +447,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       object1: origin.oid,
       object2: characterId,
     );
-    await _launchOrigin(origin, OriginRoleLaunchSelection.preset(characterId));
+    await _launchOrigin(
+      origin,
+      OriginRoleLaunchSelection.preset(characterId),
+      initialLocationId:
+          _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
+    );
   }
 
   Future<void> _openLaunchRoleSheet(
@@ -527,8 +530,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   Future<void> _launchOrigin(
     OriginDetail origin,
-    OriginRoleLaunchSelection roleSelection,
-  ) async {
+    OriginRoleLaunchSelection roleSelection, {
+    String initialLocationId = '',
+  }) async {
     if (_launching) return;
     final avatars = _launchWaitAvatarsFromOrigin(origin);
     setState(() {
@@ -539,6 +543,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       context: context,
       origin: origin,
       roleSelection: roleSelection,
+      initialLocationId: initialLocationId,
     );
     if (!mounted) return;
     if (!started) {

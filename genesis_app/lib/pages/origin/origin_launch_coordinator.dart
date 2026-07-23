@@ -62,10 +62,15 @@ class OriginLaunchCoordinator {
   Future<void> start({
     required String originId,
     required String worldId,
+    String initialLocationId = '',
     required OriginLaunchWorldLoader loadWorld,
     BuildContext? context,
   }) async {
-    await OriginLaunchPendingStore.save(originId: originId, worldId: worldId);
+    await OriginLaunchPendingStore.save(
+      originId: originId,
+      worldId: worldId,
+      initialLocationId: initialLocationId,
+    );
     final pending = await OriginLaunchPendingStore.load();
     if (pending == null) return;
     _begin(pending: pending, loadWorld: loadWorld);
@@ -197,7 +202,11 @@ class OriginLaunchCoordinator {
       object1: pending.originId,
       object2: pending.worldId,
     );
-    await _showCompletionDialog(world, fallbackWorldId: pending.worldId);
+    await _showCompletionDialog(
+      world,
+      fallbackWorldId: pending.worldId,
+      initialLocationId: pending.initialLocationId,
+    );
   }
 
   void _notifyOutcome(OriginLaunchOutcome outcome) {
@@ -209,6 +218,7 @@ class OriginLaunchCoordinator {
   Future<void> _showCompletionDialog(
     WorldDetail? world, {
     required String fallbackWorldId,
+    required String initialLocationId,
   }) async {
     if (_completionDialogShowing) return;
     final context = _globalDialogContext;
@@ -232,14 +242,22 @@ class OriginLaunchCoordinator {
         ],
       );
       if (shouldGo == true) {
-        _navigateToWorld(world, fallbackWorldId: fallbackWorldId);
+        _navigateToWorld(
+          world,
+          fallbackWorldId: fallbackWorldId,
+          initialLocationId: initialLocationId,
+        );
       }
     } finally {
       _completionDialogShowing = false;
     }
   }
 
-  void _navigateToWorld(WorldDetail? world, {required String fallbackWorldId}) {
+  void _navigateToWorld(
+    WorldDetail? world, {
+    required String fallbackWorldId,
+    required String initialLocationId,
+  }) {
     final navigator = genesisNavigatorKey.currentState;
     if (navigator == null) return;
     final wid = (world?.worldId.trim().isEmpty ?? true)
@@ -247,7 +265,12 @@ class OriginLaunchCoordinator {
         : world!.worldId.trim();
     openWorldFromMyWorldsRoot(
       navigator,
-      arguments: {'wid': wid, if (world != null) 'initial_world_detail': world},
+      arguments: {
+        'wid': wid,
+        if (world != null) 'initial_world_detail': world,
+        if (initialLocationId.trim().isNotEmpty)
+          'initial_location_id': initialLocationId.trim(),
+      },
     );
   }
 

@@ -5,11 +5,13 @@ class OriginLaunchPending {
     required this.originId,
     required this.worldId,
     required this.startedAt,
+    this.initialLocationId = '',
   });
 
   final String originId;
   final String worldId;
   final DateTime startedAt;
+  final String initialLocationId;
 
   bool get isExpired =>
       DateTime.now().toUtc().difference(startedAt.toUtc()) >
@@ -24,6 +26,8 @@ class OriginLaunchPendingStore {
   static const String _originIdKey = 'pending_origin_launch_origin_id';
   static const String _worldIdKey = 'pending_origin_launch_wid';
   static const String _startedAtKey = 'pending_origin_launch_started_at';
+  static const String _initialLocationIdKey =
+      'pending_origin_launch_initial_location_id';
 
   static Future<OriginLaunchPending?> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -38,12 +42,14 @@ class OriginLaunchPendingStore {
       originId: originId,
       worldId: worldId,
       startedAt: startedAt,
+      initialLocationId: prefs.getString(_initialLocationIdKey)?.trim() ?? '',
     );
   }
 
   static Future<void> save({
     required String originId,
     required String worldId,
+    String initialLocationId = '',
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_originIdKey, originId.trim());
@@ -52,6 +58,12 @@ class OriginLaunchPendingStore {
       _startedAtKey,
       DateTime.now().toUtc().toIso8601String(),
     );
+    final resolvedInitialLocationId = initialLocationId.trim();
+    if (resolvedInitialLocationId.isEmpty) {
+      await prefs.remove(_initialLocationIdKey);
+    } else {
+      await prefs.setString(_initialLocationIdKey, resolvedInitialLocationId);
+    }
   }
 
   static Future<void> clear() async {
@@ -59,5 +71,6 @@ class OriginLaunchPendingStore {
     await prefs.remove(_originIdKey);
     await prefs.remove(_worldIdKey);
     await prefs.remove(_startedAtKey);
+    await prefs.remove(_initialLocationIdKey);
   }
 }

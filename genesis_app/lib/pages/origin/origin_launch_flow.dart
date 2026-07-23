@@ -14,6 +14,7 @@ Future<bool> startOriginLaunch({
   required BuildContext context,
   required OriginDetail origin,
   required OriginRoleLaunchSelection roleSelection,
+  String initialLocationId = '',
   OriginLaunchCoordinator? coordinator,
 }) async {
   try {
@@ -50,6 +51,7 @@ Future<bool> startOriginLaunch({
     await launchCoordinator.start(
       originId: origin.oid,
       worldId: wid,
+      initialLocationId: initialLocationId,
       loadWorld: api.getWorld,
       context: context,
     );

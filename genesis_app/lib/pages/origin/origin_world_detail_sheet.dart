@@ -48,8 +48,7 @@ class _OriginDetailDraggableSheetState
 
   double _expandedChildSize(BuildContext context) {
     final viewportHeight = MediaQuery.sizeOf(context).height;
-    final sheetHostHeight =
-        viewportHeight - _OriginBottomLaunchBar.heightFor(context);
+    final sheetHostHeight = viewportHeight;
     if (sheetHostHeight <= 0) return _minChildSize;
     final expandedTop =
         GenesisSafeAreaInsets.top(context) +
@@ -145,8 +144,7 @@ class _OriginDetailDraggableSheetState
       return extent >= _expandedChildSize(context) ? 1.0 : 0.0;
     }
     final viewportHeight = MediaQuery.sizeOf(context).height;
-    final sheetHostHeight =
-        viewportHeight - _OriginBottomLaunchBar.heightFor(context);
+    final sheetHostHeight = viewportHeight;
     final sheetTop = sheetHostHeight * (1.0 - extent);
     return ((statusBarHeight - sheetTop) / statusBarHeight)
         .clamp(0.0, 1.0)
@@ -230,6 +228,11 @@ class _OriginDetailDraggableSheetState
                           launching: widget.launching,
                           onSelectRole: widget.onSelectRole,
                           onCustomizeRole: widget.onCustomizeRole,
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: _OriginBottomLaunchBar.heightFor(context),
                         ),
                       ),
                     ],

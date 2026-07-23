@@ -54,12 +54,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
                         bottomSafeArea)
                     .clamp(0.0, maxMapHeight)
                     .toDouble();
-            final bottomOverlayHeight = bottomOverlay == null
-                ? 0.0
-                : _OriginBottomLaunchBar.heightFor(context);
-            final sheetHostHeight = (viewportHeight - bottomOverlayHeight)
-                .clamp(0.0, viewportHeight)
-                .toDouble();
+            final sheetHostHeight = viewportHeight;
             final sheetMinChildSize = sheetHostHeight <= 0
                 ? _OriginDetailDraggableSheet.defaultInitialChildSize
                 : ((sheetHostHeight - mapHeight) / sheetHostHeight)
@@ -74,7 +69,6 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
                 mapOverlay,
                 if (bottomSheetOverlayBuilder != null)
                   Positioned.fill(
-                    bottom: bottomOverlayHeight,
                     child: bottomSheetOverlayBuilder(sheetMinChildSize),
                   ),
                 if (bottomOverlay != null)
@@ -112,7 +106,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(color: Color(0xFFEDEDED)),
+      decoration: const BoxDecoration(color: Color(0xE6EDEDED)),
       child: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),

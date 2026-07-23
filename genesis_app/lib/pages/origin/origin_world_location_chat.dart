@@ -110,10 +110,12 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
 
 class _OriginInitialDialoguePreview {
   const _OriginInitialDialoguePreview({
+    required this.locationId,
     required this.locationName,
     required this.messages,
   });
 
+  final String locationId;
   final String locationName;
   final List<ChatMessageVm> messages;
 }
@@ -190,6 +192,7 @@ _OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
       .toList(growable: false);
 
   return _OriginInitialDialoguePreview(
+    locationId: locationId,
     locationName: location?.name.trim().isNotEmpty == true
         ? location!.name.trim()
         : locationId,

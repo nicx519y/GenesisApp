@@ -5213,6 +5213,10 @@ void main() {
   testWidgets('Origin detail launch bar launches a world', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'approved',
       originCharacters: const [
@@ -5290,6 +5294,7 @@ void main() {
       const ValueKey<String>('origin-setup-role-portrait-$roleId'),
     );
     expect(portrait, findsOneWidget);
+    expect(tester.getSize(portrait).width, 288);
     final setupAvatarFinder = find.descendant(
       of: portrait,
       matching: find.byType(GenesisStaticNetworkImage),
@@ -5312,6 +5317,7 @@ void main() {
     expect(identityText.maxLines, isNull);
     expect(identityText.overflow, isNull);
     expect(identityText.softWrap, isTrue);
+    expect(identityText.style?.fontSize, 13);
     expect(
       find.descendant(of: portrait, matching: find.text('Knows the path')),
       findsNothing,
@@ -5333,6 +5339,11 @@ void main() {
     final roleToggle = find.byKey(
       const ValueKey<String>('origin-setup-role-toggle-$roleId'),
     );
+    final cardBodyToggle = find.byKey(
+      const ValueKey<String>('origin-setup-role-card-body-toggle-$roleId'),
+    );
+    expect(tester.getSize(roleToggle), const Size(288, 48));
+    expect(tester.getSize(cardBodyToggle), const Size(288, 288));
     expect(
       find.ancestor(
         of: roleToggle,
@@ -5345,12 +5356,18 @@ void main() {
     final roleActionBar = find.byKey(
       const ValueKey<String>('origin-setup-role-action-bar-$roleId'),
     );
-    expect(tester.getSize(roleActionBar).height, 77);
+    expect(tester.getSize(roleActionBar).height, 93);
     final selectSurface = tester.widget<Material>(
       find.byKey(
         const ValueKey<String>('origin-setup-role-select-surface-$roleId'),
       ),
     );
+    final actionScrim = tester.widget<ColoredBox>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-action-scrim-$roleId'),
+      ),
+    );
+    expect(actionScrim.color.a, closeTo(0.7, 0.001));
     expect(
       tester
           .getSize(
@@ -5385,15 +5402,17 @@ void main() {
     );
     expect(downArrow.size, 32);
     expect(downArrow.color, const Color(0xFF999999));
+    expect((tester.getSize(roleToggle).height - downArrow.size!) / 2, 8);
     expect(find.descendant(of: portrait, matching: roleToggle), findsNothing);
     await tester.ensureVisible(roleToggle);
     await tester.pumpAndSettle();
-    await tester.tap(roleToggle);
+    tester.widget<GestureDetector>(cardBodyToggle).onTap!();
     await tester.pumpAndSettle();
     final details = find.byKey(
       const ValueKey<String>('origin-setup-role-details-$roleId'),
     );
     expect(details, findsOneWidget);
+    expect(tester.getSize(details), const Size(288, 288));
     expect(
       find.descendant(of: details, matching: find.text('Name')),
       findsNothing,
@@ -5402,6 +5421,7 @@ void main() {
       find.descendant(of: details, matching: find.text('Detail Character')),
     );
     expect(detailName.style?.fontSize, 14);
+    expect(detailName.textAlign, TextAlign.start);
     expect(
       find.descendant(of: details, matching: find.text('Identity')),
       findsOneWidget,
@@ -5426,6 +5446,8 @@ void main() {
     );
     expect(identityLabel.style?.fontSize, 11);
     expect(detailIdentity.style?.fontSize, 13);
+    expect(identityLabel.textAlign, TextAlign.start);
+    expect(detailIdentity.textAlign, TextAlign.start);
     final detailsScroll = tester.widget<SingleChildScrollView>(
       find.byKey(
         const ValueKey<String>('origin-setup-role-details-scroll-$roleId'),
@@ -5497,9 +5519,7 @@ void main() {
       findsOneWidget,
     );
     await tester.fling(
-      find.byKey(
-        const PageStorageKey<String>('origin-intro-o_test_1'),
-      ),
+      find.byKey(const PageStorageKey<String>('origin-intro-o_test_1')),
       const Offset(0, -3000),
       2000,
     );
@@ -5645,6 +5665,63 @@ void main() {
     expect(launchBody['custom_role'], containsPair('bio', 'Inline bio'));
   });
 
+  testWidgets(
+    'Origin preset role direct launch keeps initial dialogue location',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+        worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
+        worldDetailTickCountsByRequest: const [0],
+        originTicks: const [
+          {
+            'tick_no': 1,
+            'tick_result': {
+              'current_time': 'Day 1',
+              'location_groups': [
+                {
+                  'location_id': 'l_o_test_1',
+                  'initial_dialogue': [
+                    {
+                      'char_id': 'c_o_test_1',
+                      'char_name': 'Detail Character',
+                      'content': 'Welcome to the opening location.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+          ),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final directLaunch = find.byKey(
+        const ValueKey<String>('origin-setup-role-c_o_test_1'),
+      );
+      await _dragOriginPanelUntilVisible(tester, directLaunch);
+      tester.widget<InkWell>(directLaunch).onTap!();
+      await tester.pump();
+      await tester.pump();
+
+      final pending = await OriginLaunchPendingStore.load();
+      expect(pending?.initialLocationId, 'l_o_test_1');
+      OriginLaunchCoordinator.instance.resetForTesting();
+    },
+  );
+
   testWidgets('Origin launch records pending world and waits in background', (
     WidgetTester tester,
   ) async {
@@ -5670,6 +5747,8 @@ void main() {
 
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Preset'));
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey('origin-role-preset-c_o_test_1')),
     );
@@ -5682,6 +5761,7 @@ void main() {
     final pendingLaunch = await OriginLaunchPendingStore.load();
     expect(pendingLaunch?.originId, 'o_test_1');
     expect(pendingLaunch?.worldId, 'w_launched_from_origin');
+    expect(pendingLaunch?.initialLocationId, isEmpty);
     expect(OriginLaunchCoordinator.instance.state.value?.originId, 'o_test_1');
     expect(
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
@@ -5730,7 +5810,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     final animatedWaitTitle = tester.widget<Text>(waitTitleFinder);
     expect(animatedWaitTitle.data, isNot(initialWaitTitleText));
-    var worldRequests = transport.requestsFor('/api/v1/world/detail');
+    var worldRequests = transport
+        .requestsFor('/api/v1/world/detail')
+        .where(
+          (request) =>
+              request.uri.queryParameters['world_id'] ==
+              'w_launched_from_origin',
+        )
+        .toList(growable: false);
     expect(worldRequests, hasLength(1));
     expect(
       worldRequests.last.uri.queryParameters['world_id'],
@@ -5745,8 +5832,15 @@ void main() {
       findsOneWidget,
     );
     expect(await OriginLaunchPendingStore.load(), isNotNull);
-    worldRequests = transport.requestsFor('/api/v1/world/detail');
-    expect(worldRequests, hasLength(2));
+    worldRequests = transport
+        .requestsFor('/api/v1/world/detail')
+        .where(
+          (request) =>
+              request.uri.queryParameters['world_id'] ==
+              'w_launched_from_origin',
+        )
+        .toList(growable: false);
+    expect(worldRequests, hasLength(1));
     OriginLaunchCoordinator.instance.resetForTesting();
   });
 
@@ -12981,6 +13075,36 @@ void main() {
     expect(_visibleText('World Location (1)'), findsNothing);
     expect(_visibleText('Child Location (0)'), findsNothing);
     expect(_visibleText('Second Child Location (0)'), findsNothing);
+  });
+
+  testWidgets('world page opens its requested initial location chat', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(
+          home: WorldPage(
+            wid: 'w_test_1',
+            initialLocationId: 'l_w_test_1_child',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
+
+    expect(_visibleText('Child Location (1)'), findsOneWidget);
+    expect(find.byType(LocationChatPanel), findsOneWidget);
   });
 
   testWidgets(

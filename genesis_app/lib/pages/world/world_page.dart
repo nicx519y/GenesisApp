@@ -51,11 +51,13 @@ class WorldPage extends StatefulWidget {
     required this.wid,
     this.waitForTick1 = false,
     this.initialWorldDetail,
+    this.initialLocationId = '',
   });
 
   final String wid;
   final bool waitForTick1;
   final WorldDetail? initialWorldDetail;
+  final String initialLocationId;
 
   @override
   State<WorldPage> createState() => _WorldPageState();
@@ -87,6 +89,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   final Map<String, Future<void>> _preloadingLocationMessageFutures =
       <String, Future<void>>{};
   String _activeChatLocationId = '';
+  late String _pendingInitialLocationId;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _worldTickInProgress = false;
@@ -144,6 +147,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _pendingInitialLocationId = widget.initialLocationId.trim();
     _mainTabController = TabController(length: worldMainPageCount, vsync: this);
     _mainTabController.addListener(_handleWorldMainTabChanged);
     _worldBottomSheetSelection.addListener(
@@ -156,6 +160,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _sectionsWorldNotifier.value = initialWorld;
       _syncLocationChatDescriptors(initialWorld);
       _syncWorldChatroomForRelationStatus(initialWorld.relationStatus);
+      _maybeOpenInitialLocationChat();
       _maybeShowTick1WaitDialog();
       if (initialWorld.isProgressing &&
           shouldConnectWorldChatroom(initialWorld.relationStatus)) {
@@ -722,6 +727,32 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _stopWorldChatroom();
   }
 
+  void _maybeOpenInitialLocationChat() {
+    final initialLocationId = _pendingInitialLocationId;
+    final world = _world;
+    if (initialLocationId.isEmpty || world == null) return;
+    if (_worldChatroom == null) {
+      if (!shouldConnectWorldChatroom(world.relationStatus)) {
+        _pendingInitialLocationId = '';
+      }
+      return;
+    }
+    final descriptor =
+        _locationChatDescriptors[initialLocationId] ??
+        _locationChatDescriptors.values
+            .where(
+              (item) =>
+                  item.localMessageLocationIds.contains(initialLocationId),
+            )
+            .firstOrNull;
+    _pendingInitialLocationId = '';
+    if (descriptor == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _activeChatLocationId.isNotEmpty) return;
+      unawaited(_showCachedLocationChat(descriptor));
+    });
+  }
+
   void _stopWorldChatroom() {
     final chatroom = _worldChatroom;
     if (chatroom == null) return;
@@ -837,6 +868,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       );
     });
     _syncWorldChatroomForRelationStatus(world.relationStatus);
+    _maybeOpenInitialLocationChat();
     if (shouldStartTracking) {
       _startWorldTickTracking();
     } else if (_worldTickInProgress) {

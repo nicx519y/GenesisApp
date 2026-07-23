@@ -78,6 +78,7 @@ void main() {
     await OriginLaunchPendingStore.save(
       originId: 'o_timeout_1',
       worldId: 'w_timeout_1',
+      initialLocationId: 'l_opening_1',
     );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
@@ -109,6 +110,7 @@ void main() {
     await OriginLaunchPendingStore.save(
       originId: 'o_timeout_1',
       worldId: 'w_timeout_1',
+      initialLocationId: 'l_opening_1',
     );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
@@ -136,7 +138,12 @@ void main() {
             final args = settings.arguments as Map?;
             return MaterialPageRoute<WorldPageResult>(
               settings: settings,
-              builder: (_) => Scaffold(body: Text('world_wid=${args?['wid']}')),
+              builder: (_) => Scaffold(
+                body: Text(
+                  'world_wid=${args?['wid']} '
+                  'location=${args?['initial_location_id']}',
+                ),
+              ),
             );
           }
           return null;
@@ -164,7 +171,10 @@ void main() {
     await polling;
     await tester.pump();
     await tester.pump();
-    expect(find.text('world_wid=w_timeout_1'), findsOneWidget);
+    expect(
+      find.text('world_wid=w_timeout_1 location=l_opening_1'),
+      findsOneWidget,
+    );
   });
 }
 

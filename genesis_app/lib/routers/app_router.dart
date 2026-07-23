@@ -228,6 +228,7 @@ class _WorldRouteArgs {
     required this.wid,
     required this.waitForTick1,
     this.initialWorldDetail,
+    required this.initialLocationId,
   });
 
   factory _WorldRouteArgs.from(Object? raw) {
@@ -243,12 +244,17 @@ class _WorldRouteArgs {
         'initial_world_detail',
         'initialWorldDetail',
       ]),
+      initialLocationId: args.string(const [
+        'initial_location_id',
+        'initialLocationId',
+      ]),
     );
   }
 
   final String wid;
   final bool waitForTick1;
   final WorldDetail? initialWorldDetail;
+  final String initialLocationId;
 }
 
 class _ChatRouteArgs {
@@ -498,6 +504,7 @@ sealed class AppRouter {
             wid: args.wid,
             waitForTick1: args.waitForTick1,
             initialWorldDetail: args.initialWorldDetail,
+            initialLocationId: args.initialLocationId,
           ),
         );
       case RouteNames.chat:

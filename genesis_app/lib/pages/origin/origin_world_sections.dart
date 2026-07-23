@@ -290,13 +290,10 @@ class _OriginInitialDialogueSection extends StatelessWidget {
 }
 
 String _originRoleCardAvatarUrl(BuildContext context, String sourceUrl) {
-  final roleCardWidth =
-      MediaQuery.sizeOf(context).width *
-      _OriginSetupRoleSection._cardWidthFactor;
   return selectGenesisImageUrl(
     sourceUrl,
-    logicalWidth: roleCardWidth,
-    logicalHeight: roleCardWidth,
+    logicalWidth: _OriginSetupRoleSection._cardWidth,
+    logicalHeight: _OriginSetupRoleSection._cardWidth,
     devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
   ).trim();
 }
@@ -309,8 +306,9 @@ class _OriginSetupRoleSection extends StatefulWidget {
     required this.onCustomizeRole,
   });
 
-  static const double _cardWidthFactor = 0.8;
-  static const double _buttonHeight = 77;
+  static const double _cardWidth = 288;
+  static const double _buttonHeight = 93;
+  static const double _toggleAreaHeight = 48;
 
   final List<OriginCharacter> characters;
   final bool launching;
@@ -362,9 +360,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth =
-        MediaQuery.sizeOf(context).width *
-        _OriginSetupRoleSection._cardWidthFactor;
+    const cardWidth = _OriginSetupRoleSection._cardWidth;
     const cardGap = 12.0;
     final cardCount = widget.characters.length + 1;
     _cardStride = cardWidth + cardGap;
@@ -595,26 +591,33 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    switchInCurve: Curves.easeOut,
-                    switchOutCurve: Curves.easeIn,
-                    child: _showDetails
-                        ? _OriginSetupRoleDetails(
-                            key: ValueKey<String>(
-                              'origin-setup-role-details-$stableId',
+                  GestureDetector(
+                    key: ValueKey<String>(
+                      'origin-setup-role-card-body-toggle-$stableId',
+                    ),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _toggleDetails,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: _showDetails
+                          ? _OriginSetupRoleDetails(
+                              key: ValueKey<String>(
+                                'origin-setup-role-details-$stableId',
+                              ),
+                              character: character,
+                              controller: _detailsController,
+                            )
+                          : _OriginSetupRolePortrait(
+                              key: ValueKey<String>(
+                                'origin-setup-role-portrait-$stableId',
+                              ),
+                              character: character,
+                              avatarUrl: avatarUrl,
+                              cardWidth: cardWidth,
                             ),
-                            character: character,
-                            controller: _detailsController,
-                          )
-                        : _OriginSetupRolePortrait(
-                            key: ValueKey<String>(
-                              'origin-setup-role-portrait-$stableId',
-                            ),
-                            character: character,
-                            avatarUrl: avatarUrl,
-                            cardWidth: cardWidth,
-                          ),
+                    ),
                   ),
                 ],
               ),
@@ -640,11 +643,16 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                       ),
                     ),
                   ),
-                  ColoredBox(color: Colors.black.withValues(alpha: 0.28)),
+                  ColoredBox(
+                    key: ValueKey<String>(
+                      'origin-setup-role-action-scrim-$stableId',
+                    ),
+                    color: Colors.black.withValues(alpha: 0.7),
+                  ),
                   Column(
                     children: [
                       SizedBox(
-                        height: 32,
+                        height: _OriginSetupRoleSection._toggleAreaHeight,
                         child: GestureDetector(
                           key: ValueKey<String>(
                             'origin-setup-role-toggle-$stableId',
@@ -776,7 +784,7 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                   character.tags.trim(),
                   softWrap: true,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     height: 1.25,
                     fontWeight: FontWeight.w400,
                     color: Color(0xE6FFFFFF),
@@ -804,42 +812,45 @@ class _OriginSetupRoleDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: const Color(0xFF202022),
-      child: SingleChildScrollView(
-        key: ValueKey<String>(
-          'origin-setup-role-details-scroll-${_characterStableId(character)}',
-        ),
-        controller: controller,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              character.name.trim().isEmpty ? '—' : character.name.trim(),
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-                decoration: TextDecoration.none,
+    return SizedBox.expand(
+      child: ColoredBox(
+        color: const Color(0xFF202022),
+        child: SingleChildScrollView(
+          key: ValueKey<String>(
+            'origin-setup-role-details-scroll-${_characterStableId(character)}',
+          ),
+          controller: controller,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                character.name.trim().isEmpty ? '—' : character.name.trim(),
+                textAlign: TextAlign.start,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  decoration: TextDecoration.none,
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            _OriginSetupRoleDetailField(
-              label: 'Identity',
-              value: character.tags,
-            ),
-            _OriginSetupRoleDetailField(
-              label: 'Brief',
-              value: character.tagline,
-            ),
-            _OriginSetupRoleDetailField(
-              label: 'Goal',
-              value: character.goal,
-              addBottomGap: false,
-            ),
-          ],
+              const SizedBox(height: 14),
+              _OriginSetupRoleDetailField(
+                label: 'Identity',
+                value: character.tags,
+              ),
+              _OriginSetupRoleDetailField(
+                label: 'Brief',
+                value: character.tagline,
+              ),
+              _OriginSetupRoleDetailField(
+                label: 'Goal',
+                value: character.goal,
+                addBottomGap: false,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -860,34 +871,39 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayValue = value.trim().isEmpty ? '—' : value.trim();
-    return Padding(
-      padding: EdgeInsets.only(bottom: addBottomGap ? 14 : 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              height: 1.2,
-              fontWeight: FontWeight.w600,
-              color: Color(0x99FFFFFF),
-              decoration: TextDecoration.none,
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: addBottomGap ? 14 : 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              textAlign: TextAlign.start,
+              style: const TextStyle(
+                fontSize: 11,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+                color: Color(0x99FFFFFF),
+                decoration: TextDecoration.none,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            displayValue,
-            softWrap: true,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.4,
-              fontWeight: FontWeight.w400,
-              color: Colors.white,
-              decoration: TextDecoration.none,
+            const SizedBox(height: 4),
+            Text(
+              displayValue,
+              softWrap: true,
+              textAlign: TextAlign.start,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                fontWeight: FontWeight.w400,
+                color: Colors.white,
+                decoration: TextDecoration.none,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
