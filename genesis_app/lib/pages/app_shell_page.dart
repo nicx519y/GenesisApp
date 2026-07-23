@@ -60,6 +60,7 @@ class _AppShellPageState extends State<AppShellPage>
   int? _homeInitialTabIndexOverride;
   late final bool _shouldResolveColdStartHomeTarget;
   var _coldStartHomeTargetResolved = true;
+  var _hasRecordedInitialTabPageView = false;
   Future<void>? _coldStartHomeTargetResolution;
   ValueListenable<int>? _sessionRevisionListenable;
   final Map<int, Widget> _tabPageCache = <int, Widget>{};
@@ -210,7 +211,10 @@ class _AppShellPageState extends State<AppShellPage>
   void _startPostLaunchWorkIfAllowed() {
     if (!AppStartupCoordinator.isPostLaunchWorkAllowed) return;
     if (!_coldStartHomeTargetResolved) return;
-    _recordSelectedTabPageView();
+    if (!_hasRecordedInitialTabPageView) {
+      _hasRecordedInitialTabPageView = true;
+      _recordSelectedTabPageView();
+    }
     _startMessagesPolling();
     if (_selectedIndex == 4 && _meTabActivationNotifier.value == 0) {
       _notifyActiveTabActivated();
