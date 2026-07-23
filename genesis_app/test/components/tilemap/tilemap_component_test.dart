@@ -762,6 +762,10 @@ void main() {
       find.byKey(const ValueKey<String>('tile-shadow-mask-1-0')),
       findsNothing,
     );
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-shadow-zero-restore-layer')),
+      findsNothing,
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -787,6 +791,21 @@ void main() {
       find.byKey(const ValueKey<String>('tilemap-shadow-zero-border-layer')),
       findsNothing,
     );
+    final restoreLayer = find.byKey(
+      const ValueKey<String>('tilemap-shadow-zero-restore-layer'),
+    );
+    expect(restoreLayer, findsOneWidget);
+    expect(tester.widget<IgnorePointer>(restoreLayer).ignoring, true);
+    expect(
+      find.byKey(const ValueKey<String>('tile-restore-0-0')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tile-restore-1-0')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey<String>('tile-0-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('tile-1-0')), findsOneWidget);
   });
 
   testWidgets('renderer reports network tile image failures', (tester) async {
