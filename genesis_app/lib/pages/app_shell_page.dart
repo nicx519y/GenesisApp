@@ -247,6 +247,8 @@ class _AppShellPageState extends State<AppShellPage>
       _selectedIndex = openHome ? 0 : 1;
       _homeInitialTabIndexOverride = openHome
           ? HomePage.myWorldsTabIndex
+          : hasSession
+          ? null
           : HomePage.popularTabIndex;
       _visitedTabIndexes
         ..clear()
@@ -463,9 +465,7 @@ class _AppShellPageState extends State<AppShellPage>
 
   void _handleSessionChanged() {
     if (!mounted) return;
-    // Normal navigation into Home starts at Popular. Cold-start routing sets
-    // My Worlds explicitly when its local cache exists.
-    _homeInitialTabIndexOverride = HomePage.popularTabIndex;
+    _homeInitialTabIndexOverride = null;
     _resetSessionBoundState(selectedIndex: _selectedIndex);
     final services = AppServicesScope.read(context);
     services.billing?.resetForSession();

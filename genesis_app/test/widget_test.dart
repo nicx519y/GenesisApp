@@ -102,6 +102,7 @@ import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparen
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_indicator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
@@ -4006,10 +4007,13 @@ void main() {
   });
 
   testWidgets(
-    'logged in cold start without My Worlds cache opens Worldo and Home Popular',
+    'logged in cold start without My Worlds cache resolves Home from API',
     (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
-      final transport = _RecordingV1ListTransport();
+      final worldListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldListCompleter: worldListCompleter,
+      );
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
@@ -4035,14 +4039,51 @@ void main() {
       expect(find.text('Worldo'), findsOneWidget);
 
       await tester.tap(find.text('Home'));
+      for (
+        var i = 0;
+        i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      final pendingTabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(pendingTabBar.labelColor, pendingTabBar.unselectedLabelColor);
+      expect(
+        (pendingTabBar.indicator! as GenesisFixedUnderlineIndicator).color,
+        Colors.transparent,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(find.text('My Worlds'), findsOneWidget);
+      expect(find.text('Popular'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsNothing);
+
+      worldListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'list': [transport._worldItem(0)],
+            'total': 1,
+          },
+        }),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('Popular'), findsOneWidget);
+      final controller = DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      );
+      expect(controller.index, HomePage.myWorldsTabIndex);
+      expect(find.text('World tick narrator 1'), findsOneWidget);
+      final worldRequest = transport.requestsFor('/api/v1/world/list').single;
+      expect(worldRequest.uri.queryParameters['scene'], 'mine');
+      expect(worldRequest.uri.queryParameters['pn'], '1');
+      expect(worldRequest.uri.queryParameters['rn'], '10');
     },
   );
 
   testWidgets(
-    'logged in cold start with empty My Worlds cache opens Worldo and Home Popular',
+    'logged in cold start with empty My Worlds cache refetches and opens Popular',
     (WidgetTester tester) async {
       SharedPreferences.setMockInitialValues(<String, Object>{
         '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
@@ -4050,7 +4091,7 @@ void main() {
           'total': 0,
         }),
       });
-      final transport = _RecordingV1ListTransport();
+      final transport = _RecordingV1ListTransport(worldListTotal: 0);
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
@@ -4078,7 +4119,25 @@ void main() {
       await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Popular'), findsOneWidget);
+      final controller = DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      );
+      expect(controller.index, HomePage.popularTabIndex);
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+      await tester.tap(find.text('My Worlds'));
+      await tester.pumpAndSettle();
+
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'home-my-worlds-empty-image:'
+            'assets/images/my_worlds_empty_worldo_launch.jpg',
+          ),
+        ),
+        findsOneWidget,
+      );
     },
   );
 
@@ -4123,6 +4182,89 @@ void main() {
       expect(find.text('Worldo'), findsNothing);
     },
   );
+
+  testWidgets('login session change resolves Home from My Worlds API', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
+      loginUser: const User(
+        id: 42,
+        uid: 'backend_uid',
+        did: '',
+        nickname: 'Backend User',
+        avatar: '',
+        createdAt: null,
+      ),
+    );
+    final worldListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldListCompleter: worldListCompleter,
+    );
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialUid: null,
+      sessionStoreOverride: sessionStore,
+      backendAuth: backendAuth,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 1)),
+      ),
+    );
+    await tester.pump();
+
+    await backendAuth.loginWithIdentity(
+        const AuthSession(
+          provider: IdentityProvider.google,
+          providerIdToken: 'google-token',
+          displayName: 'Identity User',
+          photoUrl: '',
+        ),
+    );
+    services.notifySessionChanged();
+    await tester.pump();
+
+    await tester.tap(find.text('Home'));
+    for (
+      var i = 0;
+      i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    final pendingTabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(pendingTabBar.labelColor, pendingTabBar.unselectedLabelColor);
+    expect(
+      (pendingTabBar.indicator! as GenesisFixedUnderlineIndicator).color,
+      Colors.transparent,
+    );
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+    worldListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': [transport._worldItem(0)],
+          'total': 1,
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    final controller = DefaultTabController.of(
+      tester.element(find.byType(TabBar)),
+    );
+    expect(controller.index, HomePage.myWorldsTabIndex);
+    expect(find.text('World tick narrator 1'), findsOneWidget);
+  });
 
   testWidgets('main tabs keep page state after switching away and back', (
     WidgetTester tester,

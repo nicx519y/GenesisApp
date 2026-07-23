@@ -134,9 +134,45 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<int> _initialTabIndexFromSession() async {
-    // Normal navigation into Home always starts at Popular. Cold-start
-    // routing is resolved by AppShell from the local My Worlds cache.
-    return HomePage.popularTabIndex;
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isEmpty || uid.startsWith('guest_')) {
+      return HomePage.popularTabIndex;
+    }
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    if (authToken.isEmpty) return HomePage.popularTabIndex;
+
+    final cacheStore = HomeFeedCacheStore(ownerUid: uid);
+    final cached = await cacheStore.load(HomeFeedCacheKind.myWorlds);
+    if (_hasMyWorldsData(cached)) {
+      _resolvedInitialMyWorldsData = cached;
+      return HomePage.myWorldsTabIndex;
+    }
+
+    try {
+      final data = await services.api.v1.world.list(
+        scene: 'mine',
+        pn: 1,
+        rn: 10,
+      );
+      _resolvedInitialMyWorldsData = data;
+      _ignoreHomeFeedCacheWrite(
+        cacheStore.save(HomeFeedCacheKind.myWorlds, data),
+      );
+      return _hasMyWorldsData(data)
+          ? HomePage.myWorldsTabIndex
+          : HomePage.popularTabIndex;
+    } catch (_) {
+      return HomePage.popularTabIndex;
+    }
+  }
+
+  bool _hasMyWorldsData(Map<String, dynamic>? data) {
+    if (data == null) return false;
+    final list = data['list'];
+    if (list is List && list.isNotEmpty) return true;
+    return asInt(data['total']) > 0;
   }
 
   @override
