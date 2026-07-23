@@ -289,23 +289,33 @@ class _OriginInitialDialogueSection extends StatelessWidget {
   }
 }
 
+String _originRoleCardAvatarUrl(BuildContext context, String sourceUrl) {
+  final roleCardWidth =
+      MediaQuery.sizeOf(context).width *
+      _OriginSetupRoleSection._cardWidthFactor;
+  return selectGenesisImageUrl(
+    sourceUrl,
+    logicalWidth: roleCardWidth,
+    logicalHeight: roleCardWidth,
+    devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+  ).trim();
+}
+
 class _OriginSetupRoleSection extends StatefulWidget {
   const _OriginSetupRoleSection({
     required this.characters,
     required this.launching,
     required this.onSelectRole,
-    required this.onLaunchCustomRole,
-    required this.onFillCustomRoleFromProfile,
+    required this.onCustomizeRole,
   });
 
   static const double _cardWidthFactor = 0.8;
-  static const double _buttonHeight = 88;
+  static const double _buttonHeight = 77;
 
   final List<OriginCharacter> characters;
   final bool launching;
   final Future<void> Function(OriginCharacter character) onSelectRole;
-  final Future<void> Function(OriginCustomRoleDraft role) onLaunchCustomRole;
-  final OriginRoleProfileLoader onFillCustomRoleFromProfile;
+  final VoidCallback onCustomizeRole;
 
   @override
   State<_OriginSetupRoleSection> createState() =>
@@ -313,19 +323,9 @@ class _OriginSetupRoleSection extends StatefulWidget {
 }
 
 class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
-  late final OriginCharacterForm _customForm = OriginCharacterForm.empty(
-    charId: 'inline_custom_role',
-  );
   final ScrollController _cardsController = ScrollController();
-  var _fillingProfile = false;
   var _currentCardIndex = 0;
   var _cardStride = 1.0;
-
-  bool get _customReady {
-    return _customForm.name.text.trim().isNotEmpty &&
-        _customForm.identity.text.trim().isNotEmpty &&
-        !_fillingProfile;
-  }
 
   @override
   void initState() {
@@ -346,7 +346,6 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   void dispose() {
     _cardsController.removeListener(_handleCardsScroll);
     _cardsController.dispose();
-    _customForm.dispose();
     super.dispose();
   }
 
@@ -359,66 +358,6 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     );
     if (nextIndex == _currentCardIndex || !mounted) return;
     setState(() => _currentCardIndex = nextIndex);
-  }
-
-  void _handleCustomChanged() {
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _fillCustomFromProfile() async {
-    if (_fillingProfile) return;
-    FocusScope.of(context).unfocus();
-    setState(() => _fillingProfile = true);
-    try {
-      final draft = await widget.onFillCustomRoleFromProfile();
-      if (!mounted || draft == null) return;
-      final name = draft.name.trim();
-      final identity = draft.identity.trim();
-      final bio = draft.bio.trim();
-      final avatar = draft.avatarUrl.trim();
-      if (name.isNotEmpty) {
-        _customForm.name.text = _limitInlineCustomRoleValue(
-          name,
-          originCharacterNameMaxLength,
-        );
-      }
-      if (identity.isNotEmpty) {
-        _customForm.identity.text = _limitInlineCustomRoleValue(
-          identity,
-          originCharacterIdentityMaxLength,
-        );
-      }
-      if (bio.isNotEmpty) {
-        _customForm.bio.text = _limitInlineCustomRoleValue(
-          bio,
-          originCharacterBioMaxLength,
-        );
-      }
-      _customForm.avatarUrl.text = avatar;
-    } finally {
-      if (mounted) setState(() => _fillingProfile = false);
-    }
-  }
-
-  void _launchCustomRole() {
-    if (_customForm.name.text.trim().isEmpty) {
-      showGenesisToast(context, 'Please enter a name');
-      return;
-    }
-    if (_customForm.identity.text.trim().isEmpty) {
-      showGenesisToast(context, 'Please enter an identity');
-      return;
-    }
-    unawaited(
-      widget.onLaunchCustomRole(
-        OriginCustomRoleDraft(
-          avatarUrl: _customForm.avatarUrl.text,
-          name: _customForm.name.text,
-          identity: _customForm.identity.text,
-          bio: _customForm.bio.text,
-        ),
-      ),
-    );
   }
 
   @override
@@ -437,7 +376,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 10),
             child: Text(
-              'Setup Your Role',
+              'Select Your Role',
               textAlign: TextAlign.left,
               style: TextStyle(
                 fontSize: 16,
@@ -465,16 +404,8 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                   return SizedBox(
                     width: cardWidth,
                     child: _OriginSetupCustomRoleCard(
-                      form: _customForm,
-                      cardWidth: cardWidth,
-                      buttonHeight: _OriginSetupRoleSection._buttonHeight,
                       launching: widget.launching,
-                      fillingProfile: _fillingProfile,
-                      canLaunch: _customReady,
-                      onChanged: _handleCustomChanged,
-                      onFillFromProfile: () =>
-                          unawaited(_fillCustomFromProfile()),
-                      onLaunch: _launchCustomRole,
+                      onTap: widget.onCustomizeRole,
                     ),
                   );
                 }
@@ -544,116 +475,56 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
 
 class _OriginSetupCustomRoleCard extends StatelessWidget {
   const _OriginSetupCustomRoleCard({
-    required this.form,
-    required this.cardWidth,
-    required this.buttonHeight,
     required this.launching,
-    required this.fillingProfile,
-    required this.canLaunch,
-    required this.onChanged,
-    required this.onFillFromProfile,
-    required this.onLaunch,
+    required this.onTap,
   });
 
-  final OriginCharacterForm form;
-  final double cardWidth;
-  final double buttonHeight;
   final bool launching;
-  final bool fillingProfile;
-  final bool canLaunch;
-  final VoidCallback onChanged;
-  final VoidCallback onFillFromProfile;
-  final VoidCallback onLaunch;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0x1F111111)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            SizedBox(
-              width: cardWidth,
-              height: cardWidth,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Custom Role',
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.2,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: OriginCustomRoleForm(
-                        key: const ValueKey<String>('origin-setup-custom-form'),
-                        form: form,
-                        fillingProfile: fillingProfile,
-                        canFillProfile: true,
-                        onChanged: onChanged,
-                        onFillFromProfile: onFillFromProfile,
-                      ),
-                    ),
-                  ],
+    return Material(
+      key: const ValueKey<String>('origin-setup-role-custom-card'),
+      color: const Color(0xCC000000),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0x1FFFFFFF)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: launching ? null : onTap,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text(
+                '+',
+                style: TextStyle(
+                  fontSize: 36,
+                  height: 1,
+                  fontWeight: FontWeight.w300,
+                  color: Colors.white,
+                  decoration: TextDecoration.none,
                 ),
               ),
-            ),
-            SizedBox(
-              height: buttonHeight,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 32, 10, 10),
-                child: Material(
-                  color: canLaunch
-                      ? GenesisColors.brand
-                      : const Color(0xFFC8D9D1),
-                  borderRadius: BorderRadius.circular(8),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    key: const ValueKey<String>(
-                      'origin-setup-role-custom-launch',
-                    ),
-                    onTap: launching || fillingProfile ? null : onLaunch,
-                    child: Center(
-                      child: Text(
-                        launching ? 'Launching...' : 'Launch',
-                        style: TextStyle(
-                          fontSize: 16,
-                          height: 1,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white.withValues(
-                            alpha: launching ? 0.6 : 1,
-                          ),
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ),
-                  ),
+              SizedBox(height: 8),
+              Text(
+                'Custom',
+                style: TextStyle(
+                  fontSize: 16,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  decoration: TextDecoration.none,
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
-
-String _limitInlineCustomRoleValue(String value, int maxLength) {
-  final characters = value.characters;
-  if (characters.length <= maxLength) return value;
-  return characters.take(maxLength).toString();
 }
 
 class _OriginSetupRoleCard extends StatefulWidget {
@@ -702,12 +573,10 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
     final character = widget.character;
     final cardWidth = widget.cardWidth;
     final buttonHeight = widget.buttonHeight;
-    final avatarUrl = selectGenesisImageUrl(
+    final avatarUrl = _originRoleCardAvatarUrl(
+      context,
       _resolveAssetUrl(character.avatar),
-      logicalWidth: cardWidth,
-      logicalHeight: cardWidth,
-      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-    ).trim();
+    );
     final stableId = _characterStableId(character);
 
     return ClipRRect(
@@ -1064,7 +933,10 @@ class _OriginSetupRoleImage extends StatelessWidget {
       height: height,
       fit: BoxFit.cover,
       alignment: alignment,
-      placeholder: (_) => fallback,
+      placeholder: (_) => ColoredBox(
+        color: const Color(0xFF202022),
+        child: SizedBox(width: width, height: height),
+      ),
       errorWidget: (_, _) => fallback,
     );
   }
@@ -1185,12 +1057,7 @@ class _OriginCharacterPortrait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedUrl = selectGenesisImageUrl(
-      url,
-      logicalWidth: _width,
-      logicalHeight: _width,
-      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-    ).trim();
+    final resolvedUrl = _originRoleCardAvatarUrl(context, url);
     final fallback = GenesisAvatarFallback(
       name: name,
       width: _width,

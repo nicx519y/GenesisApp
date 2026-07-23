@@ -94,6 +94,7 @@ class OriginRoleLaunchSelection {
 Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
   required BuildContext context,
   required List<OriginCharacter> characters,
+  bool initialCustomTab = false,
   OriginRoleProfileLoader? onFillFromProfile,
   OriginRoleAvatarResolver? resolveAvatarUrl,
   OriginLaunchedWorldsLoader? launchedWorldsLoader,
@@ -116,6 +117,7 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
               resizeToAvoidBottomInset: true,
               body: OriginRoleLaunchSheet(
                 characters: characters,
+                initialCustomTab: initialCustomTab,
                 onFillFromProfile: onFillFromProfile,
                 resolveAvatarUrl: resolveAvatarUrl,
                 launchedWorldsLoader: launchedWorldsLoader,
@@ -133,6 +135,7 @@ class OriginRoleLaunchSheet extends StatefulWidget {
   const OriginRoleLaunchSheet({
     super.key,
     required this.characters,
+    this.initialCustomTab = false,
     this.onFillFromProfile,
     this.resolveAvatarUrl,
     this.launchedWorldsLoader,
@@ -140,6 +143,7 @@ class OriginRoleLaunchSheet extends StatefulWidget {
   });
 
   final List<OriginCharacter> characters;
+  final bool initialCustomTab;
   final OriginRoleProfileLoader? onFillFromProfile;
   final OriginRoleAvatarResolver? resolveAvatarUrl;
   final OriginLaunchedWorldsLoader? launchedWorldsLoader;
@@ -164,6 +168,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialCustomTab) _tabIndex = 1;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
@@ -172,7 +177,9 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
     final initialLaunchedWorlds = widget.initialLaunchedWorlds;
     if (initialLaunchedWorlds != null) {
       _launchedWorlds = initialLaunchedWorlds;
-      if (initialLaunchedWorlds.isNotEmpty) _tabIndex = 2;
+      if (initialLaunchedWorlds.isNotEmpty && !widget.initialCustomTab) {
+        _tabIndex = 2;
+      }
     } else {
       _loadLaunchedWorlds();
     }
@@ -220,7 +227,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
       if (!mounted) return;
       setState(() {
         _launchedWorlds = worlds;
-        if (worlds.isNotEmpty) _tabIndex = 2;
+        if (worlds.isNotEmpty && !widget.initialCustomTab) _tabIndex = 2;
       });
     } catch (error, stackTrace) {
       debugPrint(

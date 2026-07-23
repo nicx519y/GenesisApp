@@ -20,7 +20,6 @@ import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
-import '../../components/origin/origin_character_form.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
@@ -219,6 +218,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   void _cacheLaunchWaitAvatars(OriginDetail origin) {
     final avatars = _launchWaitAvatarsFromOrigin(origin);
+    _precacheRoleCardAvatarImages(origin);
     _precacheLaunchWaitAvatarImages(avatars);
     if (_sameWaitAvatars(_launchWaitAvatars, avatars)) return;
     if (!mounted) {
@@ -256,17 +256,36 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       ).trim();
       if (resolvedUrl.isEmpty) continue;
       if (resolvedUrl.startsWith('assets/')) continue;
-      unawaited(_precacheLaunchAvatarFile(resolvedUrl));
+      unawaited(_precacheOriginAvatarFile(resolvedUrl));
     }
   }
 
-  Future<void> _precacheLaunchAvatarFile(String url) async {
+  void _precacheRoleCardAvatarImages(OriginDetail origin) {
+    final mediaQuery = MediaQuery.maybeOf(context);
+    if (mediaQuery == null) return;
+    final roleCardWidth =
+        mediaQuery.size.width * _OriginSetupRoleSection._cardWidthFactor;
+    final urls = origin.characters
+        .map(
+          (character) => selectGenesisImageUrl(
+            _resolveAssetUrl(character.avatar),
+            logicalWidth: roleCardWidth,
+            logicalHeight: roleCardWidth,
+            devicePixelRatio: mediaQuery.devicePixelRatio,
+          ).trim(),
+        )
+        .where((url) => url.isNotEmpty && !url.startsWith('assets/'))
+        .toSet();
+    for (final url in urls) {
+      unawaited(_precacheOriginAvatarFile(url));
+    }
+  }
+
+  Future<void> _precacheOriginAvatarFile(String url) async {
     try {
       await DefaultCacheManager().getSingleFile(url);
     } catch (error) {
-      debugPrint(
-        '[OriginWorldPage] launch avatar precache failed url="$url": $error',
-      );
+      debugPrint('[OriginWorldPage] avatar precache failed url="$url": $error');
     }
   }
 
@@ -433,22 +452,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     await _launchOrigin(origin, OriginRoleLaunchSelection.preset(characterId));
   }
 
-  Future<void> _selectAndLaunchCustomRole(
-    OriginDetail origin,
-    OriginCustomRoleDraft role,
-  ) async {
-    if (_launching) return;
-    if (!await ensureGenesisLogin(context)) return;
-    if (!mounted) return;
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'worldo_setup_custom_role_launch',
-      object1: origin.oid,
-    );
-    await _launchOrigin(origin, OriginRoleLaunchSelection.custom(role));
-  }
-
-  Future<void> _openLaunchRoleSheet(OriginDetail origin) async {
+  Future<void> _openLaunchRoleSheet(
+    OriginDetail origin, {
+    bool initialCustomTab = false,
+  }) async {
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: 'launch_sheet',
@@ -457,6 +464,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final selection = await showOriginRoleLaunchSheet(
       context: context,
       characters: origin.characters,
+      initialCustomTab: initialCustomTab,
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
       launchedWorldsLoader: () =>
@@ -786,9 +794,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                   launching: _launching,
                   onSelectRole: (character) =>
                       _selectAndLaunchPresetRole(origin, character),
-                  onLaunchCustomRole: (role) =>
-                      _selectAndLaunchCustomRole(origin, role),
-                  onFillCustomRoleFromProfile: _customRoleFromProfile,
+                  onCustomizeRole: () =>
+                      _openLaunchRoleSheet(origin, initialCustomTab: true),
                 ),
             bottomOverlay: _OriginBottomLaunchBar(
               origin: origin,

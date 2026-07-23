@@ -5215,6 +5215,27 @@ void main() {
   ) async {
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'approved',
+      originCharacters: const [
+        {
+          'char_id': 'c_o_test_1',
+          'type': 'ai',
+          'player_uid': '',
+          'player_username': '',
+          'name': 'Detail Character',
+          'identity': 'Guide',
+          'brief': 'Knows the path',
+          'description': 'A character from detail.',
+          'goal': '',
+          'avatar': {
+            'sm_url': 'https://cdn.example.com/avatar_180x180.jpg',
+            'xl_url': 'https://cdn.example.com/avatar_1080x1080.jpg',
+          },
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+          'metric_value': 0,
+          'delta': 0,
+        },
+      ],
     );
     await tester.pumpWidget(
       AppServicesScope(
@@ -5250,17 +5271,37 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('origin-setup-custom-form')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
-      find.byKey(const ValueKey<String>('origin-setup-role-custom-launch')),
+      find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
       findsOneWidget,
     );
+    final customCard = tester.widget<Material>(
+      find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
+    );
+    expect(customCard.color, const Color(0xCC000000));
+    final customPlus = tester.widget<Text>(find.text('+'));
+    final customLabel = tester.widget<Text>(find.text('Custom'));
+    expect(customPlus.style?.color, Colors.white);
+    expect(customLabel.style?.color, Colors.white);
     const roleId = 'c_o_test_1';
     final portrait = find.byKey(
       const ValueKey<String>('origin-setup-role-portrait-$roleId'),
     );
     expect(portrait, findsOneWidget);
+    final setupAvatarFinder = find.descendant(
+      of: portrait,
+      matching: find.byType(GenesisStaticNetworkImage),
+    );
+    expect(setupAvatarFinder, findsOneWidget);
+    final setupAvatar = tester.widget<GenesisStaticNetworkImage>(
+      setupAvatarFinder,
+    );
+    expect(
+      setupAvatar.placeholder!(tester.element(setupAvatarFinder)),
+      isA<ColoredBox>(),
+    );
     expect(
       find.descendant(of: portrait, matching: find.text('Guide')),
       findsOneWidget,
@@ -5304,11 +5345,23 @@ void main() {
     final roleActionBar = find.byKey(
       const ValueKey<String>('origin-setup-role-action-bar-$roleId'),
     );
-    expect(tester.getSize(roleActionBar).height, 88);
+    expect(tester.getSize(roleActionBar).height, 77);
     final selectSurface = tester.widget<Material>(
       find.byKey(
         const ValueKey<String>('origin-setup-role-select-surface-$roleId'),
       ),
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-setup-role-select-surface-$roleId',
+              ),
+            ),
+          )
+          .height,
+      35,
     );
     expect(selectSurface.color, const Color(0x667A7A7A));
     final selectLabel = tester.widget<Text>(
@@ -5319,6 +5372,7 @@ void main() {
         matching: find.text('Select to Launch'),
       ),
     );
+    expect(selectLabel.style?.fontSize, 16);
     expect(selectLabel.style?.fontWeight, FontWeight.w600);
     expect(
       find.descendant(of: roleToggle, matching: find.byType(InkWell)),
@@ -5392,7 +5446,7 @@ void main() {
       findsOneWidget,
     );
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey<String>('origin-setup-role-custom-launch')),
+      find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
       400,
       scrollable: find
           .descendant(
@@ -5408,8 +5462,24 @@ void main() {
       ),
       findsOneWidget,
     );
+    final bottomSheetScrollView = tester.widget<CustomScrollView>(
+      find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      ),
+    );
+    final bottomSheetScrollController = bottomSheetScrollView.controller!;
+    expect(
+      bottomSheetScrollController.position.maxScrollExtent,
+      greaterThan(0),
+    );
+    bottomSheetScrollController.jumpTo(
+      bottomSheetScrollController.position.maxScrollExtent,
+    );
+    await tester.pump();
+    expect(bottomSheetScrollController.offset, greaterThan(0));
     await tester.tap(find.text('Info.'));
     await tester.pumpAndSettle();
+    expect(bottomSheetScrollController.offset, 0);
     expect(
       find.byKey(const ValueKey<String>('origin-info-stats-row')),
       findsOneWidget,
@@ -5426,6 +5496,23 @@ void main() {
       find.byKey(const ValueKey<String>('origin-info-stat-character')),
       findsOneWidget,
     );
+    await tester.fling(
+      find.byKey(
+        const PageStorageKey<String>('origin-intro-o_test_1'),
+      ),
+      const Offset(0, -3000),
+      2000,
+    );
+    await tester.pumpAndSettle();
+    final infoAvatar = tester.widget<GenesisStaticNetworkImage>(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('origin-character-portrait-c_o_test_1'),
+        ),
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+    );
+    expect(infoAvatar.imageUrl, setupAvatar.imageUrl);
     await tester.tap(find.text('Map'));
     await tester.pumpAndSettle();
     final launchButtonFinder = find.widgetWithText(FilledButton, 'Launch');
@@ -5501,7 +5588,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Origin inline custom role launches without opening role sheet', (
+  testWidgets('Origin custom card opens custom role sheet and launches', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
@@ -5522,8 +5609,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final customCard = find.byKey(
+      const ValueKey<String>('origin-setup-role-custom-card'),
+    );
+    final customCardTapTarget = tester.widget<InkWell>(
+      find.descendant(of: customCard, matching: find.byType(InkWell)),
+    );
+    customCardTapTarget.onTap!();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('origin-role-sheet')), findsOneWidget);
     final customForm = find.byKey(
-      const ValueKey<String>('origin-setup-custom-form'),
+      const ValueKey<String>('origin-role-custom-tab'),
     );
     expect(customForm, findsOneWidget);
     final fields = find.descendant(
@@ -5536,12 +5633,7 @@ void main() {
     tester.widget<TextField>(fields.at(2)).controller!.text = 'Inline bio';
     await tester.pump();
 
-    final customLaunch = find.byKey(
-      const ValueKey<String>('origin-setup-role-custom-launch'),
-    );
-    await tester.ensureVisible(customLaunch);
-    await tester.pumpAndSettle();
-    await tester.tap(customLaunch);
+    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);

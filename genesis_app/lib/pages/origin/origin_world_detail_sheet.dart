@@ -11,8 +11,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onOriginChanged,
     required this.launching,
     required this.onSelectRole,
-    required this.onLaunchCustomRole,
-    required this.onFillCustomRoleFromProfile,
+    required this.onCustomizeRole,
   });
 
   static const double defaultInitialChildSize = 0.22;
@@ -24,8 +23,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final VoidCallback onOriginChanged;
   final bool launching;
   final Future<void> Function(OriginCharacter character) onSelectRole;
-  final Future<void> Function(OriginCustomRoleDraft role) onLaunchCustomRole;
-  final OriginRoleProfileLoader onFillCustomRoleFromProfile;
+  final VoidCallback onCustomizeRole;
 
   @override
   State<_OriginDetailDraggableSheet> createState() =>
@@ -41,6 +39,7 @@ class _OriginDetailDraggableSheetState
   static const _snapAnimationDuration = Duration(milliseconds: 260);
 
   late final DraggableScrollableController _sheetController;
+  ScrollController? _sheetScrollController;
   var _sheetExtent = 0.0;
 
   double get _minChildSize => widget.minChildSize.clamp(0.08, 0.42).toDouble();
@@ -107,6 +106,10 @@ class _OriginDetailDraggableSheetState
   void _collapseToMinChildSize() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_sheetController.isAttached) return;
+      final scrollController = _sheetScrollController;
+      if (scrollController != null && scrollController.hasClients) {
+        scrollController.jumpTo(0);
+      }
       final targetExtent = _minChildSize;
       if ((_sheetController.size - targetExtent).abs() <=
           _extentUpdateEpsilon) {
@@ -190,6 +193,7 @@ class _OriginDetailDraggableSheetState
           snap: true,
           snapAnimationDuration: _snapAnimationDuration,
           builder: (context, scrollController) {
+            _sheetScrollController = scrollController;
             return DecoratedBox(
               decoration: BoxDecoration(
                 color: _originDetailSheetBackgroundColor,
@@ -225,9 +229,7 @@ class _OriginDetailDraggableSheetState
                           characters: widget.origin.characters,
                           launching: widget.launching,
                           onSelectRole: widget.onSelectRole,
-                          onLaunchCustomRole: widget.onLaunchCustomRole,
-                          onFillCustomRoleFromProfile:
-                              widget.onFillCustomRoleFromProfile,
+                          onCustomizeRole: widget.onCustomizeRole,
                         ),
                       ),
                     ],
