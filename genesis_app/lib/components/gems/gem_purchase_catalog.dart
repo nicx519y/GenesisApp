@@ -7,6 +7,9 @@ import '../../platform/billing/billing_models.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 
+const double kGemProductCardHeight = 132;
+const double kGemPriceButtonHeight = 24;
+
 class GemPurchaseCatalogSection extends StatelessWidget {
   const GemPurchaseCatalogSection({
     super.key,
@@ -116,7 +119,7 @@ class GemProductGrid extends StatelessWidget {
           crossAxisCount: 3,
           crossAxisSpacing: 10,
           mainAxisSpacing: 12,
-          childAspectRatio: 105 / 142,
+          mainAxisExtent: kGemProductCardHeight,
         ),
         itemBuilder: (context, index) {
           final product = products[index];
@@ -152,7 +155,6 @@ class GemProductCard extends StatelessWidget {
     final isSoldOut = isNewUserProduct && !product.canPurchase;
     final tag = product.tagText;
     final hasBonusGems = product.bonusGems > 0;
-    final priceButtonBottom = hasBonusGems ? 10.0 : 34.0;
     final defaultTagColor = isNewUserProduct
         ? const Color(0xFFE85C39)
         : const Color(0xFFB53B52);
@@ -276,8 +278,8 @@ class GemProductCard extends StatelessWidget {
                   Positioned(
                     left: 10,
                     right: 10,
-                    bottom: priceButtonBottom,
-                    height: 24,
+                    bottom: 10,
+                    height: kGemPriceButtonHeight,
                     child: Container(
                       key: ValueKey<String>(
                         'gem-product-price-${product.productId}',
