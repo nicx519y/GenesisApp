@@ -299,7 +299,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
   });
 
   static const double _cardWidthFactor = 0.8;
-  static const double _buttonHeight = 58;
+  static const double _buttonHeight = 88;
 
   final List<OriginCharacter> characters;
   final bool launching;
@@ -612,26 +612,31 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
             ),
             SizedBox(
               height: buttonHeight,
-              child: Material(
-                color: canLaunch
-                    ? GenesisColors.brand
-                    : const Color(0xFFC8D9D1),
-                child: InkWell(
-                  key: const ValueKey<String>(
-                    'origin-setup-role-custom-launch',
-                  ),
-                  onTap: launching || fillingProfile ? null : onLaunch,
-                  child: Center(
-                    child: Text(
-                      launching ? 'Launching...' : 'Launch',
-                      style: TextStyle(
-                        fontSize: 16,
-                        height: 1,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(
-                          alpha: launching ? 0.6 : 1,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 32, 10, 10),
+                child: Material(
+                  color: canLaunch
+                      ? GenesisColors.brand
+                      : const Color(0xFFC8D9D1),
+                  borderRadius: BorderRadius.circular(8),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    key: const ValueKey<String>(
+                      'origin-setup-role-custom-launch',
+                    ),
+                    onTap: launching || fillingProfile ? null : onLaunch,
+                    child: Center(
+                      child: Text(
+                        launching ? 'Launching...' : 'Launch',
+                        style: TextStyle(
+                          fontSize: 16,
+                          height: 1,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(
+                            alpha: launching ? 0.6 : 1,
+                          ),
+                          decoration: TextDecoration.none,
                         ),
-                        decoration: TextDecoration.none,
                       ),
                     ),
                   ),
@@ -671,10 +676,25 @@ class _OriginSetupRoleCard extends StatefulWidget {
 }
 
 class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
+  final ScrollController _detailsController = ScrollController(
+    keepScrollOffset: false,
+  );
   var _showDetails = false;
 
   void _toggleDetails() {
-    setState(() => _showDetails = !_showDetails);
+    final showDetails = !_showDetails;
+    setState(() => _showDetails = showDetails);
+    if (!showDetails) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_detailsController.hasClients) return;
+      _detailsController.jumpTo(0);
+    });
+  }
+
+  @override
+  void dispose() {
+    _detailsController.dispose();
+    super.dispose();
   }
 
   @override
@@ -716,6 +736,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                               'origin-setup-role-details-$stableId',
                             ),
                             character: character,
+                            controller: _detailsController,
                           )
                         : _OriginSetupRolePortrait(
                             key: ValueKey<String>(
@@ -726,42 +747,11 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                             cardWidth: cardWidth,
                           ),
                   ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 2,
-                    child: Center(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          key: ValueKey<String>(
-                            'origin-setup-role-toggle-$stableId',
-                          ),
-                          onTap: _toggleDetails,
-                          customBorder: const CircleBorder(),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Icon(
-                              _showDetails
-                                  ? Icons.keyboard_arrow_up_rounded
-                                  : Icons.keyboard_arrow_down_rounded,
-                              key: ValueKey<String>(
-                                _showDetails
-                                    ? 'origin-setup-role-arrow-up-$stableId'
-                                    : 'origin-setup-role-arrow-down-$stableId',
-                              ),
-                              size: 28,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
             SizedBox(
+              key: ValueKey<String>('origin-setup-role-action-bar-$stableId'),
               height: buttonHeight,
               child: Stack(
                 fit: StackFit.expand,
@@ -782,28 +772,68 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                     ),
                   ),
                   ColoredBox(color: Colors.black.withValues(alpha: 0.28)),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      key: ValueKey<String>('origin-setup-role-$stableId'),
-                      onTap: widget.launching ? null : widget.onSelect,
-                      child: Center(
-                        child: Text(
-                          widget.launching
-                              ? 'Launching...'
-                              : 'Select to Launch',
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(
-                              alpha: widget.launching ? 0.6 : 1,
+                  Column(
+                    children: [
+                      SizedBox(
+                        height: 32,
+                        child: GestureDetector(
+                          key: ValueKey<String>(
+                            'origin-setup-role-toggle-$stableId',
+                          ),
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _toggleDetails,
+                          child: Center(
+                            child: Icon(
+                              _showDetails
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              key: ValueKey<String>(
+                                _showDetails
+                                    ? 'origin-setup-role-arrow-up-$stableId'
+                                    : 'origin-setup-role-arrow-down-$stableId',
+                              ),
+                              size: 32,
+                              color: const Color(0xFF999999),
                             ),
-                            decoration: TextDecoration.none,
                           ),
                         ),
                       ),
-                    ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                          child: Material(
+                            key: ValueKey<String>(
+                              'origin-setup-role-select-surface-$stableId',
+                            ),
+                            color: const Color(0x667A7A7A),
+                            borderRadius: BorderRadius.circular(8),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              key: ValueKey<String>(
+                                'origin-setup-role-$stableId',
+                              ),
+                              onTap: widget.launching ? null : widget.onSelect,
+                              child: Center(
+                                child: Text(
+                                  widget.launching
+                                      ? 'Launching...'
+                                      : 'Select to Launch',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    height: 1,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white.withValues(
+                                      alpha: widget.launching ? 0.6 : 1,
+                                    ),
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -855,7 +885,7 @@ class _OriginSetupRolePortrait extends StatelessWidget {
         Positioned(
           left: 16,
           right: 16,
-          bottom: 42,
+          bottom: 16,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -894,20 +924,39 @@ class _OriginSetupRolePortrait extends StatelessWidget {
 }
 
 class _OriginSetupRoleDetails extends StatelessWidget {
-  const _OriginSetupRoleDetails({super.key, required this.character});
+  const _OriginSetupRoleDetails({
+    super.key,
+    required this.character,
+    required this.controller,
+  });
 
   final OriginCharacter character;
+  final ScrollController controller;
 
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
       color: const Color(0xFF202022),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
+        key: ValueKey<String>(
+          'origin-setup-role-details-scroll-${_characterStableId(character)}',
+        ),
+        controller: controller,
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _OriginSetupRoleDetailField(label: 'Name', value: character.name),
+            Text(
+              character.name.trim().isEmpty ? '—' : character.name.trim(),
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                decoration: TextDecoration.none,
+              ),
+            ),
+            const SizedBox(height: 14),
             _OriginSetupRoleDetailField(
               label: 'Identity',
               value: character.tags,
@@ -962,7 +1011,7 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
             displayValue,
             softWrap: true,
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               height: 1.4,
               fontWeight: FontWeight.w400,
               color: Colors.white,

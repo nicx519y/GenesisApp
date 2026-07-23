@@ -5292,6 +5292,46 @@ void main() {
     final roleToggle = find.byKey(
       const ValueKey<String>('origin-setup-role-toggle-$roleId'),
     );
+    expect(
+      find.ancestor(
+        of: roleToggle,
+        matching: find.byKey(
+          const ValueKey<String>('origin-setup-role-action-bar-$roleId'),
+        ),
+      ),
+      findsOneWidget,
+    );
+    final roleActionBar = find.byKey(
+      const ValueKey<String>('origin-setup-role-action-bar-$roleId'),
+    );
+    expect(tester.getSize(roleActionBar).height, 88);
+    final selectSurface = tester.widget<Material>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-select-surface-$roleId'),
+      ),
+    );
+    expect(selectSurface.color, const Color(0x667A7A7A));
+    final selectLabel = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('origin-setup-role-select-surface-$roleId'),
+        ),
+        matching: find.text('Select to Launch'),
+      ),
+    );
+    expect(selectLabel.style?.fontWeight, FontWeight.w600);
+    expect(
+      find.descendant(of: roleToggle, matching: find.byType(InkWell)),
+      findsNothing,
+    );
+    final downArrow = tester.widget<Icon>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-arrow-down-$roleId'),
+      ),
+    );
+    expect(downArrow.size, 32);
+    expect(downArrow.color, const Color(0xFF999999));
+    expect(find.descendant(of: portrait, matching: roleToggle), findsNothing);
     await tester.ensureVisible(roleToggle);
     await tester.pumpAndSettle();
     await tester.tap(roleToggle);
@@ -5302,8 +5342,12 @@ void main() {
     expect(details, findsOneWidget);
     expect(
       find.descendant(of: details, matching: find.text('Name')),
-      findsOneWidget,
+      findsNothing,
     );
+    final detailName = tester.widget<Text>(
+      find.descendant(of: details, matching: find.text('Detail Character')),
+    );
+    expect(detailName.style?.fontSize, 14);
     expect(
       find.descendant(of: details, matching: find.text('Identity')),
       findsOneWidget,
@@ -5320,6 +5364,20 @@ void main() {
       find.descendant(of: details, matching: find.text('Knows the path')),
       findsOneWidget,
     );
+    final identityLabel = tester.widget<Text>(
+      find.descendant(of: details, matching: find.text('Identity')),
+    );
+    final detailIdentity = tester.widget<Text>(
+      find.descendant(of: details, matching: find.text('Guide')),
+    );
+    expect(identityLabel.style?.fontSize, 11);
+    expect(detailIdentity.style?.fontSize, 13);
+    final detailsScroll = tester.widget<SingleChildScrollView>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-details-scroll-$roleId'),
+      ),
+    );
+    expect(detailsScroll.controller?.offset, 0);
     expect(
       find.byKey(const ValueKey<String>('origin-setup-role-arrow-up-$roleId')),
       findsOneWidget,
@@ -5336,7 +5394,12 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey<String>('origin-setup-role-custom-launch')),
       400,
-      scrollable: find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     await tester.pumpAndSettle();
     expect(
