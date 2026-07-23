@@ -5591,7 +5591,29 @@ void main() {
             home: Scaffold(
               body: Padding(
                 padding: const EdgeInsets.all(12),
-                child: const CopyWorldProgressSection(originId: 'o_test_1'),
+                child: const CopyWorldProgressSection(
+                  originId: 'o_test_1',
+                  summaries: <WorldSummaryLatestItem>[
+                    WorldSummaryLatestItem(
+                      worldId: 'w_summary_1',
+                      originId: 'o_test_1',
+                      tickNo: 4,
+                      summary:
+                          'First copied world progress summary for o_test_1.',
+                      tickTime: 1771420800000,
+                      createdAt: 1771420800000,
+                    ),
+                    WorldSummaryLatestItem(
+                      worldId: 'w_summary_2',
+                      originId: 'o_test_1',
+                      tickNo: 5,
+                      summary:
+                          'Second copied world progress summary for o_test_1.',
+                      tickTime: 1771420800000,
+                      createdAt: 1771420800000,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -5599,18 +5621,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final summaryRequests = transport.requestsFor(
-        '/api/v1/world/summary/latest',
-      );
-      expect(summaryRequests, hasLength(1));
-      expect(
-        summaryRequests.single.uri.queryParameters['origin_id'],
-        'o_test_1',
-      );
-      expect(
-        summaryRequests.single.uri.queryParameters.containsKey('world_id'),
-        isFalse,
-      );
+      expect(transport.requestsFor('/api/v1/world/summary/latest'), isEmpty);
       expect(
         find.text('First copied world progress summary for o_test_1.'),
         findsOneWidget,
@@ -5679,7 +5690,29 @@ void main() {
           home: const Scaffold(
             body: Padding(
               padding: EdgeInsets.all(12),
-              child: CopyWorldProgressSection(originId: 'o_test_1'),
+              child: CopyWorldProgressSection(
+                originId: 'o_test_1',
+                summaries: <WorldSummaryLatestItem>[
+                  WorldSummaryLatestItem(
+                    worldId: 'w_summary_1',
+                    originId: 'o_test_1',
+                    tickNo: 4,
+                    summary:
+                        'First copied world progress summary for o_test_1.',
+                    tickTime: 1771420800000,
+                    createdAt: 1771420800000,
+                  ),
+                  WorldSummaryLatestItem(
+                    worldId: 'w_summary_2',
+                    originId: 'o_test_1',
+                    tickNo: 5,
+                    summary:
+                        'Second copied world progress summary for o_test_1.',
+                    tickTime: 1771420800000,
+                    createdAt: 1771420800000,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -5727,7 +5760,20 @@ void main() {
                 width: 180,
                 child: Padding(
                   padding: EdgeInsets.all(12),
-                  child: CopyWorldProgressSection(originId: 'o_test_1'),
+                  child: CopyWorldProgressSection(
+                    originId: 'o_test_1',
+                    summaries: <WorldSummaryLatestItem>[
+                      WorldSummaryLatestItem(
+                        worldId: 'w_summary_cn',
+                        originId: 'o_test_1',
+                        tickNo: 5,
+                        summary:
+                            '第一行中文进展会占满一整行，第二行继续描述角色行动，第三行写地点变化，第四行补充冲突，第五行保留结尾。',
+                        tickTime: 1771420800000,
+                        createdAt: 1771420800000,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

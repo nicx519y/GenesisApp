@@ -798,7 +798,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
     if (messages.isEmpty) {
       return ListView(
         controller: controller,
-        physics: const ClampingScrollPhysics(),
+        physics: const ChatBottomAnchoringScrollPhysics(),
         keyboardDismissBehavior:
             keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
         padding: style.messageListPadding,
@@ -830,7 +830,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
               : 0.0;
           return SingleChildScrollView(
             controller: controller,
-            physics: const ClampingScrollPhysics(),
+            physics: const ChatBottomAnchoringScrollPhysics(),
             keyboardDismissBehavior:
                 keyboardDismissBehavior ??
                 ScrollViewKeyboardDismissBehavior.manual,
@@ -862,7 +862,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
     return CustomScrollView(
       controller: controller,
       center: _bottomSliverKey,
-      physics: const ClampingScrollPhysics(),
+      physics: const ChatBottomAnchoringScrollPhysics(),
       keyboardDismissBehavior:
           keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
       slivers: [
@@ -937,6 +937,43 @@ class ChatAnchoredMessageList extends StatelessWidget {
       showDateDivider:
           showDateDividers &&
           shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
+    );
+  }
+}
+
+class ChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
+  const ChatBottomAnchoringScrollPhysics({
+    super.parent,
+    this.bottomTolerance = 24,
+  });
+
+  final double bottomTolerance;
+
+  @override
+  ChatBottomAnchoringScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return ChatBottomAnchoringScrollPhysics(
+      parent: buildParent(ancestor),
+      bottomTolerance: bottomTolerance,
+    );
+  }
+
+  @override
+  double adjustPositionForNewDimensions({
+    required ScrollMetrics oldPosition,
+    required ScrollMetrics newPosition,
+    required bool isScrolling,
+    required double velocity,
+  }) {
+    final wasNearBottom =
+        oldPosition.maxScrollExtent - newPosition.pixels <= bottomTolerance;
+    if (wasNearBottom) {
+      return newPosition.maxScrollExtent;
+    }
+    return super.adjustPositionForNewDimensions(
+      oldPosition: oldPosition,
+      newPosition: newPosition,
+      isScrolling: isScrolling,
+      velocity: velocity,
     );
   }
 }

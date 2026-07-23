@@ -1,9 +1,14 @@
 part of 'origin_world_page.dart';
 
 class CopyWorldProgressSection extends StatefulWidget {
-  const CopyWorldProgressSection({super.key, required this.originId});
+  const CopyWorldProgressSection({
+    super.key,
+    required this.originId,
+    this.summaries = const <WorldSummaryLatestItem>[],
+  });
 
   final String originId;
+  final List<WorldSummaryLatestItem> summaries;
 
   @override
   State<CopyWorldProgressSection> createState() =>
@@ -14,55 +19,24 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
   static const _rotationInterval = Duration(seconds: 8);
 
   Timer? _timer;
-  var _summaries = const <WorldSummaryLatestItem>[];
   var _visibleIndex = 0;
-  var _didLoadSummaries = false;
 
   @override
   void initState() {
     super.initState();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_didLoadSummaries) return;
-    _didLoadSummaries = true;
-    unawaited(_loadSummaries());
+    _applySummaries(widget.summaries);
   }
 
   @override
   void didUpdateWidget(covariant CopyWorldProgressSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.originId != widget.originId) {
-      _timer?.cancel();
-      _summaries = const <WorldSummaryLatestItem>[];
-      _visibleIndex = 0;
-      unawaited(_loadSummaries());
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadSummaries() async {
-    final originId = widget.originId.trim();
-    if (originId.isEmpty) {
-      _applySummaries(const <WorldSummaryLatestItem>[]);
+      _hiddenWorldIds.clear();
+      _applySummaries(widget.summaries);
       return;
     }
-    try {
-      final summaries = await AppServicesScope.read(
-        context,
-      ).api.getLatestWorldSummaries(originId: originId);
-      if (!mounted || widget.originId.trim() != originId) return;
-      _applySummaries(summaries);
-    } catch (_) {
-      if (!mounted || widget.originId.trim() != originId) return;
-      _applySummaries(const <WorldSummaryLatestItem>[]);
+    if (!_sameSummaries(oldWidget.summaries, widget.summaries)) {
+      _applySummaries(widget.summaries);
     }
   }
 
@@ -72,16 +46,42 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
         .where((item) => item.summary.trim().isNotEmpty)
         .toList(growable: false);
     setState(() {
-      _summaries = visible;
       _visibleIndex = 0;
     });
     if (visible.length <= 1) return;
     _timer = Timer.periodic(_rotationInterval, (_) {
-      if (!mounted || _summaries.length <= 1) return;
+      if (!mounted || visible.length <= 1) return;
       setState(() {
-        _visibleIndex = (_visibleIndex + 1) % _summaries.length;
+        _visibleIndex = (_visibleIndex + 1) % visible.length;
       });
     });
+  }
+
+  bool _sameSummaries(
+    List<WorldSummaryLatestItem> a,
+    List<WorldSummaryLatestItem> b,
+  ) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var index = 0; index < a.length; index++) {
+      final left = a[index];
+      final right = b[index];
+      if (left.worldId != right.worldId ||
+          left.tickNo != right.tickNo ||
+          left.tickTime != right.tickTime ||
+          left.createdAt != right.createdAt ||
+          left.summary != right.summary ||
+          left.deleted != right.deleted) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   Future<void> _openWorld(WorldSummaryLatestItem item) async {
@@ -92,17 +92,22 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
     if (!mounted || result == null) return;
     final deletedWorldId = result.deletedWorldId.trim();
     if (deletedWorldId.isEmpty) return;
-    _applySummaries(
-      _summaries
-          .where((summary) => summary.worldId.trim() != deletedWorldId)
-          .toList(growable: false),
-    );
+    // The page owns the loaded data. A deleted world is simply hidden for the
+    // lifetime of this section instead of causing another network refresh.
+    _hiddenWorldIds.add(deletedWorldId);
+    setState(() {});
   }
+
+  final _hiddenWorldIds = <String>{};
 
   @override
   Widget build(BuildContext context) {
-    final summaryIndex = _visibleIndex >= _summaries.length ? 0 : _visibleIndex;
-    final summary = _summaries.isEmpty ? null : _summaries[summaryIndex];
+    final summaries = widget.summaries
+        .where((item) => !_hiddenWorldIds.contains(item.worldId.trim()))
+        .where((item) => item.summary.trim().isNotEmpty)
+        .toList(growable: false);
+    final summaryIndex = _visibleIndex >= summaries.length ? 0 : _visibleIndex;
+    final summary = summaries.isEmpty ? null : summaries[summaryIndex];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,32 +165,17 @@ class _CopyWorldProgressCard extends StatelessWidget {
           SizedBox(
             key: const ValueKey('copy-world-progress-body'),
             height: _bodyHeight,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 520),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              layoutBuilder: (currentChild, previousChildren) {
-                return Stack(
-                  alignment: Alignment.topLeft,
-                  clipBehavior: Clip.none,
-                  children: [
-                    ...previousChildren,
-                    if (currentChild != null) currentChild,
-                  ],
-                );
-              },
-              child: Text(
-                body,
-                key: ValueKey(item.worldId),
-                maxLines: 5,
-                overflow: TextOverflow.ellipsis,
-                strutStyle: _bodyStrutStyle,
-                style: const TextStyle(
-                  fontSize: _bodyFontSize,
-                  height: _bodyLineHeight,
-                  fontWeight: FontWeight.w400,
-                  color: Color(0xFF111111),
-                ),
+            child: Text(
+              body,
+              key: ValueKey(item.worldId),
+              maxLines: 5,
+              overflow: TextOverflow.ellipsis,
+              strutStyle: _bodyStrutStyle,
+              style: const TextStyle(
+                fontSize: _bodyFontSize,
+                height: _bodyLineHeight,
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF111111),
               ),
             ),
           ),

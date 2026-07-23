@@ -117,6 +117,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   final OriginLaunchCoordinator _launchCoordinator =
       OriginLaunchCoordinator.instance;
   Future<OriginDetail>? _future;
+  Future<void>? _copyWorldProgressFuture;
+  List<WorldSummaryLatestItem> _copyWorldProgressSummaries =
+      const <WorldSummaryLatestItem>[];
   Future<List<OriginLaunchedWorldRole>>? _launchedWorldsFuture;
   List<OriginLaunchedWorldRole>? _preloadedLaunchedWorlds;
   bool _launching = false;
@@ -147,6 +150,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _future ??= _loadOriginDetail();
+    _copyWorldProgressFuture ??= _loadCopyWorldProgress();
     if (!_didResumePendingLaunch) {
       _didResumePendingLaunch = true;
       _resumePendingLaunch();
@@ -160,6 +164,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _launchedWorldsFuture = null;
       _preloadedLaunchedWorlds = null;
       _future = _loadOriginDetail();
+      _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
+      _copyWorldProgressFuture = _loadCopyWorldProgress();
       _activeChatLocation = null;
       _showLocationPage = false;
       _tabController.index = 0;
@@ -195,6 +201,22 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     _cacheLaunchWaitAvatars(origin);
     _preloadLaunchedWorlds(origin);
     return origin;
+  }
+
+  Future<void> _loadCopyWorldProgress() async {
+    final originId = widget.oid.trim();
+    if (originId.isEmpty) return;
+    try {
+      final summaries = await AppServicesScope.read(
+        context,
+      ).api.getLatestWorldSummaries(originId: originId);
+      if (!mounted || widget.oid.trim() != originId) return;
+      setState(() => _copyWorldProgressSummaries = summaries);
+    } catch (error) {
+      debugPrint(
+        '[OriginWorldPage] copy world progress preload failed: $error',
+      );
+    }
   }
 
   void _preloadLaunchedWorlds(OriginDetail origin) {
@@ -282,6 +304,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void _refreshOriginDetail() {
     setState(() {
       _future = _loadOriginDetail();
+      _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
+      _copyWorldProgressFuture = _loadCopyWorldProgress();
     });
   }
 
@@ -746,6 +770,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             bottomSheetOverlayBuilder: (minChildSize) =>
                 _OriginDetailDraggableSheet(
                   origin: origin,
+                  copyWorldProgressSummaries: _copyWorldProgressSummaries,
                   baseStatusBarStyle: _baseStatusBarStyle,
                   minChildSize: minChildSize,
                   collapseRequest: _detailSheetCollapseRequest,

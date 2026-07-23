@@ -1016,12 +1016,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     }
     if (changedMessages && _composerFocusBottomPinActive) {
       _clearUnseenIncomingCount();
-      _scheduleComposerFocusBottomPin();
+      if (!wasAtBottom) _scheduleComposerFocusBottomPin();
       return;
     }
     if (changedMessages && wasAtBottom) {
       _clearUnseenIncomingCount();
-      _keepBottomAfterLayoutIfNeeded();
     } else if (changedMessages &&
         previousLatestLocalId.isNotEmpty &&
         _latestMessageLocalId() != previousLatestLocalId) {

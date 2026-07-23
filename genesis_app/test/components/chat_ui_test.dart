@@ -307,6 +307,101 @@ void main() {
     },
   );
 
+  testWidgets('anchored message list pins bottom while last bubble grows', (
+    WidgetTester tester,
+  ) async {
+    final controller = ScrollController();
+    final messages = chatMessages(1, 24);
+    final style = ChatUiStyleConfig.standard.copyWith(
+      messageListPadding: EdgeInsets.zero,
+    );
+
+    Widget build() {
+      return MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 360,
+            child: ChatAnchoredMessageList(
+              controller: controller,
+              messages: messages,
+              centerLocalId: 'm10',
+              topTitle: '',
+              showDateDividers: false,
+              style: style,
+            ),
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pump();
+
+    final lastMessage = find.byKey(const ValueKey<String>('m24'));
+    final bottomBefore = tester.getBottomLeft(lastMessage).dy;
+
+    messages.last.text = List.filled(
+      16,
+      'streaming content keeps growing',
+    ).join('\n');
+    await tester.pumpWidget(build());
+
+    expect(
+      controller.position.pixels,
+      closeTo(controller.position.maxScrollExtent, 0.1),
+    );
+    expect(tester.getBottomLeft(lastMessage).dy, closeTo(bottomBefore, 1));
+  });
+
+  testWidgets(
+    'anchored message list preserves position when last bubble grows away from bottom',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final messages = chatMessages(1, 24);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build() {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: ChatAnchoredMessageList(
+                controller: controller,
+                messages: messages,
+                centerLocalId: '',
+                topTitle: '',
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      controller.jumpTo(controller.position.maxScrollExtent - 120);
+      await tester.pump();
+      final pixelsBefore = controller.position.pixels;
+
+      messages.last.text = List.filled(
+        16,
+        'streaming content keeps growing',
+      ).join('\n');
+      await tester.pumpWidget(build());
+
+      expect(controller.position.pixels, closeTo(pixelsBefore, 0.1));
+      expect(
+        controller.position.pixels,
+        lessThan(controller.position.maxScrollExtent),
+      );
+    },
+  );
+
   testWidgets('chat message list shows first divider and long gaps', (
     WidgetTester tester,
   ) async {
