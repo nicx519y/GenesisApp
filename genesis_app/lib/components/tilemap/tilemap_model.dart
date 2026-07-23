@@ -12,15 +12,18 @@ class TilemapCell {
     required this.x,
     required this.y,
     required this.type,
+    this.shadow = 0,
     this.locationId,
   });
 
   final int x;
   final int y;
   final String type;
+  final int shadow;
   final String? locationId;
 
   String get cellKey => '$x,$y';
+  bool get hasShadow => shadow == 1;
   bool get isLocationTile => locationId?.trim().isNotEmpty == true;
 }
 
@@ -97,6 +100,11 @@ class TilemapConfig {
       }
       if (!resolvedTileTypes.containsKey(tile.type)) {
         throw TilemapConfigException('Unknown tile type: ${tile.type}.');
+      }
+      if (tile.shadow != 0 && tile.shadow != 1) {
+        throw TilemapConfigException(
+          'Tile shadow must be 0 or 1: ${tile.x},${tile.y}.',
+        );
       }
       if (tile.x >= width || tile.y >= height) {
         throw TilemapConfigException(

@@ -545,6 +545,7 @@ Query：
           "x": 0,
           "y": 0,
           "type": "L3_classroom__modern_v4",
+          "shadow": 1,
           "location_id": "loc_1"
         }
       ]
@@ -560,6 +561,7 @@ Query：
   - `MapTile.x`: integer，瓦片横坐标
   - `MapTile.y`: integer，瓦片纵坐标
   - `MapTile.type`: string，对应 `tile_types` 中的 key
+  - `MapTile.shadow`: integer，`0` 表示保持原始亮度并参与组成明亮地块边界，`1` 表示处于边界外的迷雾图层区域；迷雾覆盖整个可见网格，从边界透明开始，随距离增加逐渐变暗，远端达到纯黑
   - `MapTile.location_id`: string，可选；瓦片关联的 location ID
 - 旧版地图：`{}`
 
@@ -821,6 +823,7 @@ Query：
           "x": 0,
           "y": 0,
           "type": "L3_classroom__modern_v4",
+          "shadow": 1,
           "location_id": "loc_1"
         }
       ]
@@ -836,6 +839,7 @@ Query：
   - `MapTile.x`: integer，瓦片横坐标
   - `MapTile.y`: integer，瓦片纵坐标
   - `MapTile.type`: string，对应 `tile_types` 中的 key
+  - `MapTile.shadow`: integer，`0` 表示保持原始亮度并参与组成明亮地块边界，`1` 表示处于边界外的迷雾图层区域；迷雾覆盖整个可见网格，从边界透明开始，随距离增加逐渐变暗，远端达到纯黑
   - `MapTile.location_id`: string，可选；瓦片关联的 location ID
 - 旧版地图：`{}`
 
@@ -1702,7 +1706,7 @@ query：
 | `GET /api/v1/world/list` | `WorldV1Api.list` query 已使用 `scene/tag/origin_id/uid/keyword/pn/rn`；自有数据只传 `scene=mine`，指定用户数据传 `scene=uid&uid=...`，标签数据传 `scene=tag&tag=...`；首页和个人 world 列表可消费 `list[].info + stats`。 |
 | `GET /api/v1/world/info` | 已新增 `WorldV1Api.info(worldId)` 与 `GenesisApi.getWorldInfo(wid)`，query 使用 `world_id`；响应消费 `info + stats`，不期待 `relation_status/characters/locations/ticks`。 |
 | `GET /api/v1/world/detail` | `WorldV1Api.detail` query 只使用 `world_id`；详情 mapper 消费 `info.definition_version`、`info.metric`、`relation_status` 与 `locations[].location_description/location_paragraph/location_timestamp/dialogue`；地图 JSON 按需通过 `/world/map` 获取，完整 tick 列表通过 `/world/tick/list` 获取。 |
-| `GET /api/v1/world/map` | 已新增 `WorldV1Api.map(worldId,locationId)` 与 `GenesisApi.getWorldMap(...)`，query 使用 `world_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
+| `GET /api/v1/world/map` | 已新增 `WorldV1Api.map(worldId,locationId)` 与 `GenesisApi.getWorldMap(...)`，query 使用 `world_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/shadow/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
 | `GET /api/v1/world/tick/list` | 已新增 `WorldV1Api.tickList(worldId,pn,rn)` 与 `GenesisApi.getWorldTicks(wid,limit,offset)`；query 使用 `world_id/pn/rn`，响应按 `Tick` 列表规范化并保持最新 tick 在前。 |
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
@@ -1718,7 +1722,7 @@ query：
 | `GET /api/v1/origin/hot_tags` | 已新增 `OriginV1Api.hotTags`，响应消费 `data.list` 字符串数组；`OriginPage` 固定首个 `For you` tab，其余 tabs 来自热门标签接口并缓存在本地，本地 mock 返回同形状数据。 |
 | `GET /api/v1/origin/info` | 已新增 `OriginV1Api.info(originId)` 与 `GenesisApi.getOriginInfo(oid)`，query 使用 `origin_id`；响应消费 `info + stats`，不期待 `characters/locations/ticks`。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 已使用必填 `origin_id`；详情 mapper 支持 `info.definition_version`、`info.metric`、`info.events`、`info.started_at`、`locations[].location_description` 与 `ticks[].tick_result`，local mock 返回 `info/stats/characters/locations/ticks`。 |
-| `GET /api/v1/origin/map` | 已新增 `OriginV1Api.map(originId,locationId)` 与 `GenesisApi.getOriginMap(...)`，query 使用 `origin_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
+| `GET /api/v1/origin/map` | 已新增 `OriginV1Api.map(originId,locationId)` 与 `GenesisApi.getOriginMap(...)`，query 使用 `origin_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/shadow/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
 | `GET /api/v1/origin/foredit` | 已新增 `OriginV1Api.forEdit(originId)`，query 使用 `origin_id`，响应按平铺 `OriginForEditResp` 消费，包含当前 `origin_version`、`tick_duration_time` 与 `metric.label_note`；`EditOriginPage` 进入编辑流时使用该接口，本地 mock 返回同形状 `characters/locations` 且不返回 `stats/ticks`。 |
 | `POST /api/v1/origin/create` | `OriginV1Api.create` body 已使用 `origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/map_url/characters/locations`，其中 Basics 的 `Label note` 写入 `metric.label_note`；`GenesisApi.createOrigin` 会把旧草稿里的 `tick_duration_days` 转为 Apifox 要求的文本，例如 `30 days`；本地 mock 兼容该字段并返回最新 `info/stats/characters/locations/ticks`。 |
 | `POST /api/v1/origin/update` | `OriginV1Api.update` body 已使用 `origin_id/origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/map_url/characters/locations/update_notes/deleted_char_ids/deleted_location_ids`，其中 Basics 的 `Label note` 写入 `metric.label_note`；`GenesisApi.updateOrigin` 会把旧草稿里的 `tick_duration_days` 转为 Apifox 要求的文本，例如 `30 days`；`EditOriginPage` 基于初始 `foredit` draft 计算显式删除 id，本地 mock 返回最新 `info/stats/characters/locations/ticks`。 |

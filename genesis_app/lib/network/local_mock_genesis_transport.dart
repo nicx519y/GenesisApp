@@ -3326,6 +3326,7 @@ class _MockState {
             'x': 0,
             'y': 0,
             'type': 'mock_tile',
+            'shadow': 0,
             if (locationId == 'root') 'location_id': 'loc_hub',
           },
         ],

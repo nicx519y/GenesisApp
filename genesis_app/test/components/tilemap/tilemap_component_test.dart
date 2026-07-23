@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
@@ -27,6 +29,161 @@ void main() {
       tilemapVisualStyleFor(TilemapVisualMode.dark).gridLineColor,
       const Color(0xFF2E2D26),
     );
+  });
+
+  test('tilemap fog opacity follows the land-edge distance field', () {
+    const tileExtent = 16.0;
+    final fadeDistance = tileExtent * tilemapFogFadeTileExtents;
+    final sampledOpacities = <double>[
+      for (final distance in <double>[
+        0,
+        fadeDistance * 0.25,
+        fadeDistance * 0.5,
+        fadeDistance * 0.75,
+        fadeDistance,
+      ])
+        tilemapFogOpacityForDistance(
+          distance: distance,
+          tileExtent: tileExtent,
+        ),
+    ];
+
+    expect(sampledOpacities.first, 0);
+    for (var index = 1; index < sampledOpacities.length; index += 1) {
+      expect(sampledOpacities[index], greaterThan(sampledOpacities[index - 1]));
+    }
+    expect(
+      tilemapFogOpacityForDistance(
+        distance: fadeDistance / 2,
+        tileExtent: tileExtent,
+      ),
+      closeTo(tilemapFogMaxOpacity / 2, 0.0001),
+    );
+    expect(
+      tilemapFogOpacityForDistance(
+        distance: fadeDistance,
+        tileExtent: tileExtent,
+      ),
+      tilemapFogMaxOpacity,
+    );
+    expect(tilemapFogMaxOpacity, 1);
+    expect(tilemapFogSamplesPerTileExtent, 4);
+    expect(tilemapFogVertexBlendMode, BlendMode.modulate);
+  });
+
+  test('tilemap fog opacity interpolates editable control points', () {
+    const tileExtent = 16.0;
+    const controlPoints = [
+      TilemapFogControlPoint(position: 0, opacity: 0.1),
+      TilemapFogControlPoint(position: 0.4, opacity: 0.7),
+      TilemapFogControlPoint(position: 1, opacity: 0.9),
+    ];
+    final fadeDistance = tileExtent * tilemapFogFadeTileExtents;
+
+    expect(
+      tilemapFogOpacityForDistance(
+        distance: 0,
+        tileExtent: tileExtent,
+        controlPoints: controlPoints,
+      ),
+      0.1,
+    );
+    expect(
+      tilemapFogOpacityForDistance(
+        distance: fadeDistance * 0.2,
+        tileExtent: tileExtent,
+        controlPoints: controlPoints,
+      ),
+      closeTo(0.4, 0.0001),
+    );
+    expect(
+      tilemapFogOpacityForDistance(
+        distance: fadeDistance,
+        tileExtent: tileExtent,
+        controlPoints: controlPoints,
+      ),
+      0.9,
+    );
+  });
+
+  test('tilemap fog distance follows the diamond width-to-height ratio', () {
+    const projection = TilemapProjection(
+      mapWidth: 32,
+      mapHeight: 16,
+      tileExtent: 16,
+      originX: 8,
+    );
+
+    expect(projection.tileDiamondWidth, 16);
+    expect(projection.tileDiamondHeight, 8);
+    expect(projection.tileDiamondWidthToHeightRatio, 2);
+    expect(
+      tilemapFogDistanceToSegment(
+        point: const Offset(8, 0),
+        start: Offset.zero,
+        end: Offset.zero,
+        verticalScale: projection.tileDiamondWidthToHeightRatio,
+      ),
+      8,
+    );
+    expect(
+      tilemapFogDistanceToSegment(
+        point: const Offset(0, 4),
+        start: Offset.zero,
+        end: Offset.zero,
+        verticalScale: projection.tileDiamondWidthToHeightRatio,
+      ),
+      8,
+    );
+    expect(
+      tilemapFogDistanceToSegment(
+        point: const Offset(0, 8),
+        start: Offset.zero,
+        end: Offset.zero,
+        verticalScale: projection.tileDiamondWidthToHeightRatio,
+      ),
+      16,
+    );
+  });
+
+  testWidgets('fog mesh preserves its interpolated alpha', (tester) async {
+    final centerColor = await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder, const Rect.fromLTWH(0, 0, 4, 4));
+      final vertices = ui.Vertices(
+        ui.VertexMode.triangles,
+        const [
+          Offset(0, 0),
+          Offset(4, 0),
+          Offset(4, 4),
+          Offset(0, 0),
+          Offset(4, 4),
+          Offset(0, 4),
+        ],
+        colors: List<Color>.filled(6, const Color(0x40000000)),
+      );
+      canvas.drawVertices(
+        vertices,
+        tilemapFogVertexBlendMode,
+        ui.Paint()..color = Colors.white,
+      );
+      final image = await recorder.endRecording().toImage(4, 4);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final offset = (2 * 4 + 2) * 4;
+      final color = (
+        red: bytes!.getUint8(offset),
+        green: bytes.getUint8(offset + 1),
+        blue: bytes.getUint8(offset + 2),
+        alpha: bytes.getUint8(offset + 3),
+      );
+      image.dispose();
+      return color;
+    });
+
+    expect(centerColor!.red, 0);
+    expect(centerColor.green, 0);
+    expect(centerColor.blue, 0);
+    expect(centerColor.alpha, closeTo(0x40, 1));
   });
 
   test('tilemap config uses explicit sparse map bounds', () {
@@ -139,6 +296,21 @@ void main() {
 
     expect(locationTile.isLocationTile, true);
     expect(plainTile.isLocationTile, false);
+    expect(locationTile.hasShadow, false);
+    expect(const TilemapCell(x: 0, y: 0, type: 'a', shadow: 1).hasShadow, true);
+  });
+
+  test('tilemap config rejects shadow values other than zero or one', () {
+    expect(
+      () => TilemapConfig.fromTiles(
+        id: 'invalid_shadow',
+        width: 1,
+        height: 1,
+        tileTypes: _tileTypes,
+        tiles: const [TilemapCell(x: 0, y: 0, type: 'a', shadow: 2)],
+      ),
+      throwsA(isA<TilemapConfigException>()),
+    );
   });
 
   test('tilemap config rejects empty tiles and invalid asset URLs', () {
@@ -266,6 +438,41 @@ void main() {
     expect(MatrixUtils.transformPoint(transformed, scenePoint), focalPoint);
   });
 
+  test('visible scene bounds cover the complete grid viewport', () {
+    final transform = Matrix4.identity()
+      ..setEntry(0, 0, 2)
+      ..setEntry(1, 1, 2)
+      ..setTranslationRaw(10, 20, 0);
+
+    expect(
+      tilemapVisibleSceneBounds(
+        transform: transform,
+        viewportSize: const Size(100, 80),
+      ),
+      const Rect.fromLTRB(-5, -10, 45, 30),
+    );
+  });
+
+  test('initial content bounds prefer shadow-zero tiles', () {
+    const mixedTiles = [
+      TilemapCell(x: 0, y: 0, type: 'a', shadow: 1),
+      TilemapCell(x: 1, y: 0, type: 'a', shadow: 1),
+      TilemapCell(x: 2, y: 0, type: 'a'),
+    ];
+    const allShadowTiles = [
+      TilemapCell(x: 0, y: 0, type: 'a', shadow: 1),
+      TilemapCell(x: 1, y: 0, type: 'a', shadow: 1),
+    ];
+
+    expect(tilemapInitialContentTiles(mixedTiles).map((tile) => tile.cellKey), [
+      '2,0',
+    ]);
+    expect(
+      tilemapInitialContentTiles(allShadowTiles).map((tile) => tile.cellKey),
+      ['0,0', '1,0'],
+    );
+  });
+
   test('initial transform fits visible tile width inside screen margins', () {
     const viewportSize = Size(320, 640);
     const contentBounds = Rect.fromLTWH(40, 20, 48, 48);
@@ -308,6 +515,16 @@ void main() {
       tilemapInitialScaleForContentWidth(viewportWidth: 360, contentWidth: 8),
       tilemapMaxScale,
     );
+    expect(
+      tilemapInitialScaleForContentWidth(
+        viewportWidth: 360,
+        contentWidth: 64,
+        initialScaleFactor: 1.2,
+      ),
+      closeTo(6.15, 0.0001),
+    );
+    expect(tilemapInitialScaleFactorMin, 0.5);
+    expect(tilemapInitialScaleFactorMax, 2);
   });
 
   test('gesture scale clamps directly at limits without elastic overflow', () {
@@ -480,6 +697,96 @@ void main() {
       findsOneWidget,
     );
     expect(tilemapLocationHighlightColor, const Color(0xFFFFD54F));
+  });
+
+  testWidgets('renderer exposes configurable fog and wireframe layers', (
+    tester,
+  ) async {
+    final config = TilemapConfig.fromTiles(
+      id: 'tile_shadow',
+      width: 2,
+      height: 1,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: const [
+        TilemapCell(x: 0, y: 0, type: 'a', shadow: 1),
+        TilemapCell(x: 1, y: 0, type: 'a'),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 480,
+          child: TilemapRenderer(config: config),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final fogLayer = find.byKey(const ValueKey<String>('tilemap-fog-layer'));
+    expect(fogLayer, findsOneWidget);
+    expect(tester.widget<IgnorePointer>(fogLayer).ignoring, true);
+    expect(
+      tester.getSize(fogLayer),
+      tester.getSize(
+        find.byKey(const ValueKey<String>('tilemap-gesture-layer')),
+      ),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-fog-paint')),
+      findsOneWidget,
+    );
+    final shadowZeroBorderLayer = find.byKey(
+      const ValueKey<String>('tilemap-shadow-zero-border-layer'),
+    );
+    expect(shadowZeroBorderLayer, findsOneWidget);
+    expect(tester.widget<IgnorePointer>(shadowZeroBorderLayer).ignoring, true);
+    expect(
+      tester.getSize(shadowZeroBorderLayer),
+      tester.getSize(
+        find.byKey(const ValueKey<String>('tilemap-gesture-layer')),
+      ),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-shadow-zero-border-paint')),
+      findsOneWidget,
+    );
+    expect(find.byType(ShaderMask), findsNothing);
+    expect(find.byType(ColorFiltered), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('tile-shadow-mask-0-0')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tile-shadow-mask-1-0')),
+      findsNothing,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 480,
+          child: TilemapRenderer(
+            config: config,
+            blendFogWithShadowTiles: true,
+            showShadowZeroBorders: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final renderer = tester.widget<TilemapRenderer>(
+      find.byType(TilemapRenderer),
+    );
+    expect(renderer.blendFogWithShadowTiles, true);
+    expect(renderer.showShadowZeroBorders, false);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-shadow-zero-border-layer')),
+      findsNothing,
+    );
   });
 
   testWidgets('renderer reports network tile image failures', (tester) async {

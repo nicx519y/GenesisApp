@@ -8,6 +8,7 @@ import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/models/tilemap_definition.dart';
 import 'package:genesis_flutter_android/network/v1/upload_api.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
@@ -781,7 +782,13 @@ void main() {
               'width': 2,
               'height': 3,
               'tiles': [
-                {'x': 0, 'y': 1, 'type': 'grass', 'location_id': 'loc_grass'},
+                {
+                  'x': 0,
+                  'y': 1,
+                  'type': 'grass',
+                  'shadow': 1,
+                  'location_id': 'loc_grass',
+                },
               ],
             },
           },
@@ -819,9 +826,41 @@ void main() {
     expect(definition.tiles.single.x, 0);
     expect(definition.tiles.single.y, 1);
     expect(definition.tiles.single.type, 'grass');
+    expect(definition.tiles.single.shadow, 1);
     expect(definition.tiles.single.locationId, 'loc_grass');
     expect(definition.mapJson!.width, 2);
     expect(definition.mapJson!.height, 3);
+  });
+
+  test('tilemap shadow defaults to zero and rejects unsupported values', () {
+    Map<String, dynamic> definitionWithShadow(Object? shadow) {
+      return {
+        'tile_types': {'grass': 'https://cdn.example.com/tiles/grass.png'},
+        'map_json': {
+          'width': 1,
+          'height': 1,
+          'tiles': [
+            {
+              'x': 0,
+              'y': 0,
+              'type': 'grass',
+              if (shadow != null) 'shadow': shadow,
+            },
+          ],
+        },
+      };
+    }
+
+    expect(
+      TilemapDefinition.fromJson(
+        definitionWithShadow(null),
+      ).tiles.single.shadow,
+      0,
+    );
+    expect(
+      () => TilemapDefinition.fromJson(definitionWithShadow(2)),
+      throwsArgumentError,
+    );
   });
 
   test('getOriginInfo uses lightweight origin info contract', () async {

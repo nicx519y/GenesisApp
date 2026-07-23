@@ -2,33 +2,42 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   testWidgets(
     'Tilemap hides the grid until root map and initial transform are ready',
     (tester) async {
       final transport = _DelayedTilemapTransport();
       final services = _servicesWithTransport(transport);
+      var mapTapCount = 0;
 
       await tester.pumpWidget(
         AppServicesScope(
           services: services,
           child: MaterialApp(
             theme: ThemeData(splashFactory: NoSplash.splashFactory),
-            home: const Scaffold(
+            home: Scaffold(
               body: Tilemap.origin(
                 originId: 'o_1',
                 visualModeToggleTop: 24,
                 visualModeToggleRight: 12,
+                onMapTap: () => mapTapCount += 1,
               ),
             ),
           ),
@@ -48,6 +57,10 @@ void main() {
       );
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(
+        find.byKey(const ValueKey<String>('tilemap-fog-layer')),
+        findsNothing,
+      );
+      expect(
         tester
             .widget<ColoredBox>(
               find.byKey(const ValueKey<String>('tilemap-loading-background')),
@@ -55,13 +68,75 @@ void main() {
             .color,
         const Color(0xFF37362E),
       );
-      final toggleFinder = find.byKey(
-        const ValueKey<String>('tilemap-visual-mode-toggle'),
+      final settingsButton = find.byKey(
+        const ValueKey<String>('tilemap-settings-button'),
       );
-      expect(toggleFinder, findsOneWidget);
-      expect(tester.getTopRight(toggleFinder), const Offset(788, 24));
+      expect(settingsButton, findsOneWidget);
+      expect(tester.getTopRight(settingsButton), const Offset(788, 24));
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-visual-mode-toggle')),
+        findsNothing,
+      );
 
-      await tester.tap(toggleFinder);
+      await tester.tap(settingsButton);
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-settings-panel')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('tilemap-settings-mode-light')),
+      );
+      await tester.pump();
+      tester
+          .widget<Slider>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-initial-scale'),
+            ),
+          )
+          .onChanged!(1.2);
+      final fogCurve = find.byKey(
+        const ValueKey<String>('tilemap-settings-fog-curve'),
+      );
+      expect(fogCurve, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-settings-fog-position-1')),
+        findsNothing,
+      );
+      await tester.ensureVisible(fogCurve);
+      await tester.pump();
+      final fogCurveRect = tester.getRect(fogCurve);
+      final fogCurvePlotWidth = fogCurveRect.width - 48;
+      final fogCurvePlotHeight = fogCurveRect.height - 36;
+      final curveGesture = await tester.startGesture(
+        Offset(
+          fogCurveRect.left + 34 + fogCurvePlotWidth * 0.5,
+          fogCurveRect.top + 12 + fogCurvePlotHeight * 0.5,
+        ),
+      );
+      await curveGesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      await curveGesture.moveBy(const Offset(10, -12));
+      await curveGesture.up();
+      await tester.pump();
+      tester
+          .widget<Slider>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-fog-opacity-1'),
+            ),
+          )
+          .onChanged!(0.4);
+      tester
+          .widget<Switch>(
+            find.byKey(const ValueKey<String>('tilemap-settings-fog-blend')),
+          )
+          .onChanged!(true);
+      tester
+          .widget<Switch>(
+            find.byKey(const ValueKey<String>('tilemap-settings-wireframe')),
+          )
+          .onChanged!(false);
       await tester.pump();
 
       expect(
@@ -73,15 +148,46 @@ void main() {
         const Color(0xFFFAFAF8),
       );
       expect(transport.requests, hasLength(1));
-
-      transport.complete(_locationTilemapData('leaf'));
+      await tester.tap(settingsButton);
       await tester.pump();
-      await tester.pump();
-
       expect(
-        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).visualMode,
-        TilemapVisualMode.light,
+        find.byKey(const ValueKey<String>('tilemap-settings-panel')),
+        findsNothing,
       );
+      final savedSettings = await const TilemapSettingsStore().load();
+      expect(savedSettings.visualMode, TilemapVisualMode.light);
+      expect(savedSettings.fogControlPoints[1].opacity, 0.4);
+      expect(savedSettings.fogControlPoints[2].position, greaterThan(0.5));
+      expect(savedSettings.fogControlPoints[2].opacity, greaterThan(0.5));
+      expect(savedSettings.blendFogWithShadowTiles, true);
+      expect(savedSettings.showShadowZeroBorders, false);
+      expect(savedSettings.initialScaleFactor, 1.2);
+
+      transport.complete(_locationTilemapData('leaf', shadow: 1));
+      await tester.pump();
+      await tester.pump();
+
+      final renderer = tester.widget<TilemapRenderer>(
+        find.byType(TilemapRenderer),
+      );
+      expect(renderer.visualMode, TilemapVisualMode.light);
+      expect(renderer.fogControlPoints[1].opacity, 0.4);
+      final renderedFogPoints = renderer.fogControlPoints
+          .map((point) => (point.position, point.opacity))
+          .toList(growable: false);
+      expect(
+        renderer.fogControlPoints[2].position,
+        greaterThan(0.5),
+        reason: '$renderedFogPoints',
+      );
+      expect(
+        renderer.fogControlPoints[2].opacity,
+        greaterThan(0.5),
+        reason: '$renderedFogPoints',
+      );
+      expect(renderer.blendFogWithShadowTiles, true);
+      expect(renderer.showShadowZeroBorders, false);
+      expect(renderer.initialScaleFactor, 1.2);
       expect(
         find.byKey(const ValueKey<String>('tilemap-grid')),
         findsOneWidget,
@@ -90,9 +196,137 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-loading-background')),
         findsNothing,
       );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-fog-layer')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-fog-paint')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TilemapRenderer>(find.byType(TilemapRenderer))
+            .config
+            .tiles
+            .single
+            .shadow,
+        1,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('tilemap-gesture-layer')),
+      );
+      await tester.pump();
+
+      expect(mapTapCount, 1);
       expect(find.byType(CircularProgressIndicator), findsNothing);
     },
   );
+
+  testWidgets('Tilemap restores cached settings before creating its renderer', (
+    tester,
+  ) async {
+    const cachedSettings = TilemapRenderSettings(
+      visualMode: TilemapVisualMode.light,
+      fogControlPoints: [
+        TilemapFogControlPoint(position: 0, opacity: 0.05),
+        TilemapFogControlPoint(position: 0.2, opacity: 0.25),
+        TilemapFogControlPoint(position: 0.45, opacity: 0.55),
+        TilemapFogControlPoint(position: 0.7, opacity: 0.8),
+        TilemapFogControlPoint(position: 1, opacity: 0.9),
+      ],
+      blendFogWithShadowTiles: true,
+      showShadowZeroBorders: false,
+      initialScaleFactor: 1.3,
+    );
+    await const TilemapSettingsStore().save(cachedSettings);
+    final transport = _DelayedTilemapTransport();
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: MaterialApp(
+          home: Scaffold(body: Tilemap.origin(originId: 'o_1')),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.requests, hasLength(1));
+    expect(
+      tester
+          .widget<ColoredBox>(
+            find.byKey(const ValueKey<String>('tilemap-loading-background')),
+          )
+          .color,
+      const Color(0xFFFAFAF8),
+    );
+
+    transport.complete(_locationTilemapData('leaf', shadow: 1));
+    await tester.pump();
+    await tester.pump();
+
+    final renderer = tester.widget<TilemapRenderer>(
+      find.byType(TilemapRenderer),
+    );
+    expect(renderer.visualMode, TilemapVisualMode.light);
+    expect(renderer.fogControlPoints, cachedSettings.fogControlPoints);
+    expect(renderer.blendFogWithShadowTiles, true);
+    expect(renderer.showShadowZeroBorders, false);
+    expect(renderer.initialScaleFactor, 1.3);
+  });
+
+  testWidgets('Tilemap copies all current settings as serialized JSON', (
+    tester,
+  ) async {
+    final copiedValues = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            final arguments = call.arguments as Map<dynamic, dynamic>;
+            copiedValues.add('${arguments['text']}');
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(_DelayedTilemapTransport()),
+        child: MaterialApp(
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
+          home: Scaffold(body: Tilemap.origin(originId: 'o_1')),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('tilemap-settings-button')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('tilemap-settings-copy-json')),
+    );
+    await tester.pump();
+
+    expect(copiedValues, hasLength(1));
+    final copiedJson = jsonDecode(copiedValues.single);
+    expect(copiedJson['schema_version'], 1);
+    expect(copiedJson['visual_mode'], 'dark');
+    expect(copiedJson['fog_control_points'], hasLength(5));
+    expect(copiedJson['blend_fog_with_shadow_tiles'], false);
+    expect(copiedJson['show_shadow_zero_borders'], true);
+    expect(copiedJson['initial_scale_factor'], 1);
+    expect(find.text('Tilemap settings JSON copied'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+  });
 
   testWidgets(
     'Tilemap routes origin and world requests without rebuild reload',
@@ -362,14 +596,20 @@ void main() {
   });
 }
 
-Map<String, dynamic> _locationTilemapData(String locationId) {
+Map<String, dynamic> _locationTilemapData(String locationId, {int shadow = 0}) {
   return {
     'tile_types': {'tile': 'https://invalid.example.test/tile/tile.png'},
     'map_json': {
       'width': 1,
       'height': 1,
       'tiles': [
-        {'x': 0, 'y': 0, 'type': 'tile', 'location_id': locationId},
+        {
+          'x': 0,
+          'y': 0,
+          'type': 'tile',
+          'shadow': shadow,
+          'location_id': locationId,
+        },
       ],
     },
   };

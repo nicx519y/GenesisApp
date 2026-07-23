@@ -88,18 +88,21 @@ class TilemapTile {
     required this.x,
     required this.y,
     required this.type,
+    this.shadow = 0,
     this.locationId,
   });
 
   final int x;
   final int y;
   final String type;
+  final int shadow;
   final String? locationId;
 
   factory TilemapTile.fromJson(Map<String, dynamic> json) {
     final x = json['x'];
     final y = json['y'];
     final type = json['type'];
+    final shadow = json['shadow'] ?? 0;
     final locationId = json['location_id'];
     if (x is! int || x < 0) {
       throw ArgumentError('map_json.tiles[].x must be a non-negative integer');
@@ -110,6 +113,9 @@ class TilemapTile {
     if (type is! String || type.isEmpty) {
       throw ArgumentError('map_json.tiles[].type must be a non-empty string');
     }
+    if (shadow is! int || (shadow != 0 && shadow != 1)) {
+      throw ArgumentError('map_json.tiles[].shadow must be 0 or 1');
+    }
     if (locationId != null && locationId is! String) {
       throw ArgumentError('map_json.tiles[].location_id must be a string');
     }
@@ -118,6 +124,7 @@ class TilemapTile {
       x: x,
       y: y,
       type: type,
+      shadow: shadow,
       locationId: resolvedLocationId.isEmpty ? null : resolvedLocationId,
     );
   }

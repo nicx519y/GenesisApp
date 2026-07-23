@@ -34,6 +34,7 @@ void main() {
     expect(originMap.isAvailable, true);
     expect(originMap.tileTypes, isNotEmpty);
     expect(originMap.tiles.single.type, 'mock_tile');
+    expect(originMap.tiles.single.shadow, 0);
     expect(originMap.mapJson!.width, 1);
     expect(originMap.mapJson!.height, 1);
     expect(originMap.tiles.single.locationId, 'loc_hub');
@@ -50,6 +51,7 @@ void main() {
     expect(worldMap.isAvailable, true);
     expect(worldMap.tileTypes, isNotEmpty);
     expect(worldMap.tiles.single.type, 'mock_tile');
+    expect(worldMap.tiles.single.shadow, 0);
     expect(worldMap.mapJson!.width, 1);
     expect(worldMap.mapJson!.height, 1);
     expect(worldMap.tiles.single.locationId, isNull);

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -12,6 +13,8 @@ const double tilemapPlaceholderScale = 10;
 const double tilemapInitialHorizontalMargin = 16;
 const double tilemapMinScale = 5;
 const double tilemapMaxScale = 22;
+const double tilemapInitialScaleFactorMin = 0.5;
+const double tilemapInitialScaleFactorMax = 2;
 
 typedef TilemapTileActionHandler = Future<void> Function(TilemapCell tile);
 typedef TilemapLocationNameResolver = String? Function(TilemapCell tile);
@@ -50,6 +53,103 @@ TilemapVisualStyle tilemapVisualStyleFor(TilemapVisualMode mode) {
 }
 
 const Color tilemapLocationHighlightColor = Color(0xFFFFD54F);
+// The fog reaches solid black 1.5 tile extents outside the land edge.
+const double tilemapFogFadeTileExtents = 1.5;
+const double tilemapFogMaxOpacity = 1;
+const double tilemapFogSamplesPerTileExtent = 4;
+const BlendMode tilemapFogVertexBlendMode = BlendMode.modulate;
+const Color tilemapShadowZeroBorderColor = Color(0xFFFFFF00);
+const double tilemapShadowZeroBorderWidth = 2;
+
+@immutable
+class TilemapFogControlPoint {
+  const TilemapFogControlPoint({required this.position, required this.opacity});
+
+  final double position;
+  final double opacity;
+
+  TilemapFogControlPoint copyWith({double? position, double? opacity}) {
+    return TilemapFogControlPoint(
+      position: position ?? this.position,
+      opacity: opacity ?? this.opacity,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is TilemapFogControlPoint &&
+        other.position == position &&
+        other.opacity == opacity;
+  }
+
+  @override
+  int get hashCode => Object.hash(position, opacity);
+}
+
+const List<TilemapFogControlPoint> tilemapDefaultFogControlPoints = [
+  TilemapFogControlPoint(position: 0, opacity: 0),
+  TilemapFogControlPoint(position: 0.25, opacity: 0.15625),
+  TilemapFogControlPoint(position: 0.5, opacity: 0.5),
+  TilemapFogControlPoint(position: 0.75, opacity: 0.84375),
+  TilemapFogControlPoint(position: 1, opacity: 1),
+];
+
+double tilemapFogOpacityForDistance({
+  required double distance,
+  required double tileExtent,
+  List<TilemapFogControlPoint> controlPoints = tilemapDefaultFogControlPoints,
+}) {
+  if (!distance.isFinite || distance <= 0) {
+    return controlPoints.isEmpty
+        ? 0
+        : controlPoints.first.opacity.clamp(0, 1).toDouble();
+  }
+  final fadeDistance = tileExtent * tilemapFogFadeTileExtents;
+  if (!fadeDistance.isFinite || fadeDistance <= 0) {
+    return tilemapFogMaxOpacity;
+  }
+  final t = (distance / fadeDistance).clamp(0.0, 1.0);
+  if (controlPoints.isEmpty) return tilemapFogMaxOpacity * t;
+  if (t <= controlPoints.first.position) {
+    return tilemapFogMaxOpacity *
+        controlPoints.first.opacity.clamp(0, 1).toDouble();
+  }
+  for (var index = 1; index < controlPoints.length; index += 1) {
+    final previous = controlPoints[index - 1];
+    final current = controlPoints[index];
+    if (t > current.position) continue;
+    final span = current.position - previous.position;
+    final segmentT = span <= 0
+        ? 1.0
+        : ((t - previous.position) / span).clamp(0.0, 1.0);
+    final opacity =
+        previous.opacity + (current.opacity - previous.opacity) * segmentT;
+    return tilemapFogMaxOpacity * opacity.clamp(0, 1).toDouble();
+  }
+  return tilemapFogMaxOpacity *
+      controlPoints.last.opacity.clamp(0, 1).toDouble();
+}
+
+double tilemapFogDistanceToSegment({
+  required Offset point,
+  required Offset start,
+  required Offset end,
+  required double verticalScale,
+}) {
+  final resolvedVerticalScale = verticalScale.isFinite && verticalScale > 0
+      ? verticalScale
+      : 1.0;
+  final scaledPoint = Offset(point.dx, point.dy * resolvedVerticalScale);
+  final scaledStart = Offset(start.dx, start.dy * resolvedVerticalScale);
+  final scaledEnd = Offset(end.dx, end.dy * resolvedVerticalScale);
+  final delta = scaledEnd - scaledStart;
+  final lengthSquared = delta.dx * delta.dx + delta.dy * delta.dy;
+  if (lengthSquared == 0) return (scaledPoint - scaledStart).distance;
+  final relative = scaledPoint - scaledStart;
+  final t = ((relative.dx * delta.dx + relative.dy * delta.dy) / lengthSquared)
+      .clamp(0.0, 1.0);
+  return (scaledPoint - (scaledStart + delta * t)).distance;
+}
 
 class TilemapGridBackground extends StatelessWidget {
   const TilemapGridBackground({
@@ -107,6 +207,11 @@ class TilemapProjection {
   final double mapHeight;
   final double tileExtent;
   final double originX;
+
+  double get tileDiamondWidth => tileExtent;
+  double get tileDiamondHeight => tileExtent / 2;
+  double get tileDiamondWidthToHeightRatio =>
+      tileDiamondWidth / tileDiamondHeight;
 
   static TilemapProjection fit({
     required int mapWidth,
@@ -206,12 +311,14 @@ Matrix4 tilemapInitialTransform({
   required Size mapSize,
   Rect? contentBounds,
   double horizontalMargin = tilemapInitialHorizontalMargin,
+  double initialScaleFactor = 1,
 }) {
   final bounds = contentBounds ?? Offset.zero & mapSize;
   final scale = tilemapInitialScaleForContentWidth(
     viewportWidth: viewportSize.width,
     contentWidth: bounds.width,
     horizontalMargin: horizontalMargin,
+    initialScaleFactor: initialScaleFactor,
   );
   return Matrix4.identity()
     ..setEntry(0, 0, scale)
@@ -223,10 +330,19 @@ Matrix4 tilemapInitialTransform({
     );
 }
 
+List<TilemapCell> tilemapInitialContentTiles(Iterable<TilemapCell> tiles) {
+  final allTiles = tiles.toList(growable: false);
+  final shadowZeroTiles = allTiles
+      .where((tile) => !tile.hasShadow)
+      .toList(growable: false);
+  return shadowZeroTiles.isEmpty ? allTiles : shadowZeroTiles;
+}
+
 double tilemapInitialScaleForContentWidth({
   required double viewportWidth,
   required double contentWidth,
   double horizontalMargin = tilemapInitialHorizontalMargin,
+  double initialScaleFactor = 1,
 }) {
   if (!viewportWidth.isFinite ||
       viewportWidth <= 0 ||
@@ -237,8 +353,14 @@ double tilemapInitialScaleForContentWidth({
   final resolvedMargin = horizontalMargin.isFinite
       ? math.max(0.0, horizontalMargin)
       : 0.0;
+  final resolvedScaleFactor = initialScaleFactor.isFinite
+      ? initialScaleFactor.clamp(
+          tilemapInitialScaleFactorMin,
+          tilemapInitialScaleFactorMax,
+        )
+      : 1.0;
   final usableWidth = math.max(1.0, viewportWidth - resolvedMargin * 2);
-  return (usableWidth / contentWidth)
+  return (usableWidth / contentWidth * resolvedScaleFactor)
       .clamp(tilemapMinScale, tilemapMaxScale)
       .toDouble();
 }
@@ -289,6 +411,22 @@ Offset tilemapLocationBubbleSceneAnchor(
   return projection.centerForTile(tile) + Offset(0, projection.tileExtent / 8);
 }
 
+Rect tilemapVisibleSceneBounds({
+  required Matrix4 transform,
+  required Size viewportSize,
+}) {
+  final inverse = Matrix4.inverted(transform);
+  return _boundsForOffsets([
+    MatrixUtils.transformPoint(inverse, Offset.zero),
+    MatrixUtils.transformPoint(inverse, Offset(viewportSize.width, 0)),
+    MatrixUtils.transformPoint(
+      inverse,
+      Offset(viewportSize.width, viewportSize.height),
+    ),
+    MatrixUtils.transformPoint(inverse, Offset(0, viewportSize.height)),
+  ]);
+}
+
 String resolveTilemapAssetForDisplaySize(
   String baseUrl,
   double displayTilePixelSize,
@@ -335,6 +473,10 @@ class TilemapRenderer extends StatefulWidget {
     this.onMapTap,
     this.onImageError,
     this.visualMode = tilemapDefaultVisualMode,
+    this.fogControlPoints = tilemapDefaultFogControlPoints,
+    this.blendFogWithShadowTiles = false,
+    this.showShadowZeroBorders = true,
+    this.initialScaleFactor = 1,
   });
 
   final TilemapConfig config;
@@ -344,6 +486,10 @@ class TilemapRenderer extends StatefulWidget {
   final VoidCallback? onMapTap;
   final ValueChanged<Object>? onImageError;
   final TilemapVisualMode visualMode;
+  final List<TilemapFogControlPoint> fogControlPoints;
+  final bool blendFogWithShadowTiles;
+  final bool showShadowZeroBorders;
+  final double initialScaleFactor;
 
   @override
   State<TilemapRenderer> createState() => _TilemapRendererState();
@@ -359,6 +505,11 @@ class _TilemapRendererState extends State<TilemapRenderer>
   Size? _lastViewportSize;
   Size? _lastMapSize;
   Rect? _lastContentBounds;
+  double? _lastInitialScaleFactor;
+  TilemapConfig? _fogConfig;
+  Rect? _fogBounds;
+  List<TilemapFogControlPoint>? _fogControlPoints;
+  _TilemapFogField? _fogField;
   bool _hasUserTransformedMap = false;
   bool _isRunningTileAction = false;
   String? _highlightedTileKey;
@@ -406,12 +557,13 @@ class _TilemapRendererState extends State<TilemapRenderer>
           final viewportSize = Size(viewportWidth, viewportHeight);
           final mapSize = Size(projection.mapWidth, projection.mapHeight);
           final contentBounds = projection.imageBoundsForTiles(
-            widget.config.tiles,
+            tilemapInitialContentTiles(widget.config.tiles),
           );
           _syncInitialTransform(
             viewportSize: viewportSize,
             mapSize: mapSize,
             contentBounds: contentBounds,
+            initialScaleFactor: widget.initialScaleFactor,
           );
           return SizedBox(
             width: viewportWidth,
@@ -452,6 +604,24 @@ class _TilemapRendererState extends State<TilemapRenderer>
                         if (diagonal != 0) return diagonal;
                         return a.x.compareTo(b.x);
                       });
+                    final hasFogTiles = tiles.any((tile) => tile.hasShadow);
+                    final hasShadowZeroTiles = tiles.any(
+                      (tile) => !tile.hasShadow,
+                    );
+                    final fogBounds =
+                        tilemapVisibleSceneBounds(
+                          transform: matrix,
+                          viewportSize: viewportSize,
+                        ).inflate(
+                          projection.tileExtent /
+                              tilemapFogSamplesPerTileExtent,
+                        );
+                    final fogField = !hasFogTiles
+                        ? null
+                        : _resolveFogField(
+                            projection: projection,
+                            fogBounds: fogBounds,
+                          );
                     final locationLabels = <_TilemapLocationLabelData>[
                       for (final tile in tiles)
                         if (tile.isLocationTile)
@@ -533,6 +703,60 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 ),
                               ),
                             ),
+                            if (hasFogTiles)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  key: const ValueKey<String>(
+                                    'tilemap-fog-layer',
+                                  ),
+                                  child: Transform(
+                                    transform: matrix,
+                                    alignment: Alignment.topLeft,
+                                    child: SizedBox(
+                                      width: projection.mapWidth,
+                                      height: projection.mapHeight,
+                                      child: CustomPaint(
+                                        key: const ValueKey<String>(
+                                          'tilemap-fog-paint',
+                                        ),
+                                        painter: _TilemapFogPainter(
+                                          fogField!,
+                                          blendWithShadowTiles:
+                                              widget.blendFogWithShadowTiles,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (widget.showShadowZeroBorders &&
+                                hasShadowZeroTiles)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  key: const ValueKey<String>(
+                                    'tilemap-shadow-zero-border-layer',
+                                  ),
+                                  child: Transform(
+                                    transform: matrix,
+                                    alignment: Alignment.topLeft,
+                                    child: SizedBox(
+                                      width: projection.mapWidth,
+                                      height: projection.mapHeight,
+                                      child: CustomPaint(
+                                        key: const ValueKey<String>(
+                                          'tilemap-shadow-zero-border-paint',
+                                        ),
+                                        painter:
+                                            _TilemapShadowZeroBorderPainter(
+                                              projection: projection,
+                                              tiles: widget.config.tiles,
+                                              scale: scale,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             for (final label in locationLabels)
                               _TilemapLocationBubble(
                                 key: ValueKey<String>(
@@ -561,6 +785,30 @@ class _TilemapRendererState extends State<TilemapRenderer>
         },
       ),
     );
+  }
+
+  _TilemapFogField _resolveFogField({
+    required TilemapProjection projection,
+    required Rect fogBounds,
+  }) {
+    if (identical(_fogConfig, widget.config) &&
+        _fogBounds == fogBounds &&
+        identical(_fogControlPoints, widget.fogControlPoints) &&
+        _fogField != null) {
+      return _fogField!;
+    }
+    // The mesh lives in scene coordinates, so pan/zoom can reuse it.
+    final field = _buildTilemapFogField(
+      projection: projection,
+      fieldBounds: fogBounds,
+      tiles: widget.config.tiles,
+      controlPoints: widget.fogControlPoints,
+    );
+    _fogConfig = widget.config;
+    _fogBounds = fogBounds;
+    _fogControlPoints = widget.fogControlPoints;
+    _fogField = field;
+    return field;
   }
 
   TilemapCell? _highlightedTile(List<TilemapCell> sortedTiles, double opacity) {
@@ -614,20 +862,24 @@ class _TilemapRendererState extends State<TilemapRenderer>
     required Size viewportSize,
     required Size mapSize,
     required Rect contentBounds,
+    required double initialScaleFactor,
   }) {
     if (_lastViewportSize == viewportSize &&
         _lastMapSize == mapSize &&
-        _lastContentBounds == contentBounds) {
+        _lastContentBounds == contentBounds &&
+        _lastInitialScaleFactor == initialScaleFactor) {
       return;
     }
     _lastViewportSize = viewportSize;
     _lastMapSize = mapSize;
     _lastContentBounds = contentBounds;
+    _lastInitialScaleFactor = initialScaleFactor;
     if (_hasUserTransformedMap) return;
     _transformationController.value = tilemapInitialTransform(
       viewportSize: viewportSize,
       mapSize: mapSize,
       contentBounds: contentBounds,
+      initialScaleFactor: initialScaleFactor,
     );
   }
 }
@@ -729,6 +981,218 @@ void _appendParallelGridLines({
     path
       ..moveTo(0, intercept)
       ..lineTo(width, slope * width + intercept);
+  }
+}
+
+_TilemapFogField _buildTilemapFogField({
+  required TilemapProjection projection,
+  required Rect fieldBounds,
+  required Iterable<TilemapCell> tiles,
+  required List<TilemapFogControlPoint> controlPoints,
+}) {
+  final landTiles = tiles.where((tile) => !tile.hasShadow).toList();
+  final shadowTiles = tiles.where((tile) => tile.hasShadow).toList();
+  final boundary = _tilemapLandBoundary(projection, landTiles);
+  final landPath = Path();
+  for (final tile in landTiles) {
+    landPath.addPolygon(projection.polygonForTile(tile), true);
+  }
+  final shadowPath = Path();
+  for (final tile in shadowTiles) {
+    shadowPath.addPolygon(projection.polygonForTile(tile), true);
+  }
+  final horizontalStep =
+      projection.tileDiamondWidth / tilemapFogSamplesPerTileExtent;
+  final verticalStep =
+      projection.tileDiamondHeight / tilemapFogSamplesPerTileExtent;
+  final columns = math.max(1, (fieldBounds.width / horizontalStep).ceil());
+  final rows = math.max(1, (fieldBounds.height / verticalStep).ceil());
+  final cellWidth = fieldBounds.width / columns;
+  final cellHeight = fieldBounds.height / rows;
+  final points = <Offset>[];
+  final colors = <Color>[];
+  final gridColors = List<Color>.filled(
+    (columns + 1) * (rows + 1),
+    Colors.transparent,
+  );
+  final maxDistance = projection.tileExtent * tilemapFogFadeTileExtents;
+  final boundaryIndex = _TilemapBoundaryIndex(
+    boundary,
+    maxDistance: maxDistance,
+    verticalScale: projection.tileDiamondWidthToHeightRatio,
+  );
+
+  int gridIndex(int column, int row) => row * (columns + 1) + column;
+
+  for (var row = 0; row <= rows; row += 1) {
+    for (var column = 0; column <= columns; column += 1) {
+      final point = Offset(
+        fieldBounds.left + cellWidth * column,
+        fieldBounds.top + cellHeight * row,
+      );
+      final distance = boundaryIndex.distanceTo(point);
+      final opacity = tilemapFogOpacityForDistance(
+        distance: distance,
+        tileExtent: projection.tileExtent,
+        controlPoints: controlPoints,
+      );
+      gridColors[gridIndex(column, row)] = Color.fromARGB(
+        (opacity * 0xFF).round(),
+        0,
+        0,
+        0,
+      );
+    }
+  }
+
+  void addVertex(Offset point, Color color) {
+    points.add(point);
+    colors.add(color);
+  }
+
+  for (var row = 0; row < rows; row += 1) {
+    for (var column = 0; column < columns; column += 1) {
+      final topLeft = Offset(
+        fieldBounds.left + cellWidth * column,
+        fieldBounds.top + cellHeight * row,
+      );
+      final topRight = Offset(topLeft.dx + cellWidth, topLeft.dy);
+      final bottomLeft = Offset(topLeft.dx, topLeft.dy + cellHeight);
+      final bottomRight = Offset(
+        topLeft.dx + cellWidth,
+        topLeft.dy + cellHeight,
+      );
+      final topLeftColor = gridColors[gridIndex(column, row)];
+      final topRightColor = gridColors[gridIndex(column + 1, row)];
+      final bottomLeftColor = gridColors[gridIndex(column, row + 1)];
+      final bottomRightColor = gridColors[gridIndex(column + 1, row + 1)];
+      addVertex(topLeft, topLeftColor);
+      addVertex(topRight, topRightColor);
+      addVertex(bottomRight, bottomRightColor);
+      addVertex(topLeft, topLeftColor);
+      addVertex(bottomRight, bottomRightColor);
+      addVertex(bottomLeft, bottomLeftColor);
+    }
+  }
+
+  return _TilemapFogField(
+    vertices: ui.Vertices(ui.VertexMode.triangles, points, colors: colors),
+    landPath: landPath,
+    shadowPath: shadowPath,
+    bounds: fieldBounds,
+  );
+}
+
+class _TilemapFogField {
+  const _TilemapFogField({
+    required this.vertices,
+    required this.landPath,
+    required this.shadowPath,
+    required this.bounds,
+  });
+
+  final ui.Vertices vertices;
+  final Path landPath;
+  final Path shadowPath;
+  final Rect bounds;
+}
+
+List<_TilemapBoundaryEdge> _tilemapLandBoundary(
+  TilemapProjection projection,
+  Iterable<TilemapCell> landTiles,
+) {
+  final edges = <String, _TilemapBoundaryEdge>{};
+  for (final tile in landTiles) {
+    final polygon = projection.polygonForTile(tile);
+    for (var index = 0; index < polygon.length; index += 1) {
+      final edge = _TilemapBoundaryEdge(
+        polygon[index],
+        polygon[(index + 1) % polygon.length],
+      );
+      final key = edge.canonicalKey;
+      // A shared edge is internal to the land union; only unmatched edges
+      // remain in the outer or hole boundary.
+      if (edges.remove(key) == null) edges[key] = edge;
+    }
+  }
+  return edges.values.toList(growable: false);
+}
+
+class _TilemapBoundaryEdge {
+  const _TilemapBoundaryEdge(this.start, this.end);
+
+  final Offset start;
+  final Offset end;
+
+  String get canonicalKey {
+    final startFirst =
+        start.dx < end.dx || (start.dx == end.dx && start.dy <= end.dy);
+    final first = startFirst ? start : end;
+    final second = startFirst ? end : start;
+    return '${first.dx},${first.dy}|${second.dx},${second.dy}';
+  }
+
+  double distanceTo(Offset point, {required double verticalScale}) {
+    return tilemapFogDistanceToSegment(
+      point: point,
+      start: start,
+      end: end,
+      verticalScale: verticalScale,
+    );
+  }
+}
+
+class _TilemapBoundaryIndex {
+  _TilemapBoundaryIndex(
+    Iterable<_TilemapBoundaryEdge> edges, {
+    required this.maxDistance,
+    required this.verticalScale,
+  }) : cellSize = math.max(1, maxDistance) {
+    for (final edge in edges) {
+      final scaledStart = _scaleOffset(edge.start);
+      final scaledEnd = _scaleOffset(edge.end);
+      final bounds = Rect.fromPoints(
+        scaledStart,
+        scaledEnd,
+      ).inflate(maxDistance);
+      final left = (bounds.left / cellSize).floor();
+      final right = (bounds.right / cellSize).floor();
+      final top = (bounds.top / cellSize).floor();
+      final bottom = (bounds.bottom / cellSize).floor();
+      for (var y = top; y <= bottom; y += 1) {
+        for (var x = left; x <= right; x += 1) {
+          _buckets.putIfAbsent((x, y), () => []).add(edge);
+        }
+      }
+    }
+  }
+
+  final double maxDistance;
+  final double verticalScale;
+  final double cellSize;
+  final Map<(int, int), List<_TilemapBoundaryEdge>> _buckets = {};
+
+  Offset _scaleOffset(Offset offset) {
+    return Offset(offset.dx, offset.dy * verticalScale);
+  }
+
+  double distanceTo(Offset point) {
+    final scaledPoint = _scaleOffset(point);
+    final candidates =
+        _buckets[(
+          (scaledPoint.dx / cellSize).floor(),
+          (scaledPoint.dy / cellSize).floor(),
+        )];
+    if (candidates == null) return maxDistance;
+    var distance = maxDistance;
+    for (final edge in candidates) {
+      distance = math.min(
+        distance,
+        edge.distanceTo(point, verticalScale: verticalScale),
+      );
+      if (distance == 0) break;
+    }
+    return distance;
   }
 }
 
@@ -933,6 +1397,85 @@ class _ProjectedTile extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+class _TilemapFogPainter extends CustomPainter {
+  const _TilemapFogPainter(this.field, {required this.blendWithShadowTiles});
+
+  final _TilemapFogField field;
+  final bool blendWithShadowTiles;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas
+      ..saveLayer(field.bounds, Paint())
+      ..drawVertices(
+        field.vertices,
+        tilemapFogVertexBlendMode,
+        Paint()..color = Colors.white,
+      )
+      // Keep the standalone fog over the empty grid, but clear every tile.
+      // Shadow tiles opt into fog through the Multiply pass below.
+      ..drawPath(field.landPath, Paint()..blendMode = BlendMode.clear)
+      ..drawPath(field.shadowPath, Paint()..blendMode = BlendMode.clear);
+    canvas.restore();
+
+    if (!blendWithShadowTiles) return;
+    canvas
+      ..save()
+      ..clipPath(field.shadowPath)
+      ..drawVertices(
+        field.vertices,
+        tilemapFogVertexBlendMode,
+        Paint()
+          ..color = Colors.white
+          ..blendMode = BlendMode.multiply,
+      )
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _TilemapFogPainter oldDelegate) {
+    return !identical(oldDelegate.field, field) ||
+        oldDelegate.blendWithShadowTiles != blendWithShadowTiles;
+  }
+}
+
+class _TilemapShadowZeroBorderPainter extends CustomPainter {
+  const _TilemapShadowZeroBorderPainter({
+    required this.projection,
+    required this.tiles,
+    required this.scale,
+  });
+
+  final TilemapProjection projection;
+  final List<TilemapCell> tiles;
+  final double scale;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path();
+    for (final tile in tiles) {
+      if (tile.hasShadow) continue;
+      path.addPolygon(projection.polygonForTile(tile), true);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = tilemapShadowZeroBorderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = tilemapShadowZeroBorderWidth / scale
+        ..strokeJoin = StrokeJoin.round
+        ..isAntiAlias = true,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TilemapShadowZeroBorderPainter oldDelegate) {
+    return !identical(oldDelegate.projection, projection) ||
+        !identical(oldDelegate.tiles, tiles) ||
+        oldDelegate.scale != scale;
   }
 }
 
