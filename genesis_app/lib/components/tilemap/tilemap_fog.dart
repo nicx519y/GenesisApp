@@ -115,6 +115,29 @@ class TilemapFogField {
   final Map<String, ui.Vertices> shadowTileVertices;
 }
 
+class TilemapFogGeometry {
+  const TilemapFogGeometry._(this._boundaryIndex);
+
+  final _TilemapBoundaryIndex _boundaryIndex;
+}
+
+TilemapFogGeometry prepareTilemapFogGeometry({
+  required Iterable<TilemapCell> tiles,
+  required List<Offset> Function(TilemapCell tile) polygonForTile,
+  required double tileExtent,
+  required double verticalScale,
+}) {
+  final landTiles = tiles.where((tile) => !tile.hasShadow);
+  final boundary = _tilemapLandBoundary(landTiles, polygonForTile);
+  return TilemapFogGeometry._(
+    _TilemapBoundaryIndex(
+      boundary,
+      maxDistance: tileExtent * tilemapFogFadeTileExtents,
+      verticalScale: verticalScale,
+    ),
+  );
+}
+
 TilemapFogField buildTilemapFogField({
   required Rect fieldBounds,
   required Iterable<TilemapCell> tiles,
@@ -125,20 +148,32 @@ TilemapFogField buildTilemapFogField({
   required double tileDiamondHeight,
   required double verticalScale,
   required List<TilemapFogControlPoint> controlPoints,
+  TilemapFogGeometry? geometry,
+  Iterable<TilemapCell>? renderTiles,
 }) {
-  final landTiles = tiles.where((tile) => !tile.hasShadow).toList();
-  final shadowTiles = tiles.where((tile) => tile.hasShadow).toList();
-  final boundary = _tilemapLandBoundary(landTiles, polygonForTile);
+  final allTiles = geometry == null || renderTiles == null
+      ? tiles.toList(growable: false)
+      : null;
+  final renderedTiles =
+      renderTiles?.toList(growable: false) ?? allTiles ?? const [];
+  final landTiles = renderedTiles
+      .where((tile) => !tile.hasShadow)
+      .toList(growable: false);
+  final shadowTiles = renderedTiles
+      .where((tile) => tile.hasShadow)
+      .toList(growable: false);
   final landPath = Path();
   for (final tile in landTiles) {
     landPath.addPolygon(polygonForTile(tile), true);
   }
-  final maxDistance = tileExtent * tilemapFogFadeTileExtents;
-  final boundaryIndex = _TilemapBoundaryIndex(
-    boundary,
-    maxDistance: maxDistance,
-    verticalScale: verticalScale,
-  );
+  final boundaryIndex =
+      geometry?._boundaryIndex ??
+      prepareTilemapFogGeometry(
+        tiles: allTiles!,
+        polygonForTile: polygonForTile,
+        tileExtent: tileExtent,
+        verticalScale: verticalScale,
+      )._boundaryIndex;
   final vertices = _buildFogVertices(
     bounds: fieldBounds,
     boundaryIndex: boundaryIndex,

@@ -191,6 +191,82 @@ void main() {
     expect(centerColor.alpha, closeTo(0x40, 1));
   });
 
+  testWidgets(
+    'prepared fog geometry keeps the full land boundary after tile culling',
+    (tester) async {
+      const projection = TilemapProjection(
+        mapWidth: 24,
+        mapHeight: 16,
+        tileExtent: 16,
+        originX: 0,
+      );
+      const land = TilemapCell(x: 0, y: 0, type: 'a');
+      const shadow = TilemapCell(x: 1, y: 0, type: 'a', shadow: 1);
+      const fieldBounds = Rect.fromLTWH(0, -4, 16, 16);
+      final geometry = prepareTilemapFogGeometry(
+        tiles: const [land, shadow],
+        polygonForTile: projection.polygonForTile,
+        tileExtent: projection.tileExtent,
+        verticalScale: projection.tileDiamondWidthToHeightRatio,
+      );
+
+      TilemapFogField buildField(TilemapFogGeometry? preparedGeometry) {
+        return buildTilemapFogField(
+          fieldBounds: fieldBounds,
+          tiles: const [shadow],
+          renderTiles: const [shadow],
+          geometry: preparedGeometry,
+          polygonForTile: projection.polygonForTile,
+          imageBoundsForTile: (tile) =>
+              projection.imageTopLeftForTile(tile) &
+              Size.square(projection.tileExtent),
+          tileExtent: projection.tileExtent,
+          tileDiamondWidth: projection.tileDiamondWidth,
+          tileDiamondHeight: projection.tileDiamondHeight,
+          verticalScale: projection.tileDiamondWidthToHeightRatio,
+          controlPoints: tilemapDefaultFogControlPoints,
+        );
+      }
+
+      Future<int> sampleAlpha(TilemapFogField field) async {
+        final recorder = ui.PictureRecorder();
+        final canvas = ui.Canvas(
+          recorder,
+          Offset.zero & Size(fieldBounds.width, fieldBounds.height),
+        )..translate(-fieldBounds.left, -fieldBounds.top);
+        canvas.drawVertices(
+          field.vertices,
+          tilemapFogVertexBlendMode,
+          ui.Paint()..color = Colors.white,
+        );
+        final image = await recorder.endRecording().toImage(
+          fieldBounds.width.toInt(),
+          fieldBounds.height.toInt(),
+        );
+        final bytes = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        final localX = 4;
+        final localY = 12;
+        final alpha = bytes!.getUint8(
+          (localY * fieldBounds.width.toInt() + localX) * 4 + 3,
+        );
+        image.dispose();
+        return alpha;
+      }
+
+      final alphas = await tester.runAsync(() async {
+        return (
+          prepared: await sampleAlpha(buildField(geometry)),
+          localOnly: await sampleAlpha(buildField(null)),
+        );
+      });
+
+      expect(alphas!.prepared, lessThan(alphas.localOnly));
+      expect(alphas.localOnly, 255);
+    },
+  );
+
   test('tilemap config uses explicit sparse map bounds', () {
     final config = TilemapConfig.fromTiles(
       id: 'component_map',
@@ -455,6 +531,13 @@ void main() {
         viewportSize: const Size(100, 80),
       ),
       const Rect.fromLTRB(-5, -10, 45, 30),
+    );
+  });
+
+  test('retained scene bounds preload half a viewport on every side', () {
+    expect(
+      tilemapRetainedSceneBounds(const Rect.fromLTWH(10, 20, 100, 80)),
+      const Rect.fromLTRB(-40, -20, 160, 140),
     );
   });
 
@@ -822,6 +905,89 @@ void main() {
     );
     expect(find.byKey(const ValueKey<String>('tile-0-0')), findsOneWidget);
     expect(find.byKey(const ValueKey<String>('tile-1-0')), findsOneWidget);
+  });
+
+  testWidgets('renderer creates tiles and labels only inside retained bounds', (
+    tester,
+  ) async {
+    final config = TilemapConfig.fromTiles(
+      id: 'culled_tiles',
+      width: 100,
+      height: 100,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: const [
+        TilemapCell(x: 0, y: 0, type: 'a', shadow: 1, locationId: 'far_top'),
+        TilemapCell(x: 50, y: 50, type: 'a', locationId: 'center'),
+        TilemapCell(x: 51, y: 50, type: 'a', shadow: 1, locationId: 'nearby'),
+        TilemapCell(
+          x: 60,
+          y: 50,
+          type: 'a',
+          shadow: 1,
+          locationId: 'pan_target',
+        ),
+        TilemapCell(
+          x: 99,
+          y: 99,
+          type: 'a',
+          shadow: 1,
+          locationId: 'far_bottom',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 320,
+            height: 480,
+            child: TilemapRenderer(
+              config: config,
+              locationNameForTile: (tile) => tile.locationId,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey<String>('tile-50-50')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('tile-51-50')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('tile-0-0')), findsNothing);
+    expect(find.byKey(const ValueKey<String>('tile-99-99')), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('tile-fog-blend-51-50')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tile-fog-blend-0-0')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tile-location-label-50-50')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tile-location-label-0-0')),
+      findsNothing,
+    );
+    expect(find.byType(Image), findsNWidgets(2));
+
+    await tester.timedDrag(
+      find.byKey(const ValueKey<String>('tilemap-gesture-layer')),
+      const Offset(-1250, -625),
+      const Duration(milliseconds: 500),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey<String>('tile-50-50')), findsNothing);
+    expect(find.byKey(const ValueKey<String>('tile-60-50')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('tile-location-label-60-50')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renderer reports network tile image failures', (tester) async {

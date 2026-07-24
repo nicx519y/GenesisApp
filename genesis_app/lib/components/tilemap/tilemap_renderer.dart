@@ -339,6 +339,15 @@ Rect tilemapVisibleSceneBounds({
   ]);
 }
 
+Rect tilemapRetainedSceneBounds(Rect visibleSceneBounds) {
+  return Rect.fromLTRB(
+    visibleSceneBounds.left - visibleSceneBounds.width / 2,
+    visibleSceneBounds.top - visibleSceneBounds.height / 2,
+    visibleSceneBounds.right + visibleSceneBounds.width / 2,
+    visibleSceneBounds.bottom + visibleSceneBounds.height / 2,
+  );
+}
+
 String resolveTilemapAssetForDisplaySize(
   String baseUrl,
   double displayTilePixelSize,
@@ -373,6 +382,123 @@ int _tilemapUrlSuffixStart(String url) {
     suffixStart = fragmentIndex;
   }
   return suffixStart;
+}
+
+class _TilemapRenderRecord {
+  const _TilemapRenderRecord({
+    required this.tile,
+    required this.imageTopLeft,
+    required this.imageBounds,
+    required this.paintOrder,
+  });
+
+  final TilemapCell tile;
+  final Offset imageTopLeft;
+  final Rect imageBounds;
+  final int paintOrder;
+}
+
+class _TilemapRenderIndex {
+  _TilemapRenderIndex({
+    required TilemapProjection projection,
+    required Iterable<TilemapCell> tiles,
+  }) : bucketSize = projection.tileExtent * 4 {
+    final sortedTiles = tiles.toList(growable: false)
+      ..sort(_compareTilesForPaint);
+    for (var paintOrder = 0; paintOrder < sortedTiles.length; paintOrder += 1) {
+      final tile = sortedTiles[paintOrder];
+      final imageTopLeft = projection.imageTopLeftForTile(tile);
+      final record = _TilemapRenderRecord(
+        tile: tile,
+        imageTopLeft: imageTopLeft,
+        imageBounds: imageTopLeft & Size.square(projection.tileExtent),
+        paintOrder: paintOrder,
+      );
+      _insert(record);
+      hasFogTiles = hasFogTiles || tile.hasShadow;
+      hasShadowZeroTiles = hasShadowZeroTiles || !tile.hasShadow;
+    }
+  }
+
+  final double bucketSize;
+  final Map<(int, int), List<_TilemapRenderRecord>> _buckets = {};
+  bool hasFogTiles = false;
+  bool hasShadowZeroTiles = false;
+
+  List<_TilemapRenderRecord> query(Rect bounds) {
+    final candidates = <_TilemapRenderRecord>{};
+    for (var y = _bucketFor(bounds.top); y <= _bucketFor(bounds.bottom); y++) {
+      for (
+        var x = _bucketFor(bounds.left);
+        x <= _bucketFor(bounds.right);
+        x++
+      ) {
+        final bucket = _buckets[(x, y)];
+        if (bucket != null) candidates.addAll(bucket);
+      }
+    }
+    final result =
+        candidates
+            .where(
+              (record) => _rectsIntersectOrTouch(record.imageBounds, bounds),
+            )
+            .toList(growable: false)
+          ..sort((a, b) => a.paintOrder.compareTo(b.paintOrder));
+    return result;
+  }
+
+  List<_TilemapRenderRecord> queryPoint(Offset point) {
+    final candidates = _buckets[(_bucketFor(point.dx), _bucketFor(point.dy))];
+    if (candidates == null) return const [];
+    final result =
+        candidates
+            .where((record) => _rectContainsPoint(record.imageBounds, point))
+            .toList(growable: false)
+          ..sort((a, b) => a.paintOrder.compareTo(b.paintOrder));
+    return result;
+  }
+
+  void _insert(_TilemapRenderRecord record) {
+    final bounds = record.imageBounds;
+    for (var y = _bucketFor(bounds.top); y <= _bucketFor(bounds.bottom); y++) {
+      for (
+        var x = _bucketFor(bounds.left);
+        x <= _bucketFor(bounds.right);
+        x++
+      ) {
+        _buckets.putIfAbsent((x, y), () => []).add(record);
+      }
+    }
+  }
+
+  int _bucketFor(double coordinate) => (coordinate / bucketSize).floor();
+}
+
+int _compareTilesForPaint(TilemapCell a, TilemapCell b) {
+  final diagonal = (a.x + a.y).compareTo(b.x + b.y);
+  if (diagonal != 0) return diagonal;
+  return a.x.compareTo(b.x);
+}
+
+bool _rectsIntersectOrTouch(Rect a, Rect b) {
+  return a.left <= b.right &&
+      a.right >= b.left &&
+      a.top <= b.bottom &&
+      a.bottom >= b.top;
+}
+
+bool _rectContainsPoint(Rect rect, Offset point) {
+  return point.dx >= rect.left &&
+      point.dx <= rect.right &&
+      point.dy >= rect.top &&
+      point.dy <= rect.bottom;
+}
+
+bool _rectContainsRect(Rect outer, Rect inner) {
+  return inner.left >= outer.left &&
+      inner.top >= outer.top &&
+      inner.right <= outer.right &&
+      inner.bottom <= outer.bottom;
 }
 
 class TilemapRenderer extends StatefulWidget {
@@ -418,9 +544,19 @@ class _TilemapRendererState extends State<TilemapRenderer>
   Size? _lastMapSize;
   Rect? _lastContentBounds;
   double? _lastInitialScaleFactor;
-  TilemapConfig? _fogConfig;
+  TilemapConfig? _renderIndexConfig;
+  double? _renderIndexMapWidth;
+  double? _renderIndexMapHeight;
+  double? _renderIndexTileExtent;
+  double? _renderIndexOriginX;
+  _TilemapRenderIndex? _renderIndex;
+  TilemapFogGeometry? _fogGeometry;
+  Rect? _retainedSceneBounds;
+  List<_TilemapRenderRecord> _retainedRecords = const [];
+  List<TilemapCell> _retainedTiles = const [];
   Rect? _fogBounds;
   List<TilemapFogControlPoint>? _fogControlPoints;
+  List<TilemapCell>? _fogRenderTiles;
   TilemapFogField? _fogField;
   bool _hasUserTransformedMap = false;
   bool _isRunningTileAction = false;
@@ -466,6 +602,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
             mapWidth: widget.config.width,
             mapHeight: widget.config.height,
           );
+          final renderIndex = _ensureRenderIndex(projection);
           final viewportSize = Size(viewportWidth, viewportHeight);
           final mapSize = Size(projection.mapWidth, projection.mapHeight);
           final contentBounds = projection.imageBoundsForTiles(
@@ -510,25 +647,19 @@ class _TilemapRendererState extends State<TilemapRenderer>
                       scale: scale,
                       devicePixelRatio: devicePixelRatio,
                     );
-                    final tiles = widget.config.tiles.toList(growable: false)
-                      ..sort((a, b) {
-                        final diagonal = (a.x + a.y).compareTo(b.x + b.y);
-                        if (diagonal != 0) return diagonal;
-                        return a.x.compareTo(b.x);
-                      });
-                    final hasFogTiles = tiles.any((tile) => tile.hasShadow);
-                    final hasShadowZeroTiles = tiles.any(
-                      (tile) => !tile.hasShadow,
+                    final visibleSceneBounds = tilemapVisibleSceneBounds(
+                      transform: matrix,
+                      viewportSize: viewportSize,
                     );
-                    final fogBounds =
-                        tilemapVisibleSceneBounds(
-                          transform: matrix,
-                          viewportSize: viewportSize,
-                        ).inflate(
-                          projection.tileExtent /
-                              tilemapFogSamplesPerTileExtent,
-                        );
-                    final fogField = !hasFogTiles
+                    final records = _resolveRetainedRecords(
+                      renderIndex: renderIndex,
+                      visibleSceneBounds: visibleSceneBounds,
+                    );
+                    final tiles = _retainedTiles;
+                    final fogBounds = _retainedSceneBounds!.inflate(
+                      projection.tileExtent / tilemapFogSamplesPerTileExtent,
+                    );
+                    final fogField = !renderIndex.hasFogTiles
                         ? null
                         : _resolveFogField(
                             projection: projection,
@@ -574,7 +705,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 ),
                               ),
                             ),
-                            if (hasFogTiles)
+                            if (renderIndex.hasFogTiles)
                               Positioned.fill(
                                 child: IgnorePointer(
                                   key: const ValueKey<String>(
@@ -605,26 +736,25 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 child: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
-                                    for (final tile in tiles)
+                                    for (final record in records)
                                       _ProjectedTile(
                                         key: ValueKey<String>(
-                                          'tile-${tile.x}-${tile.y}',
+                                          'tile-${record.tile.x}-'
+                                          '${record.tile.y}',
                                         ),
-                                        tile: tile,
+                                        tile: record.tile,
                                         asset:
                                             resolveTilemapAssetForDisplaySize(
                                               widget.config.baseAssetUrlForTile(
-                                                tile,
+                                                record.tile,
                                               ),
                                               tilePixelSize,
                                             ),
-                                        topLeft: projection.imageTopLeftForTile(
-                                          tile,
-                                        ),
+                                        topLeft: record.imageTopLeft,
                                         extent: projection.tileExtent,
                                         fogField:
                                             widget.blendFogWithShadowTiles &&
-                                                tile.hasShadow
+                                                record.tile.hasShadow
                                             ? fogField
                                             : null,
                                         onImageError: widget.onImageError,
@@ -643,7 +773,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
                               ),
                             ),
                             if (widget.showShadowZeroBorders &&
-                                hasShadowZeroTiles)
+                                renderIndex.hasShadowZeroTiles)
                               Positioned.fill(
                                 child: IgnorePointer(
                                   key: const ValueKey<String>(
@@ -662,7 +792,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                         painter:
                                             _TilemapShadowZeroBorderPainter(
                                               projection: projection,
-                                              tiles: widget.config.tiles,
+                                              tiles: tiles,
                                               scale: scale,
                                             ),
                                       ),
@@ -700,17 +830,75 @@ class _TilemapRendererState extends State<TilemapRenderer>
     );
   }
 
+  _TilemapRenderIndex _ensureRenderIndex(TilemapProjection projection) {
+    final existing = _renderIndex;
+    if (existing != null &&
+        identical(_renderIndexConfig, widget.config) &&
+        _renderIndexMapWidth == projection.mapWidth &&
+        _renderIndexMapHeight == projection.mapHeight &&
+        _renderIndexTileExtent == projection.tileExtent &&
+        _renderIndexOriginX == projection.originX) {
+      return existing;
+    }
+
+    final index = _TilemapRenderIndex(
+      projection: projection,
+      tiles: widget.config.tiles,
+    );
+    _renderIndexConfig = widget.config;
+    _renderIndexMapWidth = projection.mapWidth;
+    _renderIndexMapHeight = projection.mapHeight;
+    _renderIndexTileExtent = projection.tileExtent;
+    _renderIndexOriginX = projection.originX;
+    _renderIndex = index;
+    _fogGeometry = index.hasFogTiles
+        ? prepareTilemapFogGeometry(
+            tiles: widget.config.tiles,
+            polygonForTile: projection.polygonForTile,
+            tileExtent: projection.tileExtent,
+            verticalScale: projection.tileDiamondWidthToHeightRatio,
+          )
+        : null;
+    _retainedSceneBounds = null;
+    _retainedRecords = const [];
+    _retainedTiles = const [];
+    _fogBounds = null;
+    _fogControlPoints = null;
+    _fogRenderTiles = null;
+    _fogField = null;
+    return index;
+  }
+
+  List<_TilemapRenderRecord> _resolveRetainedRecords({
+    required _TilemapRenderIndex renderIndex,
+    required Rect visibleSceneBounds,
+  }) {
+    final retainedBounds = _retainedSceneBounds;
+    if (retainedBounds != null &&
+        _rectContainsRect(retainedBounds, visibleSceneBounds)) {
+      return _retainedRecords;
+    }
+
+    final nextBounds = tilemapRetainedSceneBounds(visibleSceneBounds);
+    final nextRecords = renderIndex.query(nextBounds);
+    _retainedSceneBounds = nextBounds;
+    _retainedRecords = nextRecords;
+    _retainedTiles = List<TilemapCell>.unmodifiable(
+      nextRecords.map((record) => record.tile),
+    );
+    return nextRecords;
+  }
+
   TilemapFogField _resolveFogField({
     required TilemapProjection projection,
     required Rect fogBounds,
   }) {
-    if (identical(_fogConfig, widget.config) &&
-        _fogBounds == fogBounds &&
+    if (_fogBounds == fogBounds &&
         identical(_fogControlPoints, widget.fogControlPoints) &&
+        identical(_fogRenderTiles, _retainedTiles) &&
         _fogField != null) {
       return _fogField!;
     }
-    // The mesh lives in scene coordinates, so pan/zoom can reuse it.
     final field = buildTilemapFogField(
       fieldBounds: fogBounds,
       tiles: widget.config.tiles,
@@ -723,10 +911,12 @@ class _TilemapRendererState extends State<TilemapRenderer>
       tileDiamondHeight: projection.tileDiamondHeight,
       verticalScale: projection.tileDiamondWidthToHeightRatio,
       controlPoints: widget.fogControlPoints,
+      geometry: _fogGeometry,
+      renderTiles: _retainedTiles,
     );
-    _fogConfig = widget.config;
     _fogBounds = fogBounds;
     _fogControlPoints = widget.fogControlPoints;
+    _fogRenderTiles = _retainedTiles;
     _fogField = field;
     return field;
   }
@@ -749,13 +939,10 @@ class _TilemapRendererState extends State<TilemapRenderer>
       Matrix4.inverted(_transformationController.value),
       localPosition,
     );
-    final tiles = widget.config.tiles.toList(growable: false)
-      ..sort((a, b) {
-        final diagonal = (a.x + a.y).compareTo(b.x + b.y);
-        if (diagonal != 0) return diagonal;
-        return a.x.compareTo(b.x);
-      });
-    for (final tile in tiles.reversed) {
+    final renderIndex = _ensureRenderIndex(projection);
+    final candidates = renderIndex.queryPoint(scenePosition);
+    for (final record in candidates.reversed) {
+      final tile = record.tile;
       if (!tile.isLocationTile) continue;
       if (!projection.containsPointInTile(tile, scenePosition)) continue;
       setState(() {
