@@ -22,6 +22,68 @@ const double tilemapInitialScaleFactorMax = 2;
 const double tilemapDefaultInitialScaleFactor = 0.86;
 const bool tilemapDefaultBlendFogWithShadowTiles = true;
 const bool tilemapDefaultShowShadowZeroBorders = false;
+const bool tilemapDefaultShowLocationImageFlow = true;
+const double tilemapDefaultLocationImageFlowAngleDegrees = 267.88;
+const double tilemapDefaultLocationImageFlowOpacity = 0.49;
+const double tilemapDefaultLocationImageFlowDurationSeconds = 7.50;
+const TilemapLocationImageFlowBlendMode
+tilemapDefaultLocationImageFlowBlendMode =
+    TilemapLocationImageFlowBlendMode.plus;
+const double tilemapLocationImageFlowDurationSecondsMin = 0.5;
+const double tilemapLocationImageFlowDurationSecondsMax = 10;
+const double tilemapLocationImageFlowActiveFraction = 2 / 3;
+const double tilemapLocationImageFlowBandWidthFraction = 0.18;
+
+@immutable
+class TilemapLocationImageFlowGradientPoint {
+  const TilemapLocationImageFlowGradientPoint({
+    required this.position,
+    required this.color,
+  });
+
+  final double position;
+  final Color color;
+
+  TilemapLocationImageFlowGradientPoint copyWith({
+    double? position,
+    Color? color,
+  }) {
+    return TilemapLocationImageFlowGradientPoint(
+      position: position ?? this.position,
+      color: color ?? this.color,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is TilemapLocationImageFlowGradientPoint &&
+        other.position == position &&
+        other.color == color;
+  }
+
+  @override
+  int get hashCode => Object.hash(position, color);
+}
+
+enum TilemapLocationImageFlowBlendMode { normal, screen, overlay, plus }
+
+const List<TilemapLocationImageFlowGradientPoint>
+tilemapDefaultLocationImageFlowGradientPoints = [
+  TilemapLocationImageFlowGradientPoint(position: 0, color: Color(0x00624700)),
+  TilemapLocationImageFlowGradientPoint(
+    position: 0.24,
+    color: Color(0x556AFFA6),
+  ),
+  TilemapLocationImageFlowGradientPoint(
+    position: 0.51,
+    color: Color(0xD9B9B088),
+  ),
+  TilemapLocationImageFlowGradientPoint(
+    position: 0.76,
+    color: Color(0x55FFD86A),
+  ),
+  TilemapLocationImageFlowGradientPoint(position: 1, color: Color(0x00926C00)),
+];
 
 typedef TilemapTileActionHandler = Future<void> Function(TilemapCell tile);
 typedef TilemapLocationNameResolver = String? Function(TilemapCell tile);
@@ -323,6 +385,46 @@ Offset tilemapLocationBubbleSceneAnchor(
   return projection.centerForTile(tile) + Offset(0, projection.tileExtent / 8);
 }
 
+double tilemapLocationImageFlowPhase(TilemapCell tile) {
+  final hash = (tile.x * 73856093) ^ (tile.y * 19349663);
+  return (hash & 0xFFFF) / 0x10000;
+}
+
+double? tilemapLocationImageFlowProgress({
+  required double animationValue,
+  required double phase,
+}) {
+  final cycle = (animationValue + phase) % 1;
+  if (cycle >= tilemapLocationImageFlowActiveFraction) return null;
+  return cycle / tilemapLocationImageFlowActiveFraction;
+}
+
+Duration tilemapLocationImageFlowDurationForSeconds(double seconds) {
+  final resolved =
+      (seconds.isFinite
+              ? seconds
+              : tilemapDefaultLocationImageFlowDurationSeconds)
+          .clamp(
+            tilemapLocationImageFlowDurationSecondsMin,
+            tilemapLocationImageFlowDurationSecondsMax,
+          )
+          .toDouble();
+  return Duration(
+    microseconds: (resolved * Duration.microsecondsPerSecond).round(),
+  );
+}
+
+BlendMode tilemapLocationImageFlowCanvasBlendMode(
+  TilemapLocationImageFlowBlendMode mode,
+) {
+  return switch (mode) {
+    TilemapLocationImageFlowBlendMode.normal => BlendMode.srcATop,
+    TilemapLocationImageFlowBlendMode.screen => BlendMode.screen,
+    TilemapLocationImageFlowBlendMode.overlay => BlendMode.overlay,
+    TilemapLocationImageFlowBlendMode.plus => BlendMode.plus,
+  };
+}
+
 Rect tilemapVisibleSceneBounds({
   required Matrix4 transform,
   required Size viewportSize,
@@ -514,6 +616,15 @@ class TilemapRenderer extends StatefulWidget {
     this.fogControlPoints = tilemapDefaultFogControlPoints,
     this.blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles,
     this.showShadowZeroBorders = tilemapDefaultShowShadowZeroBorders,
+    this.showLocationImageFlow = tilemapDefaultShowLocationImageFlow,
+    this.locationImageFlowAngleDegrees =
+        tilemapDefaultLocationImageFlowAngleDegrees,
+    this.locationImageFlowGradientPoints =
+        tilemapDefaultLocationImageFlowGradientPoints,
+    this.locationImageFlowOpacity = tilemapDefaultLocationImageFlowOpacity,
+    this.locationImageFlowDurationSeconds =
+        tilemapDefaultLocationImageFlowDurationSeconds,
+    this.locationImageFlowBlendMode = tilemapDefaultLocationImageFlowBlendMode,
     this.initialScaleFactor = tilemapDefaultInitialScaleFactor,
   });
 
@@ -527,6 +638,13 @@ class TilemapRenderer extends StatefulWidget {
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
   final bool showShadowZeroBorders;
+  final bool showLocationImageFlow;
+  final double locationImageFlowAngleDegrees;
+  final List<TilemapLocationImageFlowGradientPoint>
+  locationImageFlowGradientPoints;
+  final double locationImageFlowOpacity;
+  final double locationImageFlowDurationSeconds;
+  final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
   final double initialScaleFactor;
 
   @override
@@ -534,9 +652,10 @@ class TilemapRenderer extends StatefulWidget {
 }
 
 class _TilemapRendererState extends State<TilemapRenderer>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final TransformationController _transformationController;
   late final AnimationController _highlightController;
+  late final AnimationController _locationImageFlowController;
   late final Animation<double> _highlightOpacity;
   Matrix4 _gestureStartTransform = Matrix4.identity();
   Offset _gestureStartFocalPoint = Offset.zero;
@@ -558,6 +677,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
   List<TilemapFogControlPoint>? _fogControlPoints;
   List<TilemapCell>? _fogRenderTiles;
   TilemapFogField? _fogField;
+  bool _hasLocationImageFlowTiles = false;
+  bool _locationImageFlowSyncScheduled = false;
   bool _hasUserTransformedMap = false;
   bool _isRunningTileAction = false;
   String? _highlightedTileKey;
@@ -570,6 +691,12 @@ class _TilemapRendererState extends State<TilemapRenderer>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _locationImageFlowController = AnimationController(
+      vsync: this,
+      duration: tilemapLocationImageFlowDurationForSeconds(
+        widget.locationImageFlowDurationSeconds,
+      ),
+    );
     _highlightOpacity = CurvedAnimation(
       parent: _highlightController,
       curve: Curves.easeOutCubic,
@@ -577,7 +704,62 @@ class _TilemapRendererState extends State<TilemapRenderer>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLocationImageFlowAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant TilemapRenderer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showLocationImageFlow != widget.showLocationImageFlow) {
+      _syncLocationImageFlowAnimation();
+    }
+    if (oldWidget.locationImageFlowDurationSeconds !=
+        widget.locationImageFlowDurationSeconds) {
+      _locationImageFlowController
+        ..stop()
+        ..duration = tilemapLocationImageFlowDurationForSeconds(
+          widget.locationImageFlowDurationSeconds,
+        );
+      _syncLocationImageFlowAnimation();
+    }
+  }
+
+  void _syncLocationImageFlowAnimation() {
+    final shouldAnimate =
+        widget.showLocationImageFlow &&
+        _hasLocationImageFlowTiles &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (shouldAnimate) {
+      if (!_locationImageFlowController.isAnimating) {
+        _locationImageFlowController.repeat(
+          period: tilemapLocationImageFlowDurationForSeconds(
+            widget.locationImageFlowDurationSeconds,
+          ),
+        );
+      }
+      return;
+    }
+    _locationImageFlowController
+      ..stop()
+      ..value = 0;
+  }
+
+  void _updateLocationImageFlowDemand(bool hasTiles) {
+    if (_hasLocationImageFlowTiles == hasTiles) return;
+    _hasLocationImageFlowTiles = hasTiles;
+    if (_locationImageFlowSyncScheduled) return;
+    _locationImageFlowSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _locationImageFlowSyncScheduled = false;
+      if (mounted) _syncLocationImageFlowAnimation();
+    });
+  }
+
+  @override
   void dispose() {
+    _locationImageFlowController.dispose();
     _highlightController.dispose();
     _transformationController.dispose();
     super.dispose();
@@ -586,6 +768,9 @@ class _TilemapRendererState extends State<TilemapRenderer>
   @override
   Widget build(BuildContext context) {
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final showLocationImageFlow =
+        widget.showLocationImageFlow &&
+        !MediaQuery.disableAnimationsOf(context);
     final visualStyle = tilemapVisualStyleFor(widget.visualMode);
     return ColoredBox(
       key: const ValueKey<String>('tilemap-renderer-background'),
@@ -665,21 +850,30 @@ class _TilemapRendererState extends State<TilemapRenderer>
                             projection: projection,
                             fogBounds: fogBounds,
                           );
-                    final locationLabels = <_TilemapLocationLabelData>[
-                      for (final tile in tiles)
-                        if (tile.isLocationTile)
-                          _TilemapLocationLabelData(
-                            tile: tile,
-                            name:
-                                widget.locationNameForTile
-                                    ?.call(tile)
-                                    ?.trim() ??
-                                '',
-                            avatars:
-                                widget.locationAvatarsForTile?.call(tile) ??
-                                const <UserAvatar>[],
-                          ),
-                    ].where((label) => label.name.isNotEmpty).toList();
+                    final locationLabels = <_TilemapLocationLabelData>[];
+                    final locationImageFlowTileKeys = <String>{};
+                    for (final tile in tiles) {
+                      if (!tile.isLocationTile) continue;
+                      final name =
+                          widget.locationNameForTile?.call(tile)?.trim() ?? '';
+                      if (name.isEmpty) continue;
+                      if (!tile.hasShadow) {
+                        locationImageFlowTileKeys.add(tile.cellKey);
+                      }
+                      locationLabels.add(
+                        _TilemapLocationLabelData(
+                          tile: tile,
+                          name: name,
+                          avatars:
+                              widget.locationAvatarsForTile?.call(tile) ??
+                              const <UserAvatar>[],
+                        ),
+                      );
+                    }
+                    _updateLocationImageFlowDemand(
+                      showLocationImageFlow &&
+                          locationImageFlowTileKeys.isNotEmpty,
+                    );
                     return AnimatedBuilder(
                       animation: _highlightController,
                       builder: (context, _) {
@@ -752,6 +946,26 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                             ),
                                         topLeft: record.imageTopLeft,
                                         extent: projection.tileExtent,
+                                        locationImageFlowAnimation:
+                                            showLocationImageFlow &&
+                                                locationImageFlowTileKeys
+                                                    .contains(
+                                                      record.tile.cellKey,
+                                                    )
+                                            ? _locationImageFlowController
+                                            : null,
+                                        locationImageFlowPhase:
+                                            tilemapLocationImageFlowPhase(
+                                              record.tile,
+                                            ),
+                                        locationImageFlowAngleDegrees: widget
+                                            .locationImageFlowAngleDegrees,
+                                        locationImageFlowGradientPoints: widget
+                                            .locationImageFlowGradientPoints,
+                                        locationImageFlowOpacity:
+                                            widget.locationImageFlowOpacity,
+                                        locationImageFlowBlendMode:
+                                            widget.locationImageFlowBlendMode,
                                         fogField:
                                             widget.blendFogWithShadowTiles &&
                                                 record.tile.hasShadow
@@ -1264,6 +1478,14 @@ class _ProjectedTile extends StatelessWidget {
     required this.asset,
     required this.topLeft,
     required this.extent,
+    this.locationImageFlowAnimation,
+    this.locationImageFlowPhase = 0,
+    this.locationImageFlowAngleDegrees =
+        tilemapDefaultLocationImageFlowAngleDegrees,
+    this.locationImageFlowGradientPoints =
+        tilemapDefaultLocationImageFlowGradientPoints,
+    this.locationImageFlowOpacity = tilemapDefaultLocationImageFlowOpacity,
+    this.locationImageFlowBlendMode = tilemapDefaultLocationImageFlowBlendMode,
     this.fogField,
     this.onImageError,
   });
@@ -1272,6 +1494,13 @@ class _ProjectedTile extends StatelessWidget {
   final String asset;
   final Offset topLeft;
   final double extent;
+  final Animation<double>? locationImageFlowAnimation;
+  final double locationImageFlowPhase;
+  final double locationImageFlowAngleDegrees;
+  final List<TilemapLocationImageFlowGradientPoint>
+  locationImageFlowGradientPoints;
+  final double locationImageFlowOpacity;
+  final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
   final TilemapFogField? fogField;
   final ValueChanged<Object>? onImageError;
 
@@ -1290,20 +1519,263 @@ class _ProjectedTile extends StatelessWidget {
     );
     final field = fogField;
     final fogVertices = field?.shadowTileVertices[tile.cellKey];
+    final animation = locationImageFlowAnimation;
+    final imageWithFlow = animation == null
+        ? image
+        : _TilemapImageFlow(
+            key: ValueKey<String>(
+              'tile-location-image-flow-${tile.x}-${tile.y}',
+            ),
+            animation: animation,
+            phase: locationImageFlowPhase,
+            isolateRepaint: fogVertices == null,
+            angleDegrees: locationImageFlowAngleDegrees,
+            gradientPoints: locationImageFlowGradientPoints,
+            opacity: locationImageFlowOpacity,
+            blendMode: locationImageFlowBlendMode,
+            child: image,
+          );
     return Positioned(
       left: topLeft.dx,
       top: topLeft.dy,
       width: extent,
       height: extent,
       child: field == null || fogVertices == null
-          ? image
+          ? imageWithFlow
           : _TilemapFogBlend(
               key: ValueKey<String>('tile-fog-blend-${tile.x}-${tile.y}'),
               vertices: fogVertices,
               sceneTopLeft: topLeft,
-              child: image,
+              child: imageWithFlow,
             ),
     );
+  }
+}
+
+class _TilemapImageFlow extends SingleChildRenderObjectWidget {
+  const _TilemapImageFlow({
+    super.key,
+    required this.animation,
+    required this.phase,
+    required this.isolateRepaint,
+    required this.angleDegrees,
+    required this.gradientPoints,
+    required this.opacity,
+    required this.blendMode,
+    required super.child,
+  });
+
+  final Animation<double> animation;
+  final double phase;
+  final bool isolateRepaint;
+  final double angleDegrees;
+  final List<TilemapLocationImageFlowGradientPoint> gradientPoints;
+  final double opacity;
+  final TilemapLocationImageFlowBlendMode blendMode;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderTilemapImageFlow(
+      animation: animation,
+      phase: phase,
+      isolateRepaint: isolateRepaint,
+      angleDegrees: angleDegrees,
+      gradientPoints: gradientPoints,
+      opacity: opacity,
+      blendMode: blendMode,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderTilemapImageFlow renderObject,
+  ) {
+    renderObject
+      ..animation = animation
+      ..phase = phase
+      ..isolateRepaint = isolateRepaint
+      ..angleDegrees = angleDegrees
+      ..gradientPoints = gradientPoints
+      ..opacity = opacity
+      ..blendMode = blendMode;
+  }
+}
+
+class _RenderTilemapImageFlow extends RenderProxyBox {
+  _RenderTilemapImageFlow({
+    required Animation<double> animation,
+    required double phase,
+    required bool isolateRepaint,
+    required double angleDegrees,
+    required List<TilemapLocationImageFlowGradientPoint> gradientPoints,
+    required double opacity,
+    required TilemapLocationImageFlowBlendMode blendMode,
+  }) : _animation = animation,
+       _phase = phase,
+       _isolateRepaint = isolateRepaint,
+       _angleDegrees = angleDegrees,
+       _gradientPoints = gradientPoints,
+       _opacity = opacity,
+       _blendMode = blendMode;
+
+  Animation<double> _animation;
+  double _phase;
+  bool _isolateRepaint;
+  double _angleDegrees;
+  List<TilemapLocationImageFlowGradientPoint> _gradientPoints;
+  double _opacity;
+  TilemapLocationImageFlowBlendMode _blendMode;
+  bool _wasPaused = false;
+
+  set animation(Animation<double> value) {
+    if (identical(_animation, value)) return;
+    if (attached) _animation.removeListener(_handleAnimationTick);
+    _animation = value;
+    if (attached) _animation.addListener(_handleAnimationTick);
+    _wasPaused = false;
+    markNeedsPaint();
+  }
+
+  set phase(double value) {
+    if (_phase == value) return;
+    _phase = value;
+    _wasPaused = false;
+    markNeedsPaint();
+  }
+
+  set isolateRepaint(bool value) {
+    if (_isolateRepaint == value) return;
+    _isolateRepaint = value;
+    markNeedsCompositingBitsUpdate();
+    markNeedsPaint();
+  }
+
+  set angleDegrees(double value) {
+    if (_angleDegrees == value) return;
+    _angleDegrees = value;
+    markNeedsPaint();
+  }
+
+  set gradientPoints(List<TilemapLocationImageFlowGradientPoint> value) {
+    if (identical(_gradientPoints, value)) return;
+    _gradientPoints = value;
+    markNeedsPaint();
+  }
+
+  set opacity(double value) {
+    if (_opacity == value) return;
+    _opacity = value;
+    markNeedsPaint();
+  }
+
+  set blendMode(TilemapLocationImageFlowBlendMode value) {
+    if (_blendMode == value) return;
+    _blendMode = value;
+    markNeedsPaint();
+  }
+
+  @override
+  bool get isRepaintBoundary => _isolateRepaint;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _animation.addListener(_handleAnimationTick);
+  }
+
+  @override
+  void detach() {
+    _animation.removeListener(_handleAnimationTick);
+    super.detach();
+  }
+
+  void _handleAnimationTick() {
+    final isPaused =
+        tilemapLocationImageFlowProgress(
+          animationValue: _animation.value,
+          phase: _phase,
+        ) ==
+        null;
+    if (isPaused && _wasPaused) return;
+    _wasPaused = isPaused;
+    markNeedsPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    final progress = tilemapLocationImageFlowProgress(
+      animationValue: _animation.value,
+      phase: _phase,
+    );
+    if (progress == null) {
+      context.paintChild(child, offset);
+      return;
+    }
+
+    final canvas = context.canvas;
+    final layerBounds = offset & size;
+    final angleDegrees = _angleDegrees.isFinite
+        ? _angleDegrees
+        : tilemapDefaultLocationImageFlowAngleDegrees;
+    final angleRadians = angleDegrees * math.pi / 180;
+    final direction = Offset(math.cos(angleRadians), math.sin(angleRadians));
+    final horizontalProjection = size.width * direction.dx;
+    final verticalProjection = size.height * direction.dy;
+    final projections = <double>[
+      0,
+      horizontalProjection,
+      verticalProjection,
+      horizontalProjection + verticalProjection,
+    ];
+    final minProjection = projections.reduce(math.min);
+    final maxProjection = projections.reduce(math.max);
+    final bandWidth = size.width * tilemapLocationImageFlowBandWidthFraction;
+    final centerDistance =
+        minProjection -
+        bandWidth +
+        progress * (maxProjection - minProjection + bandWidth * 2);
+    final gradientStart = offset + direction * (centerDistance - bandWidth / 2);
+    final gradientEnd = offset + direction * (centerDistance + bandWidth / 2);
+    final points = _gradientPoints.length >= 2
+        ? (_gradientPoints.toList(growable: false)
+            ..sort((a, b) => a.position.compareTo(b.position)))
+        : tilemapDefaultLocationImageFlowGradientPoints;
+    final opacity = _opacity.clamp(0.0, 1.0).toDouble();
+    final colors = <Color>[
+      for (final point in points)
+        point.color.withValues(
+          alpha: (point.color.a * opacity).clamp(0.0, 1.0).toDouble(),
+        ),
+    ];
+    final stops = <double>[
+      for (final point in points) point.position.clamp(0.0, 1.0).toDouble(),
+    ];
+
+    final gradientPaint = Paint()
+      ..shader = ui.Gradient.linear(gradientStart, gradientEnd, colors, stops);
+    final canvasBlendMode = tilemapLocationImageFlowCanvasBlendMode(_blendMode);
+
+    canvas.saveLayer(layerBounds, Paint());
+    context.paintChild(child, offset);
+    canvas.save();
+    canvas.clipRect(layerBounds);
+    if (_blendMode == TilemapLocationImageFlowBlendMode.normal) {
+      canvas.drawRect(layerBounds, gradientPaint..blendMode = canvasBlendMode);
+    } else {
+      canvas.saveLayer(layerBounds, Paint()..blendMode = canvasBlendMode);
+      canvas.drawRect(layerBounds, gradientPaint);
+      canvas.saveLayer(layerBounds, Paint()..blendMode = BlendMode.dstIn);
+      context.paintChild(child, offset);
+      canvas
+        ..restore()
+        ..restore();
+    }
+    canvas
+      ..restore()
+      ..restore();
   }
 }
 

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -85,6 +87,16 @@ class _TilemapState extends State<Tilemap> {
       tilemapDefaultFogControlPoints;
   bool _blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles;
   bool _showShadowZeroBorders = tilemapDefaultShowShadowZeroBorders;
+  bool _showLocationImageFlow = tilemapDefaultShowLocationImageFlow;
+  double _locationImageFlowAngleDegrees =
+      tilemapDefaultLocationImageFlowAngleDegrees;
+  List<TilemapLocationImageFlowGradientPoint> _locationImageFlowGradientPoints =
+      tilemapDefaultLocationImageFlowGradientPoints;
+  double _locationImageFlowOpacity = tilemapDefaultLocationImageFlowOpacity;
+  double _locationImageFlowDurationSeconds =
+      tilemapDefaultLocationImageFlowDurationSeconds;
+  TilemapLocationImageFlowBlendMode _locationImageFlowBlendMode =
+      tilemapDefaultLocationImageFlowBlendMode;
   double _initialScaleFactor = tilemapDefaultInitialScaleFactor;
   bool _showSettings = false;
   bool _settingsReady = false;
@@ -140,6 +152,12 @@ class _TilemapState extends State<Tilemap> {
       fogControlPoints: _fogControlPoints,
       blendFogWithShadowTiles: _blendFogWithShadowTiles,
       showShadowZeroBorders: _showShadowZeroBorders,
+      showLocationImageFlow: _showLocationImageFlow,
+      locationImageFlowAngleDegrees: _locationImageFlowAngleDegrees,
+      locationImageFlowGradientPoints: _locationImageFlowGradientPoints,
+      locationImageFlowOpacity: _locationImageFlowOpacity,
+      locationImageFlowDurationSeconds: _locationImageFlowDurationSeconds,
+      locationImageFlowBlendMode: _locationImageFlowBlendMode,
       initialScaleFactor: _initialScaleFactor,
     );
   }
@@ -152,6 +170,14 @@ class _TilemapState extends State<Tilemap> {
       _fogControlPoints = settings.fogControlPoints;
       _blendFogWithShadowTiles = settings.blendFogWithShadowTiles;
       _showShadowZeroBorders = settings.showShadowZeroBorders;
+      _showLocationImageFlow = settings.showLocationImageFlow;
+      _locationImageFlowAngleDegrees = settings.locationImageFlowAngleDegrees;
+      _locationImageFlowGradientPoints =
+          settings.locationImageFlowGradientPoints;
+      _locationImageFlowOpacity = settings.locationImageFlowOpacity;
+      _locationImageFlowDurationSeconds =
+          settings.locationImageFlowDurationSeconds;
+      _locationImageFlowBlendMode = settings.locationImageFlowBlendMode;
       _initialScaleFactor = settings.initialScaleFactor;
       _settingsReady = true;
     });
@@ -231,6 +257,14 @@ class _TilemapState extends State<Tilemap> {
       _fogControlPoints = defaults.fogControlPoints;
       _blendFogWithShadowTiles = defaults.blendFogWithShadowTiles;
       _showShadowZeroBorders = defaults.showShadowZeroBorders;
+      _showLocationImageFlow = defaults.showLocationImageFlow;
+      _locationImageFlowAngleDegrees = defaults.locationImageFlowAngleDegrees;
+      _locationImageFlowGradientPoints =
+          defaults.locationImageFlowGradientPoints;
+      _locationImageFlowOpacity = defaults.locationImageFlowOpacity;
+      _locationImageFlowDurationSeconds =
+          defaults.locationImageFlowDurationSeconds;
+      _locationImageFlowBlendMode = defaults.locationImageFlowBlendMode;
       _initialScaleFactor = defaults.initialScaleFactor;
     });
     ScaffoldMessenger.maybeOf(context)
@@ -476,6 +510,54 @@ class _TilemapState extends State<Tilemap> {
     _scheduleSettingsSave();
   }
 
+  void _setShowLocationImageFlow(bool value) {
+    if (_showLocationImageFlow == value) return;
+    setState(() => _showLocationImageFlow = value);
+    _scheduleSettingsSave();
+  }
+
+  void _setLocationImageFlowAngleDegrees(double value) {
+    final resolved = value.clamp(0.0, 360.0).toDouble();
+    if (_locationImageFlowAngleDegrees == resolved) return;
+    setState(() => _locationImageFlowAngleDegrees = resolved);
+    _scheduleSettingsSave();
+  }
+
+  void _setLocationImageFlowGradientPoints(
+    List<TilemapLocationImageFlowGradientPoint> value,
+  ) {
+    setState(() {
+      _locationImageFlowGradientPoints =
+          List<TilemapLocationImageFlowGradientPoint>.unmodifiable(value);
+    });
+    _scheduleSettingsSave();
+  }
+
+  void _setLocationImageFlowOpacity(double value) {
+    final resolved = value.clamp(0.0, 1.0).toDouble();
+    if (_locationImageFlowOpacity == resolved) return;
+    setState(() => _locationImageFlowOpacity = resolved);
+    _scheduleSettingsSave();
+  }
+
+  void _setLocationImageFlowDurationSeconds(double value) {
+    final resolved = value
+        .clamp(
+          tilemapLocationImageFlowDurationSecondsMin,
+          tilemapLocationImageFlowDurationSecondsMax,
+        )
+        .toDouble();
+    if (_locationImageFlowDurationSeconds == resolved) return;
+    setState(() => _locationImageFlowDurationSeconds = resolved);
+    _scheduleSettingsSave();
+  }
+
+  void _setLocationImageFlowBlendMode(TilemapLocationImageFlowBlendMode value) {
+    if (_locationImageFlowBlendMode == value) return;
+    setState(() => _locationImageFlowBlendMode = value);
+    _scheduleSettingsSave();
+  }
+
   void _setInitialScaleFactor(double value) {
     final resolved = value
         .clamp(tilemapInitialScaleFactorMin, tilemapInitialScaleFactorMax)
@@ -543,18 +625,21 @@ class _TilemapState extends State<Tilemap> {
               fogControlPoints: _fogControlPoints,
               blendFogWithShadowTiles: _blendFogWithShadowTiles,
               showShadowZeroBorders: _showShadowZeroBorders,
+              showLocationImageFlow: _showLocationImageFlow,
+              locationImageFlowAngleDegrees: _locationImageFlowAngleDegrees,
+              locationImageFlowGradientPoints: _locationImageFlowGradientPoints,
+              locationImageFlowOpacity: _locationImageFlowOpacity,
+              locationImageFlowDurationSeconds:
+                  _locationImageFlowDurationSeconds,
+              locationImageFlowBlendMode: _locationImageFlowBlendMode,
               initialScaleFactor: _initialScaleFactor,
             );
     }
     final settingsButtonTop =
         widget.visualModeToggleTop ?? MediaQuery.paddingOf(context).top + 6;
-    final settingsPanelWidth =
-        (MediaQuery.sizeOf(context).width - widget.visualModeToggleRight - 12)
-            .clamp(260.0, 340.0)
-            .toDouble();
     final settingsPanelMaxHeight =
         (MediaQuery.sizeOf(context).height - settingsButtonTop - 58)
-            .clamp(220.0, 400.0)
+            .clamp(220.0, 500.0)
             .toDouble();
     final showSettings =
         widget.showVisualModeToggle && _settingsReady && _showSettings;
@@ -578,27 +663,43 @@ class _TilemapState extends State<Tilemap> {
           ),
         if (showSettings)
           Positioned(
-            right: widget.visualModeToggleRight,
+            left: 0,
+            right: 0,
             top: settingsButtonTop + 46,
-            child: SizedBox(
-              width: settingsPanelWidth,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: settingsPanelMaxHeight),
-                child: _TilemapSettingsPanel(
-                  visualMode: _visualMode,
-                  fogControlPoints: _fogControlPoints,
-                  blendFogWithShadowTiles: _blendFogWithShadowTiles,
-                  showShadowZeroBorders: _showShadowZeroBorders,
-                  initialScaleFactor: _initialScaleFactor,
-                  onVisualModeChanged: _setVisualMode,
-                  onFogControlPointsChanged: _setFogControlPoints,
-                  onBlendFogWithShadowTilesChanged: _setBlendFogWithShadowTiles,
-                  onShowShadowZeroBordersChanged: _setShowShadowZeroBorders,
-                  onInitialScaleFactorChanged: _setInitialScaleFactor,
-                  onCopySettings: _copySettingsToClipboard,
-                  onResetSettings: _resetSettings,
-                  onClose: _closeSettings,
-                ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: settingsPanelMaxHeight),
+              child: _TilemapSettingsPanel(
+                visualMode: _visualMode,
+                fogControlPoints: _fogControlPoints,
+                blendFogWithShadowTiles: _blendFogWithShadowTiles,
+                showShadowZeroBorders: _showShadowZeroBorders,
+                showLocationImageFlow: _showLocationImageFlow,
+                locationImageFlowAngleDegrees: _locationImageFlowAngleDegrees,
+                locationImageFlowGradientPoints:
+                    _locationImageFlowGradientPoints,
+                locationImageFlowOpacity: _locationImageFlowOpacity,
+                locationImageFlowDurationSeconds:
+                    _locationImageFlowDurationSeconds,
+                locationImageFlowBlendMode: _locationImageFlowBlendMode,
+                initialScaleFactor: _initialScaleFactor,
+                onVisualModeChanged: _setVisualMode,
+                onFogControlPointsChanged: _setFogControlPoints,
+                onBlendFogWithShadowTilesChanged: _setBlendFogWithShadowTiles,
+                onShowShadowZeroBordersChanged: _setShowShadowZeroBorders,
+                onShowLocationImageFlowChanged: _setShowLocationImageFlow,
+                onLocationImageFlowAngleDegreesChanged:
+                    _setLocationImageFlowAngleDegrees,
+                onLocationImageFlowGradientPointsChanged:
+                    _setLocationImageFlowGradientPoints,
+                onLocationImageFlowOpacityChanged: _setLocationImageFlowOpacity,
+                onLocationImageFlowDurationSecondsChanged:
+                    _setLocationImageFlowDurationSeconds,
+                onLocationImageFlowBlendModeChanged:
+                    _setLocationImageFlowBlendMode,
+                onInitialScaleFactorChanged: _setInitialScaleFactor,
+                onCopySettings: _copySettingsToClipboard,
+                onResetSettings: _resetSettings,
+                onClose: _closeSettings,
               ),
             ),
           ),
@@ -656,11 +757,23 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.fogControlPoints,
     required this.blendFogWithShadowTiles,
     required this.showShadowZeroBorders,
+    required this.showLocationImageFlow,
+    required this.locationImageFlowAngleDegrees,
+    required this.locationImageFlowGradientPoints,
+    required this.locationImageFlowOpacity,
+    required this.locationImageFlowDurationSeconds,
+    required this.locationImageFlowBlendMode,
     required this.initialScaleFactor,
     required this.onVisualModeChanged,
     required this.onFogControlPointsChanged,
     required this.onBlendFogWithShadowTilesChanged,
     required this.onShowShadowZeroBordersChanged,
+    required this.onShowLocationImageFlowChanged,
+    required this.onLocationImageFlowAngleDegreesChanged,
+    required this.onLocationImageFlowGradientPointsChanged,
+    required this.onLocationImageFlowOpacityChanged,
+    required this.onLocationImageFlowDurationSecondsChanged,
+    required this.onLocationImageFlowBlendModeChanged,
     required this.onInitialScaleFactorChanged,
     required this.onCopySettings,
     required this.onResetSettings,
@@ -671,11 +784,26 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
   final bool showShadowZeroBorders;
+  final bool showLocationImageFlow;
+  final double locationImageFlowAngleDegrees;
+  final List<TilemapLocationImageFlowGradientPoint>
+  locationImageFlowGradientPoints;
+  final double locationImageFlowOpacity;
+  final double locationImageFlowDurationSeconds;
+  final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
   final double initialScaleFactor;
   final ValueChanged<TilemapVisualMode> onVisualModeChanged;
   final ValueChanged<List<TilemapFogControlPoint>> onFogControlPointsChanged;
   final ValueChanged<bool> onBlendFogWithShadowTilesChanged;
   final ValueChanged<bool> onShowShadowZeroBordersChanged;
+  final ValueChanged<bool> onShowLocationImageFlowChanged;
+  final ValueChanged<double> onLocationImageFlowAngleDegreesChanged;
+  final ValueChanged<List<TilemapLocationImageFlowGradientPoint>>
+  onLocationImageFlowGradientPointsChanged;
+  final ValueChanged<double> onLocationImageFlowOpacityChanged;
+  final ValueChanged<double> onLocationImageFlowDurationSecondsChanged;
+  final ValueChanged<TilemapLocationImageFlowBlendMode>
+  onLocationImageFlowBlendModeChanged;
   final ValueChanged<double> onInitialScaleFactorChanged;
   final VoidCallback onCopySettings;
   final VoidCallback onResetSettings;
@@ -809,7 +937,116 @@ class _TilemapSettingsPanel extends StatelessWidget {
               onChanged: onInitialScaleFactorChanged,
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1, color: dividerColor),
+            ),
+            _TilemapSettingsSwitch(
+              label: 'Show location tile shimmer',
+              value: showLocationImageFlow,
+              switchKey: const ValueKey<String>(
+                'tilemap-settings-location-flow',
+              ),
+              foregroundColor: foregroundColor,
+              onChanged: onShowLocationImageFlowChanged,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Location shimmer',
+              style: TextStyle(
+                color: foregroundColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              showLocationImageFlow
+                  ? 'Applied to named location tile images.'
+                  : 'The effect is off; parameters can still be edited.',
+              style: TextStyle(color: secondaryColor, fontSize: 10),
+            ),
+            _TilemapSettingsSlider(
+              label: 'Angle',
+              value: locationImageFlowAngleDegrees,
+              min: 0,
+              max: 360,
+              valueLabel: '${locationImageFlowAngleDegrees.round()}°',
+              sliderKey: const ValueKey<String>(
+                'tilemap-settings-location-flow-angle',
+              ),
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onLocationImageFlowAngleDegreesChanged,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Gradient color stops',
+              style: TextStyle(
+                color: secondaryColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 5),
+            _LocationImageFlowGradientEditor(
+              points: locationImageFlowGradientPoints,
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onLocationImageFlowGradientPointsChanged,
+            ),
+            const SizedBox(height: 4),
+            _TilemapSettingsSlider(
+              label: 'Opacity',
+              value: locationImageFlowOpacity,
+              min: 0,
+              max: 1,
+              valueLabel: '${(locationImageFlowOpacity * 100).round()}%',
+              sliderKey: const ValueKey<String>(
+                'tilemap-settings-location-flow-opacity',
+              ),
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onLocationImageFlowOpacityChanged,
+            ),
+            _TilemapSettingsSlider(
+              label: 'Duration',
+              value: locationImageFlowDurationSeconds,
+              min: tilemapLocationImageFlowDurationSecondsMin,
+              max: tilemapLocationImageFlowDurationSecondsMax,
+              valueLabel:
+                  '${locationImageFlowDurationSeconds.toStringAsFixed(1)}s',
+              sliderKey: const ValueKey<String>(
+                'tilemap-settings-location-flow-duration',
+              ),
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onLocationImageFlowDurationSecondsChanged,
+            ),
+            _TilemapLocationImageFlowBlendModeEditor(
+              value: locationImageFlowBlendMode,
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onLocationImageFlowBlendModeChanged,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1, color: dividerColor),
+            ),
+            _TilemapSettingsSwitch(
+              label: 'Blend fog with shadow == 1 tiles',
+              value: blendFogWithShadowTiles,
+              switchKey: const ValueKey<String>('tilemap-settings-fog-blend'),
+              foregroundColor: foregroundColor,
+              onChanged: onBlendFogWithShadowTilesChanged,
+            ),
+            _TilemapSettingsSwitch(
+              label: 'Show shadow == 0 wireframe',
+              value: showShadowZeroBorders,
+              switchKey: const ValueKey<String>('tilemap-settings-wireframe'),
+              foregroundColor: foregroundColor,
+              onChanged: onShowShadowZeroBordersChanged,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Divider(height: 1, color: dividerColor),
             ),
             Text(
@@ -850,24 +1087,6 @@ class _TilemapSettingsPanel extends StatelessWidget {
                 secondaryColor: secondaryColor,
                 onChanged: onFogControlPointsChanged,
               ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Divider(height: 1, color: dividerColor),
-            ),
-            _TilemapSettingsSwitch(
-              label: 'Blend fog with shadow == 1 tiles',
-              value: blendFogWithShadowTiles,
-              switchKey: const ValueKey<String>('tilemap-settings-fog-blend'),
-              foregroundColor: foregroundColor,
-              onChanged: onBlendFogWithShadowTilesChanged,
-            ),
-            _TilemapSettingsSwitch(
-              label: 'Show shadow == 0 wireframe',
-              value: showShadowZeroBorders,
-              switchKey: const ValueKey<String>('tilemap-settings-wireframe'),
-              foregroundColor: foregroundColor,
-              onChanged: onShowShadowZeroBordersChanged,
-            ),
           ],
         ),
       ),
@@ -1229,6 +1448,337 @@ class _FogOpacityEditor extends StatelessWidget {
       foregroundColor: foregroundColor,
       secondaryColor: secondaryColor,
       onChanged: (value) => updatePoint(point.copyWith(opacity: value)),
+    );
+  }
+}
+
+class _LocationImageFlowGradientEditor extends StatefulWidget {
+  const _LocationImageFlowGradientEditor({
+    required this.points,
+    required this.foregroundColor,
+    required this.secondaryColor,
+    required this.onChanged,
+  });
+
+  final List<TilemapLocationImageFlowGradientPoint> points;
+  final Color foregroundColor;
+  final Color secondaryColor;
+  final ValueChanged<List<TilemapLocationImageFlowGradientPoint>> onChanged;
+
+  @override
+  State<_LocationImageFlowGradientEditor> createState() =>
+      _LocationImageFlowGradientEditorState();
+}
+
+class _LocationImageFlowGradientEditorState
+    extends State<_LocationImageFlowGradientEditor> {
+  int _selectedIndex = 2;
+
+  Rect _gradientRect(Size size) {
+    return Rect.fromLTWH(12, 10, math.max(1, size.width - 24), 22);
+  }
+
+  int _closestPointIndex(double localX, Rect gradientRect) {
+    var closestIndex = 0;
+    var closestDistance = double.infinity;
+    for (var index = 0; index < widget.points.length; index += 1) {
+      final x =
+          gradientRect.left +
+          gradientRect.width * widget.points[index].position;
+      final distance = (x - localX).abs();
+      if (distance >= closestDistance) continue;
+      closestIndex = index;
+      closestDistance = distance;
+    }
+    return closestIndex;
+  }
+
+  void _selectPoint(Offset localPosition, Size size) {
+    if (widget.points.isEmpty) return;
+    final index = _closestPointIndex(localPosition.dx, _gradientRect(size));
+    if (_selectedIndex != index) setState(() => _selectedIndex = index);
+  }
+
+  void _dragPoint(Offset localPosition, Size size) {
+    if (widget.points.isEmpty) return;
+    final index = _selectedIndex.clamp(0, widget.points.length - 1);
+    final gradientRect = _gradientRect(size);
+    final rawPosition =
+        ((localPosition.dx - gradientRect.left) / gradientRect.width).clamp(
+          0.0,
+          1.0,
+        );
+    final minPosition = index == 0
+        ? 0.0
+        : widget.points[index - 1].position + 0.01;
+    final maxPosition = index == widget.points.length - 1
+        ? 1.0
+        : widget.points[index + 1].position - 0.01;
+    final updated = widget.points.toList(growable: false);
+    updated[index] = updated[index].copyWith(
+      position: rawPosition.clamp(minPosition, maxPosition).toDouble(),
+    );
+    widget.onChanged(updated);
+  }
+
+  void _updateSelectedColor({
+    double? hue,
+    double? saturation,
+    double? lightness,
+  }) {
+    if (widget.points.isEmpty) return;
+    final index = _selectedIndex.clamp(0, widget.points.length - 1);
+    final point = widget.points[index];
+    final hsl = HSLColor.fromColor(point.color);
+    final updatedColor = HSLColor.fromAHSL(
+      point.color.a,
+      hue ?? hsl.hue,
+      saturation ?? hsl.saturation,
+      lightness ?? hsl.lightness,
+    ).toColor();
+    final updated = widget.points.toList(growable: false);
+    updated[index] = point.copyWith(color: updatedColor);
+    widget.onChanged(updated);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.points.isEmpty) return const SizedBox.shrink();
+    final selectedIndex = _selectedIndex.clamp(0, widget.points.length - 1);
+    final selectedPoint = widget.points[selectedIndex];
+    final selectedHsl = HSLColor.fromColor(selectedPoint.color);
+    return Column(
+      key: const ValueKey<String>('tilemap-settings-location-flow-gradient'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 62,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = Size(constraints.maxWidth, constraints.maxHeight);
+              return GestureDetector(
+                key: const ValueKey<String>(
+                  'tilemap-settings-location-flow-gradient-curve',
+                ),
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (details) {
+                  _selectPoint(details.localPosition, size);
+                },
+                onHorizontalDragStart: (details) {
+                  _selectPoint(details.localPosition, size);
+                  _dragPoint(details.localPosition, size);
+                },
+                onHorizontalDragUpdate: (details) {
+                  _dragPoint(details.localPosition, size);
+                },
+                child: CustomPaint(
+                  painter: _LocationImageFlowGradientPainter(
+                    points: widget.points,
+                    selectedIndex: selectedIndex,
+                    gradientRect: _gradientRect(size),
+                    foregroundColor: widget.foregroundColor,
+                    secondaryColor: widget.secondaryColor,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        _TilemapSettingsSlider(
+          label: 'Hue',
+          value: selectedHsl.hue,
+          min: 0,
+          max: 360,
+          valueLabel: '${selectedHsl.hue.round()}°',
+          sliderKey: const ValueKey<String>(
+            'tilemap-settings-location-flow-hue',
+          ),
+          foregroundColor: widget.foregroundColor,
+          secondaryColor: widget.secondaryColor,
+          onChanged: (value) => _updateSelectedColor(hue: value),
+        ),
+        _TilemapSettingsSlider(
+          label: 'Saturation',
+          value: selectedHsl.saturation,
+          min: 0,
+          max: 1,
+          valueLabel: '${(selectedHsl.saturation * 100).round()}%',
+          sliderKey: const ValueKey<String>(
+            'tilemap-settings-location-flow-saturation',
+          ),
+          foregroundColor: widget.foregroundColor,
+          secondaryColor: widget.secondaryColor,
+          onChanged: (value) => _updateSelectedColor(saturation: value),
+        ),
+        _TilemapSettingsSlider(
+          label: 'Lightness',
+          value: selectedHsl.lightness,
+          min: 0,
+          max: 1,
+          valueLabel: '${(selectedHsl.lightness * 100).round()}%',
+          sliderKey: const ValueKey<String>(
+            'tilemap-settings-location-flow-lightness',
+          ),
+          foregroundColor: widget.foregroundColor,
+          secondaryColor: widget.secondaryColor,
+          onChanged: (value) => _updateSelectedColor(lightness: value),
+        ),
+      ],
+    );
+  }
+}
+
+class _LocationImageFlowGradientPainter extends CustomPainter {
+  const _LocationImageFlowGradientPainter({
+    required this.points,
+    required this.selectedIndex,
+    required this.gradientRect,
+    required this.foregroundColor,
+    required this.secondaryColor,
+  });
+
+  final List<TilemapLocationImageFlowGradientPoint> points;
+  final int selectedIndex;
+  final Rect gradientRect;
+  final Color foregroundColor;
+  final Color secondaryColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final backgroundPaint = Paint()
+      ..color = secondaryColor.withValues(alpha: 0.12);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(gradientRect, const Radius.circular(6)),
+      backgroundPaint,
+    );
+    final gradient = ui.Gradient.linear(
+      gradientRect.centerLeft,
+      gradientRect.centerRight,
+      [for (final point in points) point.color],
+      [for (final point in points) point.position],
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(gradientRect, const Radius.circular(6)),
+      Paint()..shader = gradient,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(gradientRect, const Radius.circular(6)),
+      Paint()
+        ..color = secondaryColor.withValues(alpha: 0.28)
+        ..style = PaintingStyle.stroke,
+    );
+
+    for (var index = 0; index < points.length; index += 1) {
+      final point = points[index];
+      final center = Offset(
+        gradientRect.left + gradientRect.width * point.position,
+        gradientRect.bottom + 12,
+      );
+      final isSelected = index == selectedIndex;
+      final opaqueColor = point.color.withValues(alpha: 1);
+      canvas
+        ..drawCircle(
+          center,
+          isSelected ? 8 : 6,
+          Paint()..color = foregroundColor.withValues(alpha: 0.18),
+        )
+        ..drawCircle(center, isSelected ? 5 : 4, Paint()..color = opaqueColor)
+        ..drawCircle(
+          center,
+          isSelected ? 5 : 4,
+          Paint()
+            ..color = isSelected
+                ? foregroundColor
+                : secondaryColor.withValues(alpha: 0.6)
+            ..style = PaintingStyle.stroke,
+        );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LocationImageFlowGradientPainter oldDelegate) {
+    return oldDelegate.points != points ||
+        oldDelegate.selectedIndex != selectedIndex ||
+        oldDelegate.gradientRect != gradientRect ||
+        oldDelegate.foregroundColor != foregroundColor ||
+        oldDelegate.secondaryColor != secondaryColor;
+  }
+}
+
+class _TilemapLocationImageFlowBlendModeEditor extends StatelessWidget {
+  const _TilemapLocationImageFlowBlendModeEditor({
+    required this.value,
+    required this.foregroundColor,
+    required this.secondaryColor,
+    required this.onChanged,
+  });
+
+  final TilemapLocationImageFlowBlendMode value;
+  final Color foregroundColor;
+  final Color secondaryColor;
+  final ValueChanged<TilemapLocationImageFlowBlendMode> onChanged;
+
+  String _labelFor(TilemapLocationImageFlowBlendMode mode) {
+    return switch (mode) {
+      TilemapLocationImageFlowBlendMode.normal => 'Normal (srcATop)',
+      TilemapLocationImageFlowBlendMode.screen => 'Screen',
+      TilemapLocationImageFlowBlendMode.overlay => 'Overlay',
+      TilemapLocationImageFlowBlendMode.plus => 'Add',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 66,
+            child: Text(
+              'Blend',
+              style: TextStyle(color: secondaryColor, fontSize: 11),
+            ),
+          ),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: foregroundColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<TilemapLocationImageFlowBlendMode>(
+                    key: const ValueKey<String>(
+                      'tilemap-settings-location-flow-blend-mode',
+                    ),
+                    value: value,
+                    isExpanded: true,
+                    dropdownColor: foregroundColor.computeLuminance() > 0.5
+                        ? const Color(0xFF35352F)
+                        : Colors.white,
+                    iconEnabledColor: foregroundColor,
+                    style: TextStyle(color: foregroundColor, fontSize: 11),
+                    items: [
+                      for (final mode
+                          in TilemapLocationImageFlowBlendMode.values)
+                        DropdownMenuItem(
+                          value: mode,
+                          child: Text(_labelFor(mode)),
+                        ),
+                    ],
+                    onChanged: (mode) {
+                      if (mode != null) onChanged(mode);
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

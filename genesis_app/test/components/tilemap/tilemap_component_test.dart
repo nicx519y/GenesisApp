@@ -498,6 +498,69 @@ void main() {
     );
   });
 
+  test('location image flow keeps sweep-pause ratio across durations', () {
+    expect(tilemapLocationImageFlowProgress(animationValue: 0, phase: 0), 0);
+    expect(
+      tilemapLocationImageFlowProgress(animationValue: 1 / 3, phase: 0),
+      closeTo(0.5, 0.000001),
+    );
+    expect(
+      tilemapLocationImageFlowProgress(animationValue: 2 / 3, phase: 0),
+      isNull,
+    );
+    expect(
+      tilemapLocationImageFlowProgress(animationValue: 0.99, phase: 0),
+      isNull,
+    );
+    expect(
+      tilemapLocationImageFlowDurationForSeconds(3),
+      const Duration(seconds: 3),
+    );
+    expect(
+      tilemapLocationImageFlowDurationForSeconds(0),
+      const Duration(milliseconds: 500),
+    );
+    expect(
+      tilemapLocationImageFlowDurationForSeconds(20),
+      const Duration(seconds: 10),
+    );
+    expect(
+      tilemapLocationImageFlowCanvasBlendMode(
+        TilemapLocationImageFlowBlendMode.normal,
+      ),
+      BlendMode.srcATop,
+    );
+    expect(
+      tilemapLocationImageFlowCanvasBlendMode(
+        TilemapLocationImageFlowBlendMode.screen,
+      ),
+      BlendMode.screen,
+    );
+    expect(
+      tilemapLocationImageFlowCanvasBlendMode(
+        TilemapLocationImageFlowBlendMode.overlay,
+      ),
+      BlendMode.overlay,
+    );
+    expect(
+      tilemapLocationImageFlowCanvasBlendMode(
+        TilemapLocationImageFlowBlendMode.plus,
+      ),
+      BlendMode.plus,
+    );
+    expect(tilemapLocationImageFlowBandWidthFraction, 0.18);
+    expect(
+      tilemapLocationImageFlowPhase(const TilemapCell(x: 2, y: 3, type: 'a')),
+      tilemapLocationImageFlowPhase(const TilemapCell(x: 2, y: 3, type: 'a')),
+    );
+    expect(
+      tilemapLocationImageFlowPhase(const TilemapCell(x: 2, y: 3, type: 'a')),
+      isNot(
+        tilemapLocationImageFlowPhase(const TilemapCell(x: 3, y: 2, type: 'a')),
+      ),
+    );
+  });
+
   test('gesture transform keeps the scene focal point stable', () {
     final start = tilemapInitialTransform(
       viewportSize: const Size(320, 640),
@@ -748,6 +811,19 @@ void main() {
       find.byKey(const ValueKey<String>('tile-location-label-0-0')),
       findsOneWidget,
     );
+    final imageFlow = find.byKey(
+      const ValueKey<String>('tile-location-image-flow-0-0'),
+    );
+    expect(imageFlow, findsOneWidget);
+    expect(
+      find.ancestor(
+        of: imageFlow,
+        matching: find.byKey(const ValueKey<String>('tile-0-0')),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.renderObject(imageFlow).isRepaintBoundary, true);
+    expect(find.byType(Image), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('tile-location-pointer-High School')),
       findsOneWidget,
@@ -785,6 +861,117 @@ void main() {
       findsOneWidget,
     );
     expect(tilemapLocationHighlightColor, const Color(0xFFFFD54F));
+  });
+
+  testWidgets(
+    'renderer only enables image flow for named shadow-zero location tiles',
+    (tester) async {
+      final config = TilemapConfig.fromTiles(
+        id: 'location_image_flow',
+        width: 3,
+        height: 1,
+        tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+        tiles: const [
+          TilemapCell(x: 0, y: 0, type: 'a', locationId: 'named'),
+          TilemapCell(x: 1, y: 0, type: 'a', locationId: 'blank'),
+          TilemapCell(
+            x: 2,
+            y: 0,
+            type: 'a',
+            shadow: 1,
+            locationId: 'shadow_named',
+          ),
+        ],
+      );
+
+      Widget renderer({
+        bool showLocationImageFlow = true,
+        bool disableAnimations = false,
+      }) {
+        return MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: disableAnimations),
+            child: TilemapRenderer(
+              config: config,
+              showLocationImageFlow: showLocationImageFlow,
+              locationNameForTile: (tile) => switch (tile.locationId) {
+                'named' => 'Named place',
+                'shadow_named' => 'Shadow named place',
+                _ => ' ',
+              },
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(renderer());
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('tile-location-image-flow-0-0')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tile-location-image-flow-1-0')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tile-location-image-flow-2-0')),
+        findsNothing,
+      );
+
+      await tester.pumpWidget(renderer(showLocationImageFlow: false));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('tile-location-image-flow-0-0')),
+        findsNothing,
+      );
+
+      await tester.pumpWidget(renderer(disableAnimations: true));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('tile-location-image-flow-0-0')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('shadow location tile applies fog without image flow', (
+    tester,
+  ) async {
+    final config = TilemapConfig.fromTiles(
+      id: 'shadow_location_image_flow',
+      width: 2,
+      height: 1,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: const [
+        TilemapCell(
+          x: 0,
+          y: 0,
+          type: 'a',
+          shadow: 1,
+          locationId: 'shadow_location',
+        ),
+        TilemapCell(x: 1, y: 0, type: 'a'),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TilemapRenderer(
+          config: config,
+          locationNameForTile: (_) => 'Shadow place',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final fogBlend = find.byKey(const ValueKey<String>('tile-fog-blend-0-0'));
+    final imageFlow = find.byKey(
+      const ValueKey<String>('tile-location-image-flow-0-0'),
+    );
+    expect(fogBlend, findsOneWidget);
+    expect(imageFlow, findsNothing);
   });
 
   testWidgets('renderer exposes configurable fog and wireframe layers', (
@@ -972,6 +1159,14 @@ void main() {
       find.byKey(const ValueKey<String>('tile-location-label-0-0')),
       findsNothing,
     );
+    expect(
+      find.byKey(const ValueKey<String>('tile-location-image-flow-50-50')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tile-location-image-flow-0-0')),
+      findsNothing,
+    );
     expect(find.byType(Image), findsNWidgets(2));
 
     await tester.timedDrag(
@@ -987,6 +1182,10 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('tile-location-label-60-50')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tile-location-image-flow-60-50')),
+      findsNothing,
     );
   });
 

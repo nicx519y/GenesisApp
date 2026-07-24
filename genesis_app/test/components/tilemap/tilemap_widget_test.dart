@@ -85,6 +85,12 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-settings-panel')),
         findsOneWidget,
       );
+      final settingsPanelRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tilemap-settings-panel')),
+      );
+      expect(settingsPanelRect.left, 0);
+      expect(settingsPanelRect.right, 800);
+      expect(settingsPanelRect.height, 500);
       await tester.tap(
         find.byKey(const ValueKey<String>('tilemap-settings-mode-light')),
       );
@@ -137,6 +143,75 @@ void main() {
             find.byKey(const ValueKey<String>('tilemap-settings-wireframe')),
           )
           .onChanged!(false);
+      tester
+          .widget<Slider>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-location-flow-angle'),
+            ),
+          )
+          .onChanged!(120);
+      tester
+          .widget<Slider>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-location-flow-hue'),
+            ),
+          )
+          .onChanged!(180);
+      final shimmerGradientCurve = find.byKey(
+        const ValueKey<String>('tilemap-settings-location-flow-gradient-curve'),
+      );
+      await tester.ensureVisible(shimmerGradientCurve);
+      await tester.pump();
+      final shimmerGradientRect = tester.getRect(shimmerGradientCurve);
+      expect(shimmerGradientRect.width, greaterThan(200));
+      final shimmerGradient = tester.widget<GestureDetector>(
+        shimmerGradientCurve,
+      );
+      shimmerGradient.onHorizontalDragStart!(
+        DragStartDetails(
+          globalPosition: shimmerGradientRect.center,
+          localPosition: Offset(shimmerGradientRect.width * 0.5, 31),
+        ),
+      );
+      shimmerGradient.onHorizontalDragUpdate!(
+        DragUpdateDetails(
+          globalPosition: shimmerGradientRect.center + const Offset(36, 0),
+          localPosition: Offset(shimmerGradientRect.width * 0.62, 31),
+          delta: const Offset(36, 0),
+          primaryDelta: 36,
+        ),
+      );
+      await tester.pump();
+      tester
+          .widget<Slider>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-location-flow-opacity'),
+            ),
+          )
+          .onChanged!(0.55);
+      tester
+          .widget<Slider>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-location-flow-duration'),
+            ),
+          )
+          .onChanged!(4);
+      tester
+          .widget<DropdownButton<TilemapLocationImageFlowBlendMode>>(
+            find.byKey(
+              const ValueKey<String>(
+                'tilemap-settings-location-flow-blend-mode',
+              ),
+            ),
+          )
+          .onChanged!(TilemapLocationImageFlowBlendMode.overlay);
+      tester
+          .widget<Switch>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-location-flow'),
+            ),
+          )
+          .onChanged!(false);
       await tester.pump();
 
       expect(
@@ -161,6 +236,24 @@ void main() {
       expect(savedSettings.fogControlPoints[2].opacity, greaterThan(0.5));
       expect(savedSettings.blendFogWithShadowTiles, true);
       expect(savedSettings.showShadowZeroBorders, false);
+      expect(savedSettings.showLocationImageFlow, false);
+      expect(savedSettings.locationImageFlowAngleDegrees, 120);
+      expect(
+        HSLColor.fromColor(
+          savedSettings.locationImageFlowGradientPoints[2].color,
+        ).hue,
+        closeTo(180, 0.1),
+      );
+      expect(
+        savedSettings.locationImageFlowGradientPoints[2].position,
+        greaterThan(0.5),
+      );
+      expect(savedSettings.locationImageFlowOpacity, 0.55);
+      expect(savedSettings.locationImageFlowDurationSeconds, 4);
+      expect(
+        savedSettings.locationImageFlowBlendMode,
+        TilemapLocationImageFlowBlendMode.overlay,
+      );
       expect(savedSettings.initialScaleFactor, 1.2);
 
       transport.complete(_locationTilemapData('leaf', shadow: 1));
@@ -187,6 +280,18 @@ void main() {
       );
       expect(renderer.blendFogWithShadowTiles, true);
       expect(renderer.showShadowZeroBorders, false);
+      expect(renderer.showLocationImageFlow, false);
+      expect(renderer.locationImageFlowAngleDegrees, 120);
+      expect(
+        renderer.locationImageFlowGradientPoints[2].position,
+        greaterThan(0.5),
+      );
+      expect(renderer.locationImageFlowOpacity, 0.55);
+      expect(renderer.locationImageFlowDurationSeconds, 4);
+      expect(
+        renderer.locationImageFlowBlendMode,
+        TilemapLocationImageFlowBlendMode.overlay,
+      );
       expect(renderer.initialScaleFactor, 1.2);
       expect(
         find.byKey(const ValueKey<String>('tilemap-grid')),
@@ -238,6 +343,13 @@ void main() {
       ],
       blendFogWithShadowTiles: true,
       showShadowZeroBorders: false,
+      showLocationImageFlow: false,
+      locationImageFlowAngleDegrees: 135,
+      locationImageFlowGradientPoints:
+          tilemapDefaultLocationImageFlowGradientPoints,
+      locationImageFlowOpacity: 0.6,
+      locationImageFlowDurationSeconds: 5,
+      locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
       initialScaleFactor: 1.3,
     );
     await const TilemapSettingsStore().save(cachedSettings);
@@ -276,6 +388,18 @@ void main() {
     expect(renderer.fogControlPoints, cachedSettings.fogControlPoints);
     expect(renderer.blendFogWithShadowTiles, true);
     expect(renderer.showShadowZeroBorders, false);
+    expect(renderer.showLocationImageFlow, false);
+    expect(renderer.locationImageFlowAngleDegrees, 135);
+    expect(
+      renderer.locationImageFlowGradientPoints,
+      tilemapDefaultLocationImageFlowGradientPoints,
+    );
+    expect(renderer.locationImageFlowOpacity, 0.6);
+    expect(renderer.locationImageFlowDurationSeconds, 5);
+    expect(
+      renderer.locationImageFlowBlendMode,
+      TilemapLocationImageFlowBlendMode.screen,
+    );
     expect(renderer.initialScaleFactor, 1.3);
 
     await tester.tap(
@@ -292,6 +416,40 @@ void main() {
       const ValueKey<String>('tilemap-settings-close'),
     );
     expect(resetButton, findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-settings-location-flow-angle'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-settings-location-flow-gradient'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-settings-location-flow-opacity'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-settings-location-flow-duration'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-settings-location-flow-blend-mode'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('The effect is off; parameters can still be edited.'),
+      findsOneWidget,
+    );
     expect(
       tester.getTopLeft(resetButton).dx,
       greaterThan(tester.getTopLeft(copyButton).dx),
@@ -367,12 +525,7 @@ void main() {
 
     expect(copiedValues, hasLength(1));
     final copiedJson = jsonDecode(copiedValues.single);
-    expect(copiedJson['schema_version'], 1);
-    expect(copiedJson['visual_mode'], 'dark');
-    expect(copiedJson['fog_control_points'], hasLength(5));
-    expect(copiedJson['blend_fog_with_shadow_tiles'], false);
-    expect(copiedJson['show_shadow_zero_borders'], true);
-    expect(copiedJson['initial_scale_factor'], 1);
+    expect(copiedJson, TilemapRenderSettings.defaults().toJson());
     expect(find.text('Tilemap settings JSON copied'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
