@@ -136,6 +136,11 @@ class MemoryOriginDraftRepository extends OriginDraftRepository {
         );
   }
 
+  bool openingChanged(CreateOriginDraft draft) {
+    return jsonEncode(_originalDraft.opening.toJson()) !=
+        jsonEncode(draft.normalized().opening.toJson());
+  }
+
   bool storyEventsChanged(CreateOriginDraft draft) {
     return jsonEncode(
           _originalDraft.storyEvents.map((item) => item.toJson()).toList(),
@@ -170,6 +175,7 @@ Map<String, dynamic> _contentJson(CreateOriginDraft draft) {
     'basics': draft.basics.toJson(),
     'characters': draft.characters.map((item) => item.toJson()).toList(),
     'locations': draft.locations.map((item) => item.toJson()).toList(),
+    'opening': draft.opening.toJson(),
     'story_events': draft.storyEvents.map((item) => item.toJson()).toList(),
   };
 }

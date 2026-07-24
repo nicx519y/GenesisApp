@@ -105,58 +105,66 @@ class _OriginBottomLaunchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Color(0xE6EDEDED)),
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
-        child: SizedBox(
-          height: 56,
-          child: Row(
-            children: [
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    originDisplayName(origin.name, fallback: origin.oid),
-                    key: const ValueKey<String>('origin-bottom-origin-name'),
-                    maxLines: 1,
-                    softWrap: false,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      height: 1.2,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF4B6192),
+    return ClipRect(
+      child: BackdropFilter(
+        key: const ValueKey<String>('origin-bottom-launch-blur'),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: Color(0xE6EDEDED)),
+          child: SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
+            child: SizedBox(
+              height: 56,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        originDisplayName(origin.name, fallback: origin.oid),
+                        key: const ValueKey<String>(
+                          'origin-bottom-origin-name',
+                        ),
+                        maxLines: 1,
+                        softWrap: false,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          height: 1.2,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4B6192),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 18),
-              GenesisPrimaryButton(
-                label: 'Launch',
-                leadingIcon: SvgPicture.asset(
-                  launchIconAsset,
-                  key: const ValueKey<String>('origin-bottom-launch-icon'),
-                  width: 14,
-                  height: 14,
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
-                    BlendMode.srcIn,
+                  const SizedBox(width: 18),
+                  GenesisPrimaryButton(
+                    label: 'Launch',
+                    leadingIcon: SvgPicture.asset(
+                      launchIconAsset,
+                      key: const ValueKey<String>('origin-bottom-launch-icon'),
+                      width: 14,
+                      height: 14,
+                      colorFilter: const ColorFilter.mode(
+                        Colors.white,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    iconGap: 6,
+                    onPressed: launching ? null : onLaunch,
+                    width: 140,
+                    height: 35,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    isLoading: launching,
+                    loadingSize: 22,
+                    loadingStrokeWidth: 2.4,
                   ),
-                ),
-                iconGap: 6,
-                onPressed: launching ? null : onLaunch,
-                width: 140,
-                height: 35,
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                isLoading: launching,
-                loadingSize: 22,
-                loadingStrokeWidth: 2.4,
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

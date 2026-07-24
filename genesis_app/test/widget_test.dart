@@ -46,7 +46,9 @@ import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/create/create_basics_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_characters_page.dart';
+import 'package:genesis_flutter_android/pages/create/create_form_widgets.dart';
 import 'package:genesis_flutter_android/pages/create/create_locations_page.dart';
+import 'package:genesis_flutter_android/pages/create/create_opening_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_id_utils.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
@@ -84,6 +86,7 @@ import 'package:genesis_flutter_android/pages/origin/origin_launch_coordinator.d
 import 'package:genesis_flutter_android/pages/origin/origin_launch_pending_store.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
+import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
@@ -5274,6 +5277,10 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(const ValueKey<String>('origin-setup-custom-form')),
       findsNothing,
     );
@@ -5285,6 +5292,20 @@ void main() {
       find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
     );
     expect(customCard.color, const Color(0xCC000000));
+    final customCardInkWell = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
+        matching: find.byType(InkWell),
+      ),
+    );
+    expect(customCardInkWell.splashFactory, NoSplash.splashFactory);
+    expect(
+      customCardInkWell.overlayColor?.resolve(<WidgetState>{
+        WidgetState.pressed,
+      }),
+      Colors.transparent,
+    );
+    expect(customCardInkWell.highlightColor, Colors.transparent);
     final customPlus = tester.widget<Text>(find.text('+'));
     final customLabel = tester.widget<Text>(find.text('Custom'));
     expect(customPlus.style?.color, Colors.white);
@@ -8257,6 +8278,24 @@ void main() {
 
     expect(find.text('Create Worldo'), findsOneWidget);
     expect(find.text('Basics'), findsOneWidget);
+    expect(find.text('Locations (>=1)'), findsOneWidget);
+    expect(find.text('Locations (Optional)'), findsNothing);
+    expect(find.text('Opening'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Characters (>=1)')).dy,
+      lessThan(tester.getTopLeft(find.text('Locations (>=1)')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Locations (>=1)')).dy,
+      lessThan(tester.getTopLeft(find.text('Opening')).dy),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('section-icon-Opening')),
+        matching: find.byType(SvgPicture),
+      ),
+      findsOneWidget,
+    );
     expect(find.widgetWithText(FilledButton, 'Create'), findsOneWidget);
   });
 
@@ -8461,6 +8500,7 @@ void main() {
       find.widgetWithText(FilledButton, 'Create'),
     );
 
+    expect(find.text('Locations (>=1)'), findsOneWidget);
     expect(createButton.onPressed, isNull);
     expect(
       createButton.style?.backgroundColor?.resolve(<WidgetState>{
@@ -8507,6 +8547,115 @@ void main() {
     );
   });
 
+  test('create submit requires a saved non-empty location', () {
+    final errors = const CreateOriginDraft(
+      basics: BasicsDraft(
+        originName: 'Required Location Worldo',
+        worldView: 'A complete world view.',
+        coverImageUrl: 'https://example.com/cover.png',
+      ),
+      characters: <CharacterDraft>[
+        CharacterDraft(name: 'Ari', identity: 'Guide', personality: 'Calm'),
+      ],
+      locations: <LocationDraft>[],
+      storyEvents: <StoryEventDraft>[],
+      basicsSaved: true,
+      charactersSaved: true,
+      locationsSaved: false,
+      storyEventsSaved: false,
+    ).validateForSubmit();
+
+    expect(errors, contains('Please save Locations, Opening before creating.'));
+    expect(errors, contains('Locations: Please create at least one location.'));
+  });
+
+  test('create submit rejects an empty location list marked as saved', () {
+    final errors = const CreateOriginDraft(
+      basics: BasicsDraft(
+        originName: 'Required Location Worldo',
+        worldView: 'A complete world view.',
+        coverImageUrl: 'https://example.com/cover.png',
+      ),
+      characters: <CharacterDraft>[
+        CharacterDraft(name: 'Ari', identity: 'Guide', personality: 'Calm'),
+      ],
+      locations: <LocationDraft>[],
+      storyEvents: <StoryEventDraft>[],
+      basicsSaved: true,
+      charactersSaved: true,
+      locationsSaved: true,
+      storyEventsSaved: false,
+    ).validateForSubmit();
+
+    expect(errors, contains('Locations: Please create at least one location.'));
+  });
+
+  test('create submit requires a saved complete opening', () {
+    final incompleteErrors = const CreateOriginDraft(
+      basics: BasicsDraft(
+        originName: 'Opening Required',
+        worldView: 'A complete world view.',
+        coverImageUrl: 'https://example.com/cover.png',
+      ),
+      characters: <CharacterDraft>[
+        CharacterDraft(
+          charId: 'char_required',
+          name: 'Ari',
+          identity: 'Guide',
+          personality: 'Calm',
+        ),
+      ],
+      locations: <LocationDraft>[
+        LocationDraft(locationId: 'location_required', name: 'Gate'),
+      ],
+      storyEvents: <StoryEventDraft>[],
+      basicsSaved: true,
+      charactersSaved: true,
+      locationsSaved: true,
+      storyEventsSaved: false,
+    ).validateForSubmit();
+
+    expect(incompleteErrors, contains('Please save Opening before creating.'));
+
+    final completeErrors = const CreateOriginDraft(
+      basics: BasicsDraft(
+        originName: 'Opening Required',
+        worldView: 'A complete world view.',
+        coverImageUrl: 'https://example.com/cover.png',
+      ),
+      characters: <CharacterDraft>[
+        CharacterDraft(
+          charId: 'char_required',
+          name: 'Ari',
+          identity: 'Guide',
+          personality: 'Calm',
+        ),
+      ],
+      locations: <LocationDraft>[
+        LocationDraft(locationId: 'location_required', name: 'Gate'),
+      ],
+      storyEvents: <StoryEventDraft>[],
+      opening: OpeningDraft(
+        locationId: 'location_required',
+        locationName: 'Gate',
+        dialogue: <OpeningDialogueDraft>[
+          OpeningDialogueDraft(type: 'narrator', content: 'The gate opens.'),
+        ],
+      ),
+      basicsSaved: true,
+      charactersSaved: true,
+      locationsSaved: true,
+      storyEventsSaved: false,
+      openingSaved: true,
+    ).validateForSubmit();
+
+    expect(completeErrors.where((item) => item.startsWith('Opening')), isEmpty);
+    expect(
+      completeErrors.where((item) => item.startsWith('Please save')),
+      isEmpty,
+    );
+  });
+
   testWidgets('create origin entries navigate to detail pages', (
     WidgetTester tester,
   ) async {
@@ -8535,7 +8684,7 @@ void main() {
     Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Locations'));
+    await tester.tap(find.text('Locations (>=1)'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Locations'), findsWidgets);
     Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
@@ -8546,13 +8695,927 @@ void main() {
     expect(find.textContaining('Story Events'), findsWidgets);
   });
 
+  testWidgets(
+    'opening page selects a location and shows its initial character',
+    (WidgetTester tester) async {
+      await CreateOriginDraftStore.saveFinal(
+        const CreateOriginDraft(
+          basics: BasicsDraft(),
+          characters: <CharacterDraft>[
+            CharacterDraft(
+              charId: 'char_opening_1',
+              name: 'Mira',
+              identity: 'Archivist',
+              personality: 'Patient',
+            ),
+          ],
+          locations: <LocationDraft>[
+            LocationDraft(
+              locationId: 'location_opening_1',
+              name: 'Archive',
+              initialCharacterIds: <String>['char_opening_1'],
+            ),
+            LocationDraft(locationId: 'location_opening_2', name: 'Empty Hall'),
+          ],
+          storyEvents: <StoryEventDraft>[],
+          basicsSaved: false,
+          charactersSaved: true,
+          locationsSaved: true,
+          storyEventsSaved: false,
+        ),
+      );
+
+      await tester.pumpWidget(const MaterialApp(home: CreateOpeningPage()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Opening'), findsOneWidget);
+      expect(find.text('Select initial location'), findsWidgets);
+      expect(find.text('Opening dialogue'), findsOneWidget);
+      final selectLocationTitle = tester.widget<Text>(
+        find.byKey(const ValueKey<String>('opening-location-title')),
+      );
+      final openingDialogueTitle = tester.widget<Text>(
+        find.byKey(const ValueKey<String>('opening-dialogue-title')),
+      );
+      expect(selectLocationTitle.style?.fontSize, 16);
+      expect(selectLocationTitle.style?.fontWeight, FontWeight.w600);
+      expect(openingDialogueTitle.style?.fontSize, 16);
+      expect(openingDialogueTitle.style?.fontWeight, FontWeight.w600);
+      expect(
+        tester
+                .getTopLeft(
+                  find.byKey(const ValueKey<String>('opening-location-title')),
+                )
+                .dy -
+            tester.getBottomLeft(find.byType(AppBar)).dy,
+        closeTo(8, 0.01),
+      );
+      expect(
+        tester
+                .getTopLeft(
+                  find.byKey(const ValueKey<String>('opening-location-field')),
+                )
+                .dy -
+            tester
+                .getBottomLeft(
+                  find.byKey(const ValueKey<String>('opening-location-title')),
+                )
+                .dy,
+        closeTo(8, 0.01),
+      );
+      expect(
+        tester
+                .getTopLeft(
+                  find.byKey(const ValueKey<String>('opening-dialogue-title')),
+                )
+                .dy -
+            tester
+                .getBottomLeft(
+                  find.byKey(const ValueKey<String>('opening-location-field')),
+                )
+                .dy,
+        closeTo(22, 0.01),
+      );
+      expect(
+        tester
+                .getTopLeft(
+                  find.byKey(const ValueKey<String>('opening-location-note')),
+                )
+                .dy -
+            tester
+                .getBottomLeft(
+                  find.byKey(const ValueKey<String>('opening-dialogue-title')),
+                )
+                .dy,
+        closeTo(8, 0.01),
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('opening-location-title')),
+            )
+            .dx,
+        closeTo(22, 0.01),
+      );
+      expect(
+        find.text('Select a location first, then edit the dialogue.'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getSize(
+              find.byKey(const ValueKey<String>('opening-location-field')),
+            )
+            .height,
+        40,
+      );
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(
+              find.widgetWithText(GenesisPrimaryButton, 'Save'),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('opening-location-field')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select Location'), findsOneWidget);
+      expect(find.text('Archive'), findsOneWidget);
+      expect(find.text('Mira'), findsOneWidget);
+      final locationOption = find.byKey(
+        const ValueKey<String>('opening-location-option-location_opening_1'),
+      );
+      expect(
+        find.descendant(
+          of: locationOption,
+          matching: find.byIcon(Icons.place_outlined),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: locationOption, matching: find.byType(SvgPicture)),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.descendant(of: locationOption, matching: find.text('Mira')),
+            )
+            .style
+            ?.color,
+        const Color(0xFF666666),
+      );
+      final emptyLocationOption = find.byKey(
+        const ValueKey<String>('opening-location-option-location_opening_2'),
+      );
+      expect(
+        find.descendant(
+          of: emptyLocationOption,
+          matching: find.byIcon(Icons.place_outlined),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: emptyLocationOption,
+          matching: find.byType(SvgPicture),
+        ),
+        findsNothing,
+      );
+      await tester.tap(locationOption);
+      await tester.pump();
+      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Select'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Archive'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('opening-initial-characters')),
+          matching: find.text('Mira'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Select a location first, then edit the dialogue.'),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('opening-add-narrator')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('opening-add-character-char_opening_1'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('opening-add-image')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+                .getTopLeft(
+                  find.byKey(const ValueKey<String>('opening-dialogue-editor')),
+                )
+                .dy -
+            tester
+                .getBottomLeft(
+                  find.byKey(const ValueKey<String>('opening-dialogue-title')),
+                )
+                .dy,
+        closeTo(20, 0.01),
+      );
+      final characterAddButton = find.byKey(
+        const ValueKey<String>('opening-add-character-char_opening_1'),
+      );
+      final narratorAddButton = find.byKey(
+        const ValueKey<String>('opening-add-narrator'),
+      );
+      final imageAddButton = find.byKey(
+        const ValueKey<String>('opening-add-image'),
+      );
+      expect(
+        tester.getTopLeft(characterAddButton).dy,
+        lessThan(tester.getTopLeft(narratorAddButton).dy),
+      );
+      expect(
+        tester.getTopLeft(narratorAddButton).dy,
+        tester.getTopLeft(imageAddButton).dy,
+      );
+      expect(
+        find.descendant(
+          of: characterAddButton,
+          matching: find.byIcon(Icons.add),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: characterAddButton,
+          matching: find.byType(SvgPicture),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: narratorAddButton,
+          matching: find.byIcon(Icons.add),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: narratorAddButton,
+          matching: find.byType(SvgPicture),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: imageAddButton, matching: find.byIcon(Icons.add)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: imageAddButton,
+          matching: find.byIcon(Icons.image_outlined),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(
+              find.widgetWithText(GenesisPrimaryButton, 'Save'),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey<String>('opening-add-narrator')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('opening-add-narrator')),
+      );
+      await tester.pumpAndSettle();
+
+      final narratorField = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-field'),
+      );
+      expect(narratorField, findsOneWidget);
+      final narratorTextField = tester.widget<TextField>(narratorField);
+      expect(narratorTextField.minLines, 3);
+      expect(narratorTextField.maxLines, 7);
+      final narratorContainer = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-narrator')),
+      );
+      final narratorColor =
+          (narratorContainer.decoration as BoxDecoration).color!;
+      expect(narratorColor, kLocationChatStyle.systemMessageBackgroundColor);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+            )
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(
+                  const ValueKey<String>('opening-dialogue-0-narrator'),
+                ),
+              )
+              .dy,
+        ),
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(
+                const ValueKey<String>('opening-dialogue-add-buttons'),
+              ),
+            )
+            .dy,
+        greaterThan(
+          tester
+              .getBottomLeft(
+                find.byKey(
+                  const ValueKey<String>('opening-dialogue-0-narrator'),
+                ),
+              )
+              .dy,
+        ),
+      );
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(
+              find.widgetWithText(GenesisPrimaryButton, 'Save'),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      await tester.enterText(narratorField, 'The archive doors open.');
+      await tester.pump();
+      final narratorEditable = find.descendant(
+        of: narratorField,
+        matching: find.byType(EditableText),
+      );
+      expect(
+        tester
+            .state<EditableTextState>(narratorEditable)
+            .widget
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey<String>('opening-dialogue-title')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('opening-dialogue-title')),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .state<EditableTextState>(narratorEditable)
+            .widget
+            .focusNode
+            .hasFocus,
+        isFalse,
+      );
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(
+              find.widgetWithText(GenesisPrimaryButton, 'Save'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey<String>('opening-location-field')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('opening-location-field')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Switching locations will clear the dialogue content.'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.text('Switching locations will clear the dialogue content.'),
+            )
+            .style
+            ?.height,
+        1.4,
+      );
+      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(narratorField, findsOneWidget);
+      expect(
+        tester.widget<TextField>(narratorField).controller?.text,
+        'The archive doors open.',
+      );
+
+      final addCharacter = find.byKey(
+        const ValueKey<String>('opening-add-character-char_opening_1'),
+      );
+      await tester.ensureVisible(addCharacter);
+      await tester.tap(addCharacter);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-1-character')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('opening-dialogue-1-character'),
+          ),
+          matching: find.byType(ChatAvatar),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('opening-dialogue-1-character'),
+          ),
+          matching: find.byType(ChatAiBadge),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
+        findsOneWidget,
+      );
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
+        ),
+        const Size.square(24),
+      );
+      final characterNameRow = find.byKey(
+        const ValueKey<String>('opening-dialogue-1-name-row'),
+      );
+      expect(tester.getSize(characterNameRow).height, 16);
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
+            )
+            .dy,
+        lessThan(tester.getTopLeft(characterNameRow).dy),
+      );
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(
+              find.widgetWithText(GenesisPrimaryButton, 'Save'),
+            )
+            .onPressed,
+        isNull,
+      );
+      final characterField = find.byKey(
+        const ValueKey<String>('opening-dialogue-1-field'),
+      );
+      await tester.enterText(characterField, 'Mira checks the index.');
+      await tester.pump();
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(
+              find.widgetWithText(GenesisPrimaryButton, 'Save'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      final addImage = find.byKey(const ValueKey<String>('opening-add-image'));
+      await tester.ensureVisible(addImage);
+      await tester.tap(addImage);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+        findsOneWidget,
+      );
+      final narratorSize = tester.getSize(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-narrator')),
+      );
+      final imageSize = tester.getSize(
+        find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+      );
+      expect(imageSize.width, closeTo(narratorSize.width, 0.01));
+      expect(imageSize.height, closeTo(imageSize.width, 0.01));
+      await tester.ensureVisible(narratorField);
+      await tester.tap(narratorField);
+      await tester.pump();
+      expect(
+        tester
+            .state<EditableTextState>(narratorEditable)
+            .widget
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -40),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .state<EditableTextState>(narratorEditable)
+            .widget
+            .focusNode
+            .hasFocus,
+        isFalse,
+      );
+      final imageUpload = tester.widget<CreateUploadBox>(
+        find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+      );
+      expect(imageUpload.uploadOriginalImage, isTrue);
+      expect(imageUpload.preserveImageAspectRatio, isTrue);
+      expect(imageUpload.cropSize, isNull);
+      expect(imageUpload.showRemoveLinkWhenFilled, isFalse);
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(
+              find.widgetWithText(GenesisPrimaryButton, 'Save'),
+            )
+            .onPressed,
+        isNull,
+      );
+      imageUpload.controller.text = 'https://example.com/opening.png';
+      imageUpload.onChanged();
+      await tester.pump();
+      expect(
+        tester
+            .widget<GenesisPrimaryButton>(
+              find.widgetWithText(GenesisPrimaryButton, 'Save'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-2-delete')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(
+                const ValueKey<String>('opening-dialogue-1-character'),
+              ),
+            )
+            .dx,
+        closeTo(10, 0.01),
+      );
+      expect(
+        tester
+            .getTopRight(
+              find.byKey(const ValueKey<String>('opening-dialogue-1-bubble')),
+            )
+            .dx,
+        closeTo(800 - 10 - (40 / 3), 0.01),
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('opening-dialogue-0-narrator')),
+            )
+            .dx,
+        closeTo(10 + (40 / 3), 0.01),
+      );
+      expect(
+        tester
+            .getTopRight(
+              find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+            )
+            .dx,
+        closeTo(
+          tester
+              .getTopRight(
+                find.byKey(
+                  const ValueKey<String>('opening-dialogue-0-narrator'),
+                ),
+              )
+              .dx,
+          0.01,
+        ),
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+            )
+            .dx,
+        closeTo(10 + (40 / 3), 0.01),
+      );
+      final narratorDeleteOffset =
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+              )
+              .dy -
+          tester
+              .getTopLeft(
+                find.byKey(
+                  const ValueKey<String>('opening-dialogue-0-narrator'),
+                ),
+              )
+              .dy;
+      final characterDeleteOffset =
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
+              )
+              .dy -
+          tester
+              .getTopLeft(
+                find.byKey(
+                  const ValueKey<String>('opening-dialogue-1-character'),
+                ),
+              )
+              .dy;
+      final imageDeleteOffset =
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('opening-dialogue-2-delete')),
+              )
+              .dy -
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+              )
+              .dy;
+      expect(narratorDeleteOffset, closeTo(-8, 0.01));
+      expect(characterDeleteOffset, closeTo(-8, 0.01));
+      expect(imageDeleteOffset, closeTo(-8, 0.01));
+      final narratorDeleteRight = tester
+          .getTopRight(
+            find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+          )
+          .dx;
+      final characterDeleteRight = tester
+          .getTopRight(
+            find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
+          )
+          .dx;
+      final imageDeleteRight = tester
+          .getTopRight(
+            find.byKey(const ValueKey<String>('opening-dialogue-2-delete')),
+          )
+          .dx;
+      expect(narratorDeleteRight, closeTo(790, 0.01));
+      expect(characterDeleteRight, closeTo(narratorDeleteRight, 0.01));
+      expect(imageDeleteRight, closeTo(narratorDeleteRight, 0.01));
+
+      for (final itemId in <String>[
+        'opening-dialogue-0',
+        'opening-dialogue-1',
+        'opening-dialogue-2',
+      ]) {
+        final deleteContainer = tester.widget<Container>(
+          find.byKey(ValueKey<String>('$itemId-delete-container')),
+        );
+        final deleteDecoration = deleteContainer.decoration as BoxDecoration;
+        expect(deleteDecoration.color, const Color(0xE6F4F4F6));
+        final deleteBorder = deleteDecoration.border! as Border;
+        expect(deleteBorder.top.color, const Color(0xFFD8D8DE));
+        expect(deleteBorder.top.width, 1);
+      }
+
+      final characterDelete = find.byKey(
+        const ValueKey<String>('opening-dialogue-1-delete'),
+      );
+      await tester.ensureVisible(characterDelete);
+      await tester.tap(characterDelete);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-1-character')),
+        findsNothing,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey<String>('opening-location-field')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('opening-location-field')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Switching locations will clear the dialogue content.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(find.text('Select Location'), findsOneWidget);
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('opening-location-option-location_opening_2'),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Select'));
+      await tester.pumpAndSettle();
+      expect(find.text('Empty Hall'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-narrator')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('opening save persists ordered content and restores it', (
+    WidgetTester tester,
+  ) async {
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[
+          CharacterDraft(charId: 'char_opening_save', name: 'Mira'),
+        ],
+        locations: <LocationDraft>[
+          LocationDraft(
+            locationId: 'location_opening_save',
+            name: 'Archive',
+            initialCharacterIds: <String>['char_opening_save'],
+          ),
+        ],
+        storyEvents: <StoryEventDraft>[],
+        basicsSaved: false,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: FilledButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          OriginOpeningEditorPage(repository: repository),
+                    ),
+                  );
+                },
+                child: const Text('Open Opening'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open Opening'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-location-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('opening-location-option-location_opening_save'),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Select'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-add-narrator')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
+      'The archive opens.',
+    );
+
+    await tester.ensureVisible(
+      find.byKey(
+        const ValueKey<String>('opening-add-character-char_opening_save'),
+      ),
+    );
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('opening-add-character-char_opening_save'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('opening-dialogue-1-field')),
+      'Welcome inside.',
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('opening-add-image')),
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('opening-add-image')));
+    await tester.pumpAndSettle();
+    final imageUpload = tester.widget<CreateUploadBox>(
+      find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+    );
+    imageUpload.controller.text = 'https://example.com/opening-saved.png';
+    imageUpload.onChanged();
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open Opening'), findsOneWidget);
+
+    final savedDraft = await repository.loadDraft();
+    expect(savedDraft.openingSaved, isTrue);
+    expect(savedDraft.opening.locationId, 'location_opening_save');
+    expect(savedDraft.opening.locationName, 'Archive');
+    expect(
+      savedDraft.opening.dialogue.map((item) => item.type).toList(),
+      <String>['narrator', 'character', 'image'],
+    );
+    expect(
+      savedDraft.opening.dialogue.map((item) => item.content).toList(),
+      <String>[
+        'The archive opens.',
+        'Welcome inside.',
+        'https://example.com/opening-saved.png',
+      ],
+    );
+    expect(savedDraft.opening.dialogue[1].characterId, 'char_opening_save');
+
+    await tester.tap(find.text('Open Opening'));
+    await tester.pumpAndSettle();
+    expect(find.text('Archive'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
+          )
+          .controller
+          ?.text,
+      'The archive opens.',
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey<String>('opening-dialogue-1-field')),
+          )
+          .controller
+          ?.text,
+      'Welcome inside.',
+    );
+    expect(
+      tester
+          .widget<CreateUploadBox>(
+            find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+          )
+          .controller
+          .text,
+      'https://example.com/opening-saved.png',
+    );
+    expect(
+      tester
+          .widget<GenesisPrimaryButton>(
+            find.widgetWithText(GenesisPrimaryButton, 'Save'),
+          )
+          .onPressed,
+      isNotNull,
+    );
+  });
+
+  test('opening survives create draft store round trip', () async {
+    const draft = CreateOriginDraft(
+      basics: BasicsDraft(),
+      characters: <CharacterDraft>[],
+      locations: <LocationDraft>[],
+      storyEvents: <StoryEventDraft>[],
+      basicsSaved: false,
+      charactersSaved: false,
+      locationsSaved: false,
+      storyEventsSaved: false,
+      opening: OpeningDraft(
+        locationId: 'location_round_trip',
+        locationName: 'Round Trip',
+        dialogue: <OpeningDialogueDraft>[
+          OpeningDialogueDraft(type: 'narrator', content: 'Saved locally.'),
+        ],
+      ),
+      openingSaved: true,
+    );
+
+    await CreateOriginDraftStore.saveFinal(draft);
+    final restored = await CreateOriginDraftStore.loadFinal();
+
+    expect(restored.openingSaved, isTrue);
+    expect(restored.opening.toJson(), draft.opening.toJson());
+  });
+
   testWidgets('create origin page renders final draft summaries', (
     WidgetTester tester,
   ) async {
     await CreateOriginDraftStore.saveFinal(
       const CreateOriginDraft(
         basics: BasicsDraft(
-          originName: '#Cff',
+          originName: 'Cff',
           worldView: 'Xkkdd',
           worldLogic: 'Nfhnnfjdkd dndiengmcksowbdjcxjnsked rules',
           coverImageUrl: 'https://example.com/cover.png',
@@ -8572,10 +9635,18 @@ void main() {
           StoryEventDraft(event: 'First event'),
           StoryEventDraft(event: 'Second event'),
         ],
+        opening: OpeningDraft(
+          locationId: 'location_1',
+          locationName: 'Jenrn ff',
+          dialogue: <OpeningDialogueDraft>[
+            OpeningDialogueDraft(type: 'narrator', content: 'Opening line.'),
+          ],
+        ),
         basicsSaved: true,
         charactersSaved: true,
         locationsSaved: true,
         storyEventsSaved: true,
+        openingSaved: true,
       ),
     );
 
@@ -8583,12 +9654,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Worldo Name: #Cff'), findsOneWidget);
-    expect(find.textContaining('World View: Xkkdd'), findsOneWidget);
+    expect(find.textContaining('Worldo Brief: Xkkdd'), findsOneWidget);
     expect(find.textContaining('World Logic:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
-    expect(find.text('Tff: Guide / Calm'), findsOneWidget);
-    expect(find.text('Jenrn ff'), findsOneWidget);
-    expect(find.text('2 Events'), findsOneWidget);
+    expect(find.text('1 characters: Tff'), findsOneWidget);
+    expect(find.text('1 locations: Jenrn ff'), findsOneWidget);
+    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text('2 events'), findsOneWidget);
   });
 
   testWidgets('create origin back action can discard the local draft', (
@@ -8664,6 +9736,11 @@ void main() {
 
     expect(find.text('Character 1'), findsOneWidget);
     expect(find.text('Character 2'), findsNothing);
+    expect(find.byType(CreateFormDeleteButton), findsOneWidget);
+    expect(
+      tester.getCenter(find.text('Character 1')).dy,
+      closeTo(tester.getCenter(find.byType(CreateFormDeleteButton)).dy, 0.01),
+    );
 
     await tester.scrollUntilVisible(
       find.text('+ Add Character'),
@@ -8676,7 +9753,7 @@ void main() {
     expect(find.text('Character 2'), findsOneWidget);
   });
 
-  testWidgets('characters delete confirms before clearing edited form', (
+  testWidgets('characters delete clears the edited final form', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: CreateCharactersPage()));
@@ -8685,25 +9762,11 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Ari');
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.delete_outline));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Delete Character 1?'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
-    await tester.pumpAndSettle();
-    TextField nameField = tester.widget<TextField>(
-      find.byType(TextField).first,
-    );
-    expect(nameField.controller?.text, 'Ari');
-
-    await tester.tap(find.byIcon(Icons.delete_outline));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+    await tester.tap(find.byType(CreateFormDeleteButton));
     await tester.pumpAndSettle();
 
     expect(find.text('Character 1'), findsOneWidget);
-    nameField = tester.widget<TextField>(find.byType(TextField).first);
+    final nameField = tester.widget<TextField>(find.byType(TextField).first);
     expect(nameField.controller?.text, isEmpty);
   });
 
@@ -8822,6 +9885,11 @@ void main() {
 
     expect(find.text('Location 1'), findsOneWidget);
     expect(find.text('Location 2'), findsNothing);
+    expect(find.byType(CreateFormDeleteButton), findsOneWidget);
+    expect(
+      tester.getCenter(find.text('Location 1')).dy,
+      closeTo(tester.getCenter(find.byType(CreateFormDeleteButton)).dy, 0.01),
+    );
 
     await tester.scrollUntilVisible(
       find.text('+ Add Location'),
@@ -8834,61 +9902,59 @@ void main() {
     expect(find.text('Location 2'), findsOneWidget);
   });
 
-  testWidgets(
-    'locations save ignores empty cards but validates partial cards',
-    (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) {
-                return FilledButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const CreateLocationsPage(),
-                      ),
-                    );
-                  },
-                  child: const Text('Open locations'),
-                );
-              },
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+  testWidgets('locations save requires at least one complete location', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Open locations'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-      await tester.pumpAndSettle();
+    FilledButton saveButton() =>
+        tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save'));
 
-      var draft = await CreateOriginDraftStore.loadFinal();
-      expect(draft.locationsSaved, isTrue);
-      expect(
-        draft.locations.where((item) => item.name.trim().isNotEmpty),
-        isEmpty,
-      );
+    expect(saveButton().onPressed, isNull);
 
-      await tester.tap(find.text('Open locations'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Hidden door');
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-      await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(1), 'Hidden door');
+    await tester.pump();
+    expect(saveButton().onPressed, isNull);
 
-      expect(
-        find.text('Location 1: Location Name is required.'),
-        findsOneWidget,
-      );
-      draft = await CreateOriginDraftStore.loadFinal();
-      expect(
-        draft.locations.where((item) => item.name.trim().isNotEmpty),
-        isEmpty,
-      );
-      await tester.pump(const Duration(seconds: 2));
-    },
-  );
+    await tester.enterText(find.byType(TextField).first, 'Archive');
+    await tester.pump();
+    expect(saveButton().onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    final draft = await CreateOriginDraftStore.loadFinal();
+    expect(draft.locationsSaved, isTrue);
+    expect(draft.locations.single.name, 'Archive');
+  });
+
+  testWidgets('edit locations save also requires a complete location', (
+    WidgetTester tester,
+  ) async {
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[],
+        locations: <LocationDraft>[],
+        storyEvents: <StoryEventDraft>[],
+        basicsSaved: false,
+        charactersSaved: false,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: EditLocationsPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    final saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNull);
+  });
 
   testWidgets('locations character picker reports empty final characters', (
     WidgetTester tester,
@@ -9045,6 +10111,11 @@ void main() {
 
     expect(find.text('Event 1'), findsOneWidget);
     expect(find.text('Event 2'), findsNothing);
+    expect(find.byType(CreateFormDeleteButton), findsOneWidget);
+    expect(
+      tester.getCenter(find.text('Event 1')).dy,
+      closeTo(tester.getCenter(find.byType(CreateFormDeleteButton)).dy, 0.01),
+    );
 
     await tester.scrollUntilVisible(
       find.text('+ Add Event'),
@@ -9156,10 +10227,18 @@ void main() {
           LocationDraft(locationId: 'location_local_1', name: 'Gate'),
         ],
         storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        opening: OpeningDraft(
+          locationId: 'location_local_1',
+          locationName: 'Gate',
+          dialogue: <OpeningDialogueDraft>[
+            OpeningDialogueDraft(type: 'narrator', content: 'The gate opens.'),
+          ],
+        ),
         basicsSaved: true,
         charactersSaved: true,
         locationsSaved: true,
         storyEventsSaved: true,
+        openingSaved: true,
       ),
     );
 
@@ -9222,6 +10301,7 @@ void main() {
     expect(body.containsKey('origin_version'), isFalse);
     expect(body.containsKey('character_list'), isFalse);
     expect(body.containsKey('location_list'), isFalse);
+    expect(body.containsKey('opening'), isFalse);
     expect(body['origin_name'], 'Crystal City');
     expect(body['brief'], 'A public world view.');
     expect(body['setting'], 'Hidden rules.');
@@ -9325,10 +10405,18 @@ void main() {
         ],
         locations: <LocationDraft>[LocationDraft(name: 'Gate')],
         storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        opening: OpeningDraft(
+          locationId: 'Gate',
+          locationName: 'Gate',
+          dialogue: <OpeningDialogueDraft>[
+            OpeningDialogueDraft(type: 'narrator', content: 'The gate opens.'),
+          ],
+        ),
         basicsSaved: true,
         charactersSaved: true,
         locationsSaved: true,
         storyEventsSaved: true,
+        openingSaved: true,
       ),
     );
 
@@ -9392,10 +10480,18 @@ void main() {
         ],
         locations: <LocationDraft>[LocationDraft(name: 'Gate')],
         storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        opening: OpeningDraft(
+          locationId: 'Gate',
+          locationName: 'Gate',
+          dialogue: <OpeningDialogueDraft>[
+            OpeningDialogueDraft(type: 'narrator', content: 'The gate opens.'),
+          ],
+        ),
         basicsSaved: true,
         charactersSaved: true,
         locationsSaved: true,
         storyEventsSaved: true,
+        openingSaved: true,
       ),
     );
     await OriginPendingSubmissionStore.saveCreating('o_created_1');
@@ -9455,6 +10551,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(FilledButton, 'Publish'), findsOneWidget);
+  });
+
+  testWidgets('edit home opens Opening with existing location data', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingCreateOriginTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: EditOriginPage(originId: 'o_edit_1')),
+      ),
+    );
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Locations (>=1)'), findsOneWidget);
+    expect(find.text('Opening'), findsOneWidget);
+    await tester.tap(find.text('Opening'));
+    await tester.pumpAndSettle();
+    expect(find.text('Select initial location'), findsWidgets);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-location-field')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select Location'), findsOneWidget);
+    expect(find.text('Archive'), findsOneWidget);
+    expect(find.text('Mira'), findsOneWidget);
   });
 
   testWidgets('edit flow loads origin detail and posts update after changes', (
@@ -9546,6 +10676,38 @@ void main() {
     expect(rootPublish.onPressed, isNull);
 
     expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+
+    await tester.tap(find.text('Opening'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-location-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('opening-location-option-location_edit_1'),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-add-narrator')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
+      'The archive opens for the first visitor.',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Saved'), findsOneWidget);
+
+    rootPublish = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Publish'),
+    );
+    expect(rootPublish.onPressed, isNull);
 
     await tester.drag(find.byType(ListView), const Offset(0, -360));
     await tester.pump();

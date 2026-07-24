@@ -17,6 +17,7 @@ import '../origin_editor/origin_pending_submission_coordinator.dart';
 import 'edit_basics_page.dart';
 import 'edit_characters_page.dart';
 import 'edit_locations_page.dart';
+import 'edit_opening_page.dart';
 import 'edit_story_events_page.dart';
 
 class EditOriginPage extends StatefulWidget {
@@ -155,6 +156,8 @@ class _EditOriginPageState extends State<EditOriginPage> {
           EditCharactersPage(repository: repository),
       locationsPageBuilder: (repository) =>
           EditLocationsPage(repository: repository),
+      openingPageBuilder: (repository) =>
+          EditOpeningPage(repository: repository),
       storyEventsPageBuilder: (repository) =>
           EditStoryEventsPage(repository: repository),
       canSubmit: repository.hasSubmitChanges,

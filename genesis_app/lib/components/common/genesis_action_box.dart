@@ -263,7 +263,7 @@ class _TitleRow extends StatelessWidget {
                     style: const TextStyle(
                       color: _genesisActionBoxText,
                       fontSize: 15,
-                      height: 1.16,
+                      height: 1.4,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

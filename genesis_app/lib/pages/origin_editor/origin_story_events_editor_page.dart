@@ -179,6 +179,7 @@ class _OriginStoryEventsEditorPageState
 
 class _SectionRow extends StatelessWidget {
   const _SectionRow({
+    super.key,
     required this.icon,
     required this.title,
     required this.summary,
@@ -189,11 +190,11 @@ class _SectionRow extends StatelessWidget {
     this.showDivider = true,
   });
 
-  final String icon;
+  final String? icon;
   final String title;
   final String summary;
   final bool completed;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool modified;
   final bool summaryWrap;
   final bool showDivider;
@@ -210,9 +211,12 @@ class _SectionRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
+                  key: ValueKey<String>('section-icon-$title'),
                   width: 24,
                   height: 24,
-                  child: SvgPicture.asset(icon, fit: BoxFit.contain),
+                  child: icon == null
+                      ? null
+                      : SvgPicture.asset(icon!, fit: BoxFit.contain),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -285,11 +289,13 @@ class _SectionRow extends StatelessWidget {
                                 height: 1,
                               ),
                             ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.chevron_right,
-                            color: Color(0xFF666666),
-                          ),
+                          if (onTap != null) ...[
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFF666666),
+                            ),
+                          ],
                         ],
                       ),
                     ],

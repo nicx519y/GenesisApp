@@ -19,6 +19,8 @@ const String createOriginBasicsIconAsset =
     'assets/custom-icons/svg/create_origin_basics.svg';
 const String createOriginCharactersIconAsset =
     'assets/custom-icons/svg/create_origin_characters.svg';
+const String createOriginOpeningIconAsset =
+    'assets/custom-icons/svg/create_origin_opening.svg';
 const String createOriginLocationsIconAsset =
     'assets/custom-icons/svg/create_origin_locations.svg';
 const String createOriginStoryEventsIconAsset =

@@ -145,16 +145,20 @@ class CreateOriginDraft {
     required this.charactersSaved,
     required this.locationsSaved,
     required this.storyEventsSaved,
+    this.opening = const OpeningDraft(),
+    this.openingSaved = false,
   });
 
   final BasicsDraft basics;
   final List<CharacterDraft> characters;
   final List<LocationDraft> locations;
   final List<StoryEventDraft> storyEvents;
+  final OpeningDraft opening;
   final bool basicsSaved;
   final bool charactersSaved;
   final bool locationsSaved;
   final bool storyEventsSaved;
+  final bool openingSaved;
 
   factory CreateOriginDraft.empty() {
     return const CreateOriginDraft(
@@ -162,10 +166,12 @@ class CreateOriginDraft {
       characters: <CharacterDraft>[CharacterDraft()],
       locations: <LocationDraft>[LocationDraft()],
       storyEvents: <StoryEventDraft>[StoryEventDraft()],
+      opening: OpeningDraft(),
       basicsSaved: false,
       charactersSaved: false,
       locationsSaved: false,
       storyEventsSaved: false,
+      openingSaved: false,
     );
   }
 
@@ -185,10 +191,12 @@ class CreateOriginDraft {
       storyEvents: _asList(storyEventsRaw)
           .map((item) => StoryEventDraft.fromJson(_asMap(item)))
           .toList(growable: false),
+      opening: OpeningDraft.fromJson(_asMap(json['opening'])),
       basicsSaved: _asBool(json['basics_saved']),
       charactersSaved: _asBool(json['characters_saved']),
       locationsSaved: _asBool(json['locations_saved']),
       storyEventsSaved: _asBool(json['story_events_saved']),
+      openingSaved: _asBool(json['opening_saved']),
     ).normalized();
   }
 
@@ -198,10 +206,12 @@ class CreateOriginDraft {
       'characters': characters.map((item) => item.toJson()).toList(),
       'locations': locations.map((item) => item.toJson()).toList(),
       'story_events': storyEvents.map((item) => item.toJson()).toList(),
+      'opening': opening.toJson(),
       'basics_saved': basicsSaved,
       'characters_saved': charactersSaved,
       'locations_saved': locationsSaved,
       'story_events_saved': storyEventsSaved,
+      'opening_saved': openingSaved,
     };
   }
 
@@ -210,20 +220,24 @@ class CreateOriginDraft {
     List<CharacterDraft>? characters,
     List<LocationDraft>? locations,
     List<StoryEventDraft>? storyEvents,
+    OpeningDraft? opening,
     bool? basicsSaved,
     bool? charactersSaved,
     bool? locationsSaved,
     bool? storyEventsSaved,
+    bool? openingSaved,
   }) {
     return CreateOriginDraft(
       basics: basics ?? this.basics,
       characters: characters ?? this.characters,
       locations: locations ?? this.locations,
       storyEvents: storyEvents ?? this.storyEvents,
+      opening: opening ?? this.opening,
       basicsSaved: basicsSaved ?? this.basicsSaved,
       charactersSaved: charactersSaved ?? this.charactersSaved,
       locationsSaved: locationsSaved ?? this.locationsSaved,
       storyEventsSaved: storyEventsSaved ?? this.storyEventsSaved,
+      openingSaved: openingSaved ?? this.openingSaved,
     ).normalized();
   }
 
@@ -239,10 +253,12 @@ class CreateOriginDraft {
       storyEvents: storyEvents.isEmpty
           ? const <StoryEventDraft>[StoryEventDraft()]
           : storyEvents,
+      opening: opening,
       basicsSaved: basicsSaved,
       charactersSaved: charactersSaved,
       locationsSaved: locationsSaved,
       storyEventsSaved: storyEventsSaved,
+      openingSaved: openingSaved,
     );
   }
 
@@ -255,11 +271,15 @@ class CreateOriginDraft {
   }
 
   bool get hasAllSectionsSaved {
-    return basicsSaved && charactersSaved && locationsSaved && storyEventsSaved;
+    return basicsSaved &&
+        charactersSaved &&
+        locationsSaved &&
+        openingSaved &&
+        storyEventsSaved;
   }
 
   bool get hasRequiredSectionsSaved {
-    return basicsSaved && charactersSaved;
+    return basicsSaved && charactersSaved && locationsSaved && openingSaved;
   }
 
   List<String> validateForSubmit() {
@@ -269,6 +289,8 @@ class CreateOriginDraft {
       final missing = <String>[
         if (!basicsSaved) 'Basics',
         if (!charactersSaved) 'Characters',
+        if (!locationsSaved) 'Locations',
+        if (!openingSaved) 'Opening',
       ];
       errors.add('Please save ${missing.join(', ')} before creating.');
     }
@@ -311,11 +333,44 @@ class CreateOriginDraft {
       errors.add('Characters: At least one character is required.');
     }
 
+    if (locations.where(_locationHasContent).isEmpty) {
+      errors.add('Locations: Please create at least one location.');
+    }
     for (int i = 0; i < locations.length; i++) {
       final item = locations[i];
       if (!_locationHasContent(item)) continue;
       if (item.name.trim().isEmpty) {
         errors.add('Locations #${i + 1}: Location Name is required.');
+      }
+    }
+
+    if (openingSaved && !opening.isComplete) {
+      errors.add(
+        'Opening: Select a location and complete every dialogue item.',
+      );
+    } else if (openingSaved) {
+      final validLocationIds = locations
+          .where(_locationHasContent)
+          .map(
+            (item) => item.locationId.trim().isEmpty
+                ? item.name.trim()
+                : item.locationId.trim(),
+          )
+          .where((item) => item.isNotEmpty)
+          .toSet();
+      if (!validLocationIds.contains(opening.locationId.trim())) {
+        errors.add('Opening: The selected location is no longer available.');
+      }
+      final validCharacterIds = characters
+          .map((item) => item.charId.trim())
+          .where((item) => item.isNotEmpty)
+          .toSet();
+      if (opening.dialogue.any(
+        (item) =>
+            item.type.trim() == OpeningDialogueDraft.characterType &&
+            !validCharacterIds.contains(item.characterId.trim()),
+      )) {
+        errors.add('Opening: A selected character is no longer available.');
       }
     }
 
@@ -622,6 +677,83 @@ class LocationDraft {
       'name': name,
       'description': description,
       'initial_character_ids': initialCharacterIds,
+    };
+  }
+}
+
+class OpeningDraft {
+  const OpeningDraft({
+    this.locationId = '',
+    this.locationName = '',
+    this.dialogue = const <OpeningDialogueDraft>[],
+  });
+
+  final String locationId;
+  final String locationName;
+  final List<OpeningDialogueDraft> dialogue;
+
+  bool get isComplete {
+    return locationId.trim().isNotEmpty &&
+        dialogue.isNotEmpty &&
+        dialogue.every((item) => item.isComplete);
+  }
+
+  factory OpeningDraft.fromJson(Map<String, dynamic> json) {
+    return OpeningDraft(
+      locationId: _asString(json['location_id']),
+      locationName: _asString(json['location_name']),
+      dialogue: _asList(json['dialogue'])
+          .map((item) => OpeningDialogueDraft.fromJson(_asMap(item)))
+          .toList(growable: false),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'location_id': locationId,
+      'location_name': locationName,
+      'dialogue': dialogue.map((item) => item.toJson()).toList(),
+    };
+  }
+}
+
+class OpeningDialogueDraft {
+  const OpeningDialogueDraft({
+    this.type = '',
+    this.content = '',
+    this.characterId = '',
+  });
+
+  static const String narratorType = 'narrator';
+  static const String characterType = 'character';
+  static const String imageType = 'image';
+
+  final String type;
+  final String content;
+  final String characterId;
+
+  bool get isComplete {
+    final normalizedType = type.trim();
+    if (content.trim().isEmpty) return false;
+    if (normalizedType == characterType) {
+      return characterId.trim().isNotEmpty;
+    }
+    return normalizedType == narratorType || normalizedType == imageType;
+  }
+
+  factory OpeningDialogueDraft.fromJson(Map<String, dynamic> json) {
+    return OpeningDialogueDraft(
+      type: _asString(json['type']),
+      content: _asString(json['content']),
+      characterId: _asString(json['character_id']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type,
+      'content': content,
+      if (characterId.trim().isNotEmpty) 'character_id': characterId,
     };
   }
 }

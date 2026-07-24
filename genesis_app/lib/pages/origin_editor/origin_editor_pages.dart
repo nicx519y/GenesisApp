@@ -8,6 +8,7 @@ import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
+import '../../components/chat/shared/chat_ui.dart';
 import '../../components/origin/origin_character_form.dart';
 import '../../components/page_header.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -22,6 +23,7 @@ import 'origin_draft_repository.dart';
 part 'origin_basics_editor_page.dart';
 part 'origin_characters_editor_page.dart';
 part 'origin_locations_editor_page.dart';
+part 'origin_opening_editor_page.dart';
 part 'origin_story_events_editor_page.dart';
 
 bool _characterDraftHasContent(CharacterDraft item) {
@@ -138,6 +140,7 @@ class OriginDraftFlowPage extends StatefulWidget {
     required this.charactersPageBuilder,
     required this.locationsPageBuilder,
     required this.storyEventsPageBuilder,
+    this.openingPageBuilder,
     required this.onSubmit,
     this.submitLabel = 'Save',
     this.submittingLabel = 'Saving...',
@@ -160,6 +163,7 @@ class OriginDraftFlowPage extends StatefulWidget {
   final Widget Function(OriginDraftRepository repository) basicsPageBuilder;
   final Widget Function(OriginDraftRepository repository) charactersPageBuilder;
   final Widget Function(OriginDraftRepository repository) locationsPageBuilder;
+  final Widget Function(OriginDraftRepository repository)? openingPageBuilder;
   final Widget Function(OriginDraftRepository repository)
   storyEventsPageBuilder;
   final OriginSubmitHandler onSubmit;
@@ -477,7 +481,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 ),
                                 _SectionRow(
                                   icon: createOriginLocationsIconAsset,
-                                  title: 'Locations (Optional)',
+                                  title: 'Locations (>=1)',
                                   summary: _locationsSummary(_draft),
                                   completed: _draft.locationsSaved,
                                   modified: _locationsModified(_draft),
@@ -488,6 +492,22 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                     ),
                                   ),
                                 ),
+                                if (widget.openingPageBuilder != null)
+                                  _SectionRow(
+                                    key: ValueKey<String>(
+                                      'create-opening-section',
+                                    ),
+                                    icon: createOriginOpeningIconAsset,
+                                    title: 'Opening',
+                                    summary: _openingSummary(_draft),
+                                    completed: _draft.openingSaved,
+                                    modified: _openingModified(_draft),
+                                    onTap: () => _openSection(
+                                      widget.openingPageBuilder!(
+                                        widget.repository,
+                                      ),
+                                    ),
+                                  ),
                                 _SectionRow(
                                   icon: createOriginStoryEventsIconAsset,
                                   title: 'Story Events (Optional)',
@@ -639,6 +659,11 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     return '$count events';
   }
 
+  String _openingSummary(CreateOriginDraft draft) {
+    if (!draft.openingSaved) return 'Not started yet';
+    return 'Saved';
+  }
+
   String _summaryValue(String value, {int maxLength = 48}) {
     final trimmed = _singleLineSummaryText(value);
     if (trimmed.isEmpty) return '-';
@@ -679,6 +704,12 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final repository = widget.repository;
     return repository is MemoryOriginDraftRepository &&
         repository.locationsChanged(draft);
+  }
+
+  bool _openingModified(CreateOriginDraft draft) {
+    final repository = widget.repository;
+    return repository is MemoryOriginDraftRepository &&
+        repository.openingChanged(draft);
   }
 
   bool _storyEventsModified(CreateOriginDraft draft) {

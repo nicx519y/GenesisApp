@@ -666,6 +666,7 @@ void main() {
       const Size(700, 46),
     );
     expect(tester.getSize(find.text('Compact title')).height, lessThan(48));
+    expect(tester.widget<Text>(find.text('Compact title')).style?.height, 1.4);
     expect(tester.getSize(find.text('Confirm')).height, lessThan(44));
   });
 

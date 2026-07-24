@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show TextInputFormatter;
@@ -489,7 +490,66 @@ class CreateKeyboardDismissArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: child,
+    );
+  }
+}
+
+class CreateFormDeleteButton extends StatelessWidget {
+  const CreateFormDeleteButton({
+    super.key,
+    required this.onPressed,
+    this.buttonKey,
+    this.decorationKey,
+    this.size = 24,
+    this.iconSize = 14,
+  });
+
+  final VoidCallback onPressed;
+  final Key? buttonKey;
+  final Key? decorationKey;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            key: decorationKey,
+            decoration: BoxDecoration(
+              color: const Color(0xE6F4F4F6),
+              border: Border.all(color: const Color(0xFFD8D8DE)),
+              borderRadius: BorderRadius.circular(size / 4),
+            ),
+          ),
+          IconButton(
+            key: buttonKey,
+            onPressed: onPressed,
+            padding: EdgeInsets.all((size - iconSize) / 2),
+            constraints: BoxConstraints.tightFor(width: size, height: size),
+            icon: SvgPicture.asset(
+              createFormDeleteIconAsset,
+              width: iconSize,
+              height: iconSize,
+              colorFilter: const ColorFilter.mode(
+                Color(0xFF666666),
+                BlendMode.srcIn,
+              ),
+            ),
+            splashRadius: size / 2,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -531,23 +591,7 @@ class CreateFormCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Transform.translate(
-                offset: const Offset(13, -4),
-                child: IconButton(
-                  onPressed: onDelete,
-                  icon: SvgPicture.asset(
-                    createFormDeleteIconAsset,
-                    width: 20,
-                    height: 20,
-                    colorFilter: const ColorFilter.mode(
-                      Color(0xFF888888),
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  splashRadius: 22,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
+              CreateFormDeleteButton(onPressed: onDelete),
             ],
           ),
           child,
@@ -597,6 +641,8 @@ class CreateUploadBox extends StatefulWidget {
     this.iconSize = 38,
     this.borderRadius = GenesisImageRadii.contentValue,
     this.cropSize,
+    this.uploadOriginalImage = false,
+    this.preserveImageAspectRatio = false,
     this.previewAlignment = Alignment.center,
     this.showRemoveLinkWhenFilled = true,
     this.emptyLabelFontWeight = FontWeight.w600,
@@ -613,6 +659,8 @@ class CreateUploadBox extends StatefulWidget {
   final double iconSize;
   final double borderRadius;
   final Size? cropSize;
+  final bool uploadOriginalImage;
+  final bool preserveImageAspectRatio;
   final Alignment previewAlignment;
   final bool showRemoveLinkWhenFilled;
   final FontWeight emptyLabelFontWeight;
@@ -626,6 +674,7 @@ class CreateUploadBox extends StatefulWidget {
 
 class _CreateUploadBoxState extends State<CreateUploadBox> {
   Uint8List? _previewBytes;
+  double? _imageAspectRatio;
   bool _isUploading = false;
   bool _isUploadProcessing = false;
   double _uploadProgress = 0;
@@ -643,6 +692,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       oldWidget.controller.removeListener(_handleControllerChanged);
       widget.controller.addListener(_handleControllerChanged);
       _previewBytes = null;
+      _imageAspectRatio = null;
       _isUploading = false;
       _isUploadProcessing = false;
       _uploadProgress = 0;
@@ -660,6 +710,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     if (_previewBytes != null) {
       setState(() {
         _previewBytes = null;
+        _imageAspectRatio = null;
         _isUploadProcessing = false;
         _uploadProgress = 0;
       });
@@ -672,6 +723,13 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   Widget build(BuildContext context) {
     final imageUrl = widget.controller.text.trim();
     final hasImage = _previewBytes != null || imageUrl.isNotEmpty;
+    final previewHeight =
+        hasImage &&
+            widget.preserveImageAspectRatio &&
+            _imageAspectRatio != null &&
+            _imageAspectRatio! > 0
+        ? widget.width / _imageAspectRatio!
+        : widget.height;
     final uploadBox = Material(
       color: Colors.transparent,
       child: InkWell(
@@ -685,7 +743,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
           ),
           child: Container(
             width: widget.width,
-            height: widget.height,
+            height: previewHeight,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: const Color(0x6BF4F4F6),
@@ -742,6 +800,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   void _removeImage() {
     setState(() {
       _previewBytes = null;
+      _imageAspectRatio = null;
       _isUploading = false;
       _isUploadProcessing = false;
       _uploadProgress = 0;
@@ -756,6 +815,11 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       if (picked.isEmpty) return;
       final image = picked.first;
       if (!context.mounted) return;
+
+      if (widget.uploadOriginalImage) {
+        await _uploadOriginalSelection(context, image);
+        return;
+      }
 
       final crop = await Navigator.of(context).push<LocalImageCropResult>(
         MaterialPageRoute<LocalImageCropResult>(
@@ -791,6 +855,76 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
 
   void _showMessage(String message) {
     showGenesisToast(context, message);
+  }
+
+  Future<void> _uploadOriginalSelection(
+    BuildContext context,
+    DiscussPickedImage image,
+  ) async {
+    final previousUrl = widget.controller.text;
+    final aspectRatio = widget.preserveImageAspectRatio
+        ? await _decodeImageAspectRatio(image.bytes)
+        : null;
+    if (!context.mounted) return;
+    setState(() {
+      _previewBytes = image.bytes;
+      _imageAspectRatio = aspectRatio;
+      _isUploading = true;
+      _isUploadProcessing = true;
+      _uploadProgress = 0;
+    });
+    widget.controller.clear();
+    widget.onChanged();
+
+    try {
+      final uploaded = await AppServicesScope.read(context).api.v1.upload.image(
+        bytes: image.bytes,
+        filename: image.filename,
+        contentType: image.contentType,
+      );
+      if (!mounted) return;
+      final url = GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
+      if (url.isEmpty) {
+        throw StateError('Upload returned an empty URL');
+      }
+      setState(() {
+        _isUploadProcessing = false;
+        _uploadProgress = 0;
+      });
+      widget.controller.text = url;
+      setState(() {
+        _isUploading = false;
+      });
+      widget.onChanged();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isUploading = false;
+        _isUploadProcessing = false;
+        _uploadProgress = 0;
+        _previewBytes = null;
+        _imageAspectRatio = null;
+      });
+      widget.controller.text = previousUrl;
+      widget.onChanged();
+      _showMessage('Image upload failed.');
+    }
+  }
+
+  Future<double?> _decodeImageAspectRatio(Uint8List bytes) async {
+    final codec = await ui.instantiateImageCodec(bytes);
+    try {
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      try {
+        if (image.width <= 0 || image.height <= 0) return null;
+        return image.width / image.height;
+      } finally {
+        image.dispose();
+      }
+    } finally {
+      codec.dispose();
+    }
   }
 
   Size get _resolvedCropSize {
@@ -834,6 +968,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         _isUploadProcessing = false;
         _uploadProgress = 0;
         _previewBytes = null;
+        _imageAspectRatio = null;
       });
       widget.controller.text = previousUrl;
       widget.onChanged();

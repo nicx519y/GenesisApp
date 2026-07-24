@@ -163,6 +163,14 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       }
     }
 
+    final currentLocations = _snapshotLocations()
+        .where(_locationDraftHasContent)
+        .toList(growable: false);
+    if (currentLocations.isEmpty) {
+      _showError('Please create at least one location.');
+      return;
+    }
+
     setState(() => _isSaving = true);
     final draft = await widget.repository.loadDraft();
     _finalCharacters = await widget.repository.loadSavedCharacters();
@@ -183,11 +191,13 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   }
 
   bool get _canSaveCurrentLocations {
+    var hasCompleteLocation = false;
     for (final form in _forms) {
       if (!form.hasContent) continue;
       if (form.name.text.trim().isEmpty) return false;
+      hasCompleteLocation = true;
     }
-    return true;
+    return hasCompleteLocation;
   }
 
   bool get _canUseSaveButton {

@@ -16,6 +16,7 @@ import '../origin_editor/origin_pending_submission_coordinator.dart';
 import 'create_basics_page.dart';
 import 'create_characters_page.dart';
 import 'create_locations_page.dart';
+import 'create_opening_page.dart';
 import 'create_origin_draft_store.dart';
 import 'create_story_events_page.dart';
 
@@ -74,6 +75,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       basicsPageBuilder: (_) => const CreateBasicsPage(),
       charactersPageBuilder: (_) => const CreateCharactersPage(),
       locationsPageBuilder: (_) => const CreateLocationsPage(),
+      openingPageBuilder: (_) => const CreateOpeningPage(),
       storyEventsPageBuilder: (_) => const CreateStoryEventsPage(),
       failurePrefix: 'Create failed',
       submitLabel: 'Create',

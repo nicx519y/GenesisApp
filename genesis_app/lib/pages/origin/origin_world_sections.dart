@@ -489,6 +489,9 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        highlightColor: Colors.transparent,
         onTap: launching ? null : onTap,
         child: Center(
           child: Column(
