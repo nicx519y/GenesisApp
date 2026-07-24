@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../world_point.dart';
 import 'tilemap_fog.dart';
@@ -572,6 +574,28 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 ),
                               ),
                             ),
+                            if (hasFogTiles)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  key: const ValueKey<String>(
+                                    'tilemap-fog-layer',
+                                  ),
+                                  child: Transform(
+                                    transform: matrix,
+                                    alignment: Alignment.topLeft,
+                                    child: SizedBox(
+                                      width: projection.mapWidth,
+                                      height: projection.mapHeight,
+                                      child: CustomPaint(
+                                        key: const ValueKey<String>(
+                                          'tilemap-fog-paint',
+                                        ),
+                                        painter: _TilemapFogPainter(fogField!),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             Transform(
                               transform: matrix,
                               alignment: Alignment.topLeft,
@@ -598,6 +622,11 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                           tile,
                                         ),
                                         extent: projection.tileExtent,
+                                        fogField:
+                                            widget.blendFogWithShadowTiles &&
+                                                tile.hasShadow
+                                            ? fogField
+                                            : null,
                                         onImageError: widget.onImageError,
                                       ),
                                     if (highlightedTile != null)
@@ -613,72 +642,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 ),
                               ),
                             ),
-                            if (hasFogTiles)
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  key: const ValueKey<String>(
-                                    'tilemap-fog-layer',
-                                  ),
-                                  child: Transform(
-                                    transform: matrix,
-                                    alignment: Alignment.topLeft,
-                                    child: SizedBox(
-                                      width: projection.mapWidth,
-                                      height: projection.mapHeight,
-                                      child: CustomPaint(
-                                        key: const ValueKey<String>(
-                                          'tilemap-fog-paint',
-                                        ),
-                                        painter: _TilemapFogPainter(
-                                          fogField!,
-                                          blendWithShadowTiles:
-                                              widget.blendFogWithShadowTiles,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (widget.blendFogWithShadowTiles &&
-                                hasShadowZeroTiles)
-                              IgnorePointer(
-                                key: const ValueKey<String>(
-                                  'tilemap-shadow-zero-restore-layer',
-                                ),
-                                child: Transform(
-                                  transform: matrix,
-                                  alignment: Alignment.topLeft,
-                                  child: SizedBox(
-                                    width: projection.mapWidth,
-                                    height: projection.mapHeight,
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        for (final tile in tiles)
-                                          if (!tile.hasShadow)
-                                            _ProjectedTile(
-                                              key: ValueKey<String>(
-                                                'tile-restore-${tile.x}-${tile.y}',
-                                              ),
-                                              tile: tile,
-                                              asset:
-                                                  resolveTilemapAssetForDisplaySize(
-                                                    widget.config
-                                                        .baseAssetUrlForTile(
-                                                          tile,
-                                                        ),
-                                                    tilePixelSize,
-                                                  ),
-                                              topLeft: projection
-                                                  .imageTopLeftForTile(tile),
-                                              extent: projection.tileExtent,
-                                              excludeFromSemantics: true,
-                                            ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
                             if (widget.showShadowZeroBorders &&
                                 hasShadowZeroTiles)
                               Positioned.fill(
@@ -752,6 +715,9 @@ class _TilemapRendererState extends State<TilemapRenderer>
       fieldBounds: fogBounds,
       tiles: widget.config.tiles,
       polygonForTile: projection.polygonForTile,
+      imageBoundsForTile: (tile) =>
+          projection.imageTopLeftForTile(tile) &
+          Size.square(projection.tileExtent),
       tileExtent: projection.tileExtent,
       tileDiamondWidth: projection.tileDiamondWidth,
       tileDiamondHeight: projection.tileDiamondHeight,
@@ -1111,7 +1077,7 @@ class _ProjectedTile extends StatelessWidget {
     required this.asset,
     required this.topLeft,
     required this.extent,
-    this.excludeFromSemantics = false,
+    this.fogField,
     this.onImageError,
   });
 
@@ -1119,39 +1085,122 @@ class _ProjectedTile extends StatelessWidget {
   final String asset;
   final Offset topLeft;
   final double extent;
-  final bool excludeFromSemantics;
+  final TilemapFogField? fogField;
   final ValueChanged<Object>? onImageError;
 
   @override
   Widget build(BuildContext context) {
+    final image = Image.network(
+      asset,
+      fit: BoxFit.contain,
+      gaplessPlayback: true,
+      filterQuality: FilterQuality.none,
+      semanticLabel: '${tile.type} ${tile.x},${tile.y}',
+      errorBuilder: (context, error, stackTrace) {
+        onImageError?.call(error);
+        return const SizedBox.shrink();
+      },
+    );
+    final field = fogField;
+    final fogVertices = field?.shadowTileVertices[tile.cellKey];
     return Positioned(
       left: topLeft.dx,
       top: topLeft.dy,
       width: extent,
       height: extent,
-      child: Image.network(
-        asset,
-        fit: BoxFit.contain,
-        gaplessPlayback: true,
-        filterQuality: FilterQuality.none,
-        excludeFromSemantics: excludeFromSemantics,
-        semanticLabel: excludeFromSemantics
-            ? null
-            : '${tile.type} ${tile.x},${tile.y}',
-        errorBuilder: (context, error, stackTrace) {
-          onImageError?.call(error);
-          return const SizedBox.shrink();
-        },
-      ),
+      child: field == null || fogVertices == null
+          ? image
+          : _TilemapFogBlend(
+              key: ValueKey<String>('tile-fog-blend-${tile.x}-${tile.y}'),
+              vertices: fogVertices,
+              sceneTopLeft: topLeft,
+              child: image,
+            ),
     );
   }
 }
 
+class _TilemapFogBlend extends SingleChildRenderObjectWidget {
+  const _TilemapFogBlend({
+    super.key,
+    required this.vertices,
+    required this.sceneTopLeft,
+    required super.child,
+  });
+
+  final ui.Vertices vertices;
+  final Offset sceneTopLeft;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderTilemapFogBlend(
+      vertices: vertices,
+      sceneTopLeft: sceneTopLeft,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderTilemapFogBlend renderObject,
+  ) {
+    renderObject
+      ..vertices = vertices
+      ..sceneTopLeft = sceneTopLeft;
+  }
+}
+
+class _RenderTilemapFogBlend extends RenderProxyBox {
+  _RenderTilemapFogBlend({
+    required ui.Vertices vertices,
+    required Offset sceneTopLeft,
+  }) : _vertices = vertices,
+       _sceneTopLeft = sceneTopLeft;
+
+  ui.Vertices _vertices;
+  Offset _sceneTopLeft;
+
+  set vertices(ui.Vertices value) {
+    if (identical(_vertices, value)) return;
+    _vertices = value;
+    markNeedsPaint();
+  }
+
+  set sceneTopLeft(Offset value) {
+    if (_sceneTopLeft == value) return;
+    _sceneTopLeft = value;
+    markNeedsPaint();
+  }
+
+  @override
+  bool get isRepaintBoundary => true;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final canvas = context.canvas;
+    final layerBounds = offset & size;
+    canvas.saveLayer(layerBounds, Paint());
+    if (child != null) context.paintChild(child!, offset);
+    canvas
+      ..save()
+      ..clipRect(layerBounds)
+      ..translate(offset.dx - _sceneTopLeft.dx, offset.dy - _sceneTopLeft.dy)
+      ..drawVertices(
+        _vertices,
+        tilemapFogVertexBlendMode,
+        Paint()
+          ..color = Colors.white
+          ..blendMode = BlendMode.srcATop,
+      )
+      ..restore()
+      ..restore();
+  }
+}
+
 class _TilemapFogPainter extends CustomPainter {
-  const _TilemapFogPainter(this.field, {required this.blendWithShadowTiles});
+  const _TilemapFogPainter(this.field);
 
   final TilemapFogField field;
-  final bool blendWithShadowTiles;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1162,30 +1211,15 @@ class _TilemapFogPainter extends CustomPainter {
         tilemapFogVertexBlendMode,
         Paint()..color = Colors.white,
       )
-      // Keep the standalone fog over the empty grid, but clear every tile.
-      // Shadow tiles opt into fog through the Multiply pass below.
-      ..drawPath(field.landPath, Paint()..blendMode = BlendMode.clear)
-      ..drawPath(field.shadowPath, Paint()..blendMode = BlendMode.clear);
+      // The fog sits behind the sorted tile layer. Land footprints are clear,
+      // while shadow tile pixels receive fog in their own isolated paint pass.
+      ..drawPath(field.landPath, Paint()..blendMode = BlendMode.clear);
     canvas.restore();
-
-    if (!blendWithShadowTiles) return;
-    canvas
-      ..save()
-      ..clipPath(field.shadowPath)
-      ..drawVertices(
-        field.vertices,
-        tilemapFogVertexBlendMode,
-        Paint()
-          ..color = Colors.white
-          ..blendMode = BlendMode.multiply,
-      )
-      ..restore();
   }
 
   @override
   bool shouldRepaint(covariant _TilemapFogPainter oldDelegate) {
-    return !identical(oldDelegate.field, field) ||
-        oldDelegate.blendWithShadowTiles != blendWithShadowTiles;
+    return !identical(oldDelegate.field, field);
   }
 }
 

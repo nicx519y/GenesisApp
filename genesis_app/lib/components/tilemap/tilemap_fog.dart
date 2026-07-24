@@ -105,20 +105,21 @@ class TilemapFogField {
   const TilemapFogField({
     required this.vertices,
     required this.landPath,
-    required this.shadowPath,
     required this.bounds,
+    required this.shadowTileVertices,
   });
 
   final ui.Vertices vertices;
   final Path landPath;
-  final Path shadowPath;
   final Rect bounds;
+  final Map<String, ui.Vertices> shadowTileVertices;
 }
 
 TilemapFogField buildTilemapFogField({
   required Rect fieldBounds,
   required Iterable<TilemapCell> tiles,
   required List<Offset> Function(TilemapCell tile) polygonForTile,
+  required Rect Function(TilemapCell tile) imageBoundsForTile,
   required double tileExtent,
   required double tileDiamondWidth,
   required double tileDiamondHeight,
@@ -132,36 +133,69 @@ TilemapFogField buildTilemapFogField({
   for (final tile in landTiles) {
     landPath.addPolygon(polygonForTile(tile), true);
   }
-  final shadowPath = Path();
-  for (final tile in shadowTiles) {
-    shadowPath.addPolygon(polygonForTile(tile), true);
-  }
-  final horizontalStep = tileDiamondWidth / tilemapFogSamplesPerTileExtent;
-  final verticalStep = tileDiamondHeight / tilemapFogSamplesPerTileExtent;
-  final columns = math.max(1, (fieldBounds.width / horizontalStep).ceil());
-  final rows = math.max(1, (fieldBounds.height / verticalStep).ceil());
-  final cellWidth = fieldBounds.width / columns;
-  final cellHeight = fieldBounds.height / rows;
-  final points = <Offset>[];
-  final colors = <Color>[];
-  final gridColors = List<Color>.filled(
-    (columns + 1) * (rows + 1),
-    Colors.transparent,
-  );
   final maxDistance = tileExtent * tilemapFogFadeTileExtents;
   final boundaryIndex = _TilemapBoundaryIndex(
     boundary,
     maxDistance: maxDistance,
     verticalScale: verticalScale,
   );
+  final vertices = _buildFogVertices(
+    bounds: fieldBounds,
+    boundaryIndex: boundaryIndex,
+    tileExtent: tileExtent,
+    tileDiamondWidth: tileDiamondWidth,
+    tileDiamondHeight: tileDiamondHeight,
+    controlPoints: controlPoints,
+  );
+  final shadowTileVertices = <String, ui.Vertices>{
+    for (final tile in shadowTiles)
+      tile.cellKey: _buildFogVertices(
+        bounds: imageBoundsForTile(tile),
+        boundaryIndex: boundaryIndex,
+        tileExtent: tileExtent,
+        tileDiamondWidth: tileDiamondWidth,
+        tileDiamondHeight: tileDiamondHeight,
+        controlPoints: controlPoints,
+      ),
+  };
+
+  return TilemapFogField(
+    vertices: vertices,
+    landPath: landPath,
+    bounds: fieldBounds,
+    shadowTileVertices: Map<String, ui.Vertices>.unmodifiable(
+      shadowTileVertices,
+    ),
+  );
+}
+
+ui.Vertices _buildFogVertices({
+  required Rect bounds,
+  required _TilemapBoundaryIndex boundaryIndex,
+  required double tileExtent,
+  required double tileDiamondWidth,
+  required double tileDiamondHeight,
+  required List<TilemapFogControlPoint> controlPoints,
+}) {
+  final horizontalStep = tileDiamondWidth / tilemapFogSamplesPerTileExtent;
+  final verticalStep = tileDiamondHeight / tilemapFogSamplesPerTileExtent;
+  final columns = math.max(1, (bounds.width / horizontalStep).ceil());
+  final rows = math.max(1, (bounds.height / verticalStep).ceil());
+  final cellWidth = bounds.width / columns;
+  final cellHeight = bounds.height / rows;
+  final points = <Offset>[];
+  final colors = <Color>[];
+  final gridColors = List<Color>.filled(
+    (columns + 1) * (rows + 1),
+    Colors.transparent,
+  );
 
   int gridIndex(int column, int row) => row * (columns + 1) + column;
-
   for (var row = 0; row <= rows; row += 1) {
     for (var column = 0; column <= columns; column += 1) {
       final point = Offset(
-        fieldBounds.left + cellWidth * column,
-        fieldBounds.top + cellHeight * row,
+        bounds.left + cellWidth * column,
+        bounds.top + cellHeight * row,
       );
       final distance = boundaryIndex.distanceTo(point);
       final opacity = tilemapFogOpacityForDistance(
@@ -186,8 +220,8 @@ TilemapFogField buildTilemapFogField({
   for (var row = 0; row < rows; row += 1) {
     for (var column = 0; column < columns; column += 1) {
       final topLeft = Offset(
-        fieldBounds.left + cellWidth * column,
-        fieldBounds.top + cellHeight * row,
+        bounds.left + cellWidth * column,
+        bounds.top + cellHeight * row,
       );
       final topRight = Offset(topLeft.dx + cellWidth, topLeft.dy);
       final bottomLeft = Offset(topLeft.dx, topLeft.dy + cellHeight);
@@ -208,12 +242,7 @@ TilemapFogField buildTilemapFogField({
     }
   }
 
-  return TilemapFogField(
-    vertices: ui.Vertices(ui.VertexMode.triangles, points, colors: colors),
-    landPath: landPath,
-    shadowPath: shadowPath,
-    bounds: fieldBounds,
-  );
+  return ui.Vertices(ui.VertexMode.triangles, points, colors: colors);
 }
 
 List<_TilemapBoundaryEdge> _tilemapLandBoundary(
