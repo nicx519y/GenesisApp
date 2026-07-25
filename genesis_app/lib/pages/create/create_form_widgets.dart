@@ -47,6 +47,7 @@ class CreateTextFieldBlock extends StatefulWidget {
     required this.onChanged,
     this.maxLength,
     this.showCounter = true,
+    this.counterInside = false,
     this.note,
     this.minLines = 1,
     this.maxLines,
@@ -69,6 +70,7 @@ class CreateTextFieldBlock extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final int? maxLength;
   final bool showCounter;
+  final bool counterInside;
   final String? note;
   final int minLines;
   final int? maxLines;
@@ -230,6 +232,10 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                   ),
                 ),
               ),
+              if (_showsCounterInside) ...[
+                const SizedBox(width: 8),
+                _CreateFieldCounter(counter: _counterText),
+              ],
             ],
           ),
         ),
@@ -237,9 +243,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
           const SizedBox(height: 8),
           _CreateFieldSupportLine(
             note: widget.note,
-            counter: widget.maxLength == null || !widget.showCounter
-                ? null
-                : '${widget.controller.text.characters.length} / ${widget.maxLength}',
+            counter: _showsCounterOutside ? _counterText : null,
           ),
         ],
       ],
@@ -248,8 +252,16 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
 
   bool get _hasNote => widget.note?.trim().isNotEmpty == true;
 
-  bool get _hasSupportLine =>
-      _hasNote || (widget.maxLength != null && widget.showCounter);
+  bool get _hasSupportLine => _hasNote || _showsCounterOutside;
+
+  bool get _showsCounterInside =>
+      widget.counterInside && widget.maxLength != null && widget.showCounter;
+
+  bool get _showsCounterOutside =>
+      !widget.counterInside && widget.maxLength != null && widget.showCounter;
+
+  String get _counterText =>
+      '${widget.controller.text.characters.length} / ${widget.maxLength}';
 
   bool get _isSingleLine =>
       (widget.maxLines ?? widget.minLines) == 1 && widget.minLines == 1;
@@ -559,21 +571,31 @@ class CreateFormCard extends StatelessWidget {
     required this.title,
     required this.onDelete,
     required this.child,
+    this.showBorder = true,
+    this.titleFontSize = 16,
+    this.titleSuffix,
   });
 
   final String title;
   final VoidCallback onDelete;
   final Widget child;
+  final bool showBorder;
+  final double titleFontSize;
+  final String? titleSuffix;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 6, 18, 22),
+      padding: showBorder
+          ? const EdgeInsets.fromLTRB(18, 6, 18, 22)
+          : const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: createFormBorder, width: 1.2),
+        border: showBorder
+            ? Border.all(color: createFormBorder, width: 1.2)
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,11 +603,24 @@ class CreateFormCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
+                child: Text.rich(
+                  TextSpan(
+                    text: title,
+                    children: [
+                      if (titleSuffix?.trim().isNotEmpty == true)
+                        TextSpan(
+                          text: ' ${titleSuffix!.trim()}',
+                          style: const TextStyle(
+                            color: Color(0xFFA8A8AD),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                    ],
+                  ),
+                  style: TextStyle(
                     color: createFormText,
-                    fontSize: 16,
+                    fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
                     height: 1.1,
                   ),

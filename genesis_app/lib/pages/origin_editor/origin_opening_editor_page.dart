@@ -33,9 +33,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     };
     final options = draft.locations
         .where(
-          (location) =>
-              location.name.trim().isNotEmpty &&
-              (location.level == 0 || location.level == 3),
+          (location) => location.name.trim().isNotEmpty && location.level == 3,
         )
         .map(
           (location) => _OpeningLocationOption(
@@ -427,7 +425,7 @@ class _OpeningDialogueEditor extends StatelessWidget {
     final namedCharacters = characters
         .where((character) => character.name.trim().isNotEmpty)
         .toList(growable: false);
-    return Container(
+    return SizedBox(
       key: const ValueKey<String>('opening-dialogue-editor'),
       width: double.infinity,
       child: Column(

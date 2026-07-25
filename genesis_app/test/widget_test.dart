@@ -1883,7 +1883,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         'locations': [
           {
             'location_id': 'location_edit_1',
-            'level': 1,
+            'level': 3,
             'location_pid': '',
             'location_name': 'Archive',
             'location_description': 'A quiet tower.',
@@ -8712,10 +8712,25 @@ void main() {
           locations: <LocationDraft>[
             LocationDraft(
               locationId: 'location_opening_1',
+              level: 3,
               name: 'Archive',
               initialCharacterIds: <String>['char_opening_1'],
             ),
-            LocationDraft(locationId: 'location_opening_2', name: 'Empty Hall'),
+            LocationDraft(
+              locationId: 'location_opening_2',
+              level: 3,
+              name: 'Empty Hall',
+            ),
+            LocationDraft(
+              locationId: 'location_opening_l1',
+              level: 1,
+              name: 'Hidden L1',
+            ),
+            LocationDraft(
+              locationId: 'location_opening_l2',
+              level: 2,
+              name: 'Hidden L2',
+            ),
           ],
           storyEvents: <StoryEventDraft>[],
           basicsSaved: false,
@@ -8825,6 +8840,9 @@ void main() {
 
       expect(find.text('Select Location'), findsOneWidget);
       expect(find.text('Archive'), findsOneWidget);
+      expect(find.text('Empty Hall'), findsOneWidget);
+      expect(find.text('Hidden L1'), findsNothing);
+      expect(find.text('Hidden L2'), findsNothing);
       expect(find.text('Mira'), findsOneWidget);
       final locationOption = find.byKey(
         const ValueKey<String>('opening-location-option-location_opening_1'),
@@ -9433,6 +9451,7 @@ void main() {
         locations: <LocationDraft>[
           LocationDraft(
             locationId: 'location_opening_save',
+            level: 3,
             name: 'Archive',
             initialCharacterIds: <String>['char_opening_save'],
           ),
@@ -9883,9 +9902,19 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('L1 Location name *'), findsOneWidget);
-    expect(find.text('L2 Location name *'), findsOneWidget);
-    expect(find.text('L3 Location (ID: Loc_1_1_1)'), findsOneWidget);
+    expect(
+      find.text('- L1 Location (ID: Loc_1)', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.text('- L2 Location (ID: Loc_1_1)', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.text('Name'), findsNWidgets(2));
+    expect(
+      find.text('L3 Location (ID: Loc_1_1_1)', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('1/10 (L3 Added / Max)'), findsOneWidget);
 
     final addL3 = find.byKey(const ValueKey('create-add-l3-Loc_1_1'));
@@ -9896,7 +9925,10 @@ void main() {
     );
     await tester.tap(addL3);
     await tester.pumpAndSettle();
-    expect(find.text('L3 Location (ID: Loc_1_1_2)'), findsOneWidget);
+    expect(
+      find.text('L3 Location (ID: Loc_1_1_2)', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('2/10 (L3 Added / Max)'), findsOneWidget);
 
     final addL2 = find.byKey(const ValueKey('create-add-l2-Loc_1'));
@@ -9907,7 +9939,10 @@ void main() {
     );
     await tester.tap(addL2);
     await tester.pumpAndSettle();
-    expect(find.text('L3 Location (ID: Loc_1_2_1)'), findsOneWidget);
+    expect(
+      find.text('L3 Location (ID: Loc_1_2_1)', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('3/10 (L3 Added / Max)'), findsOneWidget);
 
     final addL1 = find.byKey(const ValueKey('create-add-l1-location'));
@@ -9918,7 +9953,10 @@ void main() {
     );
     await tester.tap(addL1);
     await tester.pumpAndSettle();
-    expect(find.text('L3 Location (ID: Loc_2_1_1)'), findsOneWidget);
+    expect(
+      find.text('L3 Location (ID: Loc_2_1_1)', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('4/10 (L3 Added / Max)'), findsOneWidget);
   });
 
@@ -10011,6 +10049,15 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('location-character-picker')).first,
+          )
+          .height,
+      40,
+    );
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('location-character-picker')).first,
@@ -10165,6 +10212,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ari'), findsOneWidget);
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('location-character-picker')).first,
+          )
+          .height,
+      40,
+    );
 
     await tester.enterText(
       find.descendant(

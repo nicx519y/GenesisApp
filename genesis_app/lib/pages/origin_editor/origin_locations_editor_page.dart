@@ -576,59 +576,45 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       const SizedBox(height: 12),
       for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) ...[
         _buildL1Branch(_treeForms[l1Index], l1Index),
-        const SizedBox(height: 24),
+        if (l1Index + 1 < _treeForms.length) const _LocationTreeDivider(),
       ],
-      CreateAddButton(
+      if (_treeForms.isNotEmpty) const _LocationTreeDivider(),
+      _LocationTreeAddButton(
         key: const ValueKey<String>('create-add-l1-location'),
         label: '+ Add L1 Location',
+        displayId: 'Loc_${_treeForms.length + 1}',
         onTap: _addL1Location,
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: 6),
     ];
   }
 
   Widget _buildL1Branch(_L1LocationForm l1, int l1Index) {
-    return Container(
+    return KeyedSubtree(
       key: ValueKey<String>('create-location-l1-${l1.locationId}'),
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: createFormBorder, width: 1.2),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: CreateTextFieldBlock(
-                  key: ValueKey<String>('create-location-l1-name-$l1Index'),
-                  label: 'L1 Location name *',
-                  controller: l1.name,
-                  hintText: 'eg. Downtown',
-                  maxLength: 25,
-                  maxLines: 1,
-                  labelInputGap: 8,
-                  onChanged: (_) => _onFormChanged(),
-                ),
-              ),
-              const SizedBox(width: 10),
-              CreateFormDeleteButton(onPressed: () => _removeL1Location(l1)),
-            ],
+          _buildTreeLocationNameField(
+            key: ValueKey<String>('create-location-l1-name-$l1Index'),
+            title: '- L1 Location',
+            displayId: 'Loc_${l1Index + 1}',
+            controller: l1.name,
+            hintText: 'eg. Downtown',
+            onDelete: () => _removeL1Location(l1),
           ),
-          const SizedBox(height: 18),
           for (int l2Index = 0; l2Index < l1.children.length; l2Index++) ...[
             _buildL2Branch(l1, l1.children[l2Index], l1Index, l2Index),
-            const SizedBox(height: 16),
+            if (l2Index + 1 < l1.children.length)
+              const _LocationTreeDivider(leftIndent: 8),
           ],
+          if (l1.children.isNotEmpty) const _LocationTreeDivider(leftIndent: 8),
           Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: CreateAddButton(
+            padding: const EdgeInsets.only(left: 8),
+            child: _LocationTreeAddButton(
               key: ValueKey<String>('create-add-l2-${l1.locationId}'),
               label: '+ Add L2 Location',
+              displayId: 'Loc_${l1Index + 1}_${l1.children.length + 1}',
               onTap: () => _addL2Location(l1),
             ),
           ),
@@ -643,76 +629,150 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     int l1Index,
     int l2Index,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 12),
-      child: Container(
-        key: ValueKey<String>('create-location-l2-${l2.locationId}'),
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9F9FA),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: createFormBorder),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return KeyedSubtree(
+      key: ValueKey<String>('create-location-l2-${l2.locationId}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: _buildTreeLocationNameField(
+              key: ValueKey<String>(
+                'create-location-l2-name-$l1Index-$l2Index',
+              ),
+              title: '- L2 Location',
+              displayId: 'Loc_${l1Index + 1}_${l2Index + 1}',
+              controller: l2.name,
+              hintText: 'eg. Main Street',
+              onDelete: () => _removeL2Location(l1, l2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: CreateTextFieldBlock(
+                for (
+                  int l3Index = 0;
+                  l3Index < l2.children.length;
+                  l3Index++
+                ) ...[
+                  _LocationCard(
                     key: ValueKey<String>(
-                      'create-location-l2-name-$l1Index-$l2Index',
+                      'create-location-l3-${l2.children[l3Index].locationId}',
                     ),
-                    label: 'L2 Location name *',
-                    controller: l2.name,
-                    hintText: 'eg. Main Street',
-                    maxLength: 25,
-                    maxLines: 1,
-                    labelInputGap: 8,
-                    onChanged: (_) => _onFormChanged(),
+                    index: l3Index + 1,
+                    title: 'L3 Location',
+                    titleSuffix:
+                        '(ID: Loc_${l1Index + 1}_${l2Index + 1}_${l3Index + 1})',
+                    showBorder: false,
+                    titleFontSize: 14,
+                    nameFieldLabel: 'Name *',
+                    fieldLabelFontWeight: FontWeight.w400,
+                    form: l2.children[l3Index],
+                    nextFocusNode: null,
+                    characters: _finalCharacters,
+                    onChanged: _onFormChanged,
+                    onPickCharacters: () =>
+                        _openCharacterPickerForForm(l2.children[l3Index]),
+                    onRemoveCharacter: (charId) =>
+                        _removeCharacterFromForm(l2.children[l3Index], charId),
+                    onDelete: () => _removeL3Location(l2, l2.children[l3Index]),
                   ),
-                ),
-                const SizedBox(width: 10),
-                CreateFormDeleteButton(
-                  onPressed: () => _removeL2Location(l1, l2),
+                ],
+                _LocationTreeAddButton(
+                  key: ValueKey<String>('create-add-l3-${l2.locationId}'),
+                  label: '+ Add L3 Location',
+                  displayId:
+                      'Loc_${l1Index + 1}_${l2Index + 1}_${l2.children.length + 1}',
+                  onTap: () => _addL3Location(l2),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            for (int l3Index = 0; l3Index < l2.children.length; l3Index++) ...[
-              Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: _LocationCard(
-                  key: ValueKey<String>(
-                    'create-location-l3-${l2.children[l3Index].locationId}',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTreeLocationNameField({
+    required Key key,
+    required String title,
+    required String displayId,
+    required TextEditingController controller,
+    required String hintText,
+    required VoidCallback onDelete,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 32),
+                  child: Text.rich(
+                    TextSpan(
+                      text: title,
+                      children: [
+                        TextSpan(
+                          text: ' (ID: $displayId)',
+                          style: const TextStyle(
+                            color: Color(0xFFA8A8AD),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                    style: const TextStyle(
+                      color: createFormText,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
                   ),
-                  index: l3Index + 1,
-                  title: 'L3 Location (ID: ${l2.children[l3Index].locationId})',
-                  form: l2.children[l3Index],
-                  nextFocusNode: null,
-                  characters: _finalCharacters,
-                  onChanged: _onFormChanged,
-                  onPickCharacters: () =>
-                      _openCharacterPickerForForm(l2.children[l3Index]),
-                  onRemoveCharacter: (charId) =>
-                      _removeCharacterFromForm(l2.children[l3Index], charId),
-                  onDelete: () => _removeL3Location(l2, l2.children[l3Index]),
+                ),
+                Positioned(
+                  top: -4,
+                  right: 0,
+                  child: CreateFormDeleteButton(onPressed: onDelete),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text(
+                'Name',
+                style: TextStyle(
+                  color: createFormText,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(height: 16),
-            ],
-            Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: CreateAddButton(
-                key: ValueKey<String>('create-add-l3-${l2.locationId}'),
-                label: '+ Add L3 Location',
-                onTap: () => _addL3Location(l2),
+              const SizedBox(width: 8),
+              Expanded(
+                child: CreateTextFieldBlock(
+                  key: key,
+                  label: '',
+                  controller: controller,
+                  hintText: hintText,
+                  maxLength: 25,
+                  maxLines: 1,
+                  counterInside: true,
+                  onChanged: (_) => _onFormChanged(),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -759,6 +819,75 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationTreeDivider extends StatelessWidget {
+  const _LocationTreeDivider({this.leftIndent = 0});
+
+  final double leftIndent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(left: leftIndent),
+          child: const Divider(
+            height: 1,
+            thickness: 1,
+            color: createFormBorder,
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+}
+
+class _LocationTreeAddButton extends StatelessWidget {
+  const _LocationTreeAddButton({
+    super.key,
+    required this.label,
+    required this.displayId,
+    required this.onTap,
+  });
+
+  final String label;
+  final String displayId;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text.rich(
+          TextSpan(
+            text: label,
+            children: [
+              TextSpan(
+                text: ' (ID: $displayId)',
+                style: const TextStyle(
+                  color: Color(0xFFA8A8AD),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+          style: const TextStyle(
+            color: createFormGreen,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
           ),
         ),
       ),

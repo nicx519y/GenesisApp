@@ -379,6 +379,11 @@ class _LocationCard extends StatelessWidget {
     required this.onPickCharacters,
     required this.onRemoveCharacter,
     required this.onDelete,
+    this.showBorder = true,
+    this.titleFontSize = 16,
+    this.titleSuffix,
+    this.nameFieldLabel = 'Location Name *',
+    this.fieldLabelFontWeight = FontWeight.w600,
   });
 
   final int index;
@@ -390,12 +395,20 @@ class _LocationCard extends StatelessWidget {
   final VoidCallback onPickCharacters;
   final ValueChanged<String> onRemoveCharacter;
   final VoidCallback onDelete;
+  final bool showBorder;
+  final double titleFontSize;
+  final String? titleSuffix;
+  final String nameFieldLabel;
+  final FontWeight fieldLabelFontWeight;
 
   @override
   Widget build(BuildContext context) {
     return CreateFormCard(
       title: title ?? 'Location $index',
       onDelete: onDelete,
+      showBorder: showBorder,
+      titleFontSize: titleFontSize,
+      titleSuffix: titleSuffix,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -416,11 +429,12 @@ class _LocationCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: CreateTextFieldBlock(
-                  label: 'Location Name *',
+                  label: nameFieldLabel,
                   controller: form.name,
                   hintText: 'eg. Main Street',
                   maxLength: 25,
                   maxLines: 1,
+                  labelFontWeight: fieldLabelFontWeight,
                   labelInputGap: 8,
                   focusNode: form.nameFocusNode,
                   nextFocusNode: form.descriptionFocusNode,
@@ -435,6 +449,7 @@ class _LocationCard extends StatelessWidget {
             controller: form.description,
             hintText: 'eg. The half-empty main drag where every deal goes down',
             maxLength: 100,
+            labelFontWeight: fieldLabelFontWeight,
             note: "A short description shown in the worldo's location list.",
             minLines: 3,
             maxLines: 3,
@@ -447,6 +462,7 @@ class _LocationCard extends StatelessWidget {
           _InitialCharactersField(
             form: form,
             characters: characters,
+            labelFontWeight: fieldLabelFontWeight,
             onPickCharacters: onPickCharacters,
             onRemoveCharacter: onRemoveCharacter,
           ),
@@ -460,12 +476,14 @@ class _InitialCharactersField extends StatelessWidget {
   const _InitialCharactersField({
     required this.form,
     required this.characters,
+    required this.labelFontWeight,
     required this.onPickCharacters,
     required this.onRemoveCharacter,
   });
 
   final _LocationForm form;
   final List<CharacterDraft> characters;
+  final FontWeight labelFontWeight;
   final VoidCallback onPickCharacters;
   final ValueChanged<String> onRemoveCharacter;
 
@@ -476,12 +494,12 @@ class _InitialCharactersField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Initial Characters (Optional)',
           style: TextStyle(
             color: createFormText,
             fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontWeight: labelFontWeight,
             height: 1.2,
           ),
         ),
@@ -491,7 +509,7 @@ class _InitialCharactersField extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onPickCharacters,
           child: Container(
-            constraints: const BoxConstraints(minHeight: 54),
+            constraints: const BoxConstraints(minHeight: 40),
             decoration: BoxDecoration(
               color: createFormFieldFill,
               borderRadius: BorderRadius.circular(8),
@@ -505,8 +523,8 @@ class _InitialCharactersField extends StatelessWidget {
                   chipAreaWidth <= 0 ? 0 : chipAreaWidth,
                 );
                 final contentPadding = chipsWrap
-                    ? const EdgeInsets.fromLTRB(12, 12, 4, 12)
-                    : const EdgeInsets.fromLTRB(12, 3, 4, 3);
+                    ? const EdgeInsets.fromLTRB(12, 6, 4, 6)
+                    : const EdgeInsets.fromLTRB(12, 4, 4, 4);
                 return Padding(
                   padding: contentPadding,
                   child: Row(
@@ -515,7 +533,7 @@ class _InitialCharactersField extends StatelessWidget {
                       Expanded(
                         child: selectedCharacters.isEmpty
                             ? const SizedBox(
-                                height: 48,
+                                height: 32,
                                 child: Align(
                                   alignment: Alignment.centerLeft,
                                   child: Text(
@@ -531,9 +549,7 @@ class _InitialCharactersField extends StatelessWidget {
                                 ),
                               )
                             : ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: chipsWrap ? 30 : 48,
-                                ),
+                                constraints: BoxConstraints(minHeight: 32),
                                 child: Align(
                                   alignment: Alignment.centerLeft,
                                   child: Wrap(
@@ -553,19 +569,14 @@ class _InitialCharactersField extends StatelessWidget {
                               ),
                       ),
                       const SizedBox(width: 4),
-                      IconButton(
-                        onPressed: onPickCharacters,
-                        icon: const Icon(
+                      const SizedBox(
+                        width: 38,
+                        height: 32,
+                        child: Icon(
                           Icons.add,
                           color: createFormGreen,
-                          size: 32,
+                          size: 28,
                         ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 38,
-                          height: 48,
-                        ),
-                        splashRadius: 22,
                       ),
                     ],
                   ),
