@@ -32,7 +32,11 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
           character.charId.trim(): character,
     };
     final options = draft.locations
-        .where((location) => location.name.trim().isNotEmpty)
+        .where(
+          (location) =>
+              location.name.trim().isNotEmpty &&
+              (location.level == 0 || location.level == 3),
+        )
         .map(
           (location) => _OpeningLocationOption(
             location: location,

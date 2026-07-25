@@ -1237,6 +1237,8 @@ List<Map<String, dynamic>> _createOriginLocations(
         return <String, dynamic>{
           if (asString(item['location_id']).trim().isNotEmpty)
             'location_id': asString(item['location_id']).trim(),
+          if (asString(item['location_pid']).trim().isNotEmpty)
+            'location_pid': asString(item['location_pid']).trim(),
           'level': asInt(item['level']),
           'location_name': asString(
             item['location_name'],

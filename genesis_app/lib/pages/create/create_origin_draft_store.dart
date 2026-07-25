@@ -333,7 +333,11 @@ class CreateOriginDraft {
       errors.add('Characters: At least one character is required.');
     }
 
-    if (locations.where(_locationHasContent).isEmpty) {
+    final leafLocations = locations.where(
+      (item) =>
+          _locationHasContent(item) && (item.level == 0 || item.level == 3),
+    );
+    if (leafLocations.isEmpty) {
       errors.add('Locations: Please create at least one location.');
     }
     for (int i = 0; i < locations.length; i++) {
@@ -350,7 +354,11 @@ class CreateOriginDraft {
       );
     } else if (openingSaved) {
       final validLocationIds = locations
-          .where(_locationHasContent)
+          .where(
+            (item) =>
+                _locationHasContent(item) &&
+                (item.level == 0 || item.level == 3),
+          )
           .map(
             (item) => item.locationId.trim().isEmpty
                 ? item.name.trim()
@@ -436,6 +444,9 @@ class CreateOriginDraft {
         <String, dynamic>{
           if (item.locationId.trim().isNotEmpty)
             'location_id': item.locationId.trim(),
+          if (item.parentLocationId.trim().isNotEmpty)
+            'location_pid': item.parentLocationId.trim(),
+          if (item.level > 0) 'level': item.level,
           'name': item.name.trim(),
           'image': item.imageUrl.trim(),
           'description': item.description.trim(),
@@ -621,6 +632,8 @@ class CharacterDraft {
 class LocationDraft {
   const LocationDraft({
     this.locationId = '',
+    this.parentLocationId = '',
+    this.level = 0,
     this.imageUrl = '',
     this.name = '',
     this.description = '',
@@ -628,6 +641,8 @@ class LocationDraft {
   });
 
   final String locationId;
+  final String parentLocationId;
+  final int level;
   final String imageUrl;
   final String name;
   final String description;
@@ -636,6 +651,8 @@ class LocationDraft {
   factory LocationDraft.fromJson(Map<String, dynamic> json) {
     return LocationDraft(
       locationId: _asString(json['location_id']),
+      parentLocationId: _asString(json['location_pid']),
+      level: _asNullableInt(json['level']) ?? 0,
       imageUrl: _asString(json['image_url']),
       name: _asString(json['name']),
       description: _asString(json['description']),
@@ -648,6 +665,8 @@ class LocationDraft {
 
   LocationDraft copyWith({
     String? locationId,
+    String? parentLocationId,
+    int? level,
     String? imageUrl,
     String? name,
     String? description,
@@ -655,6 +674,8 @@ class LocationDraft {
   }) {
     return LocationDraft(
       locationId: locationId ?? this.locationId,
+      parentLocationId: parentLocationId ?? this.parentLocationId,
+      level: level ?? this.level,
       imageUrl: imageUrl ?? this.imageUrl,
       name: name ?? this.name,
       description: description ?? this.description,
@@ -673,6 +694,9 @@ class LocationDraft {
   Map<String, dynamic> toJson() {
     return {
       'location_id': locationId,
+      if (parentLocationId.trim().isNotEmpty)
+        'location_pid': parentLocationId.trim(),
+      if (level > 0) 'level': level,
       'image_url': imageUrl,
       'name': name,
       'description': description,

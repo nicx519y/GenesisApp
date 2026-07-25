@@ -640,7 +640,11 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   String _locationsSummary(CreateOriginDraft draft) {
     if (!draft.locationsSaved) return 'Not started yet';
     final locations = draft.locations
-        .where(_locationDraftHasContent)
+        .where(
+          (item) =>
+              _locationDraftHasContent(item) &&
+              (item.level == 0 || item.level == 3),
+        )
         .toList(growable: false);
     if (locations.isEmpty) return '0 locations';
     final names = locations

@@ -339,6 +339,8 @@ LocationDraft _locationDraftFromV1(
 
   return LocationDraft(
     locationId: locationId,
+    parentLocationId: asString(raw['location_pid']),
+    level: asInt(raw['level']),
     imageUrl: asImageUrl(raw['image'], fallback: raw['icon']),
     name: asString(raw['name'], fallback: asString(raw['location_name'])),
     description: asString(

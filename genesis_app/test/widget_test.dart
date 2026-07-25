@@ -9877,32 +9877,52 @@ void main() {
     );
   });
 
-  testWidgets('locations add button appends empty form', (
+  testWidgets('create locations builds and grows an L1 L2 L3 tree', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Location 1'), findsOneWidget);
-    expect(find.text('Location 2'), findsNothing);
-    expect(find.byType(CreateFormDeleteButton), findsOneWidget);
-    expect(
-      tester.getCenter(find.text('Location 1')).dy,
-      closeTo(tester.getCenter(find.byType(CreateFormDeleteButton)).dy, 0.01),
-    );
+    expect(find.text('L1 Location name *'), findsOneWidget);
+    expect(find.text('L2 Location name *'), findsOneWidget);
+    expect(find.text('L3 Location (ID: Loc_1_1_1)'), findsOneWidget);
+    expect(find.text('1/10 (L3 Added / Max)'), findsOneWidget);
 
+    final addL3 = find.byKey(const ValueKey('create-add-l3-Loc_1_1'));
     await tester.scrollUntilVisible(
-      find.text('+ Add Location'),
+      addL3,
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('+ Add Location'));
+    await tester.tap(addL3);
     await tester.pumpAndSettle();
+    expect(find.text('L3 Location (ID: Loc_1_1_2)'), findsOneWidget);
+    expect(find.text('2/10 (L3 Added / Max)'), findsOneWidget);
 
-    expect(find.text('Location 2'), findsOneWidget);
+    final addL2 = find.byKey(const ValueKey('create-add-l2-Loc_1'));
+    await tester.scrollUntilVisible(
+      addL2,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(addL2);
+    await tester.pumpAndSettle();
+    expect(find.text('L3 Location (ID: Loc_1_2_1)'), findsOneWidget);
+    expect(find.text('3/10 (L3 Added / Max)'), findsOneWidget);
+
+    final addL1 = find.byKey(const ValueKey('create-add-l1-location'));
+    await tester.scrollUntilVisible(
+      addL1,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(addL1);
+    await tester.pumpAndSettle();
+    expect(find.text('L3 Location (ID: Loc_2_1_1)'), findsOneWidget);
+    expect(find.text('4/10 (L3 Added / Max)'), findsOneWidget);
   });
 
-  testWidgets('locations save requires at least one complete location', (
+  testWidgets('create locations save requires every tree level name', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
@@ -9913,11 +9933,25 @@ void main() {
 
     expect(saveButton().onPressed, isNull);
 
-    await tester.enterText(find.byType(TextField).at(1), 'Hidden door');
+    final l1Name = find.descendant(
+      of: find.byKey(const ValueKey('create-location-l1-name-0')),
+      matching: find.byType(TextField),
+    );
+    final l2Name = find.descendant(
+      of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
+      matching: find.byType(TextField),
+    );
+    final l3Card = find.byKey(const ValueKey('create-location-l3-Loc_1_1_1'));
+    final l3Name = find
+        .descendant(of: l3Card, matching: find.byType(TextField))
+        .first;
+
+    await tester.enterText(l2Name, 'Archive Wing');
+    await tester.enterText(l3Name, 'Hidden Door');
     await tester.pump();
     expect(saveButton().onPressed, isNull);
 
-    await tester.enterText(find.byType(TextField).first, 'Archive');
+    await tester.enterText(l1Name, 'Archive');
     await tester.pump();
     expect(saveButton().onPressed, isNotNull);
 
@@ -9926,7 +9960,23 @@ void main() {
 
     final draft = await CreateOriginDraftStore.loadFinal();
     expect(draft.locationsSaved, isTrue);
-    expect(draft.locations.single.name, 'Archive');
+    expect(draft.locations, hasLength(3));
+    expect(
+      draft.locations.map((location) => location.level),
+      orderedEquals(<int>[1, 2, 3]),
+    );
+    expect(
+      draft.locations.map((location) => location.locationId),
+      orderedEquals(<String>['Loc_1', 'Loc_1_1', 'Loc_1_1_1']),
+    );
+    expect(draft.locations[0].name, 'Archive');
+    expect(draft.locations[0].parentLocationId, isEmpty);
+    expect(draft.locations[0].imageUrl, isEmpty);
+    expect(draft.locations[1].name, 'Archive Wing');
+    expect(draft.locations[1].parentLocationId, 'Loc_1');
+    expect(draft.locations[1].description, isEmpty);
+    expect(draft.locations[2].name, 'Hidden Door');
+    expect(draft.locations[2].parentLocationId, 'Loc_1_1');
   });
 
   testWidgets('edit locations save also requires a complete location', (
@@ -9976,7 +10026,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('locations editor does not show parent location picker', (
+  testWidgets('create locations converts an existing flat draft to a tree', (
     WidgetTester tester,
   ) async {
     await CreateOriginDraftStore.saveFinal(
@@ -10001,13 +10051,34 @@ void main() {
     expect(find.text('Parent Location'), findsNothing);
     expect(find.byKey(const ValueKey('location-parent-picker')), findsNothing);
 
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('create-location-l1-name-0')),
+        matching: find.byType(TextField),
+      ),
+      'City',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
+        matching: find.byType(TextField),
+      ),
+      'Old District',
+    );
+    await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
     final draft = await CreateOriginDraftStore.load();
-    expect(draft.locations, hasLength(2));
-    expect(draft.locations.first.toJson().containsKey('location_pid'), isFalse);
-    expect(draft.locations.last.toJson().containsKey('location_pid'), isFalse);
+    expect(draft.locations, hasLength(4));
+    expect(
+      draft.locations.map((location) => location.level),
+      orderedEquals(<int>[1, 2, 3, 3]),
+    );
+    expect(draft.locations[2].name, 'Gate');
+    expect(draft.locations[2].parentLocationId, 'Loc_1_1');
+    expect(draft.locations[3].name, 'Tower');
+    expect(draft.locations[3].parentLocationId, 'Loc_1_1');
   });
 
   testWidgets('edit locations editor does not show parent location picker', (
@@ -10095,12 +10166,37 @@ void main() {
 
     expect(find.text('Ari'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, 'Gate');
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('create-location-l1-name-0')),
+        matching: find.byType(TextField),
+      ),
+      'City',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
+        matching: find.byType(TextField),
+      ),
+      'Old District',
+    );
+    await tester.enterText(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('create-location-l3-Loc_1_1_1')),
+            matching: find.byType(TextField),
+          )
+          .first,
+      'Gate',
+    );
+    await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
     final draft = await CreateOriginDraftStore.load();
-    expect(draft.locations.single.initialCharacterIds, <String>['char_ari']);
+    expect(draft.locations, hasLength(3));
+    expect(draft.locations.last.level, 3);
+    expect(draft.locations.last.initialCharacterIds, <String>['char_ari']);
   });
 
   testWidgets('story events add button appends empty form', (

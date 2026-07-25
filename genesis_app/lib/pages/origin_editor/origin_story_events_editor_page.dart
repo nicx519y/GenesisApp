@@ -369,7 +369,9 @@ class _CharacterCard extends StatelessWidget {
 
 class _LocationCard extends StatelessWidget {
   const _LocationCard({
+    super.key,
     required this.index,
+    this.title,
     required this.form,
     required this.nextFocusNode,
     required this.characters,
@@ -380,6 +382,7 @@ class _LocationCard extends StatelessWidget {
   });
 
   final int index;
+  final String? title;
   final _LocationForm form;
   final FocusNode? nextFocusNode;
   final List<CharacterDraft> characters;
@@ -391,7 +394,7 @@ class _LocationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CreateFormCard(
-      title: 'Location $index',
+      title: title ?? 'Location $index',
       onDelete: onDelete,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -842,6 +845,8 @@ class _CharacterPickerTile extends StatelessWidget {
 class _LocationForm {
   _LocationForm({
     required this.locationId,
+    required this.parentLocationId,
+    required this.level,
     required this.imageUrl,
     required this.name,
     required this.description,
@@ -851,10 +856,29 @@ class _LocationForm {
   factory _LocationForm.empty({required String locationId}) {
     return _LocationForm(
       locationId: locationId,
+      parentLocationId: '',
+      level: 0,
       imageUrl: TextEditingController(),
       name: TextEditingController(),
       description: TextEditingController(),
       selectedCharacterIds: <String>[],
+    );
+  }
+
+  factory _LocationForm.treeLeaf({
+    required String locationId,
+    required String parentLocationId,
+    LocationDraft? draft,
+  }) {
+    return _LocationForm(
+      locationId: locationId,
+      parentLocationId: parentLocationId,
+      level: 3,
+      imageUrl: TextEditingController(text: draft?.imageUrl ?? ''),
+      name: TextEditingController(text: draft?.name ?? ''),
+      description: TextEditingController(text: draft?.description ?? ''),
+      selectedCharacterIds:
+          draft?.initialCharacterIds.toList(growable: true) ?? <String>[],
     );
   }
 
@@ -863,6 +887,8 @@ class _LocationForm {
       locationId: draft.locationId.trim().isEmpty
           ? createUidTimestampHashId(uid: uid, prefix: 'location')
           : draft.locationId.trim(),
+      parentLocationId: draft.parentLocationId,
+      level: draft.level,
       imageUrl: TextEditingController(text: draft.imageUrl),
       name: TextEditingController(text: draft.name),
       description: TextEditingController(text: draft.description),
@@ -871,6 +897,8 @@ class _LocationForm {
   }
 
   final String locationId;
+  final String parentLocationId;
+  final int level;
   final TextEditingController imageUrl;
   final TextEditingController name;
   final TextEditingController description;
