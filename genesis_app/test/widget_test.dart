@@ -9921,6 +9921,22 @@ void main() {
       find.widgetWithText(FilledButton, 'Save'),
     );
     expect(saveButton.onPressed, isNull);
+    expect(
+      tester.widget<CreateFormCard>(find.byType(CreateFormCard)).showBorder,
+      isFalse,
+    );
+    expect(
+      tester.widget<CreateInlineAddButton>(find.byType(CreateInlineAddButton)),
+      isA<CreateInlineAddButton>()
+          .having((button) => button.fontSize, 'fontSize', 16)
+          .having((button) => button.centered, 'centered', isTrue),
+    );
+    expect(
+      tester
+          .widgetList<CreateTextFieldBlock>(find.byType(CreateTextFieldBlock))
+          .every((field) => field.labelFontWeight == FontWeight.w400),
+      isTrue,
+    );
 
     final draft = await repository.loadDraft();
     expect(draft.charactersSaved, isTrue);
@@ -9949,6 +9965,7 @@ void main() {
       find.text('L3 Location (ID: Loc_1_1_1)', findRichText: true),
       findsOneWidget,
     );
+    expect(find.text('Description (Optional)'), findsNothing);
     expect(find.text('1/10 (L3 Added / Max)'), findsOneWidget);
 
     final addL3 = find.byKey(const ValueKey('create-add-l3-Loc_1_1'));
@@ -10193,38 +10210,127 @@ void main() {
     expect(draft.locations[3].parentLocationId, 'Loc_1_1');
   });
 
-  testWidgets('edit locations editor does not show parent location picker', (
-    WidgetTester tester,
-  ) async {
-    final repository = MemoryOriginDraftRepository(
-      initialDraft: const CreateOriginDraft(
-        basics: BasicsDraft(),
-        characters: <CharacterDraft>[CharacterDraft()],
-        locations: <LocationDraft>[
-          LocationDraft(locationId: 'loc_gate', name: 'Gate'),
-        ],
-        storyEvents: <StoryEventDraft>[StoryEventDraft()],
-        basicsSaved: false,
-        charactersSaved: false,
-        locationsSaved: true,
-        storyEventsSaved: false,
-      ),
-    );
+  testWidgets(
+    'edit locations keeps old leaf and leaves missing parents blank',
+    (WidgetTester tester) async {
+      final repository = MemoryOriginDraftRepository(
+        initialDraft: const CreateOriginDraft(
+          basics: BasicsDraft(),
+          characters: <CharacterDraft>[CharacterDraft()],
+          locations: <LocationDraft>[
+            LocationDraft(
+              locationId: 'loc_gate',
+              level: 3,
+              name: 'Gate',
+              description: 'Existing description.',
+            ),
+          ],
+          storyEvents: <StoryEventDraft>[StoryEventDraft()],
+          basicsSaved: false,
+          charactersSaved: false,
+          locationsSaved: true,
+          storyEventsSaved: false,
+        ),
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(home: EditLocationsPage(repository: repository)),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        MaterialApp(home: EditLocationsPage(repository: repository)),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Parent Location'), findsNothing);
-    expect(find.byKey(const ValueKey('location-parent-picker')), findsNothing);
+      expect(find.text('Parent Location'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('location-parent-picker')),
+        findsNothing,
+      );
+      expect(
+        find.text('L1 Location (ID: Loc_1)', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.text('L2 Location (ID: Loc_1_1)', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.text('L3 Location (ID: Loc_1_1_1)', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find
+                  .descendant(
+                    of: find.byKey(const ValueKey('create-location-l1-name-0')),
+                    matching: find.byType(TextField),
+                  )
+                  .first,
+            )
+            .controller
+            ?.text,
+        isEmpty,
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find
+                  .descendant(
+                    of: find.byKey(
+                      const ValueKey('create-location-l2-name-0-0'),
+                    ),
+                    matching: find.byType(TextField),
+                  )
+                  .first,
+            )
+            .controller
+            ?.text,
+        isEmpty,
+      );
+      final l3Card = find.byKey(const ValueKey('create-location-l3-loc_gate'));
+      expect(l3Card, findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(
+              find
+                  .descendant(of: l3Card, matching: find.byType(TextField))
+                  .first,
+            )
+            .controller
+            ?.text,
+        'Gate',
+      );
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('create-location-l1-name-0')),
+          matching: find.byType(TextField),
+        ),
+        'City',
+      );
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
+          matching: find.byType(TextField),
+        ),
+        'District',
+      );
+      await tester.pump();
 
-    final draft = await repository.loadDraft();
-    expect(draft.locations.single.toJson().containsKey('location_pid'), false);
-  });
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      final draft = await repository.loadDraft();
+      expect(draft.locations, hasLength(3));
+      expect(
+        draft.locations.map((location) => location.level),
+        orderedEquals(<int>[1, 2, 3]),
+      );
+      expect(draft.locations.last.locationId, 'loc_gate');
+      expect(draft.locations.last.name, 'Gate');
+      expect(draft.locations.last.description, 'Existing description.');
+      expect(draft.locations.last.parentLocationId, 'Loc_1_1');
+      expect(repository.deletedLocationIds(draft), isEmpty);
+    },
+  );
 
   testWidgets('locations character picker binds available character ids', (
     WidgetTester tester,
@@ -10937,7 +11043,9 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
     await tester.pumpAndSettle();
-    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text('Archive'), findsOneWidget);
+    expect(find.text('Narrator*1'), findsOneWidget);
+    expect(find.text('Saved'), findsNothing);
 
     rootPublish = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Publish'),
@@ -11083,7 +11191,12 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          backendAuthenticated: true,
+          initialAuthToken: 'backend-token',
+          transport: transport,
+          useMock: false,
+        ),
         child: MaterialApp(
           navigatorKey: genesisNavigatorKey,
           home: const EditOriginPage(originId: 'o_edit_1'),
@@ -11108,6 +11221,33 @@ void main() {
         .onPressed!();
     await tester.pumpAndSettle();
     expect(find.textContaining('Edited Origin'), findsOneWidget);
+
+    await tester.tap(find.text('Opening'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-location-field')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('opening-location-option-location_edit_1'),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-add-narrator')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
+      'The archive opens.',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Narrator*1'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -360));
     await tester.pump();

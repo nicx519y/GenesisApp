@@ -53,37 +53,44 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     final populated = source
         .where(_locationDraftHasContent)
         .toList(growable: false);
-    final hasHierarchy = populated.any(
-      (item) => item.level >= 1 && item.level <= 3,
-    );
-    if (!hasHierarchy) {
-      final root = _newL1Location(1);
-      if (populated.isNotEmpty) {
-        final l2 = root.children.single;
-        for (final leaf in l2.children) {
-          leaf.dispose();
-        }
-        l2.children
-          ..clear()
-          ..addAll([
-            for (int index = 0; index < populated.length; index++)
-              _LocationForm.treeLeaf(
-                locationId: '${l2.locationId}_${index + 1}',
-                parentLocationId: l2.locationId,
-                draft: populated[index],
-              ),
-          ]);
-        l2.nextChildOrdinal = populated.length + 1;
-      }
-      return <_L1LocationForm>[root];
+    if (populated.isEmpty) return <_L1LocationForm>[_newL1Location(1)];
+
+    final trees = <_L1LocationForm>[];
+    final l1BySourceId = <String, _L1LocationForm>{};
+    final l2BySourceId = <String, _L2LocationForm>{};
+    _L1LocationForm? fallbackL1;
+    _L2LocationForm? fallbackL2;
+
+    _L1LocationForm ensureFallbackL1() {
+      final existing = fallbackL1;
+      if (existing != null) return existing;
+      final created = _L1LocationForm(
+        locationId: 'Loc_${trees.length + 1}',
+        name: TextEditingController(),
+        children: <_L2LocationForm>[],
+      );
+      trees.add(created);
+      fallbackL1 = created;
+      return created;
     }
 
-    final l1Drafts = populated
-        .where((item) => item.level == 1)
-        .toList(growable: false);
-    final trees = <_L1LocationForm>[];
-    for (int l1Index = 0; l1Index < l1Drafts.length; l1Index++) {
-      final l1Draft = l1Drafts[l1Index];
+    _L2LocationForm ensureFallbackL2() {
+      final existing = fallbackL2;
+      if (existing != null) return existing;
+      final parent = ensureFallbackL1();
+      final created = _L2LocationForm(
+        locationId: '${parent.locationId}_${parent.children.length + 1}',
+        name: TextEditingController(),
+        children: <_LocationForm>[],
+      );
+      parent.children.add(created);
+      fallbackL2 = created;
+      return created;
+    }
+
+    final l1Drafts = populated.where((item) => item.level == 1);
+    for (final l1Draft in l1Drafts) {
+      final l1Index = trees.length;
       final l1Id = l1Draft.locationId.trim().isEmpty
           ? 'Loc_${l1Index + 1}'
           : l1Draft.locationId.trim();
@@ -92,55 +99,59 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
         name: TextEditingController(text: l1Draft.name),
         children: <_L2LocationForm>[],
       );
-      final l2Drafts = populated
-          .where(
-            (item) =>
-                item.level == 2 &&
-                item.parentLocationId.trim() == l1Draft.locationId.trim(),
-          )
-          .toList(growable: false);
-      for (int l2Index = 0; l2Index < l2Drafts.length; l2Index++) {
-        final l2Draft = l2Drafts[l2Index];
-        final l2Id = l2Draft.locationId.trim().isEmpty
-            ? '${l1.locationId}_${l2Index + 1}'
-            : l2Draft.locationId.trim();
-        final l2 = _L2LocationForm(
-          locationId: l2Id,
-          name: TextEditingController(text: l2Draft.name),
-          children: <_LocationForm>[],
-        );
-        final l3Drafts = populated
-            .where(
-              (item) =>
-                  item.level == 3 &&
-                  item.parentLocationId.trim() == l2Draft.locationId.trim(),
-            )
-            .toList(growable: false);
-        for (int l3Index = 0; l3Index < l3Drafts.length; l3Index++) {
-          final l3Draft = l3Drafts[l3Index];
-          l2.children.add(
-            _LocationForm.treeLeaf(
-              locationId: l3Draft.locationId.trim().isEmpty
-                  ? '${l2.locationId}_${l3Index + 1}'
-                  : l3Draft.locationId.trim(),
-              parentLocationId: l2.locationId,
-              draft: l3Draft,
-            ),
-          );
-        }
-        if (l2.children.isEmpty) {
-          l2.children.add(_newL3Location(l2, 1));
-        }
-        l2.nextChildOrdinal = l2.children.length + 1;
-        l1.children.add(l2);
-      }
+      trees.add(l1);
+      final sourceId = l1Draft.locationId.trim();
+      if (sourceId.isNotEmpty) l1BySourceId.putIfAbsent(sourceId, () => l1);
+    }
+
+    final l2Drafts = populated.where((item) => item.level == 2);
+    for (final l2Draft in l2Drafts) {
+      final sourceParentId = l2Draft.parentLocationId.trim();
+      final parent = l1BySourceId[sourceParentId] ?? ensureFallbackL1();
+      final sourceId = l2Draft.locationId.trim();
+      final l2 = _L2LocationForm(
+        locationId: sourceId.isEmpty
+            ? '${parent.locationId}_${parent.children.length + 1}'
+            : sourceId,
+        name: TextEditingController(text: l2Draft.name),
+        children: <_LocationForm>[],
+      );
+      parent.children.add(l2);
+      if (sourceId.isNotEmpty) l2BySourceId.putIfAbsent(sourceId, () => l2);
+    }
+
+    final leafDrafts = populated.where(
+      (item) => item.level != 1 && item.level != 2,
+    );
+    for (final leafDraft in leafDrafts) {
+      final sourceParentId = leafDraft.parentLocationId.trim();
+      final parent = l2BySourceId[sourceParentId] ?? ensureFallbackL2();
+      final sourceId = leafDraft.locationId.trim();
+      parent.children.add(
+        _LocationForm.treeLeaf(
+          locationId: sourceId.isEmpty
+              ? '${parent.locationId}_${parent.children.length + 1}'
+              : sourceId,
+          parentLocationId: parent.locationId,
+          draft: leafDraft,
+        ),
+      );
+    }
+
+    if (trees.isEmpty) trees.add(_newL1Location(1));
+    for (final l1 in trees) {
       if (l1.children.isEmpty) {
         l1.children.add(_newL2Location(l1, 1));
       }
       l1.nextChildOrdinal = l1.children.length + 1;
-      trees.add(l1);
+      for (final l2 in l1.children) {
+        if (l2.children.isEmpty) {
+          l2.children.add(_newL3Location(l2, 1));
+        }
+        l2.nextChildOrdinal = l2.children.length + 1;
+      }
     }
-    return trees.isEmpty ? <_L1LocationForm>[_newL1Location(1)] : trees;
+    return trees;
   }
 
   _L1LocationForm _newL1Location(int ordinal) {

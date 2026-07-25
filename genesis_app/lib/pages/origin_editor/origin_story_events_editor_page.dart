@@ -453,26 +453,11 @@ class _LocationCard extends StatelessWidget {
                   labelFontWeight: fieldLabelFontWeight,
                   labelInputGap: 8,
                   focusNode: form.nameFocusNode,
-                  nextFocusNode: form.descriptionFocusNode,
+                  nextFocusNode: nextFocusNode,
                   onChanged: (_) => onChanged(),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          CreateTextFieldBlock(
-            label: 'Description (Optional)',
-            controller: form.description,
-            hintText: 'eg. The half-empty main drag where every deal goes down',
-            maxLength: 100,
-            labelFontWeight: fieldLabelFontWeight,
-            note: "A short description shown in the worldo's location list.",
-            minLines: 3,
-            maxLines: 3,
-            labelInputGap: 8,
-            focusNode: form.descriptionFocusNode,
-            nextFocusNode: nextFocusNode,
-            onChanged: (_) => onChanged(),
           ),
           const SizedBox(height: 12),
           _InitialCharactersField(
@@ -930,7 +915,6 @@ class _LocationForm {
   final TextEditingController name;
   final TextEditingController description;
   final FocusNode nameFocusNode = FocusNode();
-  final FocusNode descriptionFocusNode = FocusNode();
   List<String> selectedCharacterIds;
 
   void dispose() {
@@ -938,7 +922,6 @@ class _LocationForm {
     name.dispose();
     description.dispose();
     nameFocusNode.dispose();
-    descriptionFocusNode.dispose();
   }
 
   bool get hasContent {

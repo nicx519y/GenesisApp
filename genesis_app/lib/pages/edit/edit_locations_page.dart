@@ -10,6 +10,9 @@ class EditLocationsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OriginLocationsEditorPage(repository: repository);
+    return OriginLocationsEditorPage(
+      repository: repository,
+      useLocationTree: true,
+    );
   }
 }
