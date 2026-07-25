@@ -9678,7 +9678,11 @@ void main() {
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
     expect(find.text('1 characters: Tff'), findsOneWidget);
     expect(find.text('1 locations: Jenrn ff'), findsOneWidget);
-    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text('Jenrn ff'), findsOneWidget);
+    expect(find.text('Narrator*1'), findsOneWidget);
+    expect(find.textContaining('Character dialogue*0'), findsNothing);
+    expect(find.textContaining('Image*0'), findsNothing);
+    expect(find.text('Saved'), findsNothing);
     expect(find.text('2 events'), findsOneWidget);
   });
 

@@ -674,7 +674,31 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
 
   String _openingSummary(CreateOriginDraft draft) {
     if (!draft.openingSaved) return 'Not started yet';
-    return 'Saved';
+    final opening = draft.opening;
+    final locationName = _singleLineSummaryText(opening.locationName);
+    var characterDialogueCount = 0;
+    var narratorCount = 0;
+    var imageCount = 0;
+    for (final item in opening.dialogue) {
+      switch (item.type.trim()) {
+        case OpeningDialogueDraft.characterType:
+          characterDialogueCount += 1;
+        case OpeningDialogueDraft.narratorType:
+          narratorCount += 1;
+        case OpeningDialogueDraft.imageType:
+          imageCount += 1;
+      }
+    }
+    final contentCounts = <String>[
+      if (characterDialogueCount > 0)
+        'Character dialogue*$characterDialogueCount',
+      if (narratorCount > 0) 'Narrator*$narratorCount',
+      if (imageCount > 0) 'Image*$imageCount',
+    ];
+    return <String>[
+      locationName.isEmpty ? '-' : locationName,
+      if (contentCounts.isNotEmpty) contentCounts.join(', '),
+    ].join('\n');
   }
 
   String _summaryValue(String value, {int maxLength = 48}) {
