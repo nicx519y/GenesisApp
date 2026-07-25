@@ -323,7 +323,7 @@ class WorldInfoHeader extends StatelessWidget {
         SizedBox(
           height: worldInfoHeaderHeight,
           child: Align(
-            alignment: Alignment.topCenter,
+            alignment: Alignment.center,
             child: SizedBox(
               height: worldInfoHeaderContentHeight,
               child: Row(

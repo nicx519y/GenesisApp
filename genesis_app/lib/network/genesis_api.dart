@@ -60,8 +60,6 @@ class GenesisApi {
     IdentityAuthService? identityAuthService,
     RequestHeaderProvider? appHeaderProvider,
     GatewayRequestInterceptor? gatewayRequestInterceptor,
-    ApiRequestInterceptor Function(ApiRequestInterceptor? next)?
-    startupRequestInterceptor,
     Future<void> Function(String message)? onSessionExpired,
     Future<void> Function(String message)? onPageNotFound,
   }) {
@@ -81,9 +79,6 @@ class GenesisApi {
       useMock: useMock,
     );
     final gatewayInterceptor = gatewayRequestInterceptor?.call;
-    final gatedGatewayInterceptor = startupRequestInterceptor == null
-        ? gatewayInterceptor
-        : startupRequestInterceptor(gatewayInterceptor);
 
     _apiClient =
         apiClient ??
@@ -94,7 +89,7 @@ class GenesisApi {
             'accept': 'application/json',
           },
           requestHeaderProvider: _runtimeRequestHeaders,
-          requestInterceptor: gatedGatewayInterceptor,
+          requestInterceptor: gatewayInterceptor,
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );
@@ -126,7 +121,7 @@ class GenesisApi {
           },
           requestHeaderProvider: _runtimeRequestHeaders,
           requestInterceptor: LocationChatDebugHttp.wrapChatroomHttpInterceptor(
-            gatedGatewayInterceptor,
+            gatewayInterceptor,
           ),
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,

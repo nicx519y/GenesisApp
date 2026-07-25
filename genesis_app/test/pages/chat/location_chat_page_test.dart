@@ -35,6 +35,38 @@ void main() {
     );
   });
 
+  test('LLM stream and returned user UGC use their own display decoders', () {
+    expect(
+      locationChatMessageDisplayTextForTesting(
+        _message(
+          messageId: 1,
+          locationMessageId: 1,
+          content: r'Line\nTwo',
+          isLlmStreamMessage: true,
+        ),
+      ),
+      'Line\nTwo',
+    );
+    expect(
+      locationChatMessageDisplayTextForTesting(
+        _message(messageId: 2, locationMessageId: 2, content: r'Line\nTwo'),
+      ),
+      r'Line\nTwo',
+    );
+    expect(
+      locationChatMessageDisplayTextForTesting(
+        _message(messageId: 3, locationMessageId: 3, content: r'Line\\nTwo'),
+      ),
+      r'Line\\nTwo',
+    );
+    expect(
+      locationChatMessageDisplayTextForTesting(
+        _message(messageId: 4, locationMessageId: 4, content: 'Line\nTwo'),
+      ),
+      'Line\nTwo',
+    );
+  });
+
   test('selected model code accepts a nested compatibility fallback', () {
     expect(
       selectedModelCodeFromUserInfo({
@@ -999,6 +1031,7 @@ WorldChatroomMessage _message({
   required String content,
   String senderType = 'user',
   String? senderId,
+  bool isLlmStreamMessage = false,
 }) {
   return WorldChatroomMessage(
     messageId: messageId,
@@ -1012,5 +1045,6 @@ WorldChatroomMessage _message({
     senderName: senderType == 'tick' ? 'Time' : 'Peer',
     content: content,
     createdAt: null,
+    isLlmStreamMessage: isLlmStreamMessage,
   );
 }

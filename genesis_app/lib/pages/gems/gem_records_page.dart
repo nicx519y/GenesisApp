@@ -176,16 +176,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: GenesisBackAppBar(
-        pageName: 'Gem Records',
-        titleStyle: const TextStyle(
-          color: Color(0xFF111111),
-          fontSize: 16,
-          height: 22 / 16,
-          fontWeight: FontWeight.w600,
-        ),
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+      appBar: const GenesisBackAppBar(pageName: 'Gem Records'),
       body: SafeArea(
         child: Column(
           children: [

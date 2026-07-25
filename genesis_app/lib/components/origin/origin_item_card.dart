@@ -9,6 +9,7 @@ import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
+import '../../utils/genesis_ugc_text.dart';
 import '../../utils/stat_count_formatter.dart';
 
 const double _coverAspectRatio = 2 / 3;
@@ -43,9 +44,11 @@ class OriginListItem {
     final info = json['info'] is Map ? asJsonMap(json['info']) : json;
     final stats = json['stats'] is Map ? asJsonMap(json['stats']) : json;
     final oid = asString(info['oid'], fallback: asString(info['origin_id']));
-    final name = asString(
-      info['name'],
-      fallback: asString(info['origin_name'], fallback: oid),
+    final name = decodeGenesisUgcTextForDisplay(
+      asString(
+        info['name'],
+        fallback: asString(info['origin_name'], fallback: oid),
+      ),
     );
     return OriginListItem(
       oid: oid,
@@ -67,13 +70,11 @@ class OriginListItem {
       cover: resolveAssetUrl(
         asImageUrl(info['cover'], fallback: info['map_url']),
       ),
-      displaySubtitle: asString(
-        info['display_subtitle'],
-        fallback: asString(info['brief']),
+      displaySubtitle: decodeGenesisUgcTextForDisplay(
+        asString(info['display_subtitle'], fallback: asString(info['brief'])),
       ),
-      worldView: asString(
-        info['world_view'],
-        fallback: asString(info['setting']),
+      worldView: decodeGenesisUgcTextForDisplay(
+        asString(info['world_view'], fallback: asString(info['setting'])),
       ),
       createdUid: asString(info['created_uid']),
       createdUserName: asString(info['created_user_name']),

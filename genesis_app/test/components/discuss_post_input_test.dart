@@ -350,6 +350,39 @@ void main() {
     expect(find.text('New post'), findsNothing);
   });
 
+  testWidgets('submits UGC without manually escaping backslashes', (
+    WidgetTester tester,
+  ) async {
+    String? submittedContent;
+    const raw = '  first\r\n${r'literal \n \u300c \\'}  ';
+    const expected = '  first\n${r'literal \n \u300c \\'}  ';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            requireLogin: false,
+            imagePicker: (limit) async => const <DiscussPickedImage>[],
+            submitter: (content, images) async {
+              submittedContent = content;
+              return <String, dynamic>{'discuss_id': 'dis_new'};
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Write a post').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), raw);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Send'));
+    await tester.pumpAndSettle();
+
+    expect(submittedContent, expected);
+  });
+
   testWidgets('shows selected thumbnails with compression progress', (
     WidgetTester tester,
   ) async {

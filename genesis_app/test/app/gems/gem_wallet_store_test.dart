@@ -81,4 +81,30 @@ void main() {
     expect(store.state.value.ownerUid, isNull);
     expect(store.state.value.balance, isNull);
   });
+
+  test('refresh ignores an in-flight response after dispose', () async {
+    final response = Completer<GemWallet>();
+    final store = GemWalletStore(
+      loadWallet: () => response.future,
+      readUid: () async => 'u_user',
+    );
+
+    final refresh = store.refresh();
+    await Future<void>.delayed(Duration.zero);
+    store.dispose();
+    response.complete(const GemWallet(balance: 980));
+
+    await expectLater(refresh, completes);
+    store.dispose();
+  });
+
+  test('refresh after dispose is a no-op', () async {
+    final store = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 980),
+      readUid: () async => 'u_user',
+    );
+    store.dispose();
+
+    await expectLater(store.refresh(), completes);
+  });
 }

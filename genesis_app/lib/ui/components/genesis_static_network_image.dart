@@ -115,7 +115,7 @@ class GenesisStaticNetworkImageProvider
     GenesisStaticNetworkImageProvider key,
     ImageDecoderCallback decode,
   ) {
-    return OneFrameImageStreamCompleter(
+    return _GenesisOneFrameImageStreamCompleter(
       _loadFirstFrame(key, decode),
       informationCollector: () => <DiagnosticsNode>[
         DiagnosticsProperty<String>('Image URL', key.imageUrl),
@@ -157,4 +157,29 @@ class GenesisStaticNetworkImageProvider
   String toString() =>
       '${objectRuntimeType(this, 'GenesisStaticNetworkImageProvider')}'
       '("$imageUrl")';
+}
+
+class _GenesisOneFrameImageStreamCompleter extends ImageStreamCompleter {
+  _GenesisOneFrameImageStreamCompleter(
+    Future<ImageInfo> image, {
+    InformationCollector? informationCollector,
+  }) {
+    final keepAliveHandle = keepAlive();
+    image
+        .then<void>(
+          setImage,
+          onError: (Object error, StackTrace stack) {
+            reportError(
+              context: ErrorDescription(
+                'resolving a Genesis static network image stream',
+              ),
+              exception: error,
+              stack: stack,
+              informationCollector: informationCollector,
+              silent: true,
+            );
+          },
+        )
+        .whenComplete(keepAliveHandle.dispose);
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file/file.dart';
@@ -56,6 +58,47 @@ void main() {
     expect(find.byKey(placeholderKey), findsNothing);
     expect(cacheManager.getSingleFileCalls, 1);
   });
+
+  testWidgets('does not fail when a pending image completes after removal', (
+    tester,
+  ) async {
+    const imageUrl = 'https://cache.test/slow-static-frame.png';
+    const placeholderKey = ValueKey<String>('slow-static-image-placeholder');
+    final fileSystem = MemoryFileSystem();
+    final asset = await rootBundle.load('assets/images/default_list_image.png');
+    final imageFile = fileSystem.file('/slow-static-frame.png');
+    await imageFile.writeAsBytes(asset.buffer.asUint8List());
+    final releaseLoad = Completer<void>();
+    final cacheManager = _DelayedMemoryCacheManager(
+      imageFile,
+      releaseLoad.future,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GenesisStaticNetworkImage(
+            imageUrl: imageUrl,
+            width: 40,
+            height: 40,
+            cacheManager: cacheManager,
+            placeholder: (_) =>
+                const SizedBox(key: placeholderKey, width: 40, height: 40),
+          ),
+        ),
+      ),
+    );
+    expect(find.byKey(placeholderKey), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    releaseLoad.complete();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _MemoryCacheManager implements BaseCacheManager {
@@ -71,6 +114,26 @@ class _MemoryCacheManager implements BaseCacheManager {
     Map<String, String>? headers,
   }) async {
     getSingleFileCalls += 1;
+    return file;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _DelayedMemoryCacheManager implements BaseCacheManager {
+  _DelayedMemoryCacheManager(this.file, this.loadGate);
+
+  final File file;
+  final Future<void> loadGate;
+
+  @override
+  Future<File> getSingleFile(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+  }) async {
+    await loadGate;
     return file;
   }
 

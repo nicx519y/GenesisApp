@@ -119,11 +119,9 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
   }
 
   void _normalizeControllerText() {
+    if (_isSingleLine) return;
     final value = widget.controller.value;
-    var sanitized = genesisDisplaySafeTextEditingValue(value);
-    if (!_isSingleLine) {
-      sanitized = genesisConsecutiveNewlineLimitedTextEditingValue(sanitized);
-    }
+    final sanitized = genesisConsecutiveNewlineLimitedTextEditingValue(value);
     if (sanitized == value) return;
     widget.controller.value = sanitized;
   }
@@ -199,7 +197,6 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                         : null,
                     onSubmitted: widget.onSubmitted,
                     inputFormatters: [
-                      const GenesisDisplaySafeTextInputFormatter(),
                       if (!_isSingleLine)
                         const GenesisConsecutiveNewlineLimiter(),
                       ...widget.inputFormatters,

@@ -17,6 +17,7 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_ugc_text.dart';
 
 const Color _privateChatHeaderBackgroundColor = Color(0xFFEDEDED);
 const String _privateChatReplyGateHint = 'Wait for a reply to send more';
@@ -337,8 +338,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Future<void> _send() async {
     if (_sending || _peerUid.isEmpty) return;
-    final content = _textController.text.trim();
-    if (content.isEmpty) return;
+    final content = normalizeGenesisUgcTextForSubmission(_textController.text);
+    if (isGenesisUgcTextBlank(content)) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
     final services = AppServicesScope.read(context);
@@ -876,7 +877,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       senderId: record.senderUid,
       senderName: senderName,
       avatarUrl: isMe ? _myAvatarUrl : widget.peerAvatar,
-      text: record.content,
+      text: decodeGenesisUgcTextForDisplay(record.content),
       isMe: isMe,
       status: record.sendStatus,
       createdAt: record.createdAt,

@@ -94,6 +94,14 @@ void main() {
                     tickTime: 1771420800000,
                     createdAt: 1771420800000,
                   ),
+                  WorldSummaryLatestItem(
+                    worldId: 'w_summary_beta',
+                    originId: 'o_alpha',
+                    tickNo: 13,
+                    summary: 'Second copied world progress for Alpha.',
+                    tickTime: 1771507200000,
+                    createdAt: 1771507200000,
+                  ),
                 ];
               },
             ),
@@ -341,6 +349,14 @@ void main() {
 
     await tester.tap(find.text('Copy World Progress'));
     expect(tappedOid, 'o_alpha');
+
+    await tester.pump(const Duration(seconds: 8));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(
+      find.text('Second copied world progress for Alpha.'),
+      findsOneWidget,
+    );
+    expect(find.text('WID: w_summary_beta'), findsOneWidget);
   });
 
   testWidgets('shows natural empty copy world progress when no world summary', (

@@ -14,6 +14,7 @@ import '../../platform/native_image_picker.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
+import '../../utils/genesis_ugc_text.dart';
 import '../../utils/image_format_guards.dart';
 import '../../utils/image_upload_processing.dart';
 
@@ -310,7 +311,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
 
   bool get _canSend {
     if (_submitting || _images.any((image) => image.failed)) return false;
-    return _controller.text.trim().isNotEmpty;
+    return !isGenesisUgcTextBlank(_controller.text);
   }
 
   @override
@@ -392,7 +393,10 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
           .map((image) => image.url?.trim() ?? '')
           .where((url) => url.isNotEmpty)
           .toList(growable: false);
-      await widget.onSubmit(_controller.text.trim(), imageUrls);
+      await widget.onSubmit(
+        normalizeGenesisUgcTextForSubmission(_controller.text),
+        imageUrls,
+      );
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (_) {

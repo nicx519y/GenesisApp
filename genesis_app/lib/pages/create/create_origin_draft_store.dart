@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../utils/genesis_ugc_text.dart';
+
 const Object _unchanged = Object();
 
 class CreateOriginDraftStore {
@@ -391,9 +393,9 @@ class CreateOriginDraft {
         'origin_id': basics.originId.trim(),
       if (basics.originVersion.trim().isNotEmpty)
         'origin_version': basics.originVersion.trim(),
-      'name': basics.originName.trim(),
-      'world_view': basics.worldView.trim(),
-      'world_setting': basics.worldLogic.trim(),
+      'name': normalizeGenesisUgcTextForSubmission(basics.originName),
+      'world_view': normalizeGenesisUgcTextForSubmission(basics.worldView),
+      'world_setting': normalizeGenesisUgcTextForSubmission(basics.worldLogic),
       'cover': basics.coverImageUrl.trim(),
       if (basics.startedAt.trim().isNotEmpty)
         'started_at': basics.startedAt.trim(),
@@ -406,26 +408,28 @@ class CreateOriginDraft {
           .map(
             (item) => <String, dynamic>{
               if (item.charId.trim().isNotEmpty) 'char_id': item.charId.trim(),
-              'name': item.name.trim(),
-              'identity': item.identity.trim(),
-              'tagline': item.personality.trim(),
-              'description': item.bio.trim(),
-              'goal': item.goal.trim(),
+              'name': normalizeGenesisUgcTextForSubmission(item.name),
+              'identity': normalizeGenesisUgcTextForSubmission(item.identity),
+              'tagline': normalizeGenesisUgcTextForSubmission(item.personality),
+              'description': normalizeGenesisUgcTextForSubmission(item.bio),
+              'goal': normalizeGenesisUgcTextForSubmission(item.goal),
               'avatar': item.avatarUrl.trim(),
             },
           )
           .toList(growable: false),
       'location_list': _createLocationPayloadList(),
       'event_list': storyEvents
-          .map((item) => item.event.trim())
-          .where((text) => text.isNotEmpty)
+          .map((item) => normalizeGenesisUgcTextForSubmission(item.event))
+          .where((text) => !isGenesisUgcTextBlank(text))
           .map((text) => <String, dynamic>{'content': text})
           .toList(growable: false),
     };
 
     if (basics.metricJson.trim().isNotEmpty) {
       try {
-        payload['metric'] = jsonDecode(basics.metricJson);
+        payload['metric'] = normalizeGenesisUgcValueForSubmission(
+          jsonDecode(basics.metricJson),
+        );
       } catch (_) {
         payload['metric_json'] = basics.metricJson.trim();
       }
@@ -447,9 +451,9 @@ class CreateOriginDraft {
           if (item.parentLocationId.trim().isNotEmpty)
             'location_pid': item.parentLocationId.trim(),
           if (item.level > 0) 'level': item.level,
-          'name': item.name.trim(),
+          'name': normalizeGenesisUgcTextForSubmission(item.name),
           'image': item.imageUrl.trim(),
-          'description': item.description.trim(),
+          'description': normalizeGenesisUgcTextForSubmission(item.description),
           'initial_character_ids': item.initialCharacterIds,
         },
     ];

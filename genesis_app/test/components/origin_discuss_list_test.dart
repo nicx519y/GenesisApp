@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
-import 'package:genesis_flutter_android/app/startup/startup_network_gate.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
@@ -19,6 +18,25 @@ import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 
 void main() {
+  test('preserves returned UGC backslashes in posts and replies', () {
+    final page = OriginDiscussPage.fromJson({
+      'list': [
+        {
+          'comment': {'discuss_id': 'post-1', 'content': r'post\ncontent'},
+          'latest_replies': [
+            {'discuss_id': 'reply-1', 'content': r'reply\ncontent'},
+          ],
+        },
+      ],
+    });
+
+    expect(page.items.single.content, r'post\ncontent');
+    expect(
+      page.items.single.latestReplies.single['content'],
+      r'reply\ncontent',
+    );
+  });
+
   test('ignores first page completion after controller dispose', () async {
     final pageCompleter = Completer<OriginDiscussPage>();
     final controller = OriginDiscussListController()
@@ -1242,7 +1260,6 @@ AppServices _servicesWithTransport(_FakeTransport transport) {
     directMessageMessages: base.directMessageMessages,
     appVersionCheck: base.appVersionCheck,
     externalUrlOpener: base.externalUrlOpener,
-    startupNetworkGate: StartupNetworkGate.open(),
   );
 }
 

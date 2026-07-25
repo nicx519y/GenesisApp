@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../json_utils.dart';
 import 'location_tree.dart';
 import '../../utils/entity_deleted.dart';
+import '../../utils/genesis_ugc_text.dart';
 
 @immutable
 class OriginListResponse {
@@ -85,11 +86,13 @@ class OriginSummary {
     return OriginSummary(
       id: asInt(json['id']),
       oid: asString(json['oid']),
-      name: asString(json['name']),
-      description: asString(json['description']),
+      name: decodeGenesisUgcTextForDisplay(asString(json['name'])),
+      description: decodeGenesisUgcTextForDisplay(
+        asString(json['description']),
+      ),
       mapImage: mapImage,
       worldMap: asImageUrl(json['world_map'], fallback: mapImage),
-      worldView: asString(json['world_view']),
+      worldView: decodeGenesisUgcTextForDisplay(asString(json['world_view'])),
       deleted: entityDeleted(json['deleted'], fallback: json['origin_deleted']),
       originator: asString(
         json['owner_name'],
@@ -206,11 +209,13 @@ class OriginDetail {
     return OriginDetail(
       id: asInt(json['id']),
       oid: asString(json['oid']),
-      name: asString(json['name']),
-      description: asString(json['description']),
+      name: decodeGenesisUgcTextForDisplay(asString(json['name'])),
+      description: decodeGenesisUgcTextForDisplay(
+        asString(json['description']),
+      ),
       mapImage: mapImage,
       worldMap: worldMap,
-      worldView: asString(json['world_view']),
+      worldView: decodeGenesisUgcTextForDisplay(asString(json['world_view'])),
       deleted: entityDeleted(json['deleted'], fallback: json['origin_deleted']),
       ownerDeleted: entityDeleted(
         ownerUser['deleted'],
@@ -263,15 +268,17 @@ class OriginEvent {
 
   factory OriginEvent.fromJson(Map<String, dynamic> json) {
     return OriginEvent(
-      label: asString(
-        json['label'],
-        fallback: asString(
-          json['location_name'],
+      label: decodeGenesisUgcTextForDisplay(
+        asString(
+          json['label'],
           fallback: asString(
-            json['name'],
+            json['location_name'],
             fallback: asString(
-              json['scene'],
-              fallback: asString(json['scope']),
+              json['name'],
+              fallback: asString(
+                json['scene'],
+                fallback: asString(json['scope']),
+              ),
             ),
           ),
         ),
@@ -286,13 +293,15 @@ class OriginEvent {
           ),
         ),
       ),
-      content: asString(
-        json['content'],
-        fallback: asString(
-          json['text'],
+      content: decodeGenesisUgcTextForDisplay(
+        asString(
+          json['content'],
           fallback: asString(
-            json['summary'],
-            fallback: asString(json['narrator']),
+            json['text'],
+            fallback: asString(
+              json['summary'],
+              fallback: asString(json['narrator']),
+            ),
           ),
         ),
       ),
@@ -395,7 +404,7 @@ class OriginCharacter {
         fallback: asString(json['char_id']),
       ),
       originId: asInt(json['origin_id']),
-      name: asString(json['name']),
+      name: decodeGenesisUgcTextForDisplay(asString(json['name'])),
       playerUid: asString(json['player_uid']),
       playerUsername: asString(
         playerUser['name'],
@@ -406,9 +415,11 @@ class OriginCharacter {
         fallback: json['player_deleted'],
       ),
       avatar: asImageUrl(json['avatar']),
-      tags: asString(json['tags'], fallback: asString(json['identity'])),
-      tagline: asString(json['brief']),
-      goal: asString(json['goal']),
+      tags: decodeGenesisUgcTextForDisplay(
+        asString(json['tags'], fallback: asString(json['identity'])),
+      ),
+      tagline: decodeGenesisUgcTextForDisplay(asString(json['brief'])),
+      goal: decodeGenesisUgcTextForDisplay(asString(json['goal'])),
       currentLocationId: currentLocationId,
       initialLocationId: asInt(json['initial_location_id']),
       createdAt: asDateTime(json['created_at']),
@@ -465,14 +476,18 @@ class OriginLocation {
     return OriginLocation(
       id: asInt(json['id']),
       originId: asInt(json['origin_id']),
-      name: asString(json['name'], fallback: asString(json['location_name'])),
+      name: decodeGenesisUgcTextForDisplay(
+        asString(json['name'], fallback: asString(json['location_name'])),
+      ),
       icon: asImageUrl(json['icon'], fallback: json['image']),
       mapUrl: asString(json['map_url']),
-      description: asString(
-        json['location_description'],
-        fallback: asString(
-          json['description'],
-          fallback: asString(json['location_summary']),
+      description: decodeGenesisUgcTextForDisplay(
+        asString(
+          json['location_description'],
+          fallback: asString(
+            json['description'],
+            fallback: asString(json['location_summary']),
+          ),
         ),
       ),
       locationParagraph: asString(

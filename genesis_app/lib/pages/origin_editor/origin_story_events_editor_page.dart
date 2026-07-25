@@ -72,7 +72,11 @@ class _OriginStoryEventsEditorPageState
 
   List<StoryEventDraft> _snapshotEvents() {
     return _eventControllers
-        .map((controller) => StoryEventDraft(event: controller.text.trim()))
+        .map(
+          (controller) => StoryEventDraft(
+            event: normalizeGenesisUgcTextForDisplay(controller.text),
+          ),
+        )
         .toList(growable: false);
   }
 

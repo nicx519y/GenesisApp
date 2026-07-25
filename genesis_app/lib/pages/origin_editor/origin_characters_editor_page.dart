@@ -77,11 +77,13 @@ class _OriginCharactersEditorPageState
           (form) => CharacterDraft(
             charId: form.charId,
             avatarUrl: form.avatarUrl.text.trim(),
-            name: form.name.text.trim(),
-            identity: form.identity.text.trim(),
-            personality: form.personality.text.trim(),
-            bio: form.bio.text.trim(),
-            goal: form.goal.text.trim(),
+            name: normalizeGenesisUgcTextForDisplay(form.name.text),
+            identity: normalizeGenesisUgcTextForDisplay(form.identity.text),
+            personality: normalizeGenesisUgcTextForDisplay(
+              form.personality.text,
+            ),
+            bio: normalizeGenesisUgcTextForDisplay(form.bio.text),
+            goal: normalizeGenesisUgcTextForDisplay(form.goal.text),
           ),
         )
         .toList(growable: false);

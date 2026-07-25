@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../discuss/origin_discuss_preview_list.dart';
@@ -62,8 +64,16 @@ class PopularOriginList extends StatefulWidget {
 class _PopularOriginListState extends State<PopularOriginList> {
   final Map<String, Future<List<OriginDiscussPreviewItem>>> _discussFutures =
       <String, Future<List<OriginDiscussPreviewItem>>>{};
-  final Map<String, Future<WorldSummaryLatestItem?>> _summaryFutures =
-      <String, Future<WorldSummaryLatestItem?>>{};
+  final Map<String, Future<List<WorldSummaryLatestItem>>> _summaryFutures =
+      <String, Future<List<WorldSummaryLatestItem>>>{};
+  final Map<String, List<WorldSummaryLatestItem>> _summaries =
+      <String, List<WorldSummaryLatestItem>>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _preloadSummaries(widget.items);
+  }
 
   @override
   void didUpdateWidget(covariant PopularOriginList oldWidget) {
@@ -73,11 +83,20 @@ class _PopularOriginListState extends State<PopularOriginList> {
     }
     if (oldWidget.summaryLoader != widget.summaryLoader) {
       _summaryFutures.clear();
+      _summaries.clear();
     }
 
     final activeOids = widget.items.map((item) => item.oid.trim()).toSet();
     _discussFutures.removeWhere((oid, _) => !activeOids.contains(oid));
     _summaryFutures.removeWhere((oid, _) => !activeOids.contains(oid));
+    _summaries.removeWhere((oid, _) => !activeOids.contains(oid));
+    _preloadSummaries(widget.items);
+  }
+
+  void _preloadSummaries(List<OriginListItem> items) {
+    for (final item in items) {
+      _loadSummary(item.oid);
+    }
   }
 
   Future<List<OriginDiscussPreviewItem>> _loadDiscuss(String oid) {
@@ -95,21 +114,37 @@ class _PopularOriginListState extends State<PopularOriginList> {
     });
   }
 
-  Future<WorldSummaryLatestItem?> _loadSummary(String oid) {
+  Future<List<WorldSummaryLatestItem>> _loadSummary(String oid) {
     final resolvedOid = oid.trim();
     if (resolvedOid.isEmpty) {
-      return Future<WorldSummaryLatestItem?>.value(null);
+      return Future<List<WorldSummaryLatestItem>>.value(
+        const <WorldSummaryLatestItem>[],
+      );
     }
     final loader = widget.summaryLoader;
     final api = loader == null ? AppServicesScope.read(context).api : null;
     return _summaryFutures.putIfAbsent(resolvedOid, () async {
-      final summaries = loader == null
-          ? await api!.getLatestWorldSummaries(originId: resolvedOid)
-          : await loader(resolvedOid);
-      for (final summary in summaries) {
-        if (summary.summary.trim().isNotEmpty) return summary;
+      try {
+        final loaded = loader == null
+            ? await api!.getLatestWorldSummaries(originId: resolvedOid)
+            : await loader(resolvedOid);
+        final summaries = loaded
+            .where((summary) => summary.summary.trim().isNotEmpty)
+            .toList(growable: false);
+        if (mounted &&
+            widget.items.any((item) => item.oid.trim() == resolvedOid)) {
+          setState(() => _summaries[resolvedOid] = summaries);
+        }
+        return summaries;
+      } catch (_) {
+        if (mounted &&
+            widget.items.any((item) => item.oid.trim() == resolvedOid)) {
+          setState(
+            () => _summaries[resolvedOid] = const <WorldSummaryLatestItem>[],
+          );
+        }
+        return const <WorldSummaryLatestItem>[];
       }
-      return null;
     });
   }
 
@@ -158,7 +193,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
             onOpenOrigin: onOpenOrigin,
             initialDiscussItems: initialDiscussItems,
             discussLoader: _loadDiscuss,
-            summaryFuture: _loadSummary(item.oid),
+            summaries: _summaries[oid] ?? const <WorldSummaryLatestItem>[],
             thumbnailBorderRadius: widget.thumbnailBorderRadius,
           ),
         );
@@ -174,7 +209,7 @@ class PopularOriginListItem extends StatelessWidget {
     this.onOpenOrigin,
     this.initialDiscussItems,
     this.discussLoader,
-    this.summaryFuture,
+    this.summaries = const <WorldSummaryLatestItem>[],
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
   });
 
@@ -182,7 +217,7 @@ class PopularOriginListItem extends StatelessWidget {
   final VoidCallback? onOpenOrigin;
   final List<OriginDiscussPreviewItem>? initialDiscussItems;
   final OriginDiscussPreviewLoader? discussLoader;
-  final Future<WorldSummaryLatestItem?>? summaryFuture;
+  final List<WorldSummaryLatestItem> summaries;
   final double thumbnailBorderRadius;
 
   @override
@@ -233,7 +268,7 @@ class PopularOriginListItem extends StatelessWidget {
                 key: ValueKey('popular-origin-gap-progress-title-body'),
                 height: 8,
               ),
-              _ProgressSummary(item: item, future: summaryFuture),
+              _ProgressSummary(summaries: summaries),
             ],
           ),
         ),
@@ -534,25 +569,88 @@ class _ProgressHeader extends StatelessWidget {
   }
 }
 
-class _ProgressSummary extends StatelessWidget {
-  const _ProgressSummary({required this.item, this.future});
+class _ProgressSummary extends StatefulWidget {
+  const _ProgressSummary({required this.summaries});
 
-  final OriginListItem item;
-  final Future<WorldSummaryLatestItem?>? future;
+  final List<WorldSummaryLatestItem> summaries;
+
+  @override
+  State<_ProgressSummary> createState() => _ProgressSummaryState();
+}
+
+class _ProgressSummaryState extends State<_ProgressSummary> {
+  static const _rotationInterval = Duration(seconds: 8);
 
   static const _emptyText = 'No launched world';
+  Timer? _timer;
+  var _visibleIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _configureRotation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProgressSummary oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameSummaries(oldWidget.summaries, widget.summaries)) {
+      _configureRotation();
+    }
+  }
+
+  void _configureRotation() {
+    _timer?.cancel();
+    _visibleIndex = 0;
+    if (widget.summaries.length <= 1) return;
+    _timer = Timer.periodic(_rotationInterval, (_) {
+      if (!mounted || widget.summaries.length <= 1) return;
+      setState(() {
+        _visibleIndex = (_visibleIndex + 1) % widget.summaries.length;
+      });
+    });
+  }
+
+  bool _sameSummaries(
+    List<WorldSummaryLatestItem> a,
+    List<WorldSummaryLatestItem> b,
+  ) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var index = 0; index < a.length; index++) {
+      final left = a[index];
+      final right = b[index];
+      if (left.worldId != right.worldId ||
+          left.tickNo != right.tickNo ||
+          left.tickTime != right.tickTime ||
+          left.createdAt != right.createdAt ||
+          left.summary != right.summary ||
+          left.deleted != right.deleted) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final summaryFuture = future;
-    if (summaryFuture == null) {
-      return _buildContent(null);
-    }
-    return FutureBuilder<WorldSummaryLatestItem?>(
-      future: summaryFuture,
-      builder: (context, snapshot) {
-        return _buildContent(snapshot.data);
-      },
+    final summary = widget.summaries.isEmpty
+        ? null
+        : widget.summaries[_visibleIndex.clamp(0, widget.summaries.length - 1)];
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 520),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: KeyedSubtree(
+        key: ValueKey(summary?.worldId ?? 'empty'),
+        child: _buildContent(summary),
+      ),
     );
   }
 

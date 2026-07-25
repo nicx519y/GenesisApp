@@ -2388,6 +2388,7 @@ class WorldChatroomService {
       'client_msg_id': message.clientMsgId,
       'content': message.content,
       'current_time': message.currentTime,
+      'is_llm_stream': message.isLlmStreamMessage,
       'ts': message.createdAt?.millisecondsSinceEpoch,
     };
   }
@@ -2573,6 +2574,7 @@ class WorldChatroomMessage {
     this.currentTime = '',
     required this.createdAt,
     this.streaming = false,
+    this.isLlmStreamMessage = false,
   }) : locationMessageId = locationMessageId ?? 0;
 
   final int globalMessageId;
@@ -2591,6 +2593,7 @@ class WorldChatroomMessage {
   final String currentTime;
   final DateTime? createdAt;
   final bool streaming;
+  final bool isLlmStreamMessage;
 
   int get locationQueueMessageId => locationMessageId;
 
@@ -2638,6 +2641,7 @@ class WorldChatroomMessage {
       content: asString(json['content']),
       currentTime: asString(json['current_time']),
       createdAt: asDateTime(json['ts']),
+      isLlmStreamMessage: asBool(json['is_llm_stream']),
     );
   }
 
@@ -2726,6 +2730,7 @@ class WorldChatroomMessage {
       currentTime: event.currentTime,
       createdAt: null,
       streaming: true,
+      isLlmStreamMessage: true,
     );
   }
 
@@ -2746,6 +2751,7 @@ class WorldChatroomMessage {
     String? currentTime,
     DateTime? createdAt,
     bool? streaming,
+    bool? isLlmStreamMessage,
   }) {
     return WorldChatroomMessage(
       globalMessageId: globalMessageId ?? this.globalMessageId,
@@ -2764,6 +2770,7 @@ class WorldChatroomMessage {
       currentTime: currentTime ?? this.currentTime,
       createdAt: createdAt ?? this.createdAt,
       streaming: streaming ?? this.streaming,
+      isLlmStreamMessage: isLlmStreamMessage ?? this.isLlmStreamMessage,
     );
   }
 }

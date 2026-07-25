@@ -38,11 +38,47 @@ void main() {
       'sender_id': 'char-1',
       'sender_name': 'Guide',
       'content': 'hello',
+      'is_llm_stream': true,
     });
 
     expect(constructed.locationMessageId, 0);
     expect(stored.locationMessageId, 0);
+    expect(stored.isLlmStreamMessage, isTrue);
   });
+
+  test(
+    'message storage keeps an existing LLM stream marker during merge',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      await storage.upsertMessage(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        message: {
+          'msg_id': 1,
+          'location_msg_id': 1,
+          'content': r'Line\nTwo',
+          'is_llm_stream': true,
+        },
+      );
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        messages: [
+          {'msg_id': 1, 'location_msg_id': 1, 'content': r'Line\nTwo'},
+        ],
+      );
+
+      final messages = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 1,
+      );
+      expect(messages.single['is_llm_stream'], isTrue);
+    },
+  );
 
   test('setInputBlocked publishes shared composer block state', () async {
     final service = await _service(
@@ -1834,8 +1870,10 @@ void main() {
 
   test('llm stream updates are matched by location and round id', () async {
     final socket = _FakeChatroomSocket();
+    final messageStorage = _RecordingChatroomMessageStorage();
     final service = await _service(
       socketTransport: _FakeChatroomTransport(socket),
+      messageStorage: messageStorage,
     );
 
     await service.connect(worldId: 'world-1', identity: _identity());
@@ -1931,6 +1969,9 @@ void main() {
     expect(message.content, 'hello');
     expect(message.currentTime, 'Day 8, 09:12');
     expect(message.streaming, false);
+    expect(message.isLlmStreamMessage, isTrue);
+    await _waitFor(() => messageStorage.lastUpsertedMessage != null);
+    expect(messageStorage.lastUpsertedMessage?['is_llm_stream'], isTrue);
     expect(service.state.latestSocketCurrentTime, 'Day 8, 09:12');
     expect(streamEndStateCount, 1);
     await service.dispose();
@@ -2363,6 +2404,28 @@ class _BlockingChatroomMessageStorage extends MemoryChatroomMessageStorage {
       worldId: worldId,
       locationId: locationId,
       limit: limit,
+    );
+  }
+}
+
+class _RecordingChatroomMessageStorage extends MemoryChatroomMessageStorage {
+  Map<String, dynamic>? lastUpsertedMessage;
+
+  @override
+  Future<void> upsertMessage({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required Map<String, dynamic> message,
+    int maxMessagesPerLocation = 200,
+  }) async {
+    lastUpsertedMessage = Map<String, dynamic>.from(message);
+    await super.upsertMessage(
+      ownerUid: ownerUid,
+      worldId: worldId,
+      locationId: locationId,
+      message: message,
+      maxMessagesPerLocation: maxMessagesPerLocation,
     );
   }
 }

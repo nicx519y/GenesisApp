@@ -360,8 +360,10 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
             parentLocationId: form.parentLocationId,
             level: form.level,
             imageUrl: form.imageUrl.text.trim(),
-            name: form.name.text.trim(),
-            description: form.description.text.trim(),
+            name: normalizeGenesisUgcTextForDisplay(form.name.text),
+            description: normalizeGenesisUgcTextForDisplay(
+              form.description.text,
+            ),
             initialCharacterIds: form.selectedCharacterIds
                 .where(validCharacterIds.contains)
                 .toList(growable: false),

@@ -307,6 +307,101 @@ void main() {
     },
   );
 
+  testWidgets('anchored message list pins bottom while last bubble grows', (
+    WidgetTester tester,
+  ) async {
+    final controller = ScrollController();
+    final messages = chatMessages(1, 24);
+    final style = ChatUiStyleConfig.standard.copyWith(
+      messageListPadding: EdgeInsets.zero,
+    );
+
+    Widget build() {
+      return MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 360,
+            child: ChatAnchoredMessageList(
+              controller: controller,
+              messages: messages,
+              centerLocalId: 'm10',
+              topTitle: '',
+              showDateDividers: false,
+              style: style,
+            ),
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pump();
+
+    final lastMessage = find.byKey(const ValueKey<String>('m24'));
+    final bottomBefore = tester.getBottomLeft(lastMessage).dy;
+
+    messages.last.text = List.filled(
+      16,
+      'streaming content keeps growing',
+    ).join('\n');
+    await tester.pumpWidget(build());
+
+    expect(
+      controller.position.pixels,
+      closeTo(controller.position.maxScrollExtent, 0.1),
+    );
+    expect(tester.getBottomLeft(lastMessage).dy, closeTo(bottomBefore, 1));
+  });
+
+  testWidgets(
+    'anchored message list preserves position when last bubble grows away from bottom',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final messages = chatMessages(1, 24);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build() {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: ChatAnchoredMessageList(
+                controller: controller,
+                messages: messages,
+                centerLocalId: '',
+                topTitle: '',
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      controller.jumpTo(controller.position.maxScrollExtent - 120);
+      await tester.pump();
+      final pixelsBefore = controller.position.pixels;
+
+      messages.last.text = List.filled(
+        16,
+        'streaming content keeps growing',
+      ).join('\n');
+      await tester.pumpWidget(build());
+
+      expect(controller.position.pixels, closeTo(pixelsBefore, 0.1));
+      expect(
+        controller.position.pixels,
+        lessThan(controller.position.maxScrollExtent),
+      );
+    },
+  );
+
   testWidgets('chat message list shows first divider and long gaps', (
     WidgetTester tester,
   ) async {
@@ -821,6 +916,36 @@ void main() {
     expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
   });
 
+  testWidgets('chat markdown preserves backslash text', (
+    WidgetTester tester,
+  ) async {
+    const raw = r'value\tend\\slash\u1234\*';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageBubble(
+            message: ChatMessageVm(
+              localId: 'escaped-message',
+              senderId: 'me',
+              senderName: 'Me',
+              text: raw,
+              isMe: true,
+              status: 'sent',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final text = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(text.textSpan?.toPlainText(), raw);
+  });
+
   testWidgets(
     'chat message bubble uses decorative unicode visual fallback text',
     (WidgetTester tester) async {
@@ -1256,7 +1381,7 @@ void main() {
     expect(text.textAlign, TextAlign.left);
   });
 
-  testWidgets('escaped newlines render in chat bubbles and narrator text', (
+  testWidgets('real newlines render in user and narrator messages', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -1269,7 +1394,7 @@ void main() {
                   localId: 'peer-1',
                   senderId: 'peer',
                   senderName: 'Peer',
-                  text: r'First\n\nSecond',
+                  text: 'First\n\nSecond',
                   isMe: false,
                   status: 'sent',
                 ),
@@ -1280,7 +1405,7 @@ void main() {
                   localId: 'nar-1',
                   senderId: 'narrator',
                   senderName: 'Narrator',
-                  text: r'Aside\n\nContinues',
+                  text: 'Aside\n\nContinues',
                   isMe: false,
                   status: 'sent',
                   senderType: 'narrator',
@@ -1295,8 +1420,36 @@ void main() {
 
     expect(find.text('First\n\nSecond'), findsOneWidget);
     expect(find.text('Aside\n\nContinues'), findsOneWidget);
-    expect(find.text('FirstnnSecond'), findsNothing);
-    expect(find.text('AsidennContinues'), findsNothing);
+  });
+
+  testWidgets('chat markdown does not restore escaped backslash layers', (
+    WidgetTester tester,
+  ) async {
+    const raw = r'double\\n stays literal';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageBubble(
+            message: ChatMessageVm(
+              localId: 'double-backslash-message',
+              senderId: 'me',
+              senderName: 'Me',
+              text: raw,
+              isMe: true,
+              status: 'sent',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final text = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(text.textSpan?.toPlainText(), raw);
   });
 
   testWidgets('message and narrator bubbles report long press starts', (
@@ -1510,13 +1663,12 @@ void main() {
     expect(sendCount, 1);
   });
 
-  testWidgets('chat composer uses decorative unicode visual fallback input', (
+  testWidgets('chat composer preserves decorative unicode input', (
     WidgetTester tester,
   ) async {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
     const raw = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
-    const rendered = '☛ ˙۵▤▤▤♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀°ₒ✩';
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1535,7 +1687,7 @@ void main() {
     await tester.enterText(find.byType(TextField), raw);
     await tester.pump();
 
-    expect(controller.text, rendered);
+    expect(controller.text, raw);
     final input = tester.widget<TextField>(find.byType(TextField));
     expect(input.style?.fontFamily, isNull);
     expect(input.style?.fontFamilyFallback, isNull);

@@ -12,15 +12,18 @@ import '../../components/origin/origin_item_card.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/secend_tabs.dart';
+import 'origin_feed_cache_store.dart';
 
 class OriginPage extends StatefulWidget {
-  const OriginPage({super.key});
+  const OriginPage({super.key, this.isInitialPage = false});
+
+  final bool isInitialPage;
 
   @override
   State<OriginPage> createState() => _OriginPageState();
 }
 
-class _OriginPageState extends State<OriginPage> {
+class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   static const _forYouCategory = _OriginCategory(
     name: 'For you',
     scene: 'foryou',
@@ -28,36 +31,77 @@ class _OriginPageState extends State<OriginPage> {
 
   final _hotTagsCache = const _OriginHotTagsCache();
   List<_OriginCategory> _categories = const [_forYouCategory];
+  var _hasSyncedHotTags = false;
+  var _hotTagsSyncInFlight = false;
+  var _retryHotTagsOnResume = false;
+  AppLifecycleState? _lifecycleState;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_hydrateCategories());
+    _lifecycleState = WidgetsBinding.instance.lifecycleState;
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_syncHotTags());
+    unawaited(_hydrateCachedCategories());
   }
 
-  Future<void> _hydrateCategories() async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+    if (state != AppLifecycleState.resumed || _hasSyncedHotTags) return;
+    if (_hotTagsSyncInFlight) {
+      _retryHotTagsOnResume = true;
+      return;
+    }
+    unawaited(_syncHotTags());
+  }
+
+  Future<void> _hydrateCachedCategories() async {
     final cachedTags = await _hotTagsCache.load();
     if (!mounted) return;
-    if (cachedTags.isNotEmpty) {
-      setState(() {
-        _categories = _categoriesFromTags(cachedTags);
-      });
-    }
-    await _syncHotTags();
+    if (_hasSyncedHotTags || cachedTags.isEmpty) return;
+    setState(() {
+      _categories = _categoriesFromTags(cachedTags);
+    });
   }
 
   Future<void> _syncHotTags() async {
+    if (_hasSyncedHotTags || _hotTagsSyncInFlight) return;
+    _hotTagsSyncInFlight = true;
     try {
       final tags = await AppServicesScope.read(context).api.v1.origin.hotTags();
       final normalizedTags = _normalizeTags(tags);
       await _hotTagsCache.save(normalizedTags);
       if (!mounted) return;
       setState(() {
+        _hasSyncedHotTags = true;
         _categories = _categoriesFromTags(normalizedTags);
       });
     } catch (_) {
       // Keep the already rendered For you tab or cached tabs on sync failure.
+      // A later foreground transition retries this request after a system
+      // network permission sheet or a temporary offline period.
+    } finally {
+      _hotTagsSyncInFlight = false;
+      if (_retryHotTagsOnResume &&
+          _lifecycleState == AppLifecycleState.resumed &&
+          mounted) {
+        _retryHotTagsOnResume = false;
+        unawaited(_syncHotTags());
+      }
     }
+  }
+
+  void _retryHotTagsIfNeeded() {
+    if (_hasSyncedHotTags || _hotTagsSyncInFlight || !mounted) return;
+    _retryHotTagsOnResume = false;
+    unawaited(_syncHotTags());
   }
 
   static List<_OriginCategory> _categoriesFromTags(List<String> tags) {
@@ -99,7 +143,14 @@ class _OriginPageState extends State<OriginPage> {
             child: TabBarView(
               children: [
                 for (final entry in categories.indexed)
-                  _OriginFeed(index: entry.$1, category: entry.$2),
+                  _OriginFeed(
+                    index: entry.$1,
+                    category: entry.$2,
+                    isInitialPage: widget.isInitialPage && entry.$1 == 0,
+                    onInitialLoadCompleted: entry.$1 == 0
+                        ? _retryHotTagsIfNeeded
+                        : null,
+                  ),
               ],
             ),
           ),
@@ -143,17 +194,24 @@ class _OriginCategory {
 }
 
 class _OriginFeed extends StatefulWidget {
-  const _OriginFeed({required this.index, required this.category});
+  const _OriginFeed({
+    required this.index,
+    required this.category,
+    this.isInitialPage = false,
+    this.onInitialLoadCompleted,
+  });
 
   final int index;
   final _OriginCategory category;
+  final bool isInitialPage;
+  final VoidCallback? onInitialLoadCompleted;
 
   @override
   State<_OriginFeed> createState() => _OriginFeedState();
 }
 
 class _OriginFeedState extends State<_OriginFeed>
-    with AutomaticKeepAliveClientMixin<_OriginFeed> {
+    with AutomaticKeepAliveClientMixin<_OriginFeed>, WidgetsBindingObserver {
   static const _pageSize = 20;
   static const _loadMoreThreshold = 700.0;
 
@@ -168,10 +226,55 @@ class _OriginFeedState extends State<_OriginFeed>
   var _isInitialLoading = false;
   var _isLoadingMore = false;
   var _isRefreshing = false;
+  var _hasCompletedFirstPageNetworkRequest = false;
   Object? _error;
+  var _initialLoadCompleted = false;
+  var _initialLoadInFlight = false;
+  var _permissionPromptMayBeOpen = false;
+  var _retryInitialLoadWhenFinished = false;
+  var _hasRetriedInitialStartup = false;
+
+  bool get _usesFirstPageCache => widget.category.scene == 'foryou';
 
   @override
   bool get wantKeepAlive => true;
+
+  bool get _isPrimaryFeed =>
+      widget.index == 0 && widget.category.scene == 'foryou';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_isPrimaryFeed || _initialLoadCompleted) return;
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      // The iOS wireless-data permission sheet makes the app inactive. Keep
+      // the first feed in its loading state until the sheet is dismissed.
+      if (_initialLoadInFlight || _isInitialLoading) {
+        _permissionPromptMayBeOpen = true;
+      }
+      return;
+    }
+
+    if (state != AppLifecycleState.resumed || !_hasRequested) return;
+
+    // Any first-page failure can be caused by a transient network or system
+    // permission transition. Retry once when the app is actually foregrounded.
+    _permissionPromptMayBeOpen = false;
+    if (_initialLoadInFlight) {
+      _retryInitialLoadWhenFinished = true;
+      return;
+    }
+    _hasRetriedInitialStartup = true;
+    unawaited(_refreshItems());
+  }
 
   @override
   void didChangeDependencies() {
@@ -200,6 +303,7 @@ class _OriginFeedState extends State<_OriginFeed>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
       ..removeListener(_handleScroll)
@@ -216,7 +320,13 @@ class _OriginFeedState extends State<_OriginFeed>
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
+    _hasCompletedFirstPageNetworkRequest = false;
     _error = null;
+    _initialLoadCompleted = false;
+    _initialLoadInFlight = false;
+    _permissionPromptMayBeOpen = false;
+    _retryInitialLoadWhenFinished = false;
+    _hasRetriedInitialStartup = false;
   }
 
   void _handleTabChange() {
@@ -231,7 +341,8 @@ class _OriginFeedState extends State<_OriginFeed>
       return;
     }
     _hasRequested = true;
-    _refreshItems();
+    if (_usesFirstPageCache) unawaited(_hydrateCachedFirstPage());
+    unawaited(_refreshItems());
   }
 
   void _handleScroll() {
@@ -250,17 +361,61 @@ class _OriginFeedState extends State<_OriginFeed>
       pn: page,
       rn: _pageSize,
     );
-    final list = data['list'];
-    final items = list is List
-        ? list
-              .whereType<Map>()
-              .map((raw) => OriginListItem.fromJson(asJsonMap(raw)))
-              .toList(growable: false)
-        : const <OriginListItem>[];
-    return _OriginListPage(items: items, total: asInt(data['total']));
+    return _parseOriginListPage(data);
+  }
+
+  Future<OriginFeedCacheStore> _cacheStoreForCurrentOwner() async {
+    final services = AppServicesScope.of(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    final ownerUid =
+        uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty
+        ? uid
+        : OriginFeedCacheStore.anonymousOwnerUid;
+    return OriginFeedCacheStore(ownerUid: ownerUid);
+  }
+
+  Future<void> _hydrateCachedFirstPage() async {
+    Map<String, dynamic>? data;
+    try {
+      final cacheStore = await _cacheStoreForCurrentOwner();
+      data = await cacheStore.loadForYouFirstPage();
+    } catch (_) {
+      return;
+    }
+    if (!mounted ||
+        !_usesFirstPageCache ||
+        _hasCompletedFirstPageNetworkRequest ||
+        data == null) {
+      return;
+    }
+    final page = _parseOriginListPage(data);
+    if (!mounted || _hasCompletedFirstPageNetworkRequest) return;
+    setState(() {
+      _items
+        ..clear()
+        ..addAll(page.items);
+      _total = page.total;
+      _nextPage = 2;
+      _hasMore = _items.length < _total && page.items.isNotEmpty;
+      _isInitialLoading = false;
+      _error = null;
+    });
+  }
+
+  Future<void> _saveFirstPageCache(Map<String, dynamic> data) async {
+    try {
+      final cacheStore = await _cacheStoreForCurrentOwner();
+      await cacheStore.saveForYouFirstPage(data);
+    } catch (_) {
+      // Cache writes must not affect the visible network result.
+    }
   }
 
   Future<void> _refreshItems() async {
+    if (_initialLoadInFlight) return;
+    _initialLoadInFlight = _isPrimaryFeed && !_initialLoadCompleted;
     setState(() {
       _error = null;
       _isInitialLoading = _items.isEmpty;
@@ -270,6 +425,10 @@ class _OriginFeedState extends State<_OriginFeed>
     try {
       final page = await _fetchPage(1);
       if (!mounted) return;
+      _hasCompletedFirstPageNetworkRequest = true;
+      if (_usesFirstPageCache) {
+        unawaited(_saveFirstPageCache(page.rawData));
+      }
       setState(() {
         _items
           ..clear()
@@ -280,13 +439,38 @@ class _OriginFeedState extends State<_OriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      _initialLoadInFlight = false;
+      if (_isPrimaryFeed) {
+        _initialLoadCompleted = true;
+        widget.onInitialLoadCompleted?.call();
+      }
     } catch (error) {
       if (!mounted) return;
+      final shouldRetryAfterResume = _retryInitialLoadWhenFinished;
+      _retryInitialLoadWhenFinished = false;
+      _initialLoadInFlight = false;
+      final keepInitialStartupSkeleton =
+          _isPrimaryFeed &&
+          widget.isInitialPage &&
+          !_hasRetriedInitialStartup &&
+          !_hasCompletedFirstPageNetworkRequest;
+      if (_permissionPromptMayBeOpen || keepInitialStartupSkeleton) {
+        setState(() {
+          _error = null;
+          _isInitialLoading = true;
+          _isRefreshing = false;
+        });
+        return;
+      }
       setState(() {
         _error = error;
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      if (shouldRetryAfterResume && mounted) {
+        _hasRetriedInitialStartup = true;
+        unawaited(_refreshItems());
+      }
     }
   }
 
@@ -321,7 +505,9 @@ class _OriginFeedState extends State<_OriginFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (!_hasRequested || _isInitialLoading) {
+    if (!_hasRequested ||
+        _isInitialLoading ||
+        (_permissionPromptMayBeOpen && !_initialLoadCompleted)) {
       return const GenesisListLoadingSkeleton.originGrid();
     }
 
@@ -408,8 +594,28 @@ class _OriginFeedState extends State<_OriginFeed>
 }
 
 class _OriginListPage {
-  const _OriginListPage({required this.items, required this.total});
+  const _OriginListPage({
+    required this.items,
+    required this.total,
+    required this.rawData,
+  });
 
   final List<OriginListItem> items;
   final int total;
+  final Map<String, dynamic> rawData;
+}
+
+_OriginListPage _parseOriginListPage(Map<String, dynamic> data) {
+  final list = data['list'];
+  final items = list is List
+      ? list
+            .whereType<Map>()
+            .map((raw) => OriginListItem.fromJson(asJsonMap(raw)))
+            .toList(growable: false)
+      : const <OriginListItem>[];
+  return _OriginListPage(
+    items: items,
+    total: asInt(data['total']),
+    rawData: data,
+  );
 }

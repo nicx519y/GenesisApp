@@ -234,6 +234,24 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
         ? locationId.trim()
         : asString(message['location_id']).trim();
     if (messageId <= 0 || resolvedLocationId.isEmpty) return;
+    final existingRows = await executor.query(
+      'chatroom_messages',
+      columns: const ['raw_json', 'global_msg_id', 'location_msg_id'],
+      where: locationMessageId > 0
+          ? 'owner_uid = ? AND world_id = ? AND location_id = ? AND location_msg_id = ?'
+          : 'owner_uid = ? AND world_id = ? AND location_id = ? AND location_msg_id = 0 AND msg_id = ?',
+      whereArgs: locationMessageId > 0
+          ? [ownerUid, worldId, resolvedLocationId, locationMessageId]
+          : [ownerUid, worldId, resolvedLocationId, messageId],
+      limit: 1,
+    );
+    final existing = existingRows.isEmpty
+        ? null
+        : _messageFromRow(existingRows.first);
+    final messageForStorage = _messageForStorage(
+      _preservingLlmStreamFlag(message, existing),
+      locationMessageId,
+    );
     await executor.insert('chatroom_messages', {
       'owner_uid': ownerUid,
       'world_id': worldId,
@@ -241,7 +259,7 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
       'global_msg_id': _globalMessageId(message),
       'msg_id': messageId,
       'location_msg_id': locationMessageId,
-      'raw_json': jsonEncode(_messageForStorage(message, locationMessageId)),
+      'raw_json': jsonEncode(messageForStorage),
       'created_at': _messageSortValue(message),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -333,8 +351,9 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
     final bucket = _bucket(ownerUid, worldId, locationId);
     for (final message in messages) {
       if (_messageId(message) <= 0) continue;
-      bucket[_messageStorageKey(message)] = _messageForStorage(
-        message,
+      final key = _messageStorageKey(message);
+      bucket[key] = _messageForStorage(
+        _preservingLlmStreamFlag(message, bucket[key]),
         _locationMessageId(message),
       );
     }
@@ -351,8 +370,9 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
   }) async {
     if (_messageId(message) <= 0) return;
     final bucket = _bucket(ownerUid, worldId, locationId);
-    bucket[_messageStorageKey(message)] = _messageForStorage(
-      message,
+    final key = _messageStorageKey(message);
+    bucket[key] = _messageForStorage(
+      _preservingLlmStreamFlag(message, bucket[key]),
       _locationMessageId(message),
     );
     _prune(bucket, maxMessagesPerLocation);
@@ -526,6 +546,17 @@ Map<String, dynamic> _messageForStorage(
 ) {
   return Map<String, dynamic>.from(message)
     ..['location_msg_id'] = locationMessageId;
+}
+
+Map<String, dynamic> _preservingLlmStreamFlag(
+  Map<String, dynamic> incoming,
+  Map<String, dynamic>? existing,
+) {
+  if (asBool(existing?['is_llm_stream']) &&
+      !asBool(incoming['is_llm_stream'])) {
+    return <String, dynamic>{...incoming, 'is_llm_stream': true};
+  }
+  return incoming;
 }
 
 int _messageSortValue(Map<String, dynamic> message) {

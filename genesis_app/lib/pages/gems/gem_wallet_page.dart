@@ -451,6 +451,9 @@ class _GemWalletPageState extends State<GemWalletPage>
   GemWalletStore get _walletStore =>
       widget.walletStore ?? AppServicesScope.read(context).gemWallet;
 
+  ValueListenable<GemWalletState> get _walletStateListenable =>
+      widget.walletStore?.state ?? AppServicesScope.of(context).gemWallet.state;
+
   ValueListenable<BillingState> get _billingStateListenable =>
       _billingService?.state ?? _idleBillingState;
 
@@ -604,20 +607,13 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   @override
   Widget build(BuildContext context) {
-    final walletStateListenable = _walletStore.state;
+    final walletStateListenable = _walletStateListenable;
     return PopScope(
       canPop: !_billingPurchaseDialogShowing,
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: GenesisBackAppBar(
           pageName: 'Buy Gems',
-          titleStyle: const TextStyle(
-            color: Color(0xFF333333),
-            fontSize: 16,
-            height: 22 / 16,
-            fontWeight: FontWeight.w600,
-          ),
-          onBack: () => Navigator.of(context).maybePop(),
           actions: [
             GestureDetector(
               behavior: HitTestBehavior.opaque,

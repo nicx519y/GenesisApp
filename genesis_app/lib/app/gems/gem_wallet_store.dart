@@ -37,8 +37,10 @@ class GemWalletStore {
 
   int _requestGeneration = 0;
   Future<void>? _refreshFuture;
+  bool _disposed = false;
 
   Future<void> refresh() {
+    if (_disposed) return Future<void>.value();
     final inFlight = _refreshFuture;
     if (inFlight != null) return inFlight;
 
@@ -53,12 +55,14 @@ class GemWalletStore {
 
   Future<void> _refreshInternal() async {
     final uid = await _readCurrentUid();
+    if (_disposed) return;
     if (uid.isEmpty || uid.startsWith('guest_')) {
       reset();
       return;
     }
 
     final requestGeneration = ++_requestGeneration;
+    if (_disposed) return;
     final current = _state.value;
     final retainedBalance = current.ownerUid == uid ? current.balance : null;
     final retainedUpdatedAt = current.ownerUid == uid
@@ -73,7 +77,9 @@ class GemWalletStore {
 
     try {
       final wallet = await loadWallet();
+      if (_disposed) return;
       final currentUid = await _readCurrentUid();
+      if (_disposed) return;
       if (requestGeneration != _requestGeneration) return;
       if (currentUid != uid) {
         reset();
@@ -85,8 +91,10 @@ class GemWalletStore {
         updatedAt: DateTime.now(),
       );
     } catch (error) {
+      if (_disposed) return;
       if (requestGeneration != _requestGeneration) return;
       final currentUid = await _readCurrentUid();
+      if (_disposed) return;
       if (requestGeneration != _requestGeneration) return;
       if (currentUid != uid) {
         reset();
@@ -104,12 +112,15 @@ class GemWalletStore {
   Future<void> refreshAfterEntitlementGranted() => refresh();
 
   void reset() {
+    if (_disposed) return;
     _requestGeneration += 1;
     _refreshFuture = null;
     _state.value = const GemWalletState();
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     _requestGeneration += 1;
     _refreshFuture = null;
     _state.dispose();

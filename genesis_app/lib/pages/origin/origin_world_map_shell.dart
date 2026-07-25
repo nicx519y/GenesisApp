@@ -96,7 +96,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
   });
 
   static double heightFor(BuildContext context) {
-    return 56 + GenesisSafeAreaInsets.bottom(context);
+    return 49 + GenesisSafeAreaInsets.bottom(context);
   }
 
   final OriginDetail origin;

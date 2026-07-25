@@ -21,7 +21,6 @@ import '../config/app_config.dart';
 import '../config/platform_config.dart';
 import '../debug/location_chat_debug_storage.dart';
 import '../gems/gem_wallet_store.dart';
-import '../startup/startup_network_gate.dart';
 import '../version/app_version_check_service.dart';
 import '../../platform/billing/app_store_billing_platform.dart';
 import '../../platform/billing/billing_service.dart';
@@ -43,7 +42,6 @@ class AppServices {
     required this.directMessageMessages,
     required this.appVersionCheck,
     required this.externalUrlOpener,
-    required this.startupNetworkGate,
     this.gatewayAuth,
     GemWalletStore? gemWallet,
     this.billing,
@@ -69,7 +67,6 @@ class AppServices {
   final DirectMessageMessageStore directMessageMessages;
   final AppVersionCheckService appVersionCheck;
   final ExternalUrlOpener externalUrlOpener;
-  final StartupNetworkGate startupNetworkGate;
   final GatewayAuthCoordinator? gatewayAuth;
   final GemWalletStore gemWallet;
   final BillingService? billing;
@@ -97,7 +94,6 @@ class ServiceRegistry {
     IdentityAuthService? identityAuthOverride,
     ValueNotifier<int>? sessionRevisionOverride,
     ChatroomMessageStorage? chatroomMessagesOverride,
-    StartupNetworkGate? startupNetworkGateOverride,
   }) {
     final platformConfig = DefaultPlatformConfig(appConfig: config);
     final deviceId = deviceIdOverride ?? const NativeDeviceIdService();
@@ -107,13 +103,6 @@ class ServiceRegistry {
         ProviderIdentityAuthService(sessionStore: sessionStore);
     final sessionRevision = sessionRevisionOverride ?? ValueNotifier<int>(0);
     GemWalletStore? gemWalletStore;
-    final startupNetworkGate =
-        startupNetworkGateOverride ??
-        StartupNetworkGate(
-          initiallyOpen:
-              config.useMock == true ||
-              defaultTargetPlatform != TargetPlatform.iOS,
-        );
     var handlingPageNotFound = false;
     var handlingSessionExpired = false;
     Future<void> handlePageNotFound(String _) async {
@@ -203,7 +192,6 @@ class ServiceRegistry {
       identityAuthService: identityAuth,
       appHeaderProvider: appRequestHeaders.headers,
       gatewayRequestInterceptor: gatewayRequestInterceptor,
-      startupRequestInterceptor: startupNetworkGate.wrap,
       onSessionExpired: handleSessionExpired,
       onPageNotFound: handlePageNotFound,
     );
@@ -284,7 +272,6 @@ class ServiceRegistry {
       directMessageMessages: directMessageMessages,
       appVersionCheck: appVersionCheck,
       externalUrlOpener: const NativeExternalUrlOpener(),
-      startupNetworkGate: startupNetworkGate,
       gatewayAuth: gatewayAuthCoordinator,
       gemWallet: gemWallet,
       billing: billing,
@@ -303,7 +290,6 @@ class ServiceRegistry {
       identityAuthOverride: current.identityAuth,
       sessionRevisionOverride: current.sessionRevision,
       chatroomMessagesOverride: current.chatroomMessages,
-      startupNetworkGateOverride: current.startupNetworkGate,
     );
   }
 }

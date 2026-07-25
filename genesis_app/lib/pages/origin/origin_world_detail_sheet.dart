@@ -5,6 +5,7 @@ const Color _originDetailSheetBackgroundColor = Color(0xFFEDEDED);
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
+    required this.copyWorldProgressSummaries,
     required this.baseStatusBarStyle,
     required this.minChildSize,
     required this.collapseRequest,
@@ -17,6 +18,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   static const double defaultInitialChildSize = 0.22;
 
   final OriginDetail origin;
+  final List<WorldSummaryLatestItem> copyWorldProgressSummaries;
   final SystemUiOverlayStyle baseStatusBarStyle;
   final double minChildSize;
   final int collapseRequest;

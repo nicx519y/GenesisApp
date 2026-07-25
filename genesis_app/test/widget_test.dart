@@ -20,13 +20,14 @@ import 'package:genesis_flutter_android/ui/components/genesis_static_network_ima
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
-import 'package:genesis_flutter_android/app/startup/startup_network_gate.dart';
+import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
+import 'package:genesis_flutter_android/components/common/list_loading_skeleton.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
@@ -57,7 +58,6 @@ import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
-import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
@@ -82,6 +82,7 @@ import 'package:genesis_flutter_android/pages/messages/message_category_list_pag
 import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_feed_cache_store.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_launch_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_launch_pending_store.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
@@ -104,6 +105,7 @@ import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparen
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_indicator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
@@ -236,7 +238,6 @@ Future<AppServices> _testServices({
         ),
     appVersionCheck: appVersionCheck ?? const _NoUpgradeVersionCheckService(),
     externalUrlOpener: externalUrlOpener ?? _FakeExternalUrlOpener(),
-    startupNetworkGate: StartupNetworkGate.open(),
     gemWallet: gemWallet,
     billing: billingService,
   );
@@ -442,6 +443,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   static const total = 100;
 
   _RecordingV1ListTransport({
+    this.worldListTotal = total,
     this.worldRelationStatus = 'owner',
     this.originDiscussCount = 9,
     this.discussTotalAll = 25,
@@ -473,6 +475,7 @@ class _RecordingV1ListTransport implements HttpTransport {
 
   final requests = <TransportRequest>[];
   static const _defaultHotTags = ['Destroyed'];
+  final int worldListTotal;
   String worldRelationStatus;
   final int originDiscussCount;
   final int discussTotalAll;
@@ -818,8 +821,11 @@ class _RecordingV1ListTransport implements HttpTransport {
         worldListCompleter != null) {
       return worldListCompleter!.future;
     }
-    final start = ((pn - 1) * rn).clamp(0, total);
-    final end = (start + rn).clamp(0, total);
+    final responseTotal = request.uri.path.endsWith('/world/list')
+        ? worldListTotal
+        : total;
+    final start = ((pn - 1) * rn).clamp(0, responseTotal);
+    final end = (start + rn).clamp(0, responseTotal);
     final list = [
       for (var index = start; index < end; index++)
         request.uri.path.endsWith('/world/list')
@@ -829,7 +835,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     return _jsonResponse({
       'err_no': 0,
       'err_str': 'success',
-      'data': {'list': list, 'total': total},
+      'data': {'list': list, 'total': responseTotal},
     });
   }
 
@@ -1273,6 +1279,54 @@ class _QueuedOriginRefreshTransport implements HttpTransport {
         'total': 1,
       },
     });
+  }
+}
+
+class _OriginPermissionPromptTransport extends _RecordingV1ListTransport {
+  final Completer<TransportResponse> firstOriginResponse =
+      Completer<TransportResponse>();
+  var originListRequestCount = 0;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.uri.path == '/api/v1/origin/list') {
+      originListRequestCount += 1;
+      if (originListRequestCount == 1) {
+        requests.add(request);
+        return firstOriginResponse.future;
+      }
+    }
+    return super.send(request);
+  }
+
+  void failFirstOriginRequest() {
+    firstOriginResponse.complete(
+      _jsonResponse({
+        'err_no': 10001,
+        'err_msg': 'network unavailable',
+        'data': <String, Object?>{},
+      }),
+    );
+  }
+}
+
+class _OriginHotTagsRetryTransport extends _RecordingV1ListTransport {
+  var hotTagsRequestCount = 0;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.uri.path == '/api/v1/origin/hot_tags') {
+      hotTagsRequestCount += 1;
+      if (hotTagsRequestCount == 1) {
+        requests.add(request);
+        return _jsonResponse({
+          'err_no': 10001,
+          'err_msg': 'network unavailable',
+          'data': <String, Object?>{},
+        });
+      }
+    }
+    return super.send(request);
   }
 }
 
@@ -2074,12 +2128,29 @@ void main() {
     await _pumpGenesisApp(tester);
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
     expect(find.text('#Worldo'), findsOneWidget);
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
+  });
+
+  testWidgets('signed-out cold start opens Worldo and Home opens Popular', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(initialUid: null);
+    await tester.pumpWidget(GenesisApp(services: services, initialIndex: 1));
+    await tester.pump();
+
+    expect(find.byType(AppShellPage, skipOffstage: false), findsOneWidget);
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
+    expect(find.text('Worldo'), findsOneWidget);
+
+    await tester.tap(find.text('Home'));
+    await tester.pump();
+
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 0);
+    expect(find.text('Popular'), findsOneWidget);
   });
 
   testWidgets('tap header search bar opens search page', (
@@ -2968,11 +3039,9 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: services,
-          child: const AppShellPage(initialIndex: 0),
-        ),
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
       ),
     );
     await tester.pump();
@@ -3000,6 +3069,9 @@ void main() {
       find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
       findsNothing,
     );
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 4);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
 
     await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();
@@ -3735,9 +3807,11 @@ void main() {
   testWidgets('tap #Worldo switches to Worldo page', (
     WidgetTester tester,
   ) async {
-    await _pumpGenesisApp(tester);
+    await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
+    for (var i = 0; i < 20 && find.text('Popular').evaluate().isEmpty; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
 
-    expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
 
     await tester.tap(find.text('#Worldo'));
@@ -3747,6 +3821,452 @@ void main() {
     expect(find.text('#Worldo'), findsOneWidget);
     expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
+  });
+
+  testWidgets('AppServicesScope delays old GemWallet disposal on replacement', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(useMock: true);
+    late BuildContext scopeContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: Builder(
+            builder: (context) {
+              scopeContext = context;
+              final walletState = AppServicesScope.of(context).gemWallet.state;
+              return Column(
+                children: [
+                  ValueListenableBuilder<GemWalletState>(
+                    valueListenable: walletState,
+                    builder: (context, state, _) {
+                      return Text('balance=${state.balance ?? '-'}');
+                    },
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      AppServicesScope.replaceWithConfig(
+                        scopeContext,
+                        const AppConfig(
+                          useMock: true,
+                          debugProxy: 'http://127.0.0.1:8888',
+                        ),
+                      );
+                    },
+                    child: const Text('Replace services'),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    final oldWalletState = services.gemWallet.state;
+
+    await tester.tap(find.text('Replace services'));
+
+    void listener() {}
+    expect(() => oldWalletState.addListener(listener), returnsNormally);
+    oldWalletState.removeListener(listener);
+
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(() => oldWalletState.addListener(listener), throwsFlutterError);
+  });
+
+  testWidgets('Me settings route does not dispose shared GemWallet service', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(
+      useMock: false,
+      transport: _RecordingV1ListTransport(),
+      initialAuthToken: 'backend-token',
+      initialUserInfo: {
+        'uid': 'u_mock',
+        'name': 'Cached User',
+        'avatar': '',
+        'following_cnt': 0,
+        'follower_cnt': 0,
+      },
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const Scaffold(body: MePage()),
+        ),
+      ),
+    );
+    for (
+      var i = 0;
+      i < 20 && find.text('Cached User').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+    Navigator.of(tester.element(find.byType(SettingsPage))).pop();
+    await tester.pumpAndSettle();
+
+    void listener() {}
+    expect(
+      () => services.gemWallet.state.addListener(listener),
+      returnsNormally,
+    );
+    services.gemWallet.state.removeListener(listener);
+  });
+
+  testWidgets('Me login does not use disposed GemWallet state', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
+    );
+    final services = await _testServices(
+      backendAuth: backendAuth,
+      sessionStoreOverride: sessionStore,
+      identityAuth: const _FakeIdentityAuthService(
+        signInSession: AuthSession(
+          provider: IdentityProvider.google,
+          providerIdToken: 'id-token',
+          displayName: 'Login User',
+          photoUrl: '',
+        ),
+      ),
+      transport: _RecordingV1ListTransport(),
+      useMock: false,
+      initialUid: null,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const AppShellPage(initialIndex: 4),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue with Google'));
+    for (
+      var i = 0;
+      i < 20 && find.text('Continue with Google').evaluate().isNotEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(tester.takeException(), isNull);
+    expect(backendAuth.loginCount, 1);
+    expect(find.text('Continue with Google'), findsNothing);
+    void listener() {}
+    expect(
+      () => services.gemWallet.state.addListener(listener),
+      returnsNormally,
+    );
+    services.gemWallet.state.removeListener(listener);
+  });
+
+  testWidgets('signed out cold start opens Worldo and Home opens Popular', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+          ),
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+
+    expect(find.text('Popular'), findsNothing);
+    expect(find.text('For you'), findsNothing);
+
+    for (var i = 0; i < 20 && find.text('Worldo').evaluate().isEmpty; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('For you'), findsOneWidget);
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Popular'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+  });
+
+  testWidgets(
+    'logged in cold start without My Worlds cache resolves Home from API',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final worldListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldListCompleter: worldListCompleter,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: const AppShellPage(initialIndex: 0),
+          ),
+        ),
+      );
+
+      for (
+        var i = 0;
+        i < 20 && find.text('Worldo').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+      expect(find.text('Worldo'), findsOneWidget);
+
+      await tester.tap(find.text('Home'));
+      for (
+        var i = 0;
+        i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      final pendingTabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(pendingTabBar.labelColor, pendingTabBar.unselectedLabelColor);
+      expect(
+        (pendingTabBar.indicator! as GenesisFixedUnderlineIndicator).color,
+        Colors.transparent,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(find.text('My Worlds'), findsOneWidget);
+      expect(find.text('Popular'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsNothing);
+
+      worldListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'list': [transport._worldItem(0)],
+            'total': 1,
+          },
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      final controller = DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      );
+      expect(controller.index, HomePage.myWorldsTabIndex);
+      expect(find.text('World tick narrator 1'), findsOneWidget);
+      final worldRequest = transport.requestsFor('/api/v1/world/list').single;
+      expect(worldRequest.uri.queryParameters['scene'], 'mine');
+      expect(worldRequest.uri.queryParameters['pn'], '1');
+      expect(worldRequest.uri.queryParameters['rn'], '10');
+    },
+  );
+
+  testWidgets(
+    'logged in cold start with empty My Worlds cache refetches and opens Popular',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+          'list': <Object>[],
+          'total': 0,
+        }),
+      });
+      final transport = _RecordingV1ListTransport(worldListTotal: 0);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: const AppShellPage(initialIndex: 0),
+          ),
+        ),
+      );
+
+      for (
+        var i = 0;
+        i < 20 && find.text('Worldo').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+      expect(find.text('Worldo'), findsOneWidget);
+
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+
+      final controller = DefaultTabController.of(
+        tester.element(find.byType(TabBar)),
+      );
+      expect(controller.index, HomePage.popularTabIndex);
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+      await tester.tap(find.text('My Worlds'));
+      await tester.pumpAndSettle();
+
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'home-my-worlds-empty-image:'
+            'assets/images/my_worlds_empty_worldo_launch.jpg',
+          ),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'logged in cold start with My Worlds cache opens Home My Worlds',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(worldListTotal: 1);
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+          'list': [transport._worldItem(0)],
+          'total': 1,
+        }),
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: const AppShellPage(initialIndex: 0),
+          ),
+        ),
+      );
+
+      for (
+        var i = 0;
+        i < 20 && find.text('World tick narrator 1').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      final worldRequests = transport.requestsFor('/api/v1/world/list');
+      expect(worldRequests, hasLength(1));
+      expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
+      expect(worldRequests.single.uri.queryParameters['pn'], '1');
+      expect(worldRequests.single.uri.queryParameters['rn'], '10');
+      expect(find.text('My Worlds'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsOneWidget);
+      expect(find.text('Worldo'), findsNothing);
+    },
+  );
+
+  testWidgets('login session change resolves Home from My Worlds API', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
+      loginUser: const User(
+        id: 42,
+        uid: 'backend_uid',
+        did: '',
+        nickname: 'Backend User',
+        avatar: '',
+        createdAt: null,
+      ),
+    );
+    final worldListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldListCompleter: worldListCompleter,
+    );
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialUid: null,
+      sessionStoreOverride: sessionStore,
+      backendAuth: backendAuth,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 1)),
+      ),
+    );
+    await tester.pump();
+
+    await backendAuth.loginWithIdentity(
+        const AuthSession(
+          provider: IdentityProvider.google,
+          providerIdToken: 'google-token',
+          displayName: 'Identity User',
+          photoUrl: '',
+        ),
+    );
+    services.notifySessionChanged();
+    await tester.pump();
+
+    await tester.tap(find.text('Home'));
+    for (
+      var i = 0;
+      i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    final pendingTabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(pendingTabBar.labelColor, pendingTabBar.unselectedLabelColor);
+    expect(
+      (pendingTabBar.indicator! as GenesisFixedUnderlineIndicator).color,
+      Colors.transparent,
+    );
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+    worldListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': [transport._worldItem(0)],
+          'total': 1,
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    final controller = DefaultTabController.of(
+      tester.element(find.byType(TabBar)),
+    );
+    expect(controller.index, HomePage.myWorldsTabIndex);
+    expect(find.text('World tick narrator 1'), findsOneWidget);
   });
 
   testWidgets('main tabs keep page state after switching away and back', (
@@ -3815,7 +4335,122 @@ void main() {
     expect(originRequests.last.uri.queryParameters['tag'], 'Destroyed');
   });
 
-  testWidgets('Origin requests For you list before hot tags return', (
+  testWidgets(
+    'Origin keeps the skeleton during a permission prompt and retries on resume',
+    (WidgetTester tester) async {
+      final transport = _OriginPermissionPromptTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      transport.failFirstOriginRequest();
+      await tester.pump();
+
+      expect(find.byType(GenesisListLoadingSkeleton), findsOneWidget);
+      expect(find.text('Load failed'), findsNothing);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(transport.originListRequestCount, 2);
+      expect(find.text('#Origin 1'), findsOneWidget);
+      expect(find.text('Load failed'), findsNothing);
+    },
+  );
+
+  testWidgets('Origin retries a failed first page after resume', (
+    WidgetTester tester,
+  ) async {
+    final transport = _OriginPermissionPromptTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    transport.failFirstOriginRequest();
+    await tester.pumpAndSettle();
+
+    expect(transport.originListRequestCount, 1);
+    expect(find.text('Load failed'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(transport.originListRequestCount, 2);
+    expect(find.text('#Origin 1'), findsOneWidget);
+    expect(find.text('Load failed'), findsNothing);
+  });
+
+  testWidgets(
+    'Initial Worldo keeps the skeleton after its first load failure',
+    (WidgetTester tester) async {
+      final transport = _OriginPermissionPromptTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(isInitialPage: true),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      transport.failFirstOriginRequest();
+      await tester.pump();
+
+      expect(transport.originListRequestCount, 1);
+      expect(find.byType(GenesisListLoadingSkeleton), findsOneWidget);
+      expect(find.text('Load failed'), findsNothing);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(transport.originListRequestCount, 2);
+      expect(find.text('#Origin 1'), findsOneWidget);
+      expect(find.text('Load failed'), findsNothing);
+    },
+  );
+
+  testWidgets('Origin retries hot tags after returning to foreground', (
+    WidgetTester tester,
+  ) async {
+    final transport = _OriginHotTagsRetryTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(transport.hotTagsRequestCount, 2);
+    expect(find.text('Destroyed'), findsOneWidget);
+    expect(find.text('For you'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(transport.hotTagsRequestCount, 2);
+    expect(find.text('Destroyed'), findsOneWidget);
+  });
+
+  testWidgets('Origin starts hot tags before For you list in parallel', (
     WidgetTester tester,
   ) async {
     final hotTagsCompleter = Completer<TransportResponse>();
@@ -3833,10 +4468,19 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(transport.requestsFor('/api/v1/origin/hot_tags'), hasLength(1));
+    var originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(1));
     expect(originRequests.single.uri.queryParameters['scene'], 'foryou');
-    expect(transport.requestsFor('/api/v1/origin/hot_tags'), hasLength(1));
+    final hotTagsIndex = transport.requests.indexWhere(
+      (request) => request.uri.path == '/api/v1/origin/hot_tags',
+    );
+    final listIndex = transport.requests.indexWhere(
+      (request) => request.uri.path == '/api/v1/origin/list',
+    );
+    expect(hotTagsIndex, isNonNegative);
+    expect(listIndex, isNonNegative);
+    expect(hotTagsIndex, lessThan(listIndex));
     expect(find.text('For you'), findsOneWidget);
     expect(find.text('Destroyed'), findsNothing);
 
@@ -3852,6 +4496,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Destroyed'), findsOneWidget);
+    originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(originRequests.single.uri.queryParameters['scene'], 'foryou');
   });
 
   testWidgets('Origin renders cached hot tags then syncs latest tags', (
@@ -3899,6 +4546,58 @@ void main() {
     expect(prefs.getStringList('origin_hot_tags_v1'), <String>['Remote']);
   });
 
+  testWidgets('Origin renders cached For you page while refreshing it', (
+    WidgetTester tester,
+  ) async {
+    final originListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      originListCompleter: originListCompleter,
+    );
+    const cacheStore = OriginFeedCacheStore(ownerUid: 'u_mock');
+    await cacheStore.saveForYouFirstPage(<String, dynamic>{
+      'list': <Map<String, Object?>>[transport._originItem(50)],
+      'total': 1,
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    for (
+      var i = 0;
+      i < 5 && find.text('#Origin 51').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump();
+    }
+
+    expect(find.text('#Origin 51'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+
+    originListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': <Map<String, Object?>>[transport._originItem(0)],
+          'total': 1,
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('#Origin 51'), findsNothing);
+    expect(find.text('#Origin 1'), findsOneWidget);
+  });
+
   testWidgets(
     'Home My World tab requests v1 world list with mine scene on enter',
     (WidgetTester tester) async {
@@ -3914,7 +4613,6 @@ void main() {
               initialAuthToken: 'backend-token',
             ),
             child: const HomePage(
-              startupPlatform: TargetPlatform.android,
               initialTabIndex: HomePage.myWorldsTabIndex,
               initialRequestMetricWindow: Duration.zero,
             ),
@@ -4000,7 +4698,6 @@ void main() {
             initialAuthToken: 'backend-token',
           ),
           child: const HomePage(
-            startupPlatform: TargetPlatform.android,
             initialTabIndex: HomePage.myWorldsTabIndex,
             initialRequestMetricWindow: Duration.zero,
           ),
@@ -4042,10 +4739,7 @@ void main() {
             useMock: false,
             initialUid: null,
           ),
-          child: const HomePage(
-            startupPlatform: TargetPlatform.android,
-            initialRequestMetricWindow: Duration.zero,
-          ),
+          child: const HomePage(initialRequestMetricWindow: Duration.zero),
         ),
       ),
     );
@@ -4072,532 +4766,68 @@ void main() {
   });
 
   testWidgets(
-    'Home iOS startup gate does not request network before ATT and runtime complete',
+    'AppShell iOS starts the independent ATT prompt after the first frame',
     (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final transport = _RecordingV1ListTransport();
-      final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-      final runtimeInitialization = Completer<void>();
+      AppStartupCoordinator.resetForTesting();
       var trackingRequested = false;
-      var runtimeInitialized = false;
+
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialAuthToken: 'backend-token',
-            ),
-            child: HomePage(
+            services: await _testServices(initialAuthToken: 'backend-token'),
+            child: AppShellPage(
+              initialIndex: 1,
               startupPlatform: TargetPlatform.iOS,
-              initialTabIndex: HomePage.myWorldsTabIndex,
-              initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: Duration.zero,
-              postSystemDialogResumeDelay: Duration.zero,
-              primeNetworkPermission: (_) async => true,
-              trackingAuthorizationStatus: () async =>
-                  AppTrackingAuthorizationStatus.notDetermined,
-              requestTrackingAuthorization: () async {
-                trackingRequested = true;
-                return trackingAuthorization.future;
-              },
-              initializeRuntime: (services, trackingAuthorizationStatus) {
-                runtimeInitialized = true;
-                expect(
-                  trackingAuthorizationStatus,
-                  AppTrackingAuthorizationStatus.denied,
-                );
-                return runtimeInitialization.future;
-              },
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(
-        find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(
-          const ValueKey<String>(
-            'home-my-worlds-empty-image:'
-            'assets/images/my_worlds_empty_worldo_launch.jpg',
-          ),
-        ),
-        findsOneWidget,
-      );
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(trackingRequested, isTrue);
-      expect(runtimeInitialized, isFalse);
-
-      trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-      for (var i = 0; i < 10 && !runtimeInitialized; i += 1) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(runtimeInitialized, isTrue);
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-
-      runtimeInitialization.complete();
-      for (
-        var i = 0;
-        i < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
-    },
-  );
-
-  testWidgets('Home iOS signed-out My Worlds renders empty state during gate', (
-    WidgetTester tester,
-  ) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    final transport = _RecordingV1ListTransport();
-    final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: null,
-          ),
-          child: HomePage(
-            startupPlatform: TargetPlatform.iOS,
-            initialTabIndex: HomePage.myWorldsTabIndex,
-            initialRequestMetricWindow: Duration.zero,
-            networkPermissionDialogSettleTimeout: Duration.zero,
-            postSystemDialogResumeDelay: Duration.zero,
-            primeNetworkPermission: (_) async => true,
-            trackingAuthorizationStatus: () async =>
-                AppTrackingAuthorizationStatus.notDetermined,
-            requestTrackingAuthorization: () => trackingAuthorization.future,
-            initializeRuntime: (services, trackingAuthorizationStatus) async {},
-          ),
-        ),
-      ),
-    );
-
-    for (
-      var i = 0;
-      i < 10 &&
-          find
-              .byKey(
-                const ValueKey<String>(
-                  'home-my-worlds-empty-image:'
-                  'assets/images/my_worlds_empty_worldo_launch.jpg',
-                ),
-              )
-              .evaluate()
-              .isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-
-    expect(
-      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>(
-          'home-my-worlds-empty-image:'
-          'assets/images/my_worlds_empty_worldo_launch.jpg',
-        ),
-      ),
-      findsOneWidget,
-    );
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-
-    trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-  });
-
-  testWidgets('Home iOS My Worlds renders signed-in cache before ATT completes', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    final cachedWorld = transport._worldItem(0)..['name'] = 'iOS Cached World';
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      '${HomeFeedCacheStore.storageKey}.u_cached.my_worlds': jsonEncode({
-        'list': [cachedWorld],
-        'total': 1,
-      }),
-    });
-    final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-    final runtimeInitialization = Completer<void>();
-    var runtimeInitialized = false;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: 'u_cached',
-            initialAuthToken: 'backend-token',
-          ),
-          child: HomePage(
-            startupPlatform: TargetPlatform.iOS,
-            initialTabIndex: HomePage.myWorldsTabIndex,
-            initialRequestMetricWindow: Duration.zero,
-            networkPermissionDialogSettleTimeout: Duration.zero,
-            postSystemDialogResumeDelay: Duration.zero,
-            primeNetworkPermission: (_) async => true,
-            trackingAuthorizationStatus: () async =>
-                AppTrackingAuthorizationStatus.notDetermined,
-            requestTrackingAuthorization: () => trackingAuthorization.future,
-            initializeRuntime: (services, trackingAuthorizationStatus) {
-              runtimeInitialized = true;
-              return runtimeInitialization.future;
-            },
-          ),
-        ),
-      ),
-    );
-
-    expect(
-      find.byKey(
-        const ValueKey<String>(
-          'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
-        ),
-      ),
-      findsNothing,
-    );
-
-    for (
-      var i = 0;
-      i < 10 && find.text('#iOS Cached World').evaluate().isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-
-    expect(find.text('#iOS Cached World'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-      findsNothing,
-    );
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(runtimeInitialized, isFalse);
-
-    trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-    for (var i = 0; i < 10 && !runtimeInitialized; i += 1) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-
-    expect(runtimeInitialized, isTrue);
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-
-    runtimeInitialization.complete();
-    for (
-      var i = 0;
-      i < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-
-    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-  });
-
-  testWidgets(
-    'Home iOS startup gate requests ATT after network dialog resume',
-    (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport();
-      var networkPrimed = false;
-      var trackingRequested = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialAuthToken: 'backend-token',
-            ),
-            child: HomePage(
-              startupPlatform: TargetPlatform.iOS,
-              initialTabIndex: HomePage.myWorldsTabIndex,
-              initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: const Duration(seconds: 5),
-              postSystemDialogResumeDelay: Duration.zero,
-              primeNetworkPermission: (_) async {
-                networkPrimed = true;
-                return true;
-              },
               trackingAuthorizationStatus: () async =>
                   AppTrackingAuthorizationStatus.notDetermined,
               requestTrackingAuthorization: () async {
                 trackingRequested = true;
                 return AppTrackingAuthorizationStatus.denied;
               },
-              initializeRuntime:
-                  (services, trackingAuthorizationStatus) async {},
             ),
           ),
         ),
       );
 
       await tester.pump();
-      await tester.pump();
-
-      expect(networkPrimed, isTrue);
-      expect(trackingRequested, isFalse);
-
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(trackingRequested, isFalse);
 
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      for (var i = 0; i < 10 && !trackingRequested; i += 1) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
+      await tester.pump(const Duration(seconds: 2));
       expect(trackingRequested, isTrue);
     },
   );
 
-  testWidgets(
-    'Home iOS startup gate renders cached popular before ATT completes',
-    (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        '${HomeFeedCacheStore.storageKey}.${HomeFeedCacheStore.anonymousOwnerUid}.popular':
-            jsonEncode({
-              'list': [
-                {
-                  'oid': 'ios_cached_origin_1',
-                  'name': 'iOS Cached Origin',
-                  'brief': 'Cached subtitle',
-                  'world_view': 'Cached world view',
-                  'owner_name': 'Cached owner',
-                  'updated_at': '2026-07-08T00:00:00Z',
-                  'discusses': <Object?>[],
-                },
-              ],
-              'total': 1,
-            }),
-      });
-      final transport = _RecordingV1ListTransport();
-      final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-      final runtimeInitialization = Completer<void>();
-      var runtimeInitialized = false;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialUid: null,
-            ),
-            child: HomePage(
-              startupPlatform: TargetPlatform.iOS,
-              initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: Duration.zero,
-              postSystemDialogResumeDelay: Duration.zero,
-              primeNetworkPermission: (_) async => true,
-              trackingAuthorizationStatus: () async =>
-                  AppTrackingAuthorizationStatus.notDetermined,
-              requestTrackingAuthorization: () => trackingAuthorization.future,
-              initializeRuntime: (services, trackingAuthorizationStatus) {
-                runtimeInitialized = true;
-                return runtimeInitialization.future;
-              },
-            ),
+  testWidgets('AppShell iOS does not request ATT after a previous decision', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    var trackingRequested = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: AppShellPage(
+            initialIndex: 1,
+            startupPlatform: TargetPlatform.iOS,
+            trackingAuthorizationStatus: () async =>
+                AppTrackingAuthorizationStatus.authorized,
+            requestTrackingAuthorization: () async {
+              trackingRequested = true;
+              return AppTrackingAuthorizationStatus.authorized;
+            },
           ),
         ),
-      );
+      ),
+    );
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('#iOS Cached Origin'), findsWidgets);
-      expect(
-        find.byKey(
-          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-        ),
-        findsNothing,
-      );
-      final cachedFeedElement = tester.element(
-        find.byKey(const PageStorageKey<String>('home-feed-popular')),
-      );
-      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
-      expect(runtimeInitialized, isFalse);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
 
-      trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-      for (
-        var i = 0;
-        i < 10 &&
-            (!runtimeInitialized ||
-                find.text('#iOS Cached Origin').evaluate().isEmpty);
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(find.text('#iOS Cached Origin'), findsWidgets);
-      expect(
-        tester.element(
-          find.byKey(const PageStorageKey<String>('home-feed-popular')),
-        ),
-        same(cachedFeedElement),
-      );
-      expect(runtimeInitialized, isTrue);
-      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
-
-      runtimeInitialization.complete();
-      for (
-        var i = 0;
-        i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
-    },
-  );
-
-  testWidgets(
-    'Home iOS startup gate shows popular skeleton instead of No data without cache',
-    (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final transport = _RecordingV1ListTransport();
-      final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialUid: null,
-            ),
-            child: HomePage(
-              startupPlatform: TargetPlatform.iOS,
-              initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: Duration.zero,
-              postSystemDialogResumeDelay: Duration.zero,
-              primeNetworkPermission: (_) async => true,
-              trackingAuthorizationStatus: () async =>
-                  AppTrackingAuthorizationStatus.notDetermined,
-              requestTrackingAuthorization: () => trackingAuthorization.future,
-              initializeRuntime:
-                  (services, trackingAuthorizationStatus) async {},
-            ),
-          ),
-        ),
-      );
-
-      for (
-        var i = 0;
-        i < 10 &&
-            find
-                .byKey(
-                  const ValueKey<String>(
-                    'genesis-popular-origin-list-skeleton',
-                  ),
-                )
-                .evaluate()
-                .isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-
-      expect(
-        find.byKey(
-          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('No data'), findsNothing);
-      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
-
-      trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
-    },
-  );
-
-  testWidgets(
-    'Home iOS initial network timeout keeps skeleton instead of Retry',
-    (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final originListCompleter = Completer<TransportResponse>();
-      final transport = _RecordingV1ListTransport(
-        originListCompleter: originListCompleter,
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialUid: null,
-            ),
-            child: HomePage(
-              startupPlatform: TargetPlatform.iOS,
-              initialRequestMetricWindow: Duration.zero,
-              networkPermissionDialogSettleTimeout: Duration.zero,
-              postSystemDialogResumeDelay: Duration.zero,
-              primeNetworkPermission: (_) async => true,
-              trackingAuthorizationStatus: () async =>
-                  AppTrackingAuthorizationStatus.authorized,
-              initializeRuntime:
-                  (services, trackingAuthorizationStatus) async {},
-            ),
-          ),
-        ),
-      );
-
-      for (
-        var i = 0;
-        i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
-      originListCompleter.completeError(
-        ApiException(
-          message: 'network permission pending timeout',
-          kind: ApiExceptionKind.timeout,
-          transportErrorKind: TransportErrorKind.timeout,
-        ),
-      );
-      await tester.pump();
-
-      expect(
-        find.byKey(
-          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
-
-      await tester.pump(const Duration(seconds: 3));
-
-      expect(
-        find.byKey(
-          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
-      expect(
-        transport.requestsFor('/api/v1/origin/list').length,
-        greaterThan(1),
-      );
-    },
-  );
+    expect(trackingRequested, isFalse);
+  });
 
   testWidgets('Home My Worlds signed-out initial frame shows empty state', (
     WidgetTester tester,
@@ -5991,7 +6221,29 @@ void main() {
             home: Scaffold(
               body: Padding(
                 padding: const EdgeInsets.all(12),
-                child: const CopyWorldProgressSection(originId: 'o_test_1'),
+                child: const CopyWorldProgressSection(
+                  originId: 'o_test_1',
+                  summaries: <WorldSummaryLatestItem>[
+                    WorldSummaryLatestItem(
+                      worldId: 'w_summary_1',
+                      originId: 'o_test_1',
+                      tickNo: 4,
+                      summary:
+                          'First copied world progress summary for o_test_1.',
+                      tickTime: 1771420800000,
+                      createdAt: 1771420800000,
+                    ),
+                    WorldSummaryLatestItem(
+                      worldId: 'w_summary_2',
+                      originId: 'o_test_1',
+                      tickNo: 5,
+                      summary:
+                          'Second copied world progress summary for o_test_1.',
+                      tickTime: 1771420800000,
+                      createdAt: 1771420800000,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -5999,18 +6251,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final summaryRequests = transport.requestsFor(
-        '/api/v1/world/summary/latest',
-      );
-      expect(summaryRequests, hasLength(1));
-      expect(
-        summaryRequests.single.uri.queryParameters['origin_id'],
-        'o_test_1',
-      );
-      expect(
-        summaryRequests.single.uri.queryParameters.containsKey('world_id'),
-        isFalse,
-      );
+      expect(transport.requestsFor('/api/v1/world/summary/latest'), isEmpty);
       expect(
         find.text('First copied world progress summary for o_test_1.'),
         findsOneWidget,
@@ -6079,7 +6320,29 @@ void main() {
           home: const Scaffold(
             body: Padding(
               padding: EdgeInsets.all(12),
-              child: CopyWorldProgressSection(originId: 'o_test_1'),
+              child: CopyWorldProgressSection(
+                originId: 'o_test_1',
+                summaries: <WorldSummaryLatestItem>[
+                  WorldSummaryLatestItem(
+                    worldId: 'w_summary_1',
+                    originId: 'o_test_1',
+                    tickNo: 4,
+                    summary:
+                        'First copied world progress summary for o_test_1.',
+                    tickTime: 1771420800000,
+                    createdAt: 1771420800000,
+                  ),
+                  WorldSummaryLatestItem(
+                    worldId: 'w_summary_2',
+                    originId: 'o_test_1',
+                    tickNo: 5,
+                    summary:
+                        'Second copied world progress summary for o_test_1.',
+                    tickTime: 1771420800000,
+                    createdAt: 1771420800000,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -6127,7 +6390,20 @@ void main() {
                 width: 180,
                 child: Padding(
                   padding: EdgeInsets.all(12),
-                  child: CopyWorldProgressSection(originId: 'o_test_1'),
+                  child: CopyWorldProgressSection(
+                    originId: 'o_test_1',
+                    summaries: <WorldSummaryLatestItem>[
+                      WorldSummaryLatestItem(
+                        worldId: 'w_summary_cn',
+                        originId: 'o_test_1',
+                        tickNo: 5,
+                        summary:
+                            '第一行中文进展会占满一整行，第二行继续描述角色行动，第三行写地点变化，第四行补充冲突，第五行保留结尾。',
+                        tickTime: 1771420800000,
+                        createdAt: 1771420800000,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

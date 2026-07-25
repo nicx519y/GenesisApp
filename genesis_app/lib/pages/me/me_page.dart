@@ -619,13 +619,9 @@ class _MePageState extends State<MePage> {
   }
 
   Future<void> _openSettings() async {
-    final services = AppServicesScope.read(context);
-    final loggedOut = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) =>
-            AppServicesScope(services: services, child: const SettingsPage()),
-      ),
-    );
+    final loggedOut = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute<bool>(builder: (_) => const SettingsPage()));
     if (loggedOut == true) {
       widget.onLoggedOut?.call();
     }

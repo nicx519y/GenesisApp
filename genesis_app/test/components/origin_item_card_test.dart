@@ -5,6 +5,21 @@ import 'package:genesis_flutter_android/components/origin/origin_item_card.dart'
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 
 void main() {
+  test('preserves returned UGC backslashes for origin cards', () {
+    final item = OriginListItem.fromJson({
+      'info': {
+        'oid': 'o_alpha',
+        'name': r'Name\nvalue',
+        'display_subtitle': r'Subtitle\nvalue',
+        'world_view': r'View\nvalue',
+      },
+    });
+
+    expect(item.name, r'Name\nvalue');
+    expect(item.displaySubtitle, r'Subtitle\nvalue');
+    expect(item.worldView, r'View\nvalue');
+  });
+
   test('parses tick count for shared origin tick chip', () {
     final item = OriginListItem.fromJson({
       'info': {'oid': 'o_alpha', 'name': 'Alpha', 'version_num': 3},

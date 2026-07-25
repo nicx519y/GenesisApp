@@ -16,6 +16,9 @@ class SecendTabs extends StatelessWidget {
     this.unselectedLabelStyle,
     this.labelColor,
     this.unselectedLabelColor,
+    this.indicatorColor,
+    this.indicatorWidth,
+    this.indicatorHeight,
     this.expanded = false,
     this.tabAlignment,
     this.verticalPadding = secendTabsVerticalPadding,
@@ -31,6 +34,9 @@ class SecendTabs extends StatelessWidget {
   final TextStyle? unselectedLabelStyle;
   final Color? labelColor;
   final Color? unselectedLabelColor;
+  final Color? indicatorColor;
+  final double? indicatorWidth;
+  final double? indicatorHeight;
   final bool expanded;
   final TabAlignment? tabAlignment;
   final double verticalPadding;
@@ -50,6 +56,9 @@ class SecendTabs extends StatelessWidget {
         unselectedLabelStyle: unselectedLabelStyle,
         labelColor: labelColor,
         unselectedLabelColor: unselectedLabelColor,
+        indicatorColor: indicatorColor,
+        indicatorWidth: indicatorWidth,
+        indicatorHeight: indicatorHeight,
         expanded: expanded,
         tabAlignment: tabAlignment,
         onTap: onTap,

@@ -13,6 +13,7 @@ import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
+import '../../utils/genesis_ugc_text.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_image_viewer_overlay.dart';
@@ -73,6 +74,7 @@ class OriginDiscussRepliesPage {
         ? rawList
               .whereType<Map>()
               .map((raw) => asJsonMap(raw))
+              .map(_decodeDiscussContentForDisplay)
               .where((item) {
                 final content = asString(item['content']).trim();
                 final images = _imageUrlsFrom(item['images']);
@@ -173,6 +175,7 @@ class OriginDiscussListItem {
         ? asJsonList(json['latest_replies'])
               .whereType<Map>()
               .map((raw) => asJsonMap(raw))
+              .map(_decodeDiscussContentForDisplay)
               .toList(growable: false)
         : const <Map<String, dynamic>>[];
     return OriginDiscussListItem.fromJson(
@@ -211,7 +214,7 @@ class OriginDiscussListItem {
       authorDeleted: entityDeleted(author?['deleted']),
       authorName: formatUidForDisplay(name, fallback: 'User'),
       avatar: asImageUrl(author?['avatar'] ?? author?['avatar_url']),
-      content: asString(json['content']),
+      content: decodeGenesisUgcTextForDisplay(asString(json['content'])),
       imageUrls: _imageUrlsFrom(json['images'] ?? json['image_urls']),
       storyCount: asInt(
         json['story_cnt'],
@@ -281,6 +284,17 @@ class OriginDiscussListItem {
       latestReplies: latestReplies ?? this.latestReplies,
     );
   }
+}
+
+Map<String, dynamic> _decodeDiscussContentForDisplay(
+  Map<String, dynamic> json,
+) {
+  final content = json['content'];
+  if (content is! String || content.isEmpty) return json;
+  return <String, dynamic>{
+    ...json,
+    'content': decodeGenesisUgcTextForDisplay(content),
+  };
 }
 
 class OriginDiscussListController extends ChangeNotifier {
@@ -1619,7 +1633,7 @@ Map<String, dynamic> _localReplyJson({
       'name': name,
       'avatar': asImageUrl(userMap['avatar'] ?? userMap['avatar_url']),
     },
-    'content': content,
+    'content': decodeGenesisUgcTextForDisplay(content),
     'images': images,
     'root_discuss_id': rootDiscussId,
     'parent_discuss_id': parentDiscussId,
