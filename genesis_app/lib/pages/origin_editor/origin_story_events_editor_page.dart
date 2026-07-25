@@ -521,15 +521,16 @@ class _InitialCharactersField extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final chipAreaWidth = constraints.maxWidth - 58;
+                final leftPadding = selectedCharacters.isEmpty ? 12.0 : 4.0;
+                final chipAreaWidth = constraints.maxWidth - leftPadding - 46;
                 final chipsWrap = _chipsWillWrap(
                   context,
                   selectedCharacters,
                   chipAreaWidth <= 0 ? 0 : chipAreaWidth,
                 );
                 final contentPadding = chipsWrap
-                    ? const EdgeInsets.fromLTRB(12, 6, 4, 6)
-                    : const EdgeInsets.fromLTRB(12, 4, 4, 4);
+                    ? EdgeInsets.fromLTRB(leftPadding, 6, 4, 6)
+                    : EdgeInsets.fromLTRB(leftPadding, 4, 4, 4);
                 return Padding(
                   padding: contentPadding,
                   child: Row(
@@ -683,7 +684,7 @@ class _InitialCharacterChip extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 1),
             const Padding(
               padding: EdgeInsets.all(3),
               child: Icon(Icons.close, size: 14, color: createFormMuted),
