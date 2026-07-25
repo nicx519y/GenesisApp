@@ -1264,6 +1264,60 @@ class CreateAddButton extends StatelessWidget {
   }
 }
 
+class CreateInlineAddButton extends StatelessWidget {
+  const CreateInlineAddButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.supportingText,
+    this.fontSize = 14,
+    this.centered = false,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final String? supportingText;
+  final double fontSize;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context) {
+    final supporting = supportingText?.trim() ?? '';
+    final labelText = Text.rich(
+      TextSpan(
+        text: label,
+        children: [
+          if (supporting.isNotEmpty)
+            TextSpan(
+              text: ' $supporting',
+              style: const TextStyle(
+                color: Color(0xFFA8A8AD),
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+        ],
+      ),
+      style: TextStyle(
+        color: createFormGreen,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+      ),
+    );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: centered
+            ? Align(alignment: Alignment.center, child: labelText)
+            : labelText,
+      ),
+    );
+  }
+}
+
 class CreateDashedRRectPainter extends CustomPainter {
   CreateDashedRRectPainter({
     required this.color,

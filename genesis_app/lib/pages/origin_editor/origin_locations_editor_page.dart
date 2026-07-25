@@ -604,7 +604,9 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       const SizedBox(height: 12),
       for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) ...[
         _buildL1Branch(_treeForms[l1Index], l1Index),
+        if (l1Index + 1 < _treeForms.length) const SizedBox(height: 8),
       ],
+      if (_treeForms.isNotEmpty) const SizedBox(height: 8),
       _LocationTreeAddButton(
         key: const ValueKey<String>('create-add-l1-location'),
         label: '+ Add L1 Location',
@@ -634,7 +636,11 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
           ),
           for (int l2Index = 0; l2Index < l1.children.length; l2Index++) ...[
             _buildL2Branch(l1, l1.children[l2Index], l1Index, l2Index),
+            if (l2Index + 1 < l1.children.length)
+              const _LocationTreeVerticalGap(lineLeft: 0),
           ],
+          if (l1.children.isNotEmpty)
+            const _LocationTreeVerticalGap(lineLeft: 0),
           _LocationTreeGuide(
             lineLeft: 0,
             child: Padding(
@@ -726,6 +732,8 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                         ),
                       ),
                     ),
+                    if (l3Index + 1 < l2.children.length)
+                      const _LocationTreeVerticalGap(lineLeft: -12),
                   ],
                   _LocationTreeGuide(
                     lineLeft: -12,
@@ -921,6 +929,20 @@ class _LocationTreeGuide extends StatelessWidget {
   }
 }
 
+class _LocationTreeVerticalGap extends StatelessWidget {
+  const _LocationTreeVerticalGap({required this.lineLeft});
+
+  final double lineLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    return _LocationTreeGuide(
+      lineLeft: lineLeft,
+      child: const SizedBox(height: 8),
+    );
+  }
+}
+
 class _LocationTreeAddButton extends StatelessWidget {
   const _LocationTreeAddButton({
     super.key,
@@ -935,33 +957,10 @@ class _LocationTreeAddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return CreateInlineAddButton(
+      label: label,
+      supportingText: '(ID: $displayId)',
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text.rich(
-          TextSpan(
-            text: label,
-            children: [
-              TextSpan(
-                text: ' (ID: $displayId)',
-                style: const TextStyle(
-                  color: Color(0xFFA8A8AD),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-          style: const TextStyle(
-            color: createFormGreen,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1.2,
-          ),
-        ),
-      ),
     );
   }
 }

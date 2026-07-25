@@ -237,11 +237,13 @@ class _OriginCharactersEditorPageState
                             _requestRemoveCharacter(i);
                           },
                         ),
-                        const SizedBox(height: 24),
+                        if (i + 1 < _forms.length) const SizedBox(height: 8),
                       ],
-                      CreateAddButton(
+                      CreateInlineAddButton(
                         label: '+ Add Character',
                         onTap: _addCharacter,
+                        fontSize: 16,
+                        centered: true,
                       ),
                       const SizedBox(height: 12),
                     ],

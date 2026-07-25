@@ -153,9 +153,15 @@ class _OriginStoryEventsEditorPageState
                             _requestRemoveEvent(i);
                           },
                         ),
-                        const SizedBox(height: 24),
+                        if (i + 1 < _eventControllers.length)
+                          const SizedBox(height: 8),
                       ],
-                      CreateAddButton(label: '+ Add Event', onTap: _addEvent),
+                      CreateInlineAddButton(
+                        label: '+ Add Event',
+                        onTap: _addEvent,
+                        fontSize: 16,
+                        centered: true,
+                      ),
                       const SizedBox(height: 12),
                     ],
                   ),
@@ -359,10 +365,12 @@ class _CharacterCard extends StatelessWidget {
     return CreateFormCard(
       title: 'Character $index',
       onDelete: onDelete,
+      showBorder: false,
       child: OriginCharacterFormFields(
         form: form,
         onChanged: onChanged,
         showFieldNotes: true,
+        labelFontWeight: FontWeight.w400,
         nextFocusNode: nextFocusNode,
       ),
     );
@@ -972,6 +980,7 @@ class _StoryEventCard extends StatelessWidget {
     return CreateFormCard(
       title: 'Event $index',
       onDelete: onDelete,
+      showBorder: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -9757,6 +9757,30 @@ void main() {
     expect(find.text('Character 2'), findsNothing);
     expect(find.byType(CreateFormDeleteButton), findsOneWidget);
     expect(
+      tester.widget<CreateFormCard>(find.byType(CreateFormCard)).showBorder,
+      isFalse,
+    );
+    expect(find.byType(CreateInlineAddButton), findsOneWidget);
+    expect(
+      tester
+          .widgetList<CreateTextFieldBlock>(
+            find.descendant(
+              of: find.byType(CreateFormCard),
+              matching: find.byType(CreateTextFieldBlock),
+            ),
+          )
+          .every((field) => field.labelFontWeight == FontWeight.w400),
+      isTrue,
+    );
+    final addCharacterText = tester.widget<Text>(find.text('+ Add Character'));
+    expect(addCharacterText.style?.color, createFormGreen);
+    expect(addCharacterText.style?.fontSize, 16);
+    expect(addCharacterText.style?.fontWeight, FontWeight.w600);
+    expect(
+      tester.getCenter(find.text('+ Add Character')).dx,
+      closeTo(tester.getCenter(find.byType(Scaffold)).dx, 0.01),
+    );
+    expect(
       tester.getCenter(find.text('Character 1')).dy,
       closeTo(tester.getCenter(find.byType(CreateFormDeleteButton)).dy, 0.01),
     );
@@ -9770,6 +9794,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Character 2'), findsOneWidget);
+    final characterCards = find.byType(CreateFormCard);
+    expect(
+      tester.getTopLeft(characterCards.at(1)).dy -
+          tester.getBottomLeft(characterCards.at(0)).dy,
+      closeTo(8, 0.01),
+    );
   });
 
   testWidgets('characters delete clears the edited final form', (
@@ -9930,6 +9960,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('2/10 (L3 Added / Max)'), findsOneWidget);
+    final l3Cards = find.byType(CreateFormCard);
+    expect(
+      tester.getTopLeft(l3Cards.at(1)).dy -
+          tester.getBottomLeft(l3Cards.at(0)).dy,
+      closeTo(8, 0.01),
+    );
 
     final addL2 = find.byKey(const ValueKey('create-add-l2-Loc_1'));
     await tester.scrollUntilVisible(
@@ -10289,6 +10325,19 @@ void main() {
     expect(find.text('Event 2'), findsNothing);
     expect(find.byType(CreateFormDeleteButton), findsOneWidget);
     expect(
+      tester.widget<CreateFormCard>(find.byType(CreateFormCard)).showBorder,
+      isFalse,
+    );
+    expect(find.byType(CreateInlineAddButton), findsOneWidget);
+    final addEventText = tester.widget<Text>(find.text('+ Add Event'));
+    expect(addEventText.style?.color, createFormGreen);
+    expect(addEventText.style?.fontSize, 16);
+    expect(addEventText.style?.fontWeight, FontWeight.w600);
+    expect(
+      tester.getCenter(find.text('+ Add Event')).dx,
+      closeTo(tester.getCenter(find.byType(Scaffold)).dx, 0.01),
+    );
+    expect(
       tester.getCenter(find.text('Event 1')).dy,
       closeTo(tester.getCenter(find.byType(CreateFormDeleteButton)).dy, 0.01),
     );
@@ -10302,6 +10351,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Event 2'), findsOneWidget);
+    final eventCards = find.byType(CreateFormCard);
+    expect(
+      tester.getTopLeft(eventCards.at(1)).dy -
+          tester.getBottomLeft(eventCards.at(0)).dy,
+      closeTo(8, 0.01),
+    );
   });
 
   testWidgets('basics save validates required starred fields', (
