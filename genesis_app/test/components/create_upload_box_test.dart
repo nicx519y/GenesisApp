@@ -29,24 +29,26 @@ void main() {
 
       expect(find.text('AVATAR\n(Optional)'), findsNothing);
       expect(find.byType(Image), findsOneWidget);
-      expect(find.text('Remove'), findsOneWidget);
+      expect(find.text('Remove'), findsNothing);
+      expect(find.byType(CreateFormDeleteButton), findsOneWidget);
 
       controller.text = 'assets/images/default_list_image.png';
       await tester.pump();
 
       expect(find.text('AVATAR\n(Optional)'), findsNothing);
       expect(find.byType(Image), findsOneWidget);
-      expect(find.text('Remove'), findsOneWidget);
+      expect(find.text('Remove'), findsNothing);
+      expect(find.byType(CreateFormDeleteButton), findsOneWidget);
 
       controller.clear();
       await tester.pump();
 
       expect(find.text('AVATAR\n(Optional)'), findsOneWidget);
-      expect(find.text('Remove'), findsNothing);
+      expect(find.byType(CreateFormDeleteButton), findsNothing);
     },
   );
 
-  testWidgets('CreateUploadBox remove link clears avatar', (
+  testWidgets('CreateUploadBox delete button clears avatar', (
     WidgetTester tester,
   ) async {
     final controller = TextEditingController(
@@ -68,22 +70,25 @@ void main() {
     );
 
     expect(find.text('AVATAR\n(Optional)'), findsNothing);
-    expect(find.text('Remove'), findsOneWidget);
+    expect(find.text('Remove'), findsNothing);
     expect(find.byType(Image), findsOneWidget);
-    final removeButton = tester.widget<TextButton>(
+    final removeButton = tester.widget<CreateFormDeleteButton>(
+      find.byType(CreateFormDeleteButton),
+    );
+    expect(removeButton.enabled, isTrue);
+    final uploadRect = tester.getRect(find.byType(CreateUploadBox));
+    final deleteRect = tester.getRect(
       find.byKey(const ValueKey('create-upload-remove')),
     );
-    expect(
-      removeButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
-      createFormDanger,
-    );
+    expect(deleteRect.top, closeTo(uploadRect.top + 4, 0.01));
+    expect(deleteRect.right, closeTo(uploadRect.right - 4, 0.01));
 
     await tester.tap(find.byKey(const ValueKey('create-upload-remove')));
     await tester.pump();
 
     expect(controller.text, isEmpty);
     expect(changedCount, 1);
-    expect(find.text('Remove'), findsNothing);
+    expect(find.byType(CreateFormDeleteButton), findsNothing);
     expect(find.text('AVATAR\n(Optional)'), findsOneWidget);
   });
 

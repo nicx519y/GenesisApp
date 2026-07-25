@@ -300,6 +300,33 @@ void main() {
     );
   });
 
+  testWidgets('GenesisPrimaryButton reports taps while disabled', (
+    tester,
+  ) async {
+    var disabledTapCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GenesisPrimaryButton(
+            label: 'Continue',
+            onPressed: null,
+            onDisabledPressed: () => disabledTapCount += 1,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Continue'));
+
+    expect(disabledTapCount, 1);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continue'))
+          .onPressed,
+      isNull,
+    );
+  });
+
   testWidgets('GenesisActionBox attaches cancel for a single action', (
     tester,
   ) async {

@@ -149,6 +149,24 @@ class _OriginCharactersEditorPageState
     return _canSaveCurrentCharacters;
   }
 
+  String get _saveDisabledReason {
+    if (_isSaving) return 'Saving is already in progress.';
+    for (int index = 0; index < _forms.length; index++) {
+      final form = _forms[index];
+      if (!form.hasContent) continue;
+      if (form.name.text.trim().isEmpty) {
+        return 'Character ${index + 1}: Name is required.';
+      }
+      if (form.identity.text.trim().isEmpty) {
+        return 'Character ${index + 1}: Identity is required.';
+      }
+      if (form.personality.text.trim().isEmpty) {
+        return 'Character ${index + 1}: Personality is required.';
+      }
+    }
+    return 'Please create at least one character.';
+  }
+
   void _showError(String message) {
     showGenesisToast(context, message);
   }
@@ -191,7 +209,7 @@ class _OriginCharactersEditorPageState
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -235,6 +253,7 @@ class _OriginCharactersEditorPageState
                   label: _isSaving ? 'Saving...' : 'Save',
                   width: _primaryActionButtonWidth(context),
                   onPressed: _canUseSaveButton ? _saveCharacters : null,
+                  onDisabledPressed: () => _showError(_saveDisabledReason),
                 ),
               ),
             ],

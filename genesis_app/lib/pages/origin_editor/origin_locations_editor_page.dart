@@ -213,51 +213,37 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   }
 
   void _removeL1Location(_L1LocationForm form) {
+    if (_treeForms.length == 1) {
+      _showError('At least one L1 location is required.');
+      return;
+    }
     setState(() {
-      if (_treeForms.length == 1) {
-        form.name.clear();
-        for (final child in form.children) {
-          child.dispose();
-        }
-        form.children
-          ..clear()
-          ..add(_newL2Location(form, 1));
-        form.nextChildOrdinal = 2;
-      } else {
-        _treeForms.remove(form);
-        form.dispose();
-      }
+      _treeForms.remove(form);
+      form.dispose();
     });
     _onFormChanged();
   }
 
   void _removeL2Location(_L1LocationForm parent, _L2LocationForm form) {
+    if (parent.children.length == 1) {
+      _showError('Each L1 location must contain at least one L2 location.');
+      return;
+    }
     setState(() {
-      if (parent.children.length == 1) {
-        form.name.clear();
-        for (final child in form.children) {
-          child.dispose();
-        }
-        form.children
-          ..clear()
-          ..add(_newL3Location(form, 1));
-        form.nextChildOrdinal = 2;
-      } else {
-        parent.children.remove(form);
-        form.dispose();
-      }
+      parent.children.remove(form);
+      form.dispose();
     });
     _onFormChanged();
   }
 
   void _removeL3Location(_L2LocationForm parent, _LocationForm form) {
+    if (parent.children.length == 1) {
+      _showError('Each L2 location must contain at least one L3 location.');
+      return;
+    }
     setState(() {
-      if (parent.children.length == 1) {
-        form.clear();
-      } else {
-        parent.children.remove(form);
-        form.dispose();
-      }
+      parent.children.remove(form);
+      form.dispose();
     });
     _onFormChanged();
   }
@@ -520,6 +506,48 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     return _canSaveCurrentLocations;
   }
 
+  String get _saveDisabledReason {
+    if (_isSaving) return 'Saving is already in progress.';
+    if (widget.useLocationTree) {
+      if (_treeForms.isEmpty) return 'Add at least one L1 location.';
+      for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) {
+        final l1 = _treeForms[l1Index];
+        if (l1.name.text.trim().isEmpty) {
+          return 'L1 ${l1Index + 1}: Location Name is required.';
+        }
+        if (l1.children.isEmpty) {
+          return 'L1 ${l1Index + 1} must contain at least one L2 location.';
+        }
+        for (int l2Index = 0; l2Index < l1.children.length; l2Index++) {
+          final l2 = l1.children[l2Index];
+          if (l2.name.text.trim().isEmpty) {
+            return 'L2 ${l1Index + 1}.${l2Index + 1}: Location Name is required.';
+          }
+          if (l2.children.isEmpty) {
+            return 'L2 ${l1Index + 1}.${l2Index + 1} must contain at least one L3 location.';
+          }
+          for (int l3Index = 0; l3Index < l2.children.length; l3Index++) {
+            if (l2.children[l3Index].name.text.trim().isEmpty) {
+              return 'L3 ${l1Index + 1}.${l2Index + 1}.${l3Index + 1}: Location Name is required.';
+            }
+          }
+        }
+      }
+    } else {
+      for (int index = 0; index < _forms.length; index++) {
+        final form = _forms[index];
+        if (!form.hasContent) continue;
+        if (form.name.text.trim().isEmpty) {
+          return 'Location ${index + 1}: Location Name is required.';
+        }
+      }
+      if (!_forms.any((form) => form.hasContent)) {
+        return 'Please create at least one location.';
+      }
+    }
+    return 'Complete all required location fields before saving.';
+  }
+
   void _showError(String message) {
     showGenesisToast(context, message);
   }
@@ -576,9 +604,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       const SizedBox(height: 12),
       for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) ...[
         _buildL1Branch(_treeForms[l1Index], l1Index),
-        if (l1Index + 1 < _treeForms.length) const _LocationTreeDivider(),
       ],
-      if (_treeForms.isNotEmpty) const _LocationTreeDivider(),
       _LocationTreeAddButton(
         key: const ValueKey<String>('create-add-l1-location'),
         label: '+ Add L1 Location',
@@ -597,25 +623,28 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
         children: [
           _buildTreeLocationNameField(
             key: ValueKey<String>('create-location-l1-name-$l1Index'),
-            title: '- L1 Location',
+            title: 'L1 Location',
             displayId: 'Loc_${l1Index + 1}',
             controller: l1.name,
             hintText: 'eg. Downtown',
             onDelete: () => _removeL1Location(l1),
+            deleteEnabled: _treeForms.length > 1,
+            onDeleteDisabled: () =>
+                _showError('At least one L1 location is required.'),
           ),
           for (int l2Index = 0; l2Index < l1.children.length; l2Index++) ...[
             _buildL2Branch(l1, l1.children[l2Index], l1Index, l2Index),
-            if (l2Index + 1 < l1.children.length)
-              const _LocationTreeDivider(leftIndent: 8),
           ],
-          if (l1.children.isNotEmpty) const _LocationTreeDivider(leftIndent: 8),
-          Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: _LocationTreeAddButton(
-              key: ValueKey<String>('create-add-l2-${l1.locationId}'),
-              label: '+ Add L2 Location',
-              displayId: 'Loc_${l1Index + 1}_${l1.children.length + 1}',
-              onTap: () => _addL2Location(l1),
+          _LocationTreeGuide(
+            lineLeft: 0,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: _LocationTreeAddButton(
+                key: ValueKey<String>('create-add-l2-${l1.locationId}'),
+                label: '+ Add L2 Location',
+                displayId: 'Loc_${l1Index + 1}_${l1.children.length + 1}',
+                onTap: () => _addL2Location(l1),
+              ),
             ),
           ),
         ],
@@ -631,66 +660,88 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   ) {
     return KeyedSubtree(
       key: ValueKey<String>('create-location-l2-${l2.locationId}'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: _buildTreeLocationNameField(
-              key: ValueKey<String>(
-                'create-location-l2-name-$l1Index-$l2Index',
+      child: _LocationTreeGuide(
+        lineLeft: 0,
+        branchTop: 16,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: _buildTreeLocationNameField(
+                key: ValueKey<String>(
+                  'create-location-l2-name-$l1Index-$l2Index',
+                ),
+                title: 'L2 Location',
+                displayId: 'Loc_${l1Index + 1}_${l2Index + 1}',
+                controller: l2.name,
+                hintText: 'eg. Main Street',
+                onDelete: () => _removeL2Location(l1, l2),
+                deleteEnabled: l1.children.length > 1,
+                onDeleteDisabled: () => _showError(
+                  'Each L1 location must contain at least one L2 location.',
+                ),
               ),
-              title: '- L2 Location',
-              displayId: 'Loc_${l1Index + 1}_${l2Index + 1}',
-              controller: l2.name,
-              hintText: 'eg. Main Street',
-              onDelete: () => _removeL2Location(l1, l2),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (
-                  int l3Index = 0;
-                  l3Index < l2.children.length;
-                  l3Index++
-                ) ...[
-                  _LocationCard(
-                    key: ValueKey<String>(
-                      'create-location-l3-${l2.children[l3Index].locationId}',
+            Padding(
+              padding: const EdgeInsets.only(left: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (
+                    int l3Index = 0;
+                    l3Index < l2.children.length;
+                    l3Index++
+                  ) ...[
+                    _LocationTreeGuide(
+                      lineLeft: -12,
+                      branchTop: 20,
+                      child: _LocationCard(
+                        key: ValueKey<String>(
+                          'create-location-l3-${l2.children[l3Index].locationId}',
+                        ),
+                        index: l3Index + 1,
+                        title: 'L3 Location',
+                        titleSuffix:
+                            '(ID: Loc_${l1Index + 1}_${l2Index + 1}_${l3Index + 1})',
+                        showBorder: false,
+                        titleFontSize: 14,
+                        nameFieldLabel: 'Name *',
+                        fieldLabelFontWeight: FontWeight.w400,
+                        form: l2.children[l3Index],
+                        nextFocusNode: null,
+                        characters: _finalCharacters,
+                        onChanged: _onFormChanged,
+                        onPickCharacters: () =>
+                            _openCharacterPickerForForm(l2.children[l3Index]),
+                        onRemoveCharacter: (charId) => _removeCharacterFromForm(
+                          l2.children[l3Index],
+                          charId,
+                        ),
+                        onDelete: () =>
+                            _removeL3Location(l2, l2.children[l3Index]),
+                        deleteEnabled: l2.children.length > 1,
+                        onDeleteDisabled: () => _showError(
+                          'Each L2 location must contain at least one L3 location.',
+                        ),
+                      ),
                     ),
-                    index: l3Index + 1,
-                    title: 'L3 Location',
-                    titleSuffix:
-                        '(ID: Loc_${l1Index + 1}_${l2Index + 1}_${l3Index + 1})',
-                    showBorder: false,
-                    titleFontSize: 14,
-                    nameFieldLabel: 'Name *',
-                    fieldLabelFontWeight: FontWeight.w400,
-                    form: l2.children[l3Index],
-                    nextFocusNode: null,
-                    characters: _finalCharacters,
-                    onChanged: _onFormChanged,
-                    onPickCharacters: () =>
-                        _openCharacterPickerForForm(l2.children[l3Index]),
-                    onRemoveCharacter: (charId) =>
-                        _removeCharacterFromForm(l2.children[l3Index], charId),
-                    onDelete: () => _removeL3Location(l2, l2.children[l3Index]),
+                  ],
+                  _LocationTreeGuide(
+                    lineLeft: -12,
+                    child: _LocationTreeAddButton(
+                      key: ValueKey<String>('create-add-l3-${l2.locationId}'),
+                      label: '+ Add L3 Location',
+                      displayId:
+                          'Loc_${l1Index + 1}_${l2Index + 1}_${l2.children.length + 1}',
+                      onTap: () => _addL3Location(l2),
+                    ),
                   ),
                 ],
-                _LocationTreeAddButton(
-                  key: ValueKey<String>('create-add-l3-${l2.locationId}'),
-                  label: '+ Add L3 Location',
-                  displayId:
-                      'Loc_${l1Index + 1}_${l2Index + 1}_${l2.children.length + 1}',
-                  onTap: () => _addL3Location(l2),
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -702,6 +753,8 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     required TextEditingController controller,
     required String hintText,
     required VoidCallback onDelete,
+    required bool deleteEnabled,
+    required VoidCallback onDeleteDisabled,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -740,7 +793,11 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                 Positioned(
                   top: -4,
                   right: 0,
-                  child: CreateFormDeleteButton(onPressed: onDelete),
+                  child: CreateFormDeleteButton(
+                    onPressed: onDelete,
+                    enabled: deleteEnabled,
+                    onDisabledPressed: onDeleteDisabled,
+                  ),
                 ),
               ],
             ),
@@ -803,7 +860,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                 child: SingleChildScrollView(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: _editorChildren(),
@@ -816,6 +873,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                   label: _isSaving ? 'Saving...' : 'Save',
                   width: _primaryActionButtonWidth(context),
                   onPressed: _canUseSaveButton ? _saveLocations : null,
+                  onDisabledPressed: () => _showError(_saveDisabledReason),
                 ),
               ),
             ],
@@ -826,25 +884,38 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   }
 }
 
-class _LocationTreeDivider extends StatelessWidget {
-  const _LocationTreeDivider({this.leftIndent = 0});
+class _LocationTreeGuide extends StatelessWidget {
+  const _LocationTreeGuide({
+    required this.lineLeft,
+    required this.child,
+    this.branchTop,
+  });
 
-  final double leftIndent;
+  final double lineLeft;
+  final double? branchTop;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        Padding(
-          padding: EdgeInsets.only(left: leftIndent),
-          child: const Divider(
-            height: 1,
-            thickness: 1,
-            color: createFormBorder,
-          ),
+        Positioned(
+          left: lineLeft,
+          top: 0,
+          bottom: 0,
+          width: 1,
+          child: const ColoredBox(color: Color(0x99338960)),
         ),
-        const SizedBox(height: 12),
+        if (branchTop != null)
+          Positioned(
+            left: lineLeft,
+            top: branchTop!,
+            width: 12,
+            height: 1,
+            child: const ColoredBox(color: Color(0x99338960)),
+          ),
+        child,
       ],
     );
   }

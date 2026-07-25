@@ -124,7 +124,7 @@ class _OriginStoryEventsEditorPageState
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -167,6 +167,8 @@ class _OriginStoryEventsEditorPageState
                   label: _isSaving ? 'Saving...' : 'Save',
                   width: _primaryActionButtonWidth(context),
                   onPressed: _canUseSaveButton ? _saveEvents : null,
+                  onDisabledPressed: () =>
+                      _showError('Saving is already in progress.'),
                 ),
               ),
             ],
@@ -379,6 +381,8 @@ class _LocationCard extends StatelessWidget {
     required this.onPickCharacters,
     required this.onRemoveCharacter,
     required this.onDelete,
+    this.deleteEnabled = true,
+    this.onDeleteDisabled,
     this.showBorder = true,
     this.titleFontSize = 16,
     this.titleSuffix,
@@ -395,6 +399,8 @@ class _LocationCard extends StatelessWidget {
   final VoidCallback onPickCharacters;
   final ValueChanged<String> onRemoveCharacter;
   final VoidCallback onDelete;
+  final bool deleteEnabled;
+  final VoidCallback? onDeleteDisabled;
   final bool showBorder;
   final double titleFontSize;
   final String? titleSuffix;
@@ -406,6 +412,8 @@ class _LocationCard extends StatelessWidget {
     return CreateFormCard(
       title: title ?? 'Location $index',
       onDelete: onDelete,
+      deleteEnabled: deleteEnabled,
+      onDeleteDisabled: onDeleteDisabled,
       showBorder: showBorder,
       titleFontSize: titleFontSize,
       titleSuffix: titleSuffix,

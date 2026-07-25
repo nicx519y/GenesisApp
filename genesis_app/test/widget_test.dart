@@ -8810,7 +8810,7 @@ void main() {
               find.byKey(const ValueKey<String>('opening-location-title')),
             )
             .dx,
-        closeTo(22, 0.01),
+        closeTo(12, 0.01),
       );
       expect(
         find.text('Select a location first, then edit the dialogue.'),
@@ -9903,11 +9903,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('- L1 Location (ID: Loc_1)', findRichText: true),
+      find.text('L1 Location (ID: Loc_1)', findRichText: true),
       findsOneWidget,
     );
     expect(
-      find.text('- L2 Location (ID: Loc_1_1)', findRichText: true),
+      find.text('L2 Location (ID: Loc_1_1)', findRichText: true),
       findsOneWidget,
     );
     expect(find.text('Name'), findsNWidgets(2));
@@ -10015,6 +10015,31 @@ void main() {
     expect(draft.locations[1].description, isEmpty);
     expect(draft.locations[2].name, 'Hidden Door');
     expect(draft.locations[2].parentLocationId, 'Loc_1_1');
+  });
+
+  testWidgets('create locations explains disabled delete and save actions', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    final deleteButtons = find.byType(CreateFormDeleteButton);
+    expect(deleteButtons, findsNWidgets(3));
+    for (int index = 0; index < 3; index++) {
+      expect(
+        tester.widget<CreateFormDeleteButton>(deleteButtons.at(index)).enabled,
+        isFalse,
+      );
+    }
+
+    await tester.tap(deleteButtons.at(0));
+    await tester.pump();
+    expect(find.text('At least one L1 location is required.'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
+    await tester.pump();
+    expect(find.text('L1 1: Location Name is required.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('edit locations save also requires a complete location', (

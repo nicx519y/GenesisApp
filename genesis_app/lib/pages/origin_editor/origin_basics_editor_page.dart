@@ -156,6 +156,28 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     return _canSaveCurrentBasics;
   }
 
+  String get _saveDisabledReason {
+    if (_isSaving) return 'Saving is already in progress.';
+    if (_originNameController.text.trim().isEmpty) {
+      return 'Worldo Name is required.';
+    }
+    if (_worldViewController.text.trim().isEmpty) {
+      return 'Worldo Brief is required.';
+    }
+    if (_coverImageController.text.trim().isEmpty) {
+      return 'Cover Image is required.';
+    }
+    final metricJson = _simulationSettingsJson();
+    if (metricJson.trim().isNotEmpty) {
+      try {
+        jsonDecode(metricJson);
+      } catch (_) {
+        return 'Metric must be valid JSON.';
+      }
+    }
+    return 'Complete all required fields before saving.';
+  }
+
   void _showError(String message) {
     showGenesisToast(context, message);
   }
@@ -372,7 +394,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -632,6 +654,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                   label: _isSaving ? 'Saving...' : 'Save',
                   width: _primaryActionButtonWidth(context),
                   onPressed: _canUseSaveButton ? _onSave : null,
+                  onDisabledPressed: () => _showError(_saveDisabledReason),
                 ),
               ),
             ],

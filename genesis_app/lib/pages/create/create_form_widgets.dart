@@ -518,6 +518,8 @@ class CreateFormDeleteButton extends StatelessWidget {
     this.decorationKey,
     this.size = 24,
     this.iconSize = 14,
+    this.enabled = true,
+    this.onDisabledPressed,
   });
 
   final VoidCallback onPressed;
@@ -525,41 +527,50 @@ class CreateFormDeleteButton extends StatelessWidget {
   final Key? decorationKey;
   final double size;
   final double iconSize;
+  final bool enabled;
+  final VoidCallback? onDisabledPressed;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            key: decorationKey,
-            decoration: BoxDecoration(
-              color: const Color(0xE6F4F4F6),
-              border: Border.all(color: const Color(0xFFD8D8DE)),
-              borderRadius: BorderRadius.circular(size / 4),
-            ),
-          ),
-          IconButton(
-            key: buttonKey,
-            onPressed: onPressed,
-            padding: EdgeInsets.all((size - iconSize) / 2),
-            constraints: BoxConstraints.tightFor(width: size, height: size),
-            icon: SvgPicture.asset(
-              createFormDeleteIconAsset,
-              width: iconSize,
-              height: iconSize,
-              colorFilter: const ColorFilter.mode(
-                Color(0xFF666666),
-                BlendMode.srcIn,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? null : onDisabledPressed,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(
+                key: decorationKey,
+                decoration: BoxDecoration(
+                  color: const Color(0xE6F4F4F6),
+                  border: Border.all(color: const Color(0xFFD8D8DE)),
+                  borderRadius: BorderRadius.circular(size / 4),
+                ),
               ),
-            ),
-            splashRadius: size / 2,
-            visualDensity: VisualDensity.compact,
+              IconButton(
+                key: buttonKey,
+                onPressed: enabled ? onPressed : null,
+                padding: EdgeInsets.all((size - iconSize) / 2),
+                constraints: BoxConstraints.tightFor(width: size, height: size),
+                icon: SvgPicture.asset(
+                  createFormDeleteIconAsset,
+                  width: iconSize,
+                  height: iconSize,
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xFF666666),
+                    BlendMode.srcIn,
+                  ),
+                ),
+                splashRadius: size / 2,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -571,6 +582,8 @@ class CreateFormCard extends StatelessWidget {
     required this.title,
     required this.onDelete,
     required this.child,
+    this.deleteEnabled = true,
+    this.onDeleteDisabled,
     this.showBorder = true,
     this.titleFontSize = 16,
     this.titleSuffix,
@@ -579,6 +592,8 @@ class CreateFormCard extends StatelessWidget {
   final String title;
   final VoidCallback onDelete;
   final Widget child;
+  final bool deleteEnabled;
+  final VoidCallback? onDeleteDisabled;
   final bool showBorder;
   final double titleFontSize;
   final String? titleSuffix;
@@ -626,7 +641,11 @@ class CreateFormCard extends StatelessWidget {
                   ),
                 ),
               ),
-              CreateFormDeleteButton(onPressed: onDelete),
+              CreateFormDeleteButton(
+                onPressed: onDelete,
+                enabled: deleteEnabled,
+                onDisabledPressed: onDeleteDisabled,
+              ),
             ],
           ),
           child,
@@ -765,68 +784,69 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
             _imageAspectRatio! > 0
         ? widget.width / _imageAspectRatio!
         : widget.height;
-    final uploadBox = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        onTap: _isUploading ? null : () => _pickCropAndUpload(context),
-        child: CustomPaint(
-          painter: CreateDashedRRectPainter(
-            color: createFormDash,
-            radius: widget.borderRadius,
-            strokeWidth: 1.2,
-          ),
-          child: Container(
-            width: widget.width,
-            height: previewHeight,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: const Color(0x6BF4F4F6),
-              borderRadius: BorderRadius.circular(widget.borderRadius),
+    final uploadBox = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _isUploading
+          ? () => showGenesisToast(context, 'Image upload is in progress.')
+          : null,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          onTap: _isUploading ? null : () => _pickCropAndUpload(context),
+          child: CustomPaint(
+            painter: CreateDashedRRectPainter(
+              color: createFormDash,
+              radius: widget.borderRadius,
+              strokeWidth: 1.2,
             ),
-            clipBehavior: Clip.antiAlias,
-            child: !hasImage
-                ? _EmptyUpload(
-                    widget.label,
-                    widget.iconSize,
-                    widget.emptyLabelFontWeight,
-                    widget.emptyLabelFontSize,
-                    widget.emptyIconLabelGap,
-                  )
-                : _Preview(
-                    imageUrl: imageUrl,
-                    imageBytes: _previewBytes,
-                    isUploading: _isUploading,
-                    isProcessing: _isUploadProcessing,
-                    progress: _uploadProgress,
-                    alignment: widget.previewAlignment,
-                  ),
+            child: Container(
+              width: widget.width,
+              height: previewHeight,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0x6BF4F4F6),
+                borderRadius: BorderRadius.circular(widget.borderRadius),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: !hasImage
+                  ? _EmptyUpload(
+                      widget.label,
+                      widget.iconSize,
+                      widget.emptyLabelFontWeight,
+                      widget.emptyLabelFontSize,
+                      widget.emptyIconLabelGap,
+                    )
+                  : _Preview(
+                      imageUrl: imageUrl,
+                      imageBytes: _previewBytes,
+                      isUploading: _isUploading,
+                      isProcessing: _isUploadProcessing,
+                      progress: _uploadProgress,
+                      alignment: widget.previewAlignment,
+                    ),
+            ),
           ),
         ),
       ),
     );
     if (!widget.showRemoveLinkWhenFilled || !hasImage) return uploadBox;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
         uploadBox,
-        const SizedBox(height: 6),
-        TextButton(
-          key: const ValueKey('create-upload-remove'),
-          onPressed: _isUploading ? null : _removeImage,
-          style: TextButton.styleFrom(
-            foregroundColor: createFormDanger,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            textStyle: TextStyle(
-              fontSize: 12,
-              height: 1,
-              fontWeight: widget.removeLinkFontWeight,
-            ),
+        Positioned(
+          right: 4,
+          top: 4,
+          child: CreateFormDeleteButton(
+            buttonKey: const ValueKey('create-upload-remove'),
+            decorationKey: const ValueKey('create-upload-remove-container'),
+            onPressed: _removeImage,
+            enabled: !_isUploading,
+            onDisabledPressed: () =>
+                showGenesisToast(context, 'Image upload is in progress.'),
           ),
-          child: const Text('Remove'),
         ),
       ],
     );

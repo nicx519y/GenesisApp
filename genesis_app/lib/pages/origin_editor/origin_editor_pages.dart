@@ -316,6 +316,14 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     return null;
   }
 
+  void _showSubmitDisabledReason() {
+    if (_isSubmitting || widget.submitStatus != OriginDraftSubmitStatus.idle) {
+      _showError('This action is already in progress.');
+      return;
+    }
+    _showError(_submitBlockReason(_draft) ?? widget.submitUnavailableMessage);
+  }
+
   Future<void> _handleLeaveRequest() async {
     if (_isHandlingLeave) return;
     _isHandlingLeave = true;
@@ -543,6 +551,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                       onPressed: canUseSubmitButton
                           ? () => unawaited(_submit())
                           : null,
+                      onDisabledPressed: _showSubmitDisabledReason,
                       backgroundColor: createFormGreen,
                       foregroundColor: Colors.white,
                       disabledBackgroundColor: disabledSubmitColor,

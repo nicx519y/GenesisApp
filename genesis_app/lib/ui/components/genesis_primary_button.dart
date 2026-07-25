@@ -10,6 +10,7 @@ class GenesisPrimaryButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
+    this.onDisabledPressed,
     this.backgroundColor,
     this.foregroundColor,
     this.disabledBackgroundColor,
@@ -44,6 +45,7 @@ class GenesisPrimaryButton extends StatelessWidget {
 
   final String label;
   final VoidCallback? onPressed;
+  final VoidCallback? onDisabledPressed;
   final Color? backgroundColor;
   final Color? foregroundColor;
   final Color? disabledBackgroundColor;
@@ -66,52 +68,66 @@ class GenesisPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height ?? defaultHeight,
-      width: width ?? (fullWidth ? double.infinity : null),
-      child: FilledButton(
-        onPressed: isLoading || onPressed == null
-            ? null
-            : () {
-                GenesisTelemetry.click(
-                  actionId: 'button.primary.${_actionSlug(label)}',
-                  component: 'GenesisPrimaryButton',
-                  enabled: true,
-                );
-                onPressed!();
-              },
-        style: FilledButton.styleFrom(
-          backgroundColor: backgroundColor ?? defaultBackgroundColor,
-          foregroundColor: foregroundColor ?? defaultForegroundColor,
-          disabledBackgroundColor:
-              disabledBackgroundColor ?? defaultDisabledBackgroundColor,
-          disabledForegroundColor:
-              disabledForegroundColor ?? defaultDisabledForegroundColor,
-          side: side,
-          textStyle: defaultTextStyle.copyWith(
-            fontSize: fontSize,
-            fontWeight: fontWeight,
+    final disabled = isLoading || onPressed == null;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: disabled && onDisabledPressed != null
+          ? () {
+              GenesisTelemetry.click(
+                actionId: 'button.primary.${_actionSlug(label)}',
+                component: 'GenesisPrimaryButton',
+                enabled: false,
+              );
+              onDisabledPressed!();
+            }
+          : null,
+      child: SizedBox(
+        height: height ?? defaultHeight,
+        width: width ?? (fullWidth ? double.infinity : null),
+        child: FilledButton(
+          onPressed: disabled
+              ? null
+              : () {
+                  GenesisTelemetry.click(
+                    actionId: 'button.primary.${_actionSlug(label)}',
+                    component: 'GenesisPrimaryButton',
+                    enabled: true,
+                  );
+                  onPressed!();
+                },
+          style: FilledButton.styleFrom(
+            backgroundColor: backgroundColor ?? defaultBackgroundColor,
+            foregroundColor: foregroundColor ?? defaultForegroundColor,
+            disabledBackgroundColor:
+                disabledBackgroundColor ?? defaultDisabledBackgroundColor,
+            disabledForegroundColor:
+                disabledForegroundColor ?? defaultDisabledForegroundColor,
+            side: side,
+            textStyle: defaultTextStyle.copyWith(
+              fontSize: fontSize,
+              fontWeight: fontWeight,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: borderRadius ?? defaultBorderRadius,
+            ),
+            padding: padding,
+            minimumSize: minimumSize,
+            tapTargetSize: tapTargetSize,
           ),
-          shape: RoundedRectangleBorder(
-            borderRadius: borderRadius ?? defaultBorderRadius,
-          ),
-          padding: padding,
-          minimumSize: minimumSize,
-          tapTargetSize: tapTargetSize,
-        ),
-        child: isLoading
-            ? SizedBox.square(
-                dimension: loadingSize,
-                child: CircularProgressIndicator(
-                  strokeWidth: loadingStrokeWidth,
-                  color: foregroundColor ?? defaultForegroundColor,
+          child: isLoading
+              ? SizedBox.square(
+                  dimension: loadingSize,
+                  child: CircularProgressIndicator(
+                    strokeWidth: loadingStrokeWidth,
+                    color: foregroundColor ?? defaultForegroundColor,
+                  ),
+                )
+              : _PrimaryButtonLabel(
+                  label: label,
+                  leadingIcon: leadingIcon,
+                  iconGap: iconGap,
                 ),
-              )
-            : _PrimaryButtonLabel(
-                label: label,
-                leadingIcon: leadingIcon,
-                iconGap: iconGap,
-              ),
+        ),
       ),
     );
   }

@@ -169,6 +169,20 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     return _dialogueItems.every((item) => item.hasContent);
   }
 
+  String get _saveDisabledReason {
+    if (_isSaving) return 'Saving is already in progress.';
+    if (_selectedOption == null) {
+      return 'Select an initial location before saving.';
+    }
+    if (_dialogueItems.isEmpty) {
+      return 'Add at least one dialogue item before saving.';
+    }
+    if (_dialogueItems.any((item) => !item.hasContent)) {
+      return 'Complete every dialogue item before saving.';
+    }
+    return 'Complete all required fields before saving.';
+  }
+
   Future<void> _save() async {
     if (!_canSave || _isSaving) return;
     final selected = _selectedOption!;
@@ -226,7 +240,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -299,6 +313,8 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                   label: _isSaving ? 'Saving...' : 'Save',
                   width: _primaryActionButtonWidth(context),
                   onPressed: _canSave && !_isSaving ? _save : null,
+                  onDisabledPressed: () =>
+                      showGenesisToast(context, _saveDisabledReason),
                 ),
               ),
             ],
@@ -324,45 +340,52 @@ class _OpeningLocationField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
+      enabled: !loading,
       label: 'Select initial location',
-      child: InkWell(
-        key: const ValueKey<String>('opening-location-field'),
-        borderRadius: BorderRadius.circular(8),
-        onTap: loading ? null : onTap,
-        child: Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: createFormFieldFill,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  locationName.isEmpty
-                      ? loading
-                            ? 'Loading locations...'
-                            : 'Select initial location'
-                      : locationName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: locationName.isEmpty
-                        ? createFormHint
-                        : createFormText,
-                    fontSize: 14,
-                    height: 1.2,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: loading
+            ? () => showGenesisToast(context, 'Locations are still loading.')
+            : null,
+        child: InkWell(
+          key: const ValueKey<String>('opening-location-field'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: loading ? null : onTap,
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: createFormFieldFill,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    locationName.isEmpty
+                        ? loading
+                              ? 'Loading locations...'
+                              : 'Select initial location'
+                        : locationName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: locationName.isEmpty
+                          ? createFormHint
+                          : createFormText,
+                      fontSize: 14,
+                      height: 1.2,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: createFormMuted,
-                size: 24,
-              ),
-            ],
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: createFormMuted,
+                  size: 24,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -940,6 +963,8 @@ class _OpeningLocationPickerSheetState
                   onPressed: _selection == null
                       ? null
                       : () => Navigator.of(context).pop(_selection),
+                  onDisabledPressed: () =>
+                      showGenesisToast(context, 'Select a location first.'),
                   backgroundColor: createFormGreen,
                   foregroundColor: Colors.white,
                 ),
