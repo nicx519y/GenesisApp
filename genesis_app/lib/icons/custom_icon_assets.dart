@@ -26,6 +26,8 @@ const String createOriginLocationsIconAsset =
 const String createOriginStoryEventsIconAsset =
     'assets/custom-icons/svg/create_origin_story_events.svg';
 const String refreshModifiedIconAsset = 'assets/custom-icons/svg/refresh_2.svg';
+const String editPencilLineIconAsset =
+    'assets/custom-icons/svg/edit_pencil_line.svg';
 
 const double _characterIconBaseSize = 11;
 const double _characterIconVisualSize = 13.75;

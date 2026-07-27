@@ -239,6 +239,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Flexible(
                             fit: FlexFit.loose,
@@ -1205,9 +1206,18 @@ class _ProfileEditButton extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: updating ? null : onTap,
-      child: const Padding(
-        padding: EdgeInsets.all(5),
-        child: Icon(Icons.edit, size: 14),
+      child: SizedBox(
+        width: 28,
+        height: 24,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: SvgPicture.asset(
+            editPencilLineIconAsset,
+            width: 18,
+            height: 18,
+            colorFilter: const ColorFilter.mode(Colors.black, BlendMode.srcIn),
+          ),
+        ),
       ),
     );
   }
