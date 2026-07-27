@@ -57,16 +57,29 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
     };
   }
   if (action == 'purchase_failed') {
+    final reason = _purchaseFailureReason(data);
     return <String, Object?>{
       'action_type': 'pay_event',
       'action': action,
       if (productId != null) 'object1': productId,
       if (data['attempt_id'] != null) 'object2': data['attempt_id'],
-      if (data['reason'] != null) 'object3': data['reason'],
+      if (reason != null) 'object3': reason,
     };
   }
 
   return const {};
+}
+
+String? _purchaseFailureReason(Map<String, Object?> data) {
+  final reason = data['reason'];
+  if (reason is! String || reason.isEmpty) return null;
+  if (reason != 'purchase_callback_error') return reason;
+
+  final errorCode = '${data['error_code'] ?? ''}'
+      .trim()
+      .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+  return '$reason[${errorCode.isEmpty ? 'unknown' : errorCode}]';
 }
 
 // Billing events intentionally sanitize properties. Purchase tokens, account

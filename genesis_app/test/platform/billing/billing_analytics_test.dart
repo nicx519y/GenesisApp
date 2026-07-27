@@ -131,4 +131,55 @@ void main() {
       'object3': 'query_failed',
     });
   });
+
+  test(
+    'callback error collect projection appends normalized error code',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'reason': 'purchase_callback_error',
+          'error_code': 'network_error',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final event = sink.events.single;
+      expect(event.collectPayload, {
+        'action_type': 'pay_event',
+        'action': 'purchase_failed',
+        'object1': 'gem_pack_500',
+        'object2': 'attempt-1',
+        'object3': 'purchase_callback_error[network_error]',
+      });
+    },
+  );
+
+  test(
+    'callback error collect projection uses unknown without a code',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'reason': 'purchase_callback_error',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        sink.events.single.collectPayload?['object3'],
+        'purchase_callback_error[unknown]',
+      );
+    },
+  );
 }

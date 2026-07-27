@@ -1071,6 +1071,7 @@ class GooglePlayBillingService implements BillingService {
         productId: productId,
         storeProductId: storeProductId,
         reason: failedReason,
+        errorCode: failedReason == 'purchase_callback_error' ? errorCode : null,
       );
     }
   }
@@ -1080,15 +1081,20 @@ class GooglePlayBillingService implements BillingService {
     required String productId,
     required String storeProductId,
     required String reason,
+    String? errorCode,
   }) {
     final normalizedReason = reason.trim();
     if (normalizedReason.isEmpty) return;
+    final normalizedErrorCode = errorCode?.trim() ?? '';
     _track(
       'purchase_failed',
       attemptId: attemptId,
       productId: productId,
       storeProductId: storeProductId,
-      data: <String, Object?>{'reason': normalizedReason},
+      data: <String, Object?>{
+        'reason': normalizedReason,
+        if (normalizedErrorCode.isNotEmpty) 'error_code': normalizedErrorCode,
+      },
     );
   }
 

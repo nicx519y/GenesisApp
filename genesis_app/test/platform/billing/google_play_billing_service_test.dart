@@ -258,6 +258,36 @@ void main() {
     expect(failed.properties['reason'], 'purchase_callback_pending');
   });
 
+  test('error callback keeps the normalized store error code', () async {
+    await service.purchaseGem(_product);
+    platform.emit(
+      _purchase(
+        BillingPurchaseStatus.error,
+        errorCode: 'network_error',
+        errorMessage: 'BillingResponse.networkError',
+      ),
+    );
+    await _settle();
+
+    final failed = analytics.records.singleWhere(
+      (record) => record.action == 'purchase_failed',
+    );
+    expect(failed.properties['reason'], 'purchase_callback_error');
+    expect(failed.properties['error_code'], 'network_error');
+  });
+
+  test('error callback falls back to store_error without a code', () async {
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.error));
+    await _settle();
+
+    final failed = analytics.records.singleWhere(
+      (record) => record.action == 'purchase_failed',
+    );
+    expect(failed.properties['reason'], 'purchase_callback_error');
+    expect(failed.properties['error_code'], 'store_error');
+  });
+
   test(
     'product query failure is tracked and does not launch billing',
     () async {
@@ -839,6 +869,8 @@ BillingPurchase _purchase(
   String purchaseToken = 'purchase-token-1',
   String transactionId = 'GPA.1',
   String originalJson = '{"purchaseToken":"purchase-token-1"}',
+  String? errorCode,
+  String? errorMessage,
 }) {
   return BillingPurchase(
     provider: provider,
@@ -849,6 +881,8 @@ BillingPurchase _purchase(
     originalJson: originalJson,
     purchaseTime: '1000',
     status: status,
+    errorCode: errorCode,
+    errorMessage: errorMessage,
   );
 }
 

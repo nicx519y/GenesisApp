@@ -347,7 +347,33 @@ BillingPurchase _toBillingPurchase(PurchaseDetails purchase) {
         purchase.verificationData.localVerificationData,
     purchaseTime: purchase.transactionDate ?? '',
     status: status,
-    errorCode: purchase.error?.code,
+    errorCode: googlePlayPurchaseErrorCode(
+      code: purchase.error?.code,
+      message: purchase.error?.message,
+    ),
     errorMessage: purchase.error?.message,
   );
+}
+
+String? googlePlayPurchaseErrorCode({String? code, String? message}) {
+  final rawMessage = message?.trim() ?? '';
+  const responsePrefix = 'BillingResponse.';
+  if (rawMessage.startsWith(responsePrefix)) {
+    return _toSnakeCase(rawMessage.substring(responsePrefix.length));
+  }
+
+  final rawCode = code?.trim() ?? '';
+  if (rawCode.isEmpty) return null;
+  return _toSnakeCase(rawCode);
+}
+
+String _toSnakeCase(String value) {
+  return value
+      .replaceAllMapped(
+        RegExp(r'([a-z0-9])([A-Z])'),
+        (match) => '${match.group(1)}_${match.group(2)}',
+      )
+      .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '')
+      .toLowerCase();
 }
