@@ -79,7 +79,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"info":{"origin_id":"string","origin_name":"string","origin_version":"1","origin_version_time":1779184800,"owner_uid":"string","owner_name":"string","brief":"string","setting":"string","events":[],"tags":[],"metric":{},"created_at":0,"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"characters":[],"locations":[],"ticks":[]}}
+  /// {"err_no":0,"err_msg":"succ","data":{"info":{"origin_id":"string","origin_name":"string","origin_version":"1","origin_version_time":1779184800,"definition_version":2,"owner_uid":"string","owner_name":"string","brief":"string","setting":"string","events":[],"tags":[],"metric":{},"created_at":0,"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"characters":[],"locations":[],"ticks":[]}}
   /// ```
   Future<Map<String, dynamic>> detail({String? originId, String? oid}) {
     final resolvedOriginId = (originId ?? oid ?? '').trim();
@@ -91,6 +91,28 @@ class OriginV1Api extends V1ApiResource {
       );
     }
     return getMap('origin/detail', {'origin_id': resolvedOriginId});
+  }
+
+  /// GET /api/v1/origin/map
+  ///
+  /// `location_id=root` 返回 origin 主地图，其他值返回对应 location 地图。
+  /// definition_version 不为 2 时，服务端返回空对象。
+  Future<Map<String, dynamic>> map({
+    required String originId,
+    required String locationId,
+  }) {
+    final resolvedOriginId = originId.trim();
+    final resolvedLocationId = locationId.trim();
+    if (resolvedOriginId.isEmpty) {
+      throw ArgumentError.value(originId, 'originId', 'must not be empty');
+    }
+    if (resolvedLocationId.isEmpty) {
+      throw ArgumentError.value(locationId, 'locationId', 'must not be empty');
+    }
+    return getMapPreservingKeys('origin/map', {
+      'origin_id': resolvedOriginId,
+      'location_id': resolvedLocationId,
+    });
   }
 
   /// GET /api/v1/origin/info

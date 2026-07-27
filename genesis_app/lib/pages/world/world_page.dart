@@ -19,6 +19,8 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
+import '../../components/tilemap/tilemap.dart';
+import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_tick1_wait_dialog.dart';
@@ -2170,36 +2172,54 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final recentMapLocationIds = _recentChatLocationPathIds;
     final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
-      final map = WorldMap(
-        key: PageStorageKey<String>('world-map-tab-$tabIndex'),
-        points: points,
-        listPoints: listPoints,
-        locationNodes: locationNodes,
-        listLocationNodes: listLocationNodes,
-        messageBubbles: _activeChatLocationId.isEmpty && _mapBubbleMessagesReady
-            ? _mapMessageBubbles
-            : const <WorldMapMessageBubble>[],
-        messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty,
-        mapImageUrl: rootMapImageUrl,
-        dimmed: pointMode,
-        showPointsList: pointMode,
-        recentChatLocationIds: _recentChatLocationIds,
-        recentChatMapLocationIds: recentMapLocationIds,
-        initialZoomScale: pointMode ? 1 : 1.2,
-        pointsListOuterScrollHandoff: false,
-        overlayTop:
-            topPadding +
-            8 +
-            (pointMode ? worldMapTabsHeight + 8 : worldMapContentTopOffset),
-        drillExitTop: topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
-        drillExitMaxWidth: worldSecondaryMapControlWidth,
-        onDrillIntoLocation: _showMapTab,
-        onHorizontalPanStateChanged: tabIndex == 0
-            ? _handleWorldMapHorizontalPanStateChanged
-            : null,
-        onMapTap: _recordWorldMapClick,
-        onPointTap: _openChatForPoint,
-      );
+      final Widget map = world.definitionVersion == 2 && !pointMode
+          ? Tilemap.world(
+              key: PageStorageKey<String>('world-tilemap-${widget.wid}'),
+              worldId: widget.wid,
+              locationId: 'root',
+              locationNodes: locationNodes,
+              drillExitTop:
+                  topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
+              visualModeToggleTop: topPadding + 6,
+              visualModeToggleRight: worldMapBackButtonLeft,
+              onDrillIntoLocation: _showMapTab,
+              onMapTap: _recordWorldMapClick,
+              onPointTap: _openChatForPoint,
+            )
+          : WorldMap(
+              key: PageStorageKey<String>('world-map-tab-$tabIndex'),
+              points: points,
+              listPoints: listPoints,
+              locationNodes: locationNodes,
+              listLocationNodes: listLocationNodes,
+              messageBubbles:
+                  _activeChatLocationId.isEmpty && _mapBubbleMessagesReady
+                  ? _mapMessageBubbles
+                  : const <WorldMapMessageBubble>[],
+              messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty,
+              mapImageUrl: rootMapImageUrl,
+              dimmed: pointMode,
+              showPointsList: pointMode,
+              recentChatLocationIds: _recentChatLocationIds,
+              recentChatMapLocationIds: recentMapLocationIds,
+              initialZoomScale: pointMode ? 1 : 1.2,
+              pointsListOuterScrollHandoff: false,
+              overlayTop:
+                  topPadding +
+                  8 +
+                  (pointMode
+                      ? worldMapTabsHeight + 8
+                      : worldMapContentTopOffset),
+              drillExitTop:
+                  topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
+              drillExitMaxWidth: worldSecondaryMapControlWidth,
+              onDrillIntoLocation: _showMapTab,
+              onHorizontalPanStateChanged: tabIndex == 0
+                  ? _handleWorldMapHorizontalPanStateChanged
+                  : null,
+              onMapTap: _recordWorldMapClick,
+              onPointTap: _openChatForPoint,
+            );
       return WorldKeepAlivePage(child: map);
     }
 
@@ -2327,23 +2347,19 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   Widget _buildInitialLoadingScaffold(double topPadding) {
+    final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     return WorldDetailsPageScaffold(
       panelTopGap: 50,
       panelCollapsedHeightOffset: 120,
       scrollPhysics: const NeverScrollableScrollPhysics(),
       persistentTopOverlay: _buildPersistentMapOverlay(topPadding),
-      map: WorldMap(
-        points: const <WorldPoint>[],
-        listPoints: const <WorldPoint>[],
-        locationNodes: const <WorldMapLocationNode>[],
-        fallbackOnEmptyMapUrl: false,
-        dimmed: false,
-        showPointsList: false,
-        recentChatLocationIds: _recentChatLocationIds,
-        pointsListOuterScrollHandoff: false,
-        overlayTop: topPadding + 8 + worldMapContentTopOffset,
-        drillExitTop: topPadding + 8 + worldMapContentTopOffset + 12,
+      map: ColoredBox(
+        key: const ValueKey<String>('world-map-loading-background'),
+        color: tilemapVisualStyleFor(tilemapDefaultVisualMode).backgroundColor,
       ),
+      fixedCollapsedPanelHeight: collapsedPanelHeight,
+      fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
+      contentBottomPaddingOverride: 0,
       slivers: const [WorldDetailsLoadingContent()],
     );
   }

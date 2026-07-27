@@ -36,6 +36,7 @@ import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
 import 'package:genesis_flutter_android/components/me/signed_out_me_view.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -471,6 +472,8 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldTickErrMsg = 'Insufficient Gems',
     this.worldTickListCompleter,
     this.hotTagsCompleter,
+    this.originDefinitionVersion = 1,
+    this.worldDefinitionVersion = 1,
   });
 
   final requests = <TransportRequest>[];
@@ -503,12 +506,18 @@ class _RecordingV1ListTransport implements HttpTransport {
   final String worldTickErrMsg;
   final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
+  final int originDefinitionVersion;
+  final int worldDefinitionVersion;
   int _worldDetailRequestIndex = 0;
   int _tickLockStatusRequestIndex = 0;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
+    if (request.uri.path.endsWith('/origin/map') ||
+        request.uri.path.endsWith('/world/map')) {
+      return _jsonResponse({});
+    }
     if (request.uri.path.endsWith('/origin/detail')) {
       final pendingResponse = originDetailCompleter;
       if (pendingResponse != null) return pendingResponse.future;
@@ -944,6 +953,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'origin_name': 'Origin detail $fallback',
         'origin_version': '1',
         'origin_version_time': 1777680000,
+        'definition_version': originDefinitionVersion,
         'owner_uid': 'u_test',
         'owner_name': 'Tester',
         'brief': 'Origin detail subtitle',
@@ -1035,6 +1045,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'origin_id': 'o_for_$fallback',
         'origin_version': '1',
         'origin_version_time': '2026-05-01T00:00:00Z',
+        'definition_version': worldDefinitionVersion,
         'brief': 'World detail subtitle',
         'setting': 'World detail setting',
         'events': ['World detail loaded.'],
@@ -5102,6 +5113,58 @@ void main() {
     expect(find.widgetWithText(TextField, 'Write a post'), findsNothing);
     expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
     expect(find.text('View More >'), findsOneWidget);
+  });
+
+  testWidgets('origin detail version 2 uses root Tilemap endpoint', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tilemap), findsOneWidget);
+    final requests = transport.requestsFor('/api/v1/origin/map');
+    expect(requests, hasLength(1));
+    expect(requests.single.uri.queryParameters, {
+      'origin_id': 'o_test_1',
+      'location_id': 'root',
+    });
+
+    await tester.tap(find.text('Info.'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Tilemap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+
+    await tester.tap(find.text('Map'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Tilemap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+  });
+
+  testWidgets('origin detail version 1 keeps WorldMap without map request', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(originDefinitionVersion: 1);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tilemap), findsNothing);
+    expect(find.byType(WorldMap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
   });
 
   testWidgets('Origin detail discuss area opens discuss page when populated', (
@@ -13938,6 +14001,50 @@ void main() {
       expect(chatroom.session.disconnectCount, greaterThan(0));
     },
   );
+
+  testWidgets('world detail version 2 uses root Tilemap endpoint', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'anonymous',
+      worldDefinitionVersion: 2,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tilemap), findsOneWidget);
+    final requests = transport.requestsFor('/api/v1/world/map');
+    expect(requests, hasLength(1));
+    expect(requests.single.uri.queryParameters, {
+      'world_id': 'w_test_1',
+      'location_id': 'root',
+    });
+  });
+
+  testWidgets('world detail version 1 keeps WorldMap without map request', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'anonymous',
+      worldDefinitionVersion: 1,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tilemap), findsNothing);
+    expect(find.byType(WorldMap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/map'), isEmpty);
+  });
 
   testWidgets('world page loading map does not show fallback background', (
     WidgetTester tester,

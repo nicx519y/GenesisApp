@@ -1,10 +1,14 @@
 part of 'origin_world_page.dart';
 
 extension _OriginWorldPageMapShell on _OriginWorldPageState {
-  Widget _buildPersistentMapOverlay(double top, {int locationCount = 0}) {
+  Widget _buildPersistentMapOverlay(
+    double top, {
+    int locationCount = 0,
+    bool reserveTilemapVisualModeToggle = false,
+  }) {
     return Positioned(
       left: 12,
-      right: 12,
+      right: reserveTilemapVisualModeToggle ? 60 : 12,
       top: top + 8,
       child: WorldTopOverlayBar(
         pointsCount: locationCount,

@@ -13,10 +13,13 @@ import '../ui/tokens/genesis_avatar_radii.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../utils/genesis_image_resource.dart';
 import 'world_map_interaction_notification.dart';
+import 'world_map_avatar_logic.dart';
+import 'world_map_location_action.dart';
 import 'world_location_list.dart';
 import 'world_point.dart';
 
 export 'world_location_list.dart';
+export 'world_map_avatar_logic.dart';
 export 'world_point.dart';
 
 const String kWorldMapFallbackBackgroundAsset =
@@ -51,9 +54,11 @@ Offset? worldMapInitialZoomFocusForTesting(List<WorldPoint> points) {
 Offset? _worldMapInitialZoomFocusForPoints(List<WorldPoint> points) {
   WorldPoint? target;
   for (final point in points) {
-    if (point.users.isEmpty) continue;
+    final users = worldMapVisibleAvatarsForPoint(point);
+    if (users.isEmpty) continue;
     final current = target;
-    if (current == null || point.users.length > current.users.length) {
+    if (current == null ||
+        users.length > worldMapVisibleAvatarsForPoint(current).length) {
       target = point;
     }
   }
@@ -503,7 +508,7 @@ class _WorldMapState extends State<WorldMap> {
     if (_hasDrillTree) {
       final node = _findPointNode(point);
       if (node == null) return null;
-      final chatTarget = _chatTargetForNode(node);
+      final chatTarget = resolveWorldMapLocationAction(node).chatTarget;
       if (chatTarget != null && widget.onPointTap == null) return null;
       return () {
         unawaited(_handlePointTap(point));
@@ -519,7 +524,8 @@ class _WorldMapState extends State<WorldMap> {
     if (_hasDrillTree) {
       final node = _findPointNode(point);
       if (node != null) {
-        final chatTarget = _chatTargetForNode(node);
+        final action = resolveWorldMapLocationAction(node);
+        final chatTarget = action.chatTarget;
         if (chatTarget != null) {
           await _runLocationTapLocked(
             _locationTapKey(chatTarget),
@@ -527,7 +533,8 @@ class _WorldMapState extends State<WorldMap> {
           );
           return;
         }
-        final displayNode = _displayNodeForDrill(node);
+        final displayNode = action.drillTarget;
+        if (displayNode == null) return;
         await _runLocationTapLocked(_locationTapKey(point), () async {
           widget.onDrillIntoLocation?.call();
           final origin = _mapTransitionOrigin(point);
@@ -660,21 +667,13 @@ class _WorldMapState extends State<WorldMap> {
     return _findNode(targetId);
   }
 
-  WorldPoint? _chatTargetForNode(WorldMapLocationNode node) {
-    final explicitTarget = node.chatTargetPoint;
-    if (explicitTarget != null) return explicitTarget;
-    if (node.children.isEmpty) return node.point;
-    final singleLeaf = _singleLeafDescendant(node);
-    return singleLeaf?.point;
-  }
-
   List<WorldMapMessageBubble> _visibleMessageBubblesForPoints(
     List<WorldPoint> points,
   ) {
     if (widget.messageBubbles.isEmpty) return const <WorldMapMessageBubble>[];
     final visibleCharacterIds = <String>{};
     for (final point in points) {
-      for (final user in point.users) {
+      for (final user in worldMapVisibleAvatarsForPoint(point)) {
         final id = user.id.trim();
         if (id.isNotEmpty) visibleCharacterIds.add(id);
       }
@@ -795,47 +794,14 @@ class _WorldMapState extends State<WorldMap> {
     if (bubble == null) return null;
     final characterId = bubble.characterId.trim();
     if (characterId.isEmpty || bubble.content.trim().isEmpty) return null;
-    for (final user in point.users) {
+    for (final user in worldMapVisibleAvatarsForPoint(point)) {
       if (user.id.trim() == characterId) return bubble;
     }
     return null;
   }
 
-  WorldMapLocationNode? _singleLeafDescendant(WorldMapLocationNode node) {
-    var current = node;
-    while (current.children.length == 1) {
-      current = current.children.single;
-    }
-    return current.children.isEmpty ? current : null;
-  }
-
-  WorldMapLocationNode _displayNodeForDrill(WorldMapLocationNode node) {
-    var current = node;
-    while (current.children.length == 1 &&
-        current.children.single.children.isNotEmpty) {
-      current = current.children.single;
-    }
-    return current;
-  }
-
   WorldMapLocationNode? _findNode(String nodeId) {
-    final targetId = nodeId.trim();
-    if (targetId.isEmpty) return null;
-
-    WorldMapLocationNode? visit(WorldMapLocationNode node) {
-      if (node.id == targetId) return node;
-      for (final child in node.children) {
-        final match = visit(child);
-        if (match != null) return match;
-      }
-      return null;
-    }
-
-    for (final root in widget.locationNodes) {
-      final match = visit(root);
-      if (match != null) return match;
-    }
-    return null;
+    return findWorldMapLocationNode(widget.locationNodes, nodeId);
   }
 
   List<String> _nodePath(String nodeId) {
@@ -878,7 +844,7 @@ class _WorldMapState extends State<WorldMap> {
     required double devicePixelRatio,
   }) {
     return visiblePoints
-        .expand((point) => point.users)
+        .expand(worldMapVisibleAvatarsForPoint)
         .map(
           (user) => _selectWorldMapAvatarUrl(
             user.avatarUrl,
@@ -2180,7 +2146,7 @@ _WorldPointMarkerGeometry _geometryForPoint(
   double width, {
   required bool showRecentChatIcon,
 }) {
-  final users = point.users;
+  final users = worldMapVisibleAvatarsForPoint(point);
   final recentIconWidth = showRecentChatIcon
       ? _worldPointRecentIconExtraWidth * 2
       : 0.0;
@@ -2360,7 +2326,7 @@ class _WorldPointPositioned extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final users = point.users;
+    final users = worldMapVisibleAvatarsForPoint(point);
     final geometry = _geometryForPoint(
       point,
       width,
@@ -2435,7 +2401,7 @@ class _WorldPointMessageBubblePositioned extends StatelessWidget {
     final bubble = messageBubble;
     if (bubble == null) return const SizedBox.shrink();
 
-    final users = point.users;
+    final users = worldMapVisibleAvatarsForPoint(point);
     final bubbleIndex = users.indexWhere(
       (avatar) => avatar.id.trim() == bubble.characterId.trim(),
     );
@@ -2618,7 +2584,8 @@ class _WorldPointMarker extends StatelessWidget {
             for (int i = 0; i < avatars.length; i++)
               _PositionedMapAvatar(
                 key: ValueKey<String>(
-                  'map-positioned-avatar-${_mapAvatarStableKey(avatars[i])}',
+                  'map-positioned-avatar-'
+                  '${worldMapAvatarStableId(avatars[i])}',
                 ),
                 user: avatars[i],
                 left:
@@ -2877,7 +2844,7 @@ class _PositionedMapAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatar = _MapAvatarImage(
-      key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
+      key: ValueKey<String>('map-avatar-${worldMapAvatarStableId(user)}'),
       url: user.avatarUrl,
       name: (user.name ?? user.initials).trim(),
       showStar: user.showStar,
@@ -3030,11 +2997,4 @@ class _MapAvatarImage extends StatelessWidget {
       ),
     );
   }
-}
-
-String _mapAvatarStableKey(UserAvatar user) {
-  final id = user.id.trim();
-  final avatarUrl = user.avatarUrl.trim();
-  final name = (user.name ?? user.initials).trim();
-  return '$id|$avatarUrl|$name';
 }

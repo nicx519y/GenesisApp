@@ -81,7 +81,7 @@ List<WorldMapLocationNode> _originMapLocationNodes(
               processedLocationTree.aggregateValues<UserAvatar>(
                 node.id,
                 avatarsByLocation,
-                idOf: _userAvatarStableId,
+                idOf: worldMapAvatarStableId,
               ),
             ],
           ).first,
@@ -265,12 +265,6 @@ List<OriginLocation> _flattenOriginLocations(List<OriginLocation> locations) {
     visit(location);
   }
   return out;
-}
-
-String _userAvatarStableId(UserAvatar avatar) {
-  final id = avatar.id.trim();
-  if (id.isNotEmpty) return id;
-  return '${avatar.name ?? ''}|${avatar.avatarUrl}|${avatar.initials}';
 }
 
 String _initials(String name) {

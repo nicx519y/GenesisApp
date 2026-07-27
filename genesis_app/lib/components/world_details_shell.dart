@@ -245,20 +245,31 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
             : widget.scrollPhysics,
         slivers: [
           SliverToBoxAdapter(child: SizedBox(height: mapHeight)),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: WorldDetailsPageScaffold.inlineContentTopPadding,
-              child: _buildPanelTopBand(panelTopOverlap),
+          DecoratedSliver(
+            key: const ValueKey<String>('world-details-content-background'),
+            decoration: const BoxDecoration(color: Colors.white),
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: WorldDetailsPageScaffold.inlineContentTopPadding,
+                    child: _buildPanelTopBand(panelTopOverlap),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal:
+                        WorldDetailsPageScaffold.contentHorizontalPadding,
+                  ),
+                  sliver: SliverMainAxisGroup(slivers: widget.slivers),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: bottomPadding + contentBottomSafeArea,
+                  ),
+                ),
+              ],
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WorldDetailsPageScaffold.contentHorizontalPadding,
-            ),
-            sliver: SliverMainAxisGroup(slivers: widget.slivers),
-          ),
-          SliverToBoxAdapter(
-            child: SizedBox(height: bottomPadding + contentBottomSafeArea),
           ),
         ],
       ),

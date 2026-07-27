@@ -59,6 +59,7 @@ class WorldDetail {
     required this.originId,
     required this.ownerUid,
     this.ownerName = '',
+    this.definitionVersion = 1,
     required this.name,
     this.brief = '',
     this.cover = '',
@@ -95,6 +96,7 @@ class WorldDetail {
   final int originId;
   final String ownerUid;
   final String ownerName;
+  final int definitionVersion;
   final String name;
   final String brief;
   final String cover;
@@ -129,6 +131,7 @@ class WorldDetail {
     int? originId,
     String? ownerUid,
     String? ownerName,
+    int? definitionVersion,
     String? name,
     String? brief,
     String? cover,
@@ -178,6 +181,7 @@ class WorldDetail {
       originId: originId ?? this.originId,
       ownerUid: ownerUid ?? this.ownerUid,
       ownerName: ownerName ?? this.ownerName,
+      definitionVersion: definitionVersion ?? this.definitionVersion,
       name: name ?? this.name,
       brief: brief ?? this.brief,
       cover: cover ?? this.cover,
@@ -237,6 +241,7 @@ class WorldDetail {
           fallback: asString(ownerUser['display_name']),
         ),
       ),
+      definitionVersion: asInt(json['definition_version'], fallback: 1),
       name: asString(json['name']),
       brief: asString(
         json['brief'],
