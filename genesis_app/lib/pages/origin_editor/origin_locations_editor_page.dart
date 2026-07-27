@@ -1,5 +1,7 @@
 part of 'origin_editor_pages.dart';
 
+enum _LocationEditorSheetAction { delete }
+
 class OriginLocationsEditorPage extends StatefulWidget {
   const OriginLocationsEditorPage({
     super.key,
@@ -15,14 +17,18 @@ class OriginLocationsEditorPage extends StatefulWidget {
       _OriginLocationsEditorPageState();
 }
 
-class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
+class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage>
+    with TickerProviderStateMixin {
   static const int _maxLocations = 10;
 
   final List<_LocationForm> _forms = <_LocationForm>[];
   final List<_L1LocationForm> _treeForms = <_L1LocationForm>[];
   String _uid = 'anonymous';
   List<CharacterDraft> _finalCharacters = const <CharacterDraft>[];
+  bool _isLoading = true;
   bool _isSaving = false;
+  TabController? _l1TabController;
+  int _selectedL1Index = 0;
 
   @override
   void initState() {
@@ -40,13 +46,31 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
         : draft.locations;
     if (widget.useLocationTree) {
       _treeForms.addAll(_createLocationTrees(source));
+      if (!mounted) return;
+      _replaceL1TabController(selectedIndex: 0);
     } else {
       for (final item in source) {
         _forms.add(_LocationForm.fromDraft(item, uid: _uid));
       }
     }
     if (!mounted) return;
-    setState(() {});
+    setState(() => _isLoading = false);
+  }
+
+  void _replaceL1TabController({required int selectedIndex}) {
+    final previousController = _l1TabController;
+    if (_treeForms.isEmpty) {
+      _selectedL1Index = 0;
+      _l1TabController = null;
+    } else {
+      _selectedL1Index = selectedIndex.clamp(0, _treeForms.length - 1);
+      _l1TabController = TabController(
+        length: _treeForms.length,
+        vsync: this,
+        initialIndex: _selectedL1Index,
+      );
+    }
+    previousController?.dispose();
   }
 
   List<_L1LocationForm> _createLocationTrees(List<LocationDraft> source) {
@@ -197,7 +221,10 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       _showError('You can add up to $_maxLocations L3 locations.');
       return;
     }
-    setState(() => _treeForms.add(_newL1Location(_nextL1Ordinal)));
+    setState(() {
+      _treeForms.add(_newL1Location(_nextL1Ordinal));
+      _replaceL1TabController(selectedIndex: _treeForms.length - 1);
+    });
     _onFormChanged();
   }
 
@@ -229,8 +256,13 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       return;
     }
     setState(() {
+      final removedIndex = _treeForms.indexOf(form);
       _treeForms.remove(form);
       form.dispose();
+      final nextSelectedIndex = removedIndex < _selectedL1Index
+          ? _selectedL1Index - 1
+          : _selectedL1Index;
+      _replaceL1TabController(selectedIndex: nextSelectedIndex);
     });
     _onFormChanged();
   }
@@ -302,6 +334,458 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
         yield* l2.children;
       }
     }
+  }
+
+  List<WorldMapLocationNode> get _treePreviewNodes {
+    if (_treeForms.isEmpty) return const <WorldMapLocationNode>[];
+    final selectedIndex = _selectedL1Index.clamp(0, _treeForms.length - 1);
+    return <WorldMapLocationNode>[
+      _previewL1Node(_treeForms[selectedIndex], selectedIndex),
+    ];
+  }
+
+  WorldMapLocationNode _previewL1Node(_L1LocationForm l1, int l1Index) {
+    return WorldMapLocationNode(
+      id: 'origin-editor-l1-$l1Index',
+      point: _previewPoint(
+        id: l1.locationId,
+        name: l1.name.text,
+        fallbackName: 'Untitled L1 Location',
+        depth: 0,
+        isLeaf: false,
+      ),
+      children: <WorldMapLocationNode>[
+        for (int l2Index = 0; l2Index < l1.children.length; l2Index++)
+          _previewL2Node(l1.children[l2Index], l1Index, l2Index),
+      ],
+    );
+  }
+
+  WorldMapLocationNode _previewL2Node(
+    _L2LocationForm l2,
+    int l1Index,
+    int l2Index,
+  ) {
+    return WorldMapLocationNode(
+      id: 'origin-editor-l2-$l1Index-$l2Index',
+      point: _previewPoint(
+        id: l2.locationId,
+        name: l2.name.text,
+        fallbackName: 'Untitled L2 Location',
+        depth: 1,
+        isLeaf: false,
+      ),
+      children: <WorldMapLocationNode>[
+        for (int l3Index = 0; l3Index < l2.children.length; l3Index++)
+          _previewL3Node(l2.children[l3Index], l1Index, l2Index, l3Index),
+      ],
+    );
+  }
+
+  WorldMapLocationNode _previewL3Node(
+    _LocationForm l3,
+    int l1Index,
+    int l2Index,
+    int l3Index,
+  ) {
+    return WorldMapLocationNode(
+      id: 'origin-editor-l3-$l1Index-$l2Index-$l3Index',
+      point: _previewPoint(
+        id: l3.locationId,
+        name: l3.name.text,
+        fallbackName: 'Untitled L3 Location',
+        imageUrl: l3.imageUrl.text,
+        users: _previewInitialCharacters(l3),
+        depth: 2,
+        isLeaf: true,
+      ),
+    );
+  }
+
+  WorldPoint _previewPoint({
+    required String id,
+    required String name,
+    required String fallbackName,
+    required int depth,
+    required bool isLeaf,
+    String imageUrl = '',
+    List<UserAvatar> users = const <UserAvatar>[],
+  }) {
+    final trimmedId = id.trim();
+    final trimmedName = name.trim();
+    return WorldPoint(
+      id: trimmedId,
+      sceneId: trimmedId,
+      name: trimmedName.isEmpty ? fallbackName : trimmedName,
+      type: WorldPointType.castle,
+      position: Offset.zero,
+      users: users,
+      iconUrl: imageUrl.trim(),
+      depth: depth,
+      isLeafLocation: isLeaf,
+    );
+  }
+
+  List<UserAvatar> _previewInitialCharacters(_LocationForm form) {
+    final charactersById = <String, CharacterDraft>{
+      for (final character in _finalCharacters)
+        if (character.charId.trim().isNotEmpty)
+          character.charId.trim(): character,
+    };
+    return form.selectedCharacterIds
+        .map((id) => charactersById[id.trim()])
+        .whereType<CharacterDraft>()
+        .map((character) {
+          final name = character.name.trim();
+          return UserAvatar(
+            name.isEmpty ? '?' : name,
+            id: character.charId.trim(),
+            name: name,
+            avatarUrl: character.avatarUrl.trim(),
+            showStar: true,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  void _openPreviewNode(WorldMapLocationNode node) {
+    final parts = node.id.split('-');
+    if (parts.length < 4 || parts[0] != 'origin' || parts[1] != 'editor') {
+      return;
+    }
+    final level = parts[2];
+    final l1Index = int.tryParse(parts[3]);
+    if (l1Index == null || l1Index < 0 || l1Index >= _treeForms.length) {
+      return;
+    }
+    if (level == 'l1') {
+      unawaited(_showL1Editor(l1Index));
+      return;
+    }
+    if (parts.length < 5) return;
+    final l2Index = int.tryParse(parts[4]);
+    if (l2Index == null ||
+        l2Index < 0 ||
+        l2Index >= _treeForms[l1Index].children.length) {
+      return;
+    }
+    if (level == 'l2') {
+      unawaited(_showL2Editor(l1Index, l2Index));
+      return;
+    }
+    if (level != 'l3' || parts.length < 6) return;
+    final l3Index = int.tryParse(parts[5]);
+    if (l3Index == null ||
+        l3Index < 0 ||
+        l3Index >= _treeForms[l1Index].children[l2Index].children.length) {
+      return;
+    }
+    unawaited(_showL3Editor(l1Index, l2Index, l3Index));
+  }
+
+  Future<void> _addL1AndEdit() async {
+    final previousCount = _treeForms.length;
+    _addL1Location();
+    if (!mounted || _treeForms.length == previousCount) return;
+    await _showL1Editor(_treeForms.length - 1, isNew: true);
+  }
+
+  Future<void> _addL2AndEdit(int l1Index) async {
+    if (l1Index < 0 || l1Index >= _treeForms.length) return;
+    final l1 = _treeForms[l1Index];
+    final previousCount = l1.children.length;
+    _addL2Location(l1);
+    if (!mounted || l1.children.length == previousCount) return;
+    await _showL2Editor(l1Index, l1.children.length - 1, isNew: true);
+  }
+
+  Future<void> _addL3AndEdit(int l1Index, int l2Index) async {
+    if (l1Index < 0 || l1Index >= _treeForms.length) return;
+    final l1 = _treeForms[l1Index];
+    if (l2Index < 0 || l2Index >= l1.children.length) return;
+    final l2 = l1.children[l2Index];
+    final previousCount = l2.children.length;
+    _addL3Location(l2);
+    if (!mounted || l2.children.length == previousCount) return;
+    await _showL3Editor(l1Index, l2Index, l2.children.length - 1, isNew: true);
+  }
+
+  Future<void> _showL1Editor(int l1Index, {bool isNew = false}) async {
+    if (l1Index < 0 || l1Index >= _treeForms.length) return;
+    final l1 = _treeForms[l1Index];
+    final action =
+        await showGenesisModalBottomSheet<_LocationEditorSheetAction>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (sheetContext) {
+            return GenesisBottomSheetPanel(
+              title: isNew ? 'New Location' : 'Edit Location',
+              height: MediaQuery.sizeOf(sheetContext).height * 0.52,
+              padding: const EdgeInsets.fromLTRB(12, 20, 12, 14),
+              trailing: GenesisBottomSheetCloseButton(
+                onPressed: () => Navigator.of(sheetContext).pop(),
+              ),
+              child: CreateKeyboardDismissArea(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildTreeLocationNameField(
+                              key: ValueKey<String>(
+                                'create-location-l1-name-$l1Index',
+                              ),
+                              title: 'L1 Location',
+                              displayId: 'Loc_${l1Index + 1}',
+                              controller: l1.name,
+                              hintText: 'eg. Downtown',
+                              onDelete: () => Navigator.of(
+                                sheetContext,
+                              ).pop(_LocationEditorSheetAction.delete),
+                              deleteEnabled: _treeForms.length > 1,
+                              onDeleteDisabled: () => _showError(
+                                'At least one L1 location is required.',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    GenesisPrimaryButton(
+                      label: 'Done',
+                      width: _primaryActionButtonWidth(sheetContext),
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+    if (!mounted) return;
+    switch (action) {
+      case _LocationEditorSheetAction.delete:
+        _removeL1Location(l1);
+      case null:
+        setState(() {});
+    }
+  }
+
+  Future<void> _showL2Editor(
+    int l1Index,
+    int l2Index, {
+    bool isNew = false,
+  }) async {
+    if (l1Index < 0 || l1Index >= _treeForms.length) return;
+    final l1 = _treeForms[l1Index];
+    if (l2Index < 0 || l2Index >= l1.children.length) return;
+    final l2 = l1.children[l2Index];
+    final action = await showGenesisModalBottomSheet<_LocationEditorSheetAction>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return GenesisBottomSheetPanel(
+          title: isNew ? 'New Location' : 'Edit Location',
+          height: MediaQuery.sizeOf(sheetContext).height * 0.52,
+          padding: const EdgeInsets.fromLTRB(12, 20, 12, 14),
+          trailing: GenesisBottomSheetCloseButton(
+            onPressed: () => Navigator.of(sheetContext).pop(),
+          ),
+          child: CreateKeyboardDismissArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTreeLocationNameField(
+                          key: ValueKey<String>(
+                            'create-location-l2-name-$l1Index-$l2Index',
+                          ),
+                          title: 'L2 Location',
+                          displayId: 'Loc_${l1Index + 1}_${l2Index + 1}',
+                          controller: l2.name,
+                          hintText: 'eg. Main Street',
+                          onDelete: () => Navigator.of(
+                            sheetContext,
+                          ).pop(_LocationEditorSheetAction.delete),
+                          deleteEnabled: l1.children.length > 1,
+                          onDeleteDisabled: () => _showError(
+                            'Each L1 location must contain at least one L2 location.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                GenesisPrimaryButton(
+                  label: 'Done',
+                  width: _primaryActionButtonWidth(sheetContext),
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted) return;
+    switch (action) {
+      case _LocationEditorSheetAction.delete:
+        _removeL2Location(l1, l2);
+      case null:
+        setState(() {});
+    }
+  }
+
+  Future<void> _showL3Editor(
+    int l1Index,
+    int l2Index,
+    int l3Index, {
+    bool isNew = false,
+  }) async {
+    if (l1Index < 0 || l1Index >= _treeForms.length) return;
+    final l1 = _treeForms[l1Index];
+    if (l2Index < 0 || l2Index >= l1.children.length) return;
+    final l2 = l1.children[l2Index];
+    if (l3Index < 0 || l3Index >= l2.children.length) return;
+    final l3 = l2.children[l3Index];
+    final action = await showGenesisModalBottomSheet<_LocationEditorSheetAction>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return GenesisBottomSheetPanel(
+              title: isNew ? 'New Location' : 'Edit Location',
+              height: MediaQuery.sizeOf(sheetContext).height * 0.82,
+              padding: const EdgeInsets.fromLTRB(12, 20, 12, 14),
+              trailing: GenesisBottomSheetCloseButton(
+                onPressed: () => Navigator.of(sheetContext).pop(),
+              ),
+              child: CreateKeyboardDismissArea(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _LocationCard(
+                          key: ValueKey<String>(
+                            'create-location-l3-${l3.locationId}',
+                          ),
+                          index: l3Index + 1,
+                          title: 'L3 Location',
+                          titleSuffix:
+                              '(ID: Loc_${l1Index + 1}_${l2Index + 1}_${l3Index + 1})',
+                          showBorder: false,
+                          titleFontSize: 14,
+                          nameFieldLabel: 'Name *',
+                          fieldLabelFontWeight: FontWeight.w400,
+                          form: l3,
+                          nextFocusNode: null,
+                          characters: _finalCharacters,
+                          onChanged: _onFormChanged,
+                          onPickCharacters: () async {
+                            await _openCharacterPickerForForm(l3);
+                            if (sheetContext.mounted) {
+                              setSheetState(() {});
+                            }
+                          },
+                          onRemoveCharacter: (charId) {
+                            _removeCharacterFromForm(l3, charId);
+                            setSheetState(() {});
+                          },
+                          onDelete: () => Navigator.of(
+                            sheetContext,
+                          ).pop(_LocationEditorSheetAction.delete),
+                          deleteEnabled: l2.children.length > 1,
+                          onDeleteDisabled: () => _showError(
+                            'Each L2 location must contain at least one L3 location.',
+                          ),
+                        ),
+                      ),
+                    ),
+                    GenesisPrimaryButton(
+                      label: 'Done',
+                      width: _primaryActionButtonWidth(sheetContext),
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (!mounted) return;
+    if (action == _LocationEditorSheetAction.delete) {
+      _removeL3Location(l2, l3);
+    } else {
+      setState(() {});
+    }
+  }
+
+  Widget? _buildPreviewNodeFooter(
+    BuildContext context,
+    WorldMapLocationNode node,
+    int level,
+  ) {
+    final parts = node.id.split('-');
+    if (parts.length < 4 || parts[0] != 'origin' || parts[1] != 'editor') {
+      return null;
+    }
+    final l1Index = int.tryParse(parts[3]);
+    if (l1Index == null || l1Index < 0 || l1Index >= _treeForms.length) {
+      return null;
+    }
+
+    final nodeLevel = parts[2];
+    late final Widget addButton;
+    if (nodeLevel == 'l1') {
+      final l1 = _treeForms[l1Index];
+      addButton = _LocationTreeAddButton(
+        key: ValueKey<String>('create-add-l2-${l1.locationId}'),
+        label: '+ Add L2 Location',
+        displayId: 'Loc_${l1Index + 1}_${l1.children.length + 1}',
+        onTap: () => unawaited(_addL2AndEdit(l1Index)),
+      );
+    } else if (nodeLevel == 'l2' && parts.length >= 5) {
+      final l2Index = int.tryParse(parts[4]);
+      final l1 = _treeForms[l1Index];
+      if (l2Index == null || l2Index < 0 || l2Index >= l1.children.length) {
+        return null;
+      }
+      final l2 = l1.children[l2Index];
+      addButton = _LocationTreeAddButton(
+        key: ValueKey<String>('create-add-l3-${l2.locationId}'),
+        label: '+ Add L3 Location',
+        displayId:
+            'Loc_${l1Index + 1}_${l2Index + 1}_${l2.children.length + 1}',
+        onTap: () => unawaited(_addL3AndEdit(l1Index, l2Index)),
+      );
+    } else {
+      return null;
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(left: (level + 1) * 15.0),
+      child: addButton,
+    );
   }
 
   void _removeCharacterFromLocation(int locationIndex, String charId) {
@@ -855,8 +1339,98 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     );
   }
 
+  Widget _buildL1Tabs() {
+    final controller = _l1TabController;
+    if (controller == null || _treeForms.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final labels = <String>[
+      for (final l1 in _treeForms)
+        l1.name.text.trim().isEmpty
+            ? 'Untitled L1 Location'
+            : l1.name.text.trim(),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 4, 0),
+      child: Row(
+        children: [
+          const Text(
+            'L1:',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: SecendTabs(
+              key: ValueKey<int>(_treeForms.length),
+              labels: labels,
+              controller: controller,
+              horizontalPadding: 0,
+              labelFontSize: 16,
+              verticalPadding: 0,
+              onTap: (index) {
+                if (index == _selectedL1Index) {
+                  unawaited(_showL1Editor(index));
+                  return;
+                }
+                setState(() => _selectedL1Index = index);
+              },
+            ),
+          ),
+          SizedBox(
+            width: genesisTabHeight,
+            height: genesisTabHeight,
+            child: IconButton(
+              key: const ValueKey<String>('create-add-l1-location'),
+              tooltip: 'Add L1 Location',
+              padding: EdgeInsets.zero,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              onPressed: () => unawaited(_addL1AndEdit()),
+              icon: const Icon(Icons.add, size: 20, color: createFormGreen),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTreePreview() {
+    return Column(
+      children: [
+        _buildL1Tabs(),
+        Expanded(
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(
+              context,
+            ).copyWith(overscroll: false),
+            child: WorldLocationList(
+              key: const ValueKey<String>('origin-location-tree-preview'),
+              points: const <WorldPoint>[],
+              locationNodes: _treePreviewNodes,
+              rootNodeFontSize: 16,
+              leafNodeFontWeight: FontWeight.w400,
+              leafNodeLineHeight: 1.2,
+              leafMetadataSpacing: 8,
+              enableOuterScrollHandoff: false,
+              hideRootNodeHeaders: true,
+              padding: const EdgeInsets.fromLTRB(12, 14, 12, 20),
+              onNodeTap: _openPreviewNode,
+              nodeFooterBuilder: _buildPreviewNodeFooter,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   void dispose() {
+    _l1TabController?.dispose();
     for (final form in _forms) {
       form.dispose();
     }
@@ -878,15 +1452,19 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
           child: Column(
             children: [
               Expanded(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: _editorChildren(),
-                  ),
-                ),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : widget.useLocationTree
+                    ? _buildTreePreview()
+                    : SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: _editorChildren(),
+                        ),
+                      ),
               ),
               _KeyboardHiddenBottomAction(
                 minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),

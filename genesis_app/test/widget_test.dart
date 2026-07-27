@@ -4223,12 +4223,12 @@ void main() {
     await tester.pump();
 
     await backendAuth.loginWithIdentity(
-        const AuthSession(
-          provider: IdentityProvider.google,
-          providerIdToken: 'google-token',
-          displayName: 'Identity User',
-          photoUrl: '',
-        ),
+      const AuthSession(
+        provider: IdentityProvider.google,
+        providerIdToken: 'google-token',
+        displayName: 'Identity User',
+        photoUrl: '',
+      ),
     );
     services.notifySessionChanged();
     await tester.pump();
@@ -10229,68 +10229,45 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('L1 Location (ID: Loc_1)', findRichText: true),
+      find.byKey(const ValueKey('origin-location-tree-preview')),
       findsOneWidget,
     );
-    expect(
-      find.text('L2 Location (ID: Loc_1_1)', findRichText: true),
-      findsOneWidget,
-    );
-    expect(find.text('Name'), findsNWidgets(2));
-    expect(
-      find.text('L3 Location (ID: Loc_1_1_1)', findRichText: true),
-      findsOneWidget,
-    );
+    expect(find.text('L1:'), findsOneWidget);
+    expect(find.text('Untitled L1 Location'), findsOneWidget);
+    expect(find.text('- Untitled L2 Location'), findsOneWidget);
+    expect(find.text('Untitled L3 Location'), findsOneWidget);
+    expect(find.byType(CreateFormCard), findsNothing);
     expect(find.text('Description (Optional)'), findsNothing);
-    expect(find.text('1/10 (L3 Added / Max)'), findsOneWidget);
+    expect(find.textContaining('(L3 Added / Max)'), findsNothing);
 
     final addL3 = find.byKey(const ValueKey('create-add-l3-Loc_1_1'));
-    await tester.scrollUntilVisible(
-      addL3,
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(addL3);
     await tester.pumpAndSettle();
     expect(
       find.text('L3 Location (ID: Loc_1_1_2)', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('2/10 (L3 Added / Max)'), findsOneWidget);
-    final l3Cards = find.byType(CreateFormCard);
-    expect(
-      tester.getTopLeft(l3Cards.at(1)).dy -
-          tester.getBottomLeft(l3Cards.at(0)).dy,
-      closeTo(8, 0.01),
-    );
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Untitled L3 Location'), findsNWidgets(2));
 
     final addL2 = find.byKey(const ValueKey('create-add-l2-Loc_1'));
-    await tester.scrollUntilVisible(
-      addL2,
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(addL2);
     await tester.pumpAndSettle();
     expect(
-      find.text('L3 Location (ID: Loc_1_2_1)', findRichText: true),
+      find.text('L2 Location (ID: Loc_1_2)', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('3/10 (L3 Added / Max)'), findsOneWidget);
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
 
     final addL1 = find.byKey(const ValueKey('create-add-l1-location'));
-    await tester.scrollUntilVisible(
-      addL1,
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(addL1);
     await tester.pumpAndSettle();
     expect(
-      find.text('L3 Location (ID: Loc_2_1_1)', findRichText: true),
+      find.text('L1 Location (ID: Loc_2)', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('4/10 (L3 Added / Max)'), findsOneWidget);
   });
 
   testWidgets('create locations save requires every tree level name', (
@@ -10304,26 +10281,44 @@ void main() {
 
     expect(saveButton().onPressed, isNull);
 
-    final l1Name = find.descendant(
-      of: find.byKey(const ValueKey('create-location-l1-name-0')),
-      matching: find.byType(TextField),
+    await tester.tap(find.text('- Untitled L2 Location'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
+        matching: find.byType(TextField),
+      ),
+      'Archive Wing',
     );
-    final l2Name = find.descendant(
-      of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
-      matching: find.byType(TextField),
-    );
-    final l3Card = find.byKey(const ValueKey('create-location-l3-Loc_1_1_1'));
-    final l3Name = find
-        .descendant(of: l3Card, matching: find.byType(TextField))
-        .first;
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
 
-    await tester.enterText(l2Name, 'Archive Wing');
-    await tester.enterText(l3Name, 'Hidden Door');
-    await tester.pump();
+    await tester.tap(find.text('Untitled L3 Location'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('create-location-l3-Loc_1_1_1')),
+            matching: find.byType(TextField),
+          )
+          .first,
+      'Hidden Door',
+    );
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
     expect(saveButton().onPressed, isNull);
 
-    await tester.enterText(l1Name, 'Archive');
-    await tester.pump();
+    await tester.tap(find.text('Untitled L1 Location'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('create-location-l1-name-0')),
+        matching: find.byType(TextField),
+      ),
+      'Archive',
+    );
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
     expect(saveButton().onPressed, isNotNull);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
@@ -10356,18 +10351,22 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
 
-    final deleteButtons = find.byType(CreateFormDeleteButton);
-    expect(deleteButtons, findsNWidgets(3));
-    for (int index = 0; index < 3; index++) {
-      expect(
-        tester.widget<CreateFormDeleteButton>(deleteButtons.at(index)).enabled,
-        isFalse,
-      );
-    }
+    expect(find.byType(CreateFormDeleteButton), findsNothing);
+    await tester.tap(find.text('Untitled L1 Location'));
+    await tester.pumpAndSettle();
+    final deleteButton = find.byType(CreateFormDeleteButton);
+    expect(deleteButton, findsOneWidget);
+    expect(
+      tester.widget<CreateFormDeleteButton>(deleteButton).enabled,
+      isFalse,
+    );
 
-    await tester.tap(deleteButtons.at(0));
+    await tester.tap(deleteButton);
     await tester.pump();
     expect(find.text('At least one L1 location is required.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
     await tester.pump();
@@ -10408,6 +10407,8 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Untitled L3 Location'));
+    await tester.pumpAndSettle();
     expect(
       tester
           .getSize(
@@ -10456,6 +10457,8 @@ void main() {
     expect(find.text('Parent Location'), findsNothing);
     expect(find.byKey(const ValueKey('location-parent-picker')), findsNothing);
 
+    await tester.tap(find.text('Untitled L1 Location'));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(
         of: find.byKey(const ValueKey('create-location-l1-name-0')),
@@ -10463,6 +10466,11 @@ void main() {
       ),
       'City',
     );
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('- Untitled L2 Location'));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(
         of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
@@ -10470,7 +10478,8 @@ void main() {
       ),
       'Old District',
     );
-    await tester.pump();
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
@@ -10519,18 +10528,12 @@ void main() {
         find.byKey(const ValueKey('location-parent-picker')),
         findsNothing,
       );
-      expect(
-        find.text('L1 Location (ID: Loc_1)', findRichText: true),
-        findsOneWidget,
-      );
-      expect(
-        find.text('L2 Location (ID: Loc_1_1)', findRichText: true),
-        findsOneWidget,
-      );
-      expect(
-        find.text('L3 Location (ID: Loc_1_1_1)', findRichText: true),
-        findsOneWidget,
-      );
+      expect(find.text('Untitled L1 Location'), findsOneWidget);
+      expect(find.text('- Untitled L2 Location'), findsOneWidget);
+      expect(find.text('Gate'), findsOneWidget);
+
+      await tester.tap(find.text('Untitled L1 Location'));
+      await tester.pumpAndSettle();
       expect(
         tester
             .widget<TextField>(
@@ -10545,6 +10548,18 @@ void main() {
             ?.text,
         isEmpty,
       );
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('create-location-l1-name-0')),
+          matching: find.byType(TextField),
+        ),
+        'City',
+      );
+      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('- Untitled L2 Location'));
+      await tester.pumpAndSettle();
       expect(
         tester
             .widget<TextField>(
@@ -10561,6 +10576,18 @@ void main() {
             ?.text,
         isEmpty,
       );
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
+          matching: find.byType(TextField),
+        ),
+        'District',
+      );
+      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Gate'));
+      await tester.pumpAndSettle();
       final l3Card = find.byKey(const ValueKey('create-location-l3-loc_gate'));
       expect(l3Card, findsOneWidget);
       expect(
@@ -10574,22 +10601,9 @@ void main() {
             ?.text,
         'Gate',
       );
-
-      await tester.enterText(
-        find.descendant(
-          of: find.byKey(const ValueKey('create-location-l1-name-0')),
-          matching: find.byType(TextField),
-        ),
-        'City',
-      );
-      await tester.enterText(
-        find.descendant(
-          of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
-          matching: find.byType(TextField),
-        ),
-        'District',
-      );
-      await tester.pump();
+      expect(find.text('Description (Optional)'), findsNothing);
+      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
@@ -10640,6 +10654,8 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Untitled L3 Location'));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('location-character-picker')).first,
       220,
@@ -10658,7 +10674,10 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Select'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ari'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('initial-character-chip-char_ari')),
+      findsOneWidget,
+    );
     expect(
       tester
           .getSize(
@@ -10669,20 +10688,6 @@ void main() {
     );
 
     await tester.enterText(
-      find.descendant(
-        of: find.byKey(const ValueKey('create-location-l1-name-0')),
-        matching: find.byType(TextField),
-      ),
-      'City',
-    );
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
-        matching: find.byType(TextField),
-      ),
-      'Old District',
-    );
-    await tester.enterText(
       find
           .descendant(
             of: find.byKey(const ValueKey('create-location-l3-Loc_1_1_1')),
@@ -10691,7 +10696,32 @@ void main() {
           .first,
       'Gate',
     );
-    await tester.pump();
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Untitled L1 Location'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('create-location-l1-name-0')),
+        matching: find.byType(TextField),
+      ),
+      'City',
+    );
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('- Untitled L2 Location'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
+        matching: find.byType(TextField),
+      ),
+      'Old District',
+    );
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Done'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
