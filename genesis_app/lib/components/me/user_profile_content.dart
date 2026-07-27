@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
@@ -156,11 +155,11 @@ class _UserProfileContentState extends State<UserProfileContent>
             ),
         ];
       },
-      body: _buildCollectionBody(data),
+      body: _buildCollectionBody(context, data),
     );
   }
 
-  Widget _buildCollectionBody(UserProfileData data) {
+  Widget _buildCollectionBody(BuildContext context, UserProfileData data) {
     if (widget.isBlocking) {
       return const Center(
         child: SizedBox(
@@ -171,12 +170,14 @@ class _UserProfileContentState extends State<UserProfileContent>
       );
     }
     if (widget.isBlocked) {
-      return const Center(
+      return Center(
         child: Text(
           'User blocked',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF888888),
+            color: GenesisSemanticColors.of(
+              context,
+            ).color(GenesisColorToken.textMetadata),
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
@@ -422,6 +423,7 @@ class _GemsBalanceEntry extends StatelessWidget {
   }
 
   Widget _buildEntry(BuildContext context, int? balance) {
+    final colors = GenesisSemanticColors.of(context);
     return GestureDetector(
       key: const ValueKey('user-profile-gems-entry'),
       behavior: HitTestBehavior.opaque,
@@ -430,13 +432,15 @@ class _GemsBalanceEntry extends StatelessWidget {
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF4F6),
+          color: colors.color(GenesisColorToken.profileGemSurface),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFFFE0E6)),
+          border: Border.all(
+            color: colors.color(GenesisColorToken.profileGemBorder),
+          ),
         ),
         child: Row(
           children: [
-            SvgPicture.asset(
+            GenesisSvgAsset.asset(
               gemIconAsset,
               key: const ValueKey('user-profile-gem-icon'),
               width: gemLargeIconSize,
@@ -446,25 +450,29 @@ class _GemsBalanceEntry extends StatelessWidget {
             Text(
               balance == null ? '0' : _formatGemBalance(balance),
               key: const ValueKey('user-profile-gems-balance'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 height: 20 / 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
+                color: colors.color(GenesisColorToken.textStrong),
               ),
             ),
             const SizedBox(width: 4),
-            const Text(
+            Text(
               'Gems',
               style: TextStyle(
                 fontSize: 12,
                 height: 18 / 12,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF666666),
+                color: colors.color(GenesisColorToken.textSecondaryStrong),
               ),
             ),
             const Spacer(),
-            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF999999)),
+            Icon(
+              Icons.chevron_right,
+              size: 22,
+              color: colors.color(GenesisColorToken.textMuted),
+            ),
           ],
         ),
       ),
@@ -503,7 +511,7 @@ class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return ColoredBox(
-      color: Colors.white,
+      color: GenesisSemanticColors.of(context).color(GenesisColorToken.surface),
       child: Column(
         children: [
           const SizedBox(height: 5),
@@ -890,16 +898,17 @@ class _FollowStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(
+    final colors = GenesisSemanticColors.of(context);
+    final style = TextStyle(
       fontSize: 16,
       height: 1,
-      color: Color(0xFF111111),
+      color: colors.color(GenesisColorToken.textPrimary),
       fontWeight: FontWeight.w600,
     );
-    const labelStyle = TextStyle(
+    final labelStyle = TextStyle(
       fontSize: 14,
       height: 1,
-      color: Color(0xFF666666),
+      color: colors.color(GenesisColorToken.textSecondaryStrong),
       fontWeight: FontWeight.w400,
     );
 
@@ -974,14 +983,19 @@ class _ProfileActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final backgroundColor = isFollowed
-        ? const Color(0xFFE5E5E5)
-        : const Color(0xFFFF2442);
-    final foregroundColor = isFollowed ? Colors.black : Colors.white;
+        ? colors.color(GenesisColorToken.neutralControlSurface)
+        : colors.color(GenesisColorToken.create);
+    final foregroundColor = isFollowed
+        ? colors.color(GenesisColorToken.neutralControlForeground)
+        : colors.color(GenesisColorToken.textInverse);
     final disabledBackgroundColor = isFollowed
-        ? const Color(0xFFE5E5E5)
-        : const Color(0xFFFF2442).withValues(alpha: 0.55);
-    final disabledForegroundColor = isFollowed ? Colors.black54 : Colors.white;
+        ? colors.color(GenesisColorToken.neutralControlSurface)
+        : colors.color(GenesisColorToken.create).withValues(alpha: 0.55);
+    final disabledForegroundColor = isFollowed
+        ? colors.color(GenesisColorToken.neutralControlDisabledForeground)
+        : colors.color(GenesisColorToken.textInverse);
     const actionTextStyle = TextStyle(fontWeight: FontWeight.w600);
 
     return Row(
@@ -1025,10 +1039,18 @@ class _ProfileActionButtons extends StatelessWidget {
               key: const ValueKey('user-profile-message-button'),
               onPressed: onMessage,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE5E5E5),
-                disabledBackgroundColor: const Color(0xFFE5E5E5),
-                foregroundColor: Colors.black,
-                disabledForegroundColor: Colors.black54,
+                backgroundColor: colors.color(
+                  GenesisColorToken.neutralControlSurface,
+                ),
+                disabledBackgroundColor: colors.color(
+                  GenesisColorToken.neutralControlSurface,
+                ),
+                foregroundColor: colors.color(
+                  GenesisColorToken.neutralControlForeground,
+                ),
+                disabledForegroundColor: colors.color(
+                  GenesisColorToken.neutralControlDisabledForeground,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1070,35 +1092,43 @@ class _Avatar extends StatelessWidget {
     if (listenableName != null) {
       return ValueListenableBuilder<String>(
         valueListenable: listenableName,
-        builder: (context, displayName, _) =>
-            _buildUrlLayer(displayName.trim().isEmpty ? name : displayName),
+        builder: (context, displayName, _) => _buildUrlLayer(
+          context,
+          displayName.trim().isEmpty ? name : displayName,
+        ),
       );
     }
-    return _buildUrlLayer(name);
+    return _buildUrlLayer(context, name);
   }
 
-  Widget _buildUrlLayer(String displayName) {
+  Widget _buildUrlLayer(BuildContext context, String displayName) {
     final avatarListenable = urlListenable;
     if (avatarListenable == null) {
-      return _buildAvatar(url, displayName, isUpdating);
+      return _buildAvatar(context, url, displayName, isUpdating);
     }
     return ValueListenableBuilder<String>(
       valueListenable: avatarListenable,
       builder: (context, avatarUrl, _) {
         final loadingListenable = updatingListenable;
         if (loadingListenable == null) {
-          return _buildAvatar(avatarUrl, displayName, isUpdating);
+          return _buildAvatar(context, avatarUrl, displayName, isUpdating);
         }
         return ValueListenableBuilder<bool>(
           valueListenable: loadingListenable,
           builder: (context, updating, _) =>
-              _buildAvatar(avatarUrl, displayName, updating),
+              _buildAvatar(context, avatarUrl, displayName, updating),
         );
       },
     );
   }
 
-  Widget _buildAvatar(String avatarUrl, String displayName, bool updating) {
+  Widget _buildAvatar(
+    BuildContext context,
+    String avatarUrl,
+    String displayName,
+    bool updating,
+  ) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       width: _size,
       height: _size,
@@ -1117,17 +1147,17 @@ class _Avatar extends StatelessWidget {
               right: 2,
               bottom: 2,
               child: Material(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: colors.color(GenesisColorToken.mediaControlOverlay),
                 shape: const CircleBorder(),
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: updating ? null : onEdit,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
                     child: Icon(
                       MyFlutterApp.editImage,
                       size: 12,
-                      color: Colors.white,
+                      color: colors.color(GenesisColorToken.textOnDark),
                     ),
                   ),
                 ),
@@ -1152,27 +1182,29 @@ class _DisplayNameText extends StatelessWidget {
   Widget build(BuildContext context) {
     final listenable = displayNameListenable;
     if (listenable == null) {
-      return _buildName(displayName);
+      return _buildName(context, displayName);
     }
     return ValueListenableBuilder<String>(
       valueListenable: listenable,
       builder: (context, name, _) {
         final resolvedName = name.trim().isEmpty ? displayName : name;
-        return _buildName(resolvedName);
+        return _buildName(context, resolvedName);
       },
     );
   }
 
-  Widget _buildName(String name) {
+  Widget _buildName(BuildContext context, String name) {
     return Text(
       name,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
         height: 1,
         fontWeight: FontWeight.w600,
-        color: Colors.black,
+        color: GenesisSemanticColors.of(
+          context,
+        ).color(GenesisColorToken.textPrimary),
       ),
     );
   }

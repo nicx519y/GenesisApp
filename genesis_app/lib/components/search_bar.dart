@@ -19,13 +19,14 @@ class SearchBarPlaceholder extends GenesisSearchField {
     super.autofocus,
     super.height = 36,
     super.padding,
-    super.backgroundColor = const Color(0xFFFAFAFA),
-    super.borderColor = const Color(0xFFEBEBEB),
+    super.backgroundColor,
+    super.borderColor,
     super.borderRadius = const BorderRadius.all(Radius.circular(12)),
     super.iconColor,
     super.iconSize,
     super.iconAsset = searchIconAsset,
     super.hintStyle,
     super.textStyle,
+    super.useCompactStyle = true,
   });
 }

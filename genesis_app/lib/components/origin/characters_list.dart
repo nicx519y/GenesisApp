@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -45,6 +47,7 @@ class _CharacterListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final name = character['name'] as String? ?? '';
     final subtitle = character['subtitle'] as String? ?? '';
     final tags = ((character['tags'] as List?) ?? const [])
@@ -64,7 +67,11 @@ class _CharacterListItem extends StatelessWidget {
         ),
         if (!isLast) ...[
           const SizedBox(height: 10),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: colors.color(GenesisColorToken.detailDivider),
+          ),
           const SizedBox(height: 10),
         ] else
           const SizedBox(height: 8),
@@ -90,6 +97,7 @@ class _CharacterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final url = selectGenesisImageUrl(
       imageUrl,
       logicalWidth: 86,
@@ -138,10 +146,10 @@ class _CharacterTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: colors.color(GenesisColorToken.textPrimary),
                       ),
                     ),
                   ),
@@ -159,13 +167,15 @@ class _CharacterTile extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F3F6),
+                        color: colors.color(
+                          GenesisColorToken.originCharacterTagSurface,
+                        ),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
                         tag,
-                        style: const TextStyle(
-                          color: Color(0xFFFF2442),
+                        style: TextStyle(
+                          color: colors.color(GenesisColorToken.create),
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
                         ),
@@ -180,7 +190,9 @@ class _CharacterTile extends StatelessWidget {
                   fontSize: 12,
                   height: 1.25,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black.withValues(alpha: 0.78),
+                  color: colors.color(
+                    GenesisColorToken.originCharacterSubtitle,
+                  ),
                 ),
               ),
             ],

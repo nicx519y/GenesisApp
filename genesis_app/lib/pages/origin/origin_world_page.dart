@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
@@ -40,6 +40,8 @@ import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_search_field.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import '../../app/bootstrap/app_services_scope.dart';

@@ -25,8 +25,9 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_deleted_list_item_transition.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/theme/genesis_ui_theme.dart';
-import '../../ui/tokens/genesis_colors.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import 'home_feed_cache_store.dart';
 import '../world/world_deletion_events.dart';
@@ -564,7 +565,6 @@ class _HomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GenesisTopSafeArea(
-      backgroundColor: Colors.white,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: SizedBox(
@@ -1502,6 +1502,7 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -1517,12 +1518,12 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
           children: [
             widget.child,
             if (widget.bottomSpacing > 0)
-              const Padding(
-                padding: EdgeInsets.only(top: 24, bottom: 16),
+              Padding(
+                padding: const EdgeInsets.only(top: 24, bottom: 16),
                 child: Divider(
                   height: 1,
                   thickness: 1,
-                  color: Color(0xFFEFEFEF),
+                  color: colors.color(GenesisColorToken.listDivider),
                 ),
               ),
           ],
@@ -1541,6 +1542,8 @@ class _MyWorldsEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colors = GenesisSemanticColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Align(
       alignment: const Alignment(0, -0.2),
@@ -1549,29 +1552,34 @@ class _MyWorldsEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(
-              launchImageAsset,
-              key: ValueKey<String>(
-                'home-my-worlds-empty-image:$launchImageAsset',
+            if (isDark)
+              const _DarkMyWorldsEmptyIllustration()
+            else
+              Image.asset(
+                launchImageAsset,
+                key: ValueKey<String>(
+                  'home-my-worlds-empty-image:$launchImageAsset',
+                ),
+                width: MediaQuery.sizeOf(context).width.clamp(0, 360) * 0.82,
+                fit: BoxFit.contain,
               ),
-              width: MediaQuery.sizeOf(context).width.clamp(0, 360) * 0.82,
-              fit: BoxFit.contain,
-            ),
             const SizedBox(height: 22),
             Text.rich(
               TextSpan(
-                children: const [
-                  TextSpan(text: 'Launch a '),
+                children: [
+                  const TextSpan(text: 'Launch a '),
                   TextSpan(
                     text: '#Worldo',
-                    style: TextStyle(color: Color(0xFF4B6192)),
+                    style: TextStyle(
+                      color: colors.color(GenesisColorToken.textLink),
+                    ),
                   ),
-                  TextSpan(text: ' to generate your own World'),
+                  const TextSpan(text: ' to generate your own World'),
                 ],
               ),
               textAlign: TextAlign.center,
               style: textTheme.titleMedium?.copyWith(
-                color: GenesisColors.textPrimary,
+                color: colors.color(GenesisColorToken.textPrimary),
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 height: 1.25,
@@ -1583,7 +1591,7 @@ class _MyWorldsEmptyState extends StatelessWidget {
               'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
               textAlign: TextAlign.center,
               style: textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF666666),
+                color: colors.color(GenesisColorToken.textSecondaryStrong),
                 fontSize: 14,
                 height: 1.25,
                 letterSpacing: 0,
@@ -1591,6 +1599,101 @@ class _MyWorldsEmptyState extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DarkMyWorldsEmptyIllustration extends StatelessWidget {
+  const _DarkMyWorldsEmptyIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
+    final width = MediaQuery.sizeOf(context).width.clamp(0, 360) * 0.82;
+    return Container(
+      key: const ValueKey('home-my-worlds-empty-dark-illustration'),
+      width: width,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+      decoration: BoxDecoration(
+        color: colors.color(GenesisColorToken.surfaceElevated),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.color(GenesisColorToken.border)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.auto_awesome_outlined,
+            size: 44,
+            color: colors.color(GenesisColorToken.textLink),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _DarkMyWorldsStep(
+                icon: Icons.tag,
+                label: 'Worldo',
+                colors: colors,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Icon(
+                  Icons.arrow_forward,
+                  size: 18,
+                  color: colors.color(GenesisColorToken.iconSecondary),
+                ),
+              ),
+              _DarkMyWorldsStep(
+                icon: Icons.public,
+                label: 'World',
+                colors: colors,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DarkMyWorldsStep extends StatelessWidget {
+  const _DarkMyWorldsStep({
+    required this.icon,
+    required this.label,
+    required this.colors,
+  });
+
+  final IconData icon;
+  final String label;
+  final GenesisSemanticColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.color(GenesisColorToken.contentPanelSurface),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: colors.color(GenesisColorToken.iconPrimary),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: colors.color(GenesisColorToken.textPrimary),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

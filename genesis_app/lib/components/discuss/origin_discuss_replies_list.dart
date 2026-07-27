@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../common/genesis_image_viewer_overlay.dart';
@@ -26,15 +28,21 @@ class OriginDiscussRepliesList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: Color(0xFFD9DDE2), width: 3)),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: colors.color(GenesisColorToken.discussRepliesBorder),
+            width: 3,
+          ),
+        ),
       ),
       padding: const EdgeInsets.only(left: 8),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F6F7),
+          color: colors.color(GenesisColorToken.discussRepliesSurface),
           borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -63,11 +71,13 @@ class OriginDiscussRepliesList extends StatelessWidget {
                         )
                       : Text(
                           'View all $remainingReplyCount replies',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             height: 1.25,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF2F4F7A),
+                            color: colors.color(
+                              GenesisColorToken.messageOriginLinkText,
+                            ),
                           ),
                         ),
                 ),
@@ -87,16 +97,17 @@ class _OriginDiscussReplyItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final imageUrls = _imageUrlsFrom(reply['images'] ?? reply['image_urls']);
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text.rich(
-          _replyLineSpan(reply),
+          _replyLineSpan(reply, colors),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: _subtleStyle.copyWith(
-            color: const Color(0xFF60636A),
+          style: _subtleStyle(colors).copyWith(
+            color: colors.color(GenesisColorToken.discussReplyText),
             height: 1.35,
           ),
         ),
@@ -172,7 +183,10 @@ class _OriginDiscussReplyImageThumbnail extends StatelessWidget {
   }
 }
 
-TextSpan _replyLineSpan(Map<String, dynamic> json) {
+TextSpan _replyLineSpan(
+  Map<String, dynamic> json,
+  GenesisSemanticColors colors,
+) {
   final author = json['author'] is Map ? asJsonMap(json['author']) : null;
   final uid = asString(author?['uid'], fallback: asString(json['uid']));
   final name = asString(
@@ -200,7 +214,7 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
         TextSpan(text: '$authorName: '),
         TextSpan(
           text: content,
-          style: const TextStyle(color: Color(0xFF111111)),
+          style: TextStyle(color: colors.color(GenesisColorToken.textPrimary)),
         ),
       ],
     );
@@ -208,17 +222,19 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
   return TextSpan(
     children: [
       TextSpan(text: '$authorName: '),
-      const TextSpan(
+      TextSpan(
         text: 'Reply to ',
-        style: TextStyle(color: Color(0xFF111111)),
+        style: TextStyle(color: colors.color(GenesisColorToken.textPrimary)),
       ),
       TextSpan(
         text: replyToName,
-        style: const TextStyle(color: Color(0xFF60636A)),
+        style: TextStyle(
+          color: colors.color(GenesisColorToken.discussReplyText),
+        ),
       ),
       TextSpan(
         text: ': $content',
-        style: const TextStyle(color: Color(0xFF111111)),
+        style: TextStyle(color: colors.color(GenesisColorToken.textPrimary)),
       ),
     ],
   );
@@ -246,8 +262,8 @@ List<String> _imageUrlsFrom(Object? value) {
       .toList(growable: false);
 }
 
-const _subtleStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
+TextStyle _subtleStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textTimestamp),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

@@ -33,6 +33,7 @@ import '../../routers/app_router.dart';
 import '../gems/gem_wallet_page.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
+import 'developer_color_configuration_page.dart';
 
 const String _buildModeLabel = kReleaseMode
     ? 'release'
@@ -210,6 +211,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         setState(() => _clearingDirectMessageCache = false);
       }
     }
+  }
+
+  Future<void> _openColorConfiguration() async {
+    await Navigator.of(context, rootNavigator: true).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const DeveloperColorConfigurationPage(),
+      ),
+    );
   }
 
   Future<void> _clearImageCache() async {
@@ -622,6 +631,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
 
   @override
   Widget build(BuildContext context) {
+    final semanticColors = GenesisSemanticColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -705,47 +715,82 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             controller: _chatroomWsBaseUrlController,
           ),
           const SizedBox(height: 18),
+          GenesisPrimaryButton(
+            key: const ValueKey<String>('developer-color-configuration-button'),
+            label: 'Color configuration',
+            onPressed: _openColorConfiguration,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
+          ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: 'Creating',
             onPressed: _showCreatingWaitOverlayPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: 'Launching',
             onPressed: _showLaunchingWaitOverlayPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: 'Progressing',
             onPressed: _showProgressingWaitOverlayPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: 'Preview Gem purchase sheet',
             onPressed: _showGemPurchaseSheetPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: 'Preview purchase overlay',
             onPressed: _showGemPurchaseOverlayPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: 'Preview Daily Check-in',
             onPressed: _showDailyCheckInPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
@@ -755,22 +800,34 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             onPressed: _clearingDirectMessageCache
                 ? null
                 : _clearDirectMessageCache,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: _clearingImageCache ? 'Clearing...' : 'Clear image cache',
             onPressed: _clearingImageCache ? null : _clearImageCache,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: _clearingGatewayAuth ? 'Clearing...' : 'Clear Gateway auth',
             onPressed: _clearingGatewayAuth ? null : _clearGatewayAuth,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
@@ -780,8 +837,12 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             onPressed: _verifyingGatewaySignature
                 ? null
                 : _verifyGatewaySignature,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
           if (_gatewaySignatureVerifyResult != null) ...[
             const SizedBox(height: _itemGap),
@@ -794,8 +855,12 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           GenesisPrimaryButton(
             label: 'Hide debug button',
             onPressed: _hideDebugButton,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+            backgroundColor: semanticColors.color(
+              GenesisColorToken.surfacePanel,
+            ),
+            foregroundColor: semanticColors.color(
+              GenesisColorToken.textPrimary,
+            ),
           ),
         ],
       ),
@@ -973,11 +1038,12 @@ class _DeveloperSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 15,
-        color: Colors.black,
+        color: colors.color(GenesisColorToken.neutralControlForeground),
         fontWeight: FontWeight.w600,
         height: 1.2,
       ),
@@ -998,6 +1064,7 @@ class _DeveloperEndpointHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final actionText = isTestEnvironment ? '切换到正式环境' : '切换到测试环境';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1017,7 +1084,9 @@ class _DeveloperEndpointHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
-                  color: enabled ? Colors.black : const Color(0xFFA8A8AD),
+                  color: enabled
+                      ? colors.color(GenesisColorToken.neutralControlForeground)
+                      : colors.color(GenesisColorToken.textDeveloperDisabled),
                   fontWeight: FontWeight.w600,
                   height: 1.2,
                   letterSpacing: 0,
@@ -1068,6 +1137,7 @@ class _DeveloperInfoSingleLineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -1077,9 +1147,9 @@ class _DeveloperInfoSingleLineRow extends StatelessWidget {
             '$title:',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: colors.color(GenesisColorToken.neutralControlForeground),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1096,9 +1166,9 @@ class _DeveloperInfoSingleLineRow extends StatelessWidget {
                 content,
                 maxLines: 1,
                 softWrap: false,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF666666),
+                  color: colors.color(GenesisColorToken.textSecondaryStrong),
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -1126,6 +1196,7 @@ class _DeveloperInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1134,9 +1205,9 @@ class _DeveloperInfoRow extends StatelessWidget {
           child: Text(
             '$title:',
             textAlign: TextAlign.left,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: colors.color(GenesisColorToken.neutralControlForeground),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1148,9 +1219,9 @@ class _DeveloperInfoRow extends StatelessWidget {
             onTap: () => _copyContent(context),
             child: Text(
               content,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF666666),
+                color: colors.color(GenesisColorToken.textSecondaryStrong),
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -1175,6 +1246,7 @@ class _DeveloperInfoBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () => _copyContent(context),
@@ -1183,18 +1255,18 @@ class _DeveloperInfoBlock extends StatelessWidget {
         children: [
           Text(
             '$title:',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: colors.color(GenesisColorToken.neutralControlForeground),
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             content,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Color(0xFF666666),
+              color: colors.color(GenesisColorToken.textSecondaryStrong),
               fontWeight: FontWeight.w400,
             ),
           ),

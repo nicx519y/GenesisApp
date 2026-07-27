@@ -10,6 +10,8 @@ import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -310,9 +312,11 @@ class _FollowUsersPane extends StatelessWidget {
                   child: Center(
                     child: Text(
                       emptyText,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF8A8A8A),
+                        color: GenesisSemanticColors.of(
+                          context,
+                        ).color(GenesisColorToken.textListMetadata),
                         fontWeight: FontWeight.w400,
                       ),
                     ),

@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 
@@ -44,6 +46,7 @@ class GemBalancePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
@@ -55,20 +58,20 @@ class GemBalancePanel extends StatelessWidget {
           children: [
             Row(
               children: [
-                SvgPicture.asset(
+                GenesisSvgAsset.asset(
                   gemIconAsset,
                   key: const ValueKey('gem-balance-icon'),
                   width: gemLargeIconSize,
                   height: gemLargeIconSize,
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'My Balance',
                   style: TextStyle(
                     fontSize: 14,
                     height: 18 / 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF666666),
+                    color: colors.color(GenesisColorToken.textSecondaryStrong),
                   ),
                 ),
               ],
@@ -77,11 +80,11 @@ class GemBalancePanel extends StatelessWidget {
             Text(
               formatGemInteger(balance),
               key: balanceKey,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 30,
                 height: 40 / 30,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
+                color: colors.color(GenesisColorToken.textStrong),
                 letterSpacing: 0,
               ),
             ),
@@ -148,21 +151,24 @@ class GemProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final isNewUserProduct = product.productId.trim() == 'gem_pack_500';
     final isSoldOut = isNewUserProduct && !product.canPurchase;
     final tag = product.tagText;
-    final defaultTagColor = isNewUserProduct
-        ? const Color(0xFFE85C39)
-        : const Color(0xFFB53B52);
+    final defaultTagColor = colors.color(
+      isNewUserProduct
+          ? GenesisColorToken.gemNewUserTag
+          : GenesisColorToken.gemStandardTag,
+    );
     final tagColor = _parseActivityColor(
       product.activityColor,
       fallback: defaultTagColor,
     );
-    const tagTextStyle = TextStyle(
+    final tagTextStyle = TextStyle(
       fontSize: 10,
       height: 14 / 10,
       fontWeight: FontWeight.w400,
-      color: Colors.white,
+      color: colors.color(GenesisColorToken.textOnDark),
     );
     final tagPainter = TextPainter(
       text: TextSpan(text: tag, style: tagTextStyle),
@@ -188,9 +194,11 @@ class GemProductCard extends StatelessWidget {
             child: Container(
               clipBehavior: Clip.none,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colors.color(GenesisColorToken.gemProductSurface),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFEBEBEB)),
+                border: Border.all(
+                  color: colors.color(GenesisColorToken.gemProductBorder),
+                ),
               ),
               child: Stack(
                 clipBehavior: Clip.none,
@@ -221,7 +229,7 @@ class GemProductCard extends StatelessWidget {
                     left: 0,
                     right: 0,
                     child: Center(
-                      child: SvgPicture.asset(
+                      child: GenesisSvgAsset.asset(
                         gemStackIconAsset,
                         key: ValueKey<String>(
                           'gem-product-icon-${product.productId}',
@@ -240,11 +248,11 @@ class GemProductCard extends StatelessWidget {
                       child: Text(
                         '+${formatGemInteger(product.totalGems)}',
                         maxLines: 1,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           height: 20 / 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF111111),
+                          color: colors.color(GenesisColorToken.textPrimary),
                         ),
                       ),
                     ),
@@ -260,13 +268,15 @@ class GemProductCard extends StatelessWidget {
                         child: Text(
                           formatGemInteger(product.baseGems),
                           maxLines: 1,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             height: 14 / 12,
                             fontWeight: FontWeight.w400,
-                            color: Color(0xFF888888),
+                            color: colors.color(GenesisColorToken.textMetadata),
                             decoration: TextDecoration.lineThrough,
-                            decorationColor: Color(0xFF888888),
+                            decorationColor: colors.color(
+                              GenesisColorToken.textMetadata,
+                            ),
                           ),
                         ),
                       ),
@@ -282,21 +292,23 @@ class GemProductCard extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: isSoldOut ? Colors.transparent : Colors.white,
+                        color: isSoldOut
+                            ? Colors.transparent
+                            : colors.color(GenesisColorToken.gemProductSurface),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isSoldOut
-                              ? kGemSoldOutBorderColor
-                              : kGemAccentColor,
+                              ? gemSoldOutBorderColor(colors)
+                              : gemAccentColor(colors),
                         ),
                       ),
                       child: isBuying && !isSoldOut
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 13,
                               height: 13,
                               child: CircularProgressIndicator(
                                 strokeWidth: 1.8,
-                                color: kGemAccentColor,
+                                color: gemAccentColor(colors),
                               ),
                             )
                           : FittedBox(
@@ -314,8 +326,8 @@ class GemProductCard extends StatelessWidget {
                                   height: 14 / 12,
                                   fontWeight: FontWeight.w600,
                                   color: isSoldOut
-                                      ? kGemSoldOutForegroundColor
-                                      : kGemAccentColor,
+                                      ? gemSoldOutForegroundColor(colors)
+                                      : gemAccentColor(colors),
                                 ),
                               ),
                             ),
@@ -343,8 +355,12 @@ class _UnavailableProductFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!unavailable) return child;
+    final colors = GenesisSemanticColors.of(context);
     return ColorFiltered(
-      colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+      colorFilter: ColorFilter.mode(
+        colors.color(GenesisColorToken.iconSecondary),
+        BlendMode.saturation,
+      ),
       child: child,
     );
   }

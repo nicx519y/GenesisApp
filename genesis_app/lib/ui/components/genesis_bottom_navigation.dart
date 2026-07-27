@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import 'genesis_safe_area.dart';
@@ -45,10 +45,11 @@ class GenesisBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final uiTheme = GenesisUiTheme.of(context);
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: uiTheme.bottomNavigationBackgroundColor,
+        boxShadow: const [
           BoxShadow(
             color: Color(0x14000000),
             blurRadius: 8,
@@ -189,7 +190,7 @@ class _BadgedIcon extends StatelessWidget {
         children: [
           if (assetName != null)
             assetName!.endsWith('.svg')
-                ? SvgPicture.asset(
+                ? GenesisSvgAsset.asset(
                     assetName!,
                     width: size,
                     height: size,

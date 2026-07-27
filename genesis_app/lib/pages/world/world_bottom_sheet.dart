@@ -6,13 +6,15 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/world_map.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import 'world_constants.dart';
 import 'world_models.dart';
@@ -31,13 +33,14 @@ class WorldBottomTags extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       height: worldMainTabsHeight,
-      color: const Color(0xFFFFFFFF),
+      color: colors.color(GenesisColorToken.surface),
       alignment: Alignment.centerLeft,
       child: DefaultTextStyle(
-        style: const TextStyle(
-          color: Color(0xFF111111),
+        style: TextStyle(
+          color: colors.color(GenesisColorToken.textPrimary),
           fontSize: 12,
           height: 1,
           fontWeight: FontWeight.w600,
@@ -87,6 +90,7 @@ class WorldBottomTagContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -97,31 +101,35 @@ class WorldBottomTagContent extends StatelessWidget {
             height: worldBottomTagHeight,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFEBEFF2),
+              color: colors.color(GenesisColorToken.worldTagSurface),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (item.asset != null)
-                  SvgPicture.asset(
+                  GenesisSvgAsset.asset(
                     item.asset!,
                     width: 17,
                     height: 17,
-                    colorFilter: const ColorFilter.mode(
-                      Color(0xFF666666),
+                    colorFilter: ColorFilter.mode(
+                      colors.color(GenesisColorToken.iconSecondary),
                       BlendMode.srcIn,
                     ),
                   )
                 else
-                  Icon(item.icon, size: 17, color: const Color(0xFF666666)),
+                  Icon(
+                    item.icon,
+                    size: 17,
+                    color: colors.color(GenesisColorToken.iconSecondary),
+                  ),
                 const SizedBox(width: 5),
                 Text(
                   item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF111111),
+                  style: TextStyle(
+                    color: colors.color(GenesisColorToken.textPrimary),
                     fontSize: 12,
                     height: 1,
                     fontWeight: FontWeight.w600,
@@ -141,8 +149,8 @@ class WorldBottomTagContent extends StatelessWidget {
               child: Container(
                 width: 7,
                 height: 7,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFF2442),
+                decoration: BoxDecoration(
+                  color: colors.color(GenesisColorToken.create),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -614,14 +622,15 @@ class WorldSingleSectionBottomSheetState
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return GenesisEdgeSwipeBack(
       onBack: () => Navigator.of(context).pop(),
       child: FractionallySizedBox(
         heightFactor: _sheetHeightFactor,
         alignment: Alignment.bottomCenter,
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: colors.color(GenesisColorToken.surfaceElevated),
             borderRadius: GenesisRadii.sheet,
           ),
           child: Column(
@@ -683,6 +692,7 @@ class WorldSingleSectionSheetHeaderState
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onVerticalDragStart: _handleVerticalDragStart,
@@ -702,7 +712,7 @@ class WorldSingleSectionSheetHeaderState
                   width: 64,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD2D2D2),
+                    color: colors.color(GenesisColorToken.bottomSheetHandle),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -724,8 +734,8 @@ class WorldSingleSectionSheetHeaderState
                         widget.item.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF111111),
+                        style: TextStyle(
+                          color: colors.color(GenesisColorToken.textPrimary),
                           fontSize: 16,
                           height: 1,
                           fontWeight: FontWeight.w600,
@@ -743,8 +753,12 @@ class WorldSingleSectionSheetHeaderState
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(28, 28),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          backgroundColor: const Color(0xFFF3F3F5),
-                          foregroundColor: const Color(0xFF111111),
+                          backgroundColor: colors.color(
+                            GenesisColorToken.detailCloseSurface,
+                          ),
+                          foregroundColor: colors.color(
+                            GenesisColorToken.iconPrimary,
+                          ),
                           shape: const CircleBorder(),
                         ),
                         child: const Icon(Icons.close_rounded, size: 17),
@@ -768,16 +782,24 @@ class WorldSheetHeaderIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final asset = item.asset;
     if (asset != null) {
-      return SvgPicture.asset(
+      return GenesisSvgAsset.asset(
         asset,
         width: 20,
         height: 20,
-        colorFilter: const ColorFilter.mode(Color(0xFF111111), BlendMode.srcIn),
+        colorFilter: ColorFilter.mode(
+          colors.color(GenesisColorToken.iconPrimary),
+          BlendMode.srcIn,
+        ),
       );
     }
-    return Icon(item.icon, size: 20, color: const Color(0xFF111111));
+    return Icon(
+      item.icon,
+      size: 20,
+      color: colors.color(GenesisColorToken.iconPrimary),
+    );
   }
 }
 

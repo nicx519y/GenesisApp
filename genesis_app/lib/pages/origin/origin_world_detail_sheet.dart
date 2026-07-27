@@ -178,9 +178,13 @@ class _OriginDetailDraggableSheetState
   ) {
     final alpha = _statusBarAlphaForExtent(context, extent);
     if (alpha <= 0.001) return widget.baseStatusBarStyle;
-    final darkIcons = alpha >= 0.5;
+    final colors = GenesisSemanticColors.of(context);
+    final sheetSurface = colors.color(GenesisColorToken.surfaceElevated);
+    final surfaceIsDark =
+        ThemeData.estimateBrightnessForColor(sheetSurface) == Brightness.dark;
+    final darkIcons = alpha >= 0.5 && !surfaceIsDark;
     return widget.baseStatusBarStyle.copyWith(
-      statusBarColor: Colors.white.withValues(alpha: alpha),
+      statusBarColor: sheetSurface.withValues(alpha: alpha),
       statusBarIconBrightness: darkIcons
           ? Brightness.dark
           : widget.baseStatusBarStyle.statusBarIconBrightness,
@@ -207,6 +211,7 @@ class _OriginDetailDraggableSheetState
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final minChildSize = _minChildSize;
     final maxChildSize = _expandedChildSize(context);
     final initialChildSize = _effectiveInitialChildSize
@@ -231,7 +236,7 @@ class _OriginDetailDraggableSheetState
           builder: (context, scrollController) {
             return DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFFFF),
+                color: colors.color(GenesisColorToken.surfaceElevated),
                 borderRadius: BorderRadius.vertical(
                   top: Radius.circular(topRadius),
                 ),
@@ -324,6 +329,7 @@ class _OriginSheetDragHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       height: 14,
       child: Center(
@@ -331,7 +337,7 @@ class _OriginSheetDragHandle extends StatelessWidget {
           width: 64,
           height: 5,
           decoration: BoxDecoration(
-            color: const Color(0xFFD2D2D2),
+            color: colors.color(GenesisColorToken.bottomSheetHandle),
             borderRadius: BorderRadius.circular(3),
           ),
         ),
@@ -357,8 +363,9 @@ class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    final colors = GenesisSemanticColors.of(context);
     return ColoredBox(
-      color: const Color(0xFFFFFFFF),
+      color: colors.color(GenesisColorToken.surfaceElevated),
       child: Stack(
         children: [
           Positioned(
@@ -391,6 +398,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final originator = origin.ownerDeleted
         ? deletedEntityDisplayText
         : origin.originator.trim().isEmpty
@@ -414,11 +422,11 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   height: 1.25,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF4B6192),
+                  color: colors.color(GenesisColorToken.textLink),
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -458,7 +466,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
             Expanded(
               child: Text(
                 'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-                style: CopyableIdLabel.textStyle,
+                style: CopyableIdLabel.textStyle(colors),
               ),
             ),
             if (canEditOrigin)
@@ -482,31 +490,31 @@ class _OriginSheetHeaderContent extends StatelessWidget {
 class _OriginInlineEditAction extends StatelessWidget {
   const _OriginInlineEditAction({required this.onTap});
 
-  static const Color _color = Color(0xFF4B6192);
-
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
+    final color = colors.color(GenesisColorToken.textLink);
     return InkWell(
       key: const ValueKey('origin-inline-edit-worldo'),
       onTap: onTap,
       borderRadius: BorderRadius.circular(4),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 2),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(Icons.edit, size: 16, color: _color),
-            SizedBox(width: 4),
+            Icon(Icons.edit, size: 16, color: color),
+            const SizedBox(width: 4),
             Text(
               'Edit Worldo',
               style: TextStyle(
                 fontSize: 14,
                 height: 1.2,
                 fontWeight: FontWeight.w500,
-                color: _color,
+                color: color,
                 decoration: TextDecoration.none,
               ),
             ),

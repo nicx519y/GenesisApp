@@ -7,6 +7,8 @@ import '../../app/genesis_navigator.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/models/world.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../world/world_navigation.dart';
 import 'origin_launch_pending_store.dart';
 
@@ -223,6 +225,7 @@ class OriginLaunchCoordinator {
         context: context,
         title: title,
         titleWidget: _successActionBoxTitle(
+          context: context,
           leadingText: 'Worldo ',
           highlightedText: '#$worldName',
           trailingText: ' launched!',
@@ -266,12 +269,14 @@ class OriginLaunchCoordinator {
 }
 
 Widget _successActionBoxTitle({
+  required BuildContext context,
   required String leadingText,
   required String highlightedText,
   required String trailingText,
 }) {
-  const baseStyle = TextStyle(
-    color: Color(0xFF111111),
+  final colors = GenesisSemanticColors.of(context);
+  final baseStyle = TextStyle(
+    color: colors.color(GenesisColorToken.textPrimary),
     fontSize: 15,
     height: 1.16,
     fontWeight: FontWeight.w600,
@@ -286,7 +291,9 @@ Widget _successActionBoxTitle({
         TextSpan(text: leadingText),
         TextSpan(
           text: highlightedText,
-          style: baseStyle.copyWith(color: const Color(0xFF4B6192)),
+          style: baseStyle.copyWith(
+            color: colors.color(GenesisColorToken.textLink),
+          ),
         ),
         TextSpan(text: trailingText),
       ],

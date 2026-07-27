@@ -371,7 +371,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'Basics'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
@@ -393,7 +392,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         labelInputGap: _fieldLabelInputGap,
                         focusNode: _originNameFocusNode,
                         nextFocusNode: _worldViewFocusNode,
-                        prefix: const Text(
+                        prefix: Text(
                           '#',
                           style: TextStyle(
                             color: createFormText,
@@ -420,7 +419,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const Text(
+                      Text(
                         'Cover Image *',
                         style: TextStyle(
                           color: createFormText,
@@ -471,7 +470,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const Text(
+                      Text(
                         'Worldo Time (Optional)',
                         style: TextStyle(
                           color: createFormText,
@@ -517,7 +516,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLines: 1,
                         focusNode: _timeProgressCustomFocusNode,
                         nextFocusNode: _progressMetricFocusNode,
-                        prefix: const Text(
+                        prefix: Text(
                           'Custom',
                           style: TextStyle(
                             color: createFormText,
@@ -528,7 +527,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: _handleTimeProgressCustomChanged,
                       ),
                       const SizedBox(height: _fieldGroupGap),
-                      const Text(
+                      Text(
                         'Worldo Metric (Optional)',
                         style: TextStyle(
                           color: createFormText,
@@ -658,11 +657,11 @@ class _AdvancedSettingsDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
         Expanded(child: Divider(height: 1, color: createFormBorder)),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'Advanced Settings (Optional)',
             style: TextStyle(
@@ -688,11 +687,7 @@ class _SimulationFieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: Color(0xFF111111),
-        fontSize: 12,
-        height: 1.2,
-      ),
+      style: TextStyle(color: createFormText, fontSize: 12, height: 1.2),
     );
   }
 }
@@ -747,7 +742,7 @@ class _TimeProgressOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       key: ValueKey('time-progress-option-$label'),
-      color: selected ? const Color(0xFFE0EEE8) : createFormFieldFill,
+      color: selected ? createFormSelectedFill : createFormFieldFill,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),

@@ -1,51 +1,118 @@
 import 'package:flutter/material.dart';
 
-import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_typography.dart';
+import 'genesis_color_token.dart';
+import 'genesis_semantic_colors.dart';
 import 'genesis_ui_theme.dart';
 
-// GenesisTheme 是 App 级 ThemeData 的唯一入口。
-// 这里负责把 Flutter Material 主题和自定义 Genesis UI 组件主题挂到一起。
 abstract final class GenesisTheme {
-  // 当前只定义 light 主题；以后如果支持暗色模式，可以新增 dark() 并复用同一套 token/extension 结构。
-  static ThemeData light() {
-    // Material 组件使用的基础色板；seedColor 决定默认按钮、状态色等 Material 派生色。
-    final colorScheme = ColorScheme.fromSeed(
-      // 使用品牌亮绿色作为 Material ColorScheme 的种子色。
-      seedColor: GenesisColors.brandBright,
-      // 当前产品视觉是浅色背景，所以固定为 Brightness.light。
+  static ThemeData light({
+    GenesisSemanticColorConfig? config,
+    int revision = 0,
+  }) {
+    return _build(
       brightness: Brightness.light,
+      config: config ?? GenesisColorDefaults.light,
+      revision: revision,
+    );
+  }
+
+  static ThemeData dark({
+    GenesisSemanticColorConfig? config,
+    int revision = 0,
+  }) {
+    return _build(
+      brightness: Brightness.dark,
+      config: config ?? GenesisColorDefaults.dark,
+      revision: revision,
+    );
+  }
+
+  static ThemeData _build({
+    required Brightness brightness,
+    required GenesisSemanticColorConfig config,
+    required int revision,
+  }) {
+    Color value(GenesisColorToken token) => config.color(token);
+
+    final baseScheme = ColorScheme.fromSeed(
+      seedColor: value(GenesisColorToken.brandBright),
+      brightness: brightness,
+    );
+    final colorScheme = baseScheme.copyWith(
+      primary: value(GenesisColorToken.brand),
+      onPrimary: value(GenesisColorToken.textInverse),
+      secondary: value(GenesisColorToken.create),
+      onSecondary: value(GenesisColorToken.textInverse),
+      surface: value(GenesisColorToken.surface),
+      onSurface: value(GenesisColorToken.textPrimary),
+      error: value(GenesisColorToken.danger),
+      onError: value(GenesisColorToken.textInverse),
+      outline: value(GenesisColorToken.border),
+      outlineVariant: value(GenesisColorToken.borderStrong),
+      surfaceContainerHighest: value(GenesisColorToken.surfacePanel),
+      surfaceContainerHigh: value(GenesisColorToken.surfaceElevated),
+      surfaceContainer: value(GenesisColorToken.surfacePanel),
+      surfaceContainerLow: value(GenesisColorToken.surfaceMuted),
+      scrim: value(GenesisColorToken.surfaceOverlay),
+    );
+    final textTheme = GenesisTypography.textThemeFor(
+      primary: value(GenesisColorToken.textPrimary),
+      secondary: value(GenesisColorToken.textSecondary),
     );
 
-    return ThemeData(
-      // 交给 Flutter Material 组件读取的标准色彩体系。
+    final theme = ThemeData(
       colorScheme: colorScheme,
-      // 页面默认背景色；Scaffold 未单独设置时会使用这里。
-      scaffoldBackgroundColor: GenesisColors.surface,
-      // App 标准 TextTheme；普通 Text 可以通过 Theme.of(context).textTheme 读取。
-      textTheme: GenesisTypography.textTheme,
-      // 保持 Material 3，避免新旧 Material 默认样式混用。
+      scaffoldBackgroundColor: value(GenesisColorToken.surface),
+      canvasColor: value(GenesisColorToken.surface),
+      cardColor: value(GenesisColorToken.surfaceElevated),
+      dividerColor: value(GenesisColorToken.border),
+      disabledColor: value(GenesisColorToken.textDisabled),
+      iconTheme: IconThemeData(color: value(GenesisColorToken.iconPrimary)),
       useMaterial3: true,
-      // FilledButton 的全局默认样式；GenesisPrimaryButton 也会继承这套按钮风格。
+      appBarTheme: AppBarTheme(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: value(GenesisColorToken.surface),
+        foregroundColor: value(GenesisColorToken.textPrimary),
+        surfaceTintColor: Colors.transparent,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: value(GenesisColorToken.surfaceElevated),
+        surfaceTintColor: Colors.transparent,
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: value(GenesisColorToken.surfaceElevated),
+        modalBackgroundColor: value(GenesisColorToken.surfaceElevated),
+        surfaceTintColor: Colors.transparent,
+      ),
+      cardTheme: CardThemeData(
+        color: value(GenesisColorToken.surfaceElevated),
+        surfaceTintColor: Colors.transparent,
+      ),
+      dividerTheme: DividerThemeData(
+        color: value(GenesisColorToken.border),
+        thickness: 1,
+        space: 1,
+      ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          // 主按钮可点击状态背景色。
-          backgroundColor: GenesisColors.brand,
-          // 主按钮 disabled 状态背景色。
-          disabledBackgroundColor: GenesisColors.brandSoft,
-          // 主按钮文字/图标前景色。
-          foregroundColor: GenesisColors.surface,
-          // 按钮统一使用 8dp 圆角；局部按钮如有特殊尺寸也应保持这个圆角规则。
+          backgroundColor: value(GenesisColorToken.brand),
+          disabledBackgroundColor: value(GenesisColorToken.brandDisabled),
+          foregroundColor: value(GenesisColorToken.textInverse),
+          disabledForegroundColor: value(
+            GenesisColorToken.actionDisabledForeground,
+          ),
           shape: const RoundedRectangleBorder(
             borderRadius: GenesisRadii.button,
           ),
-          // 主按钮默认文字样式。
           textStyle: GenesisTypography.bodyStrong,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          foregroundColor: value(GenesisColorToken.brand),
           shape: const RoundedRectangleBorder(
             borderRadius: GenesisRadii.button,
           ),
@@ -53,6 +120,8 @@ abstract final class GenesisTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          foregroundColor: value(GenesisColorToken.textPrimary),
+          side: BorderSide(color: value(GenesisColorToken.borderStrong)),
           shape: const RoundedRectangleBorder(
             borderRadius: GenesisRadii.button,
           ),
@@ -60,27 +129,31 @@ abstract final class GenesisTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          backgroundColor: value(GenesisColorToken.surfaceElevated),
+          foregroundColor: value(GenesisColorToken.textPrimary),
           shape: const RoundedRectangleBorder(
             borderRadius: GenesisRadii.button,
           ),
         ),
       ),
-      // TextField/InputDecorator 的默认输入框样式；GenesisSearchField 的可编辑模式会复用其中一部分。
-      inputDecorationTheme: const InputDecorationTheme(
-        // 输入框默认不画 Material 边框，外层容器负责背景和圆角。
+      inputDecorationTheme: InputDecorationTheme(
         border: InputBorder.none,
-        // 压缩 TextField 内部默认高度，避免搜索框被 Material 默认 padding 撑高。
         isCollapsed: true,
-        // 输入框 placeholder 默认样式。
+        filled: true,
+        fillColor: value(GenesisColorToken.surfaceInput),
         hintStyle: TextStyle(
-          color: GenesisColors.textDisabled,
+          color: value(GenesisColorToken.textDisabled),
           fontSize: 14,
           letterSpacing: 0,
         ),
       ),
-      // 自定义 Genesis UI 组件的主题扩展。
-      // SearchField、PageTitle、BottomNavigation、TabBar 等会优先从这里读取样式。
-      extensions: <ThemeExtension<dynamic>>[GenesisUiTheme.light()],
+      extensions: <ThemeExtension<dynamic>>[
+        GenesisSemanticColors(config: config, revision: revision),
+        brightness == Brightness.dark
+            ? GenesisUiTheme.dark(config)
+            : GenesisUiTheme.light(config),
+      ],
     );
+    return theme.copyWith(textTheme: textTheme);
   }
 }

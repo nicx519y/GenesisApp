@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -110,6 +109,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final semanticColors = GenesisSemanticColors.of(context);
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: GenesisBackAppBar(
@@ -129,7 +129,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const AboutUsPage()),
                 ),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     children: [
@@ -138,25 +138,29 @@ class _SettingsPageState extends State<SettingsPage> {
                           'About us',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.black,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
                       Icon(
                         Icons.chevron_right,
-                        color: Color(0xFFB5B5B5),
+                        color: semanticColors.color(
+                          GenesisColorToken.navigationChevron,
+                        ),
                         size: 30,
                       ),
                     ],
                   ),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+              Divider(
+                height: 1,
+                color: semanticColors.color(GenesisColorToken.divider),
+              ),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _openAccountPage(context),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     children: [
@@ -165,25 +169,29 @@ class _SettingsPageState extends State<SettingsPage> {
                           'Account',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.black,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
                       Icon(
                         Icons.chevron_right,
-                        color: Color(0xFFB5B5B5),
+                        color: semanticColors.color(
+                          GenesisColorToken.navigationChevron,
+                        ),
                         size: 30,
                       ),
                     ],
                   ),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+              Divider(
+                height: 1,
+                color: semanticColors.color(GenesisColorToken.divider),
+              ),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _openBlockedUsersPage(context),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     children: [
@@ -192,25 +200,29 @@ class _SettingsPageState extends State<SettingsPage> {
                           'Blocked users',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.black,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
                       Icon(
                         Icons.chevron_right,
-                        color: Color(0xFFB5B5B5),
+                        color: semanticColors.color(
+                          GenesisColorToken.navigationChevron,
+                        ),
                         size: 30,
                       ),
                     ],
                   ),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+              Divider(
+                height: 1,
+                color: semanticColors.color(GenesisColorToken.divider),
+              ),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _showFeedbackDialog(context),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     children: [
@@ -219,21 +231,25 @@ class _SettingsPageState extends State<SettingsPage> {
                           'Feedback',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.black,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
                       Icon(
                         Icons.chevron_right,
-                        color: Color(0xFFB5B5B5),
+                        color: semanticColors.color(
+                          GenesisColorToken.navigationChevron,
+                        ),
                         size: 30,
                       ),
                     ],
                   ),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+              Divider(
+                height: 1,
+                color: semanticColors.color(GenesisColorToken.divider),
+              ),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _openDiscord,
@@ -248,12 +264,11 @@ class _SettingsPageState extends State<SettingsPage> {
                             'Join Discord',
                             style: TextStyle(
                               fontSize: 16,
-                              color: Colors.black,
                               fontWeight: FontWeight.w400,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          SvgPicture.asset(
+                          GenesisSvgAsset.asset(
                             'assets/custom-icons/svg/discord-svgrepo-com.svg',
                             width: 28,
                             height: 28,
@@ -261,24 +276,33 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                       const Spacer(),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right,
-                        color: Color(0xFFB5B5B5),
+                        color: semanticColors.color(
+                          GenesisColorToken.navigationChevron,
+                        ),
                         size: 30,
                       ),
                     ],
                   ),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+              Divider(
+                height: 1,
+                color: semanticColors.color(GenesisColorToken.divider),
+              ),
               const Expanded(child: SizedBox.shrink()),
               GenesisPrimaryButton(
                 label: 'Log out',
                 width:
                     MediaQuery.sizeOf(context).width * _logoutButtonWidthFactor,
                 onPressed: () => _confirmLogout(context),
-                backgroundColor: const Color(0xFFE1E1E3),
-                foregroundColor: Colors.black,
+                backgroundColor: semanticColors.color(
+                  GenesisColorToken.subtleButtonSurface,
+                ),
+                foregroundColor: semanticColors.color(
+                  GenesisColorToken.neutralControlForeground,
+                ),
               ),
               const SizedBox(height: 20),
             ],
@@ -367,14 +391,15 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
   }
 
   Future<bool> _confirmBlockUser() async {
+    final colors = GenesisSemanticColors.of(context);
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
       title: 'Block this user?',
-      actions: const [
+      actions: [
         GenesisActionBoxAction<bool>(
           label: 'Block',
           value: true,
-          color: Color(0xFFFF2442),
+          color: colors.color(GenesisColorToken.danger),
         ),
       ],
     );
@@ -390,6 +415,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Scaffold(
       appBar: const GenesisBackAppBar(pageName: 'Blocked users'),
       body: SafeArea(
@@ -412,10 +438,10 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Load failed',
                         style: TextStyle(
-                          color: Color(0xFF777777),
+                          color: colors.color(GenesisColorToken.textFormHint),
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                         ),
@@ -442,12 +468,12 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 120, 20, 24),
-                  children: const [
+                  children: [
                     Center(
                       child: Text(
                         'No blocked users yet.',
                         style: TextStyle(
-                          color: Color(0xFF999999),
+                          color: colors.color(GenesisColorToken.textMuted),
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                         ),
@@ -464,8 +490,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 itemCount: items.length,
-                separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFE7E7E7)),
+                separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final item = items[index];
                   return _BlockedUserTile(
@@ -531,11 +556,14 @@ class _BlockedUserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final label = item.isBlocked ? 'Unblock' : 'Block';
     final backgroundColor = item.isBlocked
-        ? const Color(0xFFFF2442)
-        : const Color(0xFFE5E5E5);
-    final foregroundColor = item.isBlocked ? Colors.white : Colors.black;
+        ? colors.color(GenesisColorToken.create)
+        : colors.color(GenesisColorToken.neutralControlSurface);
+    final foregroundColor = item.isBlocked
+        ? colors.color(GenesisColorToken.textInverse)
+        : colors.color(GenesisColorToken.neutralControlForeground);
 
     return InkWell(
       onTap: onTap,
@@ -559,7 +587,6 @@ class _BlockedUserTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.black,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
@@ -570,8 +597,8 @@ class _BlockedUserTile extends StatelessWidget {
                     'UID: ${formatUidForDisplay(item.uid)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF777777),
+                    style: TextStyle(
+                      color: colors.color(GenesisColorToken.textFormHint),
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                       height: 1.2,
@@ -680,6 +707,7 @@ class _AccountPageState extends State<AccountPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Scaffold(
       appBar: const GenesisBackAppBar(pageName: 'Account'),
       body: SafeArea(
@@ -691,17 +719,16 @@ class _AccountPageState extends State<AccountPage> {
                 children: [
                   _CurrentLoginAccountCard(provider: _provider),
                   const SizedBox(height: 42),
-                  const Text(
+                  Text(
                     'Account Deletion Agreement',
                     style: TextStyle(
-                      color: Colors.black,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 18),
-                  const Text(
+                  Text(
                     'To ensure the security of your account, please read about '
                     'the consequences of account deletion.\n\n'
                     'Account deletion is not the same as logging out, and once '
@@ -711,20 +738,20 @@ class _AccountPageState extends State<AccountPage> {
                     'data, and order records, will be irreversibly deleted and '
                     'cannot be recovered upon account deletion.',
                     style: TextStyle(
-                      color: Color(0xFF777777),
+                      color: colors.color(GenesisColorToken.textFormHint),
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                       height: 1.55,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'All unused Gems, including purchased and earned Gems, will '
                     'be permanently lost. By continuing, you voluntarily waive '
                     'them, and account deletion does not automatically entitle '
                     'you to a refund.',
                     style: TextStyle(
-                      color: Color(0xFFFF2442),
+                      color: colors.color(GenesisColorToken.danger),
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                       height: 1.55,
@@ -756,19 +783,25 @@ class _AccountPageState extends State<AccountPage> {
                                   MaterialTapTargetSize.shrinkWrap,
                               visualDensity: VisualDensity.compact,
                               value: _hasReadAgreement,
-                              activeColor: const Color(0xFFFF4D4F),
-                              checkColor: Colors.white,
+                              activeColor: colors.color(
+                                GenesisColorToken.destructiveControl,
+                              ),
+                              checkColor: colors.color(
+                                GenesisColorToken.textOnDark,
+                              ),
                               onChanged: (value) => setState(
                                 () => _hasReadAgreement = value ?? false,
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'I have read the Account Deletion Agreement',
                               style: TextStyle(
-                                color: Color(0xFF777777),
+                                color: colors.color(
+                                  GenesisColorToken.textFormHint,
+                                ),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w400,
                                 height: 1.25,
@@ -786,10 +819,14 @@ class _AccountPageState extends State<AccountPage> {
                         MediaQuery.sizeOf(context).width *
                         _deleteButtonWidthFactor,
                     onPressed: _handleDeletePressed,
-                    backgroundColor: const Color(0xFFE1E1E3),
+                    backgroundColor: colors.color(
+                      GenesisColorToken.subtleButtonSurface,
+                    ),
                     foregroundColor: _hasReadAgreement
-                        ? Colors.black
-                        : const Color(0xFF999999),
+                        ? colors.color(
+                            GenesisColorToken.neutralControlForeground,
+                          )
+                        : colors.color(GenesisColorToken.textMuted),
                   ),
                 ],
               ),
@@ -808,20 +845,21 @@ class _CurrentLoginAccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F4F5),
+        color: colors.color(GenesisColorToken.accountCardSurface),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 18),
         child: Column(
           children: [
-            const Text(
+            Text(
               'Current login account:',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF777777),
+                color: colors.color(GenesisColorToken.textFormHint),
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 height: 1.2,

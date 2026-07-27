@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -38,6 +40,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final cleanUid = uid.trim();
     return InkWell(
       borderRadius: BorderRadius.circular(8),
@@ -73,11 +76,11 @@ class GenesisFollowUserListTile extends StatelessWidget {
                     displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black,
+                      color: colors.color(GenesisColorToken.textPrimary),
                     ),
                   ),
                   SizedBox(
@@ -86,7 +89,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
                   ),
                   Text(
                     'UID: ${deletedAwareIdLabel(formatUidForDisplay(cleanUid), deleted: deleted)}',
-                    style: _uidTextStyle,
+                    style: _uidTextStyle(colors),
                   ),
                 ],
               ),
@@ -108,17 +111,28 @@ class GenesisFollowUserListTile extends StatelessWidget {
                         fixedSize: const Size(_actionWidth, _actionHeight),
                         minimumSize: const Size(_actionWidth, _actionHeight),
                         backgroundColor: isFollowed
-                            ? const Color(0xFFE5E5E5)
-                            : const Color(0xFFFF2442),
+                            ? colors.color(
+                                GenesisColorToken.neutralControlSurface,
+                              )
+                            : colors.color(GenesisColorToken.create),
                         disabledBackgroundColor: isFollowed
-                            ? const Color(0xFFE5E5E5)
-                            : const Color(0xFFFF2442).withValues(alpha: 0.55),
+                            ? colors.color(
+                                GenesisColorToken.neutralControlSurface,
+                              )
+                            : colors
+                                  .color(GenesisColorToken.create)
+                                  .withValues(alpha: 0.55),
                         foregroundColor: isFollowed
-                            ? Colors.black
-                            : Colors.white,
+                            ? colors.color(
+                                GenesisColorToken.neutralControlForeground,
+                              )
+                            : colors.color(GenesisColorToken.textInverse),
                         disabledForegroundColor: isFollowed
-                            ? Colors.black54
-                            : Colors.white,
+                            ? colors.color(
+                                GenesisColorToken
+                                    .neutralControlDisabledForeground,
+                              )
+                            : colors.color(GenesisColorToken.textInverse),
                         alignment: Alignment.center,
                         padding: EdgeInsets.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -133,8 +147,13 @@ class GenesisFollowUserListTile extends StatelessWidget {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: isFollowed
-                                    ? Colors.black54
-                                    : Colors.white,
+                                    ? colors.color(
+                                        GenesisColorToken
+                                            .neutralControlDisabledForeground,
+                                      )
+                                    : colors.color(
+                                        GenesisColorToken.textInverse,
+                                      ),
                               ),
                             )
                           : Text(
@@ -156,9 +175,9 @@ class GenesisFollowUserListTile extends StatelessWidget {
   }
 }
 
-const TextStyle _uidTextStyle = TextStyle(
+TextStyle _uidTextStyle(GenesisSemanticColors colors) => TextStyle(
   fontSize: 12,
   height: 1.1,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF8A8A8A),
+  color: colors.color(GenesisColorToken.textListMetadata),
 );

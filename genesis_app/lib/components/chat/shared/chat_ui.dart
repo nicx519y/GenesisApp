@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../../../components/common/genesis_timestamp_text.dart';
 import '../../../components/ai_content_disclaimer.dart';
@@ -13,6 +13,8 @@ import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/components/genesis_safe_area.dart';
 import '../../../ui/tokens/genesis_colors.dart';
 import '../../../ui/tokens/genesis_typography.dart';
+import '../../../ui/theme/genesis_color_token.dart';
+import '../../../ui/theme/genesis_semantic_colors.dart';
 import '../../../ui/text/genesis_text_input_formatters.dart';
 import 'chat_ui_style_config.dart';
 
@@ -47,6 +49,110 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
   ),
   showSenderNameAboveOtherBubble: false,
 );
+
+ChatUiStyleConfig genesisStandardChatStyle(BuildContext context) {
+  final colors = GenesisSemanticColors.of(context);
+  final primary = colors.color(GenesisColorToken.textPrimary);
+  final secondary = colors.color(GenesisColorToken.textTertiary);
+  final inverse = colors.color(GenesisColorToken.textInverse);
+  return ChatUiStyleConfig.standard.copyWith(
+    conversationBackgroundColor: colors.color(
+      GenesisColorToken.privateChatBackground,
+    ),
+    headerBackgroundColor: colors.color(GenesisColorToken.surfaceElevated),
+    clearHeaderBackgroundGradient: true,
+    composerBackgroundColor: colors.color(GenesisColorToken.surfacePanel),
+    clearComposerBackgroundGradient: true,
+    composerIconColor: colors.color(GenesisColorToken.iconPrimary),
+    composerSendButtonColor: colors.color(GenesisColorToken.brand),
+    composerSendButtonDisabledColor: colors.color(
+      GenesisColorToken.brandDisabled,
+    ),
+    composerSendButtonIconColor: inverse,
+    inputBackgroundColor: colors.color(GenesisColorToken.surfaceElevated),
+    inputTextStyle: ChatUiStyleConfig.standard.inputTextStyle.copyWith(
+      color: primary,
+    ),
+    headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
+        .copyWith(color: primary),
+    headerSubtitleTextStyle: ChatUiStyleConfig.standard.headerSubtitleTextStyle
+        .copyWith(color: secondary),
+    headerTitleIconColor: colors.color(GenesisColorToken.iconSecondary),
+    headerStatusIconColor: colors.color(GenesisColorToken.iconSecondary),
+    topTitleTextStyle: ChatUiStyleConfig.standard.topTitleTextStyle.copyWith(
+      color: primary,
+    ),
+    statusTextStyle: ChatUiStyleConfig.standard.statusTextStyle.copyWith(
+      color: secondary,
+    ),
+    selfBubbleColor: colors.color(GenesisColorToken.privateChatBubbleSelf),
+    otherBubbleColor: colors.color(GenesisColorToken.privateChatBubbleOther),
+    bubbleTextStyle: ChatUiStyleConfig.standard.bubbleTextStyle.copyWith(
+      color: primary,
+    ),
+    dateDividerTextStyle: ChatUiStyleConfig.standard.dateDividerTextStyle
+        .copyWith(color: secondary),
+    systemMessageBackgroundColor: colors.color(
+      GenesisColorToken.surfaceOverlay,
+    ),
+    systemMessageTextStyle: ChatUiStyleConfig.standard.systemMessageTextStyle
+        .copyWith(color: inverse),
+    aiBadgeColor: colors.color(GenesisColorToken.create),
+    failedBadgeColor: colors.color(GenesisColorToken.danger),
+    failedBadgeIconColor: colors.color(GenesisColorToken.textOnDark),
+  );
+}
+
+ChatUiStyleConfig genesisPrivateChatStyle(BuildContext context) {
+  final colors = GenesisSemanticColors.of(context);
+  return genesisStandardChatStyle(context).copyWith(
+    headerBackgroundColor: colors.color(GenesisColorToken.surface),
+    clearHeaderBackgroundGradient: true,
+    composerBackgroundColor: colors.color(GenesisColorToken.surfacePanel),
+    clearComposerBackgroundGradient: true,
+    composerBackdropBlurSigma: 20,
+    senderNameTextStyle: ChatUiStyleConfig.standard.senderNameTextStyle
+        .copyWith(color: colors.color(GenesisColorToken.textPrimary)),
+    showSenderNameAboveOtherBubble: false,
+  );
+}
+
+ChatUiStyleConfig genesisLocationChatStyle(BuildContext context) {
+  final colors = GenesisSemanticColors.of(context);
+  final inverse = colors.color(GenesisColorToken.locationChatForeground);
+  return genesisStandardChatStyle(context).copyWith(
+    conversationBackgroundColor: colors.color(
+      GenesisColorToken.locationChatBackground,
+    ),
+    headerBackgroundGradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        colors.color(GenesisColorToken.locationChatChromeStrong),
+        colors.color(GenesisColorToken.locationChatChromeSoft),
+      ],
+    ),
+    headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
+        .copyWith(color: inverse),
+    headerSubtitleTextStyle: ChatUiStyleConfig.standard.headerSubtitleTextStyle
+        .copyWith(color: inverse),
+    headerTitleIconColor: inverse,
+    headerStatusIconColor: inverse,
+    composerBackgroundGradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        colors.color(GenesisColorToken.locationChatChromeSoft),
+        colors.color(GenesisColorToken.locationChatChromeStrong),
+      ],
+    ),
+    senderNameTextStyle: ChatUiStyleConfig.standard.senderNameTextStyle
+        .copyWith(color: inverse),
+    bubbleTextStyle: ChatUiStyleConfig.standard.bubbleTextStyle.copyWith(
+      color: colors.color(GenesisColorToken.textPrimary),
+    ),
+  );
+}
 
 const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
@@ -191,7 +297,7 @@ class ChatHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     final topInset = GenesisSafeAreaInsets.top(context);
     final headerSidePadding = trailing == null
         ? style.headerTrailingPlaceholderWidth
@@ -373,7 +479,7 @@ class _ChatHeaderSubtitleAssetIcon extends StatelessWidget {
         0,
         customCharacterIconVerticalOffset(style.headerStatusIconSize),
       ),
-      child: SvgPicture.asset(
+      child: GenesisSvgAsset.asset(
         asset,
         width: customCharacterIconRenderSize(style.headerStatusIconSize),
         height: customCharacterIconRenderSize(style.headerStatusIconSize),
@@ -416,7 +522,7 @@ class ChatComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     final submitFromKeyboard = !style.showComposerSendButton;
     final bottomInset =
         bottomSafeAreaInset ?? GenesisSafeAreaInsets.bottom(context);
@@ -723,7 +829,7 @@ class ChatMessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     return ListView.builder(
       controller: controller,
       reverse: reverse,
@@ -794,7 +900,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     if (messages.isEmpty) {
       return ListView(
         controller: controller,
@@ -1050,7 +1156,7 @@ class ChatMessageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     if (message.isSystem) {
       return ChatSystemMessage(
         text: message.isTick ? _tickAdvanceText(message) : message.text,
@@ -1296,7 +1402,7 @@ class ChatMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     final background = message.isMe
         ? style.selfBubbleColor
         : style.otherBubbleColor;
@@ -1341,7 +1447,7 @@ class ChatAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     final seed = this.seed?.trim();
     final imageUrl = this.imageUrl.trim();
     return SizedBox(
@@ -1423,7 +1529,7 @@ class ChatAiBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     return Icon(
       MyFlutterApp.redstarCharIcon,
       size: style.aiBadgeSize,
@@ -1439,7 +1545,7 @@ class ChatSendingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     final indicatorSize =
         (style.sendingBadgeSize - (style.sendingBadgePadding * 2)) * (2 / 3);
     return SizedBox.square(
@@ -1464,7 +1570,7 @@ class ChatFailedBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     return Container(
       width: style.failedBadgeSize,
       height: style.failedBadgeSize,
@@ -1492,7 +1598,7 @@ class ChatDateDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     return Padding(
       padding: EdgeInsets.only(bottom: style.dateDividerBottomPadding),
       child: Center(
@@ -1534,7 +1640,7 @@ class ChatSystemMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? genesisStandardChatStyle(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxBubbleWidth = fullWidth
@@ -1602,7 +1708,7 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 3),
-          child: SvgPicture.asset(
+          child: GenesisSvgAsset.asset(
             iconAsset,
             width: 14,
             height: 14,

@@ -11,12 +11,20 @@ import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/telemetry/genesis_telemetry.dart';
 import 'components/common/genesis_modal_routes.dart';
+import 'ui/theme/genesis_color_controller.dart';
+import 'ui/theme/genesis_semantic_colors.dart';
 
 export 'app/genesis_app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final appStartedAt = DateTime.now();
+  final colorControllerFuture = GenesisColorController.load().catchError((
+    Object error,
+  ) {
+    debugPrint('[Startup] developer color configuration failed: $error');
+    return GenesisColorController();
+  });
   unawaited(
     SystemChrome.setPreferredOrientations(<DeviceOrientation>[
       DeviceOrientation.portraitUp,
@@ -35,14 +43,27 @@ Future<void> main() async {
     AppStartupCoordinator.recordStartupFirstReport();
     final services = AppBootstrap.createInitialServices(config: appConfig);
     final initialIndexFuture = _resolveInitialBottomTab(services);
+    final resolvedColorControllerFuture = colorControllerFuture;
     AppStartupCoordinator.configure(startedAt: appStartedAt);
-    GenesisSystemUiChrome.applyDefault();
-    unawaited(
-      initialIndexFuture.then(
-        (initialIndex) =>
-            runApp(GenesisApp(services: services, initialIndex: initialIndex)),
-      ),
-    );
+    unawaited(() async {
+      final results = await Future.wait<Object>(<Future<Object>>[
+        initialIndexFuture,
+        resolvedColorControllerFuture,
+      ]);
+      final colorController = results[1] as GenesisColorController;
+      GenesisColorRuntime.activate(
+        colorController.configFor(colorController.activeBrightness),
+        colorController.revision,
+      );
+      GenesisSystemUiChrome.applyDefault();
+      runApp(
+        GenesisApp(
+          services: services,
+          initialIndex: results[0] as int,
+          colorController: colorController,
+        ),
+      );
+    }());
   }
 
   runGenesisApp();

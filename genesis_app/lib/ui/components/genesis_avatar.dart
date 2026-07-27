@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'genesis_static_network_image.dart';
 import '../text/genesis_text_input_formatters.dart';
 import '../tokens/genesis_avatar_radii.dart';
+import '../theme/genesis_color_token.dart';
+import '../theme/genesis_semantic_colors.dart';
 import '../../utils/genesis_image_resource.dart';
 
 class GenesisAvatar extends StatelessWidget {
@@ -172,7 +174,9 @@ class GenesisAvatarFallback extends StatelessWidget {
           style:
               textStyle ??
               TextStyle(
-                color: Colors.white,
+                color: GenesisSemanticColors.of(
+                  context,
+                ).color(GenesisColorToken.textOnDark),
                 fontSize: fontSize,
                 height: 1,
                 fontWeight: FontWeight.w600,

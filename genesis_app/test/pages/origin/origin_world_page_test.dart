@@ -263,8 +263,8 @@ void main() {
         source.indexOf('class _OriginCharacterPortrait'),
       );
       final bodyStyle = source.substring(
-        source.indexOf('const _bodyTextStyle'),
-        source.indexOf('const _mutedBodyTextStyle'),
+        source.indexOf('TextStyle _bodyTextStyle'),
+        source.indexOf('TextStyle _mutedBodyTextStyle'),
       );
 
       expect(characterRow, isNot(contains('visibleDescription')));

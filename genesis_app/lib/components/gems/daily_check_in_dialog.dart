@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../common/genesis_action_box.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 
@@ -19,6 +21,7 @@ Future<bool> showDailyCheckInDialog(
   int rewardGems = dailyCheckInPreviewReward,
 }) async {
   final claimed = status == DailyCheckInDialogStatus.claimed;
+  final colors = GenesisSemanticColors.of(context);
   final shouldCheckIn = await showGenesisActionBox<bool>(
     context: context,
     title: 'Daily Check-in',
@@ -32,7 +35,9 @@ Future<bool> showDailyCheckInDialog(
           DailyCheckInDialogStatus.claimed => 'Claimed',
         },
         value: true,
-        color: claimed ? kGemTaskClaimedForegroundColor : kGemAccentColor,
+        color: claimed
+            ? gemTaskClaimedForegroundColor(colors)
+            : gemAccentColor(colors),
         enabled: !claimed,
       ),
     ],
@@ -85,21 +90,22 @@ class _GemTaskReward extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           '+$rewardGems',
           key: const ValueKey<String>('gem-task-reward-value'),
-          style: const TextStyle(
-            color: Color(0xFF111111),
+          style: TextStyle(
+            color: colors.color(GenesisColorToken.textPrimary),
             fontSize: 15,
             height: 1.2,
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 4),
-        SvgPicture.asset(
+        GenesisSvgAsset.asset(
           gemIconAsset,
           key: const ValueKey<String>('gem-task-reward-icon'),
           width: gemSmallIconSize,

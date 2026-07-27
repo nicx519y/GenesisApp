@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../../icons/custom_icon_assets.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 class StatItem extends StatelessWidget {
   const StatItem({
@@ -15,11 +17,7 @@ class StatItem extends StatelessWidget {
     this.gap = 4,
     this.iconAssetScale = 1.25,
     this.iconVerticalOffset = -0.8,
-    this.textStyle = const TextStyle(
-      fontSize: 12,
-      fontWeight: FontWeight.w400,
-      color: Colors.black,
-    ),
+    this.textStyle,
   }) : assert(icon != null || iconAsset != null);
 
   final IconData? icon;
@@ -31,11 +29,19 @@ class StatItem extends StatelessWidget {
   final double gap;
   final double iconAssetScale;
   final double iconVerticalOffset;
-  final TextStyle textStyle;
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
-    final color = iconColor ?? Colors.black.withValues(alpha: 0.75);
+    final colors = GenesisSemanticColors.of(context);
+    final color = iconColor ?? colors.color(GenesisColorToken.textHighEmphasis);
+    final resolvedTextStyle =
+        textStyle ??
+        TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: colors.color(GenesisColorToken.textPrimary),
+        );
     final asset = iconAsset;
     final isCharacterAsset = _isCharacterAsset(asset);
     final visualSize = isCharacterAsset
@@ -64,7 +70,7 @@ class StatItem extends StatelessWidget {
         else
           Icon(icon, size: iconSize, color: color),
         SizedBox(width: gap),
-        Text(text, style: textStyle),
+        Text(text, style: resolvedTextStyle),
       ],
     );
   }
@@ -88,7 +94,7 @@ class _StatAssetIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (asset.endsWith('.svg')) {
-      return SvgPicture.asset(
+      return GenesisSvgAsset.asset(
         asset,
         width: size,
         height: size,

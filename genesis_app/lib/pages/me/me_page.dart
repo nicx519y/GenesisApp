@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -27,6 +27,8 @@ import '../../utils/entity_deleted.dart';
 import '../../utils/image_format_guards.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/text/genesis_text_input_formatters.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import 'settings_page.dart';
 
 class MePage extends StatefulWidget {
@@ -784,6 +786,7 @@ class _MePageState extends State<MePage> {
 
   @override
   Widget build(BuildContext context) {
+    final semanticColors = GenesisSemanticColors.of(context);
     return FutureBuilder<_MePageContent>(
       future: _future,
       builder: (context, snapshot) {
@@ -817,7 +820,7 @@ class _MePageState extends State<MePage> {
         final gemWalletState = AppServicesScope.of(context).gemWallet.state;
 
         return GenesisTopSafeArea(
-          backgroundColor: Colors.white,
+          backgroundColor: semanticColors.color(GenesisColorToken.surface),
           child: Column(
             children: [
               SizedBox(
@@ -837,7 +840,7 @@ class _MePageState extends State<MePage> {
                         children: [
                           IconButton(
                             onPressed: _openDiscord,
-                            icon: SvgPicture.asset(
+                            icon: GenesisSvgAsset.asset(
                               'assets/custom-icons/svg/discord-svgrepo-com.svg',
                               width: 30,
                               height: 30,
@@ -846,7 +849,9 @@ class _MePageState extends State<MePage> {
                           IconButton(
                             onPressed: _openSettings,
                             icon: const Icon(Icons.settings, size: 24),
-                            color: Colors.black,
+                            color: semanticColors.color(
+                              GenesisColorToken.iconPrimary,
+                            ),
                           ),
                         ],
                       ),
@@ -1164,8 +1169,11 @@ class _NickNameInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const border = UnderlineInputBorder(
-      borderSide: BorderSide(color: Color(0xFFD8D8DE)),
+    final colors = GenesisSemanticColors.of(context);
+    final border = UnderlineInputBorder(
+      borderSide: BorderSide(
+        color: colors.color(GenesisColorToken.borderStrong),
+      ),
     );
     return SizedBox(
       width: double.infinity,
@@ -1180,15 +1188,15 @@ class _NickNameInput extends StatelessWidget {
             maxLines: 1,
             maxLength: maxLength,
             textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
               counterText: '',
               enabledBorder: border,
               focusedBorder: border,
               contentPadding: EdgeInsets.only(bottom: 5),
             ),
-            style: const TextStyle(
-              color: Color(0xFF111111),
+            style: TextStyle(
+              color: colors.color(GenesisColorToken.textPrimary),
               fontSize: 14,
               height: 1.2,
             ),
@@ -1198,8 +1206,8 @@ class _NickNameInput extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             '${controller.text.characters.length}/$maxLength',
-            style: const TextStyle(
-              color: Color(0xFF8C8C8C),
+            style: TextStyle(
+              color: colors.color(GenesisColorToken.textCounter),
               fontSize: 11,
               height: 1.1,
             ),

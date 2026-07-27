@@ -6,8 +6,8 @@ import 'package:genesis_flutter_android/components/home/popular_origin_list.dart
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
-import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -116,8 +116,14 @@ void main() {
     expect(find.text('WID: w_summary_alpha'), findsOneWidget);
     final progressWid = tester.widget<Text>(find.text('WID: w_summary_alpha'));
     final progressTime = tester.widget<Text>(find.text('2-18 21:20'));
-    expect(progressWid.style?.color, const Color(0xFF666666));
-    expect(progressTime.style?.color, const Color(0xFF888888));
+    expect(
+      progressWid.style?.color,
+      GenesisColorDefaults.light.color(GenesisColorToken.textMetadata),
+    );
+    expect(
+      progressTime.style?.color,
+      GenesisColorDefaults.light.color(GenesisColorToken.textMetadata),
+    );
     expect(find.text('Originator: Origin Owner'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
     expect(find.text('12'), findsOneWidget);
@@ -162,8 +168,14 @@ void main() {
     expect(worldViewBody.style?.fontSize, 13);
     expect(progressBody.style?.fontSize, 13);
     expect(discussBody.style?.fontSize, 13);
-    expect(worldViewBody.style?.color, const Color(0xFF111111));
-    expect(progressBody.style?.color, const Color(0xFF111111));
+    expect(
+      worldViewBody.style?.color,
+      GenesisColorDefaults.light.color(GenesisColorToken.textDetailBody),
+    );
+    expect(
+      progressBody.style?.color,
+      GenesisColorDefaults.light.color(GenesisColorToken.textDetailBody),
+    );
     expect(worldViewBody.maxLines, 5);
     expect(progressBody.maxLines, 5);
     expect(

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
@@ -64,8 +63,8 @@ enum _DraftLeaveAction { submit, save, discard }
 
 enum OriginDraftSubmitStatus { idle, checkingPending, processing }
 
-const TextStyle _editSummaryLabelStyle = TextStyle(
-  color: Colors.black,
+TextStyle get _editSummaryLabelStyle => TextStyle(
+  color: createFormText,
   fontSize: 14,
   fontWeight: FontWeight.w600,
   height: 1.2,
@@ -339,7 +338,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                 ? _DraftLeaveAction.save
                 : _DraftLeaveAction.submit,
           ),
-          const GenesisActionBoxAction<_DraftLeaveAction>(
+          GenesisActionBoxAction<_DraftLeaveAction>(
             label: 'Discard',
             value: _DraftLeaveAction.discard,
             color: createFormText,
@@ -408,7 +407,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    const disabledSubmitColor = Color(0xFFBFD8CD);
     final canUseSubmitButton =
         !_isSubmitting &&
         widget.submitStatus == OriginDraftSubmitStatus.idle &&
@@ -525,9 +523,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                           ? () => unawaited(_submit())
                           : null,
                       backgroundColor: createFormGreen,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: disabledSubmitColor,
-                      disabledForegroundColor: Colors.white,
+                      foregroundColor: createFormOnAction,
+                      disabledBackgroundColor: createFormDisabledFill,
+                      disabledForegroundColor: createFormDisabledForeground,
                     ),
                   ),
                 ],
@@ -694,7 +692,7 @@ class _UpdateNotesFieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
+    return Text(
       '📝Update notes (required to publish)',
       style: _editSummaryLabelStyle,
     );

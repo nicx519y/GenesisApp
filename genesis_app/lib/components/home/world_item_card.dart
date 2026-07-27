@@ -9,6 +9,8 @@ import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/recent_chat_marker.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -212,6 +214,7 @@ class WorldItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -244,8 +247,8 @@ class WorldItemCard extends StatelessWidget {
           item.progressSummary,
           maxLines: 10,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF111111),
+          style: TextStyle(
+            color: colors.color(GenesisColorToken.textDetailBody),
             fontSize: 13,
             height: 1.4,
             fontWeight: FontWeight.w400,
@@ -300,6 +303,7 @@ class _CurrentUserStatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final character = data.character;
     final name = _mapString(character, const ['name'], fallback: 'Character');
     final playerUid = _mapString(character, const ['player_uid']);
@@ -345,17 +349,19 @@ class _CurrentUserStatusRow extends StatelessWidget {
                             if (suffix.isNotEmpty)
                               TextSpan(
                                 text: ' $suffix',
-                                style: const TextStyle(
-                                  color: Color(0xFF888888),
+                                style: TextStyle(
+                                  color: colors.color(
+                                    GenesisColorToken.textMetadata,
+                                  ),
                                 ),
                               ),
                           ],
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           height: 1.15,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black,
+                          color: colors.color(GenesisColorToken.textPrimary),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -365,11 +371,11 @@ class _CurrentUserStatusRow extends StatelessWidget {
                     Text(
                       roleLabel,
                       textAlign: TextAlign.right,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         height: 1.15,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF8F8F8F),
+                        color: colors.color(GenesisColorToken.textRole),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -379,11 +385,11 @@ class _CurrentUserStatusRow extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     height: 1.35,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF666666),
+                    color: colors.color(GenesisColorToken.textSecondaryStrong),
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -404,19 +410,20 @@ class _ProgressTickTime extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F4F8),
+        color: colors.color(GenesisColorToken.contentPanelSurface),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Color(0xFF111111),
+        style: TextStyle(
+          color: colors.color(GenesisColorToken.textSecondaryStrong),
           fontSize: 12,
           height: 1.1,
           fontWeight: FontWeight.w400,
@@ -437,6 +444,7 @@ class _WorldSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final tagLabel = recentActivityTagLabel.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,8 +457,8 @@ class _WorldSummary extends StatelessWidget {
                 item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF4B6192),
+                style: TextStyle(
+                  color: colors.color(GenesisColorToken.textLink),
                   fontSize: 14,
                   height: 1.1,
                   fontWeight: FontWeight.w600,
@@ -471,7 +479,7 @@ class _WorldSummary extends StatelessWidget {
                 'WID: ${deletedAwareIdLabel(item.wid, deleted: item.deleted)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: _worldMetaStyle,
+                style: _worldMetaStyle(colors),
               ),
             ),
             const SizedBox(width: 24),
@@ -480,7 +488,7 @@ class _WorldSummary extends StatelessWidget {
                 'Owner: ${item.ownerLabel}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: _worldMetaStyle,
+                style: _worldMetaStyle(colors),
               ),
             ),
           ],
@@ -559,15 +567,16 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return StatItem(
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconSize: 11,
-      iconColor: Colors.black,
+      iconColor: colors.color(GenesisColorToken.iconSecondary),
       gap: 4,
       text: formatStatCount(value),
-      textStyle: const TextStyle(
-        color: Colors.black,
+      textStyle: TextStyle(
+        color: colors.color(GenesisColorToken.textMetadata),
         fontSize: 12,
         height: 1,
         fontWeight: FontWeight.w400,
@@ -583,21 +592,22 @@ class _ProgressHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       children: [
-        const Icon(
+        Icon(
           MyFlutterApp.lastProgress,
-          color: Color(0xFFFF2442),
+          color: colors.color(GenesisColorToken.homeFeedAccent),
           size: 14,
         ),
         const SizedBox(width: 8),
-        const Expanded(
+        Expanded(
           child: Text(
             'Last Progress',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: Color(0xFF1D1D1D),
+              color: colors.color(GenesisColorToken.textSectionTitle),
               fontSize: 13,
               height: 1,
               fontWeight: FontWeight.w600,
@@ -610,8 +620,8 @@ class _ProgressHeader extends StatelessWidget {
             timestamp: timestamp,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF8B8B8B),
+            style: TextStyle(
+              color: colors.color(GenesisColorToken.textTimestamp),
               fontSize: 12,
               height: 1.1,
               fontWeight: FontWeight.w400,
@@ -647,8 +657,8 @@ class _WorldImage extends StatelessWidget {
   }
 }
 
-const _worldMetaStyle = TextStyle(
-  color: Color(0xFF666666),
+TextStyle _worldMetaStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textMetadata),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

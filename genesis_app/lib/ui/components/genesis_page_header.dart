@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/genesis_spacing.dart';
+import '../theme/genesis_color_token.dart';
+import '../theme/genesis_semantic_colors.dart';
 import 'genesis_page_title.dart';
 import 'genesis_safe_area.dart';
 import 'genesis_search_field.dart';
@@ -26,7 +28,9 @@ class GenesisPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GenesisTopSafeArea(
-      backgroundColor: Colors.white,
+      backgroundColor: GenesisSemanticColors.of(
+        context,
+      ).color(GenesisColorToken.surface),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           horizontalPadding,

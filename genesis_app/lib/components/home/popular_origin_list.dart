@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../discuss/origin_discuss_preview_list.dart';
 import '../origin/stat_item.dart';
@@ -8,6 +9,8 @@ import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -115,19 +118,24 @@ class _PopularOriginListState extends State<PopularOriginList> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return ListView.separated(
       key: widget.storageKey,
       controller: widget.controller,
       primary: false,
-      cacheExtent: 900,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
       padding: const EdgeInsets.only(top: 10, bottom: 24),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
       itemCount: widget.items.length + (widget.isLoadingMore ? 1 : 0),
-      separatorBuilder: (context, index) => const Padding(
-        padding: EdgeInsets.only(top: 24, bottom: 16),
-        child: Divider(height: 1, thickness: 1, color: Color(0xFFEFEFEF)),
+      separatorBuilder: (context, index) => Padding(
+        padding: const EdgeInsets.only(top: 24, bottom: 16),
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: colors.color(GenesisColorToken.listDivider),
+        ),
       ),
       itemBuilder: (context, index) {
         if (index >= widget.items.length) {
@@ -265,6 +273,7 @@ class _WorldViewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final body = item.subtitle;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,7 +295,7 @@ class _WorldViewSection extends StatelessWidget {
                 body,
                 maxLines: 5,
                 overflow: TextOverflow.ellipsis,
-                style: _bodyStyle,
+                style: _bodyStyle(colors),
               ),
             ],
           ),
@@ -309,6 +318,7 @@ class _OriginSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -316,8 +326,8 @@ class _OriginSummary extends StatelessWidget {
           originDisplayName(title),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF4B6192),
+          style: TextStyle(
+            color: colors.color(GenesisColorToken.textLink),
             fontSize: 14,
             height: 1.1,
             fontWeight: FontWeight.w600,
@@ -331,7 +341,7 @@ class _OriginSummary extends StatelessWidget {
                 'OID: ${deletedAwareIdLabel(item.oid, deleted: item.deleted)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: _metaStyle,
+                style: _metaStyle(colors),
               ),
             ),
             const SizedBox(width: 24),
@@ -340,7 +350,7 @@ class _OriginSummary extends StatelessWidget {
                 'Originator: ${_originatorLabel(item)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: _metaStyle,
+                style: _metaStyle(colors),
               ),
             ),
           ],
@@ -466,15 +476,16 @@ class _OriginStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return StatItem(
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconSize: 11,
-      iconColor: Colors.black,
+      iconColor: colors.color(GenesisColorToken.iconSecondary),
       gap: 4,
       text: formatStatCount(value),
-      textStyle: const TextStyle(
-        color: Colors.black,
+      textStyle: TextStyle(
+        color: colors.color(GenesisColorToken.textMetadata),
         fontSize: 12,
         height: 1,
         fontWeight: FontWeight.w400,
@@ -493,6 +504,7 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       children: [
         if (iconAsset case final asset?)
@@ -501,18 +513,24 @@ class _SectionHeader extends StatelessWidget {
             width: 16,
             height: 16,
             fit: BoxFit.contain,
+            color: colors.color(GenesisColorToken.homeFeedAccent),
+            colorBlendMode: BlendMode.srcIn,
             excludeFromSemantics: true,
           )
         else
-          Icon(icon, color: const Color(0xFFFF2442), size: 14),
+          Icon(
+            icon,
+            color: colors.color(GenesisColorToken.homeFeedAccent),
+            size: 14,
+          ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1D1D1D),
+            style: TextStyle(
+              color: colors.color(GenesisColorToken.textSectionTitle),
               fontSize: _popularOriginSectionTitleFontSize,
               height: 1,
               fontWeight: FontWeight.w600,
@@ -546,23 +564,24 @@ class _ProgressSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final summaryFuture = future;
     if (summaryFuture == null) {
-      return _buildContent(null);
+      return _buildContent(context, null);
     }
     return FutureBuilder<WorldSummaryLatestItem?>(
       future: summaryFuture,
       builder: (context, snapshot) {
-        return _buildContent(snapshot.data);
+        return _buildContent(context, snapshot.data);
       },
     );
   }
 
-  Widget _buildContent(WorldSummaryLatestItem? summary) {
+  Widget _buildContent(BuildContext context, WorldSummaryLatestItem? summary) {
+    final colors = GenesisSemanticColors.of(context);
     final body = summary?.summary.trim() ?? '';
     if (summary == null || body.isEmpty) {
-      return const Text(
+      return Text(
         _emptyText,
         key: ValueKey('popular-origin-progress-empty'),
-        style: _emptyBodyStyle,
+        style: _emptyBodyStyle(colors),
       );
     }
 
@@ -580,7 +599,7 @@ class _ProgressSummary extends StatelessWidget {
           height: _popularOriginProgressBodyHeight,
           child: Text(
             body,
-            style: _bodyStyle,
+            style: _bodyStyle(colors),
             maxLines: 5,
             overflow: TextOverflow.ellipsis,
             strutStyle: const StrutStyle(
@@ -667,6 +686,7 @@ class _MetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final displayWorldId = worldId.trim();
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -690,7 +710,7 @@ class _MetaRow extends StatelessWidget {
                       'WID: ${deletedAwareIdLabel(displayWorldId, deleted: worldDeleted)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _metaStyle,
+                      style: _metaStyle(colors),
                     ),
                   ),
                   const SizedBox(width: 9),
@@ -707,7 +727,7 @@ class _MetaRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: _progressTimeMetaStyle,
+                  style: _progressTimeMetaStyle(colors),
                 ),
               ),
             ],
@@ -723,27 +743,27 @@ class _OriginTickChip extends StatelessWidget {
 
   final int count;
 
-  static const Color _chipBackground = Color(0xFFFEF3C7);
-  static const Color _chipForeground = Color(0xFF92400E);
-
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
+    final chipBackground = colors.color(GenesisColorToken.warningContainer);
+    final chipForeground = colors.color(GenesisColorToken.warning);
     return Container(
       key: ValueKey('popular-origin-tick-chip-$count'),
       padding: const EdgeInsetsDirectional.fromSTEB(5, 2, 7, 2),
       decoration: BoxDecoration(
-        color: _chipBackground,
+        color: chipBackground,
         borderRadius: BorderRadius.circular(5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(MyFlutterApp.pregress, size: 9, color: _chipForeground),
+          Icon(MyFlutterApp.pregress, size: 9, color: chipForeground),
           const SizedBox(width: 3),
           Text(
             '$count',
-            style: const TextStyle(
-              color: _chipForeground,
+            style: TextStyle(
+              color: chipForeground,
               fontSize: 11,
               height: 1,
               fontWeight: FontWeight.w600,
@@ -762,6 +782,7 @@ class _EnterOriginRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       children: [
         Expanded(
@@ -769,8 +790,8 @@ class _EnterOriginRow extends StatelessWidget {
             originDisplayName(title),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF4B6192),
+            style: TextStyle(
+              color: colors.color(GenesisColorToken.textLink),
               fontSize: 13,
               height: 1.2,
               fontWeight: FontWeight.w600,
@@ -778,17 +799,21 @@ class _EnterOriginRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        const Text(
+        Text(
           'Enter',
           style: TextStyle(
-            color: Color(0xFF4B6192),
+            color: colors.color(GenesisColorToken.textLink),
             fontSize: 13,
             height: 1.2,
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 4),
-        const Icon(Icons.chevron_right, color: Color(0xFF4B6192), size: 20),
+        Icon(
+          Icons.chevron_right,
+          color: colors.color(GenesisColorToken.textLink),
+          size: 20,
+        ),
       ],
     );
   }
@@ -808,29 +833,29 @@ void _showCover(BuildContext context, String cover) {
   showGenesisImageViewer(context, imageUrls: [url]);
 }
 
-const _bodyStyle = TextStyle(
-  color: Color(0xFF111111),
+TextStyle _bodyStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textDetailBody),
   fontSize: _popularOriginSectionBodyFontSize,
   height: 1.42,
   fontWeight: FontWeight.w400,
 );
 
-const _emptyBodyStyle = TextStyle(
-  color: Color(0xFF999999),
+TextStyle _emptyBodyStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textMuted),
   fontSize: 13,
   height: 1.3,
   fontWeight: FontWeight.w600,
 );
 
-const _metaStyle = TextStyle(
-  color: Color(0xFF666666),
+TextStyle _metaStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textMetadata),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
 
-const _progressTimeMetaStyle = TextStyle(
-  color: Color(0xFF888888),
+TextStyle _progressTimeMetaStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textMetadata),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

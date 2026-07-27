@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 
-const Color kGemAccentColor = Color(0xFFFF2442);
-const Color kGemSoldOutBorderColor = Color(0xFFFFD1D8);
-const Color kGemSoldOutForegroundColor = Color(0xFFD47B89);
-const Color kGemTaskActionColor = Color(0xFFAD403B);
-const Color kGemTaskClaimedForegroundColor = Color(0xFFD47B89);
-const Color kGemTaskProgressForegroundColor = Color(0xFF338960);
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
+
+Color gemAccentColor(GenesisSemanticColors colors) =>
+    colors.color(GenesisColorToken.gemAccent);
+Color gemSoldOutBorderColor(GenesisSemanticColors colors) =>
+    colors.color(GenesisColorToken.gemSoldOutBorder);
+Color gemSoldOutForegroundColor(GenesisSemanticColors colors) =>
+    colors.color(GenesisColorToken.gemSoldOutForeground);
+Color gemTaskActionColor(GenesisSemanticColors colors) =>
+    colors.color(GenesisColorToken.gemTaskAction);
+Color gemTaskClaimedForegroundColor(GenesisSemanticColors colors) =>
+    colors.color(GenesisColorToken.gemSoldOutForeground);
+Color gemTaskProgressForegroundColor(GenesisSemanticColors colors) =>
+    colors.color(GenesisColorToken.success);

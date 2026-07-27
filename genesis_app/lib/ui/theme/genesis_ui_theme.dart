@@ -2,9 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_typography.dart';
+import 'genesis_color_token.dart';
+import 'genesis_semantic_colors.dart';
 
 // GenesisUiTheme 是 UI 组件库专用的 ThemeExtension。
 // Material 自带的 ThemeData 不知道 GenesisSearchField / GenesisBottomNavigation 等自定义组件，
@@ -53,43 +54,60 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
 
   // 浅色主题默认值。
   // 这里是“改 UI 组件库整体视觉”的主入口；优先改这里，而不是去组件内部写死颜色。
-  factory GenesisUiTheme.light() {
+  factory GenesisUiTheme.light([GenesisSemanticColorConfig? config]) {
+    final colors = config ?? GenesisColorDefaults.light;
     return GenesisUiTheme(
       // 页面标题使用全局标题 token。
-      pageTitleStyle: GenesisTypography.pageTitle,
+      pageTitleStyle: GenesisTypography.pageTitle.copyWith(
+        color: colors.color(GenesisColorToken.textPrimary),
+      ),
       // 普通正文使用全局正文 token。
-      bodyStyle: GenesisTypography.body,
+      bodyStyle: GenesisTypography.body.copyWith(
+        color: colors.color(GenesisColorToken.textPrimary),
+      ),
       // 强调正文使用全局强调 token。
-      bodyStrongStyle: GenesisTypography.bodyStrong,
+      bodyStrongStyle: GenesisTypography.bodyStrong.copyWith(
+        color: colors.color(GenesisColorToken.textPrimary),
+      ),
       // 底部 tab 文案使用专门的小字号 token。
       tabLabelStyle: GenesisTypography.tabLabel,
       // 搜索框默认浅灰背景。
-      searchBackgroundColor: GenesisColors.surfaceInput,
+      searchBackgroundColor: colors.color(GenesisColorToken.surfaceInput),
       // 搜索图标默认弱化灰色。
-      searchIconColor: GenesisColors.textDisabled,
+      searchIconColor: colors.color(GenesisColorToken.textDisabled),
       // 搜索提示文案复用正文尺寸，但颜色弱化。
       searchHintStyle: GenesisTypography.body.copyWith(
-        color: GenesisColors.textDisabled,
+        color: colors.color(GenesisColorToken.textDisabled),
         letterSpacing: 0,
       ),
       // 搜索输入文字复用正文样式。
-      searchTextStyle: GenesisTypography.body,
+      searchTextStyle: GenesisTypography.body.copyWith(
+        color: colors.color(GenesisColorToken.textPrimary),
+      ),
       // 搜索框圆角使用输入框圆角 token。
       searchBorderRadius: GenesisRadii.input,
       // 底部导航背景色。
-      bottomNavigationBackgroundColor: GenesisColors.surfaceMuted,
+      bottomNavigationBackgroundColor: colors.color(
+        GenesisColorToken.bottomNavigationBackground,
+      ),
       // 底部导航选中态颜色。
-      bottomNavigationSelectedColor: GenesisColors.tabSelected,
+      bottomNavigationSelectedColor: colors.color(
+        GenesisColorToken.textPrimary,
+      ),
       // 底部导航未选中态颜色。
-      bottomNavigationUnselectedColor: GenesisColors.tabUnselected,
+      bottomNavigationUnselectedColor: colors.color(
+        GenesisColorToken.iconSecondary,
+      ),
       // 底部导航突出项颜色，例如 Create。
-      bottomNavigationProminentColor: GenesisColors.create,
+      bottomNavigationProminentColor: colors.color(
+        GenesisColorToken.bottomNavigationProminent,
+      ),
       // 二级 tab 选中颜色。
-      tabSelectedColor: GenesisColors.tabSelected,
+      tabSelectedColor: colors.color(GenesisColorToken.textPrimary),
       // 二级 tab 未选中颜色。
-      tabUnselectedColor: GenesisColors.tabUnselected,
-      // 二级 tab 指示器使用状态红。
-      tabIndicatorColor: GenesisColors.danger,
+      tabUnselectedColor: colors.color(GenesisColorToken.iconSecondary),
+      // 二级 tab 指示器使用产品强调色；Dark 下与危险/错误红分离。
+      tabIndicatorColor: colors.color(GenesisColorToken.create),
       // 二级 tab 指示器固定宽度，保持和现有视觉一致。
       tabIndicatorWidth: 34,
       // 二级 tab 指示器高度。
@@ -97,6 +115,10 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
       // 通用面板圆角。
       panelBorderRadius: GenesisRadii.panel,
     );
+  }
+
+  factory GenesisUiTheme.dark([GenesisSemanticColorConfig? config]) {
+    return GenesisUiTheme.light(config ?? GenesisColorDefaults.dark);
   }
 
   // GenesisPageTitle 的文字样式。
@@ -141,8 +163,11 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
   // 给组件读取主题的统一方法。
   // 如果外层 MaterialApp 没有挂 GenesisUiTheme，则回退到 light 默认值，避免组件空指针。
   static GenesisUiTheme of(BuildContext context) {
-    return Theme.of(context).extension<GenesisUiTheme>() ??
-        GenesisUiTheme.light();
+    final theme = Theme.of(context);
+    return theme.extension<GenesisUiTheme>() ??
+        (theme.brightness == Brightness.dark
+            ? GenesisUiTheme.dark()
+            : GenesisUiTheme.light());
   }
 
   @override

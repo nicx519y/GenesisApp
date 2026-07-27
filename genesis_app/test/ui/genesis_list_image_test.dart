@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
@@ -35,6 +36,22 @@ void main() {
     );
 
     expect(find.image(const AssetImage(placeholderAsset)), findsOneWidget);
+  });
+
+  testWidgets('GenesisListImage uses a semantic placeholder in Dark mode', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.dark(),
+        home: const Scaffold(
+          body: GenesisListImage(imageUrl: '', width: 52, height: 52),
+        ),
+      ),
+    );
+
+    expect(_defaultListImage(), findsNothing);
+    expect(find.byIcon(Icons.image_outlined), findsOneWidget);
   });
 
   testWidgets('GenesisListImage uses shared content image radius by default', (

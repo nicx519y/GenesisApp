@@ -119,7 +119,6 @@ class _OriginStoryEventsEditorPageState
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'Story Events'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
@@ -136,7 +135,7 @@ class _OriginStoryEventsEditorPageState
                         alignment: Alignment.centerRight,
                         child: Text(
                           '${_eventControllers.length}/$_maxEvents (Added / Max)',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: createFormText,
                             fontSize: 14,
                             height: 1.2,
@@ -216,7 +215,7 @@ class _SectionRow extends StatelessWidget {
                 SizedBox(
                   width: 24,
                   height: 24,
-                  child: SvgPicture.asset(icon, fit: BoxFit.contain),
+                  child: GenesisSvgAsset.asset(icon, fit: BoxFit.contain),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -232,8 +231,8 @@ class _SectionRow extends StatelessWidget {
                                 Text(
                                   title,
                                   textAlign: TextAlign.left,
-                                  style: const TextStyle(
-                                    color: Colors.black,
+                                  style: TextStyle(
+                                    color: createFormText,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w400,
                                     height: 1.2,
@@ -244,8 +243,8 @@ class _SectionRow extends StatelessWidget {
                                     ? Text(
                                         _summarySingleLine,
                                         textAlign: TextAlign.left,
-                                        style: const TextStyle(
-                                          color: Color(0xFF666666),
+                                        style: TextStyle(
+                                          color: createFormMuted,
                                           fontSize: 12,
                                           height: 1.4,
                                         ),
@@ -261,8 +260,8 @@ class _SectionRow extends StatelessWidget {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               softWrap: false,
-                                              style: const TextStyle(
-                                                color: Color(0xFF666666),
+                                              style: TextStyle(
+                                                color: createFormMuted,
                                                 fontSize: 12,
                                                 height: 1.4,
                                               ),
@@ -280,19 +279,19 @@ class _SectionRow extends StatelessWidget {
                             const SizedBox(width: 6),
                           ],
                           if (completed)
-                            const Text(
+                            Text(
                               '✓',
                               style: TextStyle(
-                                color: Color(0xFF1C7D56),
+                                color: createFormSuccess,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 height: 1,
                               ),
                             ),
                           const SizedBox(width: 8),
-                          const Icon(
+                          Icon(
                             Icons.chevron_right,
-                            color: Color(0xFF666666),
+                            color: createFormNavigationIcon,
                           ),
                         ],
                       ),
@@ -303,7 +302,7 @@ class _SectionRow extends StatelessWidget {
             ),
           ),
           if (showDivider)
-            const Divider(height: 1, thickness: 1, color: Color(0xFFEAEAEA)),
+            Divider(height: 1, thickness: 1, color: createFormDivider),
         ],
       ),
     );
@@ -330,7 +329,10 @@ class _ModifiedSectionBadge extends StatelessWidget {
     return SizedBox(
       width: 16,
       height: 16,
-      child: SvgPicture.asset(refreshModifiedIconAsset, fit: BoxFit.contain),
+      child: GenesisSvgAsset.asset(
+        refreshModifiedIconAsset,
+        fit: BoxFit.contain,
+      ),
     );
   }
 }
@@ -471,7 +473,7 @@ class _InitialCharactersField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Initial Characters (Optional)',
           style: TextStyle(
             color: createFormText,
@@ -509,7 +511,7 @@ class _InitialCharactersField extends StatelessWidget {
                     children: [
                       Expanded(
                         child: selectedCharacters.isEmpty
-                            ? const SizedBox(
+                            ? SizedBox(
                                 height: 48,
                                 child: Align(
                                   alignment: Alignment.centerLeft,
@@ -550,11 +552,7 @@ class _InitialCharactersField extends StatelessWidget {
                       const SizedBox(width: 4),
                       IconButton(
                         onPressed: onPickCharacters,
-                        icon: const Icon(
-                          Icons.add,
-                          color: createFormGreen,
-                          size: 32,
-                        ),
+                        icon: Icon(Icons.add, color: createFormGreen, size: 32),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints.tightFor(
                           width: 38,
@@ -601,7 +599,7 @@ class _InitialCharactersField extends StatelessWidget {
     final textPainter = TextPainter(
       text: TextSpan(
         text: name,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       ),
       maxLines: 1,
       textDirection: Directionality.of(context),
@@ -642,9 +640,9 @@ class _InitialCharacterChip extends StatelessWidget {
         height: 32,
         padding: const EdgeInsets.only(left: 10, right: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: createFormCardSurface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0xFFD9E5DF)),
+          border: Border.all(color: createFormBorder),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -654,7 +652,7 @@ class _InitialCharacterChip extends StatelessWidget {
                 name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: createFormText,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -663,8 +661,8 @@ class _InitialCharacterChip extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Padding(
-              padding: EdgeInsets.all(3),
+            Padding(
+              padding: const EdgeInsets.all(3),
               child: Icon(Icons.close, size: 14, color: createFormMuted),
             ),
           ],
@@ -737,9 +735,9 @@ class _CharacterPickerSheetState extends State<_CharacterPickerSheet> {
                 child: GenesisPrimaryButton(
                   label: 'Cancel',
                   onPressed: () => Navigator.of(context).pop(),
-                  backgroundColor: Colors.white,
+                  backgroundColor: createFormCardSurface,
                   foregroundColor: createFormText,
-                  side: const BorderSide(color: createFormBorder),
+                  side: BorderSide(color: createFormBorder),
                 ),
               ),
               const SizedBox(width: 18),
@@ -749,7 +747,7 @@ class _CharacterPickerSheetState extends State<_CharacterPickerSheet> {
                   onPressed: () =>
                       Navigator.of(context).pop(_selectedIds.toList()),
                   backgroundColor: createFormGreen,
-                  foregroundColor: Colors.white,
+                  foregroundColor: createFormOnAction,
                 ),
               ),
             ],
@@ -799,19 +797,21 @@ class _CharacterPickerTile extends StatelessWidget {
                     width: 26,
                     height: 26,
                     decoration: BoxDecoration(
-                      color: selected ? GenesisColors.brand : Colors.white10,
+                      color: selected
+                          ? createFormGreen
+                          : createFormImageOverlay,
                       borderRadius: BorderRadius.circular(7),
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: const [
+                      border: Border.all(color: createFormOnAction, width: 2),
+                      boxShadow: [
                         BoxShadow(
-                          color: Color(0x33000000),
+                          color: createFormShadow,
                           blurRadius: 5,
                           offset: Offset(0, 1),
                         ),
                       ],
                     ),
                     child: selected
-                        ? const Icon(Icons.check, color: Colors.white, size: 18)
+                        ? Icon(Icons.check, color: createFormOnAction, size: 18)
                         : null,
                   ),
                 ),
@@ -824,11 +824,11 @@ class _CharacterPickerTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.1,
               fontWeight: FontWeight.w400,
-              color: Color(0xFF111111),
+              color: createFormText,
             ),
           ),
         ],

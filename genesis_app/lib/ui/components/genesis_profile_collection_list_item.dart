@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../components/origin/stat_item.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../tokens/genesis_image_radii.dart';
+import '../theme/genesis_color_token.dart';
+import '../theme/genesis_semantic_colors.dart';
 import 'genesis_list_image.dart';
 import 'recent_chat_marker.dart';
 
@@ -64,8 +66,9 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Material(
-      color: Colors.white,
+      color: colors.color(GenesisColorToken.listItemSurface),
       shape: _shape,
       child: SizedBox(
         width: double.infinity,
@@ -93,11 +96,11 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                               item.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 height: 1.1,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF4B6192),
+                                color: colors.color(GenesisColorToken.textLink),
                               ),
                             ),
                           ),
@@ -112,9 +115,9 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                         item.subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF6F6F6F),
+                          color: colors.color(GenesisColorToken.textSecondary),
                           height: 1.3,
                         ),
                       ),
@@ -187,16 +190,17 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return StatItem(
       icon: icon,
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconSize: 11,
-      iconColor: Colors.black,
+      iconColor: colors.color(GenesisColorToken.iconPrimary),
       gap: 4,
       text: formatStatCount(value),
-      textStyle: const TextStyle(
-        color: Colors.black,
+      textStyle: TextStyle(
+        color: colors.color(GenesisColorToken.textPrimary),
         fontSize: 12,
         height: 1,
         fontWeight: FontWeight.w400,

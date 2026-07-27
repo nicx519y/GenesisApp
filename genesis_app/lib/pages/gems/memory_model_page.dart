@@ -8,6 +8,8 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_model.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 typedef GemModelCatalogLoader =
     Future<GemModelCatalog> Function(String worldId);
@@ -178,7 +180,6 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: GenesisBackAppBar(
         pageName: 'Model',
         titleStyle: const TextStyle(
@@ -205,15 +206,16 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   }
 
   Widget _buildBody() {
+    final colors = GenesisSemanticColors.of(context);
     final catalog = _catalog;
     if (catalog == null && _loading) {
-      return const Center(
+      return Center(
         child: SizedBox.square(
           dimension: 24,
           child: CircularProgressIndicator(
             key: ValueKey('gem-model-page-loading'),
             strokeWidth: 2,
-            color: kGemAccentColor,
+            color: gemAccentColor(colors),
           ),
         ),
       );
@@ -278,6 +280,7 @@ class _ModelSaveAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       width: 64,
       child: TextButton(
@@ -287,8 +290,8 @@ class _ModelSaveAction extends StatelessWidget {
           padding: const EdgeInsets.only(right: 20),
           backgroundColor: Colors.transparent,
           overlayColor: Colors.transparent,
-          foregroundColor: const Color(0xFF111111),
-          disabledForegroundColor: const Color(0xFF999999),
+          foregroundColor: colors.color(GenesisColorToken.textPrimary),
+          disabledForegroundColor: colors.color(GenesisColorToken.textMuted),
           textStyle: const TextStyle(
             fontSize: 14,
             height: 18 / 14,
@@ -296,12 +299,12 @@ class _ModelSaveAction extends StatelessWidget {
           ),
         ),
         child: saving
-            ? const SizedBox.square(
+            ? SizedBox.square(
                 key: ValueKey('gem-model-save-loading'),
                 dimension: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: kGemAccentColor,
+                  color: gemAccentColor(colors),
                 ),
               )
             : const Text('Save'),
@@ -373,14 +376,19 @@ class _GemModelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected ? kGemAccentColor : const Color(0xFFE1E1E1);
+    final colors = GenesisSemanticColors.of(context);
+    final borderColor = selected
+        ? gemAccentColor(colors)
+        : colors.color(GenesisColorToken.borderStrong);
     return Semantics(
       button: true,
       selected: selected,
       enabled: enabled,
       child: Material(
         key: ValueKey<String>('gem-model-${model.modelCode}'),
-        color: selected ? const Color(0xFFFFF4F6) : Colors.white,
+        color: selected
+            ? colors.color(GenesisColorToken.profileGemSurface)
+            : colors.color(GenesisColorToken.gemProductSurface),
         shape: RoundedRectangleBorder(
           side: BorderSide(color: borderColor, width: selected ? 1.2 : 1),
           borderRadius: BorderRadius.circular(8),
@@ -426,6 +434,7 @@ class _GemModelTileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -473,7 +482,7 @@ class _GemModelTileContent extends StatelessWidget {
               children: [
                 TextSpan(
                   text: '${model.estimatedNextMessageGems} gems',
-                  style: const TextStyle(color: kGemAccentColor),
+                  style: TextStyle(color: gemAccentColor(colors)),
                 ),
               ],
             ),
@@ -508,13 +517,14 @@ class _GemModelTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final normalizedLabel = label.trim().toLowerCase();
     final displayLabel = normalizedLabel.isEmpty
         ? ''
         : '${normalizedLabel[0].toUpperCase()}${normalizedLabel.substring(1)}';
     final backgroundColor = normalizedLabel == 'hot'
         ? const Color(0xFFFF7A1A)
-        : kGemAccentColor;
+        : gemAccentColor(colors);
     return Container(
       key: ValueKey<String>('gem-model-tag-$normalizedLabel'),
       height: 20,
@@ -544,24 +554,27 @@ class _GemModelSelectionIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       width: 15,
       height: 15,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: selected ? kGemAccentColor : const Color(0xFFCCCCCC),
+          color: selected
+              ? gemAccentColor(colors)
+              : colors.color(GenesisColorToken.textDisabled),
           width: 1,
         ),
       ),
       alignment: Alignment.center,
       child: selected
-          ? const DecoratedBox(
+          ? DecoratedBox(
               decoration: BoxDecoration(
-                color: kGemAccentColor,
+                color: gemAccentColor(colors),
                 shape: BoxShape.circle,
               ),
-              child: SizedBox.square(dimension: 9),
+              child: const SizedBox.square(dimension: 9),
             )
           : null,
     );

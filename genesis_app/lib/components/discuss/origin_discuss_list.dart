@@ -9,6 +9,8 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -1039,6 +1041,7 @@ class _ViewMoreButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Align(
       alignment: Alignment.center,
       child: GestureDetector(
@@ -1053,13 +1056,13 @@ class _ViewMoreButton extends StatelessWidget {
                   dimension: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text(
+              : Text(
                   'View More >',
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF888888),
+                    color: colors.color(GenesisColorToken.textMetadata),
                   ),
                 ),
         ),
@@ -1075,6 +1078,7 @@ class _DiscussHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       children: [
         Image.asset(
@@ -1087,8 +1091,8 @@ class _DiscussHeader extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           'Discuss (${formatStatCount(count)})',
-          style: const TextStyle(
-            color: Color(0xFF111111),
+          style: TextStyle(
+            color: colors.color(GenesisColorToken.textPrimary),
             fontSize: 14,
             height: 1.1,
             fontWeight: FontWeight.w600,
@@ -1235,6 +1239,7 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1261,8 +1266,8 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
                     : () => widget.onItemReplyTap!(widget.item),
                 child: Text(
                   widget.item.content,
-                  style: const TextStyle(
-                    color: Color(0xFF111111),
+                  style: TextStyle(
+                    color: colors.color(GenesisColorToken.textPrimary),
                     fontSize: 13,
                     height: 1.45,
                     fontWeight: FontWeight.w400,
@@ -1362,10 +1367,11 @@ class _DiscussActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final likePending = controller.isLikePending(item.discussId);
     final activeColor = item.isLiked
-        ? const Color(0xFFFF2442)
-        : const Color(0xFF7D8178);
+        ? colors.color(GenesisColorToken.create)
+        : colors.color(GenesisColorToken.discussInactiveAction);
     return Row(
       children: [
         GestureDetector(
@@ -1425,7 +1431,7 @@ class _DiscussActions extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           '${item.replyCount}',
-          style: _subtleStyle.copyWith(fontWeight: FontWeight.w600),
+          style: _subtleStyle(colors).copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -1684,6 +1690,7 @@ class _DiscussPreviewMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final authorMeta = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1692,8 +1699,8 @@ class _DiscussPreviewMeta extends StatelessWidget {
             item.authorName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF888888),
+            style: TextStyle(
+              color: colors.color(GenesisColorToken.textMetadata),
               fontSize: 12,
               height: 1.18,
               fontWeight: FontWeight.w600,
@@ -1738,7 +1745,7 @@ class _DiscussPreviewMeta extends StatelessWidget {
             const SizedBox(width: 8),
             GenesisTimestampText(
               timestamp: item.createdAt,
-              style: _subtleStyle,
+              style: _subtleStyle(colors),
             ),
           ],
         ],
@@ -1801,8 +1808,8 @@ class _DiscussAvatar extends StatelessWidget {
   }
 }
 
-const _subtleStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
+TextStyle _subtleStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textTimestamp),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

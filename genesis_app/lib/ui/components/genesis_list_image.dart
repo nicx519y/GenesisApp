@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'genesis_static_network_image.dart';
+import '../theme/genesis_color_token.dart';
+import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -31,22 +33,23 @@ class GenesisListImage extends StatelessWidget {
       builder: (context, constraints) {
         final resolved = _selectUrl(context, constraints);
         final image = resolved.isEmpty
-            ? _placeholder()
+            ? _placeholder(context)
             : resolved.startsWith('assets/')
             ? Image.asset(
                 resolved,
                 width: _finite(width),
                 height: _finite(height),
                 fit: fit,
-                errorBuilder: (context, error, stackTrace) => _placeholder(),
+                errorBuilder: (context, error, stackTrace) =>
+                    _placeholder(context),
               )
             : GenesisStaticNetworkImage(
                 imageUrl: resolved,
                 width: _finite(width),
                 height: _finite(height),
                 fit: fit,
-                placeholder: (_) => _placeholder(),
-                errorWidget: (_, _) => _placeholder(),
+                placeholder: (_) => _placeholder(context),
+                errorWidget: (_, _) => _placeholder(context),
               );
 
         return ClipRRect(
@@ -66,7 +69,21 @@ class GenesisListImage extends StatelessWidget {
     ).trim();
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
+    if (Theme.of(context).brightness == Brightness.dark &&
+        placeholderAsset == genesisDefaultListImageAsset) {
+      final colors = GenesisSemanticColors.of(context);
+      return ColoredBox(
+        color: colors.color(GenesisColorToken.contentPanelSurface),
+        child: Center(
+          child: Icon(
+            Icons.image_outlined,
+            size: 28,
+            color: colors.color(GenesisColorToken.iconSecondary),
+          ),
+        ),
+      );
+    }
     return Image.asset(
       placeholderAsset,
       width: _finite(width),

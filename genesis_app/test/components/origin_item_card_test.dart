@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
   test('preserves returned UGC backslashes for origin cards', () {
@@ -85,10 +86,74 @@ void main() {
     expect(find.text('v3'), findsNothing);
 
     final subtitle = tester.widget<Text>(find.text('Tycoon idols'));
-    expect(subtitle.style?.color, const Color(0xFF888888));
+    expect(
+      subtitle.style?.color,
+      GenesisColorDefaults.light.color(GenesisColorToken.textPrimary),
+    );
     expect(subtitle.style?.fontSize, 12);
     expect(subtitle.style?.height, 1.2);
     expect(subtitle.maxLines, 4);
+  });
+
+  testWidgets('uses muted semantic colors for Origin cards in Dark mode', (
+    WidgetTester tester,
+  ) async {
+    const item = OriginListItem(
+      oid: 'o_alpha',
+      status: 1,
+      versionNum: 3,
+      name: 'Alpha Empire',
+      cover: '',
+      displaySubtitle: 'Tycoon idols',
+      worldView: '',
+      createdUid: 'u_1',
+      createdUserName: 'Shawn',
+      createdAt: '2026-05-01T00:00:00Z',
+      updatedAt: '2026-05-02T00:00:00Z',
+      tags: <String>['strategy'],
+      copyCnt: 0,
+      connectCnt: 0,
+      discussCnt: 0,
+      characterCnt: 0,
+      locationCnt: 0,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.dark(),
+        home: const Scaffold(
+          body: SizedBox(width: 180, child: OriginItemCard(item: item)),
+        ),
+      ),
+    );
+
+    final title = tester.widget<Text>(find.text('#Alpha Empire'));
+    final subtitle = tester.widget<Text>(find.text('Tycoon idols'));
+    final tag = tester.widget<Text>(find.text('strategy'));
+    final tagContainer = tester.widget<Container>(
+      find.ancestor(
+        of: find.text('strategy'),
+        matching: find.byType(Container),
+      ),
+    );
+    final tagDecoration = tagContainer.decoration as BoxDecoration;
+
+    expect(
+      title.style?.color,
+      GenesisColorDefaults.dark.color(GenesisColorToken.textLink),
+    );
+    expect(
+      subtitle.style?.color,
+      GenesisColorDefaults.dark.color(GenesisColorToken.textPrimary),
+    );
+    expect(
+      tag.style?.color,
+      GenesisColorDefaults.dark.color(GenesisColorToken.originListTagText),
+    );
+    expect(
+      tagDecoration.color,
+      GenesisColorDefaults.dark.color(GenesisColorToken.originListTagSurface),
+    );
   });
 
   testWidgets('shows all tags that fit within two rows', (

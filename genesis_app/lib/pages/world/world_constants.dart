@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../components/world_details_shell.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 const String worldSectionEventsIconAsset =
     'assets/custom-icons/svg/world_tab_events.svg';
@@ -32,16 +34,17 @@ const double worldMapContentTopOffset =
 const double worldCharacterAvatarLogicalSize = 48;
 const int worldMainPageCount = 1;
 
-const Color worldHeaderMetaColor = Color(0xFF666666);
-const TextStyle worldHeaderMetaTextStyle = TextStyle(
+Color worldHeaderMetaColor(GenesisSemanticColors colors) =>
+    colors.color(GenesisColorToken.textSecondaryStrong);
+TextStyle worldHeaderMetaTextStyle(GenesisSemanticColors colors) => TextStyle(
   fontSize: 12,
   height: 1.1,
   fontWeight: FontWeight.w400,
-  color: worldHeaderMetaColor,
+  color: worldHeaderMetaColor(colors),
 );
-const TextStyle worldDetailBodyTextStyle = TextStyle(
+TextStyle worldDetailBodyTextStyle(GenesisSemanticColors colors) => TextStyle(
   fontSize: 13,
   height: 1.45,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: colors.color(GenesisColorToken.textPrimary),
 );

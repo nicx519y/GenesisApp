@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -24,6 +24,8 @@ import '../../network/models/gem_task_action.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 typedef GemTaskActionHandler =
     Future<GemTaskActionResult> Function(String taskCode);
@@ -604,15 +606,15 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final walletStateListenable = _walletStore.state;
     return PopScope(
       canPop: !_billingPurchaseDialogShowing,
       child: Scaffold(
-        backgroundColor: Colors.white,
         appBar: GenesisBackAppBar(
           pageName: 'Buy Gems',
-          titleStyle: const TextStyle(
-            color: Color(0xFF333333),
+          titleStyle: TextStyle(
+            color: colors.color(GenesisColorToken.textStrong),
             fontSize: 16,
             height: 22 / 16,
             fontWeight: FontWeight.w600,
@@ -623,12 +625,12 @@ class _GemWalletPageState extends State<GemWalletPage>
               behavior: HitTestBehavior.opaque,
               onTap: () =>
                   Navigator.of(context).pushNamed(RouteNames.gemRecords),
-              child: const Padding(
-                padding: EdgeInsets.fromLTRB(12, 10, 20, 10),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 20, 10),
                 child: Text(
                   'Records',
                   style: TextStyle(
-                    color: Color(0xFF333333),
+                    color: colors.color(GenesisColorToken.textStrong),
                     fontSize: 12,
                     height: 18 / 12,
                     fontWeight: FontWeight.w600,
@@ -651,7 +653,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       return _GemWalletError(onRetry: () => unawaited(_refreshAll()));
     }
     return RefreshIndicator(
-      color: kGemAccentColor,
+      color: gemAccentColor(GenesisSemanticColors.of(context)),
       onRefresh: () => _refreshAll(silent: true),
       child: _GemWalletContent(
         products: _products,
@@ -779,6 +781,7 @@ class _TaskGroupSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final isJoinUs =
         group.groupCode == 'join_us' ||
         group.groupTitle.trim().toLowerCase() == 'join us';
@@ -787,11 +790,11 @@ class _TaskGroupSection extends StatelessWidget {
       children: [
         Text(
           group.groupTitle,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             height: 20 / 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF111111),
+            color: colors.color(GenesisColorToken.textPrimary),
           ),
         ),
         const SizedBox(height: 10),
@@ -835,6 +838,7 @@ class _JoinUsTaskRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return GestureDetector(
       key: ValueKey<String>('gem-join-us-row-${task.taskCode}'),
       behavior: HitTestBehavior.opaque,
@@ -843,7 +847,7 @@ class _JoinUsTaskRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            SvgPicture.asset(
+            GenesisSvgAsset.asset(
               'assets/custom-icons/svg/discord-svgrepo-com.svg',
               width: 22,
               height: 22,
@@ -854,11 +858,11 @@ class _JoinUsTaskRow extends StatelessWidget {
                 task.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 16 / 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111111),
+                  color: colors.color(GenesisColorToken.textPrimary),
                 ),
               ),
             ),
@@ -866,15 +870,15 @@ class _JoinUsTaskRow extends StatelessWidget {
             Text(
               '+${formatGemInteger(task.rewardGems)}',
               maxLines: 1,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 16 / 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
+                color: colors.color(GenesisColorToken.textPrimary),
               ),
             ),
             const SizedBox(width: 4),
-            SvgPicture.asset(
+            GenesisSvgAsset.asset(
               gemIconAsset,
               key: ValueKey<String>('gem-task-reward-icon-${task.taskCode}'),
               width: gemSmallIconSize,
@@ -913,14 +917,17 @@ class _TaskRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       key: ValueKey<String>('gem-task-row-${task.taskCode}'),
       constraints: const BoxConstraints(minHeight: 62),
       padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.color(GenesisColorToken.gemProductSurface),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
+        border: Border.all(
+          color: colors.color(GenesisColorToken.gemProductBorder),
+        ),
       ),
       child: Row(
         children: [
@@ -933,21 +940,21 @@ class _TaskRow extends StatelessWidget {
                   task.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     height: 16 / 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111111),
+                    color: colors.color(GenesisColorToken.textPrimary),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   task.description,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     height: 14 / 12,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF888888),
+                    color: colors.color(GenesisColorToken.textMetadata),
                   ),
                 ),
               ],
@@ -964,15 +971,15 @@ class _TaskRow extends StatelessWidget {
                   children: [
                     Text(
                       '+${formatGemInteger(task.rewardGems)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         height: 16 / 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: colors.color(GenesisColorToken.textPrimary),
                       ),
                     ),
                     const SizedBox(width: 2),
-                    SvgPicture.asset(
+                    GenesisSvgAsset.asset(
                       gemIconAsset,
                       key: ValueKey<String>(
                         'gem-task-reward-icon-${task.taskCode}',
@@ -1025,13 +1032,14 @@ class _TaskActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final enabled =
         !isLoading && (status == 'in_progress' || status == 'claimable');
     final foregroundColor = switch (status) {
-      'claimable' => kGemAccentColor,
-      'in_progress' => kGemTaskProgressForegroundColor,
-      'claimed' => kGemTaskClaimedForegroundColor,
-      _ => kGemTaskActionColor,
+      'claimable' => gemAccentColor(colors),
+      'in_progress' => gemTaskProgressForegroundColor(colors),
+      'claimed' => gemTaskClaimedForegroundColor(colors),
+      _ => gemTaskActionColor(colors),
     };
     final actionText = status == task.status
         ? task.actionText
@@ -1077,13 +1085,14 @@ class _GemWalletLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final colors = GenesisSemanticColors.of(context);
+    return Center(
       child: SizedBox(
         width: 24,
         height: 24,
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: kGemAccentColor,
+          color: gemAccentColor(colors),
         ),
       ),
     );
@@ -1097,20 +1106,21 @@ class _GemWalletError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Unable to load gems.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 height: 20 / 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
+                color: colors.color(GenesisColorToken.textStrong),
               ),
             ),
             const SizedBox(height: 12),
@@ -1137,16 +1147,17 @@ class _GemSectionStatePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       height: 96,
       child: Center(
         child: isLoading || !hasError
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: kGemAccentColor,
+                  color: gemAccentColor(colors),
                 ),
               )
             : Column(
@@ -1154,10 +1165,10 @@ class _GemSectionStatePanel extends StatelessWidget {
                 children: [
                   Text(
                     errorMessage,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       height: 16 / 12,
-                      color: Color(0xFF999999),
+                      color: colors.color(GenesisColorToken.textMuted),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1182,20 +1193,21 @@ class _GemEmptyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       height: 96,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F8F8),
+        color: colors.color(GenesisColorToken.gemEmptySurface),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         message,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           height: 18 / 13,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF999999),
+          color: colors.color(GenesisColorToken.textMuted),
         ),
       ),
     );

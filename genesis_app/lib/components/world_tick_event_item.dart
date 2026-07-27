@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../utils/genesis_timestamp_formatter.dart';
+import '../ui/theme/genesis_color_token.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 
 class WorldTickEventItem extends StatelessWidget {
   const WorldTickEventItem({
@@ -92,11 +94,12 @@ class _TickHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       constraints: const BoxConstraints(minHeight: 30),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F5F8),
+        color: colors.color(GenesisColorToken.detailPanelSurface),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -104,11 +107,11 @@ class _TickHeader extends StatelessWidget {
           Expanded(
             child: Text(
               'Tick $tickNumber${date.isEmpty ? '' : ' · $date'}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
+                color: colors.color(GenesisColorToken.textPrimary),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -118,11 +121,11 @@ class _TickHeader extends StatelessWidget {
             const SizedBox(width: 12),
             Text(
               timeAgo,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 height: 1.2,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF8F8F8F),
+                color: colors.color(GenesisColorToken.textRole),
               ),
             ),
           ],
@@ -147,14 +150,15 @@ class _GlobalEventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = Text('Global', style: labelStyle ?? _labelStyle);
-    final bodyText = Text(body, style: bodyStyle ?? _bodyStyle);
+    final colors = GenesisSemanticColors.of(context);
+    final label = Text('Global', style: labelStyle ?? _labelStyle(colors));
+    final bodyText = Text(body, style: bodyStyle ?? _bodyStyle(colors));
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F8F4),
+        color: colors.color(GenesisColorToken.worldGlobalEventSurface),
         borderRadius: BorderRadius.circular(8),
       ),
       child: stacked
@@ -194,6 +198,7 @@ class _TickParagraphRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final locationId = _mapString(paragraph, const ['location_id']);
     final mappedName = _locationName(locationId, locationsById);
     final name = mappedName.isEmpty
@@ -216,7 +221,7 @@ class _TickParagraphRow extends StatelessWidget {
       text: name.isEmpty ? 'Location' : name,
       style: labelStyle,
     );
-    final resolvedBodyStyle = bodyStyle ?? _bodyStyle;
+    final resolvedBodyStyle = bodyStyle ?? _bodyStyle(colors);
     final bodyText = Text(body, style: resolvedBodyStyle);
     final timestampText = timestamp.isEmpty
         ? null
@@ -273,30 +278,26 @@ class _TickParagraphRow extends StatelessWidget {
   }
 }
 
-const _labelStyle = TextStyle(
+TextStyle _labelStyle(GenesisSemanticColors colors) => TextStyle(
   fontSize: 12,
   height: 1.6,
   fontWeight: FontWeight.w600,
-  color: Color(0xFF111111),
+  color: colors.color(GenesisColorToken.textPrimary),
 );
 
-const _bodyStyle = TextStyle(
+TextStyle _bodyStyle(GenesisSemanticColors colors) => TextStyle(
   fontSize: 12,
   height: 1.6,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF444444),
+  color: colors.color(GenesisColorToken.textDetailBody),
 );
 
-const _timestampStyle = TextStyle(
+TextStyle _timestampStyle(GenesisSemanticColors colors) => TextStyle(
   fontSize: 12,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: colors.color(GenesisColorToken.textPrimary),
 );
-
-const _characterDetailNameColor = Color(0xFF4B6192);
-const _positiveDeltaColor = Color(0xFF338960);
-const _negativeDeltaColor = Color(0xFFFF2442);
 
 class _CharacterDetailsText extends StatelessWidget {
   const _CharacterDetailsText({required this.details, required this.style});
@@ -306,8 +307,9 @@ class _CharacterDetailsText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final nameStyle = style.copyWith(
-      color: _characterDetailNameColor,
+      color: colors.color(GenesisColorToken.textLink),
       fontWeight: FontWeight.w600,
     );
     return Text.rich(
@@ -322,10 +324,14 @@ class _CharacterDetailsText extends StatelessWidget {
                 text: details[index].name.isEmpty
                     ? details[index].delta
                     : ' ${details[index].delta}',
-                style: details[index].deltaColor == null
+                style: details[index].deltaSign == null
                     ? null
                     : style.copyWith(
-                        color: details[index].deltaColor,
+                        color: colors.color(
+                          details[index].deltaSign! > 0
+                              ? GenesisColorToken.success
+                              : GenesisColorToken.danger,
+                        ),
                         fontWeight: FontWeight.w600,
                       ),
               ),
@@ -345,12 +351,17 @@ class _LocationLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.place_outlined, size: 12, color: Color(0xFF111111)),
+        Icon(
+          Icons.place_outlined,
+          size: 12,
+          color: colors.color(GenesisColorToken.iconPrimary),
+        ),
         const SizedBox(width: 4),
-        Flexible(child: Text(text, style: style ?? _labelStyle)),
+        Flexible(child: Text(text, style: style ?? _labelStyle(colors))),
       ],
     );
   }
@@ -364,13 +375,18 @@ class _TimestampLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedStyle = (style ?? _timestampStyle).copyWith(
+    final colors = GenesisSemanticColors.of(context);
+    final resolvedStyle = (style ?? _timestampStyle(colors)).copyWith(
       fontWeight: FontWeight.w400,
     );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.schedule, size: 12, color: Color(0xFF111111)),
+        Icon(
+          Icons.schedule,
+          size: 12,
+          color: colors.color(GenesisColorToken.iconPrimary),
+        ),
         const SizedBox(width: 4),
         Flexible(child: Text(text, style: resolvedStyle)),
       ],
@@ -419,12 +435,12 @@ class _CharacterDetailLine {
   const _CharacterDetailLine({
     required this.name,
     required this.delta,
-    this.deltaColor,
+    this.deltaSign,
   });
 
   final String name;
   final String delta;
-  final Color? deltaColor;
+  final int? deltaSign;
 
   bool get isNotEmpty => name.isNotEmpty || delta.isNotEmpty;
 }
@@ -445,7 +461,7 @@ List<_CharacterDetailLine> _characterDetails(
         return _CharacterDetailLine(
           name: _mapString(detail, const ['name']),
           delta: delta,
-          deltaColor: _characterDeltaColor(rawDelta),
+          deltaSign: _characterDeltaSign(rawDelta),
         );
       })
       .where((line) => line.isNotEmpty)
@@ -460,11 +476,11 @@ String _characterDeltaText(Object? rawDelta, String unit) {
   return '$prefix$delta$unit';
 }
 
-Color? _characterDeltaColor(Object? rawDelta) {
+int? _characterDeltaSign(Object? rawDelta) {
   final number = _pureIntegerDelta(rawDelta);
   if (number == null) return null;
-  if (number > 0) return _positiveDeltaColor;
-  if (number < 0) return _negativeDeltaColor;
+  if (number > 0) return 1;
+  if (number < 0) return -1;
   return null;
 }
 

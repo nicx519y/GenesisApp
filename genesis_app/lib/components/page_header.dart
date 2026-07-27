@@ -25,7 +25,9 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GenesisTopSafeArea(
-      backgroundColor: Colors.white,
+      backgroundColor: GenesisSemanticColors.of(
+        context,
+      ).color(GenesisColorToken.surface),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           horizontalPadding,
@@ -102,7 +104,6 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       toolbarHeight: kGenesisTopBarHeight,
-      backgroundColor: Colors.white,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
@@ -114,11 +115,7 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
           child: IconButton(
             constraints: const BoxConstraints.tightFor(width: 17, height: 17),
             padding: EdgeInsets.zero,
-            icon: const Icon(
-              Icons.arrow_back_ios_new,
-              color: Colors.black,
-              size: 17,
-            ),
+            icon: const Icon(Icons.arrow_back_ios_new, size: 17),
             onPressed: onBack ?? () => Navigator.of(context).maybePop(),
           ),
         ),

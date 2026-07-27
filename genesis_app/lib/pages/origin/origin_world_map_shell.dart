@@ -109,8 +109,11 @@ class _OriginBottomLaunchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return DecoratedBox(
-      decoration: const BoxDecoration(color: Color(0xFFF9F9F9)),
+      decoration: BoxDecoration(
+        color: colors.color(GenesisColorToken.surfaceMuted),
+      ),
       child: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
@@ -149,13 +152,13 @@ class _OriginBottomLaunchBar extends StatelessWidget {
               const SizedBox(width: 18),
               GenesisPrimaryButton(
                 label: 'Launch',
-                leadingIcon: SvgPicture.asset(
+                leadingIcon: GenesisSvgAsset.asset(
                   launchIconAsset,
                   key: const ValueKey<String>('origin-bottom-launch-icon'),
                   width: 14,
                   height: 14,
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
+                  colorFilter: ColorFilter.mode(
+                    colors.color(GenesisColorToken.textOnDark),
                     BlendMode.srcIn,
                   ),
                 ),
@@ -193,6 +196,7 @@ class _LaunchBarStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return StatItem(
       icon: icon,
       iconAsset: iconAsset,
@@ -200,14 +204,14 @@ class _LaunchBarStat extends StatelessWidget {
       iconSize: 14,
       iconAssetScale: 1,
       iconVerticalOffset: 0,
-      iconColor: const Color(0xFF111111),
+      iconColor: colors.color(GenesisColorToken.iconPrimary),
       gap: 4,
       text: formatStatCount(value),
-      textStyle: const TextStyle(
+      textStyle: TextStyle(
         fontSize: 14,
         height: 1,
         fontWeight: FontWeight.w400,
-        color: Color(0xFF111111),
+        color: colors.color(GenesisColorToken.textPrimary),
       ),
     );
   }

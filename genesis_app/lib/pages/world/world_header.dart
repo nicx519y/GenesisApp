@@ -1,13 +1,15 @@
 // ignore_for_file: use_key_in_widget_constructors
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../../components/origin/stat_item.dart';
 import '../../components/world_details_shell.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -21,17 +23,21 @@ class WorldMapBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       width: worldMapTabsHeight,
       height: worldMapTabsHeight,
       decoration: BoxDecoration(
-        color: const Color(0xE6FFFFFF),
+        color: colors.color(GenesisColorToken.mapControlBackground),
         borderRadius: BorderRadius.circular(12),
       ),
       child: IconButton(
         iconSize: 18,
         onPressed: onPressed,
-        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+        icon: Icon(
+          Icons.arrow_back_ios_new,
+          color: colors.color(GenesisColorToken.neutralControlForeground),
+        ),
         padding: EdgeInsets.zero,
       ),
     );
@@ -51,6 +57,7 @@ class WorldMapIdentityPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return ConstrainedBox(
       constraints: BoxConstraints(
         minWidth: worldTimePillMinWidth,
@@ -58,7 +65,7 @@ class WorldMapIdentityPill extends StatelessWidget {
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF).withValues(alpha: 0.86),
+          color: colors.color(GenesisColorToken.mapControlBackground),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Padding(
@@ -77,8 +84,8 @@ class WorldMapIdentityPill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF4B6192),
+                  style: TextStyle(
+                    color: colors.color(GenesisColorToken.textLink),
                     fontSize: 16,
                     height: 1.1,
                     leadingDistribution: TextLeadingDistribution.even,
@@ -99,13 +106,6 @@ class WorldMapIdentityPill extends StatelessWidget {
 class _WorldMapTimeLabel extends StatelessWidget {
   const _WorldMapTimeLabel({required this.text});
 
-  static const _textStyle = TextStyle(
-    color: Color(0xFF111111),
-    fontSize: 12,
-    height: 1,
-    leadingDistribution: TextLeadingDistribution.even,
-    fontWeight: FontWeight.w400,
-  );
   static const _strutStyle = StrutStyle(
     fontSize: 12,
     height: 1,
@@ -120,6 +120,14 @@ class _WorldMapTimeLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
+    final textStyle = TextStyle(
+      color: colors.color(GenesisColorToken.textPrimary),
+      fontSize: 12,
+      height: 1,
+      leadingDistribution: TextLeadingDistribution.even,
+      fontWeight: FontWeight.w400,
+    );
     final parts = _splitWorldMapTimeLabel(text);
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -131,15 +139,19 @@ class _WorldMapTimeLabel extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: _textStyle,
+            style: textStyle,
             strutStyle: _strutStyle,
             textHeightBehavior: _textHeightBehavior,
           ),
           if (parts.time.isNotEmpty)
-            const Text(' · ', style: _textStyle, strutStyle: _strutStyle),
+            Text(' · ', style: textStyle, strutStyle: _strutStyle),
         ],
         if (parts.time.isNotEmpty) ...[
-          const Icon(Icons.schedule, size: 12, color: Color(0xFF111111)),
+          Icon(
+            Icons.schedule,
+            size: 12,
+            color: colors.color(GenesisColorToken.iconPrimary),
+          ),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
@@ -147,7 +159,7 @@ class _WorldMapTimeLabel extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: _textStyle,
+              style: textStyle,
               strutStyle: _strutStyle,
               textHeightBehavior: _textHeightBehavior,
             ),
@@ -302,6 +314,7 @@ class WorldInfoHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final action = worldHeaderActionFor(world.relationStatus);
     final canTapRunningProgress =
         action.kind == WorldHeaderActionKind.progress &&
@@ -348,16 +361,20 @@ class WorldInfoHeader extends StatelessWidget {
                                   data['icon'] as String? ?? '',
                                 ),
                             iconSize: 14,
-                            iconColor: Colors.black,
+                            iconColor: colors.color(
+                              GenesisColorToken.iconPrimary,
+                            ),
                             text: formatStatCount(
                               data['value'] is num ? data['value'] as num : 0,
                             ),
                             gap: 4,
-                            textStyle: const TextStyle(
+                            textStyle: TextStyle(
                               fontSize: 14,
                               height: 1,
                               fontWeight: FontWeight.w400,
-                              color: Colors.black,
+                              color: colors.color(
+                                GenesisColorToken.textPrimary,
+                              ),
                             ),
                           ),
                       ],
@@ -375,15 +392,15 @@ class WorldInfoHeader extends StatelessWidget {
                         label: action.label,
                         leadingIcon:
                             action.kind == WorldHeaderActionKind.progress
-                            ? SvgPicture.asset(
+                            ? GenesisSvgAsset.asset(
                                 tickStatIconAsset,
                                 key: const ValueKey<String>(
                                   'world-progress-button-icon',
                                 ),
                                 width: 12,
                                 height: 12,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.white,
+                                colorFilter: ColorFilter.mode(
+                                  colors.color(GenesisColorToken.textOnDark),
                                   BlendMode.srcIn,
                                 ),
                               )
@@ -394,11 +411,15 @@ class WorldInfoHeader extends StatelessWidget {
                             : null,
                         height: 35,
                         width: 140,
-                        backgroundColor: const Color(0xFF2F9663),
-                        disabledBackgroundColor: const Color(
-                          0xFF2F9663,
-                        ).withValues(alpha: 0.62),
-                        foregroundColor: Colors.white,
+                        backgroundColor: colors.color(
+                          GenesisColorToken.worldAction,
+                        ),
+                        disabledBackgroundColor: colors
+                            .color(GenesisColorToken.worldAction)
+                            .withValues(alpha: 0.62),
+                        foregroundColor: colors.color(
+                          GenesisColorToken.textOnDark,
+                        ),
                         fontSize: 16,
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,

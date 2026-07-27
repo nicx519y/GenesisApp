@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-const Color kGenesisModalBarrierColor = Color(0x8A000000);
-const Color kGenesisSubtleModalBarrierColor = Color(0x61000000);
-const Color _kGenesisSystemBarBaseColor = Color(0xFFFFFFFF);
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
-const SystemUiOverlayStyle kGenesisDefaultSystemUiOverlayStyle =
-    SystemUiOverlayStyle(
-      statusBarColor: Color(0xFFFFFFFF),
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
-    );
+Color get kGenesisModalBarrierColor =>
+    GenesisColorRuntime.color(GenesisColorToken.surfaceOverlay);
+
+Color get kGenesisSubtleModalBarrierColor =>
+    GenesisColorRuntime.color(GenesisColorToken.surfaceOverlaySubtle);
+
+SystemUiOverlayStyle get kGenesisDefaultSystemUiOverlayStyle =>
+    GenesisSystemUiChrome.defaultStyle;
 
 class GenesisSystemUiChrome {
   GenesisSystemUiChrome._();
 
-  static SystemUiOverlayStyle _currentStyle =
-      kGenesisDefaultSystemUiOverlayStyle;
+  static SystemUiOverlayStyle _currentStyle = defaultStyle;
   static final List<SystemUiOverlayStyle> _styleStack =
       <SystemUiOverlayStyle>[];
 
+  static SystemUiOverlayStyle get defaultStyle =>
+      _surfaceStyle(GenesisColorRuntime.color(GenesisColorToken.surface));
+
   static void applyDefault() {
-    _apply(kGenesisDefaultSystemUiOverlayStyle);
+    _apply(defaultStyle);
   }
 
   static Future<T> runWithModalChrome<T>(
@@ -37,7 +40,7 @@ class GenesisSystemUiChrome {
     } finally {
       final previousStyle = _styleStack.isNotEmpty
           ? _styleStack.removeLast()
-          : kGenesisDefaultSystemUiOverlayStyle;
+          : defaultStyle;
       _apply(restoreOverrideStyle ?? previousStyle);
     }
   }
@@ -47,10 +50,17 @@ class GenesisSystemUiChrome {
     SystemChrome.setSystemUIOverlayStyle(style);
   }
 
-  static SystemUiOverlayStyle _modalStyle(Color color) {
+  static SystemUiOverlayStyle _modalStyle(Color color, [Color? baseColor]) {
     final systemBarColor = color.a < 1
-        ? Color.alphaBlend(color, _kGenesisSystemBarBaseColor)
+        ? Color.alphaBlend(
+            color,
+            baseColor ?? GenesisColorRuntime.color(GenesisColorToken.surface),
+          )
         : color;
+    return _surfaceStyle(systemBarColor);
+  }
+
+  static SystemUiOverlayStyle _surfaceStyle(Color systemBarColor) {
     final useDarkIcons = systemBarColor.computeLuminance() > 0.5;
     return SystemUiOverlayStyle(
       statusBarColor: systemBarColor,
@@ -65,7 +75,7 @@ class GenesisSystemUiChrome {
 Future<T?> showGenesisModalBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  Color barrierColor = kGenesisModalBarrierColor,
+  Color? barrierColor,
   Color? systemBarColor,
   SystemUiOverlayStyle? restoreSystemUiOverlayStyle,
   Color? backgroundColor,
@@ -77,13 +87,16 @@ Future<T?> showGenesisModalBottomSheet<T>({
   BoxConstraints? constraints,
   AnimationStyle? sheetAnimationStyle,
 }) {
-  final chromeColor = systemBarColor ?? barrierColor;
+  final colors = GenesisSemanticColors.of(context);
+  final resolvedBarrierColor =
+      barrierColor ?? colors.color(GenesisColorToken.surfaceOverlay);
+  final chromeColor = systemBarColor ?? resolvedBarrierColor;
   return GenesisSystemUiChrome.runWithModalChrome(
     chromeColor,
     () => showModalBottomSheet<T>(
       context: context,
       builder: builder,
-      barrierColor: barrierColor,
+      barrierColor: resolvedBarrierColor,
       backgroundColor: backgroundColor,
       isScrollControlled: isScrollControlled,
       isDismissible: isDismissible,
@@ -100,18 +113,21 @@ Future<T?> showGenesisModalBottomSheet<T>({
 Future<T?> showGenesisDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  Color barrierColor = kGenesisModalBarrierColor,
+  Color? barrierColor,
   Color? systemBarColor,
   bool applySystemUiOverlay = true,
   bool barrierDismissible = true,
   bool useSafeArea = true,
   bool useRootNavigator = true,
 }) {
+  final colors = GenesisSemanticColors.of(context);
+  final resolvedBarrierColor =
+      barrierColor ?? colors.color(GenesisColorToken.surfaceOverlay);
   Future<T?> showDialogRoute() {
     return showDialog<T>(
       context: context,
       builder: builder,
-      barrierColor: barrierColor,
+      barrierColor: resolvedBarrierColor,
       barrierDismissible: barrierDismissible,
       useSafeArea: useSafeArea,
       useRootNavigator: useRootNavigator,
@@ -120,14 +136,14 @@ Future<T?> showGenesisDialog<T>({
 
   if (!applySystemUiOverlay) return showDialogRoute();
 
-  final chromeColor = systemBarColor ?? barrierColor;
+  final chromeColor = systemBarColor ?? resolvedBarrierColor;
   return GenesisSystemUiChrome.runWithModalChrome(chromeColor, showDialogRoute);
 }
 
 Future<T?> showGenesisGeneralDialog<T>({
   required BuildContext context,
   required RoutePageBuilder pageBuilder,
-  Color barrierColor = kGenesisModalBarrierColor,
+  Color? barrierColor,
   Color? systemBarColor,
   bool barrierDismissible = false,
   String? barrierLabel,
@@ -135,13 +151,16 @@ Future<T?> showGenesisGeneralDialog<T>({
   RouteTransitionsBuilder? transitionBuilder,
   bool useRootNavigator = true,
 }) {
-  final chromeColor = systemBarColor ?? barrierColor;
+  final colors = GenesisSemanticColors.of(context);
+  final resolvedBarrierColor =
+      barrierColor ?? colors.color(GenesisColorToken.surfaceOverlay);
+  final chromeColor = systemBarColor ?? resolvedBarrierColor;
   return GenesisSystemUiChrome.runWithModalChrome(
     chromeColor,
     () => showGeneralDialog<T>(
       context: context,
       pageBuilder: pageBuilder,
-      barrierColor: barrierColor,
+      barrierColor: resolvedBarrierColor,
       barrierDismissible: barrierDismissible,
       barrierLabel: barrierLabel,
       transitionDuration: transitionDuration,

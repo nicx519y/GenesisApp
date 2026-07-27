@@ -30,6 +30,8 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -1246,14 +1248,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   Future<bool> _confirmWorldRequest() async {
+    final colors = GenesisSemanticColors.of(context);
     final result = await showGenesisActionBox<bool>(
       context: context,
       title: 'Request to join this World?',
-      actions: const [
+      actions: [
         GenesisActionBoxAction<bool>(
           label: 'Request',
           value: true,
-          color: Color(0xFF2F9663),
+          color: colors.color(GenesisColorToken.worldAction),
         ),
       ],
     );
@@ -2020,6 +2023,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
     if (_worldBottomSheetOpen) return;
     _worldBottomSheetOpen = true;
+    final colors = GenesisSemanticColors.of(context);
     unawaited(
       showModalBottomSheet<void>(
         context: context,
@@ -2027,7 +2031,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         useSafeArea: true,
         enableDrag: false,
         backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.18),
+        barrierColor: colors.color(GenesisColorToken.detailSheetBarrier),
         builder: (context) {
           _worldBottomSheetContext = context;
           return WorldSingleSectionBottomSheet(
@@ -2066,6 +2070,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final topPadding = GenesisSafeAreaInsets.top(context);
     final world = _world;
     if (world == null) {
@@ -2223,7 +2228,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 top: 0,
                 right: 0,
                 height: topPadding,
-                child: const ColoredBox(color: Colors.white),
+                child: ColoredBox(
+                  color: colors.color(GenesisColorToken.surface),
+                ),
               ),
             if (_worldMainTabIndex != 0)
               Positioned(
@@ -2396,16 +2403,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       return;
     }
 
+    final colors = GenesisSemanticColors.of(actionContext);
     final confirmed = await showGenesisActionBox<bool>(
       context: actionContext,
       title: '',
       titleWidget: _DeleteWorldConfirmationTitle(name: world.name.trim()),
       titleHeight: 104,
-      actions: const [
+      actions: [
         GenesisActionBoxAction<bool>(
           label: 'Delete',
           value: true,
-          color: Color(0xFFFF2442),
+          color: colors.color(GenesisColorToken.danger),
         ),
       ],
       cancelLabel: 'Cancel',
@@ -2434,26 +2442,28 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 class _DeleteWorldConfirmationTitle extends StatelessWidget {
   const _DeleteWorldConfirmationTitle({required this.name});
 
-  static const _baseStyle = TextStyle(
-    color: Color(0xFF111111),
+  TextStyle _baseStyle(GenesisSemanticColors colors) => TextStyle(
+    color: colors.color(GenesisColorToken.textPrimary),
     fontSize: 15,
     height: 1.16,
     fontWeight: FontWeight.w600,
   );
-  static const _nameStyle = TextStyle(color: Color(0xFF4B6192));
+  TextStyle _nameStyle(GenesisSemanticColors colors) =>
+      TextStyle(color: colors.color(GenesisColorToken.textLink));
 
   final String name;
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final resolvedName = name.trim().isEmpty ? 'this World' : name.trim();
     return Center(
       child: Text.rich(
         TextSpan(
-          style: _baseStyle,
+          style: _baseStyle(colors),
           children: [
             const TextSpan(text: 'Delete world '),
-            TextSpan(text: resolvedName, style: _nameStyle),
+            TextSpan(text: resolvedName, style: _nameStyle(colors)),
           ],
         ),
         textAlign: TextAlign.center,

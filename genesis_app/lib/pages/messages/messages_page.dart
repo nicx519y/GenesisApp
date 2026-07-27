@@ -13,6 +13,8 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_unread_badge.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -165,8 +167,8 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     final unreadSummary = widget.unreadSummary;
+    final colors = GenesisSemanticColors.of(context);
     return Scaffold(
-      backgroundColor: Colors.white,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -179,7 +181,9 @@ class _MessagesPageState extends State<MessagesPage> {
               children: [
                 _MessageMenuButton(
                   iconAsset: 'assets/custom-icons/png/notification.png',
-                  backgroundColor: Color(0xFFDDF2EF),
+                  backgroundColor: colors.color(
+                    GenesisColorToken.notificationMenuSurface,
+                  ),
                   label: 'Notifications',
                   routeName: RouteNames.notifications,
                   block: 'world_apply',
@@ -189,7 +193,9 @@ class _MessagesPageState extends State<MessagesPage> {
                 ),
                 _MessageMenuButton(
                   iconAsset: 'assets/custom-icons/png/following.png',
-                  backgroundColor: Color(0xFFFFF0D8),
+                  backgroundColor: colors.color(
+                    GenesisColorToken.followerMenuSurface,
+                  ),
                   label: 'New followers',
                   routeName: RouteNames.newFollowers,
                   block: 'follow',
@@ -199,7 +205,9 @@ class _MessagesPageState extends State<MessagesPage> {
                 ),
                 _MessageMenuButton(
                   iconAsset: 'assets/custom-icons/png/comment.png',
-                  backgroundColor: Color(0xFFE9F0FF),
+                  backgroundColor: colors.color(
+                    GenesisColorToken.commentMenuSurface,
+                  ),
                   label: 'Comments',
                   routeName: RouteNames.comments,
                   block: 'interaction',
@@ -270,6 +278,7 @@ class _MessageMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       width: 96,
       height: 80,
@@ -333,11 +342,11 @@ class _MessageMenuButton extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               softWrap: false,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: colors.color(GenesisColorToken.textHighEmphasis),
               ),
             ),
           ],
@@ -417,12 +426,13 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final displayPeerName = formatUidForDisplay(
       item.peerName,
       fallback: 'Unknown user',
     );
     return Material(
-      color: Colors.white,
+      color: colors.color(GenesisColorToken.listItemSurface),
       child: InkWell(
         onTap: () => unawaited(onTap(item)),
         child: Padding(
@@ -453,10 +463,12 @@ class _ConversationTile extends StatelessWidget {
                             displayPeerName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              color: colors.color(
+                                GenesisColorToken.textHighEmphasis,
+                              ),
                             ),
                           ),
                         ),
@@ -470,9 +482,11 @@ class _ConversationTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.right,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF888888),
+                              color: colors.color(
+                                GenesisColorToken.textMetadata,
+                              ),
                               fontWeight: FontWeight.w400,
                             ),
                           ),
@@ -486,10 +500,12 @@ class _ConversationTile extends StatelessWidget {
                         item.lastMessage,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xFF666666),
+                          color: colors.color(
+                            GenesisColorToken.textSecondaryStrong,
+                          ),
                         ),
                       ),
                     ),
@@ -561,18 +577,19 @@ class _NoMessagesFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.45 - 4,
-          child: const Center(
+          child: Center(
             key: ValueKey('direct-messages-empty-state'),
             child: Text(
               'Chat with your friends on Worldo.',
               style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF8A8A8A),
+                color: colors.color(GenesisColorToken.textListMetadata),
                 fontWeight: FontWeight.w400,
               ),
             ),

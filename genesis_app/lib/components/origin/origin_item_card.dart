@@ -5,6 +5,8 @@ import '../../icons/custom_icon_assets.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -129,6 +131,7 @@ class OriginItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -146,7 +149,9 @@ class OriginItemCard extends StatelessWidget {
                   child: Container(
                     height: 26,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
-                    color: Colors.black.withValues(alpha: 0.3),
+                    color: colors
+                        .color(GenesisColorToken.mediaControlOverlay)
+                        .withValues(alpha: 0.3),
                     child: Row(
                       children: [
                         _ImageStat(
@@ -169,8 +174,8 @@ class OriginItemCard extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           originDisplayName(item.title),
-          style: const TextStyle(
-            color: Color(0xFF4B6192),
+          style: TextStyle(
+            color: colors.color(GenesisColorToken.textLink),
             fontSize: 14,
             fontWeight: FontWeight.w600,
             height: 1.3,
@@ -179,8 +184,8 @@ class OriginItemCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           item.subtitle,
-          style: const TextStyle(
-            color: Color(0xFF888888),
+          style: TextStyle(
+            color: colors.color(GenesisColorToken.textPrimary),
             fontWeight: FontWeight.w400,
             fontSize: 12,
             height: 1.2,
@@ -203,15 +208,16 @@ class _ImageStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Flexible(
       child: StatItem(
         iconAsset: iconAsset,
         iconSize: 11,
-        iconColor: Colors.white,
+        iconColor: colors.color(GenesisColorToken.textOnDark),
         gap: 4,
         text: formatStatCount(value),
-        textStyle: const TextStyle(
-          color: Colors.white,
+        textStyle: TextStyle(
+          color: colors.color(GenesisColorToken.textOnDark),
           fontSize: 12,
           height: 1,
           fontWeight: FontWeight.w400,
@@ -229,22 +235,18 @@ class _TagWrap extends StatelessWidget {
   static const double _spacing = 6;
   static const double _runSpacing = 6;
   static const double _horizontalPadding = 4;
-  static const TextStyle _textStyle = TextStyle(
-    color: Color(0xFF4B6192),
-    fontSize: 10,
-    height: 1.7,
-    fontWeight: FontWeight.w400,
-  );
-
   @override
   Widget build(BuildContext context) {
     if (tags.isEmpty) return const SizedBox.shrink();
+    final colors = GenesisSemanticColors.of(context);
+    final textStyle = _textStyle(colors);
     return LayoutBuilder(
       builder: (context, constraints) {
         final visibleTags = _visibleTagsForRows(
           tags: tags,
           maxWidth: constraints.maxWidth,
           textDirection: Directionality.of(context),
+          textStyle: textStyle,
         );
         if (visibleTags.isEmpty) return const SizedBox.shrink();
         return Wrap(
@@ -258,14 +260,14 @@ class _TagWrap extends StatelessWidget {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F3F6),
+                  color: colors.color(GenesisColorToken.originListTagSurface),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(
                   tag,
                   softWrap: false,
                   overflow: TextOverflow.visible,
-                  style: _textStyle,
+                  style: textStyle,
                 ),
               ),
           ],
@@ -278,6 +280,7 @@ class _TagWrap extends StatelessWidget {
     required List<String> tags,
     required double maxWidth,
     required TextDirection textDirection,
+    required TextStyle textStyle,
   }) {
     if (!maxWidth.isFinite) return tags;
 
@@ -287,7 +290,7 @@ class _TagWrap extends StatelessWidget {
     var rowWidth = 0.0;
 
     for (final tag in tags) {
-      final tagWidth = _measureTagWidth(tag, textDirection);
+      final tagWidth = _measureTagWidth(tag, textDirection, textStyle);
       final nextWidth = rowWidth == 0
           ? tagWidth
           : rowWidth + _spacing + tagWidth;
@@ -306,14 +309,25 @@ class _TagWrap extends StatelessWidget {
     return visibleTags;
   }
 
-  double _measureTagWidth(String tag, TextDirection textDirection) {
+  double _measureTagWidth(
+    String tag,
+    TextDirection textDirection,
+    TextStyle textStyle,
+  ) {
     final painter = TextPainter(
-      text: TextSpan(text: tag, style: _textStyle),
+      text: TextSpan(text: tag, style: textStyle),
       maxLines: 1,
       textDirection: textDirection,
     )..layout();
     return painter.width + _horizontalPadding * 2;
   }
+
+  TextStyle _textStyle(GenesisSemanticColors colors) => TextStyle(
+    color: colors.color(GenesisColorToken.originListTagText),
+    fontSize: 10,
+    height: 1.7,
+    fontWeight: FontWeight.w400,
+  );
 }
 
 List<String> _tagsFromJson(Object? value) {

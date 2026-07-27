@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show TextInputFormatter;
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -15,18 +15,48 @@ import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/text/genesis_text_input_formatters.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../ui/tokens/genesis_typography.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/image_format_guards.dart';
 
-const Color createFormGreen = Color(0xFF338960);
-const Color createFormFieldFill = Color(0xFFF4F4F6);
-const Color createFormHint = Color(0xFFA8A8AD);
-const Color createFormText = Color(0xFF111111);
-const Color createFormMuted = Color(0xFF6F6F6F);
-const Color createFormNote = Color(0xFF888888);
-const Color createFormBorder = Color(0xFFE1E1E6);
-const Color createFormDash = Color(0xFFB8CDBF);
-const Color createFormDanger = Color(0xFFFF2442);
+Color get createFormGreen => GenesisColorRuntime.color(GenesisColorToken.brand);
+Color get createFormFieldFill =>
+    GenesisColorRuntime.color(GenesisColorToken.formField);
+Color get createFormHint =>
+    GenesisColorRuntime.color(GenesisColorToken.textDisabled);
+Color get createFormText =>
+    GenesisColorRuntime.color(GenesisColorToken.textPrimary);
+Color get createFormMuted =>
+    GenesisColorRuntime.color(GenesisColorToken.textSecondary);
+Color get createFormNote =>
+    GenesisColorRuntime.color(GenesisColorToken.textTertiary);
+Color get createFormBorder =>
+    GenesisColorRuntime.color(GenesisColorToken.border);
+Color get createFormDash =>
+    GenesisColorRuntime.color(GenesisColorToken.borderFocus);
+Color get createFormDanger =>
+    GenesisColorRuntime.color(GenesisColorToken.danger);
+Color get createFormCardSurface =>
+    GenesisColorRuntime.color(GenesisColorToken.surfaceElevated);
+Color get createFormSelectedFill =>
+    GenesisColorRuntime.color(GenesisColorToken.successContainer);
+Color get createFormOnAction =>
+    GenesisColorRuntime.color(GenesisColorToken.textInverse);
+Color get createFormDisabledFill =>
+    GenesisColorRuntime.color(GenesisColorToken.brandDisabled);
+Color get createFormDisabledForeground =>
+    GenesisColorRuntime.color(GenesisColorToken.actionDisabledForeground);
+Color get createFormSuccess =>
+    GenesisColorRuntime.color(GenesisColorToken.success);
+Color get createFormNavigationIcon =>
+    GenesisColorRuntime.color(GenesisColorToken.navigationChevron);
+Color get createFormDivider =>
+    GenesisColorRuntime.color(GenesisColorToken.divider);
+Color get createFormImageOverlay =>
+    GenesisColorRuntime.color(GenesisColorToken.surfaceOverlaySubtle);
+Color get createFormShadow =>
+    GenesisColorRuntime.color(GenesisColorToken.mediaControlShadow);
 const String createFormDeleteIconAsset =
     'assets/custom-icons/svg/delete-icon.svg';
 const String createFormInfoIconAsset = 'assets/custom-icons/svg/info.svg';
@@ -202,7 +232,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                     minLines: widget.minLines,
                     maxLines: widget.maxLines,
                     style: GenesisTypography.withFallback(
-                      const TextStyle(
+                      TextStyle(
                         color: createFormText,
                         fontSize: 14,
                         height: 1.42,
@@ -215,7 +245,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
                       hintStyle: GenesisTypography.withFallback(
-                        const TextStyle(
+                        TextStyle(
                           color: createFormHint,
                           fontSize: 14,
                           letterSpacing: 0,
@@ -311,14 +341,11 @@ class CreateFormNote extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 0),
-          child: SvgPicture.asset(
+          child: GenesisSvgAsset.asset(
             createFormInfoIconAsset,
             width: 16,
             height: 16,
-            colorFilter: const ColorFilter.mode(
-              createFormNote,
-              BlendMode.srcIn,
-            ),
+            colorFilter: ColorFilter.mode(createFormNote, BlendMode.srcIn),
           ),
         ),
         const SizedBox(width: 5),
@@ -378,7 +405,7 @@ class _CreateFormNoteText extends StatelessWidget {
         spans.add(
           TextSpan(
             text: value.substring(nextStart + 2, end),
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(fontWeight: FontWeight.w700),
           ),
         );
         index = end + 2;
@@ -411,7 +438,7 @@ class _CreateFormNoteText extends StatelessWidget {
 
 List<InlineSpan> _inlineEmphasisSpans(String text, TargetPlatform platform) {
   final style = GenesisTypography.inlineEmphasis(
-    const TextStyle(),
+    TextStyle(),
     platform: platform,
   );
   if (platform != TargetPlatform.iOS) {
@@ -508,7 +535,7 @@ class CreateFormCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 6, 18, 22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: createFormCardSurface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: createFormBorder, width: 1.2),
       ),
@@ -520,7 +547,7 @@ class CreateFormCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: createFormText,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -532,12 +559,12 @@ class CreateFormCard extends StatelessWidget {
                 offset: const Offset(13, -4),
                 child: IconButton(
                   onPressed: onDelete,
-                  icon: SvgPicture.asset(
+                  icon: GenesisSvgAsset.asset(
                     createFormDeleteIconAsset,
                     width: 20,
                     height: 20,
-                    colorFilter: const ColorFilter.mode(
-                      Color(0xFF888888),
+                    colorFilter: ColorFilter.mode(
+                      createFormNote,
                       BlendMode.srcIn,
                     ),
                   ),
@@ -564,7 +591,7 @@ Future<bool> confirmCreateFormDelete(
       return AlertDialog(
         title: Text(
           'Delete $itemLabel?',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         content: const Text('This item has content. Delete it anyway?'),
         actions: [
@@ -685,7 +712,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
             height: widget.height,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0x6BF4F4F6),
+              color: createFormFieldFill,
               borderRadius: BorderRadius.circular(widget.borderRadius),
             ),
             clipBehavior: Clip.antiAlias,
@@ -991,9 +1018,9 @@ class _PreviewPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFFEFEFF2),
+      color: createFormFieldFill,
       child: showSpinner
-          ? const Center(
+          ? Center(
               child: SizedBox(
                 width: 18,
                 height: 18,
@@ -1013,8 +1040,8 @@ class _PreviewErrorIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0xFFEFEFF2),
+    return ColoredBox(
+      color: createFormFieldFill,
       child: Center(
         child: Icon(
           Icons.broken_image_outlined,
@@ -1057,7 +1084,7 @@ class CreateAddButton extends StatelessWidget {
             child: Center(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   color: createFormText,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

@@ -5,7 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/common/copyable_id_label.dart';
@@ -19,6 +19,8 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -134,9 +136,10 @@ class WorldLoadingBone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final child = DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFE9EDF2),
+        color: colors.color(GenesisColorToken.detailMutedSurface),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: SizedBox(width: width, height: height),
@@ -167,6 +170,7 @@ class WorldDetailSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
     final owner = worldOwnerDisplayName(world);
     final ownerUid = world.ownerUid.trim();
@@ -197,11 +201,11 @@ class WorldDetailSection extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   height: 1.25,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF4B6192),
+                  color: colors.color(GenesisColorToken.textLink),
                 ),
               ),
             ),
@@ -222,9 +226,9 @@ class WorldDetailSection extends StatelessWidget {
                       fontSize: 12,
                       height: 1.2,
                       fontWeight: FontWeight.w400,
-                      color: canDeleteWorld
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.45),
+                      color: colors
+                          .color(GenesisColorToken.textOnDark)
+                          .withValues(alpha: canDeleteWorld ? 1 : 0.45),
                     ),
                     onSelected: () {
                       if (!canDeleteWorld) {
@@ -249,16 +253,16 @@ class WorldDetailSection extends StatelessWidget {
           leftValue: world.worldId,
           leftDisplayValue: world.deleted ? deletedEntityDisplayText : null,
           leftCopyEnabled: !world.deleted,
-          leftStyle: worldHeaderMetaTextStyle,
-          leftIconColor: worldHeaderMetaColor,
+          leftStyle: worldHeaderMetaTextStyle(colors),
+          leftIconColor: worldHeaderMetaColor(colors),
           rightText: 'Owner: $owner',
           rightOnTap: ownerUid.isEmpty || world.ownerDeleted
               ? null
               : () => Navigator.of(
                   context,
                 ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
-          rightStyle: worldHeaderMetaTextStyle,
-          rightIconColor: worldHeaderMetaColor,
+          rightStyle: worldHeaderMetaTextStyle(colors),
+          rightIconColor: worldHeaderMetaColor(colors),
         ),
         const SizedBox(height: 0),
         GenesisInlineMetaLabel(
@@ -272,9 +276,9 @@ class WorldDetailSection extends StatelessWidget {
                     'originId': world.originId,
                   },
                 ),
-          style: CopyableIdLabel.textStyle,
+          style: CopyableIdLabel.textStyle(colors),
           trailingIcon: canOpenSourceWorldo ? Icons.chevron_right : null,
-          trailingIconColor: worldHeaderMetaColor,
+          trailingIconColor: worldHeaderMetaColor(colors),
           trailingIconSize: 16,
         ),
         const SizedBox(height: 8),
@@ -298,11 +302,11 @@ class WorldDetailSection extends StatelessWidget {
               onPressed: () => _copyInviteText(context, worldName: title),
               height: 35,
               width: 140,
-              backgroundColor: const Color(0xFFFF2442),
-              disabledBackgroundColor: const Color(
-                0xFFFF2442,
-              ).withValues(alpha: 0.62),
-              foregroundColor: Colors.white,
+              backgroundColor: colors.color(GenesisColorToken.create),
+              disabledBackgroundColor: colors
+                  .color(GenesisColorToken.create)
+                  .withValues(alpha: 0.62),
+              foregroundColor: colors.color(GenesisColorToken.textInverse),
               fontSize: 16,
               padding: EdgeInsets.zero,
               minimumSize: Size.zero,
@@ -311,20 +315,20 @@ class WorldDetailSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        const WorldDetailSectionTitle(
+        WorldDetailSectionTitle(
           icon: MyFlutterApp.eye,
-          iconColor: Color(0xFFFF2442),
+          iconColor: colors.color(GenesisColorToken.create),
           title: 'World Brief',
         ),
         const SizedBox(height: 8),
-        Text(brief, style: worldDetailBodyTextStyle),
+        Text(brief, style: worldDetailBodyTextStyle(colors)),
         const SizedBox(height: 8),
         WorldDetailCoverImage(url: cover),
         const SizedBox(height: 24),
-        const WorldDetailSectionTitle(
+        WorldDetailSectionTitle(
           asset: worldSectionCastIconAsset,
           iconSize: 17,
-          iconColor: Color(0xFF666666),
+          iconColor: colors.color(GenesisColorToken.iconSecondary),
           title: 'Cast',
         ),
         const SizedBox(height: 8),
@@ -413,14 +417,15 @@ class _WorldNewUserJoinNoticeText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const baseStyle = TextStyle(
-      color: Color(0xFF666666),
+    final colors = GenesisSemanticColors.of(context);
+    final baseStyle = TextStyle(
+      color: colors.color(GenesisColorToken.textSecondaryStrong),
       fontSize: 12,
       height: 1.2,
       fontWeight: FontWeight.w400,
     );
-    const emphasisStyle = TextStyle(
-      color: Color(0xFF111111),
+    final emphasisStyle = TextStyle(
+      color: colors.color(GenesisColorToken.textPrimary),
       fontWeight: FontWeight.w600,
     );
     return LayoutBuilder(
@@ -475,11 +480,12 @@ class WorldDetailSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final asset = this.asset;
     return Row(
       children: [
         if (asset != null)
-          SvgPicture.asset(
+          GenesisSvgAsset.asset(
             asset,
             width: iconSize,
             height: iconSize,
@@ -493,11 +499,11 @@ class WorldDetailSectionTitle extends StatelessWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.2,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
+              color: colors.color(GenesisColorToken.textPrimary),
             ),
           ),
         ),
@@ -516,11 +522,15 @@ class WorldDetailCoverImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final viewerUrl = url.trim();
     final fallback = Container(
-      color: const Color(0xFFEFF1F4),
+      color: colors.color(GenesisColorToken.detailPlaceholderSurface),
       alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
+      child: Icon(
+        Icons.image_outlined,
+        color: colors.color(GenesisColorToken.detailPlaceholderIcon),
+      ),
     );
 
     return LayoutBuilder(
@@ -904,6 +914,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final pendingTargetPage = _pendingTargetPage;
     final hasPendingTargetPage = pendingTargetPage != null;
     if (widget.ticks.isEmpty &&
@@ -985,9 +996,11 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
                     locationsById: locationsById,
                     dateLabel: worldTickParagraphTimestamp(tick),
                     stackedContent: true,
-                    contentLabelStyle: _worldEventContentLabelStyle,
-                    contentTextStyle: _worldEventContentTextStyle,
-                    contentTimestampStyle: _worldEventContentTimestampStyle,
+                    contentLabelStyle: _worldEventContentLabelStyle(colors),
+                    contentTextStyle: _worldEventContentTextStyle(colors),
+                    contentTimestampStyle: _worldEventContentTimestampStyle(
+                      colors,
+                    ),
                     metricUnit: metricUnit,
                     isLast: true,
                   ),
@@ -1063,6 +1076,7 @@ class WorldTickPendingEventPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1070,16 +1084,16 @@ class WorldTickPendingEventPage extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 30),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F5F8),
+            color: colors.color(GenesisColorToken.detailPanelSurface),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             'Tick $tickNumber',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               height: 1.2,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
+              color: colors.color(GenesisColorToken.textPrimary),
             ),
           ),
         ),
@@ -1090,7 +1104,7 @@ class WorldTickPendingEventPage extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 168),
           padding: const EdgeInsets.fromLTRB(12, 14, 12, 16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F5F8),
+            color: colors.color(GenesisColorToken.detailPanelSurface),
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Column(
@@ -1126,12 +1140,13 @@ class WorldTickPendingSkeletonLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return FractionallySizedBox(
       alignment: Alignment.centerLeft,
       widthFactor: widthFactor,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFFE1E4EA),
+          color: colors.color(GenesisColorToken.detailPillSurface),
           borderRadius: BorderRadius.circular(999),
         ),
         child: SizedBox(height: height),
@@ -1287,7 +1302,9 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
               icon,
               key: key,
               size: iconSize,
-              color: const Color(0xFF111111),
+              color: GenesisSemanticColors.of(
+                context,
+              ).color(GenesisColorToken.iconPrimary),
             ),
           ),
         ),
@@ -1375,26 +1392,29 @@ class WorldTickCardScrollPhysics extends BouncingScrollPhysics {
   }
 }
 
-const TextStyle _worldEventContentLabelStyle = TextStyle(
-  fontSize: 13,
-  height: 1.6,
-  fontWeight: FontWeight.w600,
-  color: Color(0xFF111111),
-);
+TextStyle _worldEventContentLabelStyle(GenesisSemanticColors colors) =>
+    TextStyle(
+      fontSize: 13,
+      height: 1.6,
+      fontWeight: FontWeight.w600,
+      color: colors.color(GenesisColorToken.textPrimary),
+    );
 
-const TextStyle _worldEventContentTextStyle = TextStyle(
-  fontSize: 13,
-  height: 1.6,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF444444),
-);
+TextStyle _worldEventContentTextStyle(GenesisSemanticColors colors) =>
+    TextStyle(
+      fontSize: 13,
+      height: 1.6,
+      fontWeight: FontWeight.w400,
+      color: colors.color(GenesisColorToken.textDetailBody),
+    );
 
-const TextStyle _worldEventContentTimestampStyle = TextStyle(
-  fontSize: 13,
-  height: 1.4,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
-);
+TextStyle _worldEventContentTimestampStyle(GenesisSemanticColors colors) =>
+    TextStyle(
+      fontSize: 13,
+      height: 1.4,
+      fontWeight: FontWeight.w400,
+      color: colors.color(GenesisColorToken.textPrimary),
+    );
 
 String? worldTickParagraphTimestamp(Map<String, dynamic> tick) {
   final result = tick['tick_result'];
@@ -1435,13 +1455,14 @@ class WorldStatusSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return WorldCharacterList(
       characters: world.characters,
       currentUid: currentUid,
       emptyText: 'No character status yet.',
       subtitleBuilder: (character) =>
           worldMetricStatusText(world.metric, character),
-      subtitleColor: const Color(0xFF666666),
+      subtitleColor: colors.color(GenesisColorToken.textSecondaryStrong),
       showCharacterDetails: false,
     );
   }
@@ -1455,12 +1476,13 @@ class WorldCharactersSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return WorldCharacterList(
       characters: world.characters,
       currentUid: currentUid,
       emptyText: 'No characters yet.',
       subtitleBuilder: worldCharacterDescriptionText,
-      subtitleColor: const Color(0xFF666666),
+      subtitleColor: colors.color(GenesisColorToken.textSecondaryStrong),
       showCharacterDetails: true,
     );
   }
@@ -1529,6 +1551,7 @@ class WorldCharacterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final name = worldMapString(character, const [
       'name',
     ], fallback: 'Character');
@@ -1550,11 +1573,11 @@ class WorldCharacterRow extends StatelessWidget {
     final goal = worldMapString(character, const ['goal']);
     final hasOriginStyleDetails =
         identity.isNotEmpty || brief.isNotEmpty || goal.isNotEmpty;
-    const bodyStyle = TextStyle(
+    final bodyStyle = TextStyle(
       fontSize: 13,
       height: 1.4,
       fontWeight: FontWeight.w400,
-      color: Color(0xFF111111),
+      color: colors.color(GenesisColorToken.textPrimary),
     );
 
     return Row(
@@ -1585,17 +1608,19 @@ class WorldCharacterRow extends StatelessWidget {
                             if (suffix.isNotEmpty)
                               TextSpan(
                                 text: ' $suffix',
-                                style: const TextStyle(
-                                  color: Color(0xFF888888),
+                                style: TextStyle(
+                                  color: colors.color(
+                                    GenesisColorToken.textMetadata,
+                                  ),
                                 ),
                               ),
                           ],
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           height: 1.15,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black,
+                          color: colors.color(GenesisColorToken.textPrimary),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1605,11 +1630,11 @@ class WorldCharacterRow extends StatelessWidget {
                     Text(
                       roleLabel,
                       textAlign: TextAlign.right,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         height: 1.15,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF8F8F8F),
+                        color: colors.color(GenesisColorToken.textRole),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1630,7 +1655,9 @@ class WorldCharacterRow extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       brief,
-                      style: bodyStyle.copyWith(color: const Color(0xFFFF2442)),
+                      style: bodyStyle.copyWith(
+                        color: colors.color(GenesisColorToken.create),
+                      ),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1756,15 +1783,16 @@ class WorldEmptySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 28),
       child: Center(
         child: Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF8A8A8A),
+            color: colors.color(GenesisColorToken.textListMetadata),
           ),
         ),
       ),

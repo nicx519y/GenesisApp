@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_color_token.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 
 import '../../app/debug_floating_button_unlock.dart';
 import '../../platform/auth/auth_session.dart';
@@ -38,6 +40,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SafeArea(
       bottom: false,
       child: LayoutBuilder(
@@ -59,7 +62,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                             ),
                             behavior: HitTestBehavior.opaque,
                             onTap: _handleTopTap,
-                            child: SvgPicture.asset(
+                            child: GenesisSvgAsset.asset(
                               'assets/svg/worldo-logo.svg',
                               key: const Key('signed_out_worldo_logo'),
                               width: 200,
@@ -67,25 +70,29 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                             ),
                           ),
                           const SizedBox(height: 30),
-                          const Text(
+                          Text(
                             'LIVE YOUR WORLD',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 9,
-                              color: Color(0xFF7A7A7A),
+                              color: colors.color(
+                                GenesisColorToken.textEmptyState,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 18),
-                          const Text(
+                          Text(
                             'Launch world, create worldo, invite\n'
                             'friends, and continue them anywhere.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.35,
-                              color: Color(0xFF666666),
+                              color: colors.color(
+                                GenesisColorToken.textSecondaryStrong,
+                              ),
                             ),
                           ),
                         ],

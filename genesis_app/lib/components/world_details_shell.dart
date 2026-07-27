@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../ui/components/genesis_safe_area.dart';
+import '../ui/theme/genesis_color_token.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 import 'world_map_interaction_notification.dart';
 
 class WorldDetailsStatusBarOverride {
@@ -88,8 +90,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
   late final ScrollController _scrollController = ScrollController();
   bool _mapInteractionActive = false;
 
-  static const _transparentStatusBarColor = Color(0x00FFFFFF);
-  static const _whiteStatusBarColor = Color(0xFFFFFFFF);
+  static const _transparentStatusBarColor = Colors.transparent;
   static const _initialStatusBarStyle = SystemUiOverlayStyle(
     statusBarColor: _transparentStatusBarColor,
     statusBarIconBrightness: Brightness.light,
@@ -117,13 +118,15 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
     return (_scrollController.offset / scrollDistance).clamp(0.0, 1.0);
   }
 
-  SystemUiOverlayStyle _statusBarStyle(double progress) {
+  SystemUiOverlayStyle _statusBarStyle(double progress, Color surfaceColor) {
     if (progress <= 0) return _initialStatusBarStyle;
-    final useDarkIcons = progress >= 0.55;
+    final surfaceIsDark =
+        ThemeData.estimateBrightnessForColor(surfaceColor) == Brightness.dark;
+    final useDarkIcons = progress >= 0.55 && !surfaceIsDark;
     return SystemUiOverlayStyle(
       statusBarColor: Color.lerp(
         _transparentStatusBarColor,
-        _whiteStatusBarColor,
+        surfaceColor,
         progress,
       ),
       statusBarIconBrightness: useDarkIcons
@@ -135,6 +138,8 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
+    final surfaceColor = colors.color(GenesisColorToken.surface);
     final bottomBar = widget.bottomBar;
     final topOverlay = widget.topOverlay;
     return Scaffold(
@@ -194,11 +199,13 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
                   overrideStyle?.statusBarColor ??
                   Color.lerp(
                     _transparentStatusBarColor,
-                    _whiteStatusBarColor,
+                    surfaceColor,
                     statusBarProgress,
                   )!;
               return AnnotatedRegion<SystemUiOverlayStyle>(
-                value: overrideStyle ?? _statusBarStyle(statusBarProgress),
+                value:
+                    overrideStyle ??
+                    _statusBarStyle(statusBarProgress, surfaceColor),
                 child: _buildPanelShell(
                   mapHeight: mapHeight,
                   panelTopOverlap: panelTopOverlap,
@@ -298,6 +305,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
   }
 
   Widget _buildPanelTopBand(double panelTopOverlap) {
+    final colors = GenesisSemanticColors.of(context);
     return OverflowBox(
       minHeight:
           WorldDetailsPageScaffold.inlineContentTopPadding + panelTopOverlap,
@@ -308,7 +316,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
         onPullUp: widget.onPanelTopPullUp,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colors.color(GenesisColorToken.surface),
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(widget.panelTopRadius),
             ),
@@ -434,6 +442,7 @@ class WorldDetailsShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final resolvedPadding = contentPadding.resolve(Directionality.of(context));
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -460,9 +469,11 @@ class WorldDetailsShell extends StatelessWidget {
                   resolvedPadding.right,
                   resolvedPadding.bottom,
                 ),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                decoration: BoxDecoration(
+                  color: colors.color(GenesisColorToken.surfaceElevated),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(8),
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -550,12 +561,13 @@ class WorldDetailsDragHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       width: WorldDetailsShell.dragHandleWidth,
       height: WorldDetailsShell.dragHandleHeight,
-      decoration: const BoxDecoration(
-        color: Color(0xFFD9D9D9),
-        borderRadius: BorderRadius.all(
+      decoration: BoxDecoration(
+        color: colors.color(GenesisColorToken.bottomSheetHandle),
+        borderRadius: const BorderRadius.all(
           Radius.circular(WorldDetailsShell.dragHandleHeight / 2),
         ),
       ),

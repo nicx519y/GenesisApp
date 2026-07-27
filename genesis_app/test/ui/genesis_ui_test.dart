@@ -839,6 +839,38 @@ void main() {
     expect(badgePosition.left, 19);
   });
 
+  testWidgets('GenesisBottomNavigation uses the dedicated Dark Create accent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.dark(),
+        home: Scaffold(
+          bottomNavigationBar: GenesisBottomNavigation(
+            currentIndex: 0,
+            onTap: (_) {},
+            items: const [
+              GenesisBottomNavigationItem(
+                label: 'Create',
+                icon: Icons.add_circle_outline,
+                prominent: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final expected = GenesisColorDefaults.dark.color(
+      GenesisColorToken.bottomNavigationProminent,
+    );
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.add_circle_outline)).color,
+      expected,
+    );
+    expect(tester.widget<Text>(find.text('Create')).style?.color, expected);
+  });
+
   testWidgets('GenesisBottomNavigation keeps minimum bottom padding', (
     tester,
   ) async {

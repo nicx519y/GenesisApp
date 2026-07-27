@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../platform/auth/auth_session.dart';
 import '../pages/legal/legal_document_page.dart';
@@ -221,13 +221,13 @@ class LoginProviderIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (provider) {
-      IdentityProvider.google => SvgPicture.asset(
+      IdentityProvider.google => GenesisSvgAsset.asset(
         _googleOauthIconAsset,
         width: _googleProviderIconSize,
         height: _googleProviderIconSize,
         fit: BoxFit.contain,
       ),
-      IdentityProvider.apple => SvgPicture.asset(
+      IdentityProvider.apple => GenesisSvgAsset.asset(
         _appleOauthIconAsset,
         width: _appleProviderIconSize,
         height: _appleProviderIconSize,

@@ -7,6 +7,8 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -201,6 +203,7 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -214,8 +217,8 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
               const SizedBox(height: _metaBodyGap),
               Text(
                 widget.item.content,
-                style: const TextStyle(
-                  color: Color(0xFF111111),
+                style: TextStyle(
+                  color: colors.color(GenesisColorToken.textPrimary),
                   fontSize: 14,
                   height: 1.45,
                   fontWeight: FontWeight.w400,
@@ -263,6 +266,7 @@ class _DiscussPageMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final tappableMeta = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -271,8 +275,8 @@ class _DiscussPageMeta extends StatelessWidget {
             item.authorName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF666666),
+            style: TextStyle(
+              color: colors.color(GenesisColorToken.textSecondaryStrong),
               fontSize: 14,
               height: 1.18,
               fontWeight: FontWeight.w600,
@@ -309,7 +313,10 @@ class _DiscussPageMeta extends StatelessWidget {
           ),
           if (item.createdAt != null) ...[
             const SizedBox(width: 8),
-            GenesisTimestampText(timestamp: item.createdAt, style: _timeStyle),
+            GenesisTimestampText(
+              timestamp: item.createdAt,
+              style: _timeStyle(colors),
+            ),
           ],
         ],
       ),
@@ -387,10 +394,11 @@ class _DiscussPageActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final likePending = controller.isLikePending(item.discussId);
     final activeColor = item.isLiked
-        ? const Color(0xFFFF2442)
-        : const Color(0xFF7D8178);
+        ? colors.color(GenesisColorToken.create)
+        : colors.color(GenesisColorToken.discussInactiveAction);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -425,7 +433,7 @@ class _DiscussPageActions extends StatelessWidget {
           child: _DiscussActionCluster(
             iconAsset: _discussReplyAsset,
             count: item.replyCount,
-            color: _timeStyle.color ?? const Color(0xFF8B8B8B),
+            color: colors.color(GenesisColorToken.textTimestamp),
           ),
         ),
         const Spacer(),
@@ -539,6 +547,7 @@ class _DiscussPageReplyPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final hasLoadedReplies = controller.hasLoadedReplies(item.discussId);
     final replies = hasLoadedReplies
         ? item.latestReplies
@@ -561,11 +570,14 @@ class _DiscussPageReplyPreview extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(width: 3, color: const Color(0xFFD7DBE3)),
+            Container(
+              width: 3,
+              color: colors.color(GenesisColorToken.discussQuoteBorder),
+            ),
             Expanded(
               child: Container(
                 width: double.infinity,
-                color: const Color(0xFFF6F7F9),
+                color: colors.color(GenesisColorToken.discussQuoteSurface),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 8,
@@ -582,11 +594,11 @@ class _DiscussPageReplyPreview extends StatelessWidget {
                       if (visibleReplies.isNotEmpty) const SizedBox(height: 6),
                       Text(
                         'View all ${item.replyCount} replies',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           height: 1.25,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF4B6192),
+                          color: colors.color(GenesisColorToken.textLink),
                         ),
                       ),
                     ],
@@ -623,6 +635,7 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final author = reply['author'] is Map ? asJsonMap(reply['author']) : null;
     final uid = asString(author?['uid'], fallback: asString(reply['uid']));
     final name = asString(
@@ -659,9 +672,9 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
           if (showReplyTo)
             TextSpan(
               text: '@$replyToName ',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF4B6192),
+                color: colors.color(GenesisColorToken.textLink),
               ),
             ),
           TextSpan(text: content),
@@ -669,11 +682,11 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12,
         height: 1.25,
         fontWeight: FontWeight.w400,
-        color: Color(0xFF666666),
+        color: colors.color(GenesisColorToken.textSecondaryStrong),
       ),
     );
   }
@@ -693,8 +706,8 @@ String _discussLikeFilledOrOutline(bool isLiked) {
 
 const String _discussReplyAsset = 'assets/custom-icons/png/discuss_reply.png';
 
-const _timeStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
+TextStyle _timeStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textTimestamp),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

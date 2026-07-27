@@ -2617,7 +2617,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
-    final baseStyle = widget.style ?? kLocationChatStyle;
+    final baseStyle = widget.style ?? genesisLocationChatStyle(context);
     final style = baseStyle.copyWith(
       headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
         fontSize: 12,

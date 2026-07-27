@@ -7,6 +7,7 @@ class _WorldViewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final body = origin.worldView.trim().isEmpty
         ? origin.description.trim()
         : origin.worldView.trim();
@@ -14,13 +15,13 @@ class _WorldViewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
+        _SectionTitle(
           icon: MyFlutterApp.eye,
-          iconColor: Color(0xFFFF2442),
+          iconColor: colors.color(GenesisColorToken.create),
           title: 'Worldo Brief',
         ),
         const SizedBox(height: 8),
-        Text(body, style: _bodyTextStyle),
+        Text(body, style: _bodyTextStyle(colors)),
         const SizedBox(height: 8),
         _OriginPreviewImage(url: _resolveAssetUrl(origin.mapImage)),
       ],
@@ -38,12 +39,16 @@ class _OriginPreviewImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final viewerUrl = url.trim();
     final imageUrl = viewerUrl;
     final fallback = Container(
-      color: const Color(0xFFEFF1F4),
+      color: colors.color(GenesisColorToken.detailPlaceholderSurface),
       alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
+      child: Icon(
+        Icons.image_outlined,
+        color: colors.color(GenesisColorToken.detailPlaceholderIcon),
+      ),
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -102,6 +107,7 @@ class _LaunchPreviewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final tickResult = previewTick['tick_result'] is Map
         ? (previewTick['tick_result'] as Map).cast<String, dynamic>()
         : const <String, dynamic>{};
@@ -111,9 +117,9 @@ class _LaunchPreviewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
+        _SectionTitle(
           icon: Icons.auto_awesome,
-          iconColor: Color(0xFF6554FF),
+          iconColor: colors.color(GenesisColorToken.originPreviewAccent),
           title: 'Launch Preview',
         ),
         const SizedBox(height: 8),
@@ -127,9 +133,9 @@ class _LaunchPreviewSection extends StatelessWidget {
               : formatGenesisTimestamp(origin.startTime),
           timeAgoLabel: '',
           stackedContent: true,
-          contentLabelStyle: _originTickContentLabelStyle,
-          contentTextStyle: _originTickContentTextStyle,
-          contentTimestampStyle: _originTickContentTimestampStyle,
+          contentLabelStyle: _originTickContentLabelStyle(colors),
+          contentTextStyle: _originTickContentTextStyle(colors),
+          contentTimestampStyle: _originTickContentTimestampStyle(colors),
           metricUnit: metricUnit,
         ),
       ],
@@ -241,6 +247,7 @@ class _OriginCharactersSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final characterAvatarUrls = characters
         .map((character) => _resolveAssetUrl(character.avatar).trim())
         .where((url) => url.isNotEmpty)
@@ -254,7 +261,7 @@ class _OriginCharactersSection extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         if (characters.isEmpty)
-          const Text('No characters', style: _mutedBodyTextStyle)
+          Text('No characters', style: _mutedBodyTextStyle(colors))
         else
           for (int i = 0; i < characters.length; i++) ...[
             _OriginCharacterRow(
@@ -276,6 +283,7 @@ class _OriginCharacterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final identity = _splitTags(character.tags).join(' · ');
     final tagline = character.tagline.trim();
     final goal = character.goal.trim();
@@ -297,30 +305,30 @@ class _OriginCharacterRow extends StatelessWidget {
             children: [
               Text(
                 character.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 1.15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111111),
+                  color: colors.color(GenesisColorToken.textPrimary),
                   decoration: TextDecoration.none,
                 ),
               ),
               if (identity.isNotEmpty) ...[
                 const SizedBox(height: 5),
-                Text(identity, style: _bodyTextStyle),
+                Text(identity, style: _bodyTextStyle(colors)),
               ],
               if (tagline.isNotEmpty) ...[
                 const SizedBox(height: 5),
                 Text(
                   tagline,
-                  style: _bodyTextStyle.copyWith(
-                    color: const Color(0xFFFF2442),
-                  ),
+                  style: _bodyTextStyle(
+                    colors,
+                  ).copyWith(color: colors.color(GenesisColorToken.create)),
                 ),
               ],
               if (goal.isNotEmpty) ...[
                 const SizedBox(height: 5),
-                Text('Goal: $goal', style: _characterBodyTextStyle),
+                Text('Goal: $goal', style: _characterBodyTextStyle(colors)),
               ],
             ],
           ),
@@ -349,6 +357,7 @@ class _OriginCharacterPortrait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final resolvedUrl = selectGenesisImageUrl(
       url,
       logicalWidth: _width,
@@ -390,13 +399,13 @@ class _OriginCharacterPortrait extends StatelessWidget {
             child: image,
           ),
         ),
-        const Positioned(
+        Positioned(
           top: -_starSize / 4 - 2,
           right: -_starSize / 4 - 3,
           child: Icon(
             MyFlutterApp.redstarCharIcon,
             size: _starSize,
-            color: Color(0xFFFF2442),
+            color: colors.color(GenesisColorToken.create),
           ),
         ),
       ],
@@ -415,53 +424,56 @@ class _OriginCharacterPortrait extends StatelessWidget {
   }
 }
 
-const _bodyTextStyle = TextStyle(
+TextStyle _bodyTextStyle(GenesisSemanticColors colors) => TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: colors.color(GenesisColorToken.textPrimary),
   decoration: TextDecoration.none,
 );
 
-const _characterBodyTextStyle = TextStyle(
+TextStyle _characterBodyTextStyle(GenesisSemanticColors colors) => TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: colors.color(GenesisColorToken.textPrimary),
   decoration: TextDecoration.none,
 );
 
-const _mutedBodyTextStyle = TextStyle(
+TextStyle _mutedBodyTextStyle(GenesisSemanticColors colors) => TextStyle(
   fontSize: 13,
   height: 1.3,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF999999),
+  color: colors.color(GenesisColorToken.textMuted),
   decoration: TextDecoration.none,
 );
 
-const _originTickContentLabelStyle = TextStyle(
-  fontSize: 13,
-  height: 1.6,
-  fontWeight: FontWeight.w600,
-  color: Color(0xFF111111),
-  decoration: TextDecoration.none,
-);
+TextStyle _originTickContentLabelStyle(GenesisSemanticColors colors) =>
+    TextStyle(
+      fontSize: 13,
+      height: 1.6,
+      fontWeight: FontWeight.w600,
+      color: colors.color(GenesisColorToken.textPrimary),
+      decoration: TextDecoration.none,
+    );
 
-const _originTickContentTextStyle = TextStyle(
-  fontSize: 13,
-  height: 1.6,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF444444),
-  decoration: TextDecoration.none,
-);
+TextStyle _originTickContentTextStyle(GenesisSemanticColors colors) =>
+    TextStyle(
+      fontSize: 13,
+      height: 1.6,
+      fontWeight: FontWeight.w400,
+      color: colors.color(GenesisColorToken.textDetailBody),
+      decoration: TextDecoration.none,
+    );
 
-const _originTickContentTimestampStyle = TextStyle(
-  fontSize: 13,
-  height: 1.4,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
-  decoration: TextDecoration.none,
-);
+TextStyle _originTickContentTimestampStyle(GenesisSemanticColors colors) =>
+    TextStyle(
+      fontSize: 13,
+      height: 1.4,
+      fontWeight: FontWeight.w400,
+      color: colors.color(GenesisColorToken.textPrimary),
+      decoration: TextDecoration.none,
+    );
 
 String _characterStableId(OriginCharacter character) {
   final explicitId = character.characterId.trim();
@@ -535,6 +547,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final asset = iconAsset;
     final isCharacterIcon = asset == characterStatIconAsset;
     const assetSize = 16.0;
@@ -544,7 +557,7 @@ class _SectionTitle extends StatelessWidget {
           Transform.translate(
             offset: Offset(0, isCharacterIcon ? -1.2 : 0),
             child: asset.endsWith('.svg')
-                ? SvgPicture.asset(
+                ? GenesisSvgAsset.asset(
                     asset,
                     width: assetSize,
                     height: assetSize,
@@ -567,11 +580,11 @@ class _SectionTitle extends StatelessWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.2,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
+              color: colors.color(GenesisColorToken.textPrimary),
             ),
           ),
         ),

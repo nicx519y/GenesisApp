@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
@@ -14,8 +14,9 @@ import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_colors.dart';
 
 typedef OriginRoleProfileLoader = Future<OriginCustomRoleDraft?> Function();
 typedef OriginRoleAvatarResolver = String Function(String avatar);
@@ -102,7 +103,9 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
   return WorldDetailsStatusBarOverride.runWithStyle(
     kGenesisDefaultSystemUiOverlayStyle,
     () => GenesisSystemUiChrome.runWithModalChrome(
-      Colors.white,
+      GenesisSemanticColors.of(
+        context,
+      ).color(GenesisColorToken.surfaceElevated),
       () => Navigator.of(context, rootNavigator: true).push(
         PageRouteBuilder<OriginRoleLaunchSelection>(
           opaque: false,
@@ -427,10 +430,11 @@ class _RoleSegmentedControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: const Color(0xFFEDEDEF),
+        color: colors.color(GenesisColorToken.roleSelectorSurface),
         borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
@@ -450,9 +454,13 @@ class _RoleSegmentedControl extends StatelessWidget {
               child: Container(
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.color(
+                    GenesisColorToken.roleSelectorSelectedSurface,
+                  ),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE3E3E7)),
+                  border: Border.all(
+                    color: colors.color(GenesisColorToken.roleSelectorBorder),
+                  ),
                 ),
               ),
             ),
@@ -495,6 +503,7 @@ class _SegmentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Expanded(
       child: Material(
         color: Colors.transparent,
@@ -511,8 +520,8 @@ class _SegmentButton extends StatelessWidget {
                 height: 1,
                 fontWeight: FontWeight.w600,
                 color: selected
-                    ? const Color(0xFF111111)
-                    : const Color(0xFF595959),
+                    ? colors.color(GenesisColorToken.textPrimary)
+                    : colors.color(GenesisColorToken.roleSelectorInactiveText),
               ),
             ),
           ),
@@ -538,14 +547,15 @@ class _PresetRoleGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     if (characters.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No preset role',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF777777),
+            color: colors.color(GenesisColorToken.textFormHint),
           ),
         ),
       );
@@ -591,6 +601,7 @@ class _PresetRoleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -627,11 +638,11 @@ class _PresetRoleTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.1,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF111111),
+                color: colors.color(GenesisColorToken.textPrimary),
               ),
             ),
           ],
@@ -648,23 +659,33 @@ class _SelectionMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       width: 26,
       height: 26,
       decoration: BoxDecoration(
-        color: selected ? GenesisColors.brand : Colors.white10,
+        color: selected
+            ? colors.color(GenesisColorToken.brand)
+            : colors.color(GenesisColorToken.textOnDark).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [
+        border: Border.all(
+          color: colors.color(GenesisColorToken.textOnDark),
+          width: 2,
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x33000000),
+            color: colors.color(GenesisColorToken.roleSelectionShadow),
             blurRadius: 5,
             offset: Offset(0, 1),
           ),
         ],
       ),
       child: selected
-          ? const Icon(Icons.check, size: 18, color: Colors.white)
+          ? Icon(
+              Icons.check,
+              size: 18,
+              color: colors.color(GenesisColorToken.textOnDark),
+            )
           : null,
     );
   }
@@ -685,15 +706,16 @@ class _LaunchedWorldGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     if (loading) return const Center(child: CircularProgressIndicator());
     if (worlds.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No launched World',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF777777),
+            color: colors.color(GenesisColorToken.textFormHint),
           ),
         ),
       );
@@ -732,6 +754,7 @@ class _LaunchedWorldRoleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -768,20 +791,30 @@ class _LaunchedWorldRoleTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, height: 1.1),
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.1,
+                color: colors.color(GenesisColorToken.textPrimary),
+              ),
             ),
             const SizedBox(height: 2),
             Text(
               world.worldId,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
+              style: TextStyle(
+                fontSize: 11,
+                color: colors.color(GenesisColorToken.textSecondaryStrong),
+              ),
             ),
             Text(
               'Tick ${world.tickCount} · ${world.currentTime}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
+              style: TextStyle(
+                fontSize: 11,
+                color: colors.color(GenesisColorToken.textSecondaryStrong),
+              ),
             ),
           ],
         ),
@@ -808,6 +841,7 @@ class _CustomRoleForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
@@ -817,7 +851,10 @@ class _CustomRoleForm extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE1E1E6), width: 1.2),
+              border: Border.all(
+                color: colors.color(GenesisColorToken.roleFormBorder),
+                width: 1.2,
+              ),
             ),
             child: OriginCharacterFormFields(
               form: form,
@@ -852,11 +889,11 @@ class _CustomRoleForm extends StatelessWidget {
                   ),
                   child: Text(
                     fillingProfile ? 'Filling...' : 'Fill from my profile',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       height: 1.1,
                       fontWeight: FontWeight.w600,
-                      color: GenesisColors.brand,
+                      color: colors.color(GenesisColorToken.brand),
                     ),
                   ),
                 ),
@@ -884,6 +921,7 @@ class _SheetActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       children: [
         Expanded(
@@ -901,13 +939,13 @@ class _SheetActions extends StatelessWidget {
             key: const ValueKey('origin-role-launch'),
             label: launchLabel,
             leadingIcon: launchLabel == 'Launch'
-                ? SvgPicture.asset(
+                ? GenesisSvgAsset.asset(
                     launchIconAsset,
                     key: const ValueKey<String>('origin-role-launch-icon'),
                     width: 14,
                     height: 14,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
+                    colorFilter: ColorFilter.mode(
+                      colors.color(GenesisColorToken.textOnDark),
                       BlendMode.srcIn,
                     ),
                   )
@@ -916,9 +954,9 @@ class _SheetActions extends StatelessWidget {
             onPressed: onLaunch,
             height: 35,
             backgroundColor: canLaunch
-                ? GenesisColors.brand
-                : const Color(0xFFC8D9D1),
-            foregroundColor: Colors.white,
+                ? colors.color(GenesisColorToken.brand)
+                : colors.color(GenesisColorToken.roleLaunchDisabled),
+            foregroundColor: colors.color(GenesisColorToken.textOnDark),
             fontWeight: FontWeight.w600,
           ),
         ),

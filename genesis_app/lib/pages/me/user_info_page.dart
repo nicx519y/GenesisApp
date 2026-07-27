@@ -15,6 +15,8 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -259,14 +261,15 @@ class _UserInfoPageState extends State<UserInfoPage> {
   }
 
   Future<bool> _confirmBlockUser() async {
+    final colors = GenesisSemanticColors.of(context);
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
       title: 'Block this user?',
-      actions: const [
+      actions: [
         GenesisActionBoxAction<bool>(
           label: 'Block',
           value: true,
-          color: Color(0xFFFF2442),
+          color: colors.color(GenesisColorToken.danger),
         ),
       ],
     );
@@ -737,10 +740,11 @@ class _UserInfoSkeletonBone extends StatelessWidget {
       width: width,
       height: height,
       child: animation == null || disableAnimations
-          ? _decoratedBox(0)
+          ? _decoratedBox(context, 0)
           : AnimatedBuilder(
               animation: animation,
-              builder: (context, child) => _decoratedBox(animation.value),
+              builder: (context, child) =>
+                  _decoratedBox(context, animation.value),
             ),
     );
 
@@ -754,7 +758,8 @@ class _UserInfoSkeletonBone extends StatelessWidget {
     return child;
   }
 
-  Widget _decoratedBox(double animationValue) {
+  Widget _decoratedBox(BuildContext context, double animationValue) {
+    final colors = GenesisSemanticColors.of(context);
     final offset = -1.4 + (animationValue * 2.8);
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -762,10 +767,10 @@ class _UserInfoSkeletonBone extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment(offset - 0.8, 0),
           end: Alignment(offset + 0.8, 0),
-          colors: const [
-            Color(0xFFE8EBF0),
-            Color(0xFFF6F7F9),
-            Color(0xFFE8EBF0),
+          colors: [
+            colors.color(GenesisColorToken.skeletonBase),
+            colors.color(GenesisColorToken.skeletonHighlight),
+            colors.color(GenesisColorToken.skeletonBase),
           ],
           stops: const [0.25, 0.5, 0.75],
         ),

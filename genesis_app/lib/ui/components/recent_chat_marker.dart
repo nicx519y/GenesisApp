@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../../icons/custom_icon_assets.dart';
 
@@ -67,7 +67,7 @@ class _RecentActivityTagStyle {
           key: 'last-tick',
           foregroundColor: const Color(0xFF2563EB),
           backgroundColor: const Color(0xFFEAF2FF),
-          icon: SvgPicture.asset(
+          icon: GenesisSvgAsset.asset(
             tickStatIconAsset,
             width: 8,
             height: 8,
@@ -82,7 +82,7 @@ class _RecentActivityTagStyle {
           key: 'last-launch',
           foregroundColor: const Color(0xFFE56A00),
           backgroundColor: const Color(0xFFFFF0E3),
-          icon: SvgPicture.asset(
+          icon: GenesisSvgAsset.asset(
             launchIconAsset,
             width: 10,
             height: 10,
@@ -117,7 +117,7 @@ class RecentChatIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       label: 'Recent chat',
-      child: SvgPicture.asset(
+      child: GenesisSvgAsset.asset(
         connectStatIconAsset,
         width: size,
         height: size,

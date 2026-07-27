@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
 import '../ui/components/genesis_static_network_image.dart';
@@ -1965,7 +1965,7 @@ class _MapZoomButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Center(
-            child: SvgPicture.asset(
+            child: GenesisSvgAsset.asset(
               iconAsset,
               width: 16,
               height: 16,

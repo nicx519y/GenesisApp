@@ -17,6 +17,8 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -30,20 +32,20 @@ const String _postDetailLikeOutlineAsset =
 const String _postDetailReplyAsset =
     'assets/custom-icons/png/discuss_reply.png';
 const double _postInputReservedHeight = 96;
-const TextStyle _postDetailMetaStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
+TextStyle _postDetailMetaStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textTimestamp),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
-const TextStyle _postDetailNameStyle = TextStyle(
-  color: Color(0xFF666666),
+TextStyle _postDetailNameStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textSecondaryStrong),
   fontSize: 14,
   height: 1.18,
   fontWeight: FontWeight.w600,
 );
-const TextStyle _postDetailBodyStyle = TextStyle(
-  color: Color(0xFF111111),
+TextStyle _postDetailBodyStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textPrimary),
   fontSize: 14,
   height: 1.45,
   fontWeight: FontWeight.w400,
@@ -156,9 +158,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'Post Detail'),
       body: AnimatedBuilder(
         animation: _controller,
@@ -183,12 +185,12 @@ class _PostDetailPageState extends State<PostDetailPage> {
                       item: item,
                       onReplyTap: () => unawaited(_openReplyComposer(item)),
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Divider(
                         height: 1,
                         thickness: 1,
-                        color: Color(0xFFEDEDED),
+                        color: colors.color(GenesisColorToken.detailDivider),
                       ),
                     ),
                     _PostDetailReplies(
@@ -273,6 +275,7 @@ class _PostDetailReplies extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final replyCount = math.max(item.replyCount, item.latestReplies.length);
     final isInitialReplyLoading =
         item.latestReplies.isEmpty && controller.isReplyLoading(item.discussId);
@@ -281,8 +284,8 @@ class _PostDetailReplies extends StatelessWidget {
       children: [
         Text(
           'All Replies $replyCount',
-          style: const TextStyle(
-            color: Color(0xFF1D1D1D),
+          style: TextStyle(
+            color: colors.color(GenesisColorToken.textSectionTitle),
             fontSize: 14,
             height: 1.15,
             fontWeight: FontWeight.w600,
@@ -327,8 +330,10 @@ class _PostDetailReplies extends StatelessWidget {
                       )
                     : Text(
                         'View all ${controller.replyButtonCount(item)} replies',
-                        style: const TextStyle(
-                          color: Color(0xFF2F4F7A),
+                        style: TextStyle(
+                          color: colors.color(
+                            GenesisColorToken.messageOriginLinkText,
+                          ),
                           fontSize: 12,
                           height: 1.25,
                           fontWeight: FontWeight.w600,
@@ -356,6 +361,7 @@ class _PostReplyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final data = _ReplyViewData.fromJson(reply);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,7 +386,7 @@ class _PostReplyRow extends StatelessWidget {
                               data.authorName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: _postDetailNameStyle,
+                              style: _postDetailNameStyle(colors),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -390,15 +396,15 @@ class _PostReplyRow extends StatelessWidget {
                     ),
                     if (data.dateLabel.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      Text(data.dateLabel, style: _postDetailMetaStyle),
+                      Text(data.dateLabel, style: _postDetailMetaStyle(colors)),
                     ],
                   ],
                 ),
               ),
               const SizedBox(height: 6),
               Text.rich(
-                _replyDisplayContentSpan(reply),
-                style: _postDetailBodyStyle,
+                _replyDisplayContentSpan(reply, colors),
+                style: _postDetailBodyStyle(colors),
               ),
               if (data.imageUrls.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -440,11 +446,12 @@ class _ReplyActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final normalizedDiscussId = discussId.trim();
     final likePending = controller.isLikePending(normalizedDiscussId);
     final activeColor = isLiked
-        ? const Color(0xFFFF2442)
-        : const Color(0xFF7D8178);
+        ? colors.color(GenesisColorToken.create)
+        : colors.color(GenesisColorToken.discussInactiveAction);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -467,7 +474,7 @@ class _ReplyActionRow extends StatelessWidget {
           child: _PostDetailActionCluster(
             iconAsset: _postDetailReplyAsset,
             count: replyCount,
-            color: _postDetailMetaStyle.color ?? const Color(0xFF8B8B8B),
+            color: colors.color(GenesisColorToken.textTimestamp),
           ),
         ),
         const Spacer(),
@@ -578,6 +585,7 @@ class _PostDetailCommentBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return KeyedSubtree(
       key: const ValueKey<String>('post-detail-comment-input-bar'),
       child: SafeArea(
@@ -592,13 +600,13 @@ class _PostDetailCommentBar extends StatelessWidget {
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F2),
+                color: colors.color(GenesisColorToken.discussComposerSurface),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
+              child: Text(
                 'Write a reply',
                 style: TextStyle(
-                  color: Color(0xFF8B8B8B),
+                  color: colors.color(GenesisColorToken.textTimestamp),
                   fontSize: 14,
                   height: 1.2,
                   fontWeight: FontWeight.w400,
@@ -743,7 +751,10 @@ class _ReplyViewData {
   final String dateLabel;
 }
 
-TextSpan _replyDisplayContentSpan(Map<String, dynamic> json) {
+TextSpan _replyDisplayContentSpan(
+  Map<String, dynamic> json,
+  GenesisSemanticColors colors,
+) {
   final content = asString(json['content']);
   final parentDiscussId = asString(json['parent_discuss_id']).trim();
   final rootDiscussId = asString(json['root_discuss_id']).trim();
@@ -760,9 +771,9 @@ TextSpan _replyDisplayContentSpan(Map<String, dynamic> json) {
     children: [
       TextSpan(
         text: '@$replyToName ',
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.w400,
-          color: Color(0xFF4B6192),
+          color: colors.color(GenesisColorToken.textLink),
         ),
       ),
       TextSpan(text: content),

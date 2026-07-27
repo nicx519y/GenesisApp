@@ -4,6 +4,8 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_spacing.dart';
+import '../theme/genesis_color_token.dart';
+import '../theme/genesis_semantic_colors.dart';
 
 class GenesisPrimaryButton extends StatelessWidget {
   const GenesisPrimaryButton({
@@ -66,6 +68,17 @@ class GenesisPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
+    final resolvedBackgroundColor =
+        backgroundColor ?? colors.color(GenesisColorToken.brand);
+    final resolvedForegroundColor =
+        foregroundColor ?? colors.color(GenesisColorToken.textInverse);
+    final resolvedDisabledBackgroundColor =
+        disabledBackgroundColor ??
+        colors.color(GenesisColorToken.brandDisabled);
+    final resolvedDisabledForegroundColor =
+        disabledForegroundColor ??
+        colors.color(GenesisColorToken.actionDisabledForeground);
     return SizedBox(
       height: height ?? defaultHeight,
       width: width ?? (fullWidth ? double.infinity : null),
@@ -81,12 +94,10 @@ class GenesisPrimaryButton extends StatelessWidget {
                 onPressed!();
               },
         style: FilledButton.styleFrom(
-          backgroundColor: backgroundColor ?? defaultBackgroundColor,
-          foregroundColor: foregroundColor ?? defaultForegroundColor,
-          disabledBackgroundColor:
-              disabledBackgroundColor ?? defaultDisabledBackgroundColor,
-          disabledForegroundColor:
-              disabledForegroundColor ?? defaultDisabledForegroundColor,
+          backgroundColor: resolvedBackgroundColor,
+          foregroundColor: resolvedForegroundColor,
+          disabledBackgroundColor: resolvedDisabledBackgroundColor,
+          disabledForegroundColor: resolvedDisabledForegroundColor,
           side: side,
           textStyle: defaultTextStyle.copyWith(
             fontSize: fontSize,
@@ -104,7 +115,7 @@ class GenesisPrimaryButton extends StatelessWidget {
                 dimension: loadingSize,
                 child: CircularProgressIndicator(
                   strokeWidth: loadingStrokeWidth,
-                  color: foregroundColor ?? defaultForegroundColor,
+                  color: resolvedForegroundColor,
                 ),
               )
             : _PrimaryButtonLabel(
@@ -153,9 +164,9 @@ class GenesisSecondaryButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
-    this.foregroundColor = const Color(0xFF111111),
+    this.foregroundColor,
     this.disabledForegroundColor,
-    this.side = const BorderSide(color: Color(0xFFD9D9DF), width: 1.2),
+    this.side,
     this.height,
     this.width,
     this.fontWeight,
@@ -174,6 +185,7 @@ class GenesisSecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       height: height ?? GenesisPrimaryButton.defaultHeight,
       width: width ?? double.infinity,
@@ -189,9 +201,17 @@ class GenesisSecondaryButton extends StatelessWidget {
                 onPressed!();
               },
         style: OutlinedButton.styleFrom(
-          foregroundColor: foregroundColor,
-          disabledForegroundColor: disabledForegroundColor,
-          side: side,
+          foregroundColor:
+              foregroundColor ?? colors.color(GenesisColorToken.textPrimary),
+          disabledForegroundColor:
+              disabledForegroundColor ??
+              colors.color(GenesisColorToken.textDisabled),
+          side:
+              side ??
+              BorderSide(
+                color: colors.color(GenesisColorToken.borderStrong),
+                width: 1.2,
+              ),
           textStyle: GenesisPrimaryButton.defaultTextStyle.copyWith(
             fontWeight: fontWeight,
           ),

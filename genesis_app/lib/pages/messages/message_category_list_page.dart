@@ -12,6 +12,8 @@ import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -163,6 +165,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       return;
     }
 
+    final colors = GenesisSemanticColors.of(context);
     final action = await showGenesisActionBox<_JoinRequestAction>(
       context: context,
       title: 'Join request',
@@ -176,7 +179,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
             ? null
             : () => unawaited(_openWorldFromDialog(item.bizId)),
       ),
-      actions: const [
+      actions: [
         GenesisActionBoxAction<_JoinRequestAction>(
           label: 'Approve',
           value: _JoinRequestAction.approve,
@@ -184,7 +187,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         GenesisActionBoxAction<_JoinRequestAction>(
           label: 'Reject',
           value: _JoinRequestAction.reject,
-          color: Color(0xFF111111),
+          color: colors.color(GenesisColorToken.textPrimary),
         ),
       ],
     );
@@ -338,7 +341,6 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: GenesisBackAppBar(pageName: widget.title),
       body: RefreshIndicator(
         onRefresh: _loadFirstPage,
@@ -348,6 +350,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   }
 
   Widget _buildBody(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -357,11 +360,11 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           SizedBox(height: MediaQuery.sizeOf(context).height * 0.3),
-          const Center(
+          Center(
             child: Text(
               'Failed to load messages.',
               style: TextStyle(
-                color: Color(0xFF94979E),
+                color: colors.color(GenesisColorToken.messageMutedText),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -379,8 +382,8 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
           Center(
             child: Text(
               widget.emptyText,
-              style: const TextStyle(
-                color: Color(0xFF94979E),
+              style: TextStyle(
+                color: colors.color(GenesisColorToken.messageMutedText),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -522,12 +525,13 @@ class _UnreadDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Container(
       key: const ValueKey('message-category-unread-dot'),
       width: 7,
       height: 7,
-      decoration: const BoxDecoration(
-        color: Color(0xFFFF2442),
+      decoration: BoxDecoration(
+        color: colors.color(GenesisColorToken.create),
         shape: BoxShape.circle,
       ),
     );
@@ -574,14 +578,15 @@ class _JoinRequestListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final isReview = item.isJoinRequestReview;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Join request',
           style: TextStyle(
-            color: Color(0xFF111111),
+            color: colors.color(GenesisColorToken.textPrimary),
             fontSize: 14,
             height: 1.2,
             fontWeight: FontWeight.w600,
@@ -605,10 +610,11 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Text.rich(
       TextSpan(
-        style: const TextStyle(
-          color: Color(0xFF111111),
+        style: TextStyle(
+          color: colors.color(GenesisColorToken.textPrimary),
           fontSize: 12,
           height: 1.25,
           fontWeight: FontWeight.w400,
@@ -617,7 +623,7 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
           const TextSpan(text: 'You request to join '),
           TextSpan(
             text: item.requestWorldSummaryName,
-            style: _originBlueTextStyle,
+            style: _originBlueTextStyle(colors),
           ),
           if (item.requestWorldIdLabel.trim().isNotEmpty)
             TextSpan(text: ' (${item.requestWorldIdLabel})'),
@@ -634,18 +640,25 @@ class _JoinRequestSummaryText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Text.rich(
       TextSpan(
-        style: const TextStyle(
-          color: Color(0xFF111111),
+        style: TextStyle(
+          color: colors.color(GenesisColorToken.textPrimary),
           fontSize: 12,
           height: 1.25,
           fontWeight: FontWeight.w400,
         ),
         children: [
-          TextSpan(text: item.requesterName, style: _originBlueTextStyle),
+          TextSpan(
+            text: item.requesterName,
+            style: _originBlueTextStyle(colors),
+          ),
           const TextSpan(text: ' request to join '),
-          TextSpan(text: item.requestWorldName, style: _originBlueTextStyle),
+          TextSpan(
+            text: item.requestWorldName,
+            style: _originBlueTextStyle(colors),
+          ),
           if (item.requestWorldIdLabel.trim().isNotEmpty)
             TextSpan(text: ' (${item.requestWorldIdLabel})'),
         ],
@@ -661,10 +674,11 @@ class _JoinRequestListStatusText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Text(
       item.joinRequestListStatusText,
       style: TextStyle(
-        color: item.joinRequestStatusColor,
+        color: item.joinRequestStatusColor(colors),
         fontSize: 12,
         height: 1.2,
         fontWeight: FontWeight.w400,
@@ -680,10 +694,11 @@ class _StatusText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Text(
       item.joinRequestStatusText,
       style: TextStyle(
-        color: item.joinRequestStatusColor,
+        color: item.joinRequestStatusColor(colors),
         fontSize: 12,
         height: 1.2,
         fontWeight: FontWeight.w400,
@@ -703,15 +718,16 @@ class _CommentNotificationListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final titleStyle = isComments
-        ? _commentNotificationTitleStyle
-        : _notificationTitleStyle;
+        ? _commentNotificationTitleStyle(colors)
+        : _notificationTitleStyle(colors);
     final bodyStyle = isComments
-        ? _commentNotificationBodyStyle
-        : _notificationBodyStyle;
+        ? _commentNotificationBodyStyle(colors)
+        : _notificationBodyStyle(colors);
     final metaStyle = isComments
-        ? _commentNotificationMetaStyle
-        : _notificationMetaStyle;
+        ? _commentNotificationMetaStyle(colors)
+        : _notificationMetaStyle(colors);
     final verticalGap = 8.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -730,49 +746,53 @@ class _CommentNotificationListItem extends StatelessWidget {
   }
 }
 
-const _notificationTitleStyle = TextStyle(
-  color: Color(0xFF111111),
+TextStyle _notificationTitleStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textPrimary),
   fontSize: 14,
   height: 1.18,
   fontWeight: FontWeight.w600,
 );
 
-const _notificationBodyStyle = TextStyle(
-  color: Color(0xFF111111),
+TextStyle _notificationBodyStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.textPrimary),
   fontSize: 12,
   height: 1.25,
   fontWeight: FontWeight.w400,
 );
 
-const _notificationMetaStyle = TextStyle(
-  color: Color(0xFF8A8D93),
+TextStyle _notificationMetaStyle(GenesisSemanticColors colors) => TextStyle(
+  color: colors.color(GenesisColorToken.messageMetadataText),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
 
-const _commentNotificationTitleStyle = TextStyle(
-  color: Color(0xFF111111),
-  fontSize: 14,
-  height: 1.18,
-  fontWeight: FontWeight.w600,
-);
+TextStyle _commentNotificationTitleStyle(GenesisSemanticColors colors) =>
+    TextStyle(
+      color: colors.color(GenesisColorToken.textPrimary),
+      fontSize: 14,
+      height: 1.18,
+      fontWeight: FontWeight.w600,
+    );
 
-const _commentNotificationBodyStyle = TextStyle(
-  color: Color(0xFF111111),
-  fontSize: 12,
-  height: 1.25,
-  fontWeight: FontWeight.w400,
-);
+TextStyle _commentNotificationBodyStyle(GenesisSemanticColors colors) =>
+    TextStyle(
+      color: colors.color(GenesisColorToken.textPrimary),
+      fontSize: 12,
+      height: 1.25,
+      fontWeight: FontWeight.w400,
+    );
 
-const _commentNotificationMetaStyle = TextStyle(
-  color: Color(0xFF8A8D93),
-  fontSize: 12,
-  height: 1.2,
-  fontWeight: FontWeight.w400,
-);
+TextStyle _commentNotificationMetaStyle(GenesisSemanticColors colors) =>
+    TextStyle(
+      color: colors.color(GenesisColorToken.messageMetadataText),
+      fontSize: 12,
+      height: 1.2,
+      fontWeight: FontWeight.w400,
+    );
 
-const _originBlueTextStyle = TextStyle(color: Color(0xFF2F4F7A));
+TextStyle _originBlueTextStyle(GenesisSemanticColors colors) =>
+    TextStyle(color: colors.color(GenesisColorToken.messageOriginLinkText));
 
 class _NotificationItem {
   const _NotificationItem({
@@ -1081,16 +1101,16 @@ class _NotificationItem {
     }
   }
 
-  Color get joinRequestStatusColor {
+  Color joinRequestStatusColor(GenesisSemanticColors colors) {
     switch (approvalStatus) {
       case _JoinRequestApprovalStatus.approved:
-        return const Color(0xFF25845C);
+        return colors.color(GenesisColorToken.messagePositiveState);
       case _JoinRequestApprovalStatus.rejected:
-        return const Color(0xFF8A8D93);
+        return colors.color(GenesisColorToken.messageMetadataText);
       case _JoinRequestApprovalStatus.pending:
-        return const Color(0xFF25845C);
+        return colors.color(GenesisColorToken.messagePositiveState);
       case null:
-        return const Color(0xFF25845C);
+        return colors.color(GenesisColorToken.messagePositiveState);
     }
   }
 
@@ -1303,6 +1323,7 @@ class _JoinRequestDialogInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
@@ -1314,15 +1335,15 @@ class _JoinRequestDialogInfoRow extends StatelessWidget {
               child: Text.rich(
                 TextSpan(
                   children: [
-                    TextSpan(text: title, style: _originBlueTextStyle),
+                    TextSpan(text: title, style: _originBlueTextStyle(colors)),
                     if (subtitle.trim().isNotEmpty)
                       TextSpan(text: ' $subtitle'),
                   ],
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF111111),
+                style: TextStyle(
+                  color: colors.color(GenesisColorToken.textPrimary),
                   fontSize: 12,
                   height: 1.2,
                   fontWeight: FontWeight.w400,
@@ -1331,10 +1352,10 @@ class _JoinRequestDialogInfoRow extends StatelessWidget {
             ),
             if (onTap != null) ...[
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 '>',
                 style: TextStyle(
-                  color: Color(0xFF8A8D93),
+                  color: colors.color(GenesisColorToken.messageMetadataText),
                   fontSize: 12,
                   height: 1,
                   fontWeight: FontWeight.w400,

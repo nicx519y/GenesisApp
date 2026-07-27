@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 import '../icons/custom_icon_assets.dart';
 import '../ui/components/recent_chat_marker.dart';
 import '../ui/components/genesis_list_image.dart';
+import '../ui/theme/genesis_color_token.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 import 'world_details_shell.dart';
 import 'world_point.dart';
 
@@ -80,81 +82,85 @@ class _WorldLocationListState extends State<WorldLocationList> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final outerController = _outerController;
-    return Listener(
-      onPointerDown: (event) {
-        _pointerActive = true;
-        _draggedOuterDuringPointer = false;
-        _velocityTracker = VelocityTracker.withKind(event.kind)
-          ..addPosition(event.timeStamp, event.localPosition);
-      },
-      onPointerUp: (_) {
-        _applyOuterPointerFling();
-        _finishPointer();
-      },
-      onPointerCancel: (_) {
-        _finishPointer();
-      },
-      onPointerMove: (event) {
-        _velocityTracker?.addPosition(event.timeStamp, event.localPosition);
-        if (outerController == null ||
-            !outerController.hasClients ||
-            !widget.enableOuterScrollHandoff) {
-          return;
-        }
+    return ColoredBox(
+      color: colors.color(GenesisColorToken.surface),
+      child: Listener(
+        onPointerDown: (event) {
+          _pointerActive = true;
+          _draggedOuterDuringPointer = false;
+          _velocityTracker = VelocityTracker.withKind(event.kind)
+            ..addPosition(event.timeStamp, event.localPosition);
+        },
+        onPointerUp: (_) {
+          _applyOuterPointerFling();
+          _finishPointer();
+        },
+        onPointerCancel: (_) {
+          _finishPointer();
+        },
+        onPointerMove: (event) {
+          _velocityTracker?.addPosition(event.timeStamp, event.localPosition);
+          if (outerController == null ||
+              !outerController.hasClients ||
+              !widget.enableOuterScrollHandoff) {
+            return;
+          }
 
-        final dragDelta = event.delta.dy;
-        if (!_outerPageAtTop) {
+          final dragDelta = event.delta.dy;
+          if (!_outerPageAtTop) {
+            if (_applyOuterDrag(outerController, dragDelta)) {
+              _draggedOuterDuringPointer = true;
+            }
+            return;
+          }
+
+          if (!_listController.hasClients) return;
+          final position = _listController.position;
+          final atBottom = position.extentAfter <= 0.5;
+          final atTop = position.extentBefore <= 0.5;
+          final draggingPastBottom = dragDelta < 0 && atBottom;
+          final draggingPastTop = dragDelta > 0 && atTop;
+          if (!draggingPastBottom && !draggingPastTop) return;
           if (_applyOuterDrag(outerController, dragDelta)) {
             _draggedOuterDuringPointer = true;
           }
-          return;
-        }
-
-        if (!_listController.hasClients) return;
-        final position = _listController.position;
-        final atBottom = position.extentAfter <= 0.5;
-        final atTop = position.extentBefore <= 0.5;
-        final draggingPastBottom = dragDelta < 0 && atBottom;
-        final draggingPastTop = dragDelta > 0 && atTop;
-        if (!draggingPastBottom && !draggingPastTop) return;
-        if (_applyOuterDrag(outerController, dragDelta)) {
-          _draggedOuterDuringPointer = true;
-        }
-      },
-      child: NotificationListener<OverscrollNotification>(
-        onNotification: (notification) {
-          if (outerController == null ||
-              !outerController.hasClients ||
-              !widget.enableOuterScrollHandoff ||
-              notification.metrics.axis != Axis.vertical) {
-            return false;
-          }
-          if (!_outerPageAtTop) return false;
-
-          final dragDelta = notification.dragDetails?.delta.dy;
-          if (dragDelta != null) {
-            return _applyOuterDrag(outerController, dragDelta);
-          }
-          return _applyOuterOverscroll(
-            outerController,
-            overscroll: notification.overscroll,
-            velocity: notification.velocity,
-          );
         },
-        child: ListView(
-          controller: _listController,
-          physics:
-              widget.physics ??
-              (_outerPageAtTop
-                  ? const AlwaysScrollableScrollPhysics(
-                      parent: ClampingScrollPhysics(),
-                    )
-                  : const NeverScrollableScrollPhysics()),
-          padding: widget.padding,
-          children: widget.locationNodes.isNotEmpty
-              ? _buildNodeRows(widget.locationNodes)
-              : _buildFlatPointRows(widget.points),
+        child: NotificationListener<OverscrollNotification>(
+          onNotification: (notification) {
+            if (outerController == null ||
+                !outerController.hasClients ||
+                !widget.enableOuterScrollHandoff ||
+                notification.metrics.axis != Axis.vertical) {
+              return false;
+            }
+            if (!_outerPageAtTop) return false;
+
+            final dragDelta = notification.dragDetails?.delta.dy;
+            if (dragDelta != null) {
+              return _applyOuterDrag(outerController, dragDelta);
+            }
+            return _applyOuterOverscroll(
+              outerController,
+              overscroll: notification.overscroll,
+              velocity: notification.velocity,
+            );
+          },
+          child: ListView(
+            controller: _listController,
+            physics:
+                widget.physics ??
+                (_outerPageAtTop
+                    ? const AlwaysScrollableScrollPhysics(
+                        parent: ClampingScrollPhysics(),
+                      )
+                    : const NeverScrollableScrollPhysics()),
+            padding: widget.padding,
+            children: widget.locationNodes.isNotEmpty
+                ? _buildNodeRows(widget.locationNodes)
+                : _buildFlatPointRows(widget.points),
+          ),
         ),
       ),
     );
@@ -359,6 +365,7 @@ class _PointListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final depthIndent = point.depth < 0 ? 0.0 : point.depth * 15.0;
     final description = point.locationDescription.trim();
     return InkWell(
@@ -376,20 +383,20 @@ class _PointListItem extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.place_outlined,
                         size: 14,
-                        color: Colors.black,
+                        color: colors.color(GenesisColorToken.textLink),
                       ),
                       const SizedBox(width: 2),
                       Flexible(
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black,
+                            color: colors.color(GenesisColorToken.textPrimary),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -431,6 +438,7 @@ class _NodeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(level * 15.0, 5, 0, 5),
       child: Row(
@@ -439,11 +447,11 @@ class _NodeHeader extends StatelessWidget {
             fit: FlexFit.loose,
             child: Text(
               '- ${point.name}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
-                color: Colors.black,
+                color: colors.color(GenesisColorToken.textSectionTitle),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -476,6 +484,7 @@ class _LocationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final description = point.locationDescription.trim();
     return InkWell(
       onTap: onTap == null ? null : () => onTap!(targetPoint),
@@ -492,20 +501,20 @@ class _LocationCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.place_outlined,
                         size: 14,
-                        color: Colors.black,
+                        color: colors.color(GenesisColorToken.textLink),
                       ),
                       const SizedBox(width: 2),
                       Flexible(
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black,
+                            color: colors.color(GenesisColorToken.textPrimary),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -600,6 +609,7 @@ class _PointCharacterGroupRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -608,15 +618,16 @@ class _PointCharacterGroupRow extends StatelessWidget {
           height: 15,
           child: Align(
             alignment: Alignment.topCenter,
-            child: SvgPicture.asset(
+            child: GenesisSvgAsset.asset(
               iconAsset,
               width: 12,
               height: 12,
               fit: BoxFit.contain,
               excludeFromSemantics: true,
-              colorFilter: iconAsset == userStatIconAsset
-                  ? const ColorFilter.mode(Colors.black, BlendMode.srcIn)
-                  : null,
+              colorFilter: ColorFilter.mode(
+                colors.color(GenesisColorToken.iconSecondary),
+                BlendMode.srcIn,
+              ),
             ),
           ),
         ),
@@ -624,11 +635,11 @@ class _PointCharacterGroupRow extends StatelessWidget {
         Expanded(
           child: Text(
             names.join(', '),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               height: 1.2,
               fontWeight: FontWeight.w400,
-              color: Colors.black,
+              color: colors.color(GenesisColorToken.textSecondaryStrong),
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -646,13 +657,14 @@ class _PointSummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Text(
       description,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12,
         height: 1.25,
         fontWeight: FontWeight.w400,
-        color: Colors.black,
+        color: colors.color(GenesisColorToken.textMetadata),
       ),
       maxLines: 3,
       overflow: TextOverflow.ellipsis,

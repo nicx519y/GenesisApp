@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -73,6 +75,7 @@ class _GenesisGenerationWaitOverlayState
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final hasPerspectiveText = widget.perspectiveLines != null;
     final title = widget.animateTitleDots
         ? '${widget.title}${List.filled(_dotCount, '.').join()}'
@@ -111,7 +114,11 @@ class _GenesisGenerationWaitOverlayState
         Text(
           widget.message,
           textAlign: TextAlign.left,
-          style: const TextStyle(fontSize: 14, height: 1.4),
+          style: TextStyle(
+            color: colors.color(GenesisColorToken.textDetailBody),
+            fontSize: 14,
+            height: 1.4,
+          ),
         ),
       );
       waitBody = Column(
@@ -133,7 +140,7 @@ class _GenesisGenerationWaitOverlayState
           behavior: HitTestBehavior.opaque,
           onTap: widget.onBarrierTap,
           child: ColoredBox(
-            color: const Color(0x8A000000),
+            color: colors.color(GenesisColorToken.surfaceOverlay),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return Stack(
@@ -147,7 +154,9 @@ class _GenesisGenerationWaitOverlayState
                           onTap: () {},
                           child: AlertDialog(
                             key: const ValueKey('world-tick1-wait-dialog'),
-                            backgroundColor: const Color(0xFFFFFFFF),
+                            backgroundColor: colors.color(
+                              GenesisColorToken.surfaceElevated,
+                            ),
                             shape: const RoundedRectangleBorder(
                               borderRadius: BorderRadius.all(
                                 Radius.circular(8),
@@ -169,7 +178,10 @@ class _GenesisGenerationWaitOverlayState
                                   Text(
                                     title,
                                     textAlign: TextAlign.left,
-                                    style: const TextStyle(
+                                    style: TextStyle(
+                                      color: colors.color(
+                                        GenesisColorToken.textPrimary,
+                                      ),
                                       fontSize: 16,
                                       height: 1.2,
                                       fontWeight: FontWeight.w600,
@@ -421,19 +433,21 @@ class _PerspectiveWaitTextState extends State<_PerspectiveWaitText>
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final lines = widget.lines.where((line) => line.trim().isNotEmpty).toList();
     if (lines.isEmpty) return const SizedBox.shrink();
 
     return ShaderMask(
       shaderCallback: (bounds) {
-        return const LinearGradient(
+        final maskColor = colors.color(GenesisColorToken.textPrimary);
+        return LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.transparent,
-            Colors.black,
-            Colors.black,
-            Colors.black,
+            maskColor.withValues(alpha: 0),
+            maskColor,
+            maskColor,
+            maskColor,
           ],
           stops: [0.0, 0.06, 0.94, 1.0],
         ).createShader(bounds);
@@ -490,10 +504,12 @@ class _PerspectiveWaitTextState extends State<_PerspectiveWaitText>
                                   textAlign: index < widget.centeredLineCount
                                       ? TextAlign.center
                                       : TextAlign.justify,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     height: 1.32,
-                                    color: Color(0xFF2A2F33),
+                                    color: colors.color(
+                                      GenesisColorToken.textStrong,
+                                    ),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),

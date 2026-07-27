@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../ui/tokens/genesis_radii.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 class GenesisBottomSheetCloseButton extends StatelessWidget {
   const GenesisBottomSheetCloseButton({
@@ -27,7 +29,13 @@ class GenesisBottomSheetCloseButton extends StatelessWidget {
           maximumSize: const Size.square(24),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        icon: const Icon(Icons.close, size: 24, color: Color(0xFF111111)),
+        icon: Icon(
+          Icons.close,
+          size: 24,
+          color: GenesisSemanticColors.of(
+            context,
+          ).color(GenesisColorToken.iconPrimary),
+        ),
       ),
     );
   }
@@ -51,7 +59,6 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     fontSize: 18,
     height: 24 / 18,
     fontWeight: FontWeight.w600,
-    color: Color(0xFF111111),
   );
 
   final String title;
@@ -64,8 +71,9 @@ class GenesisBottomSheetPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Material(
-      color: Colors.white,
+      color: colors.color(GenesisColorToken.surfaceElevated),
       borderRadius: borderRadius,
       child: SafeArea(
         top: false,
@@ -84,7 +92,11 @@ class GenesisBottomSheetPanel extends StatelessWidget {
                         title,
                         style:
                             titleTextStyle ??
-                            GenesisBottomSheetPanel.titleStyle,
+                            GenesisBottomSheetPanel.titleStyle.copyWith(
+                              color: colors.color(
+                                GenesisColorToken.textPrimary,
+                              ),
+                            ),
                       ),
                     ),
                     if (trailing != null) trailing!,

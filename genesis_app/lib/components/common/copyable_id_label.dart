@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'genesis_center_toast.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 class CopyableIdLabel extends StatelessWidget {
   const CopyableIdLabel({
@@ -15,14 +17,15 @@ class CopyableIdLabel extends StatelessWidget {
     this.customIconColor,
   });
 
-  static const TextStyle textStyle = TextStyle(
+  static TextStyle textStyle(GenesisSemanticColors colors) => TextStyle(
     fontSize: 12,
     height: 1.1,
     fontWeight: FontWeight.w400,
-    color: Color(0xFF666666),
+    color: colors.color(GenesisColorToken.textSecondaryStrong),
   );
 
-  static const Color iconColor = Color(0xFF666666);
+  static Color iconColor(GenesisSemanticColors colors) =>
+      colors.color(GenesisColorToken.iconSecondary);
 
   final String label;
   final String value;
@@ -34,6 +37,7 @@ class CopyableIdLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final resolvedDisplayValue = displayValue ?? formatCopyableIdValue(value);
     final normalizedLabel = label.trim().toUpperCase();
     return GenesisInlineMetaLabel(
@@ -41,9 +45,9 @@ class CopyableIdLabel extends StatelessWidget {
       onTap: enabled
           ? () => _copy(context, resolvedDisplayValue, normalizedLabel)
           : null,
-      style: customTextStyle ?? CopyableIdLabel.textStyle,
+      style: customTextStyle ?? CopyableIdLabel.textStyle(colors),
       trailingIcon: enabled && showCopyIcon ? Icons.copy_outlined : null,
-      trailingIconColor: customIconColor ?? CopyableIdLabel.iconColor,
+      trailingIconColor: customIconColor ?? CopyableIdLabel.iconColor(colors),
       trailingGap: 6,
     );
   }
@@ -64,25 +68,29 @@ class GenesisInlineMetaLabel extends StatelessWidget {
     super.key,
     required this.text,
     this.onTap,
-    this.style = CopyableIdLabel.textStyle,
+    this.style,
     this.textAlign = TextAlign.left,
     this.trailingIcon,
-    this.trailingIconColor = CopyableIdLabel.iconColor,
+    this.trailingIconColor,
     this.trailingIconSize = 16,
     this.trailingGap = 4,
   });
 
   final String text;
   final VoidCallback? onTap;
-  final TextStyle style;
+  final TextStyle? style;
   final TextAlign textAlign;
   final IconData? trailingIcon;
-  final Color trailingIconColor;
+  final Color? trailingIconColor;
   final double trailingIconSize;
   final double trailingGap;
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
+    final resolvedStyle = style ?? CopyableIdLabel.textStyle(colors);
+    final resolvedIconColor =
+        trailingIconColor ?? CopyableIdLabel.iconColor(colors);
     final trailingIcon = this.trailingIcon;
     return InkWell(
       onTap: onTap,
@@ -99,7 +107,7 @@ class GenesisInlineMetaLabel extends StatelessWidget {
                 child: Text(
                   text,
                   textAlign: textAlign,
-                  style: style,
+                  style: resolvedStyle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -109,7 +117,7 @@ class GenesisInlineMetaLabel extends StatelessWidget {
                 Icon(
                   trailingIcon,
                   size: trailingIconSize,
-                  color: trailingIconColor,
+                  color: resolvedIconColor,
                 ),
               ],
             ],
@@ -127,29 +135,36 @@ class GenesisPairedMetaRow extends StatelessWidget {
     required this.leftValue,
     this.leftDisplayValue,
     this.leftCopyEnabled = true,
-    this.leftStyle = CopyableIdLabel.textStyle,
-    this.leftIconColor = CopyableIdLabel.iconColor,
+    this.leftStyle,
+    this.leftIconColor,
     required this.rightText,
     this.rightOnTap,
-    this.rightStyle = CopyableIdLabel.textStyle,
-    this.rightIconColor = CopyableIdLabel.iconColor,
+    this.rightStyle,
+    this.rightIconColor,
   });
 
   final String leftLabel;
   final String leftValue;
   final String? leftDisplayValue;
   final bool leftCopyEnabled;
-  final TextStyle leftStyle;
-  final Color leftIconColor;
+  final TextStyle? leftStyle;
+  final Color? leftIconColor;
   final String rightText;
   final VoidCallback? rightOnTap;
-  final TextStyle rightStyle;
-  final Color rightIconColor;
+  final TextStyle? rightStyle;
+  final Color? rightIconColor;
 
   static const double _iconSize = 16;
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
+    final resolvedLeftStyle = leftStyle ?? CopyableIdLabel.textStyle(colors);
+    final resolvedLeftIconColor =
+        leftIconColor ?? CopyableIdLabel.iconColor(colors);
+    final resolvedRightStyle = rightStyle ?? CopyableIdLabel.textStyle(colors);
+    final resolvedRightIconColor =
+        rightIconColor ?? CopyableIdLabel.iconColor(colors);
     final normalizedLeftLabel = leftLabel.trim().toUpperCase();
     final resolvedLeftValue =
         leftDisplayValue ?? formatCopyableIdValue(leftValue);
@@ -176,7 +191,7 @@ class GenesisPairedMetaRow extends StatelessWidget {
                     Flexible(
                       child: Text(
                         '$normalizedLeftLabel: $resolvedLeftValue',
-                        style: leftStyle,
+                        style: resolvedLeftStyle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -186,7 +201,7 @@ class GenesisPairedMetaRow extends StatelessWidget {
                       Icon(
                         Icons.copy_outlined,
                         size: _iconSize,
-                        color: leftIconColor,
+                        color: resolvedLeftIconColor,
                       ),
                     ],
                   ],
@@ -206,7 +221,7 @@ class GenesisPairedMetaRow extends StatelessWidget {
                       child: Text(
                         rightText,
                         textAlign: TextAlign.right,
-                        style: rightStyle,
+                        style: resolvedRightStyle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -216,7 +231,7 @@ class GenesisPairedMetaRow extends StatelessWidget {
                       Icon(
                         Icons.chevron_right,
                         size: _iconSize,
-                        color: rightIconColor,
+                        color: resolvedRightIconColor,
                       ),
                     ],
                   ],

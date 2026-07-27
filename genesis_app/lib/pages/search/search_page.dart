@@ -15,6 +15,8 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/theme/genesis_color_token.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -409,8 +411,8 @@ class _SearchPageState extends State<SearchPage>
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -440,14 +442,16 @@ class _SearchPageState extends State<SearchPage>
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => Navigator.of(context).pop(),
-                        child: const SizedBox(
+                        child: SizedBox(
                           height: 28,
                           child: Center(
                             child: Text(
                               'Cancel',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Color(0xFF222222),
+                                color: colors.color(
+                                  GenesisColorToken.searchCancelText,
+                                ),
                                 fontWeight: FontWeight.w400,
                               ),
                             ),
@@ -619,6 +623,7 @@ class _SearchHistoryPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     if (queries.isEmpty) return const SizedBox.shrink();
 
     final visibleQueries = queries.take(20);
@@ -633,10 +638,10 @@ class _SearchHistoryPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Search histroy',
                   style: TextStyle(
-                    color: Color(0xFF111111),
+                    color: colors.color(GenesisColorToken.textPrimary),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -677,6 +682,7 @@ class _SearchHistoryTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -684,7 +690,7 @@ class _SearchHistoryTag extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: maxWidth),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F3F6),
+            color: colors.color(GenesisColorToken.searchHistorySurface),
             borderRadius: BorderRadius.circular(15),
           ),
           child: Padding(
@@ -697,8 +703,8 @@ class _SearchHistoryTag extends StatelessWidget {
                   query,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF888888),
+                  style: TextStyle(
+                    color: colors.color(GenesisColorToken.textMetadata),
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                   ),
@@ -771,6 +777,7 @@ class _SearchResultListState extends State<_SearchResultList>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final colors = GenesisSemanticColors.of(context);
     final state = widget.state;
 
     if (state.isInitialLoading) {
@@ -792,12 +799,12 @@ class _SearchResultListState extends State<_SearchResultList>
 
     final rows = _displayRows(widget.tab, state.items);
     if (rows.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No results.',
           style: TextStyle(
             fontSize: 14,
-            color: Color(0xFF8D8D8D),
+            color: colors.color(GenesisColorToken.textTertiary),
             fontWeight: FontWeight.w400,
           ),
         ),
@@ -913,12 +920,13 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Color(0xFF111111),
+        style: TextStyle(
+          color: colors.color(GenesisColorToken.textPrimary),
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
@@ -934,19 +942,20 @@ class _SearchMoreButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 22),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: const SizedBox(
+        child: SizedBox(
           height: 24,
           child: Align(
             alignment: Alignment.center,
             child: Text(
               'More >',
               style: TextStyle(
-                color: Color(0xFF666666),
+                color: colors.color(GenesisColorToken.textSecondaryStrong),
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
               ),
@@ -966,16 +975,17 @@ class _SearchResultTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final isUser = item.tab == _SearchTab.user;
     final titleStyle = isUser
-        ? const TextStyle(
-            color: Color(0xFF4B6192),
+        ? TextStyle(
+            color: colors.color(GenesisColorToken.textLink),
             fontSize: 14,
             height: 1.1,
             fontWeight: FontWeight.w600,
           )
-        : const TextStyle(
-            color: Color(0xFF4B6192),
+        : TextStyle(
+            color: colors.color(GenesisColorToken.textLink),
             fontSize: 14,
             height: 1.1,
             fontWeight: FontWeight.w600,
@@ -1006,15 +1016,17 @@ class _SearchResultTile extends StatelessWidget {
                       'UID: ${formatCopyableIdValue(item.displaySubtitle)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: CopyableIdLabel.textStyle,
+                      style: CopyableIdLabel.textStyle(
+                        GenesisSemanticColors.of(context),
+                      ),
                     )
                   else
                     Text(
                       item.displaySubtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
+                      style: TextStyle(
+                        color: colors.color(GenesisColorToken.textMetadata),
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         height: 1.3,
@@ -1065,6 +1077,7 @@ class _ResultStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final stats = item.tab == _SearchTab.origin
         ? [
             _StatData(iconAsset: copyStatIconAsset, value: item.copyCount),
@@ -1103,11 +1116,11 @@ class _ResultStats extends StatelessWidget {
             iconAsset: stat.iconAsset,
             preserveIconAssetColor: stat.preserveIconAssetColor,
             iconSize: 11,
-            iconColor: Colors.black,
+            iconColor: colors.color(GenesisColorToken.neutralControlForeground),
             gap: 4,
             text: formatStatCount(stat.value),
-            textStyle: const TextStyle(
-              color: Colors.black,
+            textStyle: TextStyle(
+              color: colors.color(GenesisColorToken.neutralControlForeground),
               fontSize: 12,
               height: 1,
               fontWeight: FontWeight.w400,

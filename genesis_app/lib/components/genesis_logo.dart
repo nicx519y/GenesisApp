@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 class GenesisLogo extends StatelessWidget {
   const GenesisLogo({super.key, this.height = 32, this.width});
@@ -9,7 +9,7 @@ class GenesisLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SvgPicture.asset(
+    return GenesisSvgAsset.asset(
       'assets/svg/worldo-logo.svg',
       height: height,
       width: width,

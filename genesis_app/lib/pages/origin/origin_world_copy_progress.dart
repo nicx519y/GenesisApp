@@ -101,15 +101,16 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final summaryIndex = _visibleIndex >= _summaries.length ? 0 : _visibleIndex;
     final summary = _summaries.isEmpty ? null : _summaries[summaryIndex];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
+        _SectionTitle(
           icon: MyFlutterApp.lastProgress,
-          iconColor: Color(0xFFFF2442),
+          iconColor: colors.color(GenesisColorToken.create),
           title: 'Copy World Progress',
         ),
         const SizedBox(height: 8),
@@ -136,17 +137,18 @@ class _CopyWorldProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final item = summary;
     final body = item?.summary.trim();
     if (item == null || body == null || body.isEmpty) {
-      return const Text(
+      return Text(
         'No launched world',
         key: ValueKey('copy-world-progress-empty'),
         style: TextStyle(
           fontSize: 13,
           height: 1.3,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF999999),
+          color: colors.color(GenesisColorToken.textMuted),
         ),
       );
     }
@@ -180,11 +182,11 @@ class _CopyWorldProgressCard extends StatelessWidget {
                 maxLines: 5,
                 overflow: TextOverflow.ellipsis,
                 strutStyle: _bodyStrutStyle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: _bodyFontSize,
                   height: _bodyLineHeight,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xFF111111),
+                  color: colors.color(GenesisColorToken.textPrimary),
                 ),
               ),
             ),
@@ -204,6 +206,7 @@ class _CopyWorldProgressMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final item = summary;
     if (item == null) return const SizedBox(height: 18);
     final timestamp = _formatSummaryTimestamp(
@@ -233,11 +236,13 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                       'WID: ${deletedAwareIdLabel(item.worldId, deleted: item.deleted)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         height: 1.2,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF666666),
+                        color: colors.color(
+                          GenesisColorToken.textSecondaryStrong,
+                        ),
                       ),
                     ),
                   ),
@@ -255,11 +260,11 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF8C8C8C),
+                    color: colors.color(GenesisColorToken.textCounter),
                   ),
                 ),
               ),

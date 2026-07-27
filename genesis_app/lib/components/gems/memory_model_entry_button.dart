@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_svg_asset.dart';
 
 const double kMemoryModelEntryMinWidth = 82;
 const double kMemoryModelEntryMaxWidth = 96;
@@ -40,7 +40,7 @@ class MemoryModelEntryButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset(
+              GenesisSvgAsset.asset(
                 'assets/custom-icons/svg/arrow-change-svgrepo-com.svg',
                 width: 18,
                 height: 18,

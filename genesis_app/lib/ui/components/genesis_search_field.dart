@@ -4,6 +4,8 @@ import '../text/genesis_text_input_formatters.dart';
 import '../tokens/genesis_spacing.dart';
 import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
+import '../theme/genesis_color_token.dart';
+import '../theme/genesis_semantic_colors.dart';
 
 const genesisSearchFieldHeight = 38.0;
 
@@ -29,6 +31,7 @@ class GenesisSearchField extends StatelessWidget {
     this.iconAsset,
     this.hintStyle,
     this.textStyle,
+    this.useCompactStyle = false,
   });
 
   final String hintText;
@@ -50,10 +53,12 @@ class GenesisSearchField extends StatelessWidget {
   final String? iconAsset;
   final TextStyle? hintStyle;
   final TextStyle? textStyle;
+  final bool useCompactStyle;
 
   @override
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
+    final colors = GenesisSemanticColors.of(context);
     final effectiveHintStyle = GenesisTypography.withFallback(
       hintStyle ?? uiTheme.searchHintStyle,
     );
@@ -65,8 +70,18 @@ class GenesisSearchField extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        color: backgroundColor ?? uiTheme.searchBackgroundColor,
-        border: borderColor == null ? null : Border.all(color: borderColor!),
+        color:
+            backgroundColor ??
+            (useCompactStyle
+                ? colors.color(GenesisColorToken.searchCompactSurface)
+                : uiTheme.searchBackgroundColor),
+        border: borderColor != null
+            ? Border.all(color: borderColor!)
+            : useCompactStyle
+            ? Border.all(
+                color: colors.color(GenesisColorToken.searchCompactBorder),
+              )
+            : null,
         borderRadius: borderRadius ?? uiTheme.searchBorderRadius,
       ),
       child: Row(
@@ -82,7 +97,7 @@ class GenesisSearchField extends StatelessWidget {
               iconAsset!,
               width: iconSize,
               height: iconSize,
-              color: iconColor,
+              color: iconColor ?? uiTheme.searchIconColor,
               excludeFromSemantics: true,
             ),
           const SizedBox(width: GenesisSpacing.md),

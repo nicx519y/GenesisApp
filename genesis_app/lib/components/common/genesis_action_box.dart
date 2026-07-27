@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_modal_routes.dart';
-
-const Color _genesisActionBoxText = Color(0xFF111111);
-const Color _genesisActionBoxDestructive = Color(0xFFFF2442);
-const Color _genesisActionBoxDivider = Color(0xFFE8E8EA);
 
 class GenesisActionBoxAction<T> {
   const GenesisActionBoxAction({
@@ -38,9 +36,10 @@ Future<T?> showGenesisActionBox<T>({
   double actionRowHeight = GenesisActionBox.defaultRowHeight,
   double cancelRowHeight = GenesisActionBox.defaultRowHeight,
 }) {
+  final colors = GenesisSemanticColors.of(context);
   return showGenesisDialog<T>(
     context: context,
-    barrierColor: const Color(0x52000000),
+    barrierColor: colors.color(GenesisColorToken.detailSheetBarrier),
     applySystemUiOverlay: applySystemUiOverlay,
     builder: (dialogContext) {
       return GenesisActionBox<T>(
@@ -109,6 +108,7 @@ class GenesisActionBox<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final useDetachedCancelStyle =
         showCancel && (detachCancel || actions.length > 1);
     final dialogWidth = (MediaQuery.sizeOf(context).width * 0.7)
@@ -122,18 +122,18 @@ class GenesisActionBox<T> extends StatelessWidget {
       child: SizedBox(
         width: dialogWidth,
         child: useDetachedCancelStyle
-            ? _buildDetachedCancelStyle()
-            : _buildAttachedCancelStyle(),
+            ? _buildDetachedCancelStyle(colors)
+            : _buildAttachedCancelStyle(colors),
       ),
     );
   }
 
-  Widget _buildAttachedCancelStyle() {
+  Widget _buildAttachedCancelStyle(GenesisSemanticColors colors) {
     return ClipRRect(
       key: const ValueKey('genesis-action-box-attached-cancel'),
       borderRadius: _borderRadius,
       child: Material(
-        color: Colors.white,
+        color: colors.color(GenesisColorToken.surfaceElevated),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -170,7 +170,7 @@ class GenesisActionBox<T> extends StatelessWidget {
     );
   }
 
-  Widget _buildDetachedCancelStyle() {
+  Widget _buildDetachedCancelStyle(GenesisSemanticColors colors) {
     return Column(
       key: const ValueKey('genesis-action-box-detached-cancel'),
       mainAxisSize: MainAxisSize.min,
@@ -178,7 +178,7 @@ class GenesisActionBox<T> extends StatelessWidget {
         ClipRRect(
           borderRadius: _borderRadius,
           child: Material(
-            color: Colors.white,
+            color: colors.color(GenesisColorToken.surfaceElevated),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -211,7 +211,7 @@ class GenesisActionBox<T> extends StatelessWidget {
         ClipRRect(
           borderRadius: _borderRadius,
           child: Material(
-            color: Colors.white,
+            color: colors.color(GenesisColorToken.surfaceElevated),
             child: _CancelRow(
               label: cancelLabel,
               height: cancelRowHeight,
@@ -243,6 +243,7 @@ class _TitleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       key: const ValueKey('genesis-action-box-title-row'),
       height: height,
@@ -260,8 +261,8 @@ class _TitleRow extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: _genesisActionBoxText,
+                    style: TextStyle(
+                      color: colors.color(GenesisColorToken.textPrimary),
                       fontSize: 15,
                       height: 1.16,
                       fontWeight: FontWeight.w600,
@@ -294,9 +295,14 @@ class _ActionRow<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final color =
         action.color ??
-        (isPreferred ? _genesisActionBoxDestructive : _genesisActionBoxText);
+        colors.color(
+          isPreferred
+              ? GenesisColorToken.danger
+              : GenesisColorToken.textPrimary,
+        );
     return InkWell(
       onTap: !action.enabled
           ? null
@@ -348,6 +354,7 @@ class _CancelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return InkWell(
       onTap: () {
         GenesisTelemetry.click(
@@ -370,8 +377,8 @@ class _CancelRow extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _genesisActionBoxText,
+              style: TextStyle(
+                color: colors.color(GenesisColorToken.textPrimary),
                 fontSize: 15,
                 height: 1.2,
                 fontWeight: FontWeight.w400,
@@ -398,10 +405,11 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(
+    final colors = GenesisSemanticColors.of(context);
+    return Divider(
       height: 1,
       thickness: 1,
-      color: _genesisActionBoxDivider,
+      color: colors.color(GenesisColorToken.divider),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../icons/my_flutter_app_icons.dart';
 import '../tokens/genesis_avatar_radii.dart';
+import '../theme/genesis_color_token.dart';
+import '../theme/genesis_semantic_colors.dart';
 import 'genesis_avatar.dart';
 
 class GenesisCharacterAvatar extends StatelessWidget {
@@ -13,7 +15,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
     this.size = 48,
     this.borderRadius = GenesisAvatarRadii.character,
     this.starSize = 12,
-    this.starColor = const Color(0xFFFF2442),
+    this.starColor,
     this.boxShadow = const <BoxShadow>[],
     this.showFallbackWhileLoading = false,
     this.showFallbackWhenUnavailable = true,
@@ -26,7 +28,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
   final double size;
   final double borderRadius;
   final double starSize;
-  final Color starColor;
+  final Color? starColor;
   final List<BoxShadow> boxShadow;
   final bool showFallbackWhileLoading;
   final bool showFallbackWhenUnavailable;
@@ -80,7 +82,11 @@ class GenesisCharacterAvatar extends StatelessWidget {
               child: Icon(
                 MyFlutterApp.redstarCharIcon,
                 size: starSize,
-                color: starColor,
+                color:
+                    starColor ??
+                    GenesisSemanticColors.of(
+                      context,
+                    ).color(GenesisColorToken.create),
               ),
             ),
         ],

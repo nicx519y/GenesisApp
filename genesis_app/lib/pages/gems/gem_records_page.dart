@@ -9,6 +9,8 @@ import '../../components/gems/gem_colors.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_records.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 typedef GemRecordsLoader =
     Future<GemRecordList> Function({
@@ -175,7 +177,6 @@ class _GemRecordsPageState extends State<GemRecordsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: GenesisBackAppBar(
         pageName: 'Gem Records',
         titleStyle: const TextStyle(
@@ -209,6 +210,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
   }
 
   Widget _buildBody(int index) {
+    final colors = GenesisSemanticColors.of(context);
     final state = _tabStates[index];
     if (state.isInitialLoading) return const _GemRecordsLoading();
     if (state.error != null && state.records.isEmpty) {
@@ -220,7 +222,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
     }
     if (state.records.isEmpty) {
       return RefreshIndicator(
-        color: kGemAccentColor,
+        color: gemAccentColor(colors),
         onRefresh: () => _loadFirstPage(index: index, refreshing: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -229,7 +231,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       );
     }
     return RefreshIndicator(
-      color: kGemAccentColor,
+      color: gemAccentColor(colors),
       onRefresh: () => _loadFirstPage(index: index, refreshing: true),
       child: ListView.separated(
         controller: state.scrollController,
@@ -312,6 +314,7 @@ class _GemRecordTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final isIncome = record.amount >= 0;
     final amountText =
         '${isIncome ? '+' : '-'}${_formatInteger(record.amount.abs())}';
@@ -356,7 +359,9 @@ class _GemRecordTile extends StatelessWidget {
               fontSize: 14,
               height: 20 / 14,
               fontWeight: FontWeight.w600,
-              color: isIncome ? kGemAccentColor : const Color(0xFF111111),
+              color: isIncome
+                  ? gemAccentColor(colors)
+                  : colors.color(GenesisColorToken.textPrimary),
             ),
           ),
         ],
@@ -421,13 +426,14 @@ class _GemRecordsLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final colors = GenesisSemanticColors.of(context);
+    return Center(
       child: SizedBox(
         width: 24,
         height: 24,
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: kGemAccentColor,
+          color: gemAccentColor(colors),
         ),
       ),
     );
@@ -439,15 +445,16 @@ class _GemRecordsMoreLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 18),
+    final colors = GenesisSemanticColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
       child: Center(
         child: SizedBox(
           width: 18,
           height: 18,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: kGemAccentColor,
+            color: gemAccentColor(colors),
           ),
         ),
       ),

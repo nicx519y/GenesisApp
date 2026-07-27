@@ -596,17 +596,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       formatUidForDisplay(_peerUid),
       'Direct message',
     ]);
-    final headerStyle = kPrivateChatStyle.copyWith(
-      headerBackgroundColor: _privateChatHeaderBackgroundColor,
-    );
+    final headerStyle = genesisPrivateChatStyle(
+      context,
+    ).copyWith(headerBackgroundColor: _privateChatHeaderBackgroundColor);
     return GenesisBottomSystemBarStyleScope(
       style: GenesisBottomSystemBarStyle(
-        color: kPrivateChatStyle.composerBackgroundColor,
+        color: genesisPrivateChatStyle(context).composerBackgroundColor,
       ),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: kChatWhiteSystemUiOverlayStyle,
         child: Scaffold(
-          backgroundColor: kPrivateChatStyle.conversationBackgroundColor,
+          backgroundColor: genesisPrivateChatStyle(
+            context,
+          ).conversationBackgroundColor,
           resizeToAvoidBottomInset: true,
           body: Stack(
             children: [
@@ -652,7 +654,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   onSend: _send,
                   sendLabel: 'Send',
                   hintText: _composerHintText(),
-                  style: kPrivateChatStyle,
+                  style: genesisPrivateChatStyle(context),
                   onHeightChanged: _handleComposerHeightChanged,
                 ),
               ),
@@ -689,7 +691,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Widget _buildMessages() {
-    final style = kPrivateChatStyle;
+    final style = genesisPrivateChatStyle(context);
     final listPadding = _messageListPadding(style);
     return ValueListenableBuilder<List<String>>(
       valueListenable: _messageStore.orderedMessageIds,
@@ -739,7 +741,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         child: ChatMessageRow(
           key: ValueKey(messageId),
           message: _messageVm(failedRecord),
-          style: kPrivateChatStyle,
+          style: genesisPrivateChatStyle(context),
           onAvatarTap: _avatarTapFor(failedRecord),
           showDateDivider: shouldShowChatDateDivider(
             previous?.createdAt,
@@ -761,7 +763,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           messageId: messageId,
           child: ChatMessageRow(
             message: _messageVm(record),
-            style: kPrivateChatStyle,
+            style: genesisPrivateChatStyle(context),
             onAvatarTap: _avatarTapFor(record),
             showDateDivider: shouldShowChatDateDivider(
               previous?.createdAt,
@@ -822,15 +824,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   double _privateChatHeaderHeight() {
     final topInset = GenesisSafeAreaInsets.top(context);
-    return topInset + kPrivateChatStyle.headerHeight;
+    return topInset + genesisPrivateChatStyle(context).headerHeight;
   }
 
   double _privateChatComposerHeight() {
     final bottomInset = GenesisSafeAreaInsets.bottom(context);
     return _composerHeight > 0
         ? _composerHeight
-        : kPrivateChatStyle.composerPadding.vertical +
-              kPrivateChatStyle.inputMinHeight +
+        : genesisPrivateChatStyle(context).composerPadding.vertical +
+              genesisPrivateChatStyle(context).inputMinHeight +
               bottomInset;
   }
 

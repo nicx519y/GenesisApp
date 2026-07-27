@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_map_stage.dart';
 import 'package:genesis_flutter_android/components/world_top_overlay_bar.dart';
-import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
   testWidgets('world map stage positions overlay tabs from top setting', (
@@ -114,6 +114,59 @@ void main() {
     expect(tabBar.unselectedLabelColor, const Color(0xFF111111));
   });
 
+  testWidgets('world map overlay uses dark semantic chrome in Dark mode', (
+    tester,
+  ) async {
+    final controller = TabController(length: 2, vsync: tester);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.dark(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 480,
+            height: 300,
+            child: WorldMapStage(
+              controller: controller,
+              pointsCount: 3,
+              top: 44,
+              mapBuilder: (context, pointMode) =>
+                  const ColoredBox(color: Colors.green),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final expectedBackground = GenesisColorDefaults.dark.color(
+      GenesisColorToken.mapControlBackground,
+    );
+    final expectedBackIcon = GenesisColorDefaults.dark.color(
+      GenesisColorToken.neutralControlForeground,
+    );
+    final expectedTabForeground = GenesisColorDefaults.dark.color(
+      GenesisColorToken.textPrimary,
+    );
+    final overlay = find.byType(WorldTopOverlayBar);
+    final decoratedContainers = tester
+        .widgetList<Container>(
+          find.descendant(of: overlay, matching: find.byType(Container)),
+        )
+        .where((container) => container.decoration is BoxDecoration)
+        .toList();
+    final overlayBackgrounds = decoratedContainers
+        .map((container) => (container.decoration! as BoxDecoration).color)
+        .where((color) => color == expectedBackground);
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    final backIcon = tester.widget<Icon>(find.byIcon(Icons.arrow_back_ios_new));
+
+    expect(overlayBackgrounds, hasLength(2));
+    expect(backIcon.color, expectedBackIcon);
+    expect(tabBar.labelColor, expectedTabForeground);
+    expect(tabBar.unselectedLabelColor, expectedTabForeground);
+  });
+
   testWidgets('world map stage uses sixteen pixel overlay tab text', (
     tester,
   ) async {
@@ -212,7 +265,7 @@ void main() {
     expect(backButtonRect.height, genesisSearchFieldHeight);
   });
 
-  testWidgets('world map stage uses transparent overlay backgrounds', (
+  testWidgets('world map stage uses semantic light overlay backgrounds', (
     tester,
   ) async {
     final controller = TabController(length: 2, vsync: tester);
@@ -250,6 +303,15 @@ void main() {
         .whereType<Color>()
         .toList();
 
-    expect(colors.where((color) => color == Colors.transparent), hasLength(2));
+    expect(
+      colors.where(
+        (color) =>
+            color ==
+            GenesisColorDefaults.light.color(
+              GenesisColorToken.mapControlBackground,
+            ),
+      ),
+      hasLength(2),
+    );
   });
 }

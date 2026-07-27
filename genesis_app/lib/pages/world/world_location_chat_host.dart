@@ -394,7 +394,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             messageQueueInitializationCovered:
                 messageQueueInitializationCovered,
             systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,
-            style: kLocationChatStyle,
+            style: genesisLocationChatStyle(context),
             onBack: onBack,
             onInitialContentReady: onInitialContentReady,
             initialDraftText: initialDraftText,
@@ -415,7 +415,7 @@ class _LocationChatPanelSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = kLocationChatStyle;
+    final style = genesisLocationChatStyle(context);
     return GenesisBottomSystemBarStyleScope(
       style: GenesisBottomSystemBarStyle(color: style.composerBackgroundColor),
       child: ColoredBox(

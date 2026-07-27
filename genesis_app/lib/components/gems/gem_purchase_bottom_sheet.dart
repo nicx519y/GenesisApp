@@ -9,6 +9,8 @@ import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
@@ -353,6 +355,7 @@ class _GemProductGridSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -365,9 +368,11 @@ class _GemProductGridSkeleton extends StatelessWidget {
       ),
       itemBuilder: (_, _) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F7F7),
+          color: colors.color(GenesisColorToken.gemLoadingSurface),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFEBEBEB)),
+          border: Border.all(
+            color: colors.color(GenesisColorToken.gemProductBorder),
+          ),
         ),
       ),
     );
@@ -387,6 +392,7 @@ class _GemPurchaseSheetState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       height: 160,
       child: Column(
@@ -395,8 +401,8 @@ class _GemPurchaseSheetState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF999999),
+            style: TextStyle(
+              color: colors.color(GenesisColorToken.textMuted),
               fontSize: 13,
               height: 18 / 13,
               fontWeight: FontWeight.w600,
@@ -406,7 +412,9 @@ class _GemPurchaseSheetState extends StatelessWidget {
             const SizedBox(height: 12),
             TextButton(
               onPressed: onAction,
-              style: TextButton.styleFrom(foregroundColor: kGemAccentColor),
+              style: TextButton.styleFrom(
+                foregroundColor: gemAccentColor(colors),
+              ),
               child: Text(actionLabel!),
             ),
           ],

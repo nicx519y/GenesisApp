@@ -12,6 +12,8 @@ import '../common/genesis_modal_routes.dart';
 import '../common/genesis_upload_progress_overlay.dart';
 import '../../platform/native_image_picker.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/theme/genesis_color_token.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';
@@ -104,11 +106,12 @@ Future<bool> showDiscussPostComposer({
 }) async {
   if (requireLogin && !await ensureGenesisLogin(context)) return false;
   if (!context.mounted) return false;
+  final colors = GenesisSemanticColors.of(context);
 
   final submitted = await showGenesisGeneralDialog<bool>(
     context: context,
     barrierColor: Colors.transparent,
-    systemBarColor: Colors.white,
+    systemBarColor: colors.color(GenesisColorToken.surface),
     transitionDuration: Duration.zero,
     pageBuilder: (sheetContext, animation, secondaryAnimation) {
       return _DiscussComposerSheet(
@@ -234,6 +237,7 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _openComposer,
@@ -242,19 +246,19 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F2F2),
+          color: colors.color(GenesisColorToken.discussComposerSurface),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           widget.placeholder,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             height: 1.2,
             fontWeight: FontWeight.w400,
             letterSpacing: 0,
-            color: Color(0xFF888888),
+            color: colors.color(GenesisColorToken.textMetadata),
           ),
         ),
       ),
@@ -689,9 +693,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                     key: const ValueKey('discuss-composer-scrim-dismiss'),
                     behavior: HitTestBehavior.opaque,
                     onTap: _handleScrimTap,
-                    child: const ColoredBox(
-                      color: kGenesisSubtleModalBarrierColor,
-                    ),
+                    child: ColoredBox(color: kGenesisSubtleModalBarrierColor),
                   ),
                 ),
               ),
@@ -755,9 +757,10 @@ class _DiscussComposerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return Material(
       key: const ValueKey('discuss-composer-sheet'),
-      color: Colors.white,
+      color: colors.color(GenesisColorToken.surfaceElevated),
       borderRadius: GenesisBottomSheetPanel.borderRadius,
       child: SafeArea(
         top: false,
@@ -776,21 +779,23 @@ class _DiscussComposerPanel extends StatelessWidget {
                 textInputAction: TextInputAction.newline,
                 minLines: _discussComposerMinTextLines,
                 maxLines: _discussComposerMaxTextLines,
-                cursorColor: const Color(0xFF6C657A),
-                style: const TextStyle(
+                cursorColor: colors.color(
+                  GenesisColorToken.discussComposerCursor,
+                ),
+                style: TextStyle(
                   fontSize: _discussComposerFontSize,
                   height: _discussComposerLineHeight,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xFF111111),
+                  color: colors.color(GenesisColorToken.textPrimary),
                 ),
                 decoration: InputDecoration(
                   hintText: placeholder,
-                  hintStyle: const TextStyle(
+                  hintStyle: TextStyle(
                     fontSize: _discussComposerFontSize,
                     height: _discussComposerLineHeight,
                     fontWeight: FontWeight.w400,
                     letterSpacing: 0,
-                    color: Color(0xFFB8B8B8),
+                    color: colors.color(GenesisColorToken.discussComposerHint),
                   ),
                   border: InputBorder.none,
                   isCollapsed: true,
@@ -818,18 +823,24 @@ class _DiscussComposerPanel extends StatelessWidget {
                       width: 36,
                       height: 36,
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.add_photo_alternate_outlined,
                       size: 30,
-                      color: Color(0xFF00834C),
+                      color: colors.color(
+                        GenesisColorToken.discussAttachmentAction,
+                      ),
                     ),
                   ),
                   const Spacer(),
                   TextButton(
                     onPressed: canSend ? onSend : null,
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF4B5F8E),
-                      disabledForegroundColor: const Color(0xFF9BA4B8),
+                      foregroundColor: colors.color(
+                        GenesisColorToken.discussSendAction,
+                      ),
+                      disabledForegroundColor: colors.color(
+                        GenesisColorToken.discussSendDisabled,
+                      ),
                       textStyle: const TextStyle(
                         fontSize: 16,
                         height: 1.1,
@@ -979,6 +990,7 @@ class _DiscussImageAddTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return InkWell(
       key: const ValueKey('discuss-image-add-button'),
       onTap: enabled ? onTap : null,
@@ -988,9 +1000,16 @@ class _DiscussImageAddTile extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE3E3E3), width: 1.4),
+          border: Border.all(
+            color: colors.color(GenesisColorToken.attachmentBorder),
+            width: 1.4,
+          ),
         ),
-        child: const Icon(Icons.add, size: 28, color: Color(0xFF8E8E8E)),
+        child: Icon(
+          Icons.add,
+          size: 28,
+          color: colors.color(GenesisColorToken.attachmentIcon),
+        ),
       ),
     );
   }
@@ -1011,6 +1030,7 @@ class _DiscussImageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     return SizedBox(
       width: size,
       height: size + 8,
@@ -1037,11 +1057,13 @@ class _DiscussImageTile extends StatelessWidget {
                       ),
                     if (attachment.failed)
                       ColoredBox(
-                        color: Colors.black.withValues(alpha: 0.48),
-                        child: const Center(
+                        color: colors.color(
+                          GenesisColorToken.mediaErrorOverlay,
+                        ),
+                        child: Center(
                           child: Icon(
                             Icons.error_outline,
-                            color: Colors.white,
+                            color: colors.color(GenesisColorToken.textOnDark),
                             size: 22,
                           ),
                         ),
@@ -1062,17 +1084,21 @@ class _DiscussImageTile extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4F4F4F),
+                  color: colors.color(GenesisColorToken.mediaRemoveSurface),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.14),
+                      color: colors.color(GenesisColorToken.mediaControlShadow),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.close, color: Colors.white, size: 18),
+                child: Icon(
+                  Icons.close,
+                  color: colors.color(GenesisColorToken.textOnDark),
+                  size: 18,
+                ),
               ),
             ),
           ),

@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import '../ui/components/genesis_fixed_underline_indicator.dart';
 import '../ui/components/genesis_search_field.dart';
 import '../ui/components/genesis_tab_bar.dart';
+import '../ui/theme/genesis_color_token.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 import '../ui/theme/genesis_ui_theme.dart';
 import 'world_details_shell.dart';
 
-const _worldTopTabTextColor = Color(0xFF111111);
 const _worldTopOverlayHeight = genesisSearchFieldHeight;
-const _worldTopOverlayBackground = Color(0xE6FFFFFF);
 
 class WorldTopOverlayBar extends StatelessWidget {
   const WorldTopOverlayBar({
@@ -39,20 +39,28 @@ class WorldTopOverlayBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = GenesisSemanticColors.of(context);
     final uiTheme = GenesisUiTheme.of(context);
+    final overlayBackground = colors.color(
+      GenesisColorToken.mapControlBackground,
+    );
+    final backIconColor = colors.color(
+      GenesisColorToken.neutralControlForeground,
+    );
+    final tabForeground = colors.color(GenesisColorToken.textPrimary);
     return Row(
       children: [
         Container(
           width: _worldTopOverlayHeight,
           height: _worldTopOverlayHeight,
           decoration: BoxDecoration(
-            color: _worldTopOverlayBackground,
+            color: overlayBackground,
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
             iconSize: 18,
             onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+            icon: Icon(Icons.arrow_back_ios_new, color: backIconColor),
             padding: EdgeInsets.zero,
           ),
         ),
@@ -61,7 +69,7 @@ class WorldTopOverlayBar extends StatelessWidget {
           child: Container(
             height: _worldTopOverlayHeight,
             decoration: BoxDecoration(
-              color: _worldTopOverlayBackground,
+              color: overlayBackground,
               borderRadius: BorderRadius.circular(12),
             ),
             child: TabBar(
@@ -81,8 +89,8 @@ class WorldTopOverlayBar extends StatelessWidget {
                 height: uiTheme.tabIndicatorHeight,
                 bottomPadding: genesisTabIndicatorBottomPadding,
               ),
-              labelColor: _worldTopTabTextColor,
-              unselectedLabelColor: _worldTopTabTextColor,
+              labelColor: tabForeground,
+              unselectedLabelColor: tabForeground,
               labelStyle: uiTheme.bodyStrongStyle.copyWith(fontSize: 16),
               unselectedLabelStyle: uiTheme.bodyStyle.copyWith(fontSize: 16),
               tabs: [

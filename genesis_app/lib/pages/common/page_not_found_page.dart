@@ -8,7 +8,6 @@ class PageNotFoundPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 50,
-        backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leadingWidth: 37,

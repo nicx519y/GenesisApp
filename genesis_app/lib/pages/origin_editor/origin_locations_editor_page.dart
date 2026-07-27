@@ -213,7 +213,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'Locations'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
@@ -230,7 +229,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                         alignment: Alignment.centerRight,
                         child: Text(
                           '${_forms.length}/$_maxLocations (Added / Max)',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: createFormText,
                             fontSize: 14,
                             height: 1.2,
