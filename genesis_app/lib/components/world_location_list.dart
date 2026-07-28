@@ -167,6 +167,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
       for (var i = 0; i < points.length; i++) ...[
         _PointListItem(
           point: points[i],
+          level: points[i].depth,
           showRecentChatIcon: _pointMatchesLocationIds(
             points[i],
             widget.recentChatLocationIds,
@@ -204,6 +205,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
               node,
               widget.recentChatLocationIds,
             ),
+            level: level,
             indent: level * 15.0,
             onTap: widget.onPointTap,
           ),
@@ -351,11 +353,13 @@ class _WorldLocationListState extends State<WorldLocationList> {
 class _PointListItem extends StatelessWidget {
   const _PointListItem({
     required this.point,
+    required this.level,
     required this.showRecentChatIcon,
     required this.onTap,
   });
 
   final WorldPoint point;
+  final int level;
   final bool showRecentChatIcon;
   final ValueChanged<WorldPoint>? onTap;
 
@@ -388,11 +392,7 @@ class _PointListItem extends StatelessWidget {
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
+                          style: _locationNameStyle(level),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -403,7 +403,7 @@ class _PointListItem extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: level >= 2 ? 8 : 4),
                   if (point.users.isNotEmpty)
                     _PointCharacterGroups(users: point.users),
                   if (description.isNotEmpty) ...[
@@ -441,12 +441,7 @@ class _NodeHeader extends StatelessWidget {
             fit: FlexFit.loose,
             child: Text(
               '- ${point.name}',
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
+              style: _locationNameStyle(level),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -466,6 +461,7 @@ class _LocationCard extends StatelessWidget {
     required this.point,
     required this.targetPoint,
     required this.showRecentChatIcon,
+    required this.level,
     required this.indent,
     required this.onTap,
   });
@@ -473,6 +469,7 @@ class _LocationCard extends StatelessWidget {
   final WorldPoint point;
   final WorldPoint targetPoint;
   final bool showRecentChatIcon;
+  final int level;
   final double indent;
   final ValueChanged<WorldPoint>? onTap;
 
@@ -504,11 +501,7 @@ class _LocationCard extends StatelessWidget {
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
+                          style: _locationNameStyle(level),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -519,7 +512,7 @@ class _LocationCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: level >= 2 ? 8 : 4),
                   if (point.users.isNotEmpty)
                     _PointCharacterGroups(users: point.users),
                   if (description.isNotEmpty) ...[
@@ -534,6 +527,22 @@ class _LocationCard extends StatelessWidget {
       ),
     );
   }
+}
+
+TextStyle _locationNameStyle(int level) {
+  if (level <= 0) {
+    return const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: Colors.black,
+    );
+  }
+  return TextStyle(
+    fontSize: 14,
+    height: 1.2,
+    fontWeight: level == 1 ? FontWeight.w600 : FontWeight.w400,
+    color: Colors.black,
+  );
 }
 
 bool _pointMatchesLocationIds(WorldPoint point, Set<String> locationIds) {

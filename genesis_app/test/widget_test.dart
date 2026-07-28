@@ -3,9 +3,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,6 +22,7 @@ import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dar
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
@@ -60,6 +62,7 @@ import 'package:genesis_flutter_android/pages/create/create_story_events_page.da
 import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -319,6 +322,9 @@ class _FakeBillingService implements BillingService {
   );
   final StreamController<BillingUiEvent> _events =
       StreamController<BillingUiEvent>.broadcast();
+  final List<BillingRecoverySource> recoverSources = <BillingRecoverySource>[];
+  int resetForSessionCount = 0;
+  int startCount = 0;
 
   @override
   Stream<BillingUiEvent> get events => _events.stream;
@@ -334,19 +340,43 @@ class _FakeBillingService implements BillingService {
   }) async {}
 
   @override
-  Future<void> recover(BillingRecoverySource source) async {}
+  Future<void> recover(BillingRecoverySource source) async {
+    recoverSources.add(source);
+  }
 
   @override
-  void resetForSession() {}
+  void resetForSession() {
+    resetForSessionCount += 1;
+  }
 
   @override
-  Future<void> start() async {}
+  Future<void> start() async {
+    startCount += 1;
+  }
 
   @override
   void dispose() {
     _state.dispose();
     _events.close();
   }
+}
+
+class _CapturingTelemetrySink implements GenesisTelemetrySink {
+  final List<GenesisTelemetryEvent> events = <GenesisTelemetryEvent>[];
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    events.add(event);
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {}
+
+  @override
+  Future<void> setUserId(String? uid) async {}
 }
 
 class _FakeIdentityAuthService implements IdentityAuthService {
@@ -2042,6 +2072,134 @@ void main() {
   tearDown(() async {
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
     BlockedUserReviewReturn.resetForTesting();
+  });
+
+  testWidgets(
+    'AppShell owns initial and background-to-foreground billing recovery',
+    (WidgetTester tester) async {
+      final billing = _FakeBillingService();
+      final services = await _testServices(billingService: billing);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(billing.recoverSources, [BillingRecoverySource.appStart]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(billing.recoverSources, [
+        BillingRecoverySource.appStart,
+        BillingRecoverySource.foreground,
+      ]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(billing.recoverSources, [
+        BillingRecoverySource.appStart,
+        BillingRecoverySource.foreground,
+      ]);
+    },
+  );
+
+  testWidgets('AppShell recovers once when the UID changes', (
+    WidgetTester tester,
+  ) async {
+    final billing = _FakeBillingService();
+    final sessionStore = MemoryUserSessionStore();
+    final services = await _testServices(
+      billingService: billing,
+      sessionStoreOverride: sessionStore,
+      initialUid: 'u_first',
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(billing.recoverSources, [BillingRecoverySource.appStart]);
+
+    await sessionStore.saveUid('u_second');
+    services.notifySessionChanged();
+    await tester.pump();
+    await tester.pump();
+
+    expect(billing.recoverSources, [
+      BillingRecoverySource.appStart,
+      BillingRecoverySource.foreground,
+    ]);
+
+    services.notifySessionChanged();
+    await tester.pump();
+    await tester.pump();
+
+    expect(billing.recoverSources, [
+      BillingRecoverySource.appStart,
+      BillingRecoverySource.foreground,
+    ]);
+  });
+
+  testWidgets('Me page view records the current login state', (
+    WidgetTester tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final sessionStore = MemoryUserSessionStore();
+    final services = await _testServices(
+      sessionStoreOverride: sessionStore,
+      initialUid: null,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Me'));
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('Home'));
+    await tester.pump();
+    await sessionStore.saveUid('u_logged_in');
+    await sessionStore.saveAuthToken('backend-token');
+    services.notifySessionChanged();
+    await tester.pump();
+
+    await tester.tap(find.text('Me'));
+    await tester.pump();
+    await tester.pump();
+
+    final mePageViews = telemetry.events
+        .where(
+          (event) =>
+              event.category == 'collect.log' &&
+              event.name == 'me' &&
+              event.data['action_type'] == 'pageview',
+        )
+        .toList(growable: false);
+    expect(mePageViews.map((event) => event.data['object1']), [
+      'logged_out',
+      'logged_in',
+    ]);
   });
 
   testWidgets('force upgrade gate renders child when upgrade is not required', (
@@ -6629,14 +6787,14 @@ void main() {
     final editText = tester.widget<Text>(find.text('Edit Worldo'));
     expect(editText.style?.fontSize, 14);
     expect(editText.style?.color, const Color(0xFF4B6192));
-    final editIcon = tester.widget<Icon>(
+    final editIcon = tester.widget<SvgPicture>(
       find.descendant(
         of: find.byKey(const ValueKey('origin-inline-edit-worldo')),
-        matching: find.byIcon(Icons.edit),
+        matching: _assetSvgFinder(editPencilLineIconAsset),
       ),
     );
-    expect(editIcon.size, 16);
-    expect(editIcon.color, const Color(0xFF4B6192));
+    expect(editIcon.width, 16);
+    expect(editIcon.height, 16);
   });
 
   testWidgets('Origin detail hides edit button from non-owner', (
@@ -8375,9 +8533,17 @@ void main() {
     );
     await tester.pump();
 
+    final editIconFinder = _assetSvgFinder(editPencilLineIconAsset);
     final textRight = tester.getTopRight(find.text('Short')).dx;
-    final iconLeft = tester.getTopLeft(find.byIcon(Icons.edit)).dx;
+    final iconLeft = tester.getTopLeft(editIconFinder).dx;
     expect(iconLeft - textRight, lessThan(16));
+    expect(
+      tester.getBottomLeft(editIconFinder).dy,
+      tester.getBottomLeft(find.text('Short')).dy,
+    );
+    final editIcon = tester.widget<SvgPicture>(editIconFinder);
+    expect(editIcon.width, 18);
+    expect(editIcon.height, 18);
   });
 
   testWidgets('profile avatar edit button uses image edit icon', (
@@ -9084,6 +9250,35 @@ void main() {
     await tester.tap(find.text('Story Events (Optional)'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Story Events'), findsWidgets);
+  });
+
+  testWidgets('create flow Locations exposes Preview and Edit links', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Locations (>=1)'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('locations-mode-switch')),
+      findsOneWidget,
+    );
+    expect(find.text('Preview'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-mode-preview')),
+    );
+    await tester.pump();
+
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.byType(WorldLocationList), findsOneWidget);
+    expect(find.widgetWithText(GenesisPrimaryButton, 'Save'), findsOneWidget);
   });
 
   testWidgets(
@@ -10357,7 +10552,35 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Description (Optional)'), findsNothing);
-    expect(find.text('1/10 (L3 Added / Max)'), findsOneWidget);
+    expect(find.text('L1: 1'), findsOneWidget);
+    expect(find.text('L2: 1'), findsOneWidget);
+    expect(find.text('L3: 1/10 (Added/Max)'), findsOneWidget);
+    final locationCounts = find.byKey(
+      const ValueKey<String>('create-location-l3-count'),
+    );
+    expect(
+      tester
+          .widgetList<Text>(
+            find.descendant(of: locationCounts, matching: find.byType(Text)),
+          )
+          .every(
+            (text) =>
+                text.style?.fontSize == 13 &&
+                text.style?.color == const Color(0xFF666666),
+          ),
+      isTrue,
+    );
+    expect(tester.widget<Wrap>(locationCounts).spacing, 16);
+    expect(
+      tester
+          .widget<Align>(
+            find
+                .ancestor(of: locationCounts, matching: find.byType(Align))
+                .first,
+          )
+          .alignment,
+      Alignment.centerLeft,
+    );
 
     final addL3 = find.byKey(const ValueKey('create-add-l3-Loc_1_1'));
     await tester.scrollUntilVisible(
@@ -10371,7 +10594,7 @@ void main() {
       find.text('L3 Location (ID: Loc_1_1_2)', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('2/10 (L3 Added / Max)'), findsOneWidget);
+    expect(find.text('L3: 2/10 (Added/Max)'), findsOneWidget);
     final l3Cards = find.byType(CreateFormCard);
     expect(
       tester.getTopLeft(l3Cards.at(1)).dy -
@@ -10391,7 +10614,8 @@ void main() {
       find.text('L3 Location (ID: Loc_1_2_1)', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('3/10 (L3 Added / Max)'), findsOneWidget);
+    expect(find.text('L2: 2'), findsOneWidget);
+    expect(find.text('L3: 3/10 (Added/Max)'), findsOneWidget);
 
     final addL1 = find.byKey(const ValueKey('create-add-l1-location'));
     await tester.scrollUntilVisible(
@@ -10405,7 +10629,108 @@ void main() {
       find.text('L3 Location (ID: Loc_2_1_1)', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('4/10 (L3 Added / Max)'), findsOneWidget);
+    expect(find.text('L1: 2'), findsOneWidget);
+    expect(find.text('L2: 3'), findsOneWidget);
+    expect(find.text('L3: 4/10 (Added/Max)'), findsOneWidget);
+  });
+
+  testWidgets('locations switch previews the live tree and keeps Save', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    double globalTextBaseline(Finder finder) {
+      final box = tester.renderObject<RenderBox>(finder);
+      return tester.getTopLeft(finder).dy +
+          box.getDryBaseline(box.constraints, TextBaseline.alphabetic)!;
+    }
+
+    expect(
+      find.byKey(const ValueKey<String>('locations-mode-switch')),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Text>(find.text('Preview')).style?.color,
+      const Color(0xFF4B6192),
+    );
+    expect(
+      tester.widget<Text>(find.text('Preview')).style?.fontWeight,
+      FontWeight.w600,
+    );
+    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+    expect(find.text('Edit'), findsNothing);
+    expect(find.byType(WorldLocationList), findsNothing);
+    final titleText = find.text('Locations');
+    final previewText = find.text('Preview');
+    expect(
+      globalTextBaseline(previewText),
+      closeTo(globalTextBaseline(titleText), 0.01),
+    );
+
+    final l1Name = find.descendant(
+      of: find.byKey(const ValueKey('create-location-l1-name-0')),
+      matching: find.byType(TextField),
+    );
+    final l2Name = find.descendant(
+      of: find.byKey(const ValueKey('create-location-l2-name-0-0')),
+      matching: find.byType(TextField),
+    );
+    final l3Card = find.byKey(const ValueKey('create-location-l3-Loc_1_1_1'));
+    final l3Name = find
+        .descendant(of: l3Card, matching: find.byType(TextField))
+        .first;
+    await tester.enterText(l1Name, 'Downtown');
+    await tester.enterText(l2Name, 'Main Street');
+    await tester.enterText(l3Name, 'Central Station');
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-mode-preview')),
+    );
+    await tester.pump();
+
+    expect(find.byType(WorldLocationList), findsOneWidget);
+    expect(find.text('- Downtown'), findsOneWidget);
+    expect(find.text('- Main Street'), findsOneWidget);
+    expect(find.text('Central Station'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('create-location-l1-name-0')),
+      findsNothing,
+    );
+    expect(find.widgetWithText(GenesisPrimaryButton, 'Save'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Save'))
+          .onPressed,
+      isNotNull,
+    );
+    expect(
+      tester.widget<Text>(find.text('Edit')).style?.color,
+      const Color(0xFF4B6192),
+    );
+    expect(
+      tester.widget<Text>(find.text('Edit')).style?.fontWeight,
+      FontWeight.w600,
+    );
+    expect(_assetSvgFinder(editPencilLineIconAsset), findsOneWidget);
+    expect(find.text('Preview'), findsNothing);
+    expect(
+      globalTextBaseline(find.text('Edit')),
+      closeTo(globalTextBaseline(titleText), 0.01),
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('locations-mode-edit')));
+    await tester.pump();
+
+    expect(find.byType(WorldLocationList), findsNothing);
+    expect(tester.widget<TextField>(l1Name).controller?.text, 'Downtown');
+    expect(find.widgetWithText(GenesisPrimaryButton, 'Save'), findsOneWidget);
   });
 
   testWidgets('create locations save requires every tree level name', (
@@ -12528,9 +12853,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byIcon(Icons.edit), findsWidgets);
+      expect(_assetSvgFinder(editPencilLineIconAsset), findsWidgets);
 
-      await tester.tap(find.byIcon(Icons.edit).last);
+      await tester.tap(_assetSvgFinder(editPencilLineIconAsset).last);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -16995,7 +17320,7 @@ void main() {
     );
   });
 
-  testWidgets('location chat shows role name instead of pushed username', (
+  testWidgets('location chat uses character name for matching sender char id', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
@@ -17012,6 +17337,17 @@ void main() {
           'goal': 'Talk',
           'avatar': '',
           'location_id': 'l_world-1',
+        },
+      ],
+      worldLocations: const [
+        {
+          'location_id': 'l_world-1',
+          'location_name': 'World Location',
+          'location_summary': 'A world location.',
+          'image': '',
+          'map_url': '',
+          'x_percent': 35,
+          'y_percent': 45,
         },
       ],
     );
@@ -17036,26 +17372,32 @@ void main() {
     await tester.pumpAndSettle();
 
     chatroom.session.emit(
-      ChatroomUserMessage(
+      const ChatroomAiStreamStart(
         sessionId: 'sess-1',
-        worldId: 'world-1',
         locationId: 'l_world-1',
-        userId: 'u_other',
-        code: 0,
-        codeMsg: 'ok',
-        ts: null,
+        globalMessageId: 127,
         messageId: 127,
         locationMessageId: 127,
         conversationRoundId: '1318',
         roundOrder: 0,
-        senderType: 'user',
-        senderId: 'u_other',
+        senderType: 'character',
+        senderId: 'c_other',
         senderName: 'Actual Username',
-        content: 'role name check',
-        broadcast: true,
         currentTime: '2026-06-25T00:00:00Z',
-        clientMsgId: '',
+      ),
+    );
+    chatroom.session.emit(
+      const ChatroomAiStreamEnd(
+        sessionId: 'sess-1',
+        locationId: 'l_world-1',
+        globalMessageId: 127,
+        messageId: 127,
+        locationMessageId: 127,
+        conversationRoundId: '1318',
+        senderId: 'c_other',
+        content: 'role name check',
         createdAt: null,
+        currentTime: '2026-06-25T00:00:00Z',
       ),
     );
     await tester.pump();
@@ -17165,6 +17507,16 @@ Finder _assetImageFinder(String path, {bool skipOffstage = true}) {
         widget is Image &&
         widget.image is AssetImage &&
         (widget.image as AssetImage).assetName == path,
+    skipOffstage: skipOffstage,
+  );
+}
+
+Finder _assetSvgFinder(String path, {bool skipOffstage = true}) {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is SvgPicture &&
+        widget.bytesLoader is SvgAssetLoader &&
+        (widget.bytesLoader as SvgAssetLoader).assetName == path,
     skipOffstage: skipOffstage,
   );
 }

@@ -1121,6 +1121,89 @@ void main() {
     );
   });
 
+  testWidgets('location tree uses the typography for each hierarchy level', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      showPointsList: true,
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'synthetic-root',
+          point: WorldPoint(
+            id: 'synthetic-root',
+            name: '',
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'level-1',
+              point: WorldPoint(
+                id: 'level-1',
+                name: 'Level One',
+                type: WorldPointType.portal,
+                position: _pointPosition,
+                users: [],
+                isLeafLocation: false,
+              ),
+              children: [
+                WorldMapLocationNode(
+                  id: 'level-2',
+                  point: WorldPoint(
+                    id: 'level-2',
+                    name: 'Level Two',
+                    type: WorldPointType.shop,
+                    position: _pointPosition,
+                    users: [],
+                    isLeafLocation: false,
+                  ),
+                  children: [
+                    WorldMapLocationNode(
+                      id: 'level-3',
+                      point: WorldPoint(
+                        id: 'level-3',
+                        name: 'Level Three',
+                        type: WorldPointType.camp,
+                        position: _pointPosition,
+                        users: [UserAvatar('AA', name: 'Ari', showStar: true)],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final levelOne = find.text('- Level One');
+    final levelTwo = find.text('- Level Two');
+    final levelThree = find.text('Level Three');
+    final character = find.text('Ari');
+    final levelOneStyle = tester.widget<Text>(levelOne).style!;
+    final levelTwoStyle = tester.widget<Text>(levelTwo).style!;
+    final levelThreeStyle = tester.widget<Text>(levelThree).style!;
+
+    expect(levelOneStyle.fontSize, 16);
+    expect(levelOneStyle.fontWeight, FontWeight.w600);
+    expect(levelTwoStyle.fontSize, 14);
+    expect(levelTwoStyle.fontWeight, FontWeight.w600);
+    expect(levelTwoStyle.height, 1.2);
+    expect(levelThreeStyle.fontSize, 14);
+    expect(levelThreeStyle.fontWeight, FontWeight.w400);
+    expect(levelThreeStyle.height, 1.2);
+    expect(
+      tester.getTopLeft(character).dy - tester.getBottomLeft(levelThree).dy,
+      closeTo(8, 0.01),
+    );
+  });
+
   testWidgets(
     'points list uses location description and hides empty summary row',
     (tester) async {
