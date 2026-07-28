@@ -14984,7 +14984,7 @@ void main() {
     );
   });
 
-  testWidgets('location chat shows role name instead of pushed username', (
+  testWidgets('location chat uses character name for matching sender char id', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
@@ -15001,6 +15001,17 @@ void main() {
           'goal': 'Talk',
           'avatar': '',
           'location_id': 'l_world-1',
+        },
+      ],
+      worldLocations: const [
+        {
+          'location_id': 'l_world-1',
+          'location_name': 'World Location',
+          'location_summary': 'A world location.',
+          'image': '',
+          'map_url': '',
+          'x_percent': 35,
+          'y_percent': 45,
         },
       ],
     );
@@ -15025,26 +15036,32 @@ void main() {
     await tester.pumpAndSettle();
 
     chatroom.session.emit(
-      ChatroomUserMessage(
+      const ChatroomAiStreamStart(
         sessionId: 'sess-1',
-        worldId: 'world-1',
         locationId: 'l_world-1',
-        userId: 'u_other',
-        code: 0,
-        codeMsg: 'ok',
-        ts: null,
+        globalMessageId: 127,
         messageId: 127,
         locationMessageId: 127,
         conversationRoundId: '1318',
         roundOrder: 0,
-        senderType: 'user',
-        senderId: 'u_other',
+        senderType: 'character',
+        senderId: 'c_other',
         senderName: 'Actual Username',
-        content: 'role name check',
-        broadcast: true,
         currentTime: '2026-06-25T00:00:00Z',
-        clientMsgId: '',
+      ),
+    );
+    chatroom.session.emit(
+      const ChatroomAiStreamEnd(
+        sessionId: 'sess-1',
+        locationId: 'l_world-1',
+        globalMessageId: 127,
+        messageId: 127,
+        locationMessageId: 127,
+        conversationRoundId: '1318',
+        senderId: 'c_other',
+        content: 'role name check',
         createdAt: null,
+        currentTime: '2026-06-25T00:00:00Z',
       ),
     );
     await tester.pump();
