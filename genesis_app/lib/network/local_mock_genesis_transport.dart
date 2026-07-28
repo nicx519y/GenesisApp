@@ -85,6 +85,10 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _handleChatroomHttp(method, apiPath, query, body);
     }
 
+    if (apiPath.startsWith('v2/')) {
+      return _handleV2(method, apiPath.substring('v2/'.length), body);
+    }
+
     if (apiPath.startsWith('v1/')) {
       return _handleV1(method, apiPath.substring('v1/'.length), query, body);
     }
@@ -310,6 +314,22 @@ class LocalMockGenesisTransport implements HttpTransport {
     return _v1Error(404, 'mock chatroom route not found: $method /$path');
   }
 
+  Future<TransportResponse> _handleV2(
+    String method,
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    if (method == 'POST' && path == 'origin/create') {
+      return _v1Ok(_state.createV2Origin(body));
+    }
+
+    if (method == 'POST' && path == 'origin/update') {
+      return _v1Ok(_state.updateV2Origin(body));
+    }
+
+    return _v1Error(404, 'mock v2 route not found: $method /api/v2/$path');
+  }
+
   Future<TransportResponse> _handleV1(
     String method,
     String path,
@@ -426,9 +446,14 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'origin/detail') {
-      return _v1Ok(
-        _state.v1OriginContractDetail(query['origin_id'] ?? query['oid']),
-      );
+      final originId = (query['origin_id'] ?? query['oid'] ?? '').trim();
+      if (originId.isEmpty) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      if (!_state.canViewV1OriginDetail(originId)) {
+        return _v1BusinessError(20101, 'ErrorOriginNotExist');
+      }
+      return _v1Ok(_state.v1OriginContractDetail(originId));
     }
 
     if (method == 'GET' && path == 'origin/map') {
@@ -844,6 +869,14 @@ class LocalMockGenesisTransport implements HttpTransport {
   TransportResponse _v1Error(int code, String message) {
     return TransportResponse(
       statusCode: code,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': code, 'err_msg': message, 'data': {}}),
+    );
+  }
+
+  TransportResponse _v1BusinessError(int code, String message) {
+    return TransportResponse(
+      statusCode: 200,
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({'err_no': code, 'err_msg': message, 'data': {}}),
     );
@@ -1374,16 +1407,22 @@ class _MockState {
       for (final rawLine in dialogues) {
         if (rawLine is! Map) continue;
         final line = asJsonMap(rawLine);
+        final senderId = asString(line['char_id']);
+        final normalizedSenderId = senderId.trim().toLowerCase();
         final message = _newChatroomMessage(
           worldId: worldId,
           locationId: locationId,
           conversationRoundId: roundId,
           roundOrder: order++,
           senderType: 'narrator',
-          senderId: asString(line['char_id']),
+          senderId: senderId,
           senderName: asString(line['char_name'], fallback: '旁白'),
           userId: '',
           content: asString(line['content']),
+          messageType:
+              normalizedSenderId == 'nar_pic' || normalizedSenderId == 'image'
+              ? 'image'
+              : 'text',
         );
         _chatroomMessages.add(message);
         firstMessageId = firstMessageId == 0
@@ -1983,6 +2022,22 @@ class _MockState {
         .toList(growable: false);
   }
 
+  bool canViewV1OriginDetail(String originId) {
+    Map<String, dynamic>? origin;
+    for (final item in _v1Origins) {
+      if ('${item['oid'] ?? ''}'.trim() == originId.trim()) {
+        origin = item;
+        break;
+      }
+    }
+    if (origin == null) return false;
+    final reviewStatus = asInt(origin['review_status'], fallback: 20);
+    if (reviewStatus == 20) return true;
+    final ownerUid = '${origin['owner_uid'] ?? origin['created_uid'] ?? ''}'
+        .trim();
+    return _authenticated && ownerUid == '${_v1User['uid'] ?? ''}'.trim();
+  }
+
   Map<String, dynamic> v1OriginDetail(String? oid) {
     final origin = _findV1Origin(oid);
     return _originDetailPayload(origin);
@@ -1992,14 +2047,25 @@ class _MockState {
     final origin = _findV1Origin(originId);
     return {
       ..._v1OriginContractItem(origin),
-      'characters': kMockV1Characters.map(_contractCharacter).toList(),
-      'locations': kMockV1Locations.map(_contractLocation).toList(),
-      'ticks': kMockV1Ticks.map(_contractTick).toList(),
+      'init_location_group': _originContractInitLocationGroup(origin),
+      'characters': _originEditCharacters(
+        origin,
+      ).map(_contractCharacter).toList(),
+      'locations': _originEditLocations(origin).map(_contractLocation).toList(),
+      'ticks': _originContractTicks(origin),
     };
   }
 
   Map<String, dynamic> v1OriginContractInfo(String? originId) {
-    return _v1OriginContractItem(_findV1Origin(originId));
+    final origin = _findV1Origin(originId);
+    final remaining = asInt(origin['_v2_info_polls_remaining']);
+    if (remaining > 0) {
+      origin['_v2_info_polls_remaining'] = remaining - 1;
+    } else if (origin['_v2_processing'] == true) {
+      origin['status'] = 10;
+      origin['_v2_processing'] = false;
+    }
+    return _v1OriginContractItem(origin);
   }
 
   Map<String, dynamic> v1OriginMap(String originId, String locationId) {
@@ -2018,6 +2084,7 @@ class _MockState {
       'origin_id': info['origin_id'],
       'origin_name': info['origin_name'],
       'origin_version': info['origin_version'],
+      'definition_version': info['definition_version'],
       'brief': info['brief'],
       'setting': info['setting'],
       'events': info['events'],
@@ -2027,8 +2094,19 @@ class _MockState {
       'tick_duration_time': '${info['tick_duration_days'] ?? 1} days',
       'cover': info['cover'],
       'map_url': info['map_url'],
-      'characters': kMockV1Characters.map(_contractCharacterForEdit).toList(),
-      'locations': kMockV1Locations.map(_contractLocationForEdit).toList(),
+      'tile_types': origin['tile_types'] is Map
+          ? _deepCopyMap(_mapFromObject(origin['tile_types']))
+          : const <String, Object?>{},
+      'characters': _originEditCharacters(
+        origin,
+      ).map(_contractCharacterForEdit).toList(),
+      'locations': _originEditLocations(
+        origin,
+      ).map(_contractLocationForEdit).toList(),
+      if (origin['init_location_group'] is Map)
+        'init_location_group': _deepCopyMap(
+          _mapFromObject(origin['init_location_group']),
+        ),
     };
   }
 
@@ -2045,6 +2123,10 @@ class _MockState {
       'world_setting': '${body['setting'] ?? _v1Origin['world_setting']}',
       'cover': '${body['cover'] ?? _v1Origin['cover']}',
       'map_url': '${body['map_url'] ?? body['cover'] ?? _v1Origin['map_url']}',
+      'definition_version':
+          body['definition_version'] ?? _v1Origin['definition_version'],
+      if (body['tile_types'] is Map)
+        'tile_types': _deepCopyMap(_mapFromObject(body['tile_types'])),
       'tags': body['tags'] is List ? body['tags'] : const <Object?>[],
       'metric': body['metric'] is Map
           ? _deepCopyMap(_mapFromObject(body['metric']))
@@ -2061,6 +2143,12 @@ class _MockState {
       'location_cnt': body['locations'] is List
           ? (body['locations'] as List).length
           : _v1Origin['location_cnt'],
+      if (body['characters'] is List)
+        '_edit_characters': _deepCopyList(body['characters'] as List),
+      if (body['locations'] is List)
+        '_edit_locations': _deepCopyList(body['locations'] as List),
+      if (body['events'] is List)
+        '_edit_events': _deepCopyList(body['events'] as List),
     };
     _v1Origins.insert(0, created);
     return {
@@ -2092,6 +2180,12 @@ class _MockState {
     }
     if (body['cover'] != null) origin['cover'] = body['cover'];
     if (body['map_url'] != null) origin['map_url'] = body['map_url'];
+    if (body['definition_version'] != null) {
+      origin['definition_version'] = body['definition_version'];
+    }
+    if (body['tile_types'] is Map) {
+      origin['tile_types'] = _deepCopyMap(_mapFromObject(body['tile_types']));
+    }
     if (body['tags'] is List) origin['tags'] = body['tags'];
     if (body['metric'] is Map) {
       origin['metric'] = _deepCopyMap(_mapFromObject(body['metric']));
@@ -2103,6 +2197,17 @@ class _MockState {
     }
     if (body['update_notes'] != null) {
       origin['update_notes'] = body['update_notes'];
+    }
+    if (body['characters'] is List) {
+      origin['_edit_characters'] = _deepCopyList(body['characters'] as List);
+      origin['character_cnt'] = (body['characters'] as List).length;
+    }
+    if (body['locations'] is List) {
+      origin['_edit_locations'] = _deepCopyList(body['locations'] as List);
+      origin['location_cnt'] = (body['locations'] as List).length;
+    }
+    if (body['events'] is List) {
+      origin['_edit_events'] = _deepCopyList(body['events'] as List);
     }
     origin['version_num'] = asInt(origin['version_num'], fallback: 1) + 1;
     origin['updated_at'] = DateTime.now().toUtc().toIso8601String();
@@ -2119,6 +2224,49 @@ class _MockState {
                 .toList(growable: false)
           : kMockV1Locations.map(_contractLocation).toList(),
       'ticks': const <Map<String, dynamic>>[],
+    };
+  }
+
+  Map<String, dynamic> createV2Origin(Map<String, dynamic> body) {
+    final created = createV1Origin(body);
+    final info = _mapFromObject(created['info']);
+    final origin = _findV1Origin('${info['origin_id'] ?? ''}');
+    origin['version_num'] = 1;
+    origin['definition_version'] = 2;
+    origin['tile_types'] = _deepCopyMap(
+      _mapFromObject(_v1TilemapDefinition('root')['tile_types']),
+    );
+    origin['status'] = 20;
+    origin['init_location_group'] = body['init_location_group'];
+    origin['_v2_processing'] = true;
+    origin['_v2_info_polls_remaining'] = 1;
+    final normalizedInfo = _mapFromObject(
+      _v1OriginContractItem(origin)['info'],
+    );
+    return _originUpsertResponse(normalizedInfo);
+  }
+
+  Map<String, dynamic> updateV2Origin(Map<String, dynamic> body) {
+    final updated = updateV1Origin(body);
+    final info = _mapFromObject(updated['info']);
+    final origin = _findV1Origin('${info['origin_id'] ?? ''}');
+    origin['definition_version'] = 2;
+    origin['tile_types'] = _deepCopyMap(
+      _mapFromObject(_v1TilemapDefinition('root')['tile_types']),
+    );
+    origin['status'] = 20;
+    origin['init_location_group'] = body['init_location_group'];
+    origin['_v2_processing'] = true;
+    origin['_v2_info_polls_remaining'] = 1;
+    return _originUpsertResponse(info);
+  }
+
+  Map<String, dynamic> _originUpsertResponse(Map<String, dynamic> info) {
+    return {
+      'origin_id': info['origin_id'],
+      'origin_version': info['origin_version'],
+      'origin_version_time': info['origin_version_time'],
+      'origin_name': info['origin_name'],
     };
   }
 
@@ -3553,13 +3701,120 @@ class _MockState {
     _v1Drafts.removeWhere((_, draft) => draft['draft_id'] == draftId);
   }
 
+  List<Map<String, dynamic>> _originEditCharacters(
+    Map<String, dynamic> origin,
+  ) {
+    final stored = origin['_edit_characters'];
+    if (stored is List) {
+      return stored
+          .map((item) => _deepCopyMap(_mapFromObject(item)))
+          .toList(growable: false);
+    }
+    return kMockV1Characters.map(_deepCopyMap).toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _originEditLocations(Map<String, dynamic> origin) {
+    final stored = origin['_edit_locations'];
+    if (stored is List) {
+      return stored
+          .map((item) => _deepCopyMap(_mapFromObject(item)))
+          .toList(growable: false);
+    }
+    return kMockV1Locations.map(_deepCopyMap).toList(growable: false);
+  }
+
+  List<String> _originEditEvents(Map<String, dynamic> origin) {
+    final stored = origin['_edit_events'];
+    if (stored is List) {
+      return stored
+          .map((item) => '$item'.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false);
+    }
+    return kMockV1Events
+        .map((event) => '${event['content'] ?? ''}'.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _originContractTicks(Map<String, dynamic> origin) {
+    return kMockV1Ticks.map(_contractTick).toList(growable: false);
+  }
+
+  Map<String, dynamic>? _originContractInitLocationGroup(
+    Map<String, dynamic> origin,
+  ) {
+    final stored = origin['init_location_group'];
+    if (stored is Map) {
+      final normalized = _normalizeOriginInitLocationGroup(
+        origin,
+        _mapFromObject(stored),
+      );
+      if (normalized != null) return normalized;
+    }
+
+    final locations = _originEditLocations(origin).toList(growable: false)
+      ..sort(
+        (left, right) => '${left['location_id'] ?? ''}'.compareTo(
+          '${right['location_id'] ?? ''}',
+        ),
+      );
+    for (final location in locations) {
+      final normalized = _normalizeOriginInitLocationGroup(origin, {
+        'location_id': location['location_id'],
+        'initial_dialogue': location['dialogue'],
+      });
+      if (normalized != null) return normalized;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _normalizeOriginInitLocationGroup(
+    Map<String, dynamic> origin,
+    Map<String, dynamic> group,
+  ) {
+    final locationId = '${group['location_id'] ?? ''}'.trim();
+    final rawDialogue = group['initial_dialogue'] ?? group['dialogue'];
+    if (locationId.isEmpty || rawDialogue is! List) return null;
+
+    final charactersById = <String, String>{
+      for (final character in _originEditCharacters(origin))
+        '${character['character_id'] ?? character['char_id'] ?? ''}'.trim():
+            '${character['name'] ?? ''}'.trim(),
+    }..remove('');
+    final dialogue = rawDialogue
+        .whereType<Map>()
+        .map((rawLine) {
+          final line = _mapFromObject(rawLine);
+          final charId = '${line['char_id'] ?? ''}'.trim();
+          final content = '${line['content'] ?? ''}';
+          if (charId.isEmpty || content.trim().isEmpty) return null;
+          final normalizedType = charId.toLowerCase();
+          final generatedName =
+              normalizedType == 'nar' || normalizedType == 'nar_pic'
+              ? 'Narrator'
+              : charactersById[charId] ?? '';
+          return <String, dynamic>{
+            'char_id': charId,
+            'char_name': generatedName,
+            'content': content,
+          };
+        })
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+    if (dialogue.isEmpty) return null;
+    return {'location_id': locationId, 'initial_dialogue': dialogue};
+  }
+
   Map<String, dynamic> _originDetailPayload(Map<String, dynamic> origin) {
     return {
       'origin': _v1OriginPayload(origin),
-      'character_list': kMockV1Characters.map(_deepCopyMap).toList(),
+      'character_list': _originEditCharacters(origin),
       'metric': _deepCopyMap(kMockV1Metric),
-      'location_list': kMockV1Locations.map(_deepCopyMap).toList(),
-      'event_list': kMockV1Events.map(_deepCopyMap).toList(),
+      'location_list': _originEditLocations(origin),
+      'event_list': _originEditEvents(
+        origin,
+      ).map((content) => <String, dynamic>{'content': content}).toList(),
     };
   }
 
@@ -3620,6 +3875,9 @@ class _MockState {
   }
 
   Map<String, dynamic> _v1OriginContractItem(Map<String, dynamic> origin) {
+    final ownerUid = '${origin['owner_uid'] ?? origin['created_uid'] ?? ''}';
+    final ownerName =
+        '${origin['owner_name'] ?? origin['created_user_name'] ?? ''}';
     return {
       'info': {
         'origin_id': origin['oid'],
@@ -3627,11 +3885,14 @@ class _MockState {
         'origin_version': '${origin['version_num'] ?? 1}',
         'origin_version_time': _mockEpoch(origin['updated_at']),
         'definition_version': origin['definition_version'] ?? 2,
-        'owner_uid': origin['owner_uid'] ?? origin['created_uid'],
-        'owner_name': origin['owner_name'] ?? origin['created_user_name'],
+        'language': origin['language'] ?? 'en',
+        'current_time': origin['current_time'] ?? 'Day 3, 09:20',
+        'owner_uid': ownerUid,
+        'owner_name': ownerName,
+        'owner_user': _contractPublicUser(ownerUid, fallbackName: ownerName),
         'brief': origin['display_subtitle'],
         'setting': origin['world_setting'],
-        'events': kMockV1Events.map((event) => event['content']).toList(),
+        'events': _originEditEvents(origin),
         'tags': origin['tags'],
         'metric': origin['metric'] is Map
             ? _deepCopyMap(_mapFromObject(origin['metric']))
@@ -3641,7 +3902,7 @@ class _MockState {
         'tick_duration_days': origin['tick_duration_days'],
         'cover': _mockImageObject(origin['cover']),
         'map_url': origin['map_url'] ?? origin['cover'],
-        'status': origin['status'],
+        'status': asInt(origin['status']) == 20 ? 20 : 10,
       },
       'stats': {
         'copy_cnt': origin['copy_cnt'],
@@ -3687,11 +3948,23 @@ class _MockState {
   }
 
   Map<String, dynamic> _contractCharacter(Map<String, dynamic> character) {
+    final playerUid = '${character['player_uid'] ?? ''}'.trim();
+    final playerUser = _contractPublicUser(
+      playerUid,
+      fallbackName: '${character['player_username'] ?? ''}',
+    );
+    final rawType = '${character['type'] ?? 'ai'}'.trim().toLowerCase();
     return {
       'char_id': character['character_id'] ?? character['char_id'],
-      'type': character['type'] ?? 'ai',
-      'player_uid': character['player_uid'] ?? '',
-      'player_username': character['player_username'] ?? '',
+      'type': rawType == 'custom' || rawType == 'player' ? 'custom' : 'ai',
+      'player_uid': playerUid,
+      'player_username': playerUid.isEmpty
+          ? ''
+          : '${character['player_username'] ?? playerUser['name'] ?? ''}',
+      'player_user': playerUser,
+      'player_joined_at': playerUid.isEmpty
+          ? 0
+          : character['player_joined_at'] ?? kMockV1NowEpoch,
       'name': character['name'],
       'identity': character['identity'],
       'brief': character['tagline'] ?? character['personality'],
@@ -3738,6 +4011,8 @@ class _MockState {
       'image': _mockImageObject(location['image']),
       'x_percent': location['x_percent'],
       'y_percent': location['y_percent'],
+      'x': location['x'] ?? 0.0,
+      'y': location['y'] ?? 0.0,
       'map_url': location['map_url'] ?? location['image'],
       'dialogue': location['dialogue'] ?? const <Map<String, dynamic>>[],
     };
@@ -3823,10 +4098,45 @@ class _MockState {
       'status': tick['status'] ?? 10,
       'created_at': _mockEpoch(tick['created_at']),
       'tick_result': {
+        'current_time':
+            tick['current_time'] ?? 'Day ${tick['tick_no'] ?? 1}, 09:00',
         'narrator': tick['summary'] ?? '',
         'paragraphs': paragraphs,
         'location_groups': const <Map<String, dynamic>>[],
       },
+    };
+  }
+
+  Map<String, dynamic> _contractPublicUser(
+    String uid, {
+    String fallbackName = '',
+  }) {
+    if (uid.trim().isEmpty) {
+      return {
+        'uid': '',
+        'name': '',
+        'avatar': _mockImageObject(''),
+        'deleted': false,
+        'follower_cnt': 0,
+        'following_cnt': 0,
+        'friend_cnt': 0,
+        'create_origin_cnt': 0,
+        'launch_world_cnt': 0,
+        'join_world_cnt': 0,
+      };
+    }
+    final user = _v1UserPayload(_v1UserForUid(uid));
+    return {
+      'uid': uid,
+      'name': '${user['name'] ?? fallbackName}',
+      'avatar': user['avatar'] ?? _mockImageObject(''),
+      'deleted': user['deleted'] ?? false,
+      'follower_cnt': user['follower_cnt'] ?? 0,
+      'following_cnt': user['following_cnt'] ?? 0,
+      'friend_cnt': user['friend_cnt'] ?? 0,
+      'create_origin_cnt': user['create_origin_cnt'] ?? 0,
+      'launch_world_cnt': user['launch_world_cnt'] ?? 0,
+      'join_world_cnt': user['join_world_cnt'] ?? 0,
     };
   }
 
@@ -3927,6 +4237,7 @@ class _MockState {
     required String senderName,
     required String userId,
     required String content,
+    String messageType = 'text',
     String? createdAt,
   }) {
     final resolvedWorldId = _resolveChatroomWorldId(worldId);
@@ -3949,6 +4260,7 @@ class _MockState {
       'sender_name': senderName,
       'user_id': userId,
       'content': content,
+      'message_type': messageType,
       'current_time': '',
       'created_at': createdAt ?? DateTime.now().toUtc().toIso8601String(),
     };

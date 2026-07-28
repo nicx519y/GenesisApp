@@ -13,6 +13,8 @@ import 'origin_pending_submission_store.dart';
 
 typedef OriginInfoLoader =
     Future<Map<String, dynamic>> Function(String originId);
+typedef OriginPendingSubmissionSaver =
+    Future<void> Function(String originId, {String originName});
 
 enum OriginPendingSubmissionKind { create, publish }
 
@@ -57,6 +59,7 @@ class OriginPendingSubmissionCoordinator {
       clearDraft: CreateOriginDraftStore.clear,
       timeoutMessage: 'Worldo creation timed out.',
       completeOnTimeout: true,
+      completeOnPollError: true,
       successTitle: (originName) => 'Worldo #$originName created!',
       notifyOutcome: _notifyCreateOutcome,
     );
@@ -67,6 +70,8 @@ class OriginPendingSubmissionCoordinator {
       savePending: OriginPendingSubmissionStore.savePublishing,
       clearPending: OriginPendingSubmissionStore.clearPublishing,
       timeoutMessage: 'Worldo publishing timed out',
+      completeOnTimeout: true,
+      completeOnPollError: true,
       successTitle: (originName) => 'Worldo #$originName published!',
       notifyOutcome: _notifyPublishOutcome,
     );
@@ -102,11 +107,13 @@ class OriginPendingSubmissionCoordinator {
 
   Future<void> startCreating({
     required String originId,
+    String originName = '',
     required OriginInfoLoader loadOriginInfo,
     BuildContext? context,
   }) {
     return _createPoller.start(
       originId: originId,
+      originName: originName,
       loadOriginInfo: loadOriginInfo,
       context: context,
     );
@@ -124,11 +131,13 @@ class OriginPendingSubmissionCoordinator {
 
   Future<void> startPublishing({
     required String originId,
+    String originName = '',
     required OriginInfoLoader loadOriginInfo,
     BuildContext? context,
   }) {
     return _publishPoller.start(
       originId: originId,
+      originName: originName,
       loadOriginInfo: loadOriginInfo,
       context: context,
     );
@@ -177,6 +186,7 @@ class _OriginPendingSubmissionPoller {
     required this.successTitle,
     required this.notifyOutcome,
     this.completeOnTimeout = false,
+    this.completeOnPollError = false,
     this.clearDraft,
   });
 
@@ -185,29 +195,56 @@ class _OriginPendingSubmissionPoller {
   final OriginPendingSubmissionKind kind;
   final ValueNotifier<OriginPendingSubmissionRuntimeState?> state;
   final Future<OriginPendingSubmission?> Function() loadPending;
-  final Future<void> Function(String originId) savePending;
+  final OriginPendingSubmissionSaver savePending;
   final Future<void> Function() clearPending;
   final Future<void> Function()? clearDraft;
   final String timeoutMessage;
   final String Function(String originName) successTitle;
   final ValueChanged<OriginPendingSubmissionOutcome> notifyOutcome;
   final bool completeOnTimeout;
+  final bool completeOnPollError;
 
   Timer? _timer;
   String? _originId;
+  String? _originName;
   OriginInfoLoader? _loadOriginInfo;
   BuildContext? _fallbackContext;
   bool _pollInFlight = false;
 
   Future<void> start({
     required String originId,
+    String originName = '',
     required OriginInfoLoader loadOriginInfo,
     BuildContext? context,
   }) async {
     _rememberContext(context);
-    await savePending(originId);
-    final pending = await loadPending();
-    if (pending == null) return;
+    final resolvedOriginId = originId.trim();
+    if (resolvedOriginId.isEmpty) {
+      throw StateError('origin_id is missing from accepted upsert response');
+    }
+    final resolvedOriginName = originName.trim().isEmpty
+        ? resolvedOriginId
+        : originName.trim();
+    OriginPendingSubmission? pending;
+    try {
+      await savePending(resolvedOriginId, originName: resolvedOriginName);
+      pending = await loadPending();
+    } catch (_) {
+      if (!completeOnPollError) rethrow;
+      await _handleCompleted(
+        originId: resolvedOriginId,
+        originName: resolvedOriginName,
+      );
+      return;
+    }
+    if (pending == null) {
+      if (!completeOnPollError) return;
+      await _handleCompleted(
+        originId: resolvedOriginId,
+        originName: resolvedOriginName,
+      );
+      return;
+    }
     _begin(pending: pending, loadOriginInfo: loadOriginInfo);
   }
 
@@ -222,7 +259,7 @@ class _OriginPendingSubmissionPoller {
       return;
     }
     if (pending.isExpired) {
-      await _handleExpired(pending.originId);
+      await _handleExpired(pending);
       return;
     }
     _begin(pending: pending, loadOriginInfo: loadOriginInfo);
@@ -232,6 +269,7 @@ class _OriginPendingSubmissionPoller {
     _timer?.cancel();
     _timer = null;
     _originId = null;
+    _originName = null;
     _loadOriginInfo = null;
     _fallbackContext = null;
     _pollInFlight = false;
@@ -252,6 +290,9 @@ class _OriginPendingSubmissionPoller {
     }
     _timer?.cancel();
     _originId = pending.originId;
+    _originName = pending.originName.trim().isEmpty
+        ? pending.originId
+        : pending.originName.trim();
     state.value = OriginPendingSubmissionRuntimeState(
       kind: kind,
       originId: pending.originId,
@@ -269,7 +310,7 @@ class _OriginPendingSubmissionPoller {
   Future<void> _poll(OriginPendingSubmission pending) async {
     if (_originId != pending.originId || _pollInFlight) return;
     if (pending.isExpired) {
-      await _handleExpired(pending.originId);
+      await _handleExpired(pending);
       return;
     }
 
@@ -283,12 +324,22 @@ class _OriginPendingSubmissionPoller {
       if (status == 10) {
         await _handleCompleted(
           originId: pending.originId,
-          originName: _originInfoName(info, fallback: pending.originId),
+          originName: _originInfoName(
+            info,
+            fallback: _completionOriginName(pending),
+          ),
         );
         return;
       }
     } catch (_) {
       if (_originId != pending.originId) return;
+      if (completeOnPollError) {
+        await _handleCompleted(
+          originId: pending.originId,
+          originName: _completionOriginName(pending),
+        );
+        return;
+      }
     } finally {
       _pollInFlight = false;
     }
@@ -299,7 +350,7 @@ class _OriginPendingSubmissionPoller {
   void _scheduleNextPoll(OriginPendingSubmission pending) {
     if (_originId != pending.originId) return;
     if (pending.isExpired) {
-      unawaited(_handleExpired(pending.originId));
+      unawaited(_handleExpired(pending));
       return;
     }
     state.value = OriginPendingSubmissionRuntimeState(
@@ -316,8 +367,11 @@ class _OriginPendingSubmissionPoller {
     required String originName,
   }) async {
     cancel();
-    await clearPending();
-    await clearDraft?.call();
+    await _runBestEffort(clearPending);
+    final clearDraftAction = clearDraft;
+    if (clearDraftAction != null) {
+      await _runBestEffort(clearDraftAction);
+    }
     state.value = null;
     notifyOutcome(
       OriginPendingSubmissionOutcome(
@@ -371,11 +425,30 @@ class _OriginPendingSubmissionPoller {
     );
   }
 
-  Future<void> _handleExpired(String originId) {
+  Future<void> _handleExpired(OriginPendingSubmission pending) {
     if (!completeOnTimeout) {
-      return _handleTimedOut(originId);
+      return _handleTimedOut(pending.originId);
     }
-    return _handleCompleted(originId: originId, originName: originId);
+    return _handleCompleted(
+      originId: pending.originId,
+      originName: _completionOriginName(pending),
+    );
+  }
+
+  String _completionOriginName(OriginPendingSubmission pending) {
+    final pendingName = pending.originName.trim();
+    if (pendingName.isNotEmpty) return pendingName;
+    final runtimeName = _originName?.trim() ?? '';
+    return runtimeName.isEmpty ? pending.originId : runtimeName;
+  }
+
+  Future<void> _runBestEffort(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (_) {
+      // The remote upsert already succeeded, so local cleanup cannot turn the
+      // completed operation back into a failure.
+    }
   }
 
   Future<void> _handleTimedOut(String originId) async {

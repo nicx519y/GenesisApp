@@ -1,10 +1,71 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 
 void main() {
+  test('local mock chatroom messages preserve message_type', () async {
+    final api = GenesisApi(useMock: true);
+
+    final textHistory = await api.chatroomHttp.getMessages(
+      worldId: 'w_mock_001',
+      locationId: 'loc_hub',
+      since: 0,
+      limit: 20,
+    );
+    expect(textHistory.messages, isNotEmpty);
+    expect(
+      textHistory.messages.every((message) => message.messageType == 'text'),
+      isTrue,
+    );
+
+    const imageWorldId = 'w_image_message_contract_test';
+    const imageLocationId = 'loc_image_message_contract_test';
+    const imageUrl = 'https://cdn.example.com/narrator.webp';
+    final narratorMessageId = await api.chatroomHttp.writeNarrator(
+      worldId: imageWorldId,
+      tickId: 'tick_image_message_contract_test',
+      locationGroups: const [
+        ChatroomNarratorLocationGroup(
+          locationId: imageLocationId,
+          locationName: 'Image Message Test',
+          locationSummary: '',
+          characters: [],
+          initialDialogue: [
+            ChatroomNarratorDialogueLine(
+              charId: 'nar_pic',
+              charName: 'Narrator',
+              content: imageUrl,
+            ),
+          ],
+        ),
+      ],
+    );
+    expect(narratorMessageId, greaterThan(0));
+
+    final imageHistory = await api.chatroomHttp.getMessages(
+      worldId: imageWorldId,
+      locationId: imageLocationId,
+      since: 0,
+      limit: 20,
+    );
+    expect(imageHistory.messages, hasLength(1));
+    expect(imageHistory.messages.single.content, imageUrl);
+    expect(imageHistory.messages.single.messageType, 'image');
+
+    final imageWorldMessages = await api.chatroomHttp.getWorldMessages(
+      worldId: imageWorldId,
+    );
+    expect(imageWorldMessages.locations, hasLength(1));
+    expect(imageWorldMessages.locations.single.messages, hasLength(1));
+    expect(
+      imageWorldMessages.locations.single.messages.single.messageType,
+      'image',
+    );
+  });
+
   test('local mock persists Gem model selection per world', () async {
     final api = GenesisApi(useMock: true);
 
@@ -386,18 +447,34 @@ void main() {
     final origin =
         (((origins['list'] as List).first as Map)['info'] as Map)['origin_id']
             as String;
+    await expectLater(
+      api.v1.origin.detail(originId: 'o_missing'),
+      throwsA(isA<ApiException>().having((error) => error.code, 'code', 20101)),
+    );
     final detail = await api.v1.origin.detail(oid: origin);
     final detailInfo = detail['info'] as Map;
     expect(detailInfo['origin_id'], origin);
     expect(detailInfo['metric'], isA<Map>());
     expect(detailInfo['created_at'], isA<int>());
+    expect(detailInfo['language'], isNotEmpty);
+    expect(detailInfo['current_time'], isNotEmpty);
+    expect(detailInfo['owner_user'], isA<Map>());
     expect(((detail['stats'] as Map)['copy_cnt']), greaterThanOrEqualTo(1000));
-    expect((detail['characters'] as List).isNotEmpty, true);
+    expect(detail['init_location_group'], isNull);
+    final detailCharacter = (detail['characters'] as List).first as Map;
+    expect(detailCharacter['player_user'], isA<Map>());
+    expect(detailCharacter['player_joined_at'], isA<int>());
     expect(
       ((detail['locations'] as List).first as Map),
-      contains('location_description'),
+      allOf(
+        contains('location_description'),
+        containsPair('x', isA<double>()),
+        containsPair('y', isA<double>()),
+      ),
     );
-    expect(((detail['ticks'] as List).first as Map), contains('tick_result'));
+    final detailTick = (detail['ticks'] as List).first as Map;
+    expect(detailTick, contains('tick_result'));
+    expect((detailTick['tick_result'] as Map)['current_time'], isNotEmpty);
     final edit = await api.v1.origin.forEdit(originId: origin);
     expect(edit['origin_id'], origin);
     expect(edit, contains('characters'));
@@ -417,6 +494,88 @@ void main() {
       cover: '',
       characters: const [],
     );
+    final createdV2 = await api.v2.origin.create(
+      originName: 'Created V2 Mock Origin',
+      events: const ['The old event remains.'],
+      characters: const [],
+      locations: const [],
+      initLocationGroup: const {
+        'location_id': 'loc_1_1_1',
+        'initial_dialogue': [
+          {'char_id': 'nar', 'content': 'A new map appears.'},
+          {
+            'char_id': 'nar_pic',
+            'content': 'https://cdn.example.com/opening.webp',
+          },
+        ],
+      },
+    );
+    final createdV2Origin = createdV2['origin_id'] as String;
+    expect(createdV2.keys.toSet(), {
+      'origin_id',
+      'origin_version',
+      'origin_version_time',
+      'origin_name',
+    });
+    final createdV2ForEdit = await api.v1.origin.forEdit(
+      originId: createdV2Origin,
+    );
+    expect(createdV2ForEdit['definition_version'], 2);
+    expect(createdV2ForEdit['tile_types'], isA<Map>());
+    expect(createdV2ForEdit['init_location_group'], {
+      'location_id': 'loc_1_1_1',
+      'initial_dialogue': [
+        {'char_id': 'nar', 'content': 'A new map appears.'},
+        {
+          'char_id': 'nar_pic',
+          'content': 'https://cdn.example.com/opening.webp',
+        },
+      ],
+    });
+    final createdV2Detail = await api.v1.origin.detail(
+      originId: createdV2Origin,
+    );
+    expect(createdV2Detail['init_location_group'], {
+      'location_id': 'loc_1_1_1',
+      'initial_dialogue': [
+        {
+          'char_id': 'nar',
+          'char_name': 'Narrator',
+          'content': 'A new map appears.',
+        },
+        {
+          'char_id': 'nar_pic',
+          'char_name': 'Narrator',
+          'content': 'https://cdn.example.com/opening.webp',
+        },
+      ],
+    });
+    final createdV2Ticks = createdV2Detail['ticks'] as List;
+    final createdV2TickResult =
+        (createdV2Ticks.first as Map)['tick_result'] as Map;
+    expect(createdV2TickResult['location_groups'], isEmpty);
+    final updatedV2 = await api.v2.origin.update(
+      originId: createdV2Origin,
+      originName: 'Updated V2 Mock Origin',
+      events: const [],
+      characters: const [],
+      locations: const [],
+    );
+    expect(updatedV2['origin_id'], createdV2Origin);
+    expect(updatedV2['origin_version'], '2');
+    final v2Detail = await api.v1.origin.detail(originId: createdV2Origin);
+    expect((v2Detail['info'] as Map)['definition_version'], 2);
+    expect((v2Detail['info'] as Map)['status'], 20);
+    expect(v2Detail['init_location_group'], isNull);
+    final firstV2Info = await api.v1.origin.info(originId: createdV2Origin);
+    final secondV2Info = await api.v1.origin.info(originId: createdV2Origin);
+    expect((firstV2Info['info'] as Map)['status'], 20);
+    expect((secondV2Info['info'] as Map)['status'], 10);
+    final updatedV2ForEdit = await api.v1.origin.forEdit(
+      originId: createdV2Origin,
+    );
+    expect(updatedV2ForEdit['events'], isEmpty);
+    expect(updatedV2ForEdit, isNot(contains('init_location_group')));
     await api.v1.origin.launch(
       oid: createdOrigin,
       presetCharacterId: 'char_mock_001',

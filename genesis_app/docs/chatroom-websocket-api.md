@@ -1,6 +1,6 @@
 # Chatroom WebSocket API
 
-本文档按 `/Users/ionix/Downloads/aitown-chat-ws-new.yaml` 更新，描述 AITown 聊天室 WebSocket `2.0.0` 最新协议，以及 Flutter 侧当前实现需要遵守的字段契约。
+本文档按 `/Users/ionix/Downloads/aitown-chat-ws-new.yaml` 与 `/Users/ionix/Downloads/2026-07-27-image-message-support.md` 更新，描述 AITown 聊天室 WebSocket `2.0.0` 最新协议，以及 Flutter 侧当前实现需要遵守的字段契约。
 
 ## 1. 概览
 
@@ -261,7 +261,7 @@ Flutter 解析时只接受本文档列出的顶层字段与 `payload` 结构，�
 
 ### 5.5 `nar_new_message`
 
-旁白或角色旁白式消息。`payload` 使用 `UserMessagePayload`，不再使用系统通知 payload。
+旁白或角色旁白式消息。`payload` 使用 `UserMessagePayload`，不再使用系统通知 payload。`payload.message_type` 表示内容类型：`text` 为文本，`image` 为图片且 `content` 保存图片 URL；字段缺失或为空时按 `text` 处理。
 
 ```json
 {
@@ -273,13 +273,16 @@ Flutter 解析时只接受本文档列出的顶层字段与 `payload` 结构，�
   "msg_id": 503,
   "location_msg_id": 203,
   "conversation_round_id": 123,
-  "sender_id": "nar",
-  "sender_name": "旁白",
+  "sender_id": "nar_pic",
+  "sender_name": "Narrator",
   "payload": {
-    "content": "新的旁白内容..."
+    "content": "https://example.com/images/scene.jpg",
+    "message_type": "image"
   }
 }
 ```
+
+该增量只增加 `payload.message_type`，不改变事件名、顶层消息 ID 字段或已有 envelope。Flutter 读取时去除首尾空白并转为小写；未知非空类型保留，但按文本内容处理。
 
 ### 5.6 LLM 流式消息
 
@@ -411,7 +414,7 @@ Query：
 - `since`: integer，起始消息 ID，`0` 表示获取最新
 - `limit`: integer，默认 `20`，最大 `100`
 
-响应消息字段按当前 HTTP 文档的 `MessageDTO`：`global_message_id` 全局递增，`message_id` world 级别递增，`location_message_id` location 级别递增；`sender_type` 取值为 `user`、`character`、`narrator`、`npc` 或 `tick`；`created_at` 格式为 `2006-01-02 15:04:05`。
+响应消息字段按当前 HTTP 文档的 `MessageDTO`：`global_message_id` 全局递增，`message_id` world 级别递增，`location_message_id` location 级别递增；`sender_type` 取值为 `user`、`character`、`narrator`、`npc` 或 `tick`；`message_type` 取值为 `text` 或 `image`，缺失/空值按 `text`，图片 URL 保存在 `content`；`created_at` 格式为 `2006-01-02 15:04:05`。图片消息说明是字段增量，不替换本节现有 envelope、ID 命名、`newest_message_id` 或时间字段。
 
 响应：
 
@@ -432,6 +435,7 @@ Query：
         "sender_name": "小明",
         "user_id": "u_001",
         "content": "大家好！",
+        "message_type": "text",
         "current_time": "Day 1, 08:00",
         "tick_no": 3,
         "created_at": "2026-07-01 10:00:00"
@@ -448,12 +452,29 @@ Query：
         "sender_name": "Time",
         "user_id": null,
         "content": "Day 45, 19:30",
+        "message_type": "text",
         "current_time": "Day 45, 19:30",
         "created_at": "2026-07-01 10:05:00"
+      },
+      {
+        "global_message_id": 90003,
+        "message_id": 1003,
+        "location_message_id": 103,
+        "location_id": "loc_001",
+        "conversation_round_id": 7003,
+        "tick_no": 7,
+        "sender_type": "narrator",
+        "sender_id": "nar_pic",
+        "sender_name": "Narrator",
+        "user_id": null,
+        "content": "https://example.com/images/scene.jpg",
+        "message_type": "image",
+        "current_time": "Day 45, 19:35",
+        "created_at": "2026-07-27 10:06:00"
       }
     ],
     "has_more": false,
-    "newest_message_id": 1002
+    "newest_message_id": 1003
   }
 }
 ```

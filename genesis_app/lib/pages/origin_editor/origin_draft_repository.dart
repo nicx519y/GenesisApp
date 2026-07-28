@@ -245,7 +245,7 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
             .toList(growable: false)
       : const <StoryEventDraft>[];
 
-  return CreateOriginDraft(
+  final draft = CreateOriginDraft(
     basics: BasicsDraft(
       originId: originId,
       originVersion: asString(origin['origin_version']),
@@ -301,6 +301,151 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
     locationsSaved: true,
     storyEventsSaved: true,
   ).normalized();
+
+  final opening =
+      _openingDraftFromLocationGroup(draft, _initLocationGroupFromV1(raw)) ??
+      _openingDraftFromInitialTick(draft, raw);
+  return _draftWithOpening(draft, opening);
+}
+
+CreateOriginDraft restoreOriginDraftOpeningFromV1Detail(
+  CreateOriginDraft draft,
+  Map<String, dynamic> raw,
+) {
+  if (draft.openingSaved && draft.opening.isComplete) return draft;
+
+  final opening =
+      _openingDraftFromLocationGroup(draft, _initLocationGroupFromV1(raw)) ??
+      _openingDraftFromInitialTick(draft, raw);
+  return _draftWithOpening(draft, opening);
+}
+
+CreateOriginDraft _draftWithOpening(
+  CreateOriginDraft draft,
+  OpeningDraft? opening,
+) {
+  return draft.copyWith(
+    opening: opening ?? const OpeningDraft(),
+    openingSaved: opening != null,
+  );
+}
+
+Map<String, dynamic>? _initLocationGroupFromV1(Map<String, dynamic> raw) {
+  final origin = raw['origin'] is Map
+      ? asJsonMap(raw['origin'])
+      : raw['info'] is Map
+      ? asJsonMap(raw['info'])
+      : raw;
+  final group = raw['init_location_group'] ?? origin['init_location_group'];
+  return group is Map ? asJsonMap(group) : null;
+}
+
+OpeningDraft? _openingDraftFromInitialTick(
+  CreateOriginDraft draft,
+  Map<String, dynamic> raw,
+) {
+  final ticksRaw = raw['ticks'] ?? raw['tick_list'];
+  if (ticksRaw is! List || ticksRaw.isEmpty) return null;
+
+  Map<String, dynamic>? initialTick;
+  for (final rawTick in asJsonList(ticksRaw)) {
+    if (rawTick is! Map) continue;
+    final tick = asJsonMap(rawTick);
+    if (asInt(tick['tick_no']) == 1) {
+      initialTick = tick;
+      break;
+    }
+  }
+  if (initialTick == null) {
+    final first = ticksRaw.first;
+    if (first is Map && asInt(asJsonMap(first)['tick_no']) == 0) {
+      initialTick = asJsonMap(first);
+    }
+  }
+  if (initialTick == null) return null;
+
+  final result = initialTick['tick_result'] is Map
+      ? asJsonMap(initialTick['tick_result'])
+      : initialTick;
+  final groupsRaw = result['location_groups'] ?? initialTick['location_groups'];
+  if (groupsRaw is! List) return null;
+
+  for (final rawGroup in asJsonList(groupsRaw)) {
+    if (rawGroup is! Map) continue;
+    final opening = _openingDraftFromLocationGroup(draft, asJsonMap(rawGroup));
+    if (opening != null) return opening;
+  }
+  return null;
+}
+
+OpeningDraft? _openingDraftFromLocationGroup(
+  CreateOriginDraft draft,
+  Map<String, dynamic>? group,
+) {
+  if (group == null) return null;
+  final locationId = asString(group['location_id']).trim();
+  if (locationId.isEmpty) return null;
+
+  LocationDraft? location;
+  for (final item in draft.locations) {
+    if (item.locationId.trim() == locationId) {
+      location = item;
+      break;
+    }
+  }
+  if (location == null || location.name.trim().isEmpty) return null;
+
+  final dialogueRaw = group['initial_dialogue'];
+  if (dialogueRaw is! List || dialogueRaw.isEmpty) return null;
+  final characterIds = draft.characters
+      .map((item) => item.charId.trim())
+      .where((item) => item.isNotEmpty)
+      .toSet();
+  final dialogue = <OpeningDialogueDraft>[];
+  for (final rawItem in dialogueRaw) {
+    if (rawItem is! Map) return null;
+    final item = asJsonMap(rawItem);
+    final charId = asString(item['char_id']).trim();
+    final content = decodeGenesisUgcTextForDisplay(
+      asString(item['content']),
+    ).trim();
+    if (charId.isEmpty || content.isEmpty) return null;
+
+    final normalizedCharId = charId.toLowerCase();
+    if (normalizedCharId == 'nar') {
+      dialogue.add(
+        OpeningDialogueDraft(
+          type: OpeningDialogueDraft.narratorType,
+          content: content,
+        ),
+      );
+      continue;
+    }
+    if (normalizedCharId == 'nar_pic' || normalizedCharId == 'image') {
+      dialogue.add(
+        OpeningDialogueDraft(
+          type: OpeningDialogueDraft.imageType,
+          content: content,
+        ),
+      );
+      continue;
+    }
+    if (!characterIds.contains(charId)) return null;
+    dialogue.add(
+      OpeningDialogueDraft(
+        type: OpeningDialogueDraft.characterType,
+        content: content,
+        characterId: charId,
+      ),
+    );
+  }
+
+  final opening = OpeningDraft(
+    locationId: locationId,
+    locationName: location.name.trim(),
+    dialogue: dialogue,
+  );
+  return opening.isComplete ? opening : null;
 }
 
 int? _nullableInt(Object? raw) {

@@ -37,7 +37,10 @@ void main() {
         basicsSaved: true,
       );
       await CreateOriginDraftStore.saveFinal(draft);
-      await OriginPendingSubmissionStore.saveCreating('o_timeout_1');
+      await OriginPendingSubmissionStore.saveCreating(
+        'o_timeout_1',
+        originName: 'Draft Worldo',
+      );
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
@@ -127,12 +130,15 @@ void main() {
     expect(find.text('origin_oid=o_timeout_1'), findsOneWidget);
   });
 
-  test('expired publish pending still times out', () async {
+  test('expired publish pending completes after accepted update', () async {
     final outcomes = <OriginPendingSubmissionOutcome>[];
     final removeListener = OriginPendingSubmissionCoordinator.instance
         .addPublishOutcomeListener(outcomes.add);
     addTearDown(removeListener);
-    await OriginPendingSubmissionStore.savePublishing('o_publish_timeout_1');
+    await OriginPendingSubmissionStore.savePublishing(
+      'o_publish_timeout_1',
+      originName: 'Published Worldo',
+    );
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
@@ -151,7 +157,7 @@ void main() {
 
     expect(await OriginPendingSubmissionStore.loadPublishing(), isNull);
     expect(outcomes, hasLength(1));
-    expect(outcomes.single.completed, isFalse);
+    expect(outcomes.single.completed, isTrue);
     expect(outcomes.single.originId, 'o_publish_timeout_1');
   });
 
@@ -159,6 +165,95 @@ void main() {
     ('create', OriginPendingSubmissionKind.create),
     ('publish', OriginPendingSubmissionKind.publish),
   ]) {
+    test('${entry.$1} poll failure completes after accepted upsert', () async {
+      final coordinator = OriginPendingSubmissionCoordinator.instance;
+      final outcomeCompleter = Completer<OriginPendingSubmissionOutcome>();
+      final removeListener = entry.$2 == OriginPendingSubmissionKind.create
+          ? coordinator.addCreateOutcomeListener(outcomeCompleter.complete)
+          : coordinator.addPublishOutcomeListener(outcomeCompleter.complete);
+      addTearDown(removeListener);
+
+      Future<Map<String, dynamic>> loadOriginInfo(String _) {
+        throw StateError('origin info request failed');
+      }
+
+      switch (entry.$2) {
+        case OriginPendingSubmissionKind.create:
+          await coordinator.startCreating(
+            originId: 'o_poll_error_1',
+            originName: 'Accepted Worldo',
+            loadOriginInfo: loadOriginInfo,
+          );
+        case OriginPendingSubmissionKind.publish:
+          await coordinator.startPublishing(
+            originId: 'o_poll_error_1',
+            originName: 'Accepted Worldo',
+            loadOriginInfo: loadOriginInfo,
+          );
+      }
+
+      final outcome = await outcomeCompleter.future;
+      expect(outcome.completed, isTrue);
+      expect(outcome.originId, 'o_poll_error_1');
+      expect(
+        entry.$2 == OriginPendingSubmissionKind.create
+            ? await OriginPendingSubmissionStore.loadCreating()
+            : await OriginPendingSubmissionStore.loadPublishing(),
+        isNull,
+      );
+    });
+
+    testWidgets('${entry.$1} retries origin info after 10 seconds', (
+      WidgetTester tester,
+    ) async {
+      final coordinator = OriginPendingSubmissionCoordinator.instance;
+      final outcomes = <OriginPendingSubmissionOutcome>[];
+      final removeListener = entry.$2 == OriginPendingSubmissionKind.create
+          ? coordinator.addCreateOutcomeListener(outcomes.add)
+          : coordinator.addPublishOutcomeListener(outcomes.add);
+      addTearDown(removeListener);
+      var pollCount = 0;
+
+      Future<Map<String, dynamic>> loadOriginInfo(String _) async {
+        pollCount += 1;
+        return <String, dynamic>{
+          'info': <String, dynamic>{
+            'origin_id': 'o_interval_1',
+            'origin_name': 'Interval Worldo',
+            'status': pollCount == 1 ? 20 : 10,
+          },
+        };
+      }
+
+      switch (entry.$2) {
+        case OriginPendingSubmissionKind.create:
+          await coordinator.startCreating(
+            originId: 'o_interval_1',
+            originName: 'Interval Worldo',
+            loadOriginInfo: loadOriginInfo,
+          );
+        case OriginPendingSubmissionKind.publish:
+          await coordinator.startPublishing(
+            originId: 'o_interval_1',
+            originName: 'Interval Worldo',
+            loadOriginInfo: loadOriginInfo,
+          );
+      }
+      await tester.pump();
+      expect(pollCount, 1);
+      expect(outcomes, isEmpty);
+
+      await tester.pump(const Duration(seconds: 9));
+      expect(pollCount, 1);
+      expect(outcomes, isEmpty);
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(pollCount, 2);
+      expect(outcomes, hasLength(1));
+      expect(outcomes.single.completed, isTrue);
+    });
+
     testWidgets('${entry.$1} success View keeps Home My Worlds under origin', (
       WidgetTester tester,
     ) async {

@@ -831,7 +831,6 @@ class OriginCustomRoleForm extends StatelessWidget {
               onChanged: onChanged,
               showPersonality: false,
               showGoal: false,
-              avatarCropSize: const Size(512, 512),
               showAvatarRemoveLink: true,
               labelFontWeight: FontWeight.w600,
               avatarEmptyLabelFontWeight: FontWeight.w600,

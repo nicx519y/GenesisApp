@@ -9,6 +9,7 @@ import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/genesis_logo.dart';
 import '../../network/json_utils.dart';
 import '../../utils/display_name_formatter.dart';
+import '../origin_editor/origin_debug_tools.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
 import '../origin_editor/origin_generation_wait_content.dart';
@@ -83,6 +84,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       onSubmit: _onCreate,
       submitStatus: _submitStatus,
       reloadSignal: _reloadSignal,
+      debugDraftGenerator: createOriginDebugDraftGenerator(),
       confirmLeaveWithDraftOptions: true,
       onDiscardDraft: (_) => CreateOriginDraftStore.clear(),
     );
@@ -133,7 +135,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       actionType: 'event',
       action: 'create_worldo_submit_start',
     );
-    final result = await api.createOrigin(
+    final result = await api.createOriginV2(
       payload: draft.toCreateOriginPayload(),
     );
     final originId = result.oid.trim();
@@ -145,9 +147,9 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       action: 'create_worldo_submit_success',
       object1: originId,
     );
-    await CreateOriginDraftStore.clear();
     await _pendingCoordinator.startCreating(
       originId: originId,
+      originName: draft.basics.originName,
       loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
     );
     return OriginSubmitResult(message: '', showMessage: false);

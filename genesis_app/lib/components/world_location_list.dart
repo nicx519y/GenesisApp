@@ -7,11 +7,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../icons/custom_icon_assets.dart';
 import '../ui/components/recent_chat_marker.dart';
 import '../ui/components/genesis_list_image.dart';
+import '../utils/genesis_image_resource.dart';
 import 'world_details_shell.dart';
 import 'world_point.dart';
 
 const String _locationDefaultImageAsset =
     'assets/images/map_default/location_default.webp';
+const double _locationListCoverLogicalSize = 64;
 
 class WorldLocationList extends StatefulWidget {
   const WorldLocationList({
@@ -368,7 +370,7 @@ class _PointListItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _PointListCover(point: point),
+            _LocationListCover(point: point),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -484,7 +486,7 @@ class _LocationCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _LocationCardCover(point: point),
+            _LocationListCover(point: point),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -660,37 +662,37 @@ class _PointSummaryRow extends StatelessWidget {
   }
 }
 
-class _PointListCover extends StatelessWidget {
-  const _PointListCover({required this.point});
+class _LocationListCover extends StatelessWidget {
+  const _LocationListCover({required this.point});
 
   final WorldPoint point;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 64,
-      height: 64,
-      child: GenesisListImage(
-        imageUrl: point.iconUrl,
-        placeholderAsset: _locationDefaultImageAsset,
-      ),
-    );
-  }
-}
-
-class _LocationCardCover extends StatelessWidget {
-  const _LocationCardCover({required this.point});
-
-  final WorldPoint point;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 64,
-      height: 64,
-      child: GenesisListImage(
-        imageUrl: point.iconUrl,
-        placeholderAsset: _locationDefaultImageAsset,
+      width: _locationListCoverLogicalSize,
+      height: _locationListCoverLogicalSize,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final logicalWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : _locationListCoverLogicalSize;
+          final logicalHeight = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : _locationListCoverLogicalSize;
+          final rawUrl = point.iconUrl.trim();
+          final resizedUrl = resizeGenesisImageUrl(
+            rawUrl,
+            logicalWidth: logicalWidth,
+            devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          );
+          return GenesisListImage(
+            imageUrl: resizedUrl.isNotEmpty ? resizedUrl : rawUrl,
+            width: logicalWidth,
+            height: logicalHeight,
+            placeholderAsset: _locationDefaultImageAsset,
+          );
+        },
       ),
     );
   }

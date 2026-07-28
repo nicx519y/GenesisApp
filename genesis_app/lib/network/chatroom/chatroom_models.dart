@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../json_utils.dart';
+import 'chatroom_message_type.dart';
 
 class ChatroomProtocolException implements Exception {
   const ChatroomProtocolException(this.message, {this.error});
@@ -351,6 +352,7 @@ sealed class ChatroomMessageEvent extends ChatroomPayloadEvent {
     required this.senderId,
     required this.senderName,
     required this.content,
+    this.messageType = chatroomTextMessageType,
     required this.broadcast,
   });
 
@@ -363,6 +365,7 @@ sealed class ChatroomMessageEvent extends ChatroomPayloadEvent {
   final String senderId;
   final String senderName;
   final String content;
+  final String messageType;
   final bool broadcast;
 }
 
@@ -384,6 +387,7 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
     required super.senderId,
     required super.senderName,
     required super.content,
+    super.messageType,
     required super.broadcast,
     required this.currentTime,
     required this.clientMsgId,
@@ -439,6 +443,7 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
     required super.senderId,
     required super.senderName,
     required super.content,
+    super.messageType,
     required super.broadcast,
     required this.currentTime,
     required this.createdAt,
@@ -466,6 +471,7 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name'], fallback: 'Narrator'),
       content: asString(payload['content']),
+      messageType: normalizeChatroomMessageType(payload['message_type']),
       currentTime: _currentTime(payload),
       broadcast: asBool(payload['broadcast']),
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),
@@ -491,6 +497,7 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
     required super.senderId,
     required super.senderName,
     required super.content,
+    super.messageType,
     required super.broadcast,
     required this.tickNo,
     required this.currentTime,

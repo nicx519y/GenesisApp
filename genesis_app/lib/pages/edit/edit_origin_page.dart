@@ -12,6 +12,7 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../create/create_origin_draft_store.dart';
 import '../origin_editor/origin_draft_repository.dart';
+import '../origin_editor/origin_debug_tools.dart';
 import '../origin_editor/origin_editor_pages.dart';
 import '../origin_editor/origin_generation_wait_content.dart';
 import '../origin_editor/origin_pending_submission_coordinator.dart';
@@ -76,9 +77,23 @@ class _EditOriginPageState extends State<EditOriginPage> {
 
     try {
       final api = AppServicesScope.read(context).api;
-      final detail = await api.v1.origin.forEdit(originId: originId);
+      final editData = await api.v1.origin.forEdit(originId: originId);
+      var initialDraft = originDraftFromV1Detail(editData);
+      if (!initialDraft.openingSaved) {
+        try {
+          final detail = await api.v1.origin.detail(originId: originId);
+          initialDraft = restoreOriginDraftOpeningFromV1Detail(
+            initialDraft,
+            detail,
+          );
+        } catch (_) {
+          initialDraft = initialDraft.copyWith(
+            opening: const OpeningDraft(),
+            openingSaved: false,
+          );
+        }
+      }
       if (!mounted) return;
-      final initialDraft = originDraftFromV1Detail(detail);
       setState(() {
         _repository = MemoryOriginDraftRepository(initialDraft: initialDraft);
         _updateNotesController.clear();
@@ -172,6 +187,9 @@ class _EditOriginPageState extends State<EditOriginPage> {
       updateNotesController: _updateNotesController,
       submitStatus: _submitStatus,
       reloadSignal: _reloadSignal,
+      debugDraftGenerator: editOriginDebugDraftGenerator(
+        _updateNotesController,
+      ),
       onSubmit: _onSave,
     );
     if (_submitStatus == OriginDraftSubmitStatus.idle) return flow;
@@ -219,6 +237,9 @@ class _EditOriginPageState extends State<EditOriginPage> {
       );
     }
     final payload = draft.toCreateOriginPayload();
+    if (payload['init_location_group'] is! Map) {
+      throw StateError('A complete Opening is required to publish');
+    }
     if (repository is MemoryOriginDraftRepository) {
       payload['deleted_char_ids'] = repository.deletedCharacterIds(draft);
       payload['deleted_location_ids'] = repository.deletedLocationIds(draft);
@@ -231,7 +252,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
       action: 'edit_worldo_submit_start',
       object1: originId,
     );
-    final result = await api.updateOrigin(oid: originId, payload: payload);
+    final result = await api.updateOriginV2(oid: originId, payload: payload);
     final updatedOriginId = result.oid.trim();
     if (updatedOriginId.isEmpty) {
       throw StateError('origin_id is missing from publish response');
@@ -243,6 +264,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
     );
     await _pendingCoordinator.startPublishing(
       originId: updatedOriginId,
+      originName: draft.basics.originName,
       loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
     );
     return OriginSubmitResult(message: '', showMessage: false);

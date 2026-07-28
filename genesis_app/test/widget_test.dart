@@ -38,6 +38,8 @@ import 'package:genesis_flutter_android/components/origin/origin_role_launch_she
 import 'package:genesis_flutter_android/components/me/signed_out_me_view.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
+import 'package:genesis_flutter_android/components/world_map_location_action.dart';
+import 'package:genesis_flutter_android/components/world_location_list.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
@@ -84,14 +86,13 @@ import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_feed_cache_store.dart';
-import 'package:genesis_flutter_android/pages/origin/origin_launch_coordinator.dart';
-import 'package:genesis_flutter_android/pages/origin/origin_launch_pending_store.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
+import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
@@ -1910,6 +1911,16 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         'ticks': const <Object?>[],
       };
     }
+    if (request.method == 'POST' &&
+        request.uri.path == '/api/v2/origin/create') {
+      final body = decodedBody(request);
+      data = {
+        'origin_id': 'o_created_1',
+        'origin_version': '1',
+        'origin_version_time': 1770000000,
+        'origin_name': body['origin_name'],
+      };
+    }
     if (request.method == 'GET' &&
         request.uri.path == '/api/v1/origin/foredit') {
       final oid = request.uri.queryParameters['origin_id'] ?? '';
@@ -1994,6 +2005,16 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         'ticks': const <Object?>[],
       };
     }
+    if (request.method == 'POST' &&
+        request.uri.path == '/api/v2/origin/update') {
+      final body = decodedBody(request);
+      data = {
+        'origin_id': body['origin_id'],
+        'origin_version': '2',
+        'origin_version_time': 1770000001,
+        'origin_name': body['origin_name'],
+      };
+    }
     return TransportResponse(
       statusCode: 200,
       headers: const {'content-type': 'application/json'},
@@ -2016,14 +2037,11 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     BlockedUserReviewReturn.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
-    OriginLaunchCoordinator.instance.resetForTesting();
   });
 
   tearDown(() async {
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
-    OriginLaunchCoordinator.instance.resetForTesting();
     BlockedUserReviewReturn.resetForTesting();
-    await OriginLaunchPendingStore.clear();
   });
 
   testWidgets('force upgrade gate renders child when upgrade is not required', (
@@ -4234,12 +4252,12 @@ void main() {
     await tester.pump();
 
     await backendAuth.loginWithIdentity(
-        const AuthSession(
-          provider: IdentityProvider.google,
-          providerIdToken: 'google-token',
-          displayName: 'Identity User',
-          photoUrl: '',
-        ),
+      const AuthSession(
+        provider: IdentityProvider.google,
+        providerIdToken: 'google-token',
+        displayName: 'Identity User',
+        photoUrl: '',
+      ),
     );
     services.notifySessionChanged();
     await tester.pump();
@@ -5148,6 +5166,54 @@ void main() {
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
   });
 
+  testWidgets(
+    'origin v2 Tilemap keeps full single-child tree for location taps',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originLocations: const [
+          {
+            'location_id': 'loc_1',
+            'location_pid': '',
+            'level': 1,
+            'location_name': 'Maplewood',
+          },
+          {
+            'location_id': 'loc_1_1',
+            'location_pid': 'loc_1',
+            'level': 2,
+            'location_name': 'Family Home',
+          },
+          {
+            'location_id': 'loc_1_1_1',
+            'location_pid': 'loc_1_1',
+            'level': 3,
+            'location_name': 'Living Room',
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final tilemap = tester.widget<Tilemap>(find.byType(Tilemap));
+      expect(
+        findWorldMapLocationNode(tilemap.locationNodes, 'loc_1'),
+        isNotNull,
+      );
+      expect(
+        findWorldMapLocationNode(tilemap.locationNodes, 'loc_1_1_1'),
+        isNotNull,
+      );
+    },
+  );
+
   testWidgets('origin detail version 1 keeps WorldMap without map request', (
     WidgetTester tester,
   ) async {
@@ -5513,6 +5579,7 @@ void main() {
     tester.view.physicalSize = const Size(360, 780);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
+    final chatroom = _FakeChatroomClient();
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'approved',
       originCharacters: const [
@@ -5543,6 +5610,7 @@ void main() {
           transport: transport,
           useMock: false,
           initialAuthToken: 'token',
+          chatroom: chatroom,
         ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
@@ -5912,6 +5980,16 @@ void main() {
     expect(launchBody['origin_id'], 'o_test_1');
     expect(launchBody.containsKey('oid'), isFalse);
     expect(launchBody['preset_character_id'], 'c_o_test_1');
+    expect(
+      _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
+      findsOneWidget,
+    );
+    expect(find.byType(WorldPage), findsNothing);
+    await tester.tap(find.text('Enter'));
+    await tester.pumpAndSettle();
+    final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
+    expect(launchedWorldPage.wid, 'w_launched_from_origin');
+    expect(launchedWorldPage.waitForTick1, isFalse);
     final worldRequests = transport.requestsFor('/api/v1/world/detail');
     expect(worldRequests, isNotEmpty);
     expect(
@@ -5925,6 +6003,7 @@ void main() {
   testWidgets('Origin custom card opens custom role sheet and launches', (
     WidgetTester tester,
   ) async {
+    final chatroom = _FakeChatroomClient();
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'approved',
     );
@@ -5934,6 +6013,7 @@ void main() {
           transport: transport,
           useMock: false,
           initialAuthToken: 'token',
+          chatroom: chatroom,
         ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
@@ -5982,6 +6062,7 @@ void main() {
   testWidgets(
     'Origin preset role direct launch keeps initial dialogue location',
     (WidgetTester tester) async {
+      final chatroom = _FakeChatroomClient();
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'approved',
         worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
@@ -6013,6 +6094,7 @@ void main() {
             transport: transport,
             useMock: false,
             initialAuthToken: 'token',
+            chatroom: chatroom,
           ),
           child: MaterialApp(
             onGenerateRoute: AppRouter.onGenerateRoute,
@@ -6027,18 +6109,28 @@ void main() {
       );
       await _dragOriginPanelUntilVisible(tester, directLaunch);
       tester.widget<InkWell>(directLaunch).onTap!();
-      await tester.pump();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      final pending = await OriginLaunchPendingStore.load();
-      expect(pending?.initialLocationId, 'l_o_test_1');
-      OriginLaunchCoordinator.instance.resetForTesting();
+      expect(
+        _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
+        findsOneWidget,
+      );
+      expect(find.byType(WorldPage), findsNothing);
+      await tester.tap(find.text('Enter'));
+      await tester.pumpAndSettle();
+      final launchedWorldPage = tester.widget<WorldPage>(
+        find.byType(WorldPage),
+      );
+      expect(launchedWorldPage.wid, 'w_launched_from_origin');
+      expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
+      expect(launchedWorldPage.waitForTick1, isFalse);
     },
   );
 
-  testWidgets('Origin launch records pending world and waits in background', (
+  testWidgets('Origin launch enters world without async confirmation polling', (
     WidgetTester tester,
   ) async {
+    final chatroom = _FakeChatroomClient();
     final transport = _RecordingV1ListTransport(
       worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
       worldDetailTickCountsByRequest: const [0],
@@ -6049,6 +6141,7 @@ void main() {
           transport: transport,
           useMock: false,
           initialAuthToken: 'token',
+          chatroom: chatroom,
         ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
@@ -6068,62 +6161,31 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('World detail w_launched_from_origin'), findsNothing);
-    final pendingLaunch = await OriginLaunchPendingStore.load();
-    expect(pendingLaunch?.originId, 'o_test_1');
-    expect(pendingLaunch?.worldId, 'w_launched_from_origin');
-    expect(pendingLaunch?.initialLocationId, isEmpty);
-    expect(OriginLaunchCoordinator.instance.state.value?.originId, 'o_test_1');
     expect(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
       findsOneWidget,
     );
-    final waitDialog = tester.widget<AlertDialog>(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
-    );
-    expect(waitDialog.backgroundColor, const Color(0xFFFFFFFF));
+    expect(find.byType(WorldPage), findsNothing);
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     expect(
-      waitDialog.shape,
-      const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
+      transport
+          .requestsFor('/api/v1/world/detail')
+          .where(
+            (request) =>
+                request.uri.queryParameters['world_id'] ==
+                'w_launched_from_origin',
+          ),
+      isEmpty,
     );
-    final waitTitleFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is Text &&
-          (widget.data ?? '').startsWith('Launching the Worldo'),
-    );
-    expect(waitTitleFinder, findsOneWidget);
-    final waitTitle = tester.widget<Text>(waitTitleFinder);
-    expect(waitTitle.style?.fontSize, 16);
-    expect(waitTitle.style?.fontWeight, FontWeight.w600);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('world-tick1-wait-dialog')),
-        matching: find.byType(CircularProgressIndicator),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.text(
-        'In world, click the map, enter the location, and start interacting with the characters to move the world forward.',
-      ),
-      findsOneWidget,
-    );
-    final waitBody = tester.widget<Text>(
-      find.text(
-        'In world, click the map, enter the location, and start interacting with the characters to move the world forward.',
-      ),
-    );
-    expect(waitBody.style?.fontSize, 14);
-    expect(waitTitle.data, endsWith('.'));
-    final initialWaitTitleText = waitTitle.data;
-    await tester.pump(const Duration(milliseconds: 400));
-    final animatedWaitTitle = tester.widget<Text>(waitTitleFinder);
-    expect(animatedWaitTitle.data, isNot(initialWaitTitleText));
+
+    await tester.tap(find.text('Enter'));
+    await tester.pumpAndSettle();
+    final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
+    expect(launchedWorldPage.wid, 'w_launched_from_origin');
+    expect(launchedWorldPage.waitForTick1, isFalse);
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     var worldRequests = transport
         .requestsFor('/api/v1/world/detail')
         .where(
@@ -6133,19 +6195,10 @@ void main() {
         )
         .toList(growable: false);
     expect(worldRequests, hasLength(1));
-    expect(
-      worldRequests.last.uri.queryParameters['world_id'],
-      'w_launched_from_origin',
-    );
 
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 11));
     await tester.pump();
 
-    expect(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
-      findsOneWidget,
-    );
-    expect(await OriginLaunchPendingStore.load(), isNotNull);
     worldRequests = transport
         .requestsFor('/api/v1/world/detail')
         .where(
@@ -6155,7 +6208,6 @@ void main() {
         )
         .toList(growable: false);
     expect(worldRequests, hasLength(1));
-    OriginLaunchCoordinator.instance.resetForTesting();
   });
 
   testWidgets('Origin detail location opens launch-only chat panel', (
@@ -10877,7 +10929,7 @@ void main() {
     );
   });
 
-  testWidgets('create save posts v1 origin and waits while processing', (
+  testWidgets('create save posts v2 origin and polls until ready', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingCreateOriginTransport(
@@ -10962,16 +11014,12 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pump();
     for (var i = 0; i < 300; i++) {
-      if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
+      if (transport.requestsFor('/api/v2/origin/create').isNotEmpty) break;
       await tester.pump(const Duration(milliseconds: 10));
     }
-    for (var i = 0; i < 300; i++) {
-      if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
-      await tester.pump(const Duration(milliseconds: 10));
-    }
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    final requests = transport.requestsFor('/api/v1/origin/create');
+    final requests = transport.requestsFor('/api/v2/origin/create');
     expect(requests, hasLength(1));
     final body = transport.decodedBody(requests.single);
     expect(body.containsKey('origin_id'), isFalse);
@@ -10996,60 +11044,19 @@ void main() {
     expect(locationList.single['location_id'], 'location_local_1');
     expect(locationList.single.containsKey('location_pid'), isFalse);
     expect(locationList.single['location_name'], 'Gate');
+    expect(body['init_location_group'], {
+      'location_id': 'location_local_1',
+      'initial_dialogue': [
+        {'char_id': 'nar', 'content': 'The gate opens.'},
+      ],
+    });
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
     final pendingCreate = await OriginPendingSubmissionStore.loadCreating();
-    expect(pendingCreate?.originId, 'o_created_1');
-    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
-      findsOneWidget,
-    );
-    final createWaitTitleFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is Text &&
-          (widget.data ?? '').startsWith('Creating your Worldo'),
-    );
-    expect(createWaitTitleFinder, findsOneWidget);
-    final initialCreateWaitTitle = tester
-        .widget<Text>(createWaitTitleFinder)
-        .data;
-    await tester.pump(const Duration(milliseconds: 400));
-    final animatedCreateWaitTitle = tester
-        .widget<Text>(createWaitTitleFinder)
-        .data;
-    expect(animatedCreateWaitTitle, isNot(initialCreateWaitTitle));
-    expect(
-      find.byKey(const ValueKey('create-worldo-wait-perspective-text')),
-      findsOneWidget,
-    );
-    expect(find.text('A public world view.'), findsOneWidget);
-    expect(find.text('Hidden rules.'), findsOneWidget);
-    expect(find.text('Ari: Guide. Calm'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is SvgPicture &&
-            widget.bytesLoader is SvgAssetLoader &&
-            (widget.bytesLoader as SvgAssetLoader).assetName ==
-                'assets/svg/worldo-logo.svg',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      _richTextWithPlainText('Worldo #Origin o_created_1 created!'),
-      findsNothing,
-    );
-    await tester.pump(const Duration(seconds: 5));
-    await tester.runAsync(() async {
-      for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/info').length >= 2) break;
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-    });
-    await tester.pumpAndSettle();
+    expect(pendingCreate, isNull);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     expect(
       _richTextWithPlainText('Worldo #Crystal City created!'),
       findsOneWidget,
@@ -11063,7 +11070,7 @@ void main() {
     expect(find.text('View'), findsOneWidget);
   });
 
-  testWidgets('create clears draft after origin info reports complete', (
+  testWidgets('create clears draft after origin info reports ready', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingCreateOriginTransport(
@@ -11102,7 +11109,12 @@ void main() {
 
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          backendAuthenticated: true,
+          initialAuthToken: 'backend-token',
+          transport: transport,
+          useMock: false,
+        ),
         child: MaterialApp(
           navigatorKey: genesisNavigatorKey,
           home: const CreateOriginPage(),
@@ -11118,13 +11130,12 @@ void main() {
     await tester.pump();
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/create').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
-    });
-    await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
+        final storedDraft = await CreateOriginDraftStore.load();
+        if (!storedDraft.hasAllSectionsSaved) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -11137,6 +11148,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('View'), findsOneWidget);
+    expect(await OriginPendingSubmissionStore.loadCreating(), isNull);
+    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
   });
 
   testWidgets('create page resumes pending origin after app rebuild', (
@@ -11190,7 +11203,7 @@ void main() {
     });
     await tester.pump();
 
-    expect(transport.requestsFor('/api/v1/origin/create'), isEmpty);
+    expect(transport.requestsFor('/api/v2/origin/create'), isEmpty);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
     expect(
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
@@ -11335,7 +11348,7 @@ void main() {
       }),
       const Color(0xFFBFD8CD),
     );
-    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    expect(transport.requestsFor('/api/v2/origin/update'), isEmpty);
 
     await tester.tap(find.text('Basics'));
     await tester.pumpAndSettle();
@@ -11355,7 +11368,7 @@ void main() {
     );
     expect(rootPublish.onPressed, isNull);
 
-    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    expect(transport.requestsFor('/api/v2/origin/update'), isEmpty);
 
     await tester.tap(find.text('Opening'));
     await tester.pumpAndSettle();
@@ -11416,7 +11429,7 @@ void main() {
     await tester.pump();
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/update').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/update').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -11428,7 +11441,7 @@ void main() {
     });
     await tester.pump();
 
-    final updateRequests = transport.requestsFor('/api/v1/origin/update');
+    final updateRequests = transport.requestsFor('/api/v2/origin/update');
     expect(updateRequests, hasLength(1));
     final body = transport.decodedBody(updateRequests.single);
     expect(body.containsKey('oid'), isFalse);
@@ -11476,6 +11489,15 @@ void main() {
       'Archive',
     );
     expect(editedLocations.single.containsKey('location_pid'), isFalse);
+    expect(body['init_location_group'], {
+      'location_id': 'location_edit_1',
+      'initial_dialogue': [
+        {
+          'char_id': 'nar',
+          'content': 'The archive opens for the first visitor.',
+        },
+      ],
+    });
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
@@ -11607,7 +11629,7 @@ void main() {
     await tester.pump();
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/update').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/update').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -11619,7 +11641,7 @@ void main() {
     });
     await tester.pumpAndSettle();
 
-    expect(transport.requestsFor('/api/v1/origin/update'), hasLength(1));
+    expect(transport.requestsFor('/api/v2/origin/update'), hasLength(1));
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
     expect(
       _richTextWithPlainText('Worldo #Edited Origin published!'),
@@ -11659,7 +11681,7 @@ void main() {
     });
     await tester.pump();
 
-    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    expect(transport.requestsFor('/api/v2/origin/update'), isEmpty);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
     expect(
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
@@ -11711,12 +11733,19 @@ void main() {
             }
             await Future<void>.delayed(const Duration(milliseconds: 10));
           }
+          for (var i = 0; i < 50; i++) {
+            if (transport.requestsFor('/api/v1/origin/detail').length >=
+                requestCount) {
+              break;
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
           await Future<void>.delayed(const Duration(milliseconds: 50));
         });
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 100));
           if (find
-              .textContaining('Worldo Name: Editable Origin')
+              .textContaining('Worldo Name: #Editable Origin')
               .evaluate()
               .isNotEmpty) {
             break;
@@ -11727,7 +11756,7 @@ void main() {
       await tester.tap(find.text('Open edit'));
       await waitForEditLoad(1);
       expect(
-        find.textContaining('Worldo Name: Editable Origin'),
+        find.textContaining('Worldo Name: #Editable Origin'),
         findsOneWidget,
       );
 
@@ -11737,22 +11766,25 @@ void main() {
       await tester.pump();
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Worldo Name: Edited Origin'), findsOneWidget);
+      expect(
+        find.textContaining('Worldo Name: #Edited Origin'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
       await tester.pumpAndSettle();
       expect(find.text('Publish changes before leaving?'), findsNothing);
       expect(find.text('Open edit'), findsOneWidget);
-      expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+      expect(transport.requestsFor('/api/v2/origin/update'), isEmpty);
 
       await tester.tap(find.text('Open edit'));
       await waitForEditLoad(2);
       expect(transport.requestsFor('/api/v1/origin/foredit'), hasLength(2));
       expect(
-        find.textContaining('Worldo Name: Editable Origin'),
+        find.textContaining('Worldo Name: #Editable Origin'),
         findsOneWidget,
       );
-      expect(find.textContaining('Worldo Name: Edited Origin'), findsNothing);
+      expect(find.textContaining('Worldo Name: #Edited Origin'), findsNothing);
     },
   );
 
@@ -15392,6 +15424,31 @@ void main() {
         findsOneWidget,
       );
       expect(transport.requestsFor('/api/v1/world/tick'), isEmpty);
+
+      final horizontalSheetPager = find.descendant(
+        of: find.byType(WorldSingleSectionBottomSheet),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is PageView && widget.scrollDirection == Axis.horizontal,
+        ),
+      );
+      expect(horizontalSheetPager, findsOneWidget);
+      final sheetPageView = tester.widget<PageView>(horizontalSheetPager);
+      sheetPageView.controller!.jumpToPage(1);
+      await tester.pumpAndSettle();
+
+      final header = tester.widget<WorldSingleSectionSheetHeader>(
+        find.byType(WorldSingleSectionSheetHeader),
+      );
+      expect(header.item.label, 'Locations');
+      final locations = tester.widget<WorldLocationList>(
+        find.byType(WorldLocationList),
+      );
+      expect(locations.points, isNotEmpty);
+      expect(
+        locations.points.map((point) => point.name),
+        contains('Child Location'),
+      );
     },
   );
 

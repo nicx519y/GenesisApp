@@ -630,12 +630,13 @@ Opening Image 使用：
 - 恢复旧 URL。
 - 展示统一 toast。
 
-其他 Create/Edit 图片入口默认不开启这两个选项，因此继续沿用原裁剪流程。
+角色头像采用统一的物理像素策略：
 
-策略：
+- Create、Edit 和 Launch 自定义角色均使用 1:1 裁剪。
+- 裁剪区域大于 `1080 × 1080` 时缩小到该上限。
+- 小于该尺寸时保留源裁剪区域像素，不主动放大。
 
-- 用可选参数扩展共享上传组件，不改变既有 cover/avatar/location 图片行为。
-- Opening Image 保留原始画面比例，适合叙事插图而非固定头像/封面裁剪。
+该策略通过共享上传组件的可选输出模式启用；Cover、Location 等其他图片入口继续沿用原裁剪行为。Opening Image 仍保留原始画面比例，适合叙事插图而非固定头像/封面裁剪。
 
 涉及文件：
 
@@ -716,39 +717,36 @@ Opening 页的标题和普通字段区域通过额外 `2px` 内边距达到左�
 
 ## 5. 当前 API 策略与明确边界
 
-这一部分是本分支当前实现中最需要注意的地方。
+### 5.1 Create/Edit 使用 V2 自动地图接口
 
-### 5.1 Opening 当前只进入本地草稿，不进入正式 Create/Update 请求
+Create 与 Edit 继续共用 `CreateOriginDraft.toCreateOriginPayload()`，写请求分别使用：
 
-虽然以下能力已经完成：
+- `/api/v2/origin/create`
+- `/api/v2/origin/update`
 
-- Opening UI
-- 本地草稿序列化
-- 必填状态
-- 完整性校验
-- 地点/角色引用校验
-- Edit 变更检测
+Opening 会转换为 `init_location_group`：
 
-但 `CreateOriginDraft.toCreateOriginPayload()` 当前没有写入 `opening`。
+```text
+opening.locationId -> init_location_group.location_id
+narrator            -> char_id: "nar"
+character           -> char_id: characterId
+image               -> char_id: "nar_pic"
+```
 
-Create 和 Edit 最终都以该 payload 为基础，因此：
+`initial_dialogue` 保持 UI 中的排列顺序。文本继续使用 UGC 提交规范化；图片内容发送上传后的 URL。正常 Create/Edit 提交经过必填和引用校验，因此会发送完整 `init_location_group`，避免 V2 Update 因省略字段而清空已有 Opening。
 
-- `/api/v1/origin/create` 不发送 `opening`
-- `/api/v1/origin/update` 不发送 `opening`
+### 5.2 Edit Opening 回填
 
-测试中也明确断言 Create 请求体不包含 `opening`，说明这是当前分支被保留的接口边界，而不是遗漏在测试之外的隐式行为。
+Edit 仍以 `/api/v1/origin/foredit` 作为主编辑数据源：
 
-### 5.2 Edit 不会从接口回填已有 Opening
+- 优先解析完整的 `init_location_group`。
+- 若 Foredit 没有返回完整 Opening，则回退读取 `/api/v1/origin/detail` 的 tick 1 `location_groups[].initial_dialogue`。
+- `nar` 反向映射为 narrator，`nar_pic` 映射为 image；读取端仍兼容旧值 `image`，其他 `char_id` 映射为 character。
+- 两个数据源都无法恢复完整 Opening 时，保持 `openingSaved = false` 并阻止 Publish，不把缺失数据解释为主动清空。
 
-`originDraftFromV1Detail()` 当前没有从 `/api/v1/origin/foredit` 解析 Opening：
+### 5.3 Location 树与 V2 生成语义
 
-- Edit 打开后 `opening` 默认为空。
-- `openingSaved` 默认为 false。
-- 用户要发布其他编辑内容时，会被要求先完成并保存 Opening。
-
-### 5.3 Location 树字段已进入客户端 payload，但后端契约尚未升级
-
-客户端 `location_list` 当前会携带：
+客户端 `location_list` 会携带：
 
 ```text
 location_id
@@ -767,37 +765,15 @@ initial_character_ids
 - L3 提交 Image、Name 和 Initial Characters。
 - Description 虽已从 UI 移除，但 Edit 旧数据会继续原样带回，防止客户端主动清空历史值。
 
-由于后端 Create/Update/Foredit API 尚未完成对应升级：
+V2 将 Locations 视为平级地图生成输入，并忽略客户端 `level/location_pid` 后重建最终三级树。因此客户端继续保存和提交当前 UI 层级，但不承诺最终地图严格保留该树形结构；当前 Foredit 契约还会把 `location_pid` 回显为空串，无法仅靠接口精确还原原表单树。
 
-- 不能假设新建后一定能完整存储 `level` 和 `location_pid`。
-- 不能假设 Edit 一定能读回完整父子树。
-- Edit 会尽量按返回字段恢复；读不到的 L1/L2 先显示为空白必填父节点。
+Opening 当前发送用户所选 L3 的 `location_id`。接口文档要求该值命中 `origin_create_map` 最终生成的 `loc_*`，但没有承诺像 `character.initial_location_id` 一样映射临时 ID；这一点需要后端联调确认。若不命中，Create 仍按同步返回的 `origin_id` 展示创建成功，后台 Origin 会保持 processing；Edit 会继续轮询并最终按超时处理。
 
-### 5.4 由此产生的实际风险
+### 5.4 Create 与 Edit 的完成语义
 
-1. 用户在 Create/Edit 中编辑的 Opening 不会提交到后端。
-2. Edit 无法展示或修改服务端已有 Opening。
-3. Opening 虽然能触发 Edit 的 modified 状态，但 Publish 请求不会包含其内容。
-4. Worldo 详情页展示的 Opening 来自后端 `ticks.location_groups.initial_dialogue`，与本地 Opening 草稿尚未形成提交闭环。
-5. 新 Location 层级在后端升级前可能无法完整回读，Edit 会要求用户补全缺失的 L1/L2 Name。
-
-### 5.5 后续联调建议
-
-在后端字段契约明确后，需要补齐：
-
-1. Create 请求中的 Opening 映射。
-2. Update 请求中的 Opening 映射。
-3. `/origin/foredit` 到 `OpeningDraft` 的反向映射。
-4. 图片类型的正式字段名和资源结构。
-5. narrator/character/image 顺序及 character ID 的接口契约测试。
-6. 旧 Origin 没有 Opening 时，Edit 是否强制补录的产品规则。
-7. Location L1/L2/L3 的创建、更新、删除和稳定排序契约。
-8. `/origin/foredit` 必须稳定返回 `location_id`、`location_pid`、`level` 和旧 Description。
-
-在这些工作完成前：
-
-- Opening 应视为“前端编辑能力已搭建、正式数据闭环未接通”。
-- Location Tree 应视为“客户端已完成编辑与 payload 映射，服务端持久化和回填仍待联调”。
+- Create：V2 同步业务成功并返回非空 `origin_id` 即展示创建成功、清理草稿；不再为新请求创建 pending 或等待地图异步完成，后续生成超时或失败不得撤销成功结果。
+- Edit：同步更新成功后仍保存 publishing pending，并通过 `/api/v1/origin/info` 等待 `status == 10`；超时继续按发布失败处理并保留修改。
+- 升级前已经保存的 Create pending 仍可恢复旧轮询流程。
 
 ---
 

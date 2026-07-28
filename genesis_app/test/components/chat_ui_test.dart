@@ -1878,6 +1878,38 @@ void main() {
     final bubbleCenter = tester.getCenter(find.byType(ChatMessageBubble));
     expect(badgeCenter.dy, closeTo(bubbleCenter.dy, 1));
   });
+
+  testWidgets('nar_pic chat message renders as an image instead of URL text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'opening-image',
+              senderId: 'nar_pic',
+              senderName: 'Narrator',
+              senderType: 'image',
+              imageUrl: 'assets/images/default_list_image.png',
+              text: 'assets/images/default_list_image.png',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ChatImageMessage), findsOneWidget);
+    expect(find.byType(ChatMessageBubble), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('chat-image-message-opening-image')),
+      findsOneWidget,
+    );
+    expect(find.text('assets/images/default_list_image.png'), findsNothing);
+  });
 }
 
 bool _textHasItalicFragment(Text text, String value) {

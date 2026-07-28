@@ -42,9 +42,26 @@ void main() {
     });
 
     expect(constructed.locationMessageId, 0);
+    expect(constructed.messageType, 'text');
     expect(stored.locationMessageId, 0);
+    expect(stored.messageType, 'text');
     expect(stored.isLlmStreamMessage, isTrue);
   });
+
+  test(
+    'WorldChatroomMessage normalizes stored message types and copies them',
+    () {
+      final stored = WorldChatroomMessage.fromStorageJson({
+        'msg_id': 2,
+        'location_msg_id': 2,
+        'location_id': 'loc-1',
+        'message_type': ' Future_Format ',
+      });
+
+      expect(stored.messageType, 'future_format');
+      expect(stored.copyWith(locationId: 'loc-2').messageType, 'future_format');
+    },
+  );
 
   test(
     'message storage keeps an existing LLM stream marker during merge',
@@ -341,6 +358,61 @@ void main() {
       await joinFuture;
       await connectFuture;
       await service.dispose();
+    },
+  );
+
+  test(
+    'HTTP image history preserves message type through cache hydration',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          _httpMessageJson(
+            messageId: 21,
+            locationId: 'loc-1',
+            content: 'https://cdn.example.com/history.png',
+            messageType: ' IMAGE ',
+          ),
+        ]
+        ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: http,
+        messageStorage: storage,
+      );
+
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final fetched = await service.refreshLatestMessages(locationId: 'loc-1');
+
+      expect(fetched.single.messageType, 'image');
+      expect(
+        service.state.messagesByLocation['loc-1']!.single.messageType,
+        'image',
+      );
+      final cached = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+      expect(cached.single['message_type'], 'image');
+      await service.dispose();
+
+      final hydratedService = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        messageStorage: storage,
+      );
+      await hydratedService.hydrateLocalMessages(
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        ownerUid: 'user-1',
+      );
+
+      expect(
+        hydratedService.state.messagesByLocation['loc-1']!.single.messageType,
+        'image',
+      );
+      await hydratedService.dispose();
     },
   );
 
@@ -1494,7 +1566,10 @@ void main() {
     socket.serverFrame('nar_new_message', {
       'ts': 1780840607650,
       'world_id': 'world-1',
-      'payload': {'content': '*黑暗中，芯片脉冲与数据卡蓝光交织*'},
+      'payload': {
+        'content': 'https://cdn.example.com/narrator.png',
+        'message_type': ' IMAGE ',
+      },
       'global_msg_id': 90155,
       'msg_id': 155,
       'location_msg_id': 55,
@@ -1522,9 +1597,76 @@ void main() {
     expect(message.senderType, 'narrator');
     expect(message.senderId, 'nar');
     expect(message.senderName, '旁白');
-    expect(message.content, '*黑暗中，芯片脉冲与数据卡蓝光交织*');
+    expect(message.content, 'https://cdn.example.com/narrator.png');
+    expect(message.messageType, 'image');
     await service.dispose();
   });
+
+  test(
+    'narrator image push preserves message type through cache hydration',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final storage = MemoryChatroomMessageStorage();
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = const <Map<String, dynamic>>[]
+        ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        messageStorage: storage,
+      );
+
+      await service.connect(worldId: 'world-1', identity: _identity());
+      socket.serverFrame('nar_new_message', {
+        'ts': 1780840607650,
+        'world_id': 'world-1',
+        'payload': {
+          'content': 'https://cdn.example.com/push.png',
+          'message_type': ' IMAGE ',
+        },
+        'global_msg_id': 90255,
+        'msg_id': 255,
+        'location_msg_id': 155,
+        'conversation_round_id': 1449,
+        'sender_id': 'nar',
+        'sender_name': '旁白',
+        'location_id': 'loc-1',
+      });
+
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) =>
+                  message.messageId == 255 && message.messageType == 'image',
+            ) ==
+            true,
+      );
+      final cached = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+      expect(cached.single['message_type'], 'image');
+      await service.dispose();
+
+      final hydratedService = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        messageStorage: storage,
+      );
+      await hydratedService.hydrateLocalMessages(
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        ownerUid: 'user-1',
+      );
+
+      final hydrated =
+          hydratedService.state.messagesByLocation['loc-1']!.single;
+      expect(hydrated.content, 'https://cdn.example.com/push.png');
+      expect(hydrated.messageType, 'image');
+      await hydratedService.dispose();
+    },
+  );
 
   test('narrator push from non-nar sender enters queue as character', () async {
     final socket = _FakeChatroomSocket();
@@ -2105,6 +2247,7 @@ Map<String, dynamic> _httpMessageJson({
   required String locationId,
   required String content,
   int? locationMessageId,
+  String? messageType,
 }) {
   return {
     'global_message_id': 90000 + messageId,
@@ -2118,6 +2261,7 @@ Map<String, dynamic> _httpMessageJson({
     'sender_name': 'User $messageId',
     'user_id': 'user-$messageId',
     'content': content,
+    if (messageType != null) 'message_type': messageType,
     'current_time': '',
     'created_at': '2026-07-01 10:00:${messageId.toString().padLeft(2, '0')}',
   };

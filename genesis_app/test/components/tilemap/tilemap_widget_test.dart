@@ -10,6 +10,7 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
+import 'package:genesis_flutter_android/components/world_map_contract.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -784,18 +785,105 @@ void main() {
     );
     await tester.pump();
 
-    final renderer = tester.widget<TilemapRenderer>(
-      find.byType(TilemapRenderer),
-    );
     expect(find.text('leaf'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('tilemap-location-avatar-char-a')),
-      findsOneWidget,
+    final avatarFinder = find.byKey(
+      const ValueKey<String>('tilemap-location-avatar-char-a'),
     );
-    await renderer.onTileAction!(renderer.config.tiles.single);
+    expect(avatarFinder, findsOneWidget);
+
+    await tester.tap(avatarFinder);
+    await tester.pump();
 
     expect(openedPoint?.id, 'leaf');
     expect(transport.requests, hasLength(1));
+  });
+
+  testWidgets('Tilemap single-child location chain opens the sole leaf chat', (
+    tester,
+  ) async {
+    final transport = _TilemapTransport(data: _locationTilemapData('loc_1'));
+    final services = _servicesWithTransport(transport);
+    WorldPoint? openedPoint;
+    final locationTree = _locationNode(
+      'loc_1',
+      children: [
+        _locationNode('loc_1_1', children: [_locationNode('loc_1_1_1')]),
+      ],
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Tilemap.origin(
+              originId: 'o_1',
+              locationNodes: [locationTree],
+              onPointTap: (point) => openedPoint = point,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final renderer = tester.widget<TilemapRenderer>(
+      find.byType(TilemapRenderer),
+    );
+    await renderer.onTileAction!(renderer.config.tiles.single);
+
+    expect(openedPoint?.id, 'loc_1_1_1');
+    expect(transport.requests, hasLength(1));
+    expect(
+      transport.requests.single.uri.queryParameters['location_id'],
+      'root',
+    );
+  });
+
+  testWidgets('Tilemap shows a character bubble and opens its location', (
+    tester,
+  ) async {
+    final transport = _TilemapTransport(data: _locationTilemapData('leaf'));
+    final services = _servicesWithTransport(transport);
+    WorldPoint? openedPoint;
+    const avatar = UserAvatar('AA', id: 'char-a', name: 'Ada');
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Tilemap.origin(
+              originId: 'o_1',
+              locationNodes: [
+                _locationNode('leaf', users: [avatar]),
+              ],
+              messageBubbles: const [
+                WorldMapMessageBubble(
+                  characterId: 'char-a',
+                  content: 'Ada checks the tilemap.',
+                ),
+              ],
+              onPointTap: (point) => openedPoint = point,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-character-message-bubble-body'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Ada checks the tilemap.'), findsOneWidget);
+
+    await tester.tap(find.text('Ada checks the tilemap.'));
+    await tester.pump();
+
+    expect(openedPoint?.id, 'leaf');
   });
 }
 

@@ -19,6 +19,7 @@ import '../../utils/genesis_ugc_text.dart';
 import '../create/create_form_widgets.dart';
 import '../create/create_origin_draft_store.dart';
 import '../create/create_origin_id_utils.dart';
+import 'origin_debug_tools.dart';
 import 'origin_draft_repository.dart';
 
 part 'origin_basics_editor_page.dart';
@@ -157,6 +158,7 @@ class OriginDraftFlowPage extends StatefulWidget {
     this.updateNotesController,
     this.submitStatus = OriginDraftSubmitStatus.idle,
     this.reloadSignal = 0,
+    this.debugDraftGenerator,
   });
 
   final String title;
@@ -182,6 +184,7 @@ class OriginDraftFlowPage extends StatefulWidget {
   final TextEditingController? updateNotesController;
   final OriginDraftSubmitStatus submitStatus;
   final int reloadSignal;
+  final OriginDebugDraftGenerator? debugDraftGenerator;
 
   @override
   State<OriginDraftFlowPage> createState() => _OriginDraftFlowPageState();
@@ -441,6 +444,15 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
             pageName: widget.title,
             onBack: () => unawaited(_handleLeaveRequest()),
           ),
+          floatingActionButton: buildOriginDebugRandomContentButton(
+            repository: widget.repository,
+            generator: widget.debugDraftGenerator,
+            enabled:
+                !_isSubmitting &&
+                widget.submitStatus == OriginDraftSubmitStatus.idle,
+            onGenerated: _reloadDraft,
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
           body: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: _clearInputFocus,

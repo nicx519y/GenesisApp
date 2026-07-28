@@ -3,8 +3,59 @@ import 'package:flutter/material.dart';
 import '../../components/world_map.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
+import '../../network/models/world.dart';
 import '../../ui/components/genesis_avatar.dart';
 import 'world_value_helpers.dart';
+
+class WorldLocationListData {
+  const WorldLocationListData({
+    required this.points,
+    required this.locationNodes,
+  });
+
+  final List<WorldPoint> points;
+  final List<WorldMapLocationNode> locationNodes;
+}
+
+WorldLocationListData worldLocationListDataFor(
+  WorldDetail world, {
+  required String currentUid,
+}) {
+  final avatarsByLocation = worldAvatarsByLocationFromCharacterPositions(
+    world.characterPositions,
+    currentUid: currentUid,
+  );
+  final processedLocationTree = world.processedLocationTree;
+  final allLocationNodes = processedLocationTree.flattened;
+  final hasConcreteLocationNodes = allLocationNodes.any(
+    (node) => node.id != worldSyntheticRootLocationId,
+  );
+  final locationNodes = hasConcreteLocationNodes
+      ? worldMapLocationNodes(
+          processedLocationTree.mapRoots,
+          avatarsByLocation,
+          processedLocationTree,
+        )
+      : const <WorldMapLocationNode>[];
+  final points = hasConcreteLocationNodes
+      ? worldPointsFromLocationNodes(
+          allLocationNodes,
+          avatarsByLocation,
+          processedLocationTree,
+        )
+      : world.locations.isNotEmpty
+      ? worldPointsFromLocations(world.locations, avatarsByLocation)
+      : worldPointsFromLocationIds(
+          world.characterPositions
+              .map((item) => item['location_id'])
+              .followedBy(
+                world.userPositions.map((item) => item['location_id']),
+              )
+              .toList(growable: false),
+          avatarsByLocation,
+        );
+  return WorldLocationListData(points: points, locationNodes: locationNodes);
+}
 
 String worldRootMapImageUrl(
   List<LocationTreeNode<Map<String, dynamic>>> rootLocationNodes,
@@ -193,7 +244,11 @@ List<WorldPoint> worldPointsFromLocations(
     ]);
     final description = locationSummary.isNotEmpty ? locationSummary : '';
     final descriptionFallback = locationDescription;
-    final icon = worldResolveAssetUrl((l['icon'] ?? '').toString());
+    final icon = asResolvedImageUrl(
+      worldMapValue(l, const ['image']),
+      worldResolveAssetUrl,
+      fallback: worldMapValue(l, const ['icon']),
+    );
 
     final rawXP = l['x_percent'];
     final rawYP = l['y_percent'];

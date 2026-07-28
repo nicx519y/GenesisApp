@@ -70,6 +70,7 @@ class _FakeTransport implements HttpTransport {
             'sender_name': 'A',
             'user_id': 'u_1',
             'content': 'hello',
+            'message_type': ' IMAGE ',
             'current_time': 'Day 1, 08:00',
             'tick_no': 3,
             'created_at': '2026-07-01 10:00:00',
@@ -131,6 +132,31 @@ void main() {
     });
 
     expect(message.locationMessageId, 101);
+    expect(message.messageType, 'text');
+  });
+
+  test('ChatroomHttpMessage normalizes message_type values', () {
+    expect(
+      ChatroomHttpMessage.fromJson({
+        'message_id': 1,
+        'message_type': ' IMAGE ',
+      }).messageType,
+      'image',
+    );
+    expect(
+      ChatroomHttpMessage.fromJson({
+        'message_id': 2,
+        'message_type': '   ',
+      }).messageType,
+      'text',
+    );
+    expect(
+      ChatroomHttpMessage.fromJson({
+        'message_id': 3,
+        'message_type': ' Future_Format ',
+      }).messageType,
+      'future_format',
+    );
   });
 
   test('ChatroomMessageListResponse preserves raw response json', () {
@@ -200,6 +226,7 @@ void main() {
     expect(historyMessage.globalMessageId, 90001);
     expect(historyMessage.messageId, 1001);
     expect(historyMessage.locationMessageId, 101);
+    expect(historyMessage.messageType, 'image');
     expect(historyMessage.createdAt, DateTime(2026, 7, 1, 10));
 
     expect(await api.lockWorld(worldId: 'w_1'), true);

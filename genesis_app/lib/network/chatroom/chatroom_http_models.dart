@@ -1,4 +1,5 @@
 import '../json_utils.dart';
+import 'chatroom_message_type.dart';
 
 class ChatroomHttpMessage {
   const ChatroomHttpMessage({
@@ -14,6 +15,7 @@ class ChatroomHttpMessage {
     required this.senderName,
     required this.userId,
     required this.content,
+    this.messageType = chatroomTextMessageType,
     this.currentTime = '',
     required this.createdAt,
   });
@@ -30,6 +32,7 @@ class ChatroomHttpMessage {
   final String senderName;
   final String userId;
   final String content;
+  final String messageType;
   final String currentTime;
   final DateTime? createdAt;
 
@@ -51,6 +54,7 @@ class ChatroomHttpMessage {
       senderName: asString(json['sender_name']),
       userId: asString(json['user_id']),
       content: asString(json['content']),
+      messageType: normalizeChatroomMessageType(json['message_type']),
       currentTime: asString(json['current_time']),
       createdAt: asDateTime(json['created_at']),
     );

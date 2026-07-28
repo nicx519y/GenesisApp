@@ -6,6 +6,7 @@ import '../../ui/tokens/genesis_avatar_radii.dart';
 const int originCharacterNameMaxLength = 30;
 const int originCharacterIdentityMaxLength = 100;
 const int originCharacterBioMaxLength = 500;
+const Size originCharacterAvatarUploadSize = Size.square(1080);
 
 class OriginCharacterForm {
   OriginCharacterForm({
@@ -129,7 +130,8 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.avatarWidth = 104,
     this.avatarHeight = 104,
     this.avatarIconSize = 38,
-    this.avatarCropSize = const Size(800, 800),
+    this.avatarCropSize = originCharacterAvatarUploadSize,
+    this.avatarMaxOutputSize = originCharacterAvatarUploadSize,
     this.showAvatarRemoveLink = true,
     this.topSpacing = 6,
     this.horizontalGap = 12,
@@ -157,6 +159,7 @@ class OriginCharacterFormFields extends StatelessWidget {
   final double avatarHeight;
   final double avatarIconSize;
   final Size avatarCropSize;
+  final Size? avatarMaxOutputSize;
   final bool showAvatarRemoveLink;
   final double topSpacing;
   // Module internal horizontal spacing: avatar upload block -> right-side text fields.
@@ -196,6 +199,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               height: avatarHeight,
               iconSize: avatarIconSize,
               cropSize: avatarCropSize,
+              maxOutputSize: avatarMaxOutputSize,
               borderRadius: GenesisAvatarRadii.character,
               previewAlignment: Alignment.topCenter,
               showRemoveLinkWhenFilled: showAvatarRemoveLink,

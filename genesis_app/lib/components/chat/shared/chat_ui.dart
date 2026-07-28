@@ -10,6 +10,7 @@ import '../../../components/ai_content_disclaimer.dart';
 import '../../../icons/custom_icon_assets.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
+import '../../../ui/components/genesis_list_image.dart';
 import '../../../ui/components/genesis_safe_area.dart';
 import '../../../ui/tokens/genesis_colors.dart';
 import '../../../ui/tokens/genesis_typography.dart';
@@ -103,6 +104,7 @@ class ChatMessageVm {
     required this.senderId,
     required this.senderName,
     this.avatarUrl = '',
+    this.imageUrl = '',
     this.isPlayerControlledRole = false,
     required this.text,
     this.currentTime = '',
@@ -134,6 +136,7 @@ class ChatMessageVm {
   final String senderId;
   String senderName;
   String avatarUrl;
+  String imageUrl;
   bool isPlayerControlledRole;
   String text;
   String currentTime;
@@ -148,6 +151,11 @@ class ChatMessageVm {
   bool get isNarrator => senderType == 'narrator';
 
   bool get isTick => senderType == 'tick';
+
+  bool get isImage =>
+      senderType == 'image' ||
+      senderType == 'nar_pic' ||
+      imageUrl.trim().isNotEmpty;
 }
 
 typedef ChatMessageLongPressStart =
@@ -1088,6 +1096,15 @@ class ChatMessageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
+    if (message.isImage) {
+      return ChatImageMessage(
+        message: message,
+        style: style,
+        onLongPressStart: onMessageLongPressStart == null
+            ? null
+            : (details) => onMessageLongPressStart!(context, message, details),
+      );
+    }
     if (message.isSystem) {
       return ChatSystemMessage(
         text: message.isTick ? _tickAdvanceText(message) : message.text,
@@ -1288,6 +1305,49 @@ class ChatMessageRow extends StatelessWidget {
           ),
           _ChatAvatarSideSpacer(style: style),
         ],
+      ),
+    );
+  }
+}
+
+class ChatImageMessage extends StatelessWidget {
+  const ChatImageMessage({
+    super.key,
+    required this.message,
+    required this.style,
+    this.onLongPressStart,
+  });
+
+  static const double imageSize = 200;
+
+  final ChatMessageVm message;
+  final ChatUiStyleConfig style;
+  final GestureLongPressStartCallback? onLongPressStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: style.avatarSideSpacerWidth,
+        bottom: style.rowBottomPadding,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: GestureDetector(
+          onLongPressStart: onLongPressStart,
+          child: GenesisListImage(
+            key: ValueKey<String>('chat-image-message-${message.localId}'),
+            imageUrl: message.imageUrl.trim().isNotEmpty
+                ? message.imageUrl
+                : message.text,
+            width: imageSize,
+            height: imageSize,
+            fit: BoxFit.contain,
+            borderRadius: BorderRadius.circular(
+              style.systemMessageBorderRadius,
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -11,6 +11,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/tilemap_definition.dart';
 import '../world_map_avatar_logic.dart';
+import '../world_map_contract.dart';
 import '../world_map_location_action.dart';
 import '../world_point.dart';
 import 'tilemap_model.dart';
@@ -29,6 +30,8 @@ class Tilemap extends StatefulWidget {
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
+    this.messageBubbles = const <WorldMapMessageBubble>[],
+    this.messageBubblePlaybackPaused = false,
     this.onDrillIntoLocation,
     this.onMapTap,
     this.onPointTap,
@@ -44,6 +47,8 @@ class Tilemap extends StatefulWidget {
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
+    this.messageBubbles = const <WorldMapMessageBubble>[],
+    this.messageBubblePlaybackPaused = false,
     this.onDrillIntoLocation,
     this.onMapTap,
     this.onPointTap,
@@ -58,6 +63,8 @@ class Tilemap extends StatefulWidget {
   final bool showVisualModeToggle;
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
+  final List<WorldMapMessageBubble> messageBubbles;
+  final bool messageBubblePlaybackPaused;
   final VoidCallback? onDrillIntoLocation;
   final VoidCallback? onMapTap;
   final FutureOr<void> Function(WorldPoint point)? onPointTap;
@@ -619,6 +626,8 @@ class _TilemapState extends State<Tilemap> {
               onTileAction: _handleTileAction,
               locationNameForTile: _locationNameForTile,
               locationAvatarsForTile: _locationAvatarsForTile,
+              messageBubbles: widget.messageBubbles,
+              messageBubblePlaybackPaused: widget.messageBubblePlaybackPaused,
               onMapTap: widget.onMapTap,
               onImageError: (error) => _handleImageError(config.id, error),
               visualMode: _visualMode,
