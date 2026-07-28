@@ -330,21 +330,32 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   Future<void> _handleLeaveRequest() async {
     if (_isHandlingLeave) return;
     _isHandlingLeave = true;
+    final navigator = Navigator.of(context);
+    final pageRoute = ModalRoute.of(context);
+
+    bool pageCanInteract() {
+      return mounted &&
+          navigator.mounted &&
+          (pageRoute == null || pageRoute.isCurrent);
+    }
+
     try {
       final latest = await widget.repository.loadSummaryDraft();
-      if (!mounted) return;
+      if (!pageCanInteract()) return;
       if (widget.submitStatus != OriginDraftSubmitStatus.idle) {
-        Navigator.of(context).pop();
+        navigator.pop();
         return;
       }
       if (!widget.confirmLeaveWithDraftOptions ||
           !_shouldConfirmLeave(latest)) {
-        Navigator.of(context).pop();
+        navigator.pop();
         return;
       }
 
+      final dialogContext = navigator.context;
+      if (!dialogContext.mounted) return;
       final action = await showGenesisActionBox<_DraftLeaveAction>(
-        context: context,
+        context: dialogContext,
         title: widget.leaveTitle,
         actions: [
           GenesisActionBoxAction<_DraftLeaveAction>(
@@ -360,17 +371,17 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           ),
         ],
       );
-      if (!mounted || action == null) return;
+      if (!pageCanInteract() || action == null) return;
       if (action == _DraftLeaveAction.save) {
         await widget.repository.saveFinalDraft(latest);
       } else if (action == _DraftLeaveAction.submit) {
         final submitted = await _submit();
-        if (!submitted || !mounted) return;
+        if (!submitted || !pageCanInteract()) return;
       } else {
         await widget.onDiscardDraft?.call(widget.repository);
       }
-      if (!mounted) return;
-      Navigator.of(context).pop();
+      if (!pageCanInteract()) return;
+      navigator.pop();
     } finally {
       _isHandlingLeave = false;
     }

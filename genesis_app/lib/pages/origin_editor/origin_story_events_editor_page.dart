@@ -158,13 +158,16 @@ class _OriginStoryEventsEditorPageState
                           },
                         ),
                         if (i + 1 < _eventControllers.length)
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                       ],
+                      if (_eventControllers.isNotEmpty)
+                        const SizedBox(height: 12),
                       CreateInlineAddButton(
                         label: '+ Add Event',
                         onTap: _addEvent,
                         fontSize: 16,
                         centered: true,
+                        contentPadding: const EdgeInsets.fromLTRB(0, 11, 0, 5),
                       ),
                       const SizedBox(height: 12),
                     ],
@@ -395,6 +398,7 @@ class _LocationCard extends StatelessWidget {
     required this.onDelete,
     this.deleteEnabled = true,
     this.onDeleteDisabled,
+    this.showHeader = true,
     this.showBorder = true,
     this.titleFontSize = 16,
     this.titleSuffix,
@@ -413,6 +417,7 @@ class _LocationCard extends StatelessWidget {
   final VoidCallback onDelete;
   final bool deleteEnabled;
   final VoidCallback? onDeleteDisabled;
+  final bool showHeader;
   final bool showBorder;
   final double titleFontSize;
   final String? titleSuffix;
@@ -421,6 +426,51 @@ class _LocationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fields = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showHeader) const SizedBox(height: 6),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CreateUploadBox(
+              controller: form.imageUrl,
+              label: 'IMAGE\n(Optional)',
+              width: 96,
+              height: 144,
+              iconSize: 36,
+              cropSize: const Size(1500, 3000),
+              emptyIconLabelGap: 8,
+              onChanged: onChanged,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: CreateTextFieldBlock(
+                label: nameFieldLabel,
+                controller: form.name,
+                hintText: 'eg. Main Street',
+                maxLength: 25,
+                maxLines: 1,
+                labelFontWeight: fieldLabelFontWeight,
+                labelInputGap: 8,
+                focusNode: form.nameFocusNode,
+                nextFocusNode: nextFocusNode,
+                onChanged: (_) => onChanged(),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _InitialCharactersField(
+          form: form,
+          characters: characters,
+          labelFontWeight: fieldLabelFontWeight,
+          onPickCharacters: onPickCharacters,
+          onRemoveCharacter: onRemoveCharacter,
+        ),
+      ],
+    );
+    if (!showHeader) return fields;
     return CreateFormCard(
       title: title ?? 'Location $index',
       onDelete: onDelete,
@@ -429,50 +479,7 @@ class _LocationCard extends StatelessWidget {
       showBorder: showBorder,
       titleFontSize: titleFontSize,
       titleSuffix: titleSuffix,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CreateUploadBox(
-                controller: form.imageUrl,
-                label: 'IMAGE\n(Optional)',
-                width: 96,
-                height: 144,
-                iconSize: 36,
-                cropSize: const Size(1500, 3000),
-                emptyIconLabelGap: 8,
-                onChanged: onChanged,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CreateTextFieldBlock(
-                  label: nameFieldLabel,
-                  controller: form.name,
-                  hintText: 'eg. Main Street',
-                  maxLength: 25,
-                  maxLines: 1,
-                  labelFontWeight: fieldLabelFontWeight,
-                  labelInputGap: 8,
-                  focusNode: form.nameFocusNode,
-                  nextFocusNode: nextFocusNode,
-                  onChanged: (_) => onChanged(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _InitialCharactersField(
-            form: form,
-            characters: characters,
-            labelFontWeight: fieldLabelFontWeight,
-            onPickCharacters: onPickCharacters,
-            onRemoveCharacter: onRemoveCharacter,
-          ),
-        ],
-      ),
+      child: fields,
     );
   }
 }
@@ -913,6 +920,18 @@ class _LocationForm {
     );
   }
 
+  factory _LocationForm.copyOf(_LocationForm source) {
+    return _LocationForm(
+      locationId: source.locationId,
+      parentLocationId: source.parentLocationId,
+      level: source.level,
+      imageUrl: TextEditingController(text: source.imageUrl.text),
+      name: TextEditingController(text: source.name.text),
+      description: TextEditingController(text: source.description.text),
+      selectedCharacterIds: source.selectedCharacterIds.toList(growable: true),
+    );
+  }
+
   final String locationId;
   final String parentLocationId;
   final int level;
@@ -921,6 +940,13 @@ class _LocationForm {
   final TextEditingController description;
   final FocusNode nameFocusNode = FocusNode();
   List<String> selectedCharacterIds;
+
+  void applyValuesFrom(_LocationForm source) {
+    imageUrl.text = source.imageUrl.text;
+    name.text = source.name.text;
+    description.text = source.description.text;
+    selectedCharacterIds = source.selectedCharacterIds.toList(growable: true);
+  }
 
   void dispose() {
     imageUrl.dispose();

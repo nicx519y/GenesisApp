@@ -43,6 +43,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(16, 20, 16, 14),
     this.titleBottomSpacing = 20,
     this.titleTextStyle,
+    this.maintainBottomViewPadding = false,
   });
 
   static const BorderRadius borderRadius = GenesisRadii.sheet;
@@ -61,6 +62,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   final EdgeInsets padding;
   final double titleBottomSpacing;
   final TextStyle? titleTextStyle;
+  final bool maintainBottomViewPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +71,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
       borderRadius: borderRadius,
       child: SafeArea(
         top: false,
+        maintainBottomViewPadding: maintainBottomViewPadding,
         child: SizedBox(
           height: height,
           width: double.infinity,

@@ -10065,6 +10065,35 @@ void main() {
     expect((await CreateOriginDraftStore.load()).basics.originName, isEmpty);
   });
 
+  testWidgets('create origin leave request ignores a disposed page context', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(originName: 'Draft Origin'),
+        characters: <CharacterDraft>[CharacterDraft()],
+        locations: <LocationDraft>[LocationDraft()],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: true,
+        charactersSaved: false,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: Text('Replacement page'))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Replacement page'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('characters add button appends empty form', (
     WidgetTester tester,
   ) async {
@@ -10108,15 +10137,27 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    final addCharacterTextTop = tester
+        .getTopLeft(find.text('+ Add Character'))
+        .dy;
     await tester.tap(find.text('+ Add Character'));
     await tester.pumpAndSettle();
 
     expect(find.text('Character 2'), findsOneWidget);
     final characterCards = find.byType(CreateFormCard);
     expect(
+      tester.getTopLeft(find.text('Character 2')).dy,
+      closeTo(addCharacterTextTop, 0.01),
+    );
+    expect(
       tester.getTopLeft(characterCards.at(1)).dy -
           tester.getBottomLeft(characterCards.at(0)).dy,
-      closeTo(8, 0.01),
+      closeTo(12, 0.01),
+    );
+    expect(
+      tester.getTopLeft(find.byType(CreateInlineAddButton)).dy -
+          tester.getBottomLeft(characterCards.at(1)).dy,
+      closeTo(12, 0.01),
     );
   });
 
@@ -10260,20 +10301,54 @@ void main() {
     );
   });
 
-  testWidgets('create locations builds and grows an L1 L2 L3 tree', (
+  testWidgets('create locations guides the first complete L1 L2 L3 tree', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('- L1 Location'), findsOneWidget);
-    expect(find.text('- L2 Location'), findsOneWidget);
-    expect(find.text('L3 Location'), findsOneWidget);
-    expect(find.byType(TextField), findsNothing);
-    expect(find.text('Description (Optional)'), findsNothing);
     expect(find.text('L1: 1'), findsOneWidget);
-    expect(find.text('L2: 1'), findsOneWidget);
-    expect(find.text('L3: 1/10 (Added/Max)'), findsOneWidget);
+    expect(find.text('L2: 0'), findsOneWidget);
+    expect(find.text('L3: 0/10 (Added/Max)'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('locations-statistics-note')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Add up to 10 L3 locations across your location trees.'),
+      findsOneWidget,
+    );
+    final statisticsNote = find.descendant(
+      of: find.byKey(const ValueKey<String>('locations-statistics-note')),
+      matching: find.byType(CreateFormNote),
+    );
+    expect(statisticsNote, findsOneWidget);
+    expect(
+      find.descendant(
+        of: statisticsNote,
+        matching: _assetSvgFinder(createFormInfoIconAsset),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
+      findsOneWidget,
+    );
+    expect(find.text('L2 Location'), findsNothing);
+    expect(find.text('L3 Location'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l1-location')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l2-Loc_1')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l3-Loc_1_1')),
+      findsNothing,
+    );
+
     final locationCounts = find.byKey(
       const ValueKey<String>('create-location-l3-count'),
     );
@@ -10309,56 +10384,843 @@ void main() {
       tester.getTopLeft(locationCounts).dy - tester.getTopLeft(editList).dy,
       closeTo(8, 0.01),
     );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-mode-preview')),
+    );
+    await tester.pump();
     expect(
-      tester.getTopLeft(find.text('- L1 Location')).dy -
-          tester.getBottomLeft(locationCounts).dy,
-      closeTo(17, 0.01),
+      find.text('Please complete this location or delete it.'),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('locations-preview-list')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-mode-preview')),
+    );
+    await tester.pump();
+    expect(
+      find.text('Please complete this location or delete it.'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 2));
+
+    final l1Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1'),
+    );
+    await tester.enterText(
+      find.descendant(of: l1Editor, matching: find.byType(TextField)),
+      'Downtown',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1')),
+    );
+    await tester.pump();
+
+    expect(find.text('Downtown'), findsOneWidget);
+    expect(find.text('L2: 1'), findsOneWidget);
+    expect(find.text('L3: 0/10 (Added/Max)'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('locations-inline-name-Loc_1_1')),
+      findsOneWidget,
+    );
+    expect(find.text('Add L3 Location'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l1-location')),
+      findsNothing,
     );
 
-    final addL3 = find.byKey(const ValueKey('create-add-l3-Loc_1_1'));
-    final addL2 = find.byKey(const ValueKey('create-add-l2-Loc_1'));
-    final addL1 = find.byKey(const ValueKey('create-add-l1-location'));
+    final l2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_1'),
+    );
+    await tester.enterText(
+      find.descendant(of: l2Editor, matching: find.byType(TextField)),
+      'Main Street',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1_1')),
+    );
+    await tester.pump();
+
+    expect(find.text('Main Street'), findsOneWidget);
+    expect(find.text('Add L3 Location'), findsNothing);
+    final addL3 = find.byKey(const ValueKey<String>('create-add-l3-Loc_1_1'));
+    expect(addL3, findsOneWidget);
     expect(
-      tester.getTopLeft(addL3).dy,
-      greaterThan(tester.getBottomLeft(find.text('L3 Location')).dy),
+      find.descendant(of: addL3, matching: find.text('L3 *')),
+      findsOneWidget,
     );
     expect(
-      tester.getTopLeft(addL2).dy,
-      greaterThan(tester.getBottomLeft(addL3).dy),
+      find.byKey(const ValueKey<String>('create-add-l2-Loc_1')),
+      findsNothing,
     );
     expect(
-      tester.getTopLeft(addL1).dy,
-      greaterThan(tester.getBottomLeft(addL2).dy),
+      find.byKey(const ValueKey<String>('create-add-l1-location')),
+      findsNothing,
     );
+
     await tester.ensureVisible(addL3);
     await tester.tap(addL3);
     await tester.pumpAndSettle();
-    expect(find.text('L3 Location'), findsNWidgets(2));
-    expect(find.text('L3: 2/10 (Added/Max)'), findsOneWidget);
-
-    await tester.ensureVisible(addL2);
-    await tester.tap(addL2);
+    expect(find.text('Add L3 Location'), findsOneWidget);
+    expect(find.text('Edit L3 Location'), findsNothing);
+    expect(find.text('L3: 0/10 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3 Location'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('locations-l3-editor-delete')),
+      findsNothing,
+    );
+    final l3Save = find.byKey(
+      const ValueKey<String>('locations-l3-editor-save'),
+    );
+    expect(tester.widget<GenesisPrimaryButton>(l3Save).onPressed, isNull);
+    final l3Sheet = find.byKey(
+      const ValueKey<String>('locations-l3-editor-sheet'),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-l3-editor-close')),
+    );
     await tester.pumpAndSettle();
-    expect(find.text('- L2 Location'), findsNWidgets(2));
-    expect(find.text('L3 Location'), findsNWidgets(3));
-    expect(find.text('L2: 2'), findsOneWidget);
-    expect(find.text('L3: 3/10 (Added/Max)'), findsOneWidget);
+    expect(l3Sheet, findsNothing);
+    expect(find.text('L3: 0/10 (Added/Max)'), findsOneWidget);
+    expect(addL3, findsOneWidget);
+    expect(find.text('L3 Location'), findsNothing);
+
+    await tester.tap(addL3);
+    await tester.pumpAndSettle();
+    expect(find.text('Add L3 Location'), findsOneWidget);
+    await tester.enterText(
+      find.descendant(of: l3Sheet, matching: find.byType(TextField)).first,
+      'Central Station',
+    );
+    await tester.pump();
+    await tester.tap(l3Save);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Central Station'), findsOneWidget);
+    expect(find.text('L3: 1/10 (Added/Max)'), findsOneWidget);
+    final addL2 = find.byKey(const ValueKey<String>('create-add-l2-Loc_1'));
+    final addL1 = find.byKey(const ValueKey<String>('create-add-l1-location'));
+    expect(addL2, findsOneWidget);
+    expect(addL1, findsOneWidget);
+    expect(
+      find.descendant(of: addL3, matching: find.text('L3')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('locations preview keeps an L2 without L3 as an L2 header', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    final l1Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1'),
+    );
+    await tester.enterText(
+      find.descendant(of: l1Editor, matching: find.byType(TextField)),
+      'Downtown',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1')),
+    );
+    await tester.pump();
+
+    final l2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_1'),
+    );
+    await tester.enterText(
+      find.descendant(of: l2Editor, matching: find.byType(TextField)),
+      'Main Street',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1_1')),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-mode-preview')),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('locations-preview-list')),
+      findsOneWidget,
+    );
+    expect(find.text('- Main Street'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('world-location-card-Loc_1_1')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('blank required location dismisses keyboard on background tap', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    final l1Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1'),
+    );
+    final l1Field = find.descendant(
+      of: l1Editor,
+      matching: find.byType(TextField),
+    );
+    expect(tester.widget<TextField>(l1Field).focusNode?.hasFocus, isTrue);
+
+    await tester.tap(find.text('L1: 1'));
+    await tester.pump();
+
+    expect(l1Editor, findsOneWidget);
+    expect(tester.widget<TextField>(l1Field).focusNode?.hasFocus, isFalse);
+    expect(
+      find.text('Please complete this location or delete it.'),
+      findsNothing,
+    );
 
     await tester.drag(
       find.byKey(const ValueKey<String>('locations-edit-list')),
-      const Offset(0, -160),
+      const Offset(0, -80),
+    );
+    await tester.pump();
+    expect(l1Editor, findsOneWidget);
+    expect(
+      find.text('Please complete this location or delete it.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('blank required location does not block back navigation', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                key: const ValueKey<String>('open-create-locations'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CreateLocationsPage(),
+                  ),
+                ),
+                child: const Text('Open Locations'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('open-create-locations')),
     );
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Open Locations'), findsOneWidget);
+    expect(find.text('Locations'), findsNothing);
+  });
+
+  testWidgets('new L1 keyboard Done moves focus to its required L2', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    final l1Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1'),
+    );
+    final l1Field = tester.widget<TextField>(
+      find.descendant(of: l1Editor, matching: find.byType(TextField)),
+    );
+    final l1FocusNode = l1Field.focusNode!;
+    final l1Controller = l1Field.controller!;
+    expect(l1FocusNode.hasFocus, isTrue);
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'Downtown',
+        selection: TextSelection.collapsed(offset: 8),
+        composing: TextRange(start: 0, end: 8),
+      ),
+    );
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(l1Editor, findsNothing);
+    final l2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_1'),
+    );
+    expect(l2Editor, findsOneWidget);
+    final l2Field = tester.widget<TextField>(
+      find.descendant(of: l2Editor, matching: find.byType(TextField)),
+    );
+    expect(l2Field.focusNode, isNot(same(l1FocusNode)));
+    expect(l2Field.controller, isNot(same(l1Controller)));
+    expect(l2Field.controller?.text, isEmpty);
+    expect(l2Field.controller?.value.composing, TextRange.empty);
+    expect(l2Field.focusNode?.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+  });
+
+  testWidgets('bottom inline location editor keeps a stable keyboard gap', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
+
+    final addL1 = find.byKey(const ValueKey<String>('create-add-l1-location'));
+    await tester.ensureVisible(addL1);
     await tester.tap(addL1);
-    await tester.pumpAndSettle();
-    final listView = tester.widget<ListView>(
-      find.descendant(of: editList, matching: find.byType(ListView)),
+    await tester.pump();
+
+    final editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_2'),
     );
-    listView.controller!.jumpTo(0);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
-    expect(find.text('L1: 2'), findsOneWidget);
-    expect(find.text('L2: 3'), findsOneWidget);
-    expect(find.text('L3: 4/10 (Added/Max)'), findsOneWidget);
+
+    final keyboardTop = tester.view.physicalSize.height - 300;
+    final editorRectBeforeInput = tester.getRect(editor);
+    expect(keyboardTop - editorRectBeforeInput.bottom, greaterThanOrEqualTo(0));
+
+    await tester.enterText(
+      find.descendant(of: editor, matching: find.byType(TextField)),
+      'H',
+    );
+    await tester.pump();
+
+    expect(tester.getRect(editor).top, editorRectBeforeInput.top);
+  });
+
+  testWidgets('multiline create field stays fully above the keyboard', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          resizeToAvoidBottomInset: true,
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 28),
+            child: Column(
+              children: [
+                const SizedBox(height: 500),
+                CreateTextFieldBlock(
+                  label: 'Details',
+                  controller: controller,
+                  hintText: 'Details',
+                  onChanged: (_) {},
+                  minLines: 5,
+                  maxLines: 5,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final block = find.byType(CreateTextFieldBlock);
+    await tester.tap(find.byType(TextField));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    final keyboardTop = tester.view.physicalSize.height - 300;
+    expect(tester.getRect(block).bottom, lessThanOrEqualTo(keyboardTop));
+  });
+
+  testWidgets('new L1 and L2 names must finish before editing elsewhere', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+    await _completeInitialLocationTree(
+      tester,
+      l1Name: 'Downtown',
+      l2Name: 'Main Street',
+      l3Name: 'Central Station',
+    );
+
+    final addL1 = find.byKey(const ValueKey<String>('create-add-l1-location'));
+    await tester.ensureVisible(addL1);
+    await tester.tap(addL1);
+    await tester.pump();
+
+    final newL1Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_2'),
+    );
+    expect(newL1Editor, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('locations-inline-name-Loc_2_1')),
+      findsNothing,
+    );
+    expect(addL1, findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l2-Loc_1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l3-Loc_1_1')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.descendant(of: newL1Editor, matching: find.byType(TextField)),
+      'Discarded Harbor',
+    );
+    final outsideTap = await tester.startGesture(
+      tester.getCenter(find.text('Downtown')),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(newL1Editor, findsNothing);
+    expect(addL1, findsOneWidget);
+    expect(find.text('L1: 1'), findsOneWidget);
+    await outsideTap.up();
+    await tester.pump();
+    expect(newL1Editor, findsNothing);
+    expect(find.text('Discarded Harbor'), findsNothing);
+    expect(find.text('L1: 1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
+      findsNothing,
+    );
+
+    await tester.ensureVisible(addL1);
+    await tester.tap(addL1);
+    await tester.pump();
+    expect(newL1Editor, findsOneWidget);
+    await tester.enterText(
+      find.descendant(of: newL1Editor, matching: find.byType(TextField)),
+      'Harbor',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_2')),
+    );
+    await tester.pump();
+
+    final newL1RequiredL2 = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_2_1'),
+    );
+    expect(newL1RequiredL2, findsOneWidget);
+    expect(find.text('Add L3 Location'), findsNothing);
+    expect(addL1, findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l2-Loc_1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l3-Loc_1_1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l3-Loc_2_1')),
+      findsNothing,
+    );
+    await tester.tap(find.text('Central Station'));
+    await tester.pump();
+    expect(newL1RequiredL2, findsOneWidget);
+    expect(find.text('Edit L3 Location'), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: newL1RequiredL2,
+              matching: find.byType(TextField),
+            ),
+          )
+          .focusNode
+          ?.hasFocus,
+      isFalse,
+    );
+    await tester.tap(find.text('Central Station'));
+    await tester.pump();
+    expect(newL1RequiredL2, findsOneWidget);
+    expect(
+      find.text('Please complete this location or delete it.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: newL1RequiredL2,
+              matching: find.byType(TextField),
+            ),
+          )
+          .focusNode
+          ?.hasFocus,
+      isTrue,
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.enterText(
+      find.descendant(of: newL1RequiredL2, matching: find.byType(TextField)),
+      'Pier',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_2_1')),
+    );
+    await tester.pump();
+
+    final newL1RequiredL3 = find.byKey(
+      const ValueKey<String>('create-add-l3-Loc_2_1'),
+    );
+    expect(newL1RequiredL3, findsOneWidget);
+    expect(
+      find.descendant(of: newL1RequiredL3, matching: find.text('L3 *')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l2-Loc_2')),
+      findsOneWidget,
+    );
+    expect(find.text('Add L3 Location'), findsNothing);
+
+    final addL2 = find.byKey(const ValueKey<String>('create-add-l2-Loc_1'));
+    await tester.ensureVisible(addL2);
+    await tester.tap(addL2);
+    await tester.pump();
+    expect(addL2, findsNothing);
+    expect(addL1, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l3-Loc_1_1')),
+      findsOneWidget,
+    );
+    final newL2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_2'),
+    );
+    expect(newL2Editor, findsOneWidget);
+    await tester.enterText(
+      find.descendant(of: newL2Editor, matching: find.byType(TextField)),
+      'Discarded Road',
+    );
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l3-Loc_1_2')),
+      findsNothing,
+    );
+    await tester.tap(find.text('Central Station'));
+    await tester.pump();
+    await tester.pump();
+    expect(newL2Editor, findsNothing);
+    expect(find.text('Discarded Road'), findsNothing);
+    expect(find.text('Edit L3 Location'), findsNothing);
+
+    await tester.ensureVisible(addL2);
+    await tester.tap(addL2);
+    await tester.pump();
+    final savedL2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_3'),
+    );
+    await tester.enterText(
+      find.descendant(of: savedL2Editor, matching: find.byType(TextField)),
+      'Market Road',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1_3')),
+    );
+    await tester.pump();
+
+    final newL2RequiredL3 = find.byKey(
+      const ValueKey<String>('create-add-l3-Loc_1_3'),
+    );
+    expect(newL2RequiredL3, findsOneWidget);
+    expect(
+      find.descendant(of: newL2RequiredL3, matching: find.text('L3 *')),
+      findsOneWidget,
+    );
+    expect(find.text('Add L3 Location'), findsNothing);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Save'))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.ensureVisible(find.text('Downtown'));
+    await tester.tap(find.text('Downtown'));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('empty added L1 and L2 delete without confirmation', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
+
+    final addL1 = find.byKey(const ValueKey<String>('create-add-l1-location'));
+    await tester.tap(addL1);
+    await tester.pump();
+    final l1Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_2'),
+    );
+    await tester.tap(
+      find.descendant(
+        of: l1Editor,
+        matching: find.byType(CreateFormDeleteButton),
+      ),
+    );
+    await tester.pump();
+
+    expect(l1Editor, findsNothing);
+    expect(find.textContaining('Delete L1'), findsNothing);
+    expect(find.text('L1: 1'), findsOneWidget);
+
+    final addL2 = find.byKey(const ValueKey<String>('create-add-l2-Loc_1'));
+    await tester.tap(addL2);
+    await tester.pump();
+    final l2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_2'),
+    );
+    await tester.tap(
+      find.descendant(
+        of: l2Editor,
+        matching: find.byType(CreateFormDeleteButton),
+      ),
+    );
+    await tester.pump();
+
+    expect(l2Editor, findsNothing);
+    expect(find.textContaining('Delete L2'), findsNothing);
+    expect(find.text('L2: 1'), findsOneWidget);
+  });
+
+  testWidgets('deleting the empty required L2 cancels its new L1 directly', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
+
+    final addL1 = find.byKey(const ValueKey<String>('create-add-l1-location'));
+    await tester.ensureVisible(addL1);
+    await tester.tap(addL1);
+    await tester.pump();
+    final l1Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_2'),
+    );
+    await tester.enterText(
+      find.descendant(of: l1Editor, matching: find.byType(TextField)),
+      'Harbor',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_2')),
+    );
+    await tester.pump();
+
+    final l2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_2_1'),
+    );
+    final cancelFlow = find.descendant(
+      of: l2Editor,
+      matching: find.byType(CreateFormDeleteButton),
+    );
+    expect(tester.widget<CreateFormDeleteButton>(cancelFlow).enabled, isTrue);
+    await tester.tap(cancelFlow);
+    await tester.pump();
+
+    expect(
+      find.text('Delete L1 Harbor and all locations under it?'),
+      findsNothing,
+    );
+    expect(find.text('Delete'), findsNothing);
+    expect(find.text('Cancel'), findsNothing);
+    expect(l2Editor, findsNothing);
+    expect(find.text('L1: 1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l1-location')),
+      findsOneWidget,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('L1: 1'), findsOneWidget);
+    expect(l2Editor, findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('create-add-l1-location')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('deleting an L2 branch uses the standard confirmation', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
+
+    final addL2 = find.byKey(const ValueKey<String>('create-add-l2-Loc_1'));
+    await tester.ensureVisible(addL2);
+    await tester.tap(addL2);
+    await tester.pump();
+
+    final l2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_2'),
+    );
+    await tester.enterText(
+      find.descendant(of: l2Editor, matching: find.byType(TextField)),
+      'Market Road',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1_2')),
+    );
+    await tester.pump();
+
+    final addL3 = find.byKey(const ValueKey<String>('create-add-l3-Loc_1_2'));
+    await tester.tap(addL3);
+    await tester.pumpAndSettle();
+    final sheet = find.byKey(
+      const ValueKey<String>('locations-l3-editor-sheet'),
+    );
+    await tester.enterText(
+      find.descendant(of: sheet, matching: find.byType(TextField)).first,
+      'Market Gate',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-l3-editor-save')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Market Road'));
+    await tester.pump();
+    final savedL2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_2'),
+    );
+    await tester.tap(
+      find.descendant(
+        of: savedL2Editor,
+        matching: find.byType(CreateFormDeleteButton),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Delete L2 Market Road and all locations under it?'),
+      findsOneWidget,
+    );
+    expect(find.text('Delete'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+    await tester.tap(find.text('Delete'));
+    await tester.pump();
+    expect(savedL2Editor, findsNothing);
+    expect(find.text('L2: 1'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    expect(find.text('L2: 1'), findsOneWidget);
+    expect(find.text('Market Road'), findsNothing);
+  });
+
+  testWidgets('location tree and root add spacing is 12px', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
+
+    final firstAddL2 = find.byKey(
+      const ValueKey<String>('create-add-l2-Loc_1'),
+    );
+    final rootAdd = find.byKey(
+      const ValueKey<String>('create-add-l1-location'),
+    );
+    expect(
+      tester.getTopLeft(rootAdd).dy - tester.getBottomLeft(firstAddL2).dy,
+      closeTo(12, 0.01),
+    );
+  });
+
+  testWidgets('L2 note keeps 4px above and 8px before an Add L3 footer', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
+
+    final addL2 = find.byKey(const ValueKey<String>('create-add-l2-Loc_1'));
+    await tester.tap(addL2);
+    await tester.pump();
+    final newL2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_2'),
+    );
+    await tester.enterText(
+      find.descendant(of: newL2Editor, matching: find.byType(TextField)),
+      'Market Road',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1_2')),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Market Road'));
+    await tester.pump();
+    final l2Editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_2'),
+    );
+    final field = find.descendant(
+      of: l2Editor,
+      matching: find.byType(CreateTextFieldBlock),
+    );
+    final note = find.descendant(
+      of: l2Editor,
+      matching: find.byType(CreateFormNote),
+    );
+    final addL3 = find.byKey(const ValueKey<String>('create-add-l3-Loc_1_2'));
+
+    expect(tester.getRect(note).top - tester.getRect(field).bottom, 4);
+    expect(tester.getRect(addL3).top - tester.getRect(note).bottom, 13);
   });
 
   testWidgets('locations switch previews the live tree and keeps Save', (
@@ -10366,11 +11228,17 @@ void main() {
   ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(bottom: 24);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 24);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetViewInsets);
 
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
 
     double globalTextBaseline(Finder finder) {
       final box = tester.renderObject<RenderBox>(finder);
@@ -10382,6 +11250,16 @@ void main() {
       find.byKey(const ValueKey<String>('locations-mode-switch')),
       findsOneWidget,
     );
+    final modeSwitch = find.byKey(
+      const ValueKey<String>('locations-mode-preview'),
+    );
+    expect(
+      find.descendant(of: modeSwitch, matching: find.byType(InkWell)),
+      findsNothing,
+    );
+    await tester.longPress(modeSwitch);
+    await tester.pump();
+    expect(modeSwitch, findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Preview')).style?.color,
       const Color(0xFF4B6192),
@@ -10397,6 +11275,12 @@ void main() {
       find.byKey(const ValueKey<String>('locations-edit-list')),
       findsOneWidget,
     );
+    final noTapEffectsTheme = tester.widget<Theme>(
+      find.byKey(const ValueKey<String>('locations-edit-no-tap-effects')),
+    );
+    expect(noTapEffectsTheme.data.splashFactory, NoSplash.splashFactory);
+    expect(noTapEffectsTheme.data.splashColor, Colors.transparent);
+    expect(noTapEffectsTheme.data.highlightColor, Colors.transparent);
     expect(
       find.byKey(const ValueKey<String>('locations-preview-list')),
       findsNothing,
@@ -10408,15 +11292,41 @@ void main() {
       closeTo(globalTextBaseline(titleText), 0.01),
     );
 
-    final l1PreviewText = find.text('- L1 Location');
-    final l1PreviewBaseline = globalTextBaseline(l1PreviewText);
-    final l1PreviewCenterY = tester.getCenter(l1PreviewText).dy;
-    await tester.tap(find.text('- L1 Location'));
+    final l1PreviewText = find.text('L1 Location');
+    final l1PreviewHeader = find.byKey(
+      const ValueKey<String>('world-location-node-header-Loc_1'),
+    );
+    final l1PreviewPrefix = find.descendant(
+      of: l1PreviewHeader,
+      matching: find.text('- '),
+    );
+    final l1PreviewBaseline = globalTextBaseline(l1PreviewPrefix);
+    final l1PreviewCenterY = tester.getCenter(l1PreviewPrefix).dy;
+    final l1PreviewNameCenterY = tester.getCenter(l1PreviewText).dy;
+    await tester.tap(find.text('L1 Location'));
     await tester.pump();
     final l1InlineEditor = find.byKey(
       const ValueKey<String>('locations-inline-name-Loc_1'),
     );
     expect(l1InlineEditor, findsOneWidget);
+    final statisticsNote = find.descendant(
+      of: find.byKey(const ValueKey<String>('locations-statistics-note')),
+      matching: find.byType(CreateFormNote),
+    );
+    expect(
+      tester.getRect(statisticsNote).top -
+          tester
+              .getRect(
+                find.byKey(const ValueKey<String>('create-location-l3-count')),
+              )
+              .bottom,
+      8,
+    );
+    expect(
+      tester.getRect(l1InlineEditor).top -
+          tester.getRect(statisticsNote).bottom,
+      16,
+    );
     final l1Name = find.descendant(
       of: l1InlineEditor,
       matching: find.byType(TextField),
@@ -10433,13 +11343,35 @@ void main() {
     expect(
       tester.widget<CreateTextFieldBlock>(l1FieldBlock),
       isA<CreateTextFieldBlock>()
+          .having((field) => field.hintText, 'hintText', 'L1 Location')
+          .having((field) => field.note, 'note', isNull)
           .having((field) => field.maxLength, 'maxLength', 25)
           .having((field) => field.maxLines, 'maxLines', 1)
-          .having((field) => field.counterInside, 'counterInside', isTrue),
+          .having((field) => field.counterInside, 'counterInside', isTrue)
+          .having((field) => field.inputLineHeight, 'inputLineHeight', 1.2),
+    );
+    final l1Note = find.descendant(
+      of: l1InlineEditor,
+      matching: find.byType(CreateFormNote),
+    );
+    expect(l1Note, findsOneWidget);
+    expect(tester.getRect(l1Note).top - tester.getRect(l1FieldBlock).bottom, 4);
+    expect(
+      tester.getRect(find.text('L2 Location')).top -
+          tester.getRect(l1Note).bottom,
+      13,
+    );
+    expect(
+      tester.getRect(l1Note).right,
+      closeTo(tester.getRect(l1InlineEditor).right, 0.01),
+    );
+    expect(
+      tester.widget<TextField>(l1Name).scrollPadding,
+      const EdgeInsets.fromLTRB(20, 20, 20, kMinInteractiveDimension),
     );
     final l1Prefix = find.descendant(
       of: l1InlineEditor,
-      matching: find.text('-'),
+      matching: find.text('- '),
     );
     final l1EditableText = find.descendant(
       of: l1InlineEditor,
@@ -10447,7 +11379,10 @@ void main() {
     );
     expect(globalTextBaseline(l1Prefix), closeTo(l1PreviewBaseline, 0.01));
     expect(tester.getCenter(l1Prefix).dy, closeTo(l1PreviewCenterY, 0.01));
-    expect(globalTextBaseline(l1EditableText), closeTo(l1PreviewBaseline, 0.1));
+    expect(
+      tester.getCenter(l1EditableText).dy,
+      closeTo(l1PreviewNameCenterY, 0.1),
+    );
     await tester.enterText(l1Name, 'Downtown');
     await tester.pump();
 
@@ -10523,12 +11458,20 @@ void main() {
     await tester.tap(inlineSaveButton);
     await tester.pump();
     expect(l1InlineEditor, findsNothing);
-    expect(find.text('- Downtown'), findsOneWidget);
+    expect(find.text('Downtown'), findsOneWidget);
 
-    final l2PreviewText = find.text('- L2 Location');
-    final l2PreviewBaseline = globalTextBaseline(l2PreviewText);
-    final l2PreviewCenterY = tester.getCenter(l2PreviewText).dy;
-    await tester.tap(find.text('- L2 Location'));
+    final l2PreviewText = find.text('L2 Location');
+    final l2PreviewHeader = find.byKey(
+      const ValueKey<String>('world-location-node-header-Loc_1_1'),
+    );
+    final l2PreviewPrefix = find.descendant(
+      of: l2PreviewHeader,
+      matching: find.text('- '),
+    );
+    final l2PreviewBaseline = globalTextBaseline(l2PreviewPrefix);
+    final l2PreviewCenterY = tester.getCenter(l2PreviewPrefix).dy;
+    final l2PreviewNameCenterY = tester.getCenter(l2PreviewText).dy;
+    await tester.tap(find.text('L2 Location'));
     await tester.pump();
     final l2InlineEditor = find.byKey(
       const ValueKey<String>('locations-inline-name-Loc_1_1'),
@@ -10538,9 +11481,40 @@ void main() {
       of: l2InlineEditor,
       matching: find.byType(TextField),
     );
+    final l2FieldBlock = find.descendant(
+      of: l2InlineEditor,
+      matching: find.byType(CreateTextFieldBlock),
+    );
+    expect(
+      tester.widget<CreateTextFieldBlock>(l2FieldBlock),
+      isA<CreateTextFieldBlock>()
+          .having((field) => field.hintText, 'hintText', 'L2 Location')
+          .having((field) => field.note, 'note', isNull),
+    );
+    final l2Note = find.descendant(
+      of: l2InlineEditor,
+      matching: find.byType(CreateFormNote),
+    );
+    expect(l2Note, findsOneWidget);
+    expect(tester.getRect(l2Note).top - tester.getRect(l2FieldBlock).bottom, 4);
+    expect(
+      tester
+              .getRect(
+                find.byKey(
+                  const ValueKey<String>('world-location-card-Loc_1_1_1'),
+                ),
+              )
+              .top -
+          tester.getRect(l2Note).bottom,
+      8,
+    );
+    expect(
+      tester.getRect(l2Note).right,
+      closeTo(tester.getRect(l2InlineEditor).right, 0.01),
+    );
     final l2Prefix = find.descendant(
       of: l2InlineEditor,
-      matching: find.text('-'),
+      matching: find.text('- '),
     );
     final l2EditableText = find.descendant(
       of: l2InlineEditor,
@@ -10548,39 +11522,109 @@ void main() {
     );
     expect(globalTextBaseline(l2Prefix), closeTo(l2PreviewBaseline, 0.01));
     expect(tester.getCenter(l2Prefix).dy, closeTo(l2PreviewCenterY, 0.01));
-    expect(globalTextBaseline(l2EditableText), closeTo(l2PreviewBaseline, 0.1));
+    expect(
+      tester.getCenter(l2EditableText).dy,
+      closeTo(l2PreviewNameCenterY, 0.1),
+    );
     await tester.enterText(l2Name, 'Main Street');
     await tester.pump();
 
-    await tester.tap(find.text('- Downtown'));
+    final existingEditOutsideTap = await tester.startGesture(
+      tester.getCenter(find.text('Downtown')),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await existingEditOutsideTap.up();
     await tester.pump();
     expect(l2InlineEditor, findsNothing);
-    expect(find.text('- Main Street'), findsOneWidget);
+    expect(find.text('L2 Location'), findsOneWidget);
+    expect(find.text('Main Street'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
       findsNothing,
     );
 
-    await tester.tap(find.text('L3 Location'));
-    await tester.pumpAndSettle();
-    final l3Sheet = find.byKey(
-      const ValueKey<String>('locations-l3-editor-sheet'),
+    final pageSaveButton = find.widgetWithText(GenesisPrimaryButton, 'Save');
+    final pageSaveSize = tester.getSize(pageSaveButton);
+    final pageSaveCenter = tester.getCenter(pageSaveButton);
+    final l3Sheet = await _openL3LocationEditorSheet(
+      tester,
+      locationName: 'L3 Location',
     );
     expect(l3Sheet, findsOneWidget);
-    final l3Name = find
+    final sheetRectWithoutKeyboard = tester.getRect(l3Sheet);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(l3Sheet), sheetRectWithoutKeyboard);
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(tester.getRect(l3Sheet), sheetRectWithoutKeyboard);
+    expect(find.text('Edit L3 Location'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: l3Sheet,
+        matching: find.byType(CreateFormDeleteButton),
+      ),
+      findsOneWidget,
+    );
+    final l3Delete = find.byKey(
+      const ValueKey<String>('locations-l3-editor-delete'),
+    );
+    final l3Save = find.byKey(
+      const ValueKey<String>('locations-l3-editor-save'),
+    );
+    expect(l3Delete, findsOneWidget);
+    expect(l3Save, findsOneWidget);
+    expect(tester.getTopLeft(l3Save).dx - tester.getTopRight(l3Delete).dx, 12);
+    expect(
+      tester.getSize(l3Delete),
+      const Size.square(GenesisPrimaryButton.defaultHeight),
+    );
+    expect(tester.widget<IconButton>(l3Delete).onPressed, isNull);
+    expect(tester.widget<GenesisPrimaryButton>(l3Save).onPressed, isNotNull);
+    expect(tester.getSize(l3Save), pageSaveSize);
+    expect(
+      (tester.getTopLeft(l3Delete).dx + tester.getTopRight(l3Save).dx) / 2,
+      pageSaveCenter.dx,
+    );
+    final discardedL3Name = find
         .descendant(of: l3Sheet, matching: find.byType(TextField))
         .first;
-    await tester.enterText(l3Name, 'Central Station');
+    await tester.enterText(discardedL3Name, 'Discarded Station');
     await tester.pump();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('locations-l3-editor-close')),
-    );
+    await tester.tapAt(const Offset(8, 8));
     await tester.pumpAndSettle();
 
     expect(l3Sheet, findsNothing);
+    expect(find.text('Discarded Station'), findsNothing);
+    final savedL3Sheet = await _openL3LocationEditorSheet(
+      tester,
+      locationName: 'L3 Location',
+    );
+    final savedL3Name = find
+        .descendant(of: savedL3Sheet, matching: find.byType(TextField))
+        .first;
+    expect(
+      tester.widget<TextField>(savedL3Name).controller?.text,
+      'L3 Location',
+    );
+    await tester.enterText(savedL3Name, 'Central Station');
+    await tester.pump();
+    expect(
+      tester
+          .widget<GenesisPrimaryButton>(
+            find.byKey(const ValueKey<String>('locations-l3-editor-save')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-l3-editor-save')),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('Central Station'), findsOneWidget);
-    expect(find.text('- Downtown'), findsOneWidget);
-    expect(find.text('- Main Street'), findsOneWidget);
+    expect(find.text('Downtown'), findsOneWidget);
+    expect(find.text('L2 Location'), findsOneWidget);
     expect(find.widgetWithText(GenesisPrimaryButton, 'Save'), findsOneWidget);
     expect(
       tester
@@ -10603,7 +11647,7 @@ void main() {
       findsNothing,
     );
     expect(find.text('- Downtown'), findsOneWidget);
-    expect(find.text('- Main Street'), findsOneWidget);
+    expect(find.text('- L2 Location'), findsOneWidget);
     expect(find.text('Central Station'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Edit')).style?.color,
@@ -10627,10 +11671,69 @@ void main() {
       find.byKey(const ValueKey<String>('locations-edit-list')),
       findsOneWidget,
     );
-    expect(find.text('- Downtown'), findsOneWidget);
-    expect(find.text('- Main Street'), findsOneWidget);
+    expect(find.text('Downtown'), findsOneWidget);
+    expect(find.text('L2 Location'), findsOneWidget);
     expect(find.text('Central Station'), findsOneWidget);
     expect(find.widgetWithText(GenesisPrimaryButton, 'Save'), findsOneWidget);
+  });
+
+  testWidgets('Chinese location names keep the prefix vertically centered', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
+
+    final l2Name = await _openInlineLocationNameEditor(
+      tester,
+      locationText: '- L2 Location',
+      locationId: 'Loc_1_1',
+    );
+    await tester.enterText(l2Name, '中文地点');
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1_1')),
+    );
+    await tester.pump();
+
+    final previewHeader = find.byKey(
+      const ValueKey<String>('world-location-node-header-Loc_1_1'),
+    );
+    final previewPrefix = find.descendant(
+      of: previewHeader,
+      matching: find.text('- '),
+    );
+    final previewName = find.descendant(
+      of: previewHeader,
+      matching: find.text('中文地点'),
+    );
+    final previewPrefixCenterY = tester.getCenter(previewPrefix).dy;
+    expect(
+      previewPrefixCenterY,
+      closeTo(tester.getCenter(previewName).dy, 0.01),
+    );
+
+    await tester.tap(previewName);
+    await tester.pump();
+    final inlineEditor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_1_1'),
+    );
+    final editingPrefix = find.descendant(
+      of: inlineEditor,
+      matching: find.text('- '),
+    );
+    final editableText = find.descendant(
+      of: inlineEditor,
+      matching: find.byType(EditableText),
+    );
+    expect(
+      tester.getCenter(editingPrefix).dy,
+      closeTo(previewPrefixCenterY, 0.01),
+    );
+    expect(
+      tester.getCenter(editableText).dy,
+      closeTo(tester.getCenter(editingPrefix).dy, 0.1),
+    );
   });
 
   testWidgets('create locations save requires every tree level name', (
@@ -10644,40 +11747,58 @@ void main() {
 
     expect(saveButton().onPressed, isNull);
 
-    final l2Name = await _openInlineLocationNameEditor(
-      tester,
-      locationText: '- L2 Location',
-      locationId: 'Loc_1_1',
-    );
-    await tester.enterText(l2Name, 'Archive Wing');
-    final l3Sheet = await _openL3LocationEditorSheet(
-      tester,
-      locationName: 'L3 Location',
-    );
-    final l3Name = find
-        .descendant(of: l3Sheet, matching: find.byType(TextField))
-        .first;
-    await tester.enterText(l3Name, 'Hidden Door');
-    await tester.pump();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('locations-l3-editor-close')),
-    );
-    await tester.pumpAndSettle();
-    expect(saveButton().onPressed, isNull);
-
     final l1Name = await _openInlineLocationNameEditor(
       tester,
       locationText: '- L1 Location',
       locationId: 'Loc_1',
     );
     await tester.enterText(l1Name, 'Archive');
-    await tester.pump();
-    expect(saveButton().onPressed, isNotNull);
-
     await tester.tap(
       find.byKey(const ValueKey<String>('locations-inline-save-Loc_1')),
     );
     await tester.pump();
+    expect(saveButton().onPressed, isNull);
+
+    final l2Name = await _openInlineLocationNameEditor(
+      tester,
+      locationText: '- L2 Location',
+      locationId: 'Loc_1_1',
+    );
+    await tester.enterText(l2Name, 'Archive Wing');
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1_1')),
+    );
+    await tester.pump();
+    expect(find.text('Add L3 Location'), findsNothing);
+    expect(saveButton().onPressed, isNull);
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
+    await tester.pump();
+    expect(
+      find.text('"Archive Wing" must contain at least one L3 location.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('1.1'), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('create-add-l3-Loc_1_1')),
+    );
+    await tester.pumpAndSettle();
+    final l3Sheet = find.byKey(
+      const ValueKey<String>('locations-l3-editor-sheet'),
+    );
+    expect(find.text('Add L3 Location'), findsOneWidget);
+    final l3Name = find
+        .descendant(of: l3Sheet, matching: find.byType(TextField))
+        .first;
+    await tester.enterText(l3Name, 'Hidden Door');
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-l3-editor-save')),
+    );
+    await tester.pumpAndSettle();
+    expect(saveButton().onPressed, isNotNull);
+
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
@@ -10728,9 +11849,10 @@ void main() {
       find.byKey(const ValueKey<String>('locations-inline-save-Loc_1')),
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
-    await tester.pump();
-    expect(find.text('L1 1: Location Name is required.'), findsOneWidget);
+    expect(
+      find.text('Please complete this location or delete it.'),
+      findsOneWidget,
+    );
     await tester.pump(const Duration(seconds: 3));
   });
 
@@ -10766,6 +11888,7 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
 
     await _openL3LocationEditorSheet(tester, locationName: 'L3 Location');
     expect(
@@ -10817,6 +11940,10 @@ void main() {
       locationId: 'Loc_1',
     );
     await tester.enterText(l1Name, 'City');
+    await tester.tap(
+      find.byKey(const ValueKey<String>('locations-inline-save-Loc_1')),
+    );
+    await tester.pump();
     final l2Name = await _openInlineLocationNameEditor(
       tester,
       locationText: '- L2 Location',
@@ -10876,8 +12003,11 @@ void main() {
         find.byKey(const ValueKey('location-parent-picker')),
         findsNothing,
       );
-      expect(find.text('- L1 Location'), findsOneWidget);
-      expect(find.text('- L2 Location'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
+        findsOneWidget,
+      );
+      expect(find.text('L2 Location'), findsOneWidget);
       expect(find.text('Gate'), findsOneWidget);
       final l1Name = await _openInlineLocationNameEditor(
         tester,
@@ -10886,6 +12016,10 @@ void main() {
       );
       expect(tester.widget<TextField>(l1Name).controller?.text, isEmpty);
       await tester.enterText(l1Name, 'City');
+      await tester.tap(
+        find.byKey(const ValueKey<String>('locations-inline-save-Loc_1')),
+      );
+      await tester.pump();
       final l2Name = await _openInlineLocationNameEditor(
         tester,
         locationText: '- L2 Location',
@@ -10893,6 +12027,10 @@ void main() {
       );
       expect(tester.widget<TextField>(l2Name).controller?.text, isEmpty);
       await tester.enterText(l2Name, 'District');
+      await tester.tap(
+        find.byKey(const ValueKey<String>('locations-inline-save-Loc_1_1')),
+      );
+      await tester.pump();
       final l3Sheet = await _openL3LocationEditorSheet(
         tester,
         locationName: 'Gate',
@@ -10954,6 +12092,7 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
+    await _completeInitialLocationTree(tester);
 
     final l3Sheet = await _openL3LocationEditorSheet(
       tester,
@@ -10990,7 +12129,7 @@ void main() {
         .first;
     await tester.enterText(l3Name, 'Gate');
     await tester.tap(
-      find.byKey(const ValueKey<String>('locations-l3-editor-close')),
+      find.byKey(const ValueKey<String>('locations-l3-editor-save')),
     );
     await tester.pumpAndSettle();
     final l1Name = await _openInlineLocationNameEditor(
@@ -11051,15 +12190,25 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    final addEventTextTop = tester.getTopLeft(find.text('+ Add Event')).dy;
     await tester.tap(find.text('+ Add Event'));
     await tester.pumpAndSettle();
 
     expect(find.text('Event 2'), findsOneWidget);
     final eventCards = find.byType(CreateFormCard);
     expect(
+      tester.getTopLeft(find.text('Event 2')).dy,
+      closeTo(addEventTextTop, 0.01),
+    );
+    expect(
       tester.getTopLeft(eventCards.at(1)).dy -
           tester.getBottomLeft(eventCards.at(0)).dy,
-      closeTo(8, 0.01),
+      closeTo(12, 0.01),
+    );
+    expect(
+      tester.getTopLeft(find.byType(CreateInlineAddButton)).dy -
+          tester.getBottomLeft(eventCards.at(1)).dy,
+      closeTo(12, 0.01),
     );
   });
 
@@ -17338,28 +18487,100 @@ Future<Finder> _openInlineLocationNameEditor(
   required String locationText,
   required String locationId,
 }) async {
-  await tester.tap(find.text(locationText).first);
-  await tester.pump();
   final editor = find.byKey(
     ValueKey<String>('locations-inline-name-$locationId'),
   );
+  if (editor.evaluate().isNotEmpty) {
+    return find.descendant(of: editor, matching: find.byType(TextField));
+  }
+  final visibleName = locationText.startsWith('- ')
+      ? locationText.substring(2)
+      : locationText;
+  await tester.tap(find.text(visibleName).first);
+  await tester.pump();
   if (editor.evaluate().isEmpty) {
-    await tester.tap(find.text(locationText).first);
+    await tester.tap(find.text(visibleName).first);
     await tester.pump();
   }
   expect(editor, findsOneWidget);
   return find.descendant(of: editor, matching: find.byType(TextField));
 }
 
+Future<void> _completeInitialLocationTree(
+  WidgetTester tester, {
+  String l1Name = 'L1 Location',
+  String l2Name = 'L2 Location',
+  String l3Name = 'L3 Location',
+}) async {
+  final l1Editor = find.byKey(
+    const ValueKey<String>('locations-inline-name-Loc_1'),
+  );
+  expect(l1Editor, findsOneWidget);
+  await tester.enterText(
+    find.descendant(of: l1Editor, matching: find.byType(TextField)),
+    l1Name,
+  );
+  await tester.tap(
+    find.byKey(const ValueKey<String>('locations-inline-save-Loc_1')),
+  );
+  await tester.pump();
+
+  final l2Editor = find.byKey(
+    const ValueKey<String>('locations-inline-name-Loc_1_1'),
+  );
+  expect(l2Editor, findsOneWidget);
+  await tester.enterText(
+    find.descendant(of: l2Editor, matching: find.byType(TextField)),
+    l2Name,
+  );
+  await tester.tap(
+    find.byKey(const ValueKey<String>('locations-inline-save-Loc_1_1')),
+  );
+  await tester.pump();
+
+  final addL3 = find.byKey(const ValueKey<String>('create-add-l3-Loc_1_1'));
+  expect(addL3, findsOneWidget);
+  expect(find.text('Add L3 Location'), findsNothing);
+  await tester.tap(addL3);
+  await tester.pumpAndSettle();
+
+  final sheet = find.byKey(const ValueKey<String>('locations-l3-editor-sheet'));
+  expect(sheet, findsOneWidget);
+  expect(find.text('Add L3 Location'), findsOneWidget);
+  await tester.enterText(
+    find.descendant(of: sheet, matching: find.byType(TextField)).first,
+    l3Name,
+  );
+  await tester.pump();
+  await tester.tap(
+    find.byKey(const ValueKey<String>('locations-l3-editor-save')),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<Finder> _openL3LocationEditorSheet(
   WidgetTester tester, {
   required String locationName,
 }) async {
-  await tester.tap(find.text(locationName).first);
+  final location = find.text(locationName).first;
+  await tester.ensureVisible(location);
+  await tester.pump();
+  final locationTapTarget = find
+      .byWidgetPredicate(
+        (widget) =>
+            widget is InkWell &&
+            widget.key is ValueKey<String> &&
+            ((widget.key! as ValueKey<String>).value).startsWith(
+              'world-location-card-',
+            ),
+      )
+      .first;
+  await tester.tap(locationTapTarget);
   await tester.pumpAndSettle();
   final sheet = find.byKey(const ValueKey<String>('locations-l3-editor-sheet'));
   if (sheet.evaluate().isEmpty) {
-    await tester.tap(find.text(locationName).first);
+    await tester.ensureVisible(location);
+    await tester.tap(locationTapTarget);
     await tester.pumpAndSettle();
   }
   expect(sheet, findsOneWidget);

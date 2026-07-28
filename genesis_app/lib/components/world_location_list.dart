@@ -214,7 +214,22 @@ class _WorldLocationListState extends State<WorldLocationList> {
         continue;
       }
 
-      if (node.children.isEmpty) {
+      if (node.children.isEmpty && node.point.isLeafLocation) {
+        final customHeader = widget.nodeHeaderBuilder?.call(
+          context,
+          node.point,
+          level,
+        );
+        if (customHeader != null) {
+          rows.add(customHeader);
+          final customFooter = widget.nodeFooterBuilder?.call(
+            context,
+            node.point,
+            level,
+          );
+          if (customFooter != null) rows.add(customFooter);
+          continue;
+        }
         rows.add(
           _LocationCard(
             point: node.point,
@@ -513,6 +528,7 @@ class _LocationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final description = point.locationDescription.trim();
     return InkWell(
+      key: ValueKey<String>('world-location-card-${point.id}'),
       onTap: onTap == null ? null : () => onTap!(targetPoint),
       child: Padding(
         padding: EdgeInsets.only(left: indent, top: 5, bottom: 5),

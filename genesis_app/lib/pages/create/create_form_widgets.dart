@@ -55,6 +55,7 @@ class CreateTextFieldBlock extends StatefulWidget {
     this.labelSize = 14,
     this.labelFontWeight = FontWeight.w600,
     this.labelInputGap = 10,
+    this.inputLineHeight = 1.42,
     this.textInputAction,
     this.onEditingComplete,
     this.onSubmitted,
@@ -78,6 +79,7 @@ class CreateTextFieldBlock extends StatefulWidget {
   final double labelSize;
   final FontWeight labelFontWeight;
   final double labelInputGap;
+  final double inputLineHeight;
   final TextInputAction? textInputAction;
   final VoidCallback? onEditingComplete;
   final ValueChanged<String>? onSubmitted;
@@ -90,13 +92,18 @@ class CreateTextFieldBlock extends StatefulWidget {
   State<CreateTextFieldBlock> createState() => _CreateTextFieldBlockState();
 }
 
-class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
+class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
+    with WidgetsBindingObserver {
   late final FocusNode _internalFocusNode;
+  late FocusNode _observedFocusNode;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _internalFocusNode = FocusNode();
+    _observedFocusNode = _focusNode;
+    _observedFocusNode.addListener(_handleFocusChanged);
     widget.controller.addListener(_normalizeControllerText);
     _normalizeControllerText();
   }
@@ -109,13 +116,41 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
       widget.controller.addListener(_normalizeControllerText);
       _normalizeControllerText();
     }
+    if (oldWidget.focusNode != widget.focusNode) {
+      _observedFocusNode.removeListener(_handleFocusChanged);
+      _observedFocusNode = _focusNode;
+      _observedFocusNode.addListener(_handleFocusChanged);
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _observedFocusNode.removeListener(_handleFocusChanged);
     widget.controller.removeListener(_normalizeControllerText);
     _internalFocusNode.dispose();
     super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (_observedFocusNode.hasFocus) _ensureBlockVisible();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (_observedFocusNode.hasFocus) _ensureBlockVisible();
+  }
+
+  void _ensureBlockVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_observedFocusNode.hasFocus) return;
+      unawaited(
+        Scrollable.ensureVisible(
+          context,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        ),
+      );
+    });
   }
 
   void _normalizeControllerText() {
@@ -186,7 +221,12 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                     focusNode: _focusNode,
                     scrollPadding:
                         widget.scrollPadding ??
-                        const EdgeInsets.fromLTRB(4, 4, 4, 20),
+                        const EdgeInsets.fromLTRB(
+                          20,
+                          20,
+                          20,
+                          kMinInteractiveDimension,
+                        ),
                     onChanged: widget.onChanged,
                     onTapOutside: (_) =>
                         FocusManager.instance.primaryFocus?.unfocus(),
@@ -205,10 +245,10 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                     minLines: widget.minLines,
                     maxLines: widget.maxLines,
                     style: GenesisTypography.withFallback(
-                      const TextStyle(
+                      TextStyle(
                         color: createFormText,
                         fontSize: 14,
-                        height: 1.42,
+                        height: widget.inputLineHeight,
                       ),
                     ),
                     decoration: InputDecoration(
@@ -218,11 +258,11 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
                       hintStyle: GenesisTypography.withFallback(
-                        const TextStyle(
+                        TextStyle(
                           color: createFormHint,
                           fontSize: 14,
                           letterSpacing: 0,
-                          height: 1.42,
+                          height: widget.inputLineHeight,
                         ),
                       ),
                     ),
@@ -1269,6 +1309,8 @@ class CreateInlineAddButton extends StatelessWidget {
     this.supportingText,
     this.fontSize = 14,
     this.centered = false,
+    this.verticalPadding = 8,
+    this.contentPadding,
   });
 
   final String label;
@@ -1276,6 +1318,8 @@ class CreateInlineAddButton extends StatelessWidget {
   final String? supportingText;
   final double fontSize;
   final bool centered;
+  final double verticalPadding;
+  final EdgeInsetsGeometry? contentPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -1306,7 +1350,8 @@ class CreateInlineAddButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding:
+            contentPadding ?? EdgeInsets.symmetric(vertical: verticalPadding),
         child: centered
             ? Align(alignment: Alignment.center, child: labelText)
             : labelText,
