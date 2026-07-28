@@ -786,10 +786,22 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
-    billing.emitSuccess();
+    billing.emitSuccess(grantedGems: 1000);
     await tester.pumpAndSettle();
 
-    _expectGrantedSuccessDialog(tester);
+    _expectGrantedSuccessDialog(tester, grantedText: '1,000');
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('billing-purchase-granted-fit')),
+          )
+          .width,
+      lessThanOrEqualTo(
+        tester
+            .getSize(find.byKey(const ValueKey('genesis-action-box-title-row')))
+            .width,
+      ),
+    );
     expect(
       tester
           .getSize(
@@ -1492,7 +1504,10 @@ class _CapturingTelemetrySink implements GenesisTelemetrySink {
   Future<void> setUserId(String? uid) async {}
 }
 
-void _expectGrantedSuccessDialog(WidgetTester tester) {
+void _expectGrantedSuccessDialog(
+  WidgetTester tester, {
+  String grantedText = '550',
+}) {
   expect(find.text('Purchase successful!'), findsOneWidget);
   expect(find.text('Go Chat Now.'), findsNothing);
   expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
@@ -1522,7 +1537,7 @@ void _expectGrantedSuccessDialog(WidgetTester tester) {
     find.byKey(const ValueKey<String>('billing-purchase-granted-icon')),
     findsOneWidget,
   );
-  expect((spans[1] as TextSpan).text, '550');
+  expect((spans[1] as TextSpan).text, grantedText);
   expect((spans[1] as TextSpan).style?.color, const Color(0xFFFF2442));
   expect((spans[2] as TextSpan).text, ' Gems have been granted.');
   final okText = tester.widget<Text>(find.text('OK'));
