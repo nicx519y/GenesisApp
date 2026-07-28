@@ -44,7 +44,11 @@ class GemPurchaseReportRequest {
 enum GemPurchaseReportStatus { completed, accepted, rejected }
 
 class GemPurchaseReport {
-  const GemPurchaseReport({required this.status, this.grantedGems = 0});
+  const GemPurchaseReport({
+    required this.status,
+    this.grantedGems = 0,
+    this.orderId = '',
+  });
 
   factory GemPurchaseReport.fromJson(Map<String, dynamic> json) {
     final value = asString(json['status']).trim().toLowerCase();
@@ -57,9 +61,11 @@ class GemPurchaseReport {
     return GemPurchaseReport(
       status: status,
       grantedGems: asInt(json['granted_gems']),
+      orderId: asString(json['order_id']).trim(),
     );
   }
 
   final GemPurchaseReportStatus status;
   final int grantedGems;
+  final String orderId;
 }

@@ -931,6 +931,7 @@ class GooglePlayBillingService implements BillingService {
 
     final reportTimedOut = _timedOutReportKeys.remove(record.key);
     _cancelReportTimeout(record.key);
+    final serverOrderId = report.orderId.trim();
 
     if (report.status == GemPurchaseReportStatus.completed) {
       if (!await _deletePurchaseRecord(record)) {
@@ -948,7 +949,11 @@ class GooglePlayBillingService implements BillingService {
         attemptId: record.attemptId,
         productId: record.productId,
         storeProductId: record.storeProductId,
-        data: <String, Object?>{'transaction_id': record.transactionId},
+        data: <String, Object?>{
+          'transaction_id': serverOrderId.isNotEmpty
+              ? serverOrderId
+              : record.transactionId,
+        },
       );
       if (!reportTimedOut) {
         _events.add(
@@ -965,6 +970,7 @@ class GooglePlayBillingService implements BillingService {
     } else if (report.status == GemPurchaseReportStatus.accepted) {
       final accepted = record.copyWith(
         status: BillingPendingPurchaseStatus.accepted,
+        transactionId: serverOrderId.isNotEmpty ? serverOrderId : null,
         updatedAt: DateTime.now(),
       );
       try {

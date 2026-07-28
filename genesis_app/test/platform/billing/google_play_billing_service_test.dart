@@ -140,6 +140,7 @@ void main() {
   var refreshCount = 0;
   var reportError = false;
   var reportStatus = GemPurchaseReportStatus.completed;
+  var reportOrderId = '';
   var billingAccountId = '4b74ec68-7abc-4cce-a223-e997e31dc811';
   var currentUid = 'u_1';
 
@@ -152,6 +153,7 @@ void main() {
     refreshCount = 0;
     reportError = false;
     reportStatus = GemPurchaseReportStatus.completed;
+    reportOrderId = '';
     billingAccountId = '4b74ec68-7abc-4cce-a223-e997e31dc811';
     currentUid = 'u_1';
     service = GooglePlayBillingService(
@@ -167,7 +169,11 @@ void main() {
             kind: ApiExceptionKind.transport,
           );
         }
-        return GemPurchaseReport(status: reportStatus, grantedGems: 550);
+        return GemPurchaseReport(
+          status: reportStatus,
+          grantedGems: 550,
+          orderId: reportOrderId,
+        );
       },
       refreshWallet: () async => refreshCount += 1,
       readUid: () async => currentUid,
@@ -397,7 +403,7 @@ void main() {
   test('pending callback persists its original purchase context', () async {
     reportStatus = GemPurchaseReportStatus.accepted;
     await service.purchaseGem(_product, payTrackId: 'track_id_original');
-    platform.emit(_purchase(BillingPurchaseStatus.pending));
+    platform.emit(_purchase(BillingPurchaseStatus.pending, transactionId: ''));
     await _settle();
 
     final pending = (await pendingStore.loadAll()).single;
@@ -426,6 +432,7 @@ void main() {
     uiEvents.clear();
     service.resetForSession();
     reportStatus = GemPurchaseReportStatus.completed;
+    reportOrderId = 'GPA.server-confirmed';
 
     await service.recover(BillingRecoverySource.appStart);
 
@@ -435,6 +442,7 @@ void main() {
       (record) => record.action == 'purchase_success',
     );
     expect(success.properties['attempt_id'], 'track_id_original');
+    expect(success.properties['transaction_id'], 'GPA.server-confirmed');
     expect(await pendingStore.loadAll(), isEmpty);
   });
 
@@ -885,12 +893,14 @@ void main() {
 
   test('accepted is retained and reported again until completed', () async {
     reportStatus = GemPurchaseReportStatus.accepted;
+    reportOrderId = 'GPA.accepted-confirmed';
     await service.purchaseGem(_product);
     platform.emit(_purchase(BillingPurchaseStatus.purchased));
     await _settle();
 
     final reported = await pendingStore.loadAll();
     expect(reported.single.status, BillingPendingPurchaseStatus.accepted);
+    expect(reported.single.transactionId, 'GPA.accepted-confirmed');
     expect(refreshCount, 0);
     expect(uiEvents, hasLength(2));
     expect(uiEvents.first.kind, BillingUiEventKind.processing);
@@ -909,11 +919,18 @@ void main() {
     expect(await pendingStore.loadAll(), hasLength(1));
 
     reportStatus = GemPurchaseReportStatus.completed;
+    reportOrderId = '';
     await service.recover(BillingRecoverySource.foreground);
     await _settle();
 
     expect(reports, hasLength(3));
     expect(await pendingStore.loadAll(), isEmpty);
+    expect(
+      analytics.records
+          .singleWhere((record) => record.action == 'purchase_success')
+          .properties['transaction_id'],
+      'GPA.accepted-confirmed',
+    );
   });
 
   test('rejected is terminal and does not refresh the wallet', () async {

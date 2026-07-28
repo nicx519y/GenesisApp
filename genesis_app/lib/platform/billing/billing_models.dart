@@ -174,6 +174,7 @@ class BillingPendingPurchase {
 
   BillingPendingPurchase copyWith({
     BillingPendingPurchaseStatus? status,
+    String? transactionId,
     int? retryCount,
     DateTime? updatedAt,
   }) {
@@ -184,7 +185,7 @@ class BillingPendingPurchase {
       billingAccountId: billingAccountId,
       productId: productId,
       storeProductId: storeProductId,
-      transactionId: transactionId,
+      transactionId: transactionId ?? this.transactionId,
       originalJson: originalJson,
       purchaseTime: purchaseTime,
       status: status ?? this.status,
