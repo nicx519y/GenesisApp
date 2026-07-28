@@ -80,6 +80,69 @@ void main() {
     expect(selectedModelCodeFromUserInfo({'uid': 'u_1'}), isEmpty);
   });
 
+  test(
+    'selected role aliases historical character messages to current user',
+    () {
+      const characters = <Map<String, dynamic>>[
+        {'char_id': 'mateo', 'player_uid': 'u_me', 'name': 'Mateo Cruz'},
+        {'char_id': 'marcus', 'player_uid': 'u_other', 'name': 'Marcus'},
+      ];
+
+      expect(
+        locationChatMessageBelongsToCurrentRoleForTesting(
+          messageUserId: '',
+          messageSenderId: 'mateo',
+          currentUserIds: const {'u_me'},
+          currentSenderIds: const {'u_me'},
+          characters: characters,
+          characterPositions: const [],
+        ),
+        isTrue,
+      );
+      expect(
+        locationChatMessageBelongsToCurrentRoleForTesting(
+          messageUserId: 'u_me',
+          messageSenderId: 'u_me',
+          currentUserIds: const {'u_me'},
+          currentSenderIds: const {'u_me'},
+          characters: characters,
+          characterPositions: const [],
+        ),
+        isTrue,
+      );
+      expect(
+        locationChatMessageBelongsToCurrentRoleForTesting(
+          messageUserId: '',
+          messageSenderId: 'marcus',
+          currentUserIds: const {'u_me'},
+          currentSenderIds: const {'u_me'},
+          characters: characters,
+          characterPositions: const [],
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test('selected role alias resolves nested character position data', () {
+    expect(
+      locationChatMessageBelongsToCurrentRoleForTesting(
+        messageUserId: '',
+        messageSenderId: 'mateo',
+        currentUserIds: const {'u_me'},
+        currentSenderIds: const {'u_me'},
+        characters: const [],
+        characterPositions: const [
+          {
+            'location_id': 'loc-1',
+            'character': {'id': 'mateo', 'player_uid': 'u_me'},
+          },
+        ],
+      ),
+      isTrue,
+    );
+  });
+
   test('message reconciliation preserves unmatched local send failures', () {
     final sent = ChatMessageVm(
       localId: 'server-message',

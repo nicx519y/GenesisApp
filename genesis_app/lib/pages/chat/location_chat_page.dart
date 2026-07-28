@@ -1186,7 +1186,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     for (final message in visibleSource) {
       final localId = _messageLocalId(message);
       final status = message.streaming ? 'streaming' : 'sent';
-      final isMe = _isMineMessage(message);
+      final isMe = _isMineMessage(
+        message,
+        identityState: resolvedIdentityState,
+      );
       final senderName = _messageSenderDisplayName(
         message,
         identityState: resolvedIdentityState,
@@ -1227,6 +1230,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             existing.roundId != message.conversationRoundId ||
             existing.tickNo != message.tickNo ||
             existing.senderName != senderName ||
+            existing.isMe != isMe ||
             existing.isPlayerControlledRole != isPlayerControlledRole ||
             existing.avatarUrl != avatarUrl ||
             existing.text != text ||
@@ -1241,6 +1245,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         existing.roundId = message.conversationRoundId;
         existing.tickNo = message.tickNo;
         existing.senderName = senderName;
+        existing.isMe = isMe;
         existing.isPlayerControlledRole = isPlayerControlledRole;
         existing.avatarUrl = avatarUrl;
         existing.text = text;
@@ -1577,11 +1582,20 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return _mySenderIdKeys.add(key);
   }
 
-  bool _isMineMessage(WorldChatroomMessage message) {
-    final userIdKey = _chatroomIdentityKey(message.userId);
-    if (userIdKey.isNotEmpty && _myUserIdKeys.contains(userIdKey)) return true;
-    final senderIdKey = _chatroomIdentityKey(message.senderId);
-    return senderIdKey.isNotEmpty && _mySenderIdKeys.contains(senderIdKey);
+  bool _isMineMessage(
+    WorldChatroomMessage message, {
+    WorldChatroomState? identityState,
+  }) {
+    final world = (identityState ?? _chatroomState).world;
+    return _locationChatMessageBelongsToCurrentRole(
+      messageUserId: message.userId,
+      messageSenderId: message.senderId,
+      currentUserIds: _myUserIdKeys,
+      currentSenderIds: _mySenderIdKeys,
+      characters: world?.characters ?? const <Map<String, dynamic>>[],
+      characterPositions:
+          world?.characterPositions ?? const <Map<String, dynamic>>[],
+    );
   }
 
   void _handleFailure(ChatroomFailureEvent failure) {
@@ -3686,4 +3700,71 @@ Map<String, dynamic> _stringKeyMap(Map<dynamic, dynamic> map) {
 
 String _chatroomIdentityKey(String? value) {
   return (value ?? '').trim().toLowerCase();
+}
+
+@visibleForTesting
+bool locationChatMessageBelongsToCurrentRoleForTesting({
+  required String messageUserId,
+  required String messageSenderId,
+  required Iterable<String> currentUserIds,
+  required Iterable<String> currentSenderIds,
+  required Iterable<Map<String, dynamic>> characters,
+  required Iterable<Map<String, dynamic>> characterPositions,
+}) {
+  return _locationChatMessageBelongsToCurrentRole(
+    messageUserId: messageUserId,
+    messageSenderId: messageSenderId,
+    currentUserIds: currentUserIds,
+    currentSenderIds: currentSenderIds,
+    characters: characters,
+    characterPositions: characterPositions,
+  );
+}
+
+bool _locationChatMessageBelongsToCurrentRole({
+  required String messageUserId,
+  required String messageSenderId,
+  required Iterable<String> currentUserIds,
+  required Iterable<String> currentSenderIds,
+  required Iterable<Map<String, dynamic>> characters,
+  required Iterable<Map<String, dynamic>> characterPositions,
+}) {
+  final identityKeys = <String>{
+    ...currentUserIds.map(_chatroomIdentityKey),
+    ...currentSenderIds.map(_chatroomIdentityKey),
+  }..remove('');
+  if (identityKeys.isEmpty) return false;
+
+  for (final candidate in <Map<String, dynamic>>[
+    ...characters,
+    ...characterPositions,
+  ]) {
+    final rawCharacter = candidate['character'];
+    final character = rawCharacter is Map
+        ? _stringKeyMap(rawCharacter)
+        : candidate;
+    final ownerKeys = <String>{
+      for (final key in const ['player_uid', 'user_id', 'uid'])
+        _chatroomIdentityKey(_mapString(character, key)),
+    }..remove('');
+    final characterKeys = <String>{
+      for (final key in const ['character_id', 'char_id', 'id'])
+        _chatroomIdentityKey(_mapString(character, key)),
+    }..remove('');
+    if (!ownerKeys.any(identityKeys.contains) &&
+        !characterKeys.any(identityKeys.contains)) {
+      continue;
+    }
+    identityKeys
+      ..addAll(ownerKeys)
+      ..addAll(characterKeys);
+  }
+
+  final messageUserIdKey = _chatroomIdentityKey(messageUserId);
+  if (messageUserIdKey.isNotEmpty && identityKeys.contains(messageUserIdKey)) {
+    return true;
+  }
+  final messageSenderIdKey = _chatroomIdentityKey(messageSenderId);
+  return messageSenderIdKey.isNotEmpty &&
+      identityKeys.contains(messageSenderIdKey);
 }

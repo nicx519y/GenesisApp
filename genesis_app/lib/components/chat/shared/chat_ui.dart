@@ -137,7 +137,7 @@ class ChatMessageVm {
   bool isPlayerControlledRole;
   String text;
   String currentTime;
-  final bool isMe;
+  bool isMe;
   String status;
   final String senderType;
   String? error;
@@ -1352,6 +1352,7 @@ class ChatMessageBubble extends StatelessWidget {
         child: _InlineMarkdownText(
           text: text.isEmpty ? '...' : text,
           style: style.bubbleTextStyle,
+          useBaseColorForEmphasis: message.isMe,
         ),
       ),
     );
@@ -1668,6 +1669,7 @@ class _InlineMarkdownText extends StatelessWidget {
     this.maxLines,
     this.overflow,
     this.textAlign,
+    this.useBaseColorForEmphasis = false,
   });
 
   final String text;
@@ -1675,6 +1677,7 @@ class _InlineMarkdownText extends StatelessWidget {
   final int? maxLines;
   final TextOverflow? overflow;
   final TextAlign? textAlign;
+  final bool useBaseColorForEmphasis;
 
   @override
   Widget build(BuildContext context) {
@@ -1687,6 +1690,7 @@ class _InlineMarkdownText extends StatelessWidget {
           genesisDisplaySafeText(text),
           textStyle,
           platform,
+          useBaseColorForEmphasis: useBaseColorForEmphasis,
         ),
       ),
       maxLines: maxLines,
@@ -1699,8 +1703,9 @@ class _InlineMarkdownText extends StatelessWidget {
 List<InlineSpan> _inlineMarkdownSpans(
   String text,
   TextStyle baseStyle,
-  TargetPlatform platform,
-) {
+  TargetPlatform platform, {
+  bool useBaseColorForEmphasis = false,
+}) {
   final spans = <InlineSpan>[];
   final buffer = StringBuffer();
   var index = 0;
@@ -1722,7 +1727,9 @@ List<InlineSpan> _inlineMarkdownSpans(
             text.substring(index + 1, end),
             baseStyle,
             platform,
-            color: const Color(0xFF888888),
+            color: useBaseColorForEmphasis
+                ? baseStyle.color
+                : const Color(0xFF888888),
           ),
         );
         index = end + 1;

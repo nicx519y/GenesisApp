@@ -916,6 +916,40 @@ void main() {
     expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
   });
 
+  testWidgets('self chat markdown uses the sent message text color', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'me',
+              senderName: 'Me',
+              text: '*historical role message*',
+              isMe: true,
+              status: 'sent',
+              senderType: 'character',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    final bubbleText = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(
+      _textFragmentColor(bubbleText, 'historical role message'),
+      kLocationChatStyle.bubbleTextStyle.color,
+    );
+  });
+
   testWidgets('chat markdown preserves backslash text', (
     WidgetTester tester,
   ) async {
