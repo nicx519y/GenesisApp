@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../network/api_exception.dart';
 import '../../network/models/gem_product.dart';
 import '../../network/models/gem_purchase_report.dart';
 import 'billing_analytics.dart';
@@ -47,7 +48,6 @@ class GooglePlayBillingService implements BillingService {
     required BillingUidReader readUid,
     BillingAnalytics analytics = const GenesisBillingAnalytics(),
     Duration attemptTimeout = const Duration(seconds: 90),
-    Duration reportTimeout = const Duration(minutes: 1),
   }) : _platform = platform,
        _pendingPurchaseStore = pendingPurchaseStore,
        _loadBillingAccountId = loadBillingAccountId,
@@ -56,8 +56,7 @@ class GooglePlayBillingService implements BillingService {
        _refreshWallet = refreshWallet,
        _readUid = readUid,
        _analytics = analytics,
-       _attemptTimeout = attemptTimeout,
-       _reportTimeout = reportTimeout;
+       _attemptTimeout = attemptTimeout;
 
   final BillingPlatform _platform;
   final BillingPendingPurchaseStore _pendingPurchaseStore;
@@ -68,7 +67,6 @@ class GooglePlayBillingService implements BillingService {
   final BillingUidReader _readUid;
   final BillingAnalytics _analytics;
   final Duration _attemptTimeout;
-  final Duration _reportTimeout;
   final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
     BillingState(),
   );
@@ -80,10 +78,8 @@ class GooglePlayBillingService implements BillingService {
       <String, BillingPurchaseAttempt>{};
   final Set<String> _processingPurchaseKeys = <String>{};
   final Set<String> _completedPurchaseKeys = <String>{};
-  final Set<String> _timedOutReportKeys = <String>{};
   final Set<String> _trackedPendingAttemptIds = <String>{};
   final Map<String, Timer> _attemptTimeouts = <String, Timer>{};
-  final Map<String, Timer> _reportTimeouts = <String, Timer>{};
 
   StreamSubscription<List<BillingPurchase>>? _purchaseSubscription;
   Future<void>? _startFuture;
@@ -204,6 +200,12 @@ class GooglePlayBillingService implements BillingService {
       startedAt: startedAt,
     );
     _attemptByStoreProductId[storeProductId] = attempt;
+    _scheduleAttemptTimeout(
+      activeProduct,
+      storeProductId,
+      attemptId,
+      startedAt: startedAt,
+    );
 
     late BillingProductQueryResult queryResult;
     try {
@@ -232,6 +234,13 @@ class GooglePlayBillingService implements BillingService {
                 startedAt: startedAt,
               );
               _attemptByStoreProductId[storeProductId] = attempt;
+              _setBusy(activeProduct.productId, true);
+              _scheduleAttemptTimeout(
+                activeProduct,
+                storeProductId,
+                attemptId,
+                startedAt: startedAt,
+              );
             }
             queryResult = await _queryStoreProduct(
               activeProduct,
@@ -284,8 +293,6 @@ class GooglePlayBillingService implements BillingService {
         _clearActiveAttempt(storeProductId, attempt);
         _emitFailure(activeProduct.productId, attemptId, 'Purchase failed.');
         _trackFlowResult(activeProduct, attemptId, 'launch_rejected');
-      } else {
-        _scheduleAttemptTimeout(activeProduct, storeProductId, attemptId);
       }
     } catch (error) {
       debugPrint('[Billing] purchase launch failed: $error');
@@ -608,19 +615,14 @@ class GooglePlayBillingService implements BillingService {
     final processingKey = '${purchase.provider.name}:$token';
     if (_disposed || _completedPurchaseKeys.contains(processingKey)) return;
     if (!_beginExclusivePurchase(processingKey)) return;
-    final suppressUiForTimedOutReport = _timedOutReportKeys.contains(
-      processingKey,
+    _events.add(
+      BillingUiEvent(
+        kind: BillingUiEventKind.processing,
+        productId: productId,
+        attemptId: attemptId,
+        message: 'Purchasing Gems',
+      ),
     );
-    if (!suppressUiForTimedOutReport) {
-      _events.add(
-        BillingUiEvent(
-          kind: BillingUiEventKind.processing,
-          productId: productId,
-          attemptId: attemptId,
-          message: 'Purchasing Gems',
-        ),
-      );
-    }
     try {
       var record = persistedRecord;
       if (record == null) {
@@ -647,11 +649,6 @@ class GooglePlayBillingService implements BillingService {
         try {
           await _pendingPurchaseStore.upsert(record);
         } catch (_) {
-          _cancelReportTimeout(processingKey);
-          if (suppressUiForTimedOutReport) {
-            _setBusy(resolvedAttempt.product.productId, false);
-            return;
-          }
           _emitDeferred(resolvedAttempt.product.productId, resolvedAttempt.id);
           return;
         }
@@ -672,11 +669,6 @@ class GooglePlayBillingService implements BillingService {
         try {
           await _pendingPurchaseStore.upsert(record);
         } catch (_) {
-          _cancelReportTimeout(processingKey);
-          if (suppressUiForTimedOutReport) {
-            _setBusy(record.productId, false);
-            return;
-          }
           _emitDeferred(record.productId, record.attemptId);
           return;
         }
@@ -883,7 +875,6 @@ class GooglePlayBillingService implements BillingService {
     }
     if (accountId.isEmpty || accountId != record.billingAccountId) return;
 
-    _scheduleReportTimeout(record: record, purchase: purchase);
     late final GemPurchaseReport report;
     try {
       report = await _reportPurchase(
@@ -903,39 +894,45 @@ class GooglePlayBillingService implements BillingService {
           },
         ),
       );
-    } catch (_) {
-      final reportTimedOut = _timedOutReportKeys.contains(record.key);
+    } catch (error) {
+      final isTimeout =
+          error is ApiException && error.kind == ApiExceptionKind.timeout;
+      var shouldTrackTimeout = false;
+      if (isTimeout && !record.reportTimeoutTracked) {
+        try {
+          shouldTrackTimeout = await _pendingPurchaseStore
+              .markReportTimeoutTracked(
+                provider: record.provider,
+                purchaseToken: record.purchaseToken,
+              );
+        } catch (_) {}
+      }
       final next = record.copyWith(
         retryCount: record.retryCount + 1,
         updatedAt: DateTime.now(),
-        reportTimeoutTracked: record.reportTimeoutTracked || reportTimedOut,
+        reportTimeoutTracked: record.reportTimeoutTracked || shouldTrackTimeout,
       );
       try {
         await _pendingPurchaseStore.upsert(next);
       } catch (_) {}
-      if (reportTimedOut) {
-        _setBusy(record.productId, false);
-        return;
+      if (shouldTrackTimeout) {
+        _trackTimeoutById(
+          attemptId: record.attemptId,
+          productId: record.productId,
+          storeProductId: record.storeProductId,
+          timeoutType: 'report',
+        );
       }
-      _cancelReportTimeout(record.key);
       _emitDeferred(record.productId, record.attemptId);
       _setBusy(record.productId, false);
       return;
     }
 
-    final reportTimedOut = _timedOutReportKeys.remove(record.key);
-    if (reportTimedOut && !record.reportTimeoutTracked) {
-      record = record.copyWith(reportTimeoutTracked: true);
-    }
-    _cancelReportTimeout(record.key);
     final serverTransactionId = report.transactionId.trim();
 
     if (report.status == GemPurchaseReportStatus.completed) {
       if (!await _deletePurchaseRecord(record)) {
-        await _handleLocalOrderMutationFailure(
-          record,
-          reportTimedOut: reportTimedOut,
-        );
+        await _handleLocalOrderMutationFailure(record);
         return;
       }
       _finishPurchaseAttempt(record, purchase);
@@ -950,17 +947,15 @@ class GooglePlayBillingService implements BillingService {
               : record.transactionId,
         },
       );
-      if (!reportTimedOut) {
-        _events.add(
-          BillingUiEvent(
-            kind: BillingUiEventKind.success,
-            productId: record.productId,
-            attemptId: record.attemptId,
-            message: 'Purchase successful!',
-            grantedGems: report.grantedGems,
-          ),
-        );
-      }
+      _events.add(
+        BillingUiEvent(
+          kind: BillingUiEventKind.success,
+          productId: record.productId,
+          attemptId: record.attemptId,
+          message: 'Purchase successful!',
+          grantedGems: report.grantedGems,
+        ),
+      );
       _refreshWalletInBackground();
     } else if (report.status == GemPurchaseReportStatus.accepted) {
       final accepted = record.copyWith(
@@ -973,15 +968,11 @@ class GooglePlayBillingService implements BillingService {
       try {
         await _pendingPurchaseStore.upsert(accepted);
       } catch (_) {
-        await _handleLocalOrderMutationFailure(
-          record,
-          reportTimedOut: reportTimedOut,
-        );
+        await _handleLocalOrderMutationFailure(record);
         return;
       }
       _finishPurchaseAttempt(record, purchase);
-      if (!reportTimedOut &&
-          record.status != BillingPendingPurchaseStatus.accepted) {
+      if (record.status != BillingPendingPurchaseStatus.accepted) {
         _events.add(
           BillingUiEvent(
             kind: BillingUiEventKind.accepted,
@@ -994,20 +985,15 @@ class GooglePlayBillingService implements BillingService {
       }
     } else {
       if (!await _deletePurchaseRecord(record)) {
-        await _handleLocalOrderMutationFailure(
-          record,
-          reportTimedOut: reportTimedOut,
-        );
+        await _handleLocalOrderMutationFailure(record);
         return;
       }
       _finishPurchaseAttempt(record, purchase);
-      if (!reportTimedOut) {
-        _emitFailure(
-          record.productId,
-          record.attemptId,
-          'Purchase was refunded.',
-        );
-      }
+      _emitFailure(
+        record.productId,
+        record.attemptId,
+        'Purchase was refunded.',
+      );
     }
     _trackFlowResultById(
       attemptId: record.attemptId,
@@ -1035,9 +1021,8 @@ class GooglePlayBillingService implements BillingService {
   }
 
   Future<void> _handleLocalOrderMutationFailure(
-    BillingPendingPurchase record, {
-    required bool reportTimedOut,
-  }) async {
+    BillingPendingPurchase record,
+  ) async {
     final next = record.copyWith(
       retryCount: record.retryCount + 1,
       updatedAt: DateTime.now(),
@@ -1045,10 +1030,6 @@ class GooglePlayBillingService implements BillingService {
     try {
       await _pendingPurchaseStore.upsert(next);
     } catch (_) {}
-    if (reportTimedOut) {
-      _setBusy(record.productId, false);
-      return;
-    }
     _emitDeferred(record.productId, record.attemptId);
     _setBusy(record.productId, false);
   }
@@ -1205,72 +1186,18 @@ class GooglePlayBillingService implements BillingService {
     );
   }
 
-  void _scheduleReportTimeout({
-    required BillingPendingPurchase record,
-    BillingPurchase? purchase,
-  }) {
-    _cancelReportTimeout(record.key);
-    if (_reportTimeout <= Duration.zero) return;
-    _reportTimeouts[record.key] = Timer(
-      _reportTimeout,
-      () => unawaited(_handleReportTimeout(record: record, purchase: purchase)),
-    );
-  }
-
-  Future<void> _handleReportTimeout({
-    required BillingPendingPurchase record,
-    BillingPurchase? purchase,
-  }) async {
-    final purchaseKey = record.key;
-    _reportTimeouts.remove(purchaseKey);
-    if (_disposed ||
-        _completedPurchaseKeys.contains(purchaseKey) ||
-        _timedOutReportKeys.contains(purchaseKey) ||
-        !_processingPurchaseKeys.contains(purchaseKey)) {
-      return;
-    }
-    _timedOutReportKeys.add(purchaseKey);
-    var shouldTrack = false;
-    try {
-      shouldTrack = await _pendingPurchaseStore.markReportTimeoutTracked(
-        provider: record.provider,
-        purchaseToken: record.purchaseToken,
-      );
-    } catch (_) {}
-    if (shouldTrack) {
-      _trackTimeoutById(
-        attemptId: record.attemptId,
-        productId: record.productId,
-        storeProductId: record.storeProductId,
-        timeoutType: 'report',
-      );
-    }
-    if (purchase != null) {
-      _clearAttempt(purchase, _attemptByPurchaseToken[purchase.purchaseToken]);
-      _events.add(
-        BillingUiEvent(
-          kind: BillingUiEventKind.failure,
-          productId: record.productId,
-          attemptId: record.attemptId,
-          message: 'purchase timeout',
-        ),
-      );
-    } else {
-      _setBusy(record.productId, false);
-    }
-  }
-
-  void _cancelReportTimeout(String purchaseKey) {
-    _reportTimeouts.remove(purchaseKey)?.cancel();
-  }
-
   void _scheduleAttemptTimeout(
     GemProduct product,
     String storeProductId,
-    String attemptId,
-  ) {
+    String attemptId, {
+    required DateTime startedAt,
+  }) {
     _cancelAttemptTimeout(storeProductId);
-    _attemptTimeouts[storeProductId] = Timer(_attemptTimeout, () {
+    final elapsed = DateTime.now().difference(startedAt);
+    final remaining = elapsed < _attemptTimeout
+        ? _attemptTimeout - elapsed
+        : Duration.zero;
+    _attemptTimeouts[storeProductId] = Timer(remaining, () {
       _attemptTimeouts.remove(storeProductId);
       final activeAttempt = _attemptByStoreProductId[storeProductId];
       if (activeAttempt?.id != attemptId) return;
@@ -1523,16 +1450,11 @@ class GooglePlayBillingService implements BillingService {
     _attemptByStoreProductId.clear();
     _attemptByPurchaseToken.clear();
     _completedPurchaseKeys.clear();
-    _timedOutReportKeys.clear();
     _trackedPendingAttemptIds.clear();
     for (final timeout in _attemptTimeouts.values) {
       timeout.cancel();
     }
     _attemptTimeouts.clear();
-    for (final timeout in _reportTimeouts.values) {
-      timeout.cancel();
-    }
-    _reportTimeouts.clear();
     _setState(busyProductIds: const <String>{});
   }
 
@@ -1544,10 +1466,6 @@ class GooglePlayBillingService implements BillingService {
       timeout.cancel();
     }
     _attemptTimeouts.clear();
-    for (final timeout in _reportTimeouts.values) {
-      timeout.cancel();
-    }
-    _reportTimeouts.clear();
     _events.close();
     _state.dispose();
   }
