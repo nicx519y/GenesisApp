@@ -1832,7 +1832,7 @@ class _MockState {
   Map<String, dynamic> v1GemPurchaseReport(Map<String, dynamic> body) {
     final purchaseToken = '${body['purchase_token'] ?? ''}'.trim();
     final productId = '${body['product_id'] ?? ''}'.trim();
-    final orderId = '${body['transaction_id'] ?? ''}'.trim();
+    final transactionId = '${body['transaction_id'] ?? ''}'.trim();
     final previousGrant = _v1GrantedGemByPurchaseToken[purchaseToken];
     final grantedGems = previousGrant ?? _gemTotalForProduct(productId);
     if (previousGrant == null) {
@@ -1842,7 +1842,7 @@ class _MockState {
     return {
       'status': 'completed',
       'granted_gems': grantedGems,
-      if (orderId.isNotEmpty) 'order_id': orderId,
+      if (transactionId.isNotEmpty) 'transaction_id': transactionId,
     };
   }
 

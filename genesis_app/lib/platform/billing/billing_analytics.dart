@@ -56,6 +56,24 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
       if (data['transaction_id'] != null) 'object3': data['transaction_id'],
     };
   }
+  if (action == 'purchase_pending') {
+    return <String, Object?>{
+      'action_type': 'pay_event',
+      'action': action,
+      if (productId != null) 'object1': productId,
+      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
+      'object3': 'store_callback_pending',
+    };
+  }
+  if (action == 'purchase_timeout') {
+    return <String, Object?>{
+      'action_type': 'pay_event',
+      'action': action,
+      if (productId != null) 'object1': productId,
+      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
+      if (data['timeout_type'] != null) 'object3': data['timeout_type'],
+    };
+  }
   if (action == 'purchase_failed') {
     final reason = _purchaseFailureReason(data);
     return <String, Object?>{
@@ -98,6 +116,7 @@ const Set<String> _allowedBillingAnalyticsKeys = <String>{
   'result',
   'status',
   'reason',
+  'timeout_type',
   'duration_ms',
   'error_code',
   'can_purchase',

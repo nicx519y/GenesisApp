@@ -47,7 +47,7 @@ class GemPurchaseReport {
   const GemPurchaseReport({
     required this.status,
     this.grantedGems = 0,
-    this.orderId = '',
+    this.transactionId = '',
   });
 
   factory GemPurchaseReport.fromJson(Map<String, dynamic> json) {
@@ -61,11 +61,11 @@ class GemPurchaseReport {
     return GemPurchaseReport(
       status: status,
       grantedGems: asInt(json['granted_gems']),
-      orderId: asString(json['order_id']).trim(),
+      transactionId: asString(json['transaction_id']).trim(),
     );
   }
 
   final GemPurchaseReportStatus status;
   final int grantedGems;
-  final String orderId;
+  final String transactionId;
 }

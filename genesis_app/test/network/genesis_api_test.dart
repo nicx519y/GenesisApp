@@ -510,7 +510,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"status":"completed","granted_gems":550,"order_id":"GPA.1"}}',
+            '{"err_no":0,"err_msg":"succ","data":{"status":"completed","granted_gems":550,"transaction_id":"GPA.1"}}',
       ),
     );
     final api = _apiWith(
@@ -548,7 +548,7 @@ void main() {
     });
     expect(report.status, GemPurchaseReportStatus.completed);
     expect(report.grantedGems, 550);
-    expect(report.orderId, 'GPA.1');
+    expect(report.transactionId, 'GPA.1');
   });
 
   test(

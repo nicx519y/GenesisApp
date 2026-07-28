@@ -154,6 +154,7 @@ class BillingPendingPurchase {
     required this.retryCount,
     required this.createdAt,
     required this.updatedAt,
+    this.reportTimeoutTracked = false,
   });
 
   final BillingProvider provider;
@@ -169,6 +170,7 @@ class BillingPendingPurchase {
   final int retryCount;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool reportTimeoutTracked;
 
   String get key => '${provider.name}:$purchaseToken';
 
@@ -177,6 +179,7 @@ class BillingPendingPurchase {
     String? transactionId,
     int? retryCount,
     DateTime? updatedAt,
+    bool? reportTimeoutTracked,
   }) {
     return BillingPendingPurchase(
       provider: provider,
@@ -192,6 +195,7 @@ class BillingPendingPurchase {
       retryCount: retryCount ?? this.retryCount,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      reportTimeoutTracked: reportTimeoutTracked ?? this.reportTimeoutTracked,
     );
   }
 }

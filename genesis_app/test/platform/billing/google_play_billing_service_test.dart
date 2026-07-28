@@ -140,7 +140,7 @@ void main() {
   var refreshCount = 0;
   var reportError = false;
   var reportStatus = GemPurchaseReportStatus.completed;
-  var reportOrderId = '';
+  var reportTransactionId = '';
   var billingAccountId = '4b74ec68-7abc-4cce-a223-e997e31dc811';
   var currentUid = 'u_1';
 
@@ -153,7 +153,7 @@ void main() {
     refreshCount = 0;
     reportError = false;
     reportStatus = GemPurchaseReportStatus.completed;
-    reportOrderId = '';
+    reportTransactionId = '';
     billingAccountId = '4b74ec68-7abc-4cce-a223-e997e31dc811';
     currentUid = 'u_1';
     service = GooglePlayBillingService(
@@ -172,7 +172,7 @@ void main() {
         return GemPurchaseReport(
           status: reportStatus,
           grantedGems: 550,
-          orderId: reportOrderId,
+          transactionId: reportTransactionId,
         );
       },
       refreshWallet: () async => refreshCount += 1,
@@ -295,6 +295,12 @@ void main() {
       expect(uiEvents.last.kind, BillingUiEventKind.success);
       expect(
         analytics.records.where((record) => record.action == 'purchase_failed'),
+        isEmpty,
+      );
+      expect(
+        analytics.records.where(
+          (record) => record.action == 'purchase_pending',
+        ),
         hasLength(1),
       );
     },
@@ -415,11 +421,11 @@ void main() {
       contains(BillingUiEventKind.pending),
     );
     expect(reports, hasLength(1));
-    final failed = analytics.records.singleWhere(
-      (record) => record.action == 'purchase_failed',
+    final pendingEvent = analytics.records.singleWhere(
+      (record) => record.action == 'purchase_pending',
     );
-    expect(failed.properties['product_id'], 'gem_pack_500');
-    expect(failed.properties['reason'], 'purchase_callback_pending');
+    expect(pendingEvent.properties['product_id'], 'gem_pack_500');
+    expect(pendingEvent.properties['attempt_id'], 'track_id_original');
   });
 
   test('pending recovery reuses the original track id after reset', () async {
@@ -432,7 +438,7 @@ void main() {
     uiEvents.clear();
     service.resetForSession();
     reportStatus = GemPurchaseReportStatus.completed;
-    reportOrderId = 'GPA.server-confirmed';
+    reportTransactionId = 'GPA.server-confirmed';
 
     await service.recover(BillingRecoverySource.appStart);
 
@@ -456,9 +462,7 @@ void main() {
     await _settle();
 
     final pendingEvents = analytics.records.where(
-      (record) =>
-          record.action == 'purchase_failed' &&
-          record.properties['reason'] == 'purchase_callback_pending',
+      (record) => record.action == 'purchase_pending',
     );
     expect(pendingEvents, hasLength(1));
     expect(
@@ -772,11 +776,14 @@ void main() {
     expect(uiEvents, hasLength(2));
     expect(uiEvents.first.kind, BillingUiEventKind.processing);
     expect(uiEvents.last.kind, BillingUiEventKind.deferred);
-    final failed = analytics.records.singleWhere(
-      (record) => record.action == 'purchase_failed',
+    expect(
+      analytics.records.where((record) => record.action == 'purchase_failed'),
+      isEmpty,
     );
-    expect(failed.properties['product_id'], 'gem_pack_500');
-    expect(failed.properties['reason'], 'report_failed');
+    expect(
+      analytics.records.where((record) => record.action == 'purchase_timeout'),
+      isEmpty,
+    );
 
     reportError = false;
     await service.recover(BillingRecoverySource.foreground);
@@ -818,11 +825,15 @@ void main() {
       expect(uiEvents.last.kind, BillingUiEventKind.failure);
       expect(uiEvents.last.message, 'purchase timeout');
       expect(service.state.value.hasBusyPurchase, isFalse);
-      final failed = analytics.records.singleWhere(
-        (record) => record.action == 'purchase_failed',
+      final timeout = analytics.records.singleWhere(
+        (record) => record.action == 'purchase_timeout',
       );
-      expect(failed.properties['product_id'], 'gem_pack_500');
-      expect(failed.properties['reason'], 'timeout');
+      expect(timeout.properties['product_id'], 'gem_pack_500');
+      expect(timeout.properties['timeout_type'], 'report');
+      expect(
+        (await pendingStore.loadAll()).single.reportTimeoutTracked,
+        isTrue,
+      );
 
       reportCompleter.complete(
         const GemPurchaseReport(status: GemPurchaseReportStatus.completed),
@@ -834,6 +845,89 @@ void main() {
       expect(await pendingStore.loadAll(), isEmpty);
     },
   );
+
+  test('missing store callback is tracked as a non-terminal timeout', () async {
+    service.dispose();
+    service = GooglePlayBillingService(
+      platform: platform,
+      pendingPurchaseStore: pendingStore,
+      loadBillingAccountId: () async => '4b74ec68-7abc-4cce-a223-e997e31dc811',
+      loadProductCatalog: () async => [_product],
+      reportPurchase: (request) async {
+        reports.add(request);
+        return const GemPurchaseReport(
+          status: GemPurchaseReportStatus.completed,
+        );
+      },
+      refreshWallet: () async => refreshCount += 1,
+      readUid: () async => 'u_1',
+      analytics: analytics,
+      attemptTimeout: const Duration(milliseconds: 10),
+    );
+
+    await service.purchaseGem(_product, payTrackId: 'track_id_timeout');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await _settle();
+
+    final timeout = analytics.records.singleWhere(
+      (record) => record.action == 'purchase_timeout',
+    );
+    expect(timeout.properties['attempt_id'], 'track_id_timeout');
+    expect(timeout.properties['timeout_type'], 'store_no_callback');
+    expect(
+      analytics.records.where((record) => record.action == 'purchase_failed'),
+      isEmpty,
+    );
+    expect(service.state.value.hasBusyPurchase, isFalse);
+
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+
+    final success = analytics.records.singleWhere(
+      (record) => record.action == 'purchase_success',
+    );
+    expect(success.properties['attempt_id'], 'track_id_timeout');
+  });
+
+  test('report timeout is not tracked again after app recovery', () async {
+    service.dispose();
+    final reportCompleter = Completer<GemPurchaseReport>();
+    await pendingStore.upsert(
+      _localPurchase(
+        status: BillingPendingPurchaseStatus.accepted,
+        reportTimeoutTracked: true,
+      ),
+    );
+    service = GooglePlayBillingService(
+      platform: platform,
+      pendingPurchaseStore: pendingStore,
+      loadBillingAccountId: () async => '4b74ec68-7abc-4cce-a223-e997e31dc811',
+      loadProductCatalog: () async => [_product],
+      reportPurchase: (request) {
+        reports.add(request);
+        return reportCompleter.future;
+      },
+      refreshWallet: () async => refreshCount += 1,
+      readUid: () async => 'u_1',
+      analytics: analytics,
+      reportTimeout: const Duration(milliseconds: 10),
+    );
+
+    final recovery = service.recover(BillingRecoverySource.foreground);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await _settle();
+
+    expect(
+      analytics.records.where((record) => record.action == 'purchase_timeout'),
+      isEmpty,
+    );
+    expect((await pendingStore.loadAll()).single.reportTimeoutTracked, isTrue);
+
+    reportCompleter.complete(
+      const GemPurchaseReport(status: GemPurchaseReportStatus.completed),
+    );
+    await recovery;
+  });
 
   test('records only the simplified purchase telemetry stages', () async {
     platform.queryResult = BillingProductQueryResult.success(
@@ -893,7 +987,7 @@ void main() {
 
   test('accepted is retained and reported again until completed', () async {
     reportStatus = GemPurchaseReportStatus.accepted;
-    reportOrderId = 'GPA.accepted-confirmed';
+    reportTransactionId = 'GPA.accepted-confirmed';
     await service.purchaseGem(_product);
     platform.emit(_purchase(BillingPurchaseStatus.purchased));
     await _settle();
@@ -917,14 +1011,22 @@ void main() {
 
     expect(reports, hasLength(2));
     expect(await pendingStore.loadAll(), hasLength(1));
+    expect(
+      uiEvents.where((event) => event.kind == BillingUiEventKind.accepted),
+      hasLength(1),
+    );
 
     reportStatus = GemPurchaseReportStatus.completed;
-    reportOrderId = '';
+    reportTransactionId = '';
     await service.recover(BillingRecoverySource.foreground);
     await _settle();
 
     expect(reports, hasLength(3));
     expect(await pendingStore.loadAll(), isEmpty);
+    expect(
+      uiEvents.where((event) => event.kind == BillingUiEventKind.accepted),
+      hasLength(1),
+    );
     expect(
       analytics.records
           .singleWhere((record) => record.action == 'purchase_success')
@@ -1267,6 +1369,7 @@ BillingPendingPurchase _localPurchase({
   String attemptId = 'track_id_local',
   String billingAccountId = '4b74ec68-7abc-4cce-a223-e997e31dc811',
   BillingPendingPurchaseStatus status = BillingPendingPurchaseStatus.received,
+  bool reportTimeoutTracked = false,
 }) {
   final now = DateTime(2026);
   return BillingPendingPurchase(
@@ -1285,6 +1388,7 @@ BillingPendingPurchase _localPurchase({
     purchaseTime: '1000',
     status: status,
     retryCount: 0,
+    reportTimeoutTracked: reportTimeoutTracked,
     createdAt: now,
     updatedAt: now,
   );

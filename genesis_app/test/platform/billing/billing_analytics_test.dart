@@ -31,6 +31,7 @@ void main() {
       'offer_token_present': true,
       'billing_account_id_present': true,
       'source': 'buy_gems_sheet',
+      'timeout_type': 'report',
       'purchase_token': 'purchase-token-1',
       'offerToken': 'offer-token-1',
       'billing_account_id': 'account-1',
@@ -49,6 +50,7 @@ void main() {
       'offer_token_present': true,
       'billing_account_id_present': true,
       'source': 'buy_gems_sheet',
+      'timeout_type': 'report',
       'transaction_id': 'GPA.1',
     });
   });
@@ -106,6 +108,53 @@ void main() {
       'object3': 'GPA.1',
     });
   });
+
+  test('pending collect projection uses the store callback status', () async {
+    final sink = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(sink);
+
+    const GenesisBillingAnalytics().track(
+      'purchase_pending',
+      properties: <String, Object?>{
+        'attempt_id': 'attempt-1',
+        'product_id': 'gem_pack_500',
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(sink.events.single.collectPayload, {
+      'action_type': 'pay_event',
+      'action': 'purchase_pending',
+      'object1': 'gem_pack_500',
+      'object2': 'attempt-1',
+      'object3': 'store_callback_pending',
+    });
+  });
+
+  for (final timeoutType in const ['report', 'store_no_callback']) {
+    test('timeout collect projection uses $timeoutType as object3', () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_timeout',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'timeout_type': timeoutType,
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(sink.events.single.collectPayload, {
+        'action_type': 'pay_event',
+        'action': 'purchase_timeout',
+        'object1': 'gem_pack_500',
+        'object2': 'attempt-1',
+        'object3': timeoutType,
+      });
+    });
+  }
 
   test('query failure collect projection appends error code', () async {
     final sink = _CapturingTelemetrySink();

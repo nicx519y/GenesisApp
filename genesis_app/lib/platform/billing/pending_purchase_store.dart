@@ -12,6 +12,11 @@ abstract interface class BillingPendingPurchaseStore {
 
   Future<void> upsert(BillingPendingPurchase purchase);
 
+  Future<bool> markReportTimeoutTracked({
+    required BillingProvider provider,
+    required String purchaseToken,
+  });
+
   Future<void> remove({
     required BillingProvider provider,
     required String purchaseToken,
@@ -28,11 +33,20 @@ class SqfliteBillingPendingPurchaseStore
     final root = await getDatabasesPath();
     final database = await openDatabase(
       '$root/genesis_billing.db',
-      version: 2,
+      version: 3,
       onCreate: (db, _) => db.execute(_createTableSql),
-      onUpgrade: (db, _, _) async {
-        await db.execute('DROP TABLE IF EXISTS billing_pending_purchases');
-        await db.execute(_createTableSql);
+      onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 2) {
+          await db.execute('DROP TABLE IF EXISTS billing_pending_purchases');
+          await db.execute(_createTableSql);
+          return;
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+            'ALTER TABLE billing_pending_purchases '
+            'ADD COLUMN report_timeout_tracked INTEGER NOT NULL DEFAULT 0',
+          );
+        }
       },
     );
     _database = database;
@@ -69,6 +83,22 @@ class SqfliteBillingPendingPurchaseStore
       _toRow(purchase),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  @override
+  Future<bool> markReportTimeoutTracked({
+    required BillingProvider provider,
+    required String purchaseToken,
+  }) async {
+    final updated = await (await _db).update(
+      'billing_pending_purchases',
+      const <String, Object?>{'report_timeout_tracked': 1},
+      where:
+          'provider = ? AND purchase_token = ? '
+          'AND report_timeout_tracked = 0',
+      whereArgs: <Object>[provider.name, purchaseToken],
+    );
+    return updated > 0;
   }
 
   @override
@@ -109,6 +139,18 @@ class MemoryBillingPendingPurchaseStore implements BillingPendingPurchaseStore {
   }
 
   @override
+  Future<bool> markReportTimeoutTracked({
+    required BillingProvider provider,
+    required String purchaseToken,
+  }) async {
+    final key = '${provider.name}:$purchaseToken';
+    final purchase = _purchases[key];
+    if (purchase == null || purchase.reportTimeoutTracked) return false;
+    _purchases[key] = purchase.copyWith(reportTimeoutTracked: true);
+    return true;
+  }
+
+  @override
   Future<void> remove({
     required BillingProvider provider,
     required String purchaseToken,
@@ -130,6 +172,7 @@ Map<String, Object?> _toRow(BillingPendingPurchase purchase) {
     'purchase_time': purchase.purchaseTime,
     'status': purchase.status.name,
     'retry_count': purchase.retryCount,
+    'report_timeout_tracked': purchase.reportTimeoutTracked ? 1 : 0,
     'created_at': purchase.createdAt.millisecondsSinceEpoch,
     'updated_at': purchase.updatedAt.millisecondsSinceEpoch,
   };
@@ -148,6 +191,7 @@ BillingPendingPurchase _fromRow(Map<String, Object?> row) {
     purchaseTime: '${row['purchase_time'] ?? ''}',
     status: BillingPendingPurchaseStatus.values.byName('${row['status']}'),
     retryCount: row['retry_count'] as int? ?? 0,
+    reportTimeoutTracked: (row['report_timeout_tracked'] as int? ?? 0) != 0,
     createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
     updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int),
   );
@@ -166,6 +210,7 @@ const _createTableSql = '''
     purchase_time TEXT NOT NULL,
     status TEXT NOT NULL,
     retry_count INTEGER NOT NULL,
+    report_timeout_tracked INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     PRIMARY KEY(provider, purchase_token)
