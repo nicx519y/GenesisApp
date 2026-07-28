@@ -22,6 +22,7 @@ import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dar
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
@@ -319,6 +320,9 @@ class _FakeBillingService implements BillingService {
   );
   final StreamController<BillingUiEvent> _events =
       StreamController<BillingUiEvent>.broadcast();
+  final List<BillingRecoverySource> recoverSources = <BillingRecoverySource>[];
+  int resetForSessionCount = 0;
+  int startCount = 0;
 
   @override
   Stream<BillingUiEvent> get events => _events.stream;
@@ -334,19 +338,43 @@ class _FakeBillingService implements BillingService {
   }) async {}
 
   @override
-  Future<void> recover(BillingRecoverySource source) async {}
+  Future<void> recover(BillingRecoverySource source) async {
+    recoverSources.add(source);
+  }
 
   @override
-  void resetForSession() {}
+  void resetForSession() {
+    resetForSessionCount += 1;
+  }
 
   @override
-  Future<void> start() async {}
+  Future<void> start() async {
+    startCount += 1;
+  }
 
   @override
   void dispose() {
     _state.dispose();
     _events.close();
   }
+}
+
+class _CapturingTelemetrySink implements GenesisTelemetrySink {
+  final List<GenesisTelemetryEvent> events = <GenesisTelemetryEvent>[];
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    events.add(event);
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {}
+
+  @override
+  Future<void> setUserId(String? uid) async {}
 }
 
 class _FakeIdentityAuthService implements IdentityAuthService {
@@ -2015,6 +2043,134 @@ void main() {
     OriginLaunchCoordinator.instance.resetForTesting();
     BlockedUserReviewReturn.resetForTesting();
     await OriginLaunchPendingStore.clear();
+  });
+
+  testWidgets(
+    'AppShell owns initial and background-to-foreground billing recovery',
+    (WidgetTester tester) async {
+      final billing = _FakeBillingService();
+      final services = await _testServices(billingService: billing);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(billing.recoverSources, [BillingRecoverySource.appStart]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(billing.recoverSources, [
+        BillingRecoverySource.appStart,
+        BillingRecoverySource.foreground,
+      ]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(billing.recoverSources, [
+        BillingRecoverySource.appStart,
+        BillingRecoverySource.foreground,
+      ]);
+    },
+  );
+
+  testWidgets('AppShell recovers once when the UID changes', (
+    WidgetTester tester,
+  ) async {
+    final billing = _FakeBillingService();
+    final sessionStore = MemoryUserSessionStore();
+    final services = await _testServices(
+      billingService: billing,
+      sessionStoreOverride: sessionStore,
+      initialUid: 'u_first',
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(billing.recoverSources, [BillingRecoverySource.appStart]);
+
+    await sessionStore.saveUid('u_second');
+    services.notifySessionChanged();
+    await tester.pump();
+    await tester.pump();
+
+    expect(billing.recoverSources, [
+      BillingRecoverySource.appStart,
+      BillingRecoverySource.foreground,
+    ]);
+
+    services.notifySessionChanged();
+    await tester.pump();
+    await tester.pump();
+
+    expect(billing.recoverSources, [
+      BillingRecoverySource.appStart,
+      BillingRecoverySource.foreground,
+    ]);
+  });
+
+  testWidgets('Me page view records the current login state', (
+    WidgetTester tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final sessionStore = MemoryUserSessionStore();
+    final services = await _testServices(
+      sessionStoreOverride: sessionStore,
+      initialUid: null,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Me'));
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('Home'));
+    await tester.pump();
+    await sessionStore.saveUid('u_logged_in');
+    await sessionStore.saveAuthToken('backend-token');
+    services.notifySessionChanged();
+    await tester.pump();
+
+    await tester.tap(find.text('Me'));
+    await tester.pump();
+    await tester.pump();
+
+    final mePageViews = telemetry.events
+        .where(
+          (event) =>
+              event.category == 'collect.log' &&
+              event.name == 'me' &&
+              event.data['action_type'] == 'pageview',
+        )
+        .toList(growable: false);
+    expect(mePageViews.map((event) => event.data['object1']), [
+      'logged_out',
+      'logged_in',
+    ]);
   });
 
   testWidgets('force upgrade gate renders child when upgrade is not required', (
@@ -17000,7 +17156,7 @@ void main() {
     );
   });
 
-  testWidgets('location chat shows role name instead of pushed username', (
+  testWidgets('location chat uses character name for matching sender char id', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
@@ -17017,6 +17173,17 @@ void main() {
           'goal': 'Talk',
           'avatar': '',
           'location_id': 'l_world-1',
+        },
+      ],
+      worldLocations: const [
+        {
+          'location_id': 'l_world-1',
+          'location_name': 'World Location',
+          'location_summary': 'A world location.',
+          'image': '',
+          'map_url': '',
+          'x_percent': 35,
+          'y_percent': 45,
         },
       ],
     );
@@ -17041,26 +17208,32 @@ void main() {
     await tester.pumpAndSettle();
 
     chatroom.session.emit(
-      ChatroomUserMessage(
+      const ChatroomAiStreamStart(
         sessionId: 'sess-1',
-        worldId: 'world-1',
         locationId: 'l_world-1',
-        userId: 'u_other',
-        code: 0,
-        codeMsg: 'ok',
-        ts: null,
+        globalMessageId: 127,
         messageId: 127,
         locationMessageId: 127,
         conversationRoundId: '1318',
         roundOrder: 0,
-        senderType: 'user',
-        senderId: 'u_other',
+        senderType: 'character',
+        senderId: 'c_other',
         senderName: 'Actual Username',
-        content: 'role name check',
-        broadcast: true,
         currentTime: '2026-06-25T00:00:00Z',
-        clientMsgId: '',
+      ),
+    );
+    chatroom.session.emit(
+      const ChatroomAiStreamEnd(
+        sessionId: 'sess-1',
+        locationId: 'l_world-1',
+        globalMessageId: 127,
+        messageId: 127,
+        locationMessageId: 127,
+        conversationRoundId: '1318',
+        senderId: 'c_other',
+        content: 'role name check',
         createdAt: null,
+        currentTime: '2026-06-25T00:00:00Z',
       ),
     );
     await tester.pump();

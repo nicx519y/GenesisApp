@@ -16,18 +16,23 @@ abstract interface class BackendAuthCoordinator {
   Future<void> signOut();
 }
 
+typedef BackendRequestPreparation = Future<void> Function();
+
 class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
   const GenesisBackendAuthCoordinator({
     required GenesisApi api,
     required IdentityAuthService identityAuth,
     required UserSessionStore sessionStore,
+    BackendRequestPreparation? prepareBackendRequest,
   }) : _api = api,
        _identityAuth = identityAuth,
-       _sessionStore = sessionStore;
+       _sessionStore = sessionStore,
+       _prepareBackendRequest = prepareBackendRequest;
 
   final GenesisApi _api;
   final IdentityAuthService _identityAuth;
   final UserSessionStore _sessionStore;
+  final BackendRequestPreparation? _prepareBackendRequest;
 
   @override
   Future<bool> hasAuthenticatedBackendSession({bool tryAutoRefresh = true}) {
@@ -43,6 +48,7 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
       data: <String, Object?>{'provider': session.provider.name},
     );
     try {
+      await _prepareBackendRequest?.call();
       final user = await _api.loginWithIdentity(session);
       stopwatch.stop();
       GenesisTelemetry.setUserId(user.uid);

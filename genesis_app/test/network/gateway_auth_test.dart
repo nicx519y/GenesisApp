@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeKeyStore implements GatewayDeviceKeyStore {
   String? lastCanonical;
@@ -69,6 +70,35 @@ class _FakeTransport implements HttpTransport {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  test('registration key ids are isolated by gateway environment', () async {
+    expect(
+      gatewayRegistrationNamespace('https://api.worldo.ai/apix/'),
+      'https://api.worldo.ai',
+    );
+    final production = SharedPreferencesGatewayRegistrationStore(
+      namespace: gatewayRegistrationNamespace('https://api.worldo.ai/apix/'),
+    );
+    final development = SharedPreferencesGatewayRegistrationStore(
+      namespace: gatewayRegistrationNamespace(
+        'https://dev-api.worldo.ai/apix/',
+      ),
+    );
+
+    await production.saveKeyId('production-key');
+
+    expect(await production.readKeyId(), 'production-key');
+    expect(await development.readKeyId(), isNull);
+
+    await development.saveKeyId('development-key');
+
+    expect(await production.readKeyId(), 'production-key');
+    expect(await development.readKeyId(), 'development-key');
+  });
+
   test('canonical query sorts keys and repeated values', () {
     final uri = Uri.parse('https://gateway.test/api/v1/ping?z=2&a=1&a=0');
 
@@ -269,6 +299,89 @@ void main() {
     expect(businessAttempts, 2);
     expect(keyStore.resetCount, 1);
     expect(store.keyId, 'key-registered');
+    expect(
+      authTransport.requests
+          .where(
+            (request) => request.uri.path == '/apix/v1/app/device/register',
+          )
+          .length,
+      1,
+    );
+  });
+
+  test('concurrent 20504 responses share one registration recovery', () async {
+    final keyStore = _FakeKeyStore();
+    final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+    final store = _MemoryGatewayRegistrationStore()..keyId = 'stale-key';
+    final coordinator = GatewayAuthCoordinator(
+      gatewayBaseUrl: 'https://gateway.test/apix/',
+      appHeaderProvider: _testAppHeaders,
+      deviceIdService: const _TestDeviceIdService(),
+      keyStore: keyStore,
+      registrationStore: store,
+      transport: authTransport,
+    );
+    final interceptor = GatewayRequestInterceptor(coordinator: coordinator);
+    final bothStaleRequestsStarted = Completer<void>();
+    var staleRequestCount = 0;
+
+    Future<TransportResponse> send(TransportRequest request) async {
+      if (request.headers['X-Key-ID'] == 'stale-key') {
+        staleRequestCount += 1;
+        if (staleRequestCount == 2) {
+          bothStaleRequestsStarted.complete();
+        }
+        await bothStaleRequestsStarted.future;
+        return _json({
+          'err_no': 20504,
+          'err_msg': 'device missing',
+          'data': {},
+        });
+      }
+      return _json({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'ok': true},
+      });
+    }
+
+    final responses = await Future.wait([
+      interceptor.call(
+        TransportRequest(
+          method: 'GET',
+          uri: Uri.parse('https://gateway.test/api/v1/first'),
+          headers: const {},
+          bodyBytes: null,
+          timeoutMs: 15000,
+        ),
+        send,
+      ),
+      interceptor.call(
+        TransportRequest(
+          method: 'GET',
+          uri: Uri.parse('https://gateway.test/api/v1/second'),
+          headers: const {},
+          bodyBytes: null,
+          timeoutMs: 15000,
+        ),
+        send,
+      ),
+    ]);
+
+    expect(
+      responses.map((response) => gatewayErrNo(response.body)),
+      everyElement(0),
+    );
+    expect(keyStore.resetCount, 1);
+    expect(store.keyId, 'key-registered');
+    expect(
+      authTransport.requests
+          .where(
+            (request) => request.uri.path == '/apix/v1/app/device/challenge',
+          )
+          .length,
+      1,
+    );
     expect(
       authTransport.requests
           .where(

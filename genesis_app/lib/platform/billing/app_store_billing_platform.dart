@@ -96,8 +96,9 @@ class AppStoreBillingPlatform implements BillingPlatform {
         productDetails: nativeProduct,
         applicationUserName: billingAccountId,
       ),
-      // The StoreKit adapter requires autoConsume=true for iOS consumables.
-      // Entitlement delivery remains server-owned after the purchase callback.
+      // The StoreKit adapter requires this flag when launching an iOS
+      // consumable. The client does not call completePurchase; settlement
+      // remains server-owned after the purchase callback.
       autoConsume: true,
     );
     debugPrint('[Billing][AppStore] launch purchase accepted=$accepted');
@@ -105,13 +106,6 @@ class AppStoreBillingPlatform implements BillingPlatform {
       throw const BillingPlatformException('purchase_rejected');
     }
     return true;
-  }
-
-  @override
-  Future<List<BillingPurchase>> queryPastPurchases({
-    required String billingAccountId,
-  }) async {
-    return const <BillingPurchase>[];
   }
 }
 

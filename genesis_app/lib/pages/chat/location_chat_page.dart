@@ -1212,8 +1212,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           );
       final avatarUrl = _messageAvatarUrl(
         message,
-        isMe: isMe,
-        fallback: existing?.avatarUrl ?? '',
+        identityState: resolvedIdentityState,
       );
       final text = _locationChatMessageDisplayText(message);
       final currentTime = _messageCurrentTime(message);
@@ -2033,15 +2032,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     WorldChatroomState? identityState,
   }) {
     final state = identityState ?? _chatroomState;
-    return firstNonEmpty([
-      _roleNameForIdentityCandidates([
-        message.userId,
-        message.senderId,
-      ], identityState: state),
-      _entityNameForIdentity(message.userId, identityState: state),
-      _entityNameForIdentity(message.senderId, identityState: state),
-      message.senderName,
-    ]);
+    return resolveLocationChatMessageSenderNameForTesting(
+      senderId: message.senderId,
+      senderName: message.senderName,
+      characters: state.world?.characters ?? const <Map<String, dynamic>>[],
+    );
   }
 
   bool _messageSenderIsPlayerControlledRole(
@@ -2056,20 +2051,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   String _messageAvatarUrl(
     WorldChatroomMessage message, {
-    bool? isMe,
-    String fallback = '',
+    WorldChatroomState? identityState,
   }) {
-    final mine = isMe ?? _isMineMessage(message);
+    final state = identityState ?? _chatroomState;
     final avatarUrl = resolveLocationChatMessageAvatarForTesting(
-      entityUserAvatar: _entityAvatarForIdentity(message.userId),
-      entitySenderAvatar: _entityAvatarForIdentity(message.senderId),
-      roleAvatar: _roleAvatarForIdentityCandidates([
-        message.userId,
-        message.senderId,
-      ]),
-      isMine: mine,
-      localSelfAvatar: mine ? _localSelfAvatarUrl() : '',
-      fallback: fallback,
+      senderId: message.senderId,
+      characters: state.world?.characters ?? const <Map<String, dynamic>>[],
     );
     return _resizedLocationChatAvatarUrl(avatarUrl);
   }
@@ -3140,21 +3127,40 @@ String locationChatMessageReportTargetIdForTesting(ChatMessageVm message) {
 }
 
 @visibleForTesting
-String resolveLocationChatMessageAvatarForTesting({
-  String entityUserAvatar = '',
-  String entitySenderAvatar = '',
-  String roleAvatar = '',
-  bool isMine = false,
-  String localSelfAvatar = '',
-  String fallback = '',
+String resolveLocationChatMessageSenderNameForTesting({
+  required String senderId,
+  required String senderName,
+  required Iterable<Map<String, dynamic>> characters,
 }) {
+  final character = _locationChatCharacterForSenderId(characters, senderId);
   return firstNonEmpty([
-    entityUserAvatar,
-    entitySenderAvatar,
-    roleAvatar,
-    if (isMine) localSelfAvatar,
-    fallback,
+    character == null ? '' : _mapString(character, 'name'),
+    senderName,
   ]);
+}
+
+@visibleForTesting
+String resolveLocationChatMessageAvatarForTesting({
+  required String senderId,
+  required Iterable<Map<String, dynamic>> characters,
+}) {
+  final character = _locationChatCharacterForSenderId(characters, senderId);
+  if (character == null) return '';
+  return _firstMapImageUrl(character, const ['avatar']);
+}
+
+Map<String, dynamic>? _locationChatCharacterForSenderId(
+  Iterable<Map<String, dynamic>> characters,
+  String senderId,
+) {
+  final resolvedSenderId = senderId.trim();
+  if (resolvedSenderId.isEmpty) return null;
+  for (final character in characters) {
+    if (_mapString(character, 'char_id').trim() == resolvedSenderId) {
+      return character;
+    }
+  }
+  return null;
 }
 
 @visibleForTesting

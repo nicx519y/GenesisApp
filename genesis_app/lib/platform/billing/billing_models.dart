@@ -53,13 +53,7 @@ extension BillingPurchaseSourceValue on BillingPurchaseSource {
   };
 }
 
-enum BillingPendingPurchaseStatus {
-  received,
-  reported,
-
-  // Kept for records written by versions where the client owned consumption.
-  granted,
-}
+enum BillingPendingPurchaseStatus { pending, received, accepted }
 
 @immutable
 class BillingStoreProduct {
@@ -109,6 +103,7 @@ class BillingPurchase {
     required this.originalJson,
     required this.purchaseTime,
     required this.status,
+    this.obfuscatedAccountId,
     this.errorCode,
     this.errorMessage,
   });
@@ -121,6 +116,7 @@ class BillingPurchase {
   final String originalJson;
   final String purchaseTime;
   final BillingPurchaseStatus status;
+  final String? obfuscatedAccountId;
   final String? errorCode;
   final String? errorMessage;
 }
@@ -158,6 +154,7 @@ class BillingPendingPurchase {
     required this.retryCount,
     required this.createdAt,
     required this.updatedAt,
+    this.reportTimeoutTracked = false,
   });
 
   final BillingProvider provider;
@@ -173,13 +170,16 @@ class BillingPendingPurchase {
   final int retryCount;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool reportTimeoutTracked;
 
   String get key => '${provider.name}:$purchaseToken';
 
   BillingPendingPurchase copyWith({
     BillingPendingPurchaseStatus? status,
+    String? transactionId,
     int? retryCount,
     DateTime? updatedAt,
+    bool? reportTimeoutTracked,
   }) {
     return BillingPendingPurchase(
       provider: provider,
@@ -188,13 +188,14 @@ class BillingPendingPurchase {
       billingAccountId: billingAccountId,
       productId: productId,
       storeProductId: storeProductId,
-      transactionId: transactionId,
+      transactionId: transactionId ?? this.transactionId,
       originalJson: originalJson,
       purchaseTime: purchaseTime,
       status: status ?? this.status,
       retryCount: retryCount ?? this.retryCount,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      reportTimeoutTracked: reportTimeoutTracked ?? this.reportTimeoutTracked,
     );
   }
 }

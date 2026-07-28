@@ -142,35 +142,43 @@ class _GemBillingPurchaseGrantedMessage extends StatelessWidget {
           key: ValueKey<String>('billing-purchase-success-line-gap'),
           height: 12,
         ),
-        Text.rich(
-          key: const ValueKey<String>('billing-purchase-granted-line'),
-          TextSpan(
-            children: [
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 2),
-                  child: SvgPicture.asset(
-                    gemIconAsset,
-                    key: const ValueKey<String>(
-                      'billing-purchase-granted-icon',
-                    ),
-                    width: 12,
-                    height: 12,
-                  ),
-                ),
-              ),
+        SizedBox(
+          width: double.infinity,
+          child: FittedBox(
+            key: const ValueKey<String>('billing-purchase-granted-fit'),
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: Text.rich(
+              key: const ValueKey<String>('billing-purchase-granted-line'),
               TextSpan(
-                text: grantedText,
-                style: const TextStyle(color: kGemAccentColor),
+                children: [
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 2),
+                      child: SvgPicture.asset(
+                        gemIconAsset,
+                        key: const ValueKey<String>(
+                          'billing-purchase-granted-icon',
+                        ),
+                        width: 12,
+                        height: 12,
+                      ),
+                    ),
+                  ),
+                  TextSpan(
+                    text: grantedText,
+                    style: const TextStyle(color: kGemAccentColor),
+                  ),
+                  const TextSpan(text: ' Gems have been granted.'),
+                ],
               ),
-              const TextSpan(text: ' Gems have been granted.'),
-            ],
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              softWrap: false,
+              style: _grantedTextStyle,
+            ),
           ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          softWrap: false,
-          style: _grantedTextStyle,
         ),
       ],
     );

@@ -31,6 +31,7 @@ void main() {
       'offer_token_present': true,
       'billing_account_id_present': true,
       'source': 'buy_gems_sheet',
+      'timeout_type': 'report',
       'purchase_token': 'purchase-token-1',
       'offerToken': 'offer-token-1',
       'billing_account_id': 'account-1',
@@ -49,6 +50,7 @@ void main() {
       'offer_token_present': true,
       'billing_account_id_present': true,
       'source': 'buy_gems_sheet',
+      'timeout_type': 'report',
       'transaction_id': 'GPA.1',
     });
   });
@@ -107,7 +109,54 @@ void main() {
     });
   });
 
-  test('failed collect projection keeps reason as object3 text', () async {
+  test('pending collect projection uses the store callback status', () async {
+    final sink = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(sink);
+
+    const GenesisBillingAnalytics().track(
+      'purchase_pending',
+      properties: <String, Object?>{
+        'attempt_id': 'attempt-1',
+        'product_id': 'gem_pack_500',
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(sink.events.single.collectPayload, {
+      'action_type': 'pay_event',
+      'action': 'purchase_pending',
+      'object1': 'gem_pack_500',
+      'object2': 'attempt-1',
+      'object3': 'store_callback_pending',
+    });
+  });
+
+  for (final timeoutType in const ['report', 'store_no_callback']) {
+    test('timeout collect projection uses $timeoutType as object3', () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_timeout',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'timeout_type': timeoutType,
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(sink.events.single.collectPayload, {
+        'action_type': 'pay_event',
+        'action': 'purchase_timeout',
+        'object1': 'gem_pack_500',
+        'object2': 'attempt-1',
+        'object3': timeoutType,
+      });
+    });
+  }
+
+  test('query failure collect projection appends error code', () async {
     final sink = _CapturingTelemetrySink();
     GenesisTelemetry.setSinkForTesting(sink);
 
@@ -128,7 +177,81 @@ void main() {
       'action': 'purchase_failed',
       'object1': 'gem_pack_500',
       'object2': 'attempt-1',
-      'object3': 'query_failed',
+      'object3': 'query_failed[product_not_found]',
     });
   });
+
+  test(
+    'query failure collect projection uses unknown without a code',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'reason': 'query_failed',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        sink.events.single.collectPayload?['object3'],
+        'query_failed[unknown]',
+      );
+    },
+  );
+
+  test(
+    'callback error collect projection appends normalized error code',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'reason': 'purchase_callback_error',
+          'error_code': 'network_error',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final event = sink.events.single;
+      expect(event.collectPayload, {
+        'action_type': 'pay_event',
+        'action': 'purchase_failed',
+        'object1': 'gem_pack_500',
+        'object2': 'attempt-1',
+        'object3': 'purchase_callback_error[network_error]',
+      });
+    },
+  );
+
+  test(
+    'callback error collect projection uses unknown without a code',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'reason': 'purchase_callback_error',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        sink.events.single.collectPayload?['object3'],
+        'purchase_callback_error[unknown]',
+      );
+    },
+  );
 }

@@ -14,10 +14,6 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
 void main() {
-  const localAvatar = 'https://example.test/local-avatar.webp';
-  const fallbackAvatar = 'https://example.test/fallback-avatar.webp';
-  const entityAvatar = 'https://example.test/entity-avatar.webp';
-
   test('location chat panel hides the inactive more button by default', () {
     const panel = LocationChatPanel(worldId: 'world-1', locationId: 'loc-1');
 
@@ -577,39 +573,61 @@ void main() {
     );
   });
 
-  test(
-    'self message avatar falls back to local avatar before existing avatar',
-    () {
-      expect(
-        resolveLocationChatMessageAvatarForTesting(
-          isMine: true,
-          localSelfAvatar: localAvatar,
-          fallback: fallbackAvatar,
-        ),
-        localAvatar,
-      );
-    },
-  );
+  test('message sender id matches only character char id', () {
+    const characters = <Map<String, dynamic>>[
+      {
+        'char_id': 'char-role',
+        'player_uid': 'user-role',
+        'name': 'Character Name',
+        'player_username': 'Player Username',
+      },
+    ];
 
-  test('self message avatar keeps existing avatar when source is empty', () {
     expect(
-      resolveLocationChatMessageAvatarForTesting(
-        isMine: true,
-        fallback: fallbackAvatar,
+      resolveLocationChatMessageSenderNameForTesting(
+        senderId: 'char-role',
+        senderName: 'Pushed Name',
+        characters: characters,
       ),
-      fallbackAvatar,
+      'Character Name',
+    );
+    expect(
+      resolveLocationChatMessageSenderNameForTesting(
+        senderId: 'user-role',
+        senderName: 'Pushed Name',
+        characters: characters,
+      ),
+      'Pushed Name',
     );
   });
 
-  test('source avatar wins over local and existing avatar fallbacks', () {
+  test('matched character avatar resolves its image resource object', () {
+    const xlUrl = 'https://example.test/character_800_600.webp';
+    const smUrl = 'https://example.test/character_400_300.webp';
+    const characters = <Map<String, dynamic>>[
+      {
+        'char_id': 'char-role',
+        'avatar': {
+          'sm_url': smUrl,
+          'xl_url': xlUrl,
+          'object_key': 'uploads/character_800_600.webp',
+        },
+      },
+    ];
+
     expect(
       resolveLocationChatMessageAvatarForTesting(
-        entityUserAvatar: entityAvatar,
-        isMine: true,
-        localSelfAvatar: localAvatar,
-        fallback: fallbackAvatar,
+        senderId: 'char-role',
+        characters: characters,
       ),
-      entityAvatar,
+      xlUrl,
+    );
+    expect(
+      resolveLocationChatMessageAvatarForTesting(
+        senderId: 'missing-role',
+        characters: characters,
+      ),
+      isEmpty,
     );
   });
 

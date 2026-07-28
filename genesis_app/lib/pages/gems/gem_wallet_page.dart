@@ -144,10 +144,6 @@ class _GemWalletPageState extends State<GemWalletPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshAll(silent: _hasPageData));
-      final billingService = _billingService;
-      if (billingService != null) {
-        unawaited(billingService.recover(BillingRecoverySource.foreground));
-      }
     }
   }
 
@@ -510,9 +506,6 @@ class _GemWalletPageState extends State<GemWalletPage>
         unawaited(_refreshTasks(silent: true));
         return;
       case BillingUiEventKind.accepted:
-        // Accepted is an internal settlement state. Keep the user-facing
-        // dialog in Processing until a definitive success event arrives.
-        return;
       case BillingUiEventKind.failure:
       case BillingUiEventKind.pending:
       case BillingUiEventKind.deferred:
