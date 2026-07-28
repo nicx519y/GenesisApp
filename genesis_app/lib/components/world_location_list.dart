@@ -13,12 +13,10 @@ import 'world_point.dart';
 const String _locationDefaultImageAsset =
     'assets/images/map_default/location_default.webp';
 
+typedef WorldLocationNodeHeaderBuilder =
+    Widget? Function(BuildContext context, WorldPoint point, int level);
 typedef WorldLocationNodeFooterBuilder =
-    Widget? Function(
-      BuildContext context,
-      WorldMapLocationNode node,
-      int level,
-    );
+    Widget? Function(BuildContext context, WorldPoint point, int level);
 
 class WorldLocationList extends StatefulWidget {
   const WorldLocationList({
@@ -30,13 +28,11 @@ class WorldLocationList extends StatefulWidget {
     this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 12),
     this.recentChatLocationIds = const <String>{},
     this.onPointTap,
-    this.onNodeTap,
+    this.onNodeHeaderTap,
+    this.nodeHeaderBuilder,
     this.nodeFooterBuilder,
-    this.hideRootNodeHeaders = false,
-    this.rootNodeFontSize = 16,
-    this.leafNodeFontWeight = FontWeight.w400,
-    this.leafNodeLineHeight = 1.2,
-    this.leafMetadataSpacing = 8,
+    this.header,
+    this.footer,
   });
 
   final List<WorldPoint> points;
@@ -46,13 +42,11 @@ class WorldLocationList extends StatefulWidget {
   final EdgeInsetsGeometry padding;
   final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint>? onPointTap;
-  final ValueChanged<WorldMapLocationNode>? onNodeTap;
+  final ValueChanged<WorldPoint>? onNodeHeaderTap;
+  final WorldLocationNodeHeaderBuilder? nodeHeaderBuilder;
   final WorldLocationNodeFooterBuilder? nodeFooterBuilder;
-  final bool hideRootNodeHeaders;
-  final double rootNodeFontSize;
-  final FontWeight leafNodeFontWeight;
-  final double? leafNodeLineHeight;
-  final double leafMetadataSpacing;
+  final Widget? header;
+  final Widget? footer;
 
   @override
   State<WorldLocationList> createState() => _WorldLocationListState();
@@ -173,9 +167,14 @@ class _WorldLocationListState extends State<WorldLocationList> {
                     )
                   : const NeverScrollableScrollPhysics()),
           padding: widget.padding,
-          children: widget.locationNodes.isNotEmpty
-              ? _buildNodeRows(widget.locationNodes)
-              : _buildFlatPointRows(widget.points),
+          children: [
+            if (widget.header != null) widget.header!,
+            if (widget.locationNodes.isNotEmpty)
+              ..._buildNodeRows(widget.locationNodes)
+            else
+              ..._buildFlatPointRows(widget.points),
+            if (widget.footer != null) widget.footer!,
+          ],
         ),
       ),
     );
@@ -186,6 +185,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
       for (var i = 0; i < points.length; i++) ...[
         _PointListItem(
           point: points[i],
+          level: points[i].depth,
           showRecentChatIcon: _pointMatchesLocationIds(
             points[i],
             widget.recentChatLocationIds,
@@ -207,22 +207,10 @@ class _WorldLocationListState extends State<WorldLocationList> {
   ) {
     final rows = <Widget>[];
     for (final node in nodes) {
-      final hasChildren = node.children.isNotEmpty;
       final hideSyntheticRootHeader =
-          node.point.name.trim().isEmpty && hasChildren;
-      final hideConfiguredRootHeader =
-          widget.hideRootNodeHeaders && level == 0 && hasChildren;
-      if (hideSyntheticRootHeader || hideConfiguredRootHeader) {
-        rows.addAll(
-          _buildNodeRowsAtLevel(
-            node.children,
-            hideConfiguredRootHeader ? level + 1 : level,
-          ),
-        );
-        final footer = widget.nodeFooterBuilder?.call(context, node, level);
-        if (footer != null) {
-          rows.add(footer);
-        }
+          node.point.name.trim().isEmpty && node.children.isNotEmpty;
+      if (hideSyntheticRootHeader) {
+        rows.addAll(_buildNodeRowsAtLevel(node.children, level));
         continue;
       }
 
@@ -235,37 +223,38 @@ class _WorldLocationListState extends State<WorldLocationList> {
               node,
               widget.recentChatLocationIds,
             ),
+            level: level,
             indent: level * 15.0,
-            nameFontWeight: widget.leafNodeFontWeight,
-            nameLineHeight: widget.leafNodeLineHeight,
-            metadataSpacing: widget.leafMetadataSpacing,
-            onTap: widget.onNodeTap == null
-                ? widget.onPointTap
-                : (_) => widget.onNodeTap!(node),
+            onTap: widget.onPointTap,
           ),
         );
         continue;
       }
 
+      final customHeader = widget.nodeHeaderBuilder?.call(
+        context,
+        node.point,
+        level,
+      );
       rows.add(
-        _NodeHeader(
-          point: node.point,
-          level: level,
-          fontSize: level == 0 ? widget.rootNodeFontSize : 14,
-          showRecentChatIcon: _nodeMatchesLocationIds(
-            node,
-            widget.recentChatLocationIds,
-          ),
-          onTap: widget.onNodeTap == null
-              ? null
-              : () => widget.onNodeTap!(node),
-        ),
+        customHeader ??
+            _NodeHeader(
+              point: node.point,
+              level: level,
+              showRecentChatIcon: _nodeMatchesLocationIds(
+                node,
+                widget.recentChatLocationIds,
+              ),
+              onTap: widget.onNodeHeaderTap,
+            ),
       );
       rows.addAll(_buildNodeRowsAtLevel(node.children, level + 1));
-      final footer = widget.nodeFooterBuilder?.call(context, node, level);
-      if (footer != null) {
-        rows.add(footer);
-      }
+      final customFooter = widget.nodeFooterBuilder?.call(
+        context,
+        node.point,
+        level,
+      );
+      if (customFooter != null) rows.add(customFooter);
     }
     return rows;
   }
@@ -395,11 +384,13 @@ class _WorldLocationListState extends State<WorldLocationList> {
 class _PointListItem extends StatelessWidget {
   const _PointListItem({
     required this.point,
+    required this.level,
     required this.showRecentChatIcon,
     required this.onTap,
   });
 
   final WorldPoint point;
+  final int level;
   final bool showRecentChatIcon;
   final ValueChanged<WorldPoint>? onTap;
 
@@ -432,11 +423,7 @@ class _PointListItem extends StatelessWidget {
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
+                          style: _locationNameStyle(level),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -447,7 +434,7 @@ class _PointListItem extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: level >= 2 ? 8 : 4),
                   if (point.users.isNotEmpty)
                     _PointCharacterGroups(users: point.users),
                   if (description.isNotEmpty) ...[
@@ -468,21 +455,19 @@ class _NodeHeader extends StatelessWidget {
   const _NodeHeader({
     required this.point,
     required this.level,
-    required this.fontSize,
     required this.showRecentChatIcon,
     required this.onTap,
   });
 
   final WorldPoint point;
   final int level;
-  final double fontSize;
   final bool showRecentChatIcon;
-  final VoidCallback? onTap;
+  final ValueChanged<WorldPoint>? onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: onTap == null ? null : () => onTap!(point),
       child: Padding(
         padding: EdgeInsets.fromLTRB(level * 15.0, 5, 0, 5),
         child: Row(
@@ -491,12 +476,7 @@ class _NodeHeader extends StatelessWidget {
               fit: FlexFit.loose,
               child: Text(
                 '- ${point.name}',
-                style: TextStyle(
-                  fontSize: fontSize,
-                  height: 1.2,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
+                style: _locationNameStyle(level),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -517,20 +497,16 @@ class _LocationCard extends StatelessWidget {
     required this.point,
     required this.targetPoint,
     required this.showRecentChatIcon,
+    required this.level,
     required this.indent,
-    required this.nameFontWeight,
-    required this.nameLineHeight,
-    required this.metadataSpacing,
     required this.onTap,
   });
 
   final WorldPoint point;
   final WorldPoint targetPoint;
   final bool showRecentChatIcon;
+  final int level;
   final double indent;
-  final FontWeight nameFontWeight;
-  final double? nameLineHeight;
-  final double metadataSpacing;
   final ValueChanged<WorldPoint>? onTap;
 
   @override
@@ -561,12 +537,7 @@ class _LocationCard extends StatelessWidget {
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: nameFontWeight,
-                            height: nameLineHeight,
-                            color: Colors.black,
-                          ),
+                          style: _locationNameStyle(level),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -577,7 +548,7 @@ class _LocationCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  SizedBox(height: metadataSpacing),
+                  SizedBox(height: level >= 2 ? 8 : 4),
                   if (point.users.isNotEmpty)
                     _PointCharacterGroups(users: point.users),
                   if (description.isNotEmpty) ...[
@@ -592,6 +563,22 @@ class _LocationCard extends StatelessWidget {
       ),
     );
   }
+}
+
+TextStyle _locationNameStyle(int level) {
+  if (level <= 0) {
+    return const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: Colors.black,
+    );
+  }
+  return TextStyle(
+    fontSize: 14,
+    height: 1.2,
+    fontWeight: level == 1 ? FontWeight.w600 : FontWeight.w400,
+    color: Colors.black,
+  );
 }
 
 bool _pointMatchesLocationIds(WorldPoint point, Set<String> locationIds) {
