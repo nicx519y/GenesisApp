@@ -186,9 +186,6 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
         _showPurchaseSuccess(event);
         return;
       case BillingUiEventKind.accepted:
-        // Accepted is an internal settlement state. Keep the user-facing
-        // dialog in Processing until a definitive success event arrives.
-        return;
       case BillingUiEventKind.failure:
       case BillingUiEventKind.pending:
       case BillingUiEventKind.deferred:

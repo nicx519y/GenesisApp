@@ -80,12 +80,15 @@ void main() {
       },
       readUid: () async => 'u_user',
     );
+    final billingService = _FakeBillingService();
     addTearDown(walletStore.dispose);
+    addTearDown(billingService.dispose);
 
     await tester.pumpWidget(
       MaterialApp(
         home: GemWalletPage(
           walletStore: walletStore,
+          billingService: billingService,
           productsLoader: (_) async {
             productsLoadCount += 1;
             return _products();
@@ -229,6 +232,7 @@ void main() {
     expect(productsLoadCount, 2);
     expect(tasksLoadCount, 2);
     expect(walletLoadCount, 2);
+    expect(billingService.recoverSources, isEmpty);
     expect(find.text('520'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -260));
@@ -818,7 +822,9 @@ void main() {
     expect(find.text('Go Chat Now.'), findsNothing);
   });
 
-  testWidgets('billing accepted keeps the dialog processing', (tester) async {
+  testWidgets('billing accepted closes processing and shows its message', (
+    tester,
+  ) async {
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
@@ -853,16 +859,9 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.textContaining('Purchasing Gems'), findsNothing);
 
-    await tester.tap(find.text('OK'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text(
-        'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
-      ),
-      findsNothing,
-    );
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('task button always displays backend action text', (
@@ -1565,6 +1564,7 @@ class _FakeBillingService implements BillingService {
   final List<GemProduct> purchasedProducts = <GemProduct>[];
   final List<BillingPurchaseSource> purchaseSources = <BillingPurchaseSource>[];
   final List<String> purchaseTrackIds = <String>[];
+  final List<BillingRecoverySource> recoverSources = <BillingRecoverySource>[];
   Completer<void>? purchaseCompleter;
 
   @override
@@ -1591,7 +1591,9 @@ class _FakeBillingService implements BillingService {
   }
 
   @override
-  Future<void> recover(BillingRecoverySource source) async {}
+  Future<void> recover(BillingRecoverySource source) async {
+    recoverSources.add(source);
+  }
 
   @override
   void resetForSession() {}

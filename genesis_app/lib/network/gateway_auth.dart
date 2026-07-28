@@ -38,12 +38,9 @@ class GatewayRequestInterceptor {
     var timeRetried = false;
     var nonceRetried = false;
     var registrationRetried = false;
-    var forceRegister = false;
 
     while (true) {
-      final context = await _coordinator.signingContext(
-        forceRegister: forceRegister,
-      );
+      final context = await _coordinator.signingContext();
       TransportRequest signed;
       final signStopwatch = Stopwatch()..start();
       try {
@@ -74,7 +71,6 @@ class GatewayRequestInterceptor {
         );
         if (!registrationRetried && isGatewayLocalSignatureError(error)) {
           registrationRetried = true;
-          forceRegister = true;
           _gatewayTelemetry(
             'gateway.request.retry',
             phase: 'request_retry',
@@ -84,7 +80,7 @@ class GatewayRequestInterceptor {
             },
             level: GenesisTelemetryLevel.warning,
           );
-          await _coordinator.clearRegistration();
+          await _coordinator.recoverRegistration(failedKeyId: context.keyId);
           continue;
         }
         rethrow;
@@ -93,7 +89,6 @@ class GatewayRequestInterceptor {
       final errNo = gatewayErrNo(response.body);
       if (errNo == 20502 && !timeRetried) {
         timeRetried = true;
-        forceRegister = false;
         _gatewayTelemetry(
           'gateway.request.retry',
           phase: 'request_retry',
@@ -109,7 +104,6 @@ class GatewayRequestInterceptor {
       }
       if (errNo == 20503 && !nonceRetried) {
         nonceRetried = true;
-        forceRegister = false;
         _gatewayTelemetry(
           'gateway.request.retry',
           phase: 'request_retry',
@@ -124,7 +118,6 @@ class GatewayRequestInterceptor {
       }
       if (isGatewayVerificationError(errNo) && !registrationRetried) {
         registrationRetried = true;
-        forceRegister = true;
         _gatewayTelemetry(
           'gateway.request.retry',
           phase: 'request_retry',
@@ -135,7 +128,7 @@ class GatewayRequestInterceptor {
           },
           level: GenesisTelemetryLevel.warning,
         );
-        await _coordinator.clearRegistration();
+        await _coordinator.recoverRegistration(failedKeyId: context.keyId);
         continue;
       }
       return response;
@@ -254,11 +247,8 @@ GatewayHandshakeHeaderSigner gatewayHandshakeHeaderSigner({
 }) {
   return (uri, headers) async {
     var registrationRetried = false;
-    var forceRegister = false;
     while (true) {
-      final context = await coordinator.signingContext(
-        forceRegister: forceRegister,
-      );
+      final context = await coordinator.signingContext();
       final request = TransportRequest(
         method: 'GET',
         uri: uri,
@@ -295,7 +285,6 @@ GatewayHandshakeHeaderSigner gatewayHandshakeHeaderSigner({
         );
         if (!registrationRetried && isGatewayLocalSignatureError(error)) {
           registrationRetried = true;
-          forceRegister = true;
           _gatewayTelemetry(
             'gateway.request.retry',
             phase: 'request_retry',
@@ -305,7 +294,7 @@ GatewayHandshakeHeaderSigner gatewayHandshakeHeaderSigner({
             },
             level: GenesisTelemetryLevel.warning,
           );
-          await coordinator.clearRegistration();
+          await coordinator.recoverRegistration(failedKeyId: context.keyId);
           continue;
         }
         rethrow;
@@ -387,7 +376,10 @@ class GatewayAuthCoordinator {
        _deviceIdService = deviceIdService,
        _keyStore = keyStore,
        _registrationStore =
-           registrationStore ?? SharedPreferencesGatewayRegistrationStore(),
+           registrationStore ??
+           SharedPreferencesGatewayRegistrationStore(
+             namespace: gatewayRegistrationNamespace(gatewayBaseUrl),
+           ),
        _gatewayBaseUri = Uri.parse(gatewayBaseUrl),
        _transport = transport ?? IoHttpTransport(),
        _client = ApiClient(
@@ -410,12 +402,13 @@ class GatewayAuthCoordinator {
   final ApiClient _client;
   int? _serverTimeOffsetMs;
   Future<void>? _prepareFuture;
+  Future<void>? _registrationRecoveryFuture;
 
   Future<void> prepare({bool forceRegister = false}) async {
     final stopwatch = Stopwatch()..start();
     if (forceRegister) {
       try {
-        await _runPrepare(forceRegister: true);
+        await _forceRegisterSingleFlight();
         stopwatch.stop();
         _gatewayTelemetry(
           'gateway.prepare',
@@ -504,6 +497,41 @@ class GatewayAuthCoordinator {
       serverTimeOffsetMs: offset,
       keyStore: _keyStore,
     );
+  }
+
+  Future<void> recoverRegistration({required String failedKeyId}) async {
+    final normalizedFailedKeyId = failedKeyId.trim();
+    final inFlight = _registrationRecoveryFuture;
+    if (inFlight != null) {
+      await inFlight;
+      return;
+    }
+
+    final currentKeyId = (await _registrationStore.readKeyId())?.trim() ?? '';
+    if (currentKeyId.isNotEmpty &&
+        normalizedFailedKeyId.isNotEmpty &&
+        currentKeyId != normalizedFailedKeyId) {
+      return;
+    }
+
+    await _forceRegisterSingleFlight();
+  }
+
+  Future<void> _forceRegisterSingleFlight() async {
+    final inFlight = _registrationRecoveryFuture;
+    if (inFlight != null) {
+      await inFlight;
+      return;
+    }
+    final future = _runPrepare(forceRegister: true);
+    _registrationRecoveryFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_registrationRecoveryFuture, future)) {
+        _registrationRecoveryFuture = null;
+      }
+    }
   }
 
   Future<void> _runPrepare({bool forceRegister = false}) async {
@@ -826,10 +854,13 @@ abstract interface class GatewayDeviceKeyStore {
 
 Future<void> clearGatewayAuthLocalState({
   GatewayDeviceKeyStore keyStore = const NativeGatewayDeviceKeyStore(),
-  GatewayRegistrationStore registrationStore =
-      const SharedPreferencesGatewayRegistrationStore(),
+  GatewayRegistrationStore? registrationStore,
 }) async {
-  await registrationStore.clearKeyId();
+  if (registrationStore == null) {
+    await SharedPreferencesGatewayRegistrationStore.clearAllKeyIds();
+  } else {
+    await registrationStore.clearKeyId();
+  }
   await keyStore.reset();
 }
 
@@ -881,11 +912,34 @@ abstract interface class GatewayRegistrationStore {
   Future<void> clearKeyId();
 }
 
+String gatewayRegistrationNamespace(String gatewayBaseUrl) {
+  final uri = Uri.tryParse(gatewayBaseUrl.trim());
+  if (uri == null || uri.host.trim().isEmpty) {
+    return gatewayBaseUrl.trim().toLowerCase();
+  }
+  final scheme = uri.scheme.trim().toLowerCase();
+  final host = uri.host.trim().toLowerCase();
+  final defaultPort =
+      (scheme == 'https' && uri.port == 443) ||
+      (scheme == 'http' && uri.port == 80);
+  final port = defaultPort ? '' : ':${uri.port}';
+  return '$scheme://$host$port';
+}
+
 class SharedPreferencesGatewayRegistrationStore
     implements GatewayRegistrationStore {
-  const SharedPreferencesGatewayRegistrationStore();
+  const SharedPreferencesGatewayRegistrationStore({this.namespace = ''});
 
-  static const _keyIdKey = 'gateway_key_id_v1';
+  static const _legacyKeyIdKey = 'gateway_key_id_v1';
+  static const _scopedKeyIdPrefix = 'gateway_key_id_v2_';
+  final String namespace;
+
+  String get _keyIdKey {
+    final normalized = namespace.trim().toLowerCase();
+    if (normalized.isEmpty) return _legacyKeyIdKey;
+    final digest = sha256.convert(utf8.encode(normalized)).toString();
+    return '$_scopedKeyIdPrefix${digest.substring(0, 16)}';
+  }
 
   @override
   Future<String?> readKeyId() async {
@@ -904,5 +958,18 @@ class SharedPreferencesGatewayRegistrationStore
   Future<void> clearKeyId() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyIdKey);
+  }
+
+  static Future<void> clearAllKeyIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs
+        .getKeys()
+        .where(
+          (key) => key == _legacyKeyIdKey || key.startsWith(_scopedKeyIdPrefix),
+        )
+        .toList(growable: false);
+    for (final key in keys) {
+      await prefs.remove(key);
+    }
   }
 }

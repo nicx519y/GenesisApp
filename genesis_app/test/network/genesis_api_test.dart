@@ -2446,6 +2446,54 @@ void main() {
     },
   );
 
+  test('backend login waits for gateway preparation', () async {
+    final preparation = Completer<void>();
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        expect(request.uri.path, endsWith('/v1/user/oauth/google'));
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":0,"err_msg":"succ","data":{"token":"backend-token","user":{"uid":"u_2","name":"User"}}}',
+        );
+      },
+    );
+    final sessionStore = MemoryUserSessionStore();
+    final identityAuth = _FakeIdentityAuthService();
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: identityAuth,
+    );
+    final coordinator = GenesisBackendAuthCoordinator(
+      api: api,
+      identityAuth: identityAuth,
+      sessionStore: sessionStore,
+      prepareBackendRequest: () => preparation.future,
+    );
+
+    final login = coordinator.loginWithIdentity(
+      const AuthSession(
+        provider: IdentityProvider.google,
+        providerIdToken: 'google-token',
+        displayName: 'User',
+        photoUrl: '',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(apiTransport.requests, isEmpty);
+
+    preparation.complete();
+    final user = await login;
+
+    expect(user.uid, 'u_2');
+    expect(apiTransport.requests, hasLength(1));
+  });
+
   test(
     'backend signOut posts logout then clears identity and local session',
     () async {

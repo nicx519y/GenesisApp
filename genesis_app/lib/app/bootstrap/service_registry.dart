@@ -209,6 +209,7 @@ class ServiceRegistry {
       api: api,
       identityAuth: identityAuth,
       sessionStore: sessionStore,
+      prepareBackendRequest: gatewayAuthCoordinator?.prepare,
     );
     final gemWallet = GemWalletStore(
       loadWallet: api.v1.gem.wallet,

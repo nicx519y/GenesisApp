@@ -73,7 +73,9 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
 String? _purchaseFailureReason(Map<String, Object?> data) {
   final reason = data['reason'];
   if (reason is! String || reason.isEmpty) return null;
-  if (reason != 'purchase_callback_error') return reason;
+  if (reason != 'purchase_callback_error' && reason != 'query_failed') {
+    return reason;
+  }
 
   final errorCode = '${data['error_code'] ?? ''}'
       .trim()

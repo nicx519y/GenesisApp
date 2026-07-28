@@ -28,8 +28,12 @@ class SqfliteBillingPendingPurchaseStore
     final root = await getDatabasesPath();
     final database = await openDatabase(
       '$root/genesis_billing.db',
-      version: 1,
+      version: 2,
       onCreate: (db, _) => db.execute(_createTableSql),
+      onUpgrade: (db, _, _) async {
+        await db.execute('DROP TABLE IF EXISTS billing_pending_purchases');
+        await db.execute(_createTableSql);
+      },
     );
     _database = database;
     return database;

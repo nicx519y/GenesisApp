@@ -107,7 +107,7 @@ void main() {
     });
   });
 
-  test('failed collect projection keeps reason as object3 text', () async {
+  test('query failure collect projection appends error code', () async {
     final sink = _CapturingTelemetrySink();
     GenesisTelemetry.setSinkForTesting(sink);
 
@@ -128,9 +128,32 @@ void main() {
       'action': 'purchase_failed',
       'object1': 'gem_pack_500',
       'object2': 'attempt-1',
-      'object3': 'query_failed',
+      'object3': 'query_failed[product_not_found]',
     });
   });
+
+  test(
+    'query failure collect projection uses unknown without a code',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'reason': 'query_failed',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        sink.events.single.collectPayload?['object3'],
+        'query_failed[unknown]',
+      );
+    },
+  );
 
   test(
     'callback error collect projection appends normalized error code',

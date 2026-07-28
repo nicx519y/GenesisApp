@@ -53,13 +53,7 @@ extension BillingPurchaseSourceValue on BillingPurchaseSource {
   };
 }
 
-enum BillingPendingPurchaseStatus {
-  received,
-  reported,
-
-  // Kept for records written by versions where the client owned consumption.
-  granted,
-}
+enum BillingPendingPurchaseStatus { pending, received, accepted }
 
 @immutable
 class BillingStoreProduct {
@@ -109,6 +103,7 @@ class BillingPurchase {
     required this.originalJson,
     required this.purchaseTime,
     required this.status,
+    this.obfuscatedAccountId,
     this.errorCode,
     this.errorMessage,
   });
@@ -121,6 +116,7 @@ class BillingPurchase {
   final String originalJson;
   final String purchaseTime;
   final BillingPurchaseStatus status;
+  final String? obfuscatedAccountId;
   final String? errorCode;
   final String? errorMessage;
 }
