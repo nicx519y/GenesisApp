@@ -17,12 +17,16 @@ class _OpeningDialogueItem {
     required this.type,
     this.character,
     String initialContent = '',
-  }) : controller = TextEditingController(text: initialContent);
+  }) : controller = TextEditingController(text: initialContent),
+       editorKey = GlobalKey(debugLabel: '$id-editor'),
+       deleteKey = GlobalKey(debugLabel: '$id-delete');
 
   final String id;
   final _OpeningDialogueType type;
   final CharacterDraft? character;
   final TextEditingController controller;
+  final GlobalKey editorKey;
+  final GlobalKey deleteKey;
 
   bool get hasContent => controller.text.trim().isNotEmpty;
 

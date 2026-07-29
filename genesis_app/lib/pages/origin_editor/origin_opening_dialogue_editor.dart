@@ -4,18 +4,24 @@ class _OpeningDialogueEditor extends StatelessWidget {
   const _OpeningDialogueEditor({
     required this.items,
     required this.characters,
+    required this.editingItemId,
     required this.onAddNarrator,
     required this.onAddCharacter,
     required this.onAddImage,
+    required this.onBeginEdit,
+    required this.onFinishEdit,
     required this.onDelete,
     required this.onChanged,
   });
 
   final List<_OpeningDialogueItem> items;
   final List<CharacterDraft> characters;
+  final String? editingItemId;
   final VoidCallback onAddNarrator;
   final ValueChanged<CharacterDraft> onAddCharacter;
   final VoidCallback onAddImage;
+  final ValueChanged<_OpeningDialogueItem> onBeginEdit;
+  final ValueChanged<_OpeningDialogueItem> onFinishEdit;
   final ValueChanged<_OpeningDialogueItem> onDelete;
   final VoidCallback onChanged;
 
@@ -39,6 +45,9 @@ class _OpeningDialogueEditor extends StatelessWidget {
                   _OpeningDialogueContentEditor(
                     item: items[index],
                     style: style,
+                    isEditing: editingItemId == items[index].id,
+                    onBeginEdit: () => onBeginEdit(items[index]),
+                    onFinishEdit: () => onFinishEdit(items[index]),
                     onDelete: () => onDelete(items[index]),
                     onChanged: onChanged,
                     focusNode: focusNode,
@@ -116,10 +125,135 @@ class _OpeningDialogueEditor extends StatelessWidget {
   }
 }
 
+class _OpeningDialogueOutsideTapBarrier extends SingleChildRenderObjectWidget {
+  const _OpeningDialogueOutsideTapBarrier({
+    required this.targetKey,
+    required this.deleteKey,
+    required this.onTapOutside,
+  }) : super(
+         key: const ValueKey<String>('opening-dialogue-edit-barrier'),
+         child: const SizedBox.expand(),
+       );
+
+  final GlobalKey targetKey;
+  final GlobalKey deleteKey;
+  final VoidCallback onTapOutside;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderOpeningDialogueOutsideTapBarrier(
+      targetKey: targetKey,
+      deleteKey: deleteKey,
+      onTapOutside: onTapOutside,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderOpeningDialogueOutsideTapBarrier renderObject,
+  ) {
+    renderObject
+      ..targetKey = targetKey
+      ..deleteKey = deleteKey
+      ..onTapOutside = onTapOutside;
+  }
+}
+
+class _RenderOpeningDialogueOutsideTapBarrier extends RenderProxyBox {
+  _RenderOpeningDialogueOutsideTapBarrier({
+    required GlobalKey targetKey,
+    required GlobalKey deleteKey,
+    required VoidCallback onTapOutside,
+  }) : _targetKey = targetKey,
+       _deleteKey = deleteKey,
+       _onTapOutside = onTapOutside;
+
+  static const double _backGesturePassThroughWidth = 24;
+  static const double _tapSlop = 18;
+
+  GlobalKey _targetKey;
+  GlobalKey _deleteKey;
+  VoidCallback _onTapOutside;
+  Offset? _pointerDownPosition;
+  bool _pointerMoved = false;
+
+  set targetKey(GlobalKey value) {
+    if (_targetKey == value) return;
+    _targetKey = value;
+    markNeedsPaint();
+  }
+
+  set deleteKey(GlobalKey value) {
+    if (_deleteKey == value) return;
+    _deleteKey = value;
+    markNeedsPaint();
+  }
+
+  set onTapOutside(VoidCallback value) {
+    _onTapOutside = value;
+  }
+
+  bool _passesThrough(Offset position) {
+    if (position.dx <= _backGesturePassThroughWidth) return true;
+    final globalPosition = localToGlobal(position);
+    for (final key in <GlobalKey>[_targetKey, _deleteKey]) {
+      final targetRenderObject = key.currentContext?.findRenderObject();
+      if (targetRenderObject is! RenderBox || !targetRenderObject.hasSize) {
+        continue;
+      }
+      final targetTopLeft = targetRenderObject.localToGlobal(Offset.zero);
+      final targetRect = targetTopLeft & targetRenderObject.size;
+      if (targetRect.contains(globalPosition)) return true;
+    }
+    return false;
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!size.contains(position) || _passesThrough(position)) return false;
+    result.add(BoxHitTestEntry(this, position));
+    return true;
+  }
+
+  @override
+  void handleEvent(PointerEvent event, HitTestEntry entry) {
+    if (event is PointerDownEvent) {
+      _pointerDownPosition = event.position;
+      _pointerMoved = false;
+      return;
+    }
+    if (event is PointerMoveEvent) {
+      final pointerDownPosition = _pointerDownPosition;
+      if (pointerDownPosition != null &&
+          (event.position - pointerDownPosition).distance > _tapSlop) {
+        _pointerMoved = true;
+      }
+      return;
+    }
+    if (event is PointerUpEvent) {
+      final shouldCancel = !_pointerMoved;
+      _pointerDownPosition = null;
+      _pointerMoved = false;
+      if (shouldCancel) {
+        _onTapOutside();
+      }
+      return;
+    }
+    if (event is PointerCancelEvent) {
+      _pointerDownPosition = null;
+      _pointerMoved = false;
+    }
+  }
+}
+
 class _OpeningDialogueContentEditor extends StatelessWidget {
   const _OpeningDialogueContentEditor({
     required this.item,
     required this.style,
+    required this.isEditing,
+    required this.onBeginEdit,
+    required this.onFinishEdit,
     required this.onDelete,
     required this.onChanged,
     required this.focusNode,
@@ -127,6 +261,9 @@ class _OpeningDialogueContentEditor extends StatelessWidget {
 
   final _OpeningDialogueItem item;
   final ChatUiStyleConfig style;
+  final bool isEditing;
+  final VoidCallback onBeginEdit;
+  final VoidCallback onFinishEdit;
   final VoidCallback onDelete;
   final VoidCallback onChanged;
   final FocusNode focusNode;
@@ -137,6 +274,9 @@ class _OpeningDialogueContentEditor extends StatelessWidget {
       _OpeningDialogueType.narrator => _OpeningNarratorEditor(
         item: item,
         style: style,
+        isEditing: isEditing,
+        onBeginEdit: onBeginEdit,
+        onFinishEdit: onFinishEdit,
         onDelete: onDelete,
         onChanged: onChanged,
         focusNode: focusNode,
@@ -144,6 +284,9 @@ class _OpeningDialogueContentEditor extends StatelessWidget {
       _OpeningDialogueType.character => _OpeningCharacterEditor(
         item: item,
         style: style,
+        isEditing: isEditing,
+        onBeginEdit: onBeginEdit,
+        onFinishEdit: onFinishEdit,
         onDelete: onDelete,
         onChanged: onChanged,
         focusNode: focusNode,
@@ -162,6 +305,9 @@ class _OpeningNarratorEditor extends StatelessWidget {
   const _OpeningNarratorEditor({
     required this.item,
     required this.style,
+    required this.isEditing,
+    required this.onBeginEdit,
+    required this.onFinishEdit,
     required this.onDelete,
     required this.onChanged,
     required this.focusNode,
@@ -169,6 +315,9 @@ class _OpeningNarratorEditor extends StatelessWidget {
 
   final _OpeningDialogueItem item;
   final ChatUiStyleConfig style;
+  final bool isEditing;
+  final VoidCallback onBeginEdit;
+  final VoidCallback onFinishEdit;
   final VoidCallback onDelete;
   final VoidCallback onChanged;
   final FocusNode focusNode;
@@ -209,30 +358,42 @@ class _OpeningNarratorEditor extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: _OpeningDialogueTextField(
-                    key: ValueKey<String>(
-                      '${item.id}-keyboard-safe-text-field',
+                  child: KeyedSubtree(
+                    key: item.editorKey,
+                    child: _OpeningDialogueTextField(
+                      key: ValueKey<String>(
+                        '${item.id}-keyboard-safe-text-field',
+                      ),
+                      item: item,
+                      hintText: 'Enter narrator dialogue',
+                      style: style.systemMessageTextStyle,
+                      insertTextColor: const Color(0xFFF4F4F6),
+                      insertBackgroundColor: textColor.withValues(alpha: 0.08),
+                      isEditing: isEditing,
+                      onBeginEdit: onBeginEdit,
+                      onFinishEdit: onFinishEdit,
+                      onChanged: onChanged,
+                      focusNode: focusNode,
                     ),
-                    item: item,
-                    hintText: 'Enter narrator dialogue',
-                    style: style.systemMessageTextStyle,
-                    onChanged: onChanged,
-                    focusNode: focusNode,
                   ),
                 ),
               ],
             ),
           ),
         ),
-        Positioned(
-          right: 0,
-          top: -8,
-          child: CreateFormDeleteButton(
-            buttonKey: ValueKey<String>('${item.id}-delete'),
-            decorationKey: ValueKey<String>('${item.id}-delete-container'),
-            onPressed: onDelete,
+        if (isEditing)
+          Positioned(
+            right: 0,
+            top: -8,
+            child: KeyedSubtree(
+              key: item.deleteKey,
+              child: CreateFormDeleteButton(
+                buttonKey: ValueKey<String>('${item.id}-delete'),
+                decorationKey: ValueKey<String>('${item.id}-delete-container'),
+                onPressed: onDelete,
+              ),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -242,6 +403,9 @@ class _OpeningCharacterEditor extends StatelessWidget {
   const _OpeningCharacterEditor({
     required this.item,
     required this.style,
+    required this.isEditing,
+    required this.onBeginEdit,
+    required this.onFinishEdit,
     required this.onDelete,
     required this.onChanged,
     required this.focusNode,
@@ -249,6 +413,9 @@ class _OpeningCharacterEditor extends StatelessWidget {
 
   final _OpeningDialogueItem item;
   final ChatUiStyleConfig style;
+  final bool isEditing;
+  final VoidCallback onBeginEdit;
+  final VoidCallback onFinishEdit;
   final VoidCallback onDelete;
   final VoidCallback onChanged;
   final FocusNode focusNode;
@@ -307,15 +474,23 @@ class _OpeningCharacterEditor extends StatelessWidget {
                         style.bubbleBorderRadius,
                       ),
                     ),
-                    child: _OpeningDialogueTextField(
-                      key: ValueKey<String>(
-                        '${item.id}-keyboard-safe-text-field',
+                    child: KeyedSubtree(
+                      key: item.editorKey,
+                      child: _OpeningDialogueTextField(
+                        key: ValueKey<String>(
+                          '${item.id}-keyboard-safe-text-field',
+                        ),
+                        item: item,
+                        hintText: 'Enter $name dialogue',
+                        style: style.bubbleTextStyle,
+                        insertTextColor: const Color(0xFF666666),
+                        insertBackgroundColor: const Color(0xFFF4F4F6),
+                        isEditing: isEditing,
+                        onBeginEdit: onBeginEdit,
+                        onFinishEdit: onFinishEdit,
+                        onChanged: onChanged,
+                        focusNode: focusNode,
                       ),
-                      item: item,
-                      hintText: 'Enter $name dialogue',
-                      style: style.bubbleTextStyle,
-                      onChanged: onChanged,
-                      focusNode: focusNode,
                     ),
                   ),
                 ],
@@ -324,15 +499,19 @@ class _OpeningCharacterEditor extends StatelessWidget {
             SizedBox(width: style.avatarSideSpacerWidth),
           ],
         ),
-        Positioned(
-          right: 0,
-          top: -8,
-          child: CreateFormDeleteButton(
-            buttonKey: ValueKey<String>('${item.id}-delete'),
-            decorationKey: ValueKey<String>('${item.id}-delete-container'),
-            onPressed: onDelete,
+        if (isEditing)
+          Positioned(
+            right: 0,
+            top: -8,
+            child: KeyedSubtree(
+              key: item.deleteKey,
+              child: CreateFormDeleteButton(
+                buttonKey: ValueKey<String>('${item.id}-delete'),
+                decorationKey: ValueKey<String>('${item.id}-delete-container'),
+                onPressed: onDelete,
+              ),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -344,6 +523,11 @@ class _OpeningDialogueTextField extends StatelessWidget {
     required this.item,
     required this.hintText,
     required this.style,
+    required this.insertTextColor,
+    required this.insertBackgroundColor,
+    required this.isEditing,
+    required this.onBeginEdit,
+    required this.onFinishEdit,
     required this.onChanged,
     required this.focusNode,
   });
@@ -351,34 +535,223 @@ class _OpeningDialogueTextField extends StatelessWidget {
   final _OpeningDialogueItem item;
   final String hintText;
   final TextStyle style;
+  final Color insertTextColor;
+  final Color insertBackgroundColor;
+  final bool isEditing;
+  final VoidCallback onBeginEdit;
+  final VoidCallback onFinishEdit;
   final VoidCallback onChanged;
   final FocusNode focusNode;
 
+  static const int _maxCharacterCount = 500;
+
+  void _beginEditing() {
+    if (isEditing) return;
+    onBeginEdit();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!focusNode.canRequestFocus) return;
+      focusNode.requestFocus();
+      item.controller.selection = TextSelection.collapsed(
+        offset: item.controller.text.length,
+      );
+    });
+  }
+
+  void _finishEditing() {
+    focusNode.unfocus();
+    onFinishEdit();
+  }
+
+  void _insertToken(String token, {int? caretOffset}) {
+    final value = item.controller.value;
+    final text = value.text;
+    final selection = value.selection;
+
+    int safeOffset(int offset) {
+      if (offset < 0 || offset > text.length) return text.length;
+      return offset;
+    }
+
+    final selectionStart = selection.isValid
+        ? safeOffset(selection.start)
+        : text.length;
+    final selectionEnd = selection.isValid
+        ? safeOffset(selection.end)
+        : text.length;
+    final replaceStart = selectionStart < selectionEnd
+        ? selectionStart
+        : selectionEnd;
+    final replaceEnd = selectionStart < selectionEnd
+        ? selectionEnd
+        : selectionStart;
+    final updatedText = text.replaceRange(replaceStart, replaceEnd, token);
+    if (updatedText.characters.length > _maxCharacterCount) {
+      focusNode.requestFocus();
+      return;
+    }
+    item.controller.value = TextEditingValue(
+      text: updatedText,
+      selection: TextSelection.collapsed(
+        offset: replaceStart + (caretOffset ?? token.length),
+      ),
+    );
+    focusNode.requestFocus();
+    onChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      key: ValueKey<String>('${item.id}-field'),
-      controller: item.controller,
-      focusNode: focusNode,
-      keyboardType: TextInputType.multiline,
-      textInputAction: TextInputAction.newline,
-      scrollPadding: const EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        kMinInteractiveDimension,
+    return ListenableBuilder(
+      listenable: Listenable.merge(<Listenable>[focusNode, item.controller]),
+      builder: (context, child) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            key: ValueKey<String>('${item.id}-field'),
+            controller: item.controller,
+            focusNode: focusNode,
+            readOnly: !isEditing,
+            showCursor: isEditing,
+            enableInteractiveSelection: isEditing,
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.newline,
+            scrollPadding: const EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              kMinInteractiveDimension,
+            ),
+            minLines: 3,
+            maxLines: null,
+            maxLength: _maxCharacterCount,
+            style: style,
+            onTap: _beginEditing,
+            onChanged: (_) => onChanged(),
+            decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              counterText: '',
+              contentPadding: EdgeInsets.zero,
+              hintText: hintText,
+              hintStyle: style.copyWith(
+                color: (style.color ?? createFormHint).withValues(alpha: 0.55),
+              ),
+            ),
+          ),
+          if (isEditing) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        key: ValueKey<String>('${item.id}-insert-actions'),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _OpeningDialogueInsertButton(
+                            buttonKey: ValueKey<String>(
+                              '${item.id}-insert-user',
+                            ),
+                            label: '{{user}}',
+                            textColor: insertTextColor,
+                            backgroundColor: insertBackgroundColor,
+                            onTap: () => _insertToken('{{user}}'),
+                          ),
+                          const SizedBox(width: 10),
+                          _OpeningDialogueInsertButton(
+                            buttonKey: ValueKey<String>(
+                              '${item.id}-insert-bold',
+                            ),
+                            label: '* *',
+                            textColor: insertTextColor,
+                            backgroundColor: insertBackgroundColor,
+                            onTap: () => _insertToken('**', caretOffset: 1),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${item.controller.text.characters.length}/'
+                  '$_maxCharacterCount',
+                  key: ValueKey<String>('${item.id}-character-count'),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: insertTextColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _InlineLocationSaveButton(
+                  key: ValueKey<String>('${item.id}-save-edit'),
+                  onPressed: _finishEditing,
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
-      minLines: 3,
-      maxLines: null,
-      style: style,
-      onChanged: (_) => onChanged(),
-      decoration: InputDecoration(
-        isDense: true,
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.zero,
-        hintText: hintText,
-        hintStyle: style.copyWith(
-          color: (style.color ?? createFormHint).withValues(alpha: 0.55),
+    );
+  }
+}
+
+class _OpeningDialogueInsertButton extends StatelessWidget {
+  const _OpeningDialogueInsertButton({
+    required this.buttonKey,
+    required this.label,
+    required this.textColor,
+    required this.backgroundColor,
+    required this.onTap,
+  });
+
+  final Key buttonKey;
+  final String label;
+  final Color textColor;
+  final Color backgroundColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelStyle = TextStyle(
+      color: textColor,
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      height: 1,
+    );
+    return Semantics(
+      button: true,
+      label: 'Insert $label',
+      child: GestureDetector(
+        key: buttonKey,
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              textAlign: TextAlign.center,
+              style: labelStyle,
+            ),
+          ),
         ),
       ),
     );
@@ -400,15 +773,14 @@ class _OpeningImageEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(
-            left: style.systemMessageMargin.left,
-            right: style.systemMessageMargin.right,
-          ),
-          child: LayoutBuilder(
+    return Padding(
+      padding: EdgeInsets.only(
+        left: style.systemMessageMargin.left,
+        right: style.systemMessageMargin.right,
+      ),
+      child: Stack(
+        children: [
+          LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth;
               return Align(
@@ -428,17 +800,17 @@ class _OpeningImageEditor extends StatelessWidget {
               );
             },
           ),
-        ),
-        Positioned(
-          right: 0,
-          top: -8,
-          child: CreateFormDeleteButton(
-            buttonKey: ValueKey<String>('${item.id}-delete'),
-            decorationKey: ValueKey<String>('${item.id}-delete-container'),
-            onPressed: onDelete,
+          Positioned(
+            right: 4,
+            top: 4,
+            child: CreateFormDeleteButton(
+              buttonKey: ValueKey<String>('${item.id}-delete'),
+              decorationKey: ValueKey<String>('${item.id}-delete-container'),
+              onPressed: onDelete,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

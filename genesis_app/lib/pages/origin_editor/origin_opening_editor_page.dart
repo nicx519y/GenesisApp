@@ -11,9 +11,13 @@ class OriginOpeningEditorPage extends StatefulWidget {
 }
 
 class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
+  static const int _maxDialogueItems = 10;
+
   List<_OpeningLocationOption> _options = const <_OpeningLocationOption>[];
   final List<_OpeningDialogueItem> _dialogueItems = <_OpeningDialogueItem>[];
   _OpeningLocationOption? _selectedOption;
+  String? _editingDialogueItemId;
+  String? _editingDialogueOriginalContent;
   int _nextDialogueItemId = 0;
   bool _loading = true;
   bool _isSaving = false;
@@ -138,6 +142,10 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     _OpeningDialogueType type, {
     CharacterDraft? character,
   }) {
+    if (_dialogueItems.length >= _maxDialogueItems) {
+      showGenesisToast(context, 'You can add up to 10 dialogue items.');
+      return;
+    }
     setState(() {
       _dialogueItems.add(
         _OpeningDialogueItem(
@@ -150,6 +158,8 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   }
 
   void _clearDialogueItems() {
+    _editingDialogueItemId = null;
+    _editingDialogueOriginalContent = null;
     for (final item in _dialogueItems) {
       item.dispose();
     }
@@ -159,8 +169,56 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   void _removeDialogueItem(_OpeningDialogueItem item) {
     setState(() {
       if (_dialogueItems.remove(item)) {
+        if (_editingDialogueItemId == item.id) {
+          _editingDialogueItemId = null;
+          _editingDialogueOriginalContent = null;
+        }
         item.dispose();
       }
+    });
+  }
+
+  void _beginDialogueItemEdit(_OpeningDialogueItem item) {
+    if (item.type == _OpeningDialogueType.image ||
+        _editingDialogueItemId == item.id) {
+      return;
+    }
+    setState(() {
+      _editingDialogueItemId = item.id;
+      _editingDialogueOriginalContent = item.controller.text;
+    });
+  }
+
+  void _finishDialogueItemEdit(_OpeningDialogueItem item) {
+    if (_editingDialogueItemId != item.id) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _editingDialogueItemId = null;
+      _editingDialogueOriginalContent = null;
+    });
+  }
+
+  void _cancelDialogueItemEdit() {
+    final editingId = _editingDialogueItemId;
+    if (editingId == null) return;
+    _OpeningDialogueItem? editingItem;
+    for (final item in _dialogueItems) {
+      if (item.id == editingId) {
+        editingItem = item;
+        break;
+      }
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (editingItem != null) {
+      final originalContent = _editingDialogueOriginalContent ?? '';
+      editingItem.controller.value = TextEditingValue(
+        text: originalContent,
+        selection: TextSelection.collapsed(offset: originalContent.length),
+      );
+    }
+    setState(() {
+      _editingDialogueItemId = null;
+      _editingDialogueOriginalContent = null;
     });
   }
 
@@ -217,109 +275,160 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   @override
   Widget build(BuildContext context) {
     final selected = _selectedOption;
+    _OpeningDialogueItem? editingItem;
+    final editingId = _editingDialogueItemId;
+    if (editingId != null) {
+      for (final item in _dialogueItems) {
+        if (item.id == editingId) {
+          editingItem = item;
+          break;
+        }
+      }
+    }
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'Opening'),
-      body: CreateKeyboardDismissArea(
-        child: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(
-                    10,
-                    _fieldLabelInputGap,
-                    10,
-                    28,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Select initial location',
-                              key: ValueKey<String>('opening-location-title'),
-                              style: TextStyle(
-                                color: createFormText,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                height: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: _fieldLabelInputGap),
-                            _OpeningLocationField(
-                              loading: _loading,
-                              locationName:
-                                  selected?.location.name.trim() ?? '',
-                              onTap: _selectLocation,
-                            ),
-                            if (selected != null &&
-                                selected.characterNames.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              _OpeningInitialCharacters(
-                                names: selected.characterNames,
-                              ),
-                            ],
-                            const SizedBox(height: _fieldGroupGap),
-                            const Text(
-                              'Opening dialogue',
-                              key: ValueKey<String>('opening-dialogue-title'),
-                              style: TextStyle(
-                                color: createFormText,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                height: 1.2,
-                              ),
-                            ),
-                            SizedBox(
-                              height: selected == null
-                                  ? _fieldLabelInputGap
-                                  : 20,
-                            ),
-                            if (selected == null)
-                              const CreateFormNote(
-                                key: ValueKey<String>('opening-location-note'),
-                                note:
-                                    'Select a location first, then edit the dialogue.',
-                              ),
-                          ],
-                        ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          CreateKeyboardDismissArea(
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(
+                        10,
+                        _fieldLabelInputGap,
+                        10,
+                        28,
                       ),
-                      if (selected != null)
-                        _OpeningDialogueEditor(
-                          items: _dialogueItems,
-                          characters: selected.characters,
-                          onAddNarrator: _addNarrator,
-                          onAddCharacter: _addCharacter,
-                          onAddImage: _addImage,
-                          onDelete: _removeDialogueItem,
-                          onChanged: () => setState(() {}),
-                        ),
-                    ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Select initial location',
+                                  key: ValueKey<String>(
+                                    'opening-location-title',
+                                  ),
+                                  style: TextStyle(
+                                    color: createFormText,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: _fieldLabelInputGap),
+                                _OpeningLocationField(
+                                  loading: _loading,
+                                  locationName:
+                                      selected?.location.name.trim() ?? '',
+                                  onTap: _selectLocation,
+                                ),
+                                if (selected != null &&
+                                    selected.characterNames.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  _OpeningInitialCharacters(
+                                    names: selected.characterNames,
+                                  ),
+                                ],
+                                const SizedBox(height: _fieldGroupGap),
+                                Row(
+                                  children: [
+                                    const Expanded(
+                                      child: Text(
+                                        'Opening dialogue',
+                                        key: ValueKey<String>(
+                                          'opening-dialogue-title',
+                                        ),
+                                        style: TextStyle(
+                                          color: createFormText,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_dialogueItems.length}/'
+                                      '$_maxDialogueItems',
+                                      key: const ValueKey<String>(
+                                        'opening-dialogue-count',
+                                      ),
+                                      style: const TextStyle(
+                                        color: createFormMuted,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(
+                                  height: selected == null
+                                      ? _fieldLabelInputGap
+                                      : 20,
+                                ),
+                                if (selected == null)
+                                  const CreateFormNote(
+                                    key: ValueKey<String>(
+                                      'opening-location-note',
+                                    ),
+                                    note:
+                                        'Select a location first, then edit the dialogue.',
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (selected != null)
+                            _OpeningDialogueEditor(
+                              items: _dialogueItems,
+                              characters: selected.characters,
+                              editingItemId: _editingDialogueItemId,
+                              onAddNarrator: _addNarrator,
+                              onAddCharacter: _addCharacter,
+                              onAddImage: _addImage,
+                              onBeginEdit: _beginDialogueItemEdit,
+                              onFinishEdit: _finishDialogueItemEdit,
+                              onDelete: _removeDialogueItem,
+                              onChanged: () => setState(() {}),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                  _KeyboardHiddenBottomAction(
+                    minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
+                    child: GenesisPrimaryButton(
+                      label: _isSaving ? 'Saving...' : 'Save',
+                      width: _primaryActionButtonWidth(context),
+                      onPressed: _canSave && !_isSaving ? _save : null,
+                      onDisabledPressed: () =>
+                          showGenesisToast(context, _saveDisabledReason),
+                    ),
+                  ),
+                ],
               ),
-              _KeyboardHiddenBottomAction(
-                minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
-                child: GenesisPrimaryButton(
-                  label: _isSaving ? 'Saving...' : 'Save',
-                  width: _primaryActionButtonWidth(context),
-                  onPressed: _canSave && !_isSaving ? _save : null,
-                  onDisabledPressed: () =>
-                      showGenesisToast(context, _saveDisabledReason),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          if (editingItem != null)
+            Positioned.fill(
+              child: _OpeningDialogueOutsideTapBarrier(
+                targetKey: editingItem.editorKey,
+                deleteKey: editingItem.deleteKey,
+                onTapOutside: _cancelDialogueItemEdit,
+              ),
+            ),
+        ],
       ),
     );
   }

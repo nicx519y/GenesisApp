@@ -9482,6 +9482,14 @@ void main() {
       expect(openingDialogueTitle.style?.fontWeight, FontWeight.w600);
       expect(
         tester
+            .widget<Text>(
+              find.byKey(const ValueKey<String>('opening-dialogue-count')),
+            )
+            .data,
+        '0/10',
+      );
+      expect(
+        tester
                 .getTopLeft(
                   find.byKey(const ValueKey<String>('opening-location-title')),
                 )
@@ -9750,6 +9758,7 @@ void main() {
       final narratorTextField = tester.widget<TextField>(narratorField);
       expect(narratorTextField.minLines, 3);
       expect(narratorTextField.maxLines, isNull);
+      expect(narratorTextField.readOnly, isTrue);
       expect(
         narratorTextField.scrollPadding,
         const EdgeInsets.fromLTRB(20, 20, 20, kMinInteractiveDimension),
@@ -9760,6 +9769,17 @@ void main() {
       final narratorColor =
           (narratorContainer.decoration as BoxDecoration).color!;
       expect(narratorColor, kLocationChatStyle.systemMessageBackgroundColor);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+        findsNothing,
+      );
+      await tester.tap(narratorField);
+      await tester.pump();
+      expect(tester.widget<TextField>(narratorField).readOnly, isFalse);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-save-edit')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
         findsOneWidget,
@@ -9806,14 +9826,20 @@ void main() {
             .onPressed,
         isNull,
       );
-      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
-      await tester.pump();
+      await tester.tapAt(
+        tester.getCenter(find.widgetWithText(GenesisPrimaryButton, 'Save')),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(narratorField).readOnly, isTrue);
       expect(
         find.text('Complete every dialogue item before saving.'),
-        findsOneWidget,
+        findsNothing,
       );
-      await tester.pump(const Duration(seconds: 3));
 
+      await tester.ensureVisible(narratorField);
+      await tester.tap(narratorField);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(narratorField).readOnly, isFalse);
       final narratorInitialHeight = tester.getSize(narratorField).height;
       await tester.enterText(
         narratorField,
@@ -9841,12 +9867,11 @@ void main() {
             .hasFocus,
         isTrue,
       );
-      await tester.ensureVisible(
-        find.byKey(const ValueKey<String>('opening-dialogue-title')),
+      final narratorEditSave = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-save-edit'),
       );
-      await tester.tap(
-        find.byKey(const ValueKey<String>('opening-dialogue-title')),
-      );
+      await tester.ensureVisible(narratorEditSave);
+      await tester.tap(narratorEditSave);
       await tester.pump();
       expect(
         tester
@@ -9855,6 +9880,11 @@ void main() {
             .focusNode
             .hasFocus,
         isFalse,
+      );
+      expect(tester.widget<TextField>(narratorField).readOnly, isTrue);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+        findsNothing,
       );
       expect(
         tester
@@ -9904,6 +9934,17 @@ void main() {
         find.byKey(const ValueKey<String>('opening-dialogue-1-character')),
         findsOneWidget,
       );
+      final characterField = find.byKey(
+        const ValueKey<String>('opening-dialogue-1-field'),
+      );
+      expect(tester.widget<TextField>(characterField).readOnly, isTrue);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
+        findsNothing,
+      );
+      await tester.tap(characterField);
+      await tester.pump();
+      expect(tester.widget<TextField>(characterField).readOnly, isFalse);
       expect(
         find.descendant(
           of: find.byKey(
@@ -9952,9 +9993,6 @@ void main() {
             .onPressed,
         isNull,
       );
-      final characterField = find.byKey(
-        const ValueKey<String>('opening-dialogue-1-field'),
-      );
       final characterTextField = tester.widget<TextField>(characterField);
       expect(characterTextField.minLines, 3);
       expect(characterTextField.maxLines, isNull);
@@ -9970,7 +10008,7 @@ void main() {
       expect(
         tester.getRect(characterSafeRegion).bottom -
             tester.getRect(characterField).bottom,
-        25,
+        greaterThan(25),
       );
       await tester.enterText(characterField, 'Mira checks the index.');
       await tester.pump();
@@ -9984,6 +10022,26 @@ void main() {
       );
       final addImage = find.byKey(const ValueKey<String>('opening-add-image'));
       await tester.ensureVisible(addImage);
+      await tester.tapAt(tester.getCenter(addImage));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(characterField).controller?.text,
+        isEmpty,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
+        findsNothing,
+      );
+      expect(tester.widget<TextField>(characterField).readOnly, isTrue);
+
+      await tester.tap(characterField);
+      await tester.pump();
+      await tester.enterText(characterField, 'Mira checks the index.');
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('opening-dialogue-1-save-edit')),
+      );
+      await tester.pump();
       await tester.tap(addImage);
       await tester.pumpAndSettle();
       expect(
@@ -10000,7 +10058,7 @@ void main() {
       expect(imageSize.height, closeTo(imageSize.width, 0.01));
       await tester.ensureVisible(narratorField);
       await tester.tap(narratorField);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(
         tester
             .state<EditableTextState>(narratorEditable)
@@ -10009,8 +10067,8 @@ void main() {
             .hasFocus,
         isTrue,
       );
-      await tester.drag(
-        find.byType(SingleChildScrollView),
+      await tester.dragFrom(
+        tester.getCenter(find.byType(SingleChildScrollView)),
         const Offset(0, -40),
       );
       await tester.pump();
@@ -10020,7 +10078,7 @@ void main() {
             .widget
             .focusNode
             .hasFocus,
-        isFalse,
+        isTrue,
       );
       final imageUpload = tester.widget<CreateUploadBox>(
         find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
@@ -10116,19 +10174,6 @@ void main() {
                 ),
               )
               .dy;
-      final characterDeleteOffset =
-          tester
-              .getTopLeft(
-                find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
-              )
-              .dy -
-          tester
-              .getTopLeft(
-                find.byKey(
-                  const ValueKey<String>('opening-dialogue-1-character'),
-                ),
-              )
-              .dy;
       final imageDeleteOffset =
           tester
               .getTopLeft(
@@ -10141,16 +10186,14 @@ void main() {
               )
               .dy;
       expect(narratorDeleteOffset, closeTo(-8, 0.01));
-      expect(characterDeleteOffset, closeTo(-8, 0.01));
-      expect(imageDeleteOffset, closeTo(-8, 0.01));
+      expect(imageDeleteOffset, closeTo(4, 0.01));
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
+        findsNothing,
+      );
       final narratorDeleteRight = tester
           .getTopRight(
             find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
-          )
-          .dx;
-      final characterDeleteRight = tester
-          .getTopRight(
-            find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
           )
           .dx;
       final imageDeleteRight = tester
@@ -10159,12 +10202,23 @@ void main() {
           )
           .dx;
       expect(narratorDeleteRight, closeTo(790, 0.01));
-      expect(characterDeleteRight, closeTo(narratorDeleteRight, 0.01));
-      expect(imageDeleteRight, closeTo(narratorDeleteRight, 0.01));
+      expect(
+        imageDeleteRight,
+        closeTo(
+          tester
+                  .getTopRight(
+                    find.byKey(
+                      const ValueKey<String>('opening-dialogue-2-image'),
+                    ),
+                  )
+                  .dx -
+              4,
+          0.01,
+        ),
+      );
 
       for (final itemId in <String>[
         'opening-dialogue-0',
-        'opening-dialogue-1',
         'opening-dialogue-2',
       ]) {
         final deleteContainer = tester.widget<Container>(
@@ -10180,6 +10234,18 @@ void main() {
       final characterDelete = find.byKey(
         const ValueKey<String>('opening-dialogue-1-delete'),
       );
+      await tester.ensureVisible(characterField);
+      await tester.tapAt(tester.getCenter(characterField));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+        findsNothing,
+      );
+      expect(characterDelete, findsNothing);
+      expect(tester.widget<TextField>(characterField).readOnly, isTrue);
+      await tester.tap(characterField);
+      await tester.pump();
+      expect(characterDelete, findsOneWidget);
       await tester.ensureVisible(characterDelete);
       await tester.tap(characterDelete);
       await tester.pumpAndSettle();
@@ -10221,6 +10287,364 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'opening dialogue insert actions follow focus and preserve the caret',
+    (WidgetTester tester) async {
+      final repository = MemoryOriginDraftRepository(
+        initialDraft: const CreateOriginDraft(
+          basics: BasicsDraft(),
+          characters: <CharacterDraft>[
+            CharacterDraft(charId: 'char_insert', name: 'Mira'),
+          ],
+          locations: <LocationDraft>[
+            LocationDraft(
+              locationId: 'location_insert',
+              level: 3,
+              name: 'Archive',
+              initialCharacterIds: <String>['char_insert'],
+            ),
+          ],
+          storyEvents: <StoryEventDraft>[],
+          opening: OpeningDraft(
+            locationId: 'location_insert',
+            locationName: 'Archive',
+          ),
+          basicsSaved: false,
+          charactersSaved: true,
+          locationsSaved: true,
+          storyEventsSaved: false,
+          openingSaved: true,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: OriginOpeningEditorPage(repository: repository)),
+      );
+      await tester.pumpAndSettle();
+      final dialogueBlockCount = find.byKey(
+        const ValueKey<String>('opening-dialogue-count'),
+      );
+      expect(tester.widget<Text>(dialogueBlockCount).data, '0/10');
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('opening-add-narrator')),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(dialogueBlockCount).data, '1/10');
+
+      final narratorField = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-field'),
+      );
+      final narratorUser = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-insert-user'),
+      );
+      final narratorBold = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-insert-bold'),
+      );
+      final narratorTextField = tester.widget<TextField>(narratorField);
+      expect(narratorTextField.maxLength, 500);
+      expect(narratorTextField.decoration?.counterText, isEmpty);
+      expect(narratorTextField.readOnly, isTrue);
+      expect(narratorUser, findsNothing);
+      expect(narratorBold, findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-save-edit')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+        findsNothing,
+      );
+
+      await tester.ensureVisible(narratorField);
+      await tester.tap(narratorField);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(narratorField).readOnly, isFalse);
+      expect(narratorUser, findsOneWidget);
+      expect(narratorBold, findsOneWidget);
+      final narratorEditSave = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-save-edit'),
+      );
+      expect(narratorEditSave, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+        findsOneWidget,
+      );
+      final narratorCount = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-character-count'),
+      );
+      expect(tester.widget<Text>(narratorCount).data, '0/500');
+      final narratorActions = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-insert-actions'),
+      );
+      expect(
+        tester.widget<Row>(narratorActions).mainAxisSize,
+        MainAxisSize.min,
+      );
+      expect(
+        tester.getTopLeft(narratorUser).dy,
+        closeTo(tester.getTopLeft(narratorBold).dy, 0.01),
+      );
+      expect(
+        tester.getTopLeft(narratorBold).dx -
+            tester.getTopRight(narratorUser).dx,
+        closeTo(10, 0.01),
+      );
+      final narratorUserLabel = find.descendant(
+        of: narratorUser,
+        matching: find.text('{{user}}'),
+      );
+      final narratorBoldLabel = find.descendant(
+        of: narratorBold,
+        matching: find.text('* *'),
+      );
+      final narratorButtonDecoration =
+          tester
+                  .widget<DecoratedBox>(
+                    find.descendant(
+                      of: narratorUser,
+                      matching: find.byType(DecoratedBox),
+                    ),
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(
+        tester.widget<Text>(narratorUserLabel).style?.color,
+        const Color(0xFFF4F4F6),
+      );
+      expect(tester.widget<Text>(narratorUserLabel).style?.fontSize, 13);
+      expect(
+        tester.widget<Text>(narratorUserLabel).style?.fontWeight,
+        FontWeight.w400,
+      );
+      expect(narratorButtonDecoration.border, isNull);
+      expect(
+        tester.getSize(narratorUser).width -
+            tester.getSize(narratorUserLabel).width,
+        closeTo(12, 0.01),
+      );
+      expect(
+        tester.getSize(narratorBold).width -
+            tester.getSize(narratorBoldLabel).width,
+        closeTo(12, 0.01),
+      );
+      expect(
+        tester.getSize(narratorUser).height -
+            tester.getSize(narratorUserLabel).height,
+        closeTo(8, 0.01),
+      );
+      expect(
+        tester.getSize(narratorBold).height -
+            tester.getSize(narratorBoldLabel).height,
+        closeTo(8, 0.01),
+      );
+
+      final narratorController = tester
+          .widget<TextField>(narratorField)
+          .controller!;
+      narratorController.value = const TextEditingValue(
+        text: 'Hello world',
+        selection: TextSelection.collapsed(offset: 6),
+      );
+      await tester.tap(narratorUser);
+      await tester.pump();
+      expect(narratorController.text, 'Hello {{user}}world');
+      expect(narratorController.selection.baseOffset, 14);
+      expect(narratorController.selection.extentOffset, 14);
+      expect(find.text('19/500'), findsOneWidget);
+
+      narratorController.value = const TextEditingValue(
+        text: 'Hello world',
+        selection: TextSelection.collapsed(offset: 6),
+      );
+      await tester.tap(narratorBold);
+      await tester.pump();
+      expect(narratorController.text, 'Hello **world');
+      expect(narratorController.selection.baseOffset, 7);
+      expect(narratorController.selection.extentOffset, 7);
+      expect(find.text('13/500'), findsOneWidget);
+
+      final maxLengthText = List<String>.filled(501, 'a').join();
+      await tester.enterText(narratorField, maxLengthText);
+      await tester.pump();
+      expect(narratorController.text.characters.length, 500);
+      expect(find.text('500/500'), findsOneWidget);
+      await tester.tap(narratorBold);
+      await tester.pump();
+      expect(narratorController.text.characters.length, 500);
+      expect(narratorController.selection.baseOffset, 500);
+      expect(narratorController.selection.extentOffset, 500);
+
+      await tester.tap(narratorEditSave);
+      await tester.pump();
+      expect(narratorUser, findsNothing);
+      expect(narratorBold, findsNothing);
+      expect(narratorEditSave, findsNothing);
+      expect(tester.widget<TextField>(narratorField).readOnly, isTrue);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
+        findsNothing,
+      );
+
+      await tester.tap(narratorField);
+      await tester.pump();
+      expect(narratorController.selection.baseOffset, 500);
+      expect(narratorController.selection.extentOffset, 500);
+      await tester.tap(
+        find.byKey(const ValueKey<String>('opening-dialogue-0-save-edit')),
+      );
+      await tester.pump();
+
+      final addCharacter = find.byKey(
+        const ValueKey<String>('opening-add-character-char_insert'),
+      );
+      await tester.ensureVisible(addCharacter);
+      await tester.tap(addCharacter);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(dialogueBlockCount).data, '2/10');
+
+      final characterField = find.byKey(
+        const ValueKey<String>('opening-dialogue-1-field'),
+      );
+      final characterUser = find.byKey(
+        const ValueKey<String>('opening-dialogue-1-insert-user'),
+      );
+      final characterBold = find.byKey(
+        const ValueKey<String>('opening-dialogue-1-insert-bold'),
+      );
+      expect(tester.widget<TextField>(characterField).maxLength, 500);
+      expect(tester.widget<TextField>(characterField).readOnly, isTrue);
+      expect(characterUser, findsNothing);
+      expect(characterBold, findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
+        findsNothing,
+      );
+
+      await tester.ensureVisible(characterField);
+      await tester.tap(characterField);
+      await tester.pump();
+      expect(characterUser, findsOneWidget);
+      expect(characterBold, findsOneWidget);
+      expect(tester.widget<TextField>(characterField).readOnly, isFalse);
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-1-save-edit')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
+        findsOneWidget,
+      );
+      expect(narratorUser, findsNothing);
+      expect(narratorBold, findsNothing);
+      expect(
+        find.byKey(
+          const ValueKey<String>('opening-dialogue-1-character-count'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('0/500'), findsOneWidget);
+      final characterUserLabel = find.descendant(
+        of: characterUser,
+        matching: find.text('{{user}}'),
+      );
+      final characterButtonDecoration =
+          tester
+                  .widget<DecoratedBox>(
+                    find.descendant(
+                      of: characterUser,
+                      matching: find.byType(DecoratedBox),
+                    ),
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(
+        tester.widget<Text>(characterUserLabel).style?.color,
+        const Color(0xFF666666),
+      );
+      expect(tester.widget<Text>(characterUserLabel).style?.fontSize, 13);
+      expect(
+        tester.widget<Text>(characterUserLabel).style?.fontWeight,
+        FontWeight.w400,
+      );
+      expect(characterButtonDecoration.color, const Color(0xFFF4F4F6));
+      expect(characterButtonDecoration.border, isNull);
+
+      final characterController = tester
+          .widget<TextField>(characterField)
+          .controller!;
+      characterController.value = const TextEditingValue(
+        text: 'Hi',
+        selection: TextSelection.collapsed(offset: 2),
+      );
+      await tester.tap(characterBold);
+      await tester.pump();
+      expect(characterController.text, 'Hi**');
+      expect(characterController.selection.baseOffset, 3);
+      expect(characterController.selection.extentOffset, 3);
+      expect(find.text('4/500'), findsOneWidget);
+    },
+  );
+
+  testWidgets('opening dialogue limits content blocks to ten', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: CreateOriginDraft(
+        basics: const BasicsDraft(),
+        characters: const <CharacterDraft>[],
+        locations: const <LocationDraft>[
+          LocationDraft(
+            locationId: 'location_limit',
+            level: 3,
+            name: 'Archive',
+          ),
+        ],
+        storyEvents: const <StoryEventDraft>[],
+        opening: OpeningDraft(
+          locationId: 'location_limit',
+          locationName: 'Archive',
+          dialogue: <OpeningDialogueDraft>[
+            for (var index = 0; index < 10; index++)
+              OpeningDialogueDraft(
+                type: OpeningDialogueDraft.narratorType,
+                content: 'Line ${index + 1}',
+              ),
+          ],
+        ),
+        basicsSaved: false,
+        charactersSaved: false,
+        locationsSaved: true,
+        storyEventsSaved: false,
+        openingSaved: true,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: OriginOpeningEditorPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    final dialogueBlockCount = find.byKey(
+      const ValueKey<String>('opening-dialogue-count'),
+    );
+    expect(tester.widget<Text>(dialogueBlockCount).data, '10/10');
+    expect(tester.getTopRight(dialogueBlockCount).dx, closeTo(800 - 12, 0.01));
+
+    final addNarrator = find.byKey(
+      const ValueKey<String>('opening-add-narrator'),
+    );
+    await tester.ensureVisible(addNarrator);
+    await tester.tap(addNarrator);
+    await tester.pump();
+
+    expect(find.text('You can add up to 10 dialogue items.'), findsOneWidget);
+    expect(tester.widget<Text>(dialogueBlockCount).data, '10/10');
+    await tester.pump(const Duration(seconds: 2));
+  });
 
   testWidgets('opening keeps the focused bottom dialogue above the keyboard', (
     WidgetTester tester,
@@ -10374,10 +10798,18 @@ void main() {
       find.byKey(const ValueKey<String>('opening-add-narrator')),
     );
     await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
+    );
+    await tester.pump();
     await tester.enterText(
       find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
       'The archive opens.',
     );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-dialogue-0-save-edit')),
+    );
+    await tester.pump();
 
     await tester.ensureVisible(
       find.byKey(
@@ -10390,10 +10822,18 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-dialogue-1-field')),
+    );
+    await tester.pump();
     await tester.enterText(
       find.byKey(const ValueKey<String>('opening-dialogue-1-field')),
       'Welcome inside.',
     );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-dialogue-1-save-edit')),
+    );
+    await tester.pump();
 
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('opening-add-image')),
@@ -13802,9 +14242,17 @@ void main() {
       find.byKey(const ValueKey<String>('opening-add-narrator')),
     );
     await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
+    );
+    await tester.pump();
     await tester.enterText(
       find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
       'The archive opens for the first visitor.',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-dialogue-0-save-edit')),
     );
     await tester.pump();
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
@@ -14024,9 +14472,17 @@ void main() {
       find.byKey(const ValueKey<String>('opening-add-narrator')),
     );
     await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
+    );
+    await tester.pump();
     await tester.enterText(
       find.byKey(const ValueKey<String>('opening-dialogue-0-field')),
       'The archive opens.',
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-dialogue-0-save-edit')),
     );
     await tester.pump();
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
