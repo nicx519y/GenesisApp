@@ -32,6 +32,25 @@ class OriginV1Api extends V1ApiResource {
         .toList(growable: false);
   }
 
+  /// GET /api/v1/origin/my_launch_preset_characters
+  ///
+  /// 返回当前登录用户过去 launch 指定 origin 时选择过、且当前仍存在的 preset
+  /// 角色。结果按 char_id 去重，并按最近 launch 时间倒序返回。
+  Future<List<Map<String, dynamic>>> myLaunchPresetCharacters({
+    required String originId,
+  }) async {
+    final resolvedOriginId = originId.trim();
+    if (resolvedOriginId.isEmpty) {
+      throw ArgumentError.value(originId, 'originId', 'must not be empty');
+    }
+    final data = await getMap('origin/my_launch_preset_characters', {
+      'origin_id': resolvedOriginId,
+    });
+    final list = data['list'];
+    if (list is! List) return const <Map<String, dynamic>>[];
+    return list.whereType<Map>().map(asJsonMap).toList(growable: false);
+  }
+
   /// GET /api/v1/origin/list
   ///
   /// 提交参数:
@@ -136,29 +155,6 @@ class OriginV1Api extends V1ApiResource {
       );
     }
     return getMap('origin/info', {'origin_id': resolvedOriginId});
-  }
-
-  /// GET /api/v1/origin/foredit
-  ///
-  /// 提交参数:
-  /// ```json
-  /// {"origin_id":"string"}
-  /// ```
-  ///
-  /// Response:
-  /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"origin_id":"o_A1B2C3","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[]}}
-  /// ```
-  Future<Map<String, dynamic>> forEdit({String? originId, String? oid}) {
-    final resolvedOriginId = (originId ?? oid ?? '').trim();
-    if (resolvedOriginId.isEmpty) {
-      throw ArgumentError.value(
-        originId ?? oid,
-        'originId',
-        'must not be empty',
-      );
-    }
-    return getMap('origin/foredit', {'origin_id': resolvedOriginId});
   }
 
   /// POST /api/v1/origin/create

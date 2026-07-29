@@ -118,8 +118,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<void>? _copyWorldProgressFuture;
   List<WorldSummaryLatestItem> _copyWorldProgressSummaries =
       const <WorldSummaryLatestItem>[];
-  Future<List<OriginLaunchedWorldRole>>? _launchedWorldsFuture;
-  List<OriginLaunchedWorldRole>? _preloadedLaunchedWorlds;
+  Future<List<OriginMyLaunchPresetCharacter>>? _launchedPresetRolesFuture;
   bool _launching = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
@@ -149,8 +148,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void didUpdateWidget(covariant OriginWorldPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.oid != widget.oid) {
-      _launchedWorldsFuture = null;
-      _preloadedLaunchedWorlds = null;
+      _launchedPresetRolesFuture = null;
       _future = _loadOriginDetail();
       _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
       _copyWorldProgressFuture = _loadCopyWorldProgress();
@@ -165,8 +163,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void reassemble() {
     super.reassemble();
     setState(() {
-      _launchedWorldsFuture = null;
-      _preloadedLaunchedWorlds = null;
+      _launchedPresetRolesFuture = null;
       _future = _loadOriginDetail();
     });
   }
@@ -182,7 +179,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final api = AppServicesScope.read(context).api;
     final origin = await api.getOrigin(widget.oid);
     _cacheLaunchWaitAvatars(origin);
-    _preloadLaunchedWorlds(origin);
     return origin;
   }
 
@@ -200,24 +196,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         '[OriginWorldPage] copy world progress preload failed: $error',
       );
     }
-  }
-
-  void _preloadLaunchedWorlds(OriginDetail origin) {
-    final future = _launchedWorldsFuture ??= _loadLaunchedWorldRoles(origin);
-    unawaited(
-      future.then(
-        (worlds) {
-          if (!mounted) return;
-          _preloadedLaunchedWorlds = worlds;
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          debugPrint(
-            '[OriginWorldPage] launched worlds preload failed: '
-            '$error\n$stackTrace',
-          );
-        },
-      ),
-    );
   }
 
   void _cacheLaunchWaitAvatars(OriginDetail origin) {
@@ -451,21 +429,16 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       initialCustomTab: initialCustomTab,
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
-      launchedWorldsLoader: () =>
-          _launchedWorldsFuture ??= _loadLaunchedWorldRoles(origin),
-      initialLaunchedWorlds: _preloadedLaunchedWorlds,
+      launchedPresetRolesLoader: () =>
+          _launchedPresetRolesFuture ??= _loadLaunchedPresetRoles(origin),
     );
     if (!mounted || selection == null) return;
-    final existingWorldId = selection.existingWorldId?.trim() ?? '';
-    if (existingWorldId.isNotEmpty) {
-      _enterLaunchedWorld(existingWorldId);
-      return;
-    }
     await _launchOrigin(
       origin,
       selection,
-      initialLocationId:
-          _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
+      initialLocationId: selection.initialLocationId?.trim().isNotEmpty == true
+          ? selection.initialLocationId!.trim()
+          : _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
     );
   }
 
@@ -481,44 +454,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
   }
 
-  Future<List<OriginLaunchedWorldRole>> _loadLaunchedWorldRoles(
+  Future<List<OriginMyLaunchPresetCharacter>> _loadLaunchedPresetRoles(
     OriginDetail origin,
   ) async {
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (uid.isEmpty) return const <OriginLaunchedWorldRole>[];
-    final response = await services.api.v1.world.list(
-      scene: 'mine',
-      originId: origin.oid,
-      pn: 1,
-      rn: 20,
-    );
-    final rawList = response['list'];
-    if (rawList is! List) return const <OriginLaunchedWorldRole>[];
-    final worldIds = rawList
-        .whereType<Map>()
-        .map((raw) {
-          final map = asJsonMap(raw);
-          final info = map['info'] is Map ? asJsonMap(map['info']) : map;
-          return asString(info['world_id'], fallback: asString(map['wid']));
-        })
-        .where((worldId) => worldId.isNotEmpty)
-        .toList(growable: false);
-    final worlds = await Future.wait(worldIds.map(services.api.getWorld));
-    return worlds
-        .map((world) {
-          final role = world.characters
-              .where((item) => asString(item['player_uid']) == uid)
-              .firstOrNull;
-          return OriginLaunchedWorldRole(
-            worldId: world.worldId,
-            roleName: role == null ? 'My role' : asString(role['name']),
-            avatarUrl: role == null ? '' : asString(role['avatar']),
-            tickCount: world.tickCount,
-            currentTime: world.currentTime,
-          );
-        })
-        .toList(growable: false);
+    if (uid.isEmpty) return const <OriginMyLaunchPresetCharacter>[];
+    return services.api.getMyLaunchPresetCharacters(origin.oid);
   }
 
   Future<void> _launchOrigin(
@@ -542,7 +484,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       setState(() => _launching = false);
       return;
     }
-    setState(() => _launching = false);
+    setState(() {
+      _launching = false;
+      _launchedPresetRolesFuture = null;
+    });
     final shouldEnter = await showOriginLaunchSuccessPrompt(
       context: context,
       worldId: launchedWorldId,

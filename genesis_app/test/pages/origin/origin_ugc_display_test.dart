@@ -43,7 +43,7 @@ void main() {
   });
 
   test('edit draft preserves returned UGC before fields are rendered', () {
-    final draft = originDraftFromV1Detail({
+    final draft = originDraftFromV2ForEdit({
       'origin': {
         'oid': 'origin-1',
         'name': r'Name\nvalue',

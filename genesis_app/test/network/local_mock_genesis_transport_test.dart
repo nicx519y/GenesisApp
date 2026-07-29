@@ -139,6 +139,27 @@ void main() {
     expect(worldMap.tiles.single.locationId, isNull);
   });
 
+  test('local mock tracks preset character launch history', () async {
+    final api = GenesisApi(useMock: true);
+    final origins = await api.getOrigins(limit: 1);
+    final originId = origins.data.single.oid;
+
+    expect(await api.getMyLaunchPresetCharacters(originId), isEmpty);
+
+    await api.v1.origin.launch(
+      originId: originId,
+      presetCharacterId: 'c_mock_iris',
+    );
+    final characters = await api.getMyLaunchPresetCharacters(originId);
+
+    expect(characters, hasLength(1));
+    expect(characters.single.charId, 'c_mock_iris');
+    expect(characters.single.type, 'ai');
+    expect(characters.single.name, 'Iris Vale');
+    expect(characters.single.initialLocationId, 'loc_hub');
+    expect(characters.single.lastLaunchedAt, greaterThan(0));
+  });
+
   test('local mock supports origin world and chat flow', () async {
     final api = GenesisApi(useMock: true);
 
@@ -477,11 +498,13 @@ void main() {
     final detailTick = (detail['ticks'] as List).first as Map;
     expect(detailTick, contains('tick_result'));
     expect((detailTick['tick_result'] as Map)['current_time'], isNotEmpty);
-    final edit = await api.v1.origin.forEdit(originId: origin);
-    expect(edit['origin_id'], origin);
+    final edit = await api.v2.origin.forEdit(originId: origin);
+    expect((edit['info'] as Map)['origin_id'], origin);
     expect(edit, contains('characters'));
-    expect(edit, isNot(contains('stats')));
-    expect(((edit['characters'] as List).first as Map), contains('bio'));
+    expect(edit, contains('stats'));
+    expect(edit, contains('ticks'));
+    expect((edit['info'] as Map), isNot(contains('setting')));
+    expect((edit['info'] as Map), isNot(contains('events')));
     final created = await api.v1.origin.create(
       originName: 'Created Mock Origin',
       brief: 'Created from a local mock test.',
@@ -519,17 +542,22 @@ void main() {
       'origin_version_time',
       'origin_name',
     });
-    final createdV2ForEdit = await api.v1.origin.forEdit(
+    final createdV2ForEdit = await api.v2.origin.forEdit(
       originId: createdV2Origin,
     );
-    expect(createdV2ForEdit['definition_version'], 2);
-    expect(createdV2ForEdit['tile_types'], isA<Map>());
+    expect((createdV2ForEdit['info'] as Map)['definition_version'], 2);
+    expect(createdV2ForEdit, isNot(contains('tile_types')));
     expect(createdV2ForEdit['init_location_group'], {
       'location_id': 'loc_1_1_1',
       'initial_dialogue': [
-        {'char_id': 'nar', 'content': 'A new map appears.'},
+        {
+          'char_id': 'nar',
+          'char_name': 'Narrator',
+          'content': 'A new map appears.',
+        },
         {
           'char_id': 'nar_pic',
+          'char_name': 'Narrator',
           'content': 'https://cdn.example.com/opening.webp',
         },
       ],
@@ -573,11 +601,11 @@ void main() {
     final secondV2Info = await api.v1.origin.info(originId: createdV2Origin);
     expect((firstV2Info['info'] as Map)['status'], 20);
     expect((secondV2Info['info'] as Map)['status'], 10);
-    final updatedV2ForEdit = await api.v1.origin.forEdit(
+    final updatedV2ForEdit = await api.v2.origin.forEdit(
       originId: createdV2Origin,
     );
-    expect(updatedV2ForEdit['events'], isEmpty);
-    expect(updatedV2ForEdit, isNot(contains('init_location_group')));
+    expect((updatedV2ForEdit['info'] as Map), isNot(contains('events')));
+    expect(updatedV2ForEdit['init_location_group'], isNull);
     await api.v1.origin.launch(
       oid: createdOrigin,
       presetCharacterId: 'char_mock_001',

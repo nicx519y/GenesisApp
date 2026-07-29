@@ -119,6 +119,11 @@ class MemoryOriginDraftRepository extends OriginDraftRepository {
         jsonEncode(draft.normalized().basics.toJson());
   }
 
+  bool worldLogicChanged(CreateOriginDraft draft) {
+    return _originalDraft.basics.worldLogic !=
+        draft.normalized().basics.worldLogic;
+  }
+
   bool charactersChanged(CreateOriginDraft draft) {
     return jsonEncode(
           _originalDraft.characters.map((item) => item.toJson()).toList(),
@@ -181,7 +186,7 @@ Map<String, dynamic> _contentJson(CreateOriginDraft draft) {
   };
 }
 
-CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
+CreateOriginDraft originDraftFromV2ForEdit(Map<String, dynamic> raw) {
   final origin = raw['origin'] is Map
       ? asJsonMap(raw['origin'])
       : raw['info'] is Map
@@ -209,8 +214,8 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
         fallback: asString(map['char_id']),
       ).trim();
       final locationId = asString(
-        map['location_id'],
-        fallback: asString(map['initial_location_id']),
+        map['initial_location_id'],
+        fallback: asString(map['location_id']),
       ).trim();
       if (charId.isEmpty || locationId.isEmpty) continue;
       characterLocationIds
@@ -236,8 +241,7 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
             .toList(growable: false)
       : const <LocationDraft>[];
 
-  final eventRaw =
-      raw['event_list'] ?? raw['events'] ?? origin['events'] ?? raw['ticks'];
+  final eventRaw = raw['event_list'] ?? raw['events'] ?? origin['events'];
   final events = eventRaw is List
       ? asJsonList(eventRaw)
             .map(_storyEventDraftFromV1)
@@ -267,13 +271,7 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
       worldLogic: decodeGenesisUgcTextForDisplay(
         asString(
           origin['world_setting'],
-          fallback: asString(
-            origin['setting'],
-            fallback: asString(
-              origin['display_subtitle'],
-              fallback: asString(origin['brief']),
-            ),
-          ),
+          fallback: asString(origin['setting']),
         ),
       ),
       metricJson: metric is Map && metric.isNotEmpty
@@ -308,7 +306,7 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
   return _draftWithOpening(draft, opening);
 }
 
-CreateOriginDraft restoreOriginDraftOpeningFromV1Detail(
+CreateOriginDraft restoreOriginDraftOpeningFromDetail(
   CreateOriginDraft draft,
   Map<String, dynamic> raw,
 ) {
@@ -468,13 +466,7 @@ CharacterDraft _characterDraftFromV1(Map<String, dynamic> raw) {
       ),
     ),
     bio: decodeGenesisUgcTextForDisplay(
-      asString(
-        raw['bio'],
-        fallback: asString(
-          raw['description'],
-          fallback: asString(raw['brief'], fallback: asString(raw['tagline'])),
-        ),
-      ),
+      asString(raw['bio'], fallback: asString(raw['description'])),
     ),
     goal: decodeGenesisUgcTextForDisplay(asString(raw['goal'])),
   );

@@ -26,7 +26,8 @@
 - Apifox chatroom tick unlock 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446397e0
 - Apifox chatroom narrator write 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446399e0
 - Chatroom 图片消息增量说明：`/Users/ionix/Downloads/2026-07-27-image-message-support.md`
-- Apifox 获取 Origin 原始编辑数据页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/470977899e0
+- V2 Origin 完整编辑详情：`/Users/ionix/Downloads/foredit_v2.md`
+- 查询我 launch 过的 preset 角色：`/Users/ionix/Downloads/launched.md`
 - App 版本升级检查：`/Users/ionix/Downloads/version_check.md`
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
@@ -38,7 +39,7 @@
 
 ## 总览
 
-本文档当前覆盖 51 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
+本文档当前覆盖 52 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -68,9 +69,10 @@
 | search | GET | `/api/v1/search` | 全局搜索 |
 | origin | GET | `/api/v1/origin/list` | Origin 模板列表 |
 | origin | GET | `/api/v1/origin/hot_tags` | Origin 热门标签 |
+| origin | GET | `/api/v1/origin/my_launch_preset_characters` | 查询我 launch 过的 preset 角色 |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
 | origin | GET | `/api/v1/origin/map` | 读取 Origin 2.5D 地图 |
-| origin | GET | `/api/v1/origin/foredit` | 获取 Origin 原始编辑数据 |
+| origin | GET | `/api/v2/origin/foredit` | 获取 V2 Origin 完整编辑详情 |
 | origin | POST | `/api/v1/origin/launch` | 基于 origin 创建 world |
 | discuss | GET | `/api/v1/discuss/list` | 顶级评论分页列表 |
 | discuss | GET | `/api/v1/discuss/replies` | 顶级评论下的回复分页列表 |
@@ -816,6 +818,42 @@ Query：
 
 - `list*`: string[]
 
+### GET `/api/v1/origin/my_launch_preset_characters`
+
+根据当前登录用户与 `origin_id`，返回该用户过去作为 world owner launch 该 origin 时选择过的 preset 角色。
+
+custom 角色和后续通过 `world/join` 绑定的角色不返回。结果按 `char_id` 去重，每个角色保留最近一次 launch 时间，并按 `last_launched_at` 倒序、`char_id` 升序返回。已软删除的 world 仍属于 launch 历史；但只返回当前 origin 中仍未软删除的角色，角色展示字段取当前 origin 的角色定义，不取历史 world 副本。
+
+接口需要登录。origin 可见性与 `/api/v1/origin/detail` 一致：approved 对所有登录用户可见，pending/rejected 仅 origin owner 可见。
+
+客户端通过共享 `GenesisApi` / `ApiClient` 请求链路发送，不声明接口私有 header；统一复用公共 runtime header、登录态 `Authorization` 以及配置的 Gateway `X-*` 签名 header。旧公共 `device-id/app-id/app-version/app-platform` header 仍按客户端全局规则过滤，不在本接口单独恢复。
+
+Query：
+
+- `origin_id*`: string，要查询 launch 历史的 origin 业务 id
+
+响应 `data`：
+
+- `list*`: `OriginMyLaunchPresetCharacter[]`；没有匹配历史时返回空数组
+
+`OriginMyLaunchPresetCharacter`：
+
+- `char_id*`: string，当前 origin 中的 preset 角色 id，也是去重键
+- `type*`: string，固定为 `ai`
+- `name*`: string
+- `identity*`: string
+- `brief*`: string，当前 origin 角色的 personality
+- `goal*`: string
+- `avatar*`: `ImageResource`
+- `initial_location_id*`: string，当前 origin 角色的初始地点 id
+- `last_launched_at*`: integer，最近一次使用该角色 launch 的 Unix 秒
+
+错误码：
+
+- `4004`：缺少 `origin_id`
+- `10001`：未登录或 session 过期
+- `20101`：origin 不存在、已软删除或当前调用方不可见
+
 ### GET `/api/v1/origin/detail`
 
 返回单个 origin 模板的完整详情：基本信息、统计信息、Opening、初始角色、初始 location、ticks。`info` 返回 `definition_version`，不返回 `tile_types`；主地图及 location 不返回 `map_json`，需要时调用 `/api/v1/origin/map`。
@@ -922,36 +960,30 @@ Query：
 - `1404`：origin 不存在、不可见，或指定 location 不存在
 - `4004`：缺少 `origin_id` 或 `location_id`
 
-### GET `/api/v1/origin/foredit`
+### GET `/api/v2/origin/foredit`
 
-返回 owner 编辑 origin 时需要的原始可编辑数据。接口需要登录，且当前用户必须是该 origin 的 owner。与 `origin/detail` 不同，响应 `data` 是平铺的编辑模型，不包含 `stats` 和 `ticks`。
+登录用户读取自己创建的 Origin 完整详情，用于 V2 地图编辑。服务端先校验 `tbl_origin.owner_uid` 等于当前登录 uid，再返回与 `GET /api/v1/origin/detail` 完全相同的 `OriginDetail`。
+
+本接口不再返回 V1 foredit 的平级 `edit_data` 形态；客户端必须从嵌套的 `data.info` 读取基本信息，并从顶层 `init_location_group`、`characters`、`locations`、`ticks` 读取对应编辑数据。
 
 Query：
 
 - `origin_id*`: string
 
-响应 `data`（`OriginForEditResp`）：
+响应 `data`（`OriginDetail`）：
 
-- `origin_id*`: string
-- `origin_name*`: string
-- `origin_version`: string
-- `init_location_group`: `OriginInitLocationGroup`，仅 V2 Create/Update 曾提交该字段时返回
-- `definition_version`: integer，`1` 或 `2`
-- `brief`: string
-- `setting`: string
-- `events`: string[]
-- `tags`: string[]
-- `metric`: `WorldMetric`
-- `started_at`: string，故事内起始时间文本
-- `tick_duration_time`: string，每个 tick 推进的故事时间跨度文本，例如 `1 day`
-- `cover`: string 或 `ImageResource`
-- `map_url`: string
-- `tile_types`: object 或 null
-- `characters`: `OriginCharacterUpsert[]`
-- `locations`: `OriginLocationUpsert[]`
+- `info*`: `OriginDetailInfo`
+- `stats*`: `OriginStats`
+- `init_location_group*`: `OriginInitLocationGroup`
+- `characters*`: `Character[]`
+- `locations*`: `Location[]`
+- `ticks*`: `Tick[]`
+
+字段定义与上方 `GET /api/v1/origin/detail` 相同。`info` 包含 `origin_id/origin_name/origin_version/origin_version_time/definition_version/language/current_time/owner_uid/owner_name/owner_user/brief/tags/metric/created_at/cover/map_url/status`。特别注意：新契约没有旧平级 foredit 的 `setting/events/started_at/tick_duration_time/tile_types` 字段。
 
 错误码：
 
+- `4004`: ErrorParamInvalid，缺少 `origin_id`
 - `10001`: ErrorUserNotLogin
 - `10011`: ErrorUserNotAccess，当前用户不是该 origin 的 owner
 - `20101`: ErrorOriginNotExist，`origin_id` 不存在或已软删除
@@ -966,7 +998,7 @@ Query：
 - `language` 来自 `x-system-language` header；`current_time` 优先使用 trim 后的 `started_at`，空值写 `Day 1`。
 - 后台调用 `origin_init_tags_locations` 补全 tags 和三级 location 树；成功后批量写角色/location、回填计数，并切回 `status=10 normal`。
 - prompt 失败或没有可用地点时，若请求 locations 非空，会用请求地点名构造最小三级树。
-- `tbl_origin.edit_data` 保存原始平级编辑数据，供 `/api/v1/origin/foredit` 回显。
+- V2 编辑回显通过 `/api/v2/origin/foredit` 读取当前完整 `OriginDetail`，不消费旧平级 `edit_data` 响应。
 - `ticks` 不在 create 范围内。
 
 请求 body（`OriginCreateReq`）：
@@ -1002,7 +1034,7 @@ Query：
 
 - `location_id`: string，请求内临时引用 id
 - `level`: integer，兼容字段；create/update 时服务端忽略
-- `location_pid`: string，兼容字段；当前客户端会按表单树发送该关联，但 create/update 时服务端忽略，`foredit` 回显为空串
+- `location_pid`: string，兼容字段；当前客户端会按表单树发送该关联，V2 foredit 通过完整 `Location` 返回服务端当前层级关系
 - `location_name*`: string
 - `location_description`: string，固定描述，tick 不会修改
 - `location_summary`: string，兼容旧请求；当 `location_description` 为空时用于回填固定描述
@@ -1034,7 +1066,7 @@ Query：
 - `characters` 只 upsert 请求列表中的项，不按缺失项推断删除；已有 `char_id` 保留，新增角色临时 id 会重写为下一个 `char_N`。
 - `deleted_char_ids` / `deleted_location_ids` 显式软删；与本次提交项冲突时以提交项为准。
 - `update_notes` 写入 `tbl_origin.update_notes`，后续生成版本快照时同步到 `tbl_origin_version.change_log`；客户端 publish 时要求用户填写。
-- `tbl_origin.edit_data` 保存可编辑的平级原始数据，用于 `/api/v1/origin/foredit`。
+- V2 编辑回显通过 `/api/v2/origin/foredit` 读取当前完整 `OriginDetail`，不消费旧平级 `edit_data` 响应。
 - 不重置审核状态。
 
 请求 body（`OriginUpdateReq`）：
@@ -1901,10 +1933,11 @@ query：
 | `GET /api/v1/search` | `SearchV1Api.search` 已改为发送 `keyword/type/pn/rn`；`type` 为空时不随 query 发送，表示全局搜索；`SearchPage` 已消费 `origins/worlds/users` 分类结果块。 |
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `scene/tag/tag_id/keyword/uid/pn/rn`；自有数据只传 `scene=mine`，指定用户数据传 `scene=uid&uid=...`，标签数据传 `scene=tag&tag=...`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`；首页 popular 会优先消费 `list[].discusses` 作为最新 2 条讨论预览，本地 mock 仅默认/`popular` 场景返回该字段。 |
 | `GET /api/v1/origin/hot_tags` | 已新增 `OriginV1Api.hotTags`，响应消费 `data.list` 字符串数组；`OriginPage` 固定首个 `For you` tab，其余 tabs 来自热门标签接口并缓存在本地，本地 mock 返回同形状数据。 |
+| `GET /api/v1/origin/my_launch_preset_characters` | 已新增 `OriginV1Api.myLaunchPresetCharacters(originId)` 与 `GenesisApi.getMyLaunchPresetCharacters(originId)`，query 使用 `origin_id`，响应映射为 `OriginMyLaunchPresetCharacter` 列表并保留 `ImageResource`；请求复用共享 runtime/auth/Gateway header 链路；本地 mock 会在 `/origin/launch` 使用 preset 角色时记录并按当前 origin 角色定义返回去重历史。 |
 | `GET /api/v1/origin/info` | 已新增 `OriginV1Api.info(originId)` 与 `GenesisApi.getOriginInfo(oid)`，query 使用 `origin_id`；响应消费 `info + stats`，不期待 `characters/locations/ticks`。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 使用必填 `origin_id`；详情模型与 mapper 已保留新版 `OriginDetailInfo`、完整 stats、nullable 顶层 `init_location_group`、角色玩家/指标/独立初始与当前地点、location 层级/时间/总结/2.5D `x/y`、ImageResource sidecar 与完整 tick result。详情 Opening、location chat 预览和 launch 初始地点优先使用顶层 group，兼容旧 tick 1 回退；`nar_pic/image` 作为图片消息展示。local mock 返回同形状顶层 group 并补齐新增字段。 |
 | `GET /api/v1/origin/map` | 已新增 `OriginV1Api.map(originId,locationId)` 与 `GenesisApi.getOriginMap(...)`，query 使用 `origin_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/shadow/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
-| `GET /api/v1/origin/foredit` | 已新增 `OriginV1Api.forEdit(originId)`，query 使用 `origin_id`，响应按平铺 `OriginForEditResp` 消费，包含当前 `origin_version`、`tick_duration_time` 与 `metric.label_note`；`EditOriginPage` 优先从可选 `init_location_group` 回填 Opening，缺失时回退 `/origin/detail` 的 tick 1；本地 mock 会保存并回显 V2 写入的该字段。 |
+| `GET /api/v2/origin/foredit` | `OriginV2Api.forEdit(originId)` 使用 `origin_id` query，并按嵌套 `OriginDetail` 消费；`EditOriginPage` 直接从该响应回填 Basics、Characters、Locations、Opening 和兼容 tick Opening，不再追加请求 `/api/v1/origin/detail`。新契约未返回的旧平级 `setting/events` 仅在响应实际包含或用户明确修改时随 V2 update 提交；`Character` 未返回旧 `bio/description` 时，未编辑的空 Biography 也不随 update 回写，避免普通编辑把服务端已有值清空。 |
 | `POST /api/v1/origin/create` | 当前 `OriginV1Api.create` 已发送 `origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/characters/locations`，但尚未暴露新契约中的 `definition_version/map_url/tile_types`；高层 `GenesisApi.createOrigin` 已兼容轻量 `OriginUpsertResp`。 |
 | `POST /api/v1/origin/update` | 当前 `OriginV1Api.update` 已发送 `origin_id/origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/characters/locations/update_notes/deleted_char_ids/deleted_location_ids`，但尚未暴露新契约中的 `definition_version/map_url/tile_types`；高层 `GenesisApi.updateOrigin` 已兼容轻量 `OriginUpsertResp`。 |
 | `POST /api/v2/origin/create` | 已新增 `OriginV2Api.create` / `GenesisApi.createOriginV2`，完整支持 V1 create body与 `init_location_group`。Create 页面在同步成功且返回非空 `origin_id` 后立即展示创建成功，不等待异步地图状态；本地 mock 覆盖 definition version 2、Opening 保存与 processing 状态。 |

@@ -1418,58 +1418,146 @@ void main() {
     expect(origin.ticks, isEmpty);
   });
 
-  test('v1 origin forEdit uses Apifox query and flat edit response', () async {
-    final apiTransport = _FakeTransport(
-      handler: (request) => TransportResponse(
-        statusCode: 200,
-        headers: const {'content-type': 'application/json'},
-        body: jsonEncode({
-          'err_no': 0,
-          'err_msg': 'succ',
-          'data': {
-            'origin_id': 'o_edit_1',
-            'origin_name': 'Editable Origin',
-            'brief': 'Editable public view.',
-            'setting': 'Editable rules.',
-            'events': ['The archive opens.'],
-            'tags': ['archive'],
-            'metric': const <String, Object?>{
-              'label': 'Influence',
-              'label_note': 'Tracks archive trust.',
+  test(
+    'getMyLaunchPresetCharacters uses contract query and common headers',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': 0,
+            'err_msg': 'succ',
+            'data': {
+              'list': [
+                {
+                  'char_id': 'char_1',
+                  'type': 'ai',
+                  'name': 'Alice',
+                  'identity': 'Detective',
+                  'brief': 'Calm and observant',
+                  'goal': 'Find the truth',
+                  'avatar': {
+                    'sm_url': 'https://cdn.example.com/alice_400.webp',
+                    'xl_url': 'https://cdn.example.com/alice_800.webp',
+                    'object_key': 'uploads/alice_800.webp',
+                  },
+                  'initial_location_id': 'loc_1_1_1',
+                  'last_launched_at': 1785292800,
+                },
+              ],
             },
-            'started_at': 'Day 1',
-            'tick_duration_time': '30 days',
-            'cover': 'cover.png',
-            'map_url': 'map.png',
-            'characters': const <Object?>[],
-            'locations': const <Object?>[],
-          },
-        }),
-      ),
-    );
-    final healthTransport = _FakeTransport(
-      handler: (_) => const TransportResponse(
-        statusCode: 200,
-        headers: {'content-type': 'application/json'},
-        body: '{"status":"ok"}',
-      ),
-    );
+          }),
+        ),
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveAuthToken('backend-token');
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        sessionStore: sessionStore,
+        appHeaderProvider: () async => const {
+          'user-agent': 'Android 15',
+          'x-system-language': 'zh-CN',
+          'x-app-version-code': '123',
+          'x-app-timezone': 'Asia/Shanghai',
+          'device-id': 'legacy-device-id',
+        },
+      );
 
-    final api = _apiWith(apiTransport, healthTransport);
-    final edit = await api.v1.origin.forEdit(originId: 'o_edit_1');
+      final characters = await api.getMyLaunchPresetCharacters('o_1');
 
-    expect(apiTransport.lastRequest!.method, 'GET');
-    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/foredit');
-    expect(
-      apiTransport.lastRequest!.uri.queryParameters['origin_id'],
-      'o_edit_1',
-    );
-    expect(edit['origin_id'], 'o_edit_1');
-    expect(edit['tick_duration_time'], '30 days');
-    expect((edit['metric'] as Map)['label_note'], 'Tracks archive trust.');
-    expect(edit['stats'], isNull);
-    expect(edit['ticks'], isNull);
-  });
+      final request = apiTransport.lastRequest!;
+      expect(request.method, 'GET');
+      expect(request.uri.path, '/api/v1/origin/my_launch_preset_characters');
+      expect(request.uri.queryParameters, {'origin_id': 'o_1'});
+      expect(request.headers['user-agent'], 'Android 15');
+      expect(request.headers['x-system-language'], 'zh-CN');
+      expect(request.headers['x-app-version-code'], '123');
+      expect(request.headers['x-app-timezone'], 'Asia/Shanghai');
+      expect(request.headers['authorization'], 'Bearer backend-token');
+      expect(request.headers.containsKey('device-id'), isFalse);
+
+      expect(characters, hasLength(1));
+      final character = characters.single;
+      expect(character.charId, 'char_1');
+      expect(character.type, 'ai');
+      expect(character.name, 'Alice');
+      expect(character.identity, 'Detective');
+      expect(character.brief, 'Calm and observant');
+      expect(character.goal, 'Find the truth');
+      expect(character.avatar, 'https://cdn.example.com/alice_800.webp');
+      expect(character.avatarResource.objectKey, 'uploads/alice_800.webp');
+      expect(character.initialLocationId, 'loc_1_1_1');
+      expect(character.lastLaunchedAt, 1785292800);
+    },
+  );
+
+  test(
+    'v2 origin forEdit uses query and nested OriginDetail response',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (request) => TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': 0,
+            'err_msg': 'succ',
+            'data': {
+              'info': {
+                'origin_id': 'o_edit_1',
+                'origin_name': 'Editable Origin',
+                'definition_version': 2,
+                'brief': 'Editable public view.',
+                'tags': ['archive'],
+                'metric': const <String, Object?>{
+                  'label': 'Influence',
+                  'label_note': 'Tracks archive trust.',
+                },
+                'cover': const <String, Object?>{
+                  'sm_url': 'cover_400.png',
+                  'xl_url': 'cover_800.png',
+                  'object_key': 'covers/edit.png',
+                },
+              },
+              'stats': const <String, Object?>{},
+              'init_location_group': const <String, Object?>{
+                'location_id': 'loc_1',
+                'initial_dialogue': <Object?>[],
+              },
+              'characters': const <Object?>[],
+              'locations': const <Object?>[],
+              'ticks': const <Object?>[],
+            },
+          }),
+        ),
+      );
+      final healthTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      );
+
+      final api = _apiWith(apiTransport, healthTransport);
+      final edit = await api.v2.origin.forEdit(originId: 'o_edit_1');
+
+      expect(apiTransport.lastRequest!.method, 'GET');
+      expect(apiTransport.lastRequest!.uri.path, '/api/v2/origin/foredit');
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters['origin_id'],
+        'o_edit_1',
+      );
+      expect((edit['info'] as Map)['origin_id'], 'o_edit_1');
+      expect(
+        ((edit['info'] as Map)['metric'] as Map)['label_note'],
+        'Tracks archive trust.',
+      );
+      expect(edit['stats'], isA<Map>());
+      expect(edit['ticks'], isEmpty);
+    },
+  );
 
   test('createOrigin posts latest Apifox origin create body', () async {
     final apiTransport = _FakeTransport(
@@ -1871,6 +1959,7 @@ void main() {
             as Map<String, dynamic>;
     expect(body['origin_id'], 'o_v2_updated');
     expect(body['origin_name'], 'Updated Automatic Map Origin');
+    expect(body['setting'], 'Updated setting.');
     expect(body['events'], isEmpty);
     expect(body['update_notes'], 'Regenerate the map.');
     expect(body['deleted_char_ids'], ['char_removed']);

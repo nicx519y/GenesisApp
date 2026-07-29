@@ -1628,7 +1628,7 @@ void main() {
         'msg_id': 255,
         'location_msg_id': 155,
         'conversation_round_id': 1449,
-        'sender_id': 'nar',
+        'sender_id': 'nar_pic',
         'sender_name': '旁白',
         'location_id': 'loc-1',
       });
@@ -1647,6 +1647,9 @@ void main() {
         locationId: 'loc-1',
         limit: 20,
       );
+      final live = service.state.messagesByLocation['loc-1']!.single;
+      expect(live.senderType, 'narrator');
+      expect(live.senderId, 'nar_pic');
       expect(cached.single['message_type'], 'image');
       await service.dispose();
 

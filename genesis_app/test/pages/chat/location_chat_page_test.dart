@@ -7,6 +7,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
@@ -517,6 +518,70 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const ValueKey('memory-model-entry')), findsNothing);
+  });
+
+  testWidgets('WebSocket and HTTP narrator nar_pic messages render as images', (
+    tester,
+  ) async {
+    const imageUrl = 'assets/images/default_list_image.png';
+    final websocketMessage = WorldChatroomMessage.fromNarratorMessage(
+      ChatroomNarratorMessage.fromEnvelope(
+        ChatroomEnvelope.fromJson({
+          'type': 'nar_new_message',
+          'world_id': 'world-current',
+          'location_id': 'location-current',
+          'global_msg_id': 1,
+          'msg_id': 1,
+          'location_msg_id': 1,
+          'conversation_round_id': 1,
+          'sender_id': 'nar_pic',
+          'sender_name': 'Narrator',
+          'payload': {'sender_type': 'narrator', 'content': imageUrl},
+        }),
+      ),
+    );
+    final httpMessage = WorldChatroomMessage.fromHttpMessage(
+      ChatroomHttpMessage.fromJson({
+        'global_message_id': 2,
+        'message_id': 2,
+        'location_msg_id': 2,
+        'location_id': 'location-current',
+        'conversation_round_id': 2,
+        'sender_type': 'narrator',
+        'sender_id': 'nar_pic',
+        'sender_name': 'Narrator',
+        'content': imageUrl,
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'world-current',
+          locationId: 'location-current',
+          active: false,
+          openingPreviewMessages: [websocketMessage, httpMessage],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(websocketMessage.senderType, 'narrator');
+    expect(httpMessage.senderType, 'narrator');
+    expect(find.byType(ChatImageMessage), findsNWidgets(2));
+    expect(find.byType(ChatMessageBubble), findsNothing);
+    final imageMessages = tester.widgetList<ChatImageMessage>(
+      find.byType(ChatImageMessage),
+    );
+    expect(
+      imageMessages.every(
+        (widget) =>
+            widget.message.senderType == 'image' &&
+            widget.message.imageUrl == imageUrl,
+      ),
+      isTrue,
+    );
+    expect(find.text(imageUrl), findsNothing);
   });
 
   testWidgets('location chat updates when cached selected model arrives', (

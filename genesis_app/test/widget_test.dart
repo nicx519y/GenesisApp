@@ -491,6 +491,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.originCharacters,
     this.originLocations,
     this.originTicks,
+    this.myLaunchPresetCharacters,
     this.worldMapUrl = '',
     this.worldCharacters,
     this.worldLocations,
@@ -525,6 +526,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? originCharacters;
   final List<Map<String, Object?>>? originLocations;
   final List<Map<String, Object?>>? originTicks;
+  final List<Map<String, Object?>>? myLaunchPresetCharacters;
   final String worldMapUrl;
   final List<Map<String, Object?>>? worldCharacters;
   final List<Map<String, Object?>>? worldLocations;
@@ -560,6 +562,15 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_str': 'success',
         'data': _originDetail(oid),
+      });
+    }
+    if (request.uri.path.endsWith('/origin/my_launch_preset_characters')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'list': myLaunchPresetCharacters ?? const <Map<String, Object?>>[],
+        },
       });
     }
     if (request.uri.path.endsWith('/world/detail')) {
@@ -1952,38 +1963,43 @@ class _RecordingCreateOriginTransport implements HttpTransport {
       };
     }
     if (request.method == 'GET' &&
-        request.uri.path == '/api/v1/origin/foredit') {
+        request.uri.path == '/api/v2/origin/foredit') {
       final oid = request.uri.queryParameters['origin_id'] ?? '';
       data = {
-        'origin_id': oid,
-        'origin_name': 'Editable Origin',
-        'origin_version': '1',
-        'brief': 'Editable public view.',
-        'setting': 'Editable hidden rules.',
-        'events': ['The archive opens.'],
-        'tags': const <String>[],
-        'metric': {
-          'mode': 'qualitative',
-          'label': 'Influence',
-          'label_note': 'Tracks archive influence.',
-          'unit': '%',
-          'range': [0, 100],
-          'default': 0,
+        'info': {
+          'origin_id': oid,
+          'origin_name': 'Editable Origin',
+          'origin_version': '1',
+          'definition_version': 2,
+          'brief': 'Editable public view.',
+          'tags': const <String>[],
+          'metric': {
+            'mode': 'qualitative',
+            'label': 'Influence',
+            'label_note': 'Tracks archive influence.',
+            'unit': '%',
+            'range': [0, 100],
+            'default': 0,
+          },
+          'cover': {
+            'sm_url': 'assets/images/map_default/root_default.webp',
+            'xl_url': 'assets/images/map_default/root_default.webp',
+            'object_key': '',
+          },
+          'map_url': 'assets/images/map_default/root_default.webp',
+          'status': 10,
         },
-        'started_at': 'Day 1',
-        'tick_duration_time': '30 days',
-        'cover': 'assets/images/map_default/root_default.webp',
-        'map_url': 'assets/images/map_default/root_default.webp',
+        'stats': const <String, Object?>{},
         'characters': [
           {
             'char_id': 'char_edit_1',
             'name': 'Mira',
             'identity': 'Archivist',
-            'personality': 'Patient',
-            'bio': 'Keeps the records.',
+            'brief': 'Patient',
             'goal': 'Find the first page.',
-            'avatar': '',
+            'avatar': const <String, Object?>{},
             'initial_location_id': 'location_edit_1',
+            'location_id': 'location_edit_1',
           },
         ],
         'locations': [
@@ -2002,6 +2018,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
             'map_url': '',
           },
         ],
+        'ticks': const <Object?>[],
       };
     }
     if (request.method == 'GET' && request.uri.path == '/api/v1/origin/info') {
@@ -6093,7 +6110,7 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('origin-role-launch-icon')),
-      findsNothing,
+      findsOneWidget,
     );
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
     expect(
@@ -6157,6 +6174,81 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'Origin launched role tab uses my launch preset characters endpoint',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+        myLaunchPresetCharacters: const [
+          {
+            'char_id': 'char_history_1',
+            'type': 'ai',
+            'name': 'History Mira',
+            'identity': 'Navigator',
+            'brief': 'Knows every route.',
+            'goal': 'Reach the hidden harbor.',
+            'avatar': {
+              'sm_url': 'https://cdn.example.com/mira_400.webp',
+              'xl_url': 'https://cdn.example.com/mira_800.webp',
+              'object_key': 'uploads/mira_800.webp',
+            },
+            'initial_location_id': 'loc_history_1',
+            'last_launched_at': 1785292800,
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+          ),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
+        isEmpty,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+
+      await tester.tap(find.text('Launch'));
+      await tester.pumpAndSettle();
+
+      final historyRequests = transport.requestsFor(
+        '/api/v1/origin/my_launch_preset_characters',
+      );
+      expect(historyRequests, hasLength(1));
+      expect(historyRequests.single.uri.queryParameters, {
+        'origin_id': 'o_test_1',
+      });
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+
+      expect(find.text('Launched'), findsOneWidget);
+      expect(find.text('History Mira'), findsOneWidget);
+      expect(find.text('Navigator'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('origin-role-launched-char_history_1')),
+      );
+      await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+      await tester.pumpAndSettle();
+
+      final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+      expect(launchRequests, hasLength(1));
+      final launchBody = transport.decodedBody(launchRequests.single);
+      expect(launchBody['origin_id'], 'o_test_1');
+      expect(launchBody['preset_character_id'], 'char_history_1');
+      expect(launchBody.containsKey('custom_role'), isFalse);
+    },
+  );
 
   testWidgets('Origin custom card opens custom role sheet and launches', (
     WidgetTester tester,
@@ -6978,7 +7070,7 @@ void main() {
   });
 
   testWidgets(
-    'Origin role sheet defaults to launched worlds and enters selection',
+    'Origin role sheet defaults to launched preset roles and launches selection',
     (WidgetTester tester) async {
       OriginRoleLaunchSelection? result;
       await tester.pumpWidget(
@@ -6990,13 +7082,18 @@ void main() {
                   result = await showOriginRoleLaunchSheet(
                     context: context,
                     characters: const <OriginCharacter>[],
-                    launchedWorldsLoader: () async => const [
-                      OriginLaunchedWorldRole(
-                        worldId: 'w_launched_1',
-                        roleName: 'Mira',
-                        avatarUrl: '',
-                        tickCount: 7,
-                        currentTime: 'Day 3',
+                    launchedPresetRolesLoader: () async => const [
+                      OriginMyLaunchPresetCharacter(
+                        charId: 'char_launched_1',
+                        type: 'ai',
+                        name: 'Mira',
+                        identity: 'Navigator',
+                        brief: 'Knows every route.',
+                        goal: 'Reach the hidden harbor.',
+                        avatar: '',
+                        avatarResource: GenesisImageResource(),
+                        initialLocationId: 'loc_launched_1',
+                        lastLaunchedAt: 1785292800,
                       ),
                     ],
                   );
@@ -7013,20 +7110,20 @@ void main() {
 
       expect(find.text('Launched'), findsOneWidget);
       expect(find.text('Mira'), findsOneWidget);
-      expect(find.text('w_launched_1'), findsOneWidget);
-      expect(find.text('Tick 7 · Day 3'), findsOneWidget);
+      expect(find.text('Navigator'), findsOneWidget);
       expect(
-        find.widgetWithText(GenesisPrimaryButton, 'Enter'),
+        find.widgetWithText(GenesisPrimaryButton, 'Launch'),
         findsOneWidget,
       );
 
       await tester.tap(
-        find.byKey(const ValueKey('origin-role-launched-w_launched_1')),
+        find.byKey(const ValueKey('origin-role-launched-char_launched_1')),
       );
       await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
       await tester.pumpAndSettle();
 
-      expect(result?.existingWorldId, 'w_launched_1');
+      expect(result?.presetCharacterId, 'char_launched_1');
+      expect(result?.initialLocationId, 'loc_launched_1');
     },
   );
 
@@ -11552,7 +11649,7 @@ void main() {
     );
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/foredit').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -11583,7 +11680,7 @@ void main() {
     );
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/foredit').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -11647,7 +11744,7 @@ void main() {
     await tester.pump();
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/foredit').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -11657,7 +11754,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    final detailRequests = transport.requestsFor('/api/v1/origin/foredit');
+    final detailRequests = transport.requestsFor('/api/v2/origin/foredit');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_edit_1');
     expect(find.text('Current Version: V1'), findsOneWidget);
@@ -11780,10 +11877,11 @@ void main() {
     expect(body['origin_version'], '1');
     expect(body['origin_name'], 'Edited Origin');
     expect(body['brief'], 'Editable public view.');
-    expect(body['setting'], 'Editable hidden rules.');
-    expect(body['started_at'], 'Day 1');
+    expect(body, isNot(contains('setting')));
+    expect(body, isNot(contains('events')));
+    expect(body, isNot(contains('started_at')));
     expect(body.containsKey('tick_duration_days'), isFalse);
-    expect(body['tick_duration_time'], '30 days');
+    expect(body, isNot(contains('tick_duration_time')));
     expect(body['update_notes'], 'Clarified the archive rules.');
     expect(body['metric'], {
       'mode': 'qualitative',
@@ -11837,7 +11935,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Editable public view.'), findsOneWidget);
-    expect(find.text('Editable hidden rules.'), findsOneWidget);
+    expect(find.text('Editable hidden rules.'), findsNothing);
     expect(find.text('Mira: Archivist. Patient'), findsOneWidget);
     expect(
       _richTextWithPlainText('Worldo #Origin o_edit_1 published!'),
@@ -11891,7 +11989,7 @@ void main() {
     );
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/foredit').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -11993,7 +12091,7 @@ void main() {
     );
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/foredit').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -12052,14 +12150,7 @@ void main() {
         await tester.pump();
         await tester.runAsync(() async {
           for (var i = 0; i < 50; i++) {
-            if (transport.requestsFor('/api/v1/origin/foredit').length >=
-                requestCount) {
-              break;
-            }
-            await Future<void>.delayed(const Duration(milliseconds: 10));
-          }
-          for (var i = 0; i < 50; i++) {
-            if (transport.requestsFor('/api/v1/origin/detail').length >=
+            if (transport.requestsFor('/api/v2/origin/foredit').length >=
                 requestCount) {
               break;
             }
@@ -12104,7 +12195,7 @@ void main() {
 
       await tester.tap(find.text('Open edit'));
       await waitForEditLoad(2);
-      expect(transport.requestsFor('/api/v1/origin/foredit'), hasLength(2));
+      expect(transport.requestsFor('/api/v2/origin/foredit'), hasLength(2));
       expect(
         find.textContaining('Worldo Name: #Editable Origin'),
         findsOneWidget,

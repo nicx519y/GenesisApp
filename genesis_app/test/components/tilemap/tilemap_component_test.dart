@@ -851,6 +851,11 @@ void main() {
       find.byKey(const ValueKey<String>('tile-location-label-0-0')),
     );
     expect(labelRect.top, greaterThan(tileRect.center.dy));
+    await tester.tap(find.text('High School'));
+    await tester.pump();
+    expect(tappedTile?.locationId, 'loc_1');
+
+    tappedTile = null;
     final tileCenter = tileRect.center + Offset(0, tileRect.height / 4);
     await tester.tapAt(tileCenter);
     await tester.pump();

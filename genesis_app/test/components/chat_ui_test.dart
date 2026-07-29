@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/components/gems/memory_model_entry_button.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
@@ -1943,6 +1944,223 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('assets/images/default_list_image.png'), findsNothing);
+  });
+
+  testWidgets('chat image thumbnail uses physical width OSS tier', (
+    WidgetTester tester,
+  ) async {
+    const source = 'https://cdn.example.com/chat.png?old=true#fragment';
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final expectation in const <(double, int)>[
+      (1, 360),
+      (2, 720),
+      (3, 1080),
+      (4, 1080),
+    ]) {
+      tester.view.devicePixelRatio = expectation.$1;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatMessageRow(
+              message: ChatMessageVm(
+                localId: 'remote-image-${expectation.$1}',
+                senderId: 'nar_pic',
+                senderName: 'Narrator',
+                senderType: 'image',
+                imageUrl: source,
+                text: source,
+                isMe: false,
+                status: 'sent',
+              ),
+              showDateDivider: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final image = tester.widget<ChatThumbnailImage>(
+        find.byType(ChatThumbnailImage),
+      );
+      expect(
+        image.imageUrl,
+        'https://cdn.example.com/chat.png'
+        '?x-oss-process=image/resize,w_${expectation.$2},image/format,webp',
+      );
+      expect(image.maxExtent, ChatImageMessage.maxImageExtent);
+      expect(image.borderRadius, BorderRadius.circular(8));
+    }
+  });
+
+  testWidgets('chat image keeps its ratio within 250 logical pixels', (
+    WidgetTester tester,
+  ) async {
+    Future<Size> pumpImage(String localId, String imageUrl) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatMessageRow(
+              message: ChatMessageVm(
+                localId: localId,
+                senderId: 'nar_pic',
+                senderName: 'Narrator',
+                senderType: 'image',
+                imageUrl: imageUrl,
+                text: imageUrl,
+                isMe: false,
+                status: 'sent',
+              ),
+              showDateDivider: false,
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        await precacheImage(
+          AssetImage(imageUrl),
+          tester.element(find.byType(ChatThumbnailImage)),
+        );
+      });
+      await tester.pump();
+      return tester.getSize(
+        find.byKey(ValueKey<String>('chat-image-message-$localId')),
+      );
+    }
+
+    final landscape = await pumpImage(
+      'landscape',
+      'assets/images/my_worlds_empty_worldo_launch.jpg',
+    );
+    expect(landscape.width, closeTo(250, 0.01));
+    expect(landscape.height, closeTo(250 * 619 / 1253, 0.01));
+
+    final portrait = await pumpImage(
+      'portrait',
+      'assets/images/map_default/root_default.webp',
+    );
+    expect(portrait.width, closeTo(250 * 1024 / 1536, 0.01));
+    expect(portrait.height, closeTo(250, 0.01));
+
+    final small = await pumpImage(
+      'small',
+      'assets/custom-icons/png/discuss_like_outline.png',
+    );
+    expect(small, const Size.square(96));
+
+    final renderedImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byType(ChatThumbnailImage),
+        matching: find.byType(Image),
+      ),
+    );
+    expect(renderedImage.fit, BoxFit.contain);
+  });
+
+  testWidgets('chat image opens all loaded images at the tapped message', (
+    WidgetTester tester,
+  ) async {
+    final start = DateTime(2026, 7, 29, 10);
+    const firstImage = 'assets/images/map_default/root_default.webp';
+    const secondImage = 'assets/images/map_default/l1_default.webp';
+    final messages = <ChatMessageVm>[
+      ChatMessageVm(
+        localId: 'image-later',
+        senderId: 'nar_pic',
+        senderName: 'Narrator',
+        senderType: 'image',
+        imageUrl: secondImage,
+        text: secondImage,
+        isMe: false,
+        status: 'sent',
+        createdAt: start.add(const Duration(minutes: 2)),
+      ),
+      ChatMessageVm(
+        localId: 'text-between',
+        senderId: 'peer',
+        senderName: 'Peer',
+        text: 'not an image',
+        isMe: false,
+        status: 'sent',
+        createdAt: start.add(const Duration(minutes: 1)),
+      ),
+      ChatMessageVm(
+        localId: 'image-earlier',
+        senderId: 'nar_pic',
+        senderName: 'Narrator',
+        senderType: 'image',
+        imageUrl: firstImage,
+        text: firstImage,
+        isMe: false,
+        status: 'sent',
+        createdAt: start,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageList(
+            controller: ScrollController(),
+            messages: messages,
+            topTitle: '',
+            reverse: false,
+            showDateDividers: false,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('chat-image-message-image-later')),
+    );
+    await tester.pumpAndSettle();
+
+    final viewer = tester.widget<GenesisImageViewerOverlay>(
+      find.byType(GenesisImageViewerOverlay),
+    );
+    expect(viewer.imageUrls, const <String>[firstImage, secondImage]);
+    expect(viewer.initialIndex, 1);
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-page-dots')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('standalone chat image viewer falls back to current image', (
+    WidgetTester tester,
+  ) async {
+    const image = 'assets/images/map_default/root_default.webp';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'standalone-image',
+              senderId: 'nar_pic',
+              senderName: 'Narrator',
+              senderType: 'image',
+              imageUrl: image,
+              text: image,
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('chat-image-message-standalone-image')),
+    );
+    await tester.pumpAndSettle();
+
+    final viewer = tester.widget<GenesisImageViewerOverlay>(
+      find.byType(GenesisImageViewerOverlay),
+    );
+    expect(viewer.imageUrls, const <String>[image]);
+    expect(viewer.initialIndex, 0);
   });
 }
 
