@@ -404,6 +404,8 @@ class _LocationCard extends StatelessWidget {
     this.titleSuffix,
     this.nameFieldLabel = 'Location Name *',
     this.fieldLabelFontWeight = FontWeight.w600,
+    this.availableCharacters,
+    this.onAddCharacter,
   });
 
   final int index;
@@ -423,6 +425,8 @@ class _LocationCard extends StatelessWidget {
   final String? titleSuffix;
   final String nameFieldLabel;
   final FontWeight fieldLabelFontWeight;
+  final List<CharacterDraft>? availableCharacters;
+  final ValueChanged<String>? onAddCharacter;
 
   @override
   Widget build(BuildContext context) {
@@ -467,6 +471,8 @@ class _LocationCard extends StatelessWidget {
           labelFontWeight: fieldLabelFontWeight,
           onPickCharacters: onPickCharacters,
           onRemoveCharacter: onRemoveCharacter,
+          availableCharacters: availableCharacters,
+          onAddCharacter: onAddCharacter,
         ),
       ],
     );
@@ -491,6 +497,8 @@ class _InitialCharactersField extends StatelessWidget {
     required this.labelFontWeight,
     required this.onPickCharacters,
     required this.onRemoveCharacter,
+    this.availableCharacters,
+    this.onAddCharacter,
   });
 
   final _LocationForm form;
@@ -498,10 +506,94 @@ class _InitialCharactersField extends StatelessWidget {
   final FontWeight labelFontWeight;
   final VoidCallback onPickCharacters;
   final ValueChanged<String> onRemoveCharacter;
+  final List<CharacterDraft>? availableCharacters;
+  final ValueChanged<String>? onAddCharacter;
 
   @override
   Widget build(BuildContext context) {
     final selectedCharacters = _selectedCharacters;
+    final usesInlineSelection = availableCharacters != null;
+    final selectionField = Container(
+      key: usesInlineSelection
+          ? const ValueKey('location-character-selection')
+          : null,
+      constraints: const BoxConstraints(minHeight: 40),
+      decoration: BoxDecoration(
+        color: createFormFieldFill,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final leftPadding = selectedCharacters.isEmpty ? 12.0 : 4.0;
+          final trailingWidth = usesInlineSelection ? 0.0 : 46.0;
+          final chipAreaWidth =
+              constraints.maxWidth - leftPadding - trailingWidth;
+          final chipsWrap = _chipsWillWrap(
+            context,
+            selectedCharacters,
+            chipAreaWidth <= 0 ? 0 : chipAreaWidth,
+          );
+          final contentPadding = chipsWrap
+              ? EdgeInsets.fromLTRB(leftPadding, 6, 4, 6)
+              : EdgeInsets.fromLTRB(leftPadding, 4, 4, 4);
+          return Padding(
+            padding: contentPadding,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: selectedCharacters.isEmpty
+                      ? SizedBox(
+                          height: 32,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              usesInlineSelection
+                                  ? 'Select from available characters below'
+                                  : 'Select initial characters',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: createFormHint,
+                                fontSize: 14,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
+                        )
+                      : ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 32),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Wrap(
+                              spacing: 3,
+                              runSpacing: 3,
+                              children: [
+                                for (final character in selectedCharacters)
+                                  _InitialCharacterChip(
+                                    characterId: character.charId.trim(),
+                                    name: character.name.trim(),
+                                    onRemove: onRemoveCharacter,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                ),
+                if (!usesInlineSelection) ...[
+                  const SizedBox(width: 4),
+                  const SizedBox(
+                    width: 38,
+                    height: 32,
+                    child: Icon(Icons.add, color: createFormGreen, size: 28),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -516,92 +608,62 @@ class _InitialCharactersField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        GestureDetector(
-          key: const ValueKey('location-character-picker'),
-          behavior: HitTestBehavior.opaque,
-          onTap: onPickCharacters,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 40),
-            decoration: BoxDecoration(
-              color: createFormFieldFill,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final leftPadding = selectedCharacters.isEmpty ? 12.0 : 4.0;
-                final chipAreaWidth = constraints.maxWidth - leftPadding - 46;
-                final chipsWrap = _chipsWillWrap(
-                  context,
-                  selectedCharacters,
-                  chipAreaWidth <= 0 ? 0 : chipAreaWidth,
-                );
-                final contentPadding = chipsWrap
-                    ? EdgeInsets.fromLTRB(leftPadding, 6, 4, 6)
-                    : EdgeInsets.fromLTRB(leftPadding, 4, 4, 4);
-                return Padding(
-                  padding: contentPadding,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: selectedCharacters.isEmpty
-                            ? const SizedBox(
-                                height: 32,
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    'Select initial characters',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: createFormHint,
-                                      fontSize: 14,
-                                      height: 1.2,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : ConstrainedBox(
-                                constraints: BoxConstraints(minHeight: 32),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Wrap(
-                                    spacing: 3,
-                                    runSpacing: 3,
-                                    children: [
-                                      for (final character
-                                          in selectedCharacters)
-                                        _InitialCharacterChip(
-                                          characterId: character.charId.trim(),
-                                          name: character.name.trim(),
-                                          onRemove: onRemoveCharacter,
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                      ),
-                      const SizedBox(width: 4),
-                      const SizedBox(
-                        width: 38,
-                        height: 32,
-                        child: Icon(
-                          Icons.add,
-                          color: createFormGreen,
-                          size: 28,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+        if (usesInlineSelection)
+          selectionField
+        else
+          GestureDetector(
+            key: const ValueKey('location-character-picker'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onPickCharacters,
+            child: selectionField,
           ),
-        ),
         const SizedBox(height: 8),
         const CreateFormNote(
           note: 'The characters who start here when the worldo begins.',
         ),
+        if (usesInlineSelection) ...[
+          const SizedBox(height: 14),
+          Align(
+            key: const ValueKey('available-initial-characters-label'),
+            alignment: Alignment.center,
+            child: Text(
+              'Available to select',
+              style: TextStyle(
+                color: createFormText,
+                fontSize: 14,
+                height: 1.2,
+                fontWeight: labelFontWeight,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (availableCharacters!.isEmpty)
+            const Text(
+              'No characters available.',
+              style: TextStyle(
+                color: createFormMuted,
+                fontSize: 12,
+                height: 1.2,
+              ),
+            )
+          else
+            Wrap(
+              key: const ValueKey('available-initial-characters'),
+              direction: Axis.horizontal,
+              alignment: WrapAlignment.start,
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final character in availableCharacters!)
+                  _AvailableInitialCharacterChip(
+                    characterId: character.charId.trim(),
+                    avatarUrl: character.avatarUrl.trim(),
+                    name: character.name.trim(),
+                    onAdd: onAddCharacter!,
+                  ),
+              ],
+            ),
+        ],
       ],
     );
   }
@@ -645,6 +707,64 @@ class _InitialCharactersField extends StatelessWidget {
         .whereType<CharacterDraft>()
         .where((item) => item.name.trim().isNotEmpty)
         .toList(growable: false);
+  }
+}
+
+class _AvailableInitialCharacterChip extends StatelessWidget {
+  const _AvailableInitialCharacterChip({
+    required this.characterId,
+    required this.avatarUrl,
+    required this.name,
+    required this.onAdd,
+  });
+
+  final String characterId;
+  final String avatarUrl;
+  final String name;
+  final ValueChanged<String> onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: ValueKey('available-initial-character-$characterId'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onAdd(characterId),
+      child: Container(
+        height: 32,
+        constraints: const BoxConstraints(maxWidth: 180),
+        padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0xFFD9E5DF)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GenesisCharacterAvatar(
+              url: avatarUrl,
+              name: name,
+              size: 20,
+              borderRadius: GenesisAvatarRadii.character,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: createFormText,
+                  fontSize: 12,
+                  height: 1.2,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

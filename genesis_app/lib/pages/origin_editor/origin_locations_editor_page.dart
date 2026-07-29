@@ -837,6 +837,20 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                 void refreshSheet() => setSheetState(() {});
 
                 final deleteEnabled = target.parent.children.length > 1;
+                final selectedCharacterIds = draftForm.selectedCharacterIds
+                    .toSet();
+                final blockedCharacterIds = _boundCharacterIdsExceptForm(
+                  target.form,
+                );
+                final availableCharacters = _finalCharacters
+                    .where((character) {
+                      final characterId = character.charId.trim();
+                      return characterId.isNotEmpty &&
+                          character.name.trim().isNotEmpty &&
+                          !selectedCharacterIds.contains(characterId) &&
+                          !blockedCharacterIds.contains(characterId);
+                    })
+                    .toList(growable: false);
                 return GenesisBottomSheetPanel(
                   key: const ValueKey<String>('locations-l3-editor-sheet'),
                   title: isNew ? 'Add L3 Location' : 'Edit L3 Location',
@@ -866,12 +880,21 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                             nextFocusNode: null,
                             characters: _finalCharacters,
                             onChanged: refreshSheet,
-                            onPickCharacters: () async {
-                              await _openCharacterPickerForForm(
-                                draftForm,
-                                notifyFormChanged: false,
-                              );
-                              if (!context.mounted) return;
+                            onPickCharacters: () {
+                              // L3 sheets use the inline Available to select
+                              // list instead of opening a second sheet.
+                            },
+                            availableCharacters: availableCharacters,
+                            onAddCharacter: (characterId) {
+                              if (draftForm.selectedCharacterIds.contains(
+                                characterId,
+                              )) {
+                                return;
+                              }
+                              draftForm.selectedCharacterIds = [
+                                ...draftForm.selectedCharacterIds,
+                                characterId,
+                              ];
                               setSheetState(() {});
                             },
                             onRemoveCharacter: (charId) {

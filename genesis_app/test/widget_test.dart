@@ -106,6 +106,7 @@ import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparen
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_indicator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
@@ -11883,7 +11884,7 @@ void main() {
     expect(saveButton.onPressed, isNull);
   });
 
-  testWidgets('locations character picker reports empty final characters', (
+  testWidgets('L3 sheet reports when no inline characters are available', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
@@ -11894,19 +11895,17 @@ void main() {
     expect(
       tester
           .getSize(
-            find.byKey(const ValueKey('location-character-picker')).first,
+            find.byKey(const ValueKey('location-character-selection')).first,
           )
           .height,
       40,
     );
-
-    await tester.tap(
-      find.byKey(const ValueKey('location-character-picker')).first,
+    expect(
+      find.byKey(const ValueKey('location-character-picker')),
+      findsNothing,
     );
-    await tester.pumpAndSettle();
-
-    expect(find.text('There are no characters yet.'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Available to select'), findsOneWidget);
+    expect(find.text('No characters available.'), findsOneWidget);
   });
 
   testWidgets('create locations converts an existing flat draft to a tree', (
@@ -12061,7 +12060,7 @@ void main() {
     },
   );
 
-  testWidgets('locations character picker binds available character ids', (
+  testWidgets('L3 sheet inline character chips bind available ids', (
     WidgetTester tester,
   ) async {
     await CreateOriginDraftStore.saveFinal(
@@ -12098,31 +12097,111 @@ void main() {
       tester,
       locationName: 'L3 Location',
     );
-    await tester.tap(
-      find.byKey(const ValueKey('location-character-picker')).first,
+    expect(find.text('Available to select'), findsOneWidget);
+    final initialCharactersLabel = tester.widget<Text>(
+      find.text('Initial Characters (Optional)'),
     );
-    await tester.pumpAndSettle();
-    expect(find.text('Select Characters'), findsOneWidget);
-
-    await tester.tap(
-      find.byKey(const ValueKey('character-picker-tile-char_ari')),
+    final availableCharactersLabel = tester.widget<Text>(
+      find.text('Available to select'),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Select'));
-    await tester.pumpAndSettle();
-
     expect(
-      find.descendant(of: l3Sheet, matching: find.text('Ari')),
+      availableCharactersLabel.style?.fontSize,
+      initialCharactersLabel.style?.fontSize,
+    );
+    expect(
+      availableCharactersLabel.style?.fontWeight,
+      initialCharactersLabel.style?.fontWeight,
+    );
+    expect(
+      availableCharactersLabel.style?.color,
+      initialCharactersLabel.style?.color,
+    );
+    expect(
+      tester
+          .widget<Align>(
+            find.byKey(const ValueKey('available-initial-characters-label')),
+          )
+          .alignment,
+      Alignment.center,
+    );
+    expect(
+      tester
+          .widget<Wrap>(
+            find.byKey(const ValueKey('available-initial-characters')),
+          )
+          .direction,
+      Axis.horizontal,
+    );
+    expect(
+      find.byKey(const ValueKey('location-character-picker')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('available-initial-character-char_ari')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('available-initial-character-char_bex')),
       findsOneWidget,
     );
     expect(
       tester
           .getSize(
-            find.byKey(const ValueKey('location-character-picker')).first,
+            find.byKey(const ValueKey('available-initial-character-char_ari')),
           )
-          .height,
-      40,
+          .width,
+      lessThan(180),
     );
+    final availableAriText = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('available-initial-character-char_ari')),
+        matching: find.text('Ari'),
+      ),
+    );
+    final availableAriAvatar = tester.widget<GenesisCharacterAvatar>(
+      find.descendant(
+        of: find.byKey(const ValueKey('available-initial-character-char_ari')),
+        matching: find.byType(GenesisCharacterAvatar),
+      ),
+    );
+    expect(availableAriAvatar.name, 'Ari');
+    expect(availableAriAvatar.size, 20);
+    await tester.tap(
+      find.byKey(const ValueKey('available-initial-character-char_ari')),
+    );
+    await tester.pump();
+
+    expect(
+      find.descendant(of: l3Sheet, matching: find.text('Ari')),
+      findsOneWidget,
+    );
+    final selectedAriText = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('initial-character-chip-char_ari')),
+        matching: find.text('Ari'),
+      ),
+    );
+    expect(selectedAriText.style, availableAriText.style);
+    expect(
+      find.byKey(const ValueKey('available-initial-character-char_ari')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('available-initial-character-char_bex')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('initial-character-chip-remove-char_ari')),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('available-initial-character-char_ari')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('available-initial-character-char_ari')),
+    );
+    await tester.pump();
 
     final l3Name = find
         .descendant(of: l3Sheet, matching: find.byType(TextField))
