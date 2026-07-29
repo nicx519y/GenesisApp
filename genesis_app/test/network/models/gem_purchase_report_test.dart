@@ -8,11 +8,13 @@ void main() {
         'status': status.name,
         'granted_gems': 550,
         'transaction_id': 'GPA.1234-5678',
+        'reason': 'account_mismatch',
       });
 
       expect(report.status, status);
       expect(report.grantedGems, 550);
       expect(report.transactionId, 'GPA.1234-5678');
+      expect(report.reason, 'account_mismatch');
     });
   }
 

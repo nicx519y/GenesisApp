@@ -135,6 +135,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
 
   late final Future<DeviceIdDiagnostics> _deviceIdDiagnosticsFuture;
   late final Future<AppVersionInfo> _appVersionFuture;
+  late final Future<_DeveloperAccountIdentity> _accountIdentityFuture;
   late final TextEditingController _apiBaseUrlController;
   late final TextEditingController _gatewayApiBaseUrlController;
   late final TextEditingController _chatroomWsBaseUrlController;
@@ -160,6 +161,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             (value) => DeviceIdDiagnostics(deviceId: value),
           );
     _appVersionFuture = AppMetadataService.appVersion();
+    _accountIdentityFuture = _loadAccountIdentity();
     _apiBaseUrlController = TextEditingController();
     _gatewayApiBaseUrlController = TextEditingController();
     _chatroomWsBaseUrlController = TextEditingController();
@@ -224,13 +226,18 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 18),
+          FutureBuilder<_DeveloperAccountIdentity>(
+            future: _accountIdentityFuture,
+            builder: (context, snapshot) => _buildAccountIdentityRows(snapshot),
+          ),
+          const SizedBox(height: _itemGap),
           _buildGemBalanceInfoRow(),
           const SizedBox(height: _itemGap),
           FutureBuilder<DeviceIdDiagnostics>(
             future: _deviceIdDiagnosticsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
-                return const _DeveloperInfoRow(
+                return const _DeveloperInfoSingleLineRow(
                   title: 'Device ID',
                   content: 'Loading...',
                 );

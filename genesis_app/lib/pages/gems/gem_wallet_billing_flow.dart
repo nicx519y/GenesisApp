@@ -7,7 +7,17 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     _billingService = service;
     _billingEvents = service.events.listen(_handleBillingEvent);
     unawaited(service.start());
+    final products = _products;
+    if (products != null) _startStoreRecovery(products);
     if (mounted) _updateState(() {});
+  }
+
+  void _startStoreRecovery(List<GemProduct> productCatalog) {
+    if (_storeRecoveryStarted) return;
+    final service = _billingService;
+    if (service == null) return;
+    _storeRecoveryStarted = true;
+    unawaited(service.recoverStorePurchases(productCatalog: productCatalog));
   }
 
   Future<void> _purchaseProduct(GemProduct product) async {

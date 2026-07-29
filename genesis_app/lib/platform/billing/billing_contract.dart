@@ -26,6 +26,8 @@ abstract interface class BillingService {
 
   Future<void> recover(BillingRecoverySource source);
 
+  Future<bool> recoverStorePurchases({List<GemProduct>? productCatalog});
+
   void resetForSession();
 
   void dispose();

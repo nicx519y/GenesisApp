@@ -13,6 +13,8 @@ abstract interface class BillingPlatform {
 
   Future<bool> isAvailable();
 
+  Future<List<BillingPurchase>> queryRecoverablePurchases();
+
   Future<BillingProductQueryResult> queryProduct(
     String storeProductId,
     BillingStoreProductType expectedType, {
@@ -49,6 +51,29 @@ class GooglePlayBillingPlatform implements BillingPlatform {
   Future<bool> isAvailable() async {
     if (defaultTargetPlatform != TargetPlatform.android) return false;
     return _inAppPurchase.isAvailable();
+  }
+
+  @override
+  Future<List<BillingPurchase>> queryRecoverablePurchases() async {
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      return const <BillingPurchase>[];
+    }
+    try {
+      final addition = _inAppPurchase
+          .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+      final response = await addition.queryPastPurchases();
+      final error = response.error;
+      if (error != null) {
+        throw BillingPlatformException('query_purchases_failed', error.code);
+      }
+      return response.pastPurchases
+          .map(_toBillingPurchase)
+          .toList(growable: false);
+    } on BillingPlatformException {
+      rethrow;
+    } on Object catch (error) {
+      throw BillingPlatformException('query_purchases_failed', '$error');
+    }
   }
 
   @override
