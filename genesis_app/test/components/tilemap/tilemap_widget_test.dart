@@ -132,13 +132,14 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-settings-mode-light')),
       );
       await tester.pump();
-      tester
-          .widget<Slider>(
-            find.byKey(
-              const ValueKey<String>('tilemap-settings-initial-scale'),
-            ),
-          )
-          .onChanged!(1.2);
+      final initialScaleSlider = tester.widget<Slider>(
+        find.byKey(const ValueKey<String>('tilemap-settings-initial-scale')),
+      );
+      expect(initialScaleSlider.value, 20);
+      expect(initialScaleSlider.min, 5);
+      expect(initialScaleSlider.max, 30);
+      expect(initialScaleSlider.divisions, 25);
+      initialScaleSlider.onChanged!(22);
       tester
           .widget<Slider>(
             find.byKey(
@@ -298,7 +299,7 @@ void main() {
         savedSettings.locationImageFlowBlendMode,
         TilemapLocationImageFlowBlendMode.overlay,
       );
-      expect(savedSettings.initialScaleFactor, 1.2);
+      expect(savedSettings.initialScale, 22);
       expect(savedSettings.dragBoundaryPaddingTiles, 7);
 
       transport.complete(_locationTilemapData('leaf', shadow: 1));
@@ -337,7 +338,7 @@ void main() {
         renderer.locationImageFlowBlendMode,
         TilemapLocationImageFlowBlendMode.overlay,
       );
-      expect(renderer.initialScaleFactor, 1.2);
+      expect(renderer.initialScale, 22);
       expect(renderer.dragBoundaryPaddingTiles, 7);
       expect(
         find.byKey(const ValueKey<String>('tilemap-grid')),
@@ -396,7 +397,7 @@ void main() {
       locationImageFlowOpacity: 0.6,
       locationImageFlowDurationSeconds: 5,
       locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
-      initialScaleFactor: 1.3,
+      initialScale: 18,
       dragBoundaryPaddingTiles: 9,
     );
     await const TilemapSettingsStore().save(cachedSettings);
@@ -447,7 +448,7 @@ void main() {
       renderer.locationImageFlowBlendMode,
       TilemapLocationImageFlowBlendMode.screen,
     );
-    expect(renderer.initialScaleFactor, 1.3);
+    expect(renderer.initialScale, 18);
     expect(renderer.dragBoundaryPaddingTiles, 9);
 
     await tester.tap(

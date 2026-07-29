@@ -165,22 +165,19 @@ Matrix4 tilemapInitialTransform({
   required Size viewportSize,
   required Size mapSize,
   Rect? contentBounds,
-  double horizontalMargin = tilemapInitialHorizontalMargin,
-  double initialScaleFactor = 1,
+  Offset? focus,
+  double initialScale = tilemapDefaultInitialScale,
 }) {
   final bounds = contentBounds ?? Offset.zero & mapSize;
-  final scale = tilemapInitialScaleForContentWidth(
-    viewportWidth: viewportSize.width,
-    contentWidth: bounds.width,
-    horizontalMargin: horizontalMargin,
-    initialScaleFactor: initialScaleFactor,
-  );
+  final scale = tilemapResolvedInitialScale(initialScale);
+  final sceneCenter = focus ?? bounds.center;
+  final verticalOffset = focus == null ? 20.0 : 0.0;
   return Matrix4.identity()
     ..setEntry(0, 0, scale)
     ..setEntry(1, 1, scale)
     ..setTranslationRaw(
-      viewportSize.width / 2 - bounds.center.dx * scale,
-      viewportSize.height / 2 - bounds.center.dy * scale + 20,
+      viewportSize.width / 2 - sceneCenter.dx * scale,
+      viewportSize.height / 2 - sceneCenter.dy * scale + verticalOffset,
       0,
     );
 }
@@ -213,31 +210,27 @@ Rect? tilemapDragBoundaryForShadowTiles({
       .inflate(resolvedPaddingTiles * projection.tileExtent);
 }
 
-double tilemapInitialScaleForContentWidth({
-  required double viewportWidth,
-  required double contentWidth,
-  double horizontalMargin = tilemapInitialHorizontalMargin,
-  double initialScaleFactor = 1,
-}) {
-  if (!viewportWidth.isFinite ||
-      viewportWidth <= 0 ||
-      !contentWidth.isFinite ||
-      contentWidth <= 0) {
-    return tilemapMinScale;
-  }
-  final resolvedMargin = horizontalMargin.isFinite
-      ? math.max(0.0, horizontalMargin)
-      : 0.0;
-  final resolvedScaleFactor = initialScaleFactor.isFinite
-      ? initialScaleFactor.clamp(
-          tilemapInitialScaleFactorMin,
-          tilemapInitialScaleFactorMax,
-        )
-      : 1.0;
-  final usableWidth = math.max(1.0, viewportWidth - resolvedMargin * 2);
-  return (usableWidth / contentWidth * resolvedScaleFactor)
-      .clamp(tilemapMinScale, tilemapMaxScale)
+double tilemapResolvedInitialScale(double initialScale) {
+  if (!initialScale.isFinite) return tilemapDefaultInitialScale;
+  return initialScale
+      .clamp(tilemapInitialScaleMin, tilemapInitialScaleMax)
       .toDouble();
+}
+
+TilemapCell? tilemapInitialFocusLocationTile({
+  required Iterable<TilemapCell> tiles,
+  TilemapLocationAvatarsResolver? locationAvatarsForTile,
+}) {
+  TilemapCell? selectedTile;
+  var selectedAvatarCount = -1;
+  for (final tile in tiles) {
+    if (!tile.isLocationTile) continue;
+    final avatarCount = locationAvatarsForTile?.call(tile).length ?? 0;
+    if (avatarCount <= selectedAvatarCount) continue;
+    selectedTile = tile;
+    selectedAvatarCount = avatarCount;
+  }
+  return selectedTile;
 }
 
 double tilemapTransformScale(Matrix4 transform) => transform.storage[0].abs();

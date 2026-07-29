@@ -61,7 +61,7 @@ void main() {
       settings.locationImageFlowBlendMode,
       tilemapDefaultLocationImageFlowBlendMode,
     );
-    expect(settings.initialScaleFactor, tilemapDefaultInitialScaleFactor);
+    expect(settings.initialScale, tilemapDefaultInitialScale);
     expect(
       settings.dragBoundaryPaddingTiles,
       tilemapDefaultDragBoundaryPaddingTiles,
@@ -70,7 +70,7 @@ void main() {
 
   test('declares the tuned Tilemap rendering parameters as defaults', () {
     expect(TilemapRenderSettings.defaults().toJson(), {
-      'schema_version': 1,
+      'schema_version': 2,
       'visual_mode': 'dark',
       'fog_control_points': [
         {'position': 0.0, 'opacity': 0.3011579949238584},
@@ -93,7 +93,7 @@ void main() {
       'location_image_flow_opacity': 0.49,
       'location_image_flow_duration_seconds': 7.5,
       'location_image_flow_blend_mode': 'plus',
-      'initial_scale_factor': 0.86,
+      'initial_scale': 20.0,
       'drag_boundary_padding_tiles': 2.0,
     });
   });
@@ -138,7 +138,7 @@ void main() {
       locationImageFlowOpacity: 0.65,
       locationImageFlowDurationSeconds: 4.5,
       locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
-      initialScaleFactor: 1.25,
+      initialScale: 24,
       dragBoundaryPaddingTiles: 8,
     );
     const store = TilemapSettingsStore();
@@ -159,11 +159,11 @@ void main() {
       restored.locationImageFlowBlendMode,
       TilemapLocationImageFlowBlendMode.screen,
     );
-    expect(restored.initialScaleFactor, 1.25);
+    expect(restored.initialScale, 24);
     expect(restored.dragBoundaryPaddingTiles, 8);
 
     final serialized = jsonDecode(settings.toSerializedJson());
-    expect(serialized['schema_version'], 1);
+    expect(serialized['schema_version'], 2);
     expect(serialized['visual_mode'], 'light');
     expect(serialized['fog_control_points'], hasLength(5));
     expect(serialized['blend_fog_with_shadow_tiles'], true);
@@ -178,7 +178,7 @@ void main() {
     expect(serialized['location_image_flow_opacity'], 0.65);
     expect(serialized['location_image_flow_duration_seconds'], 4.5);
     expect(serialized['location_image_flow_blend_mode'], 'screen');
-    expect(serialized['initial_scale_factor'], 1.25);
+    expect(serialized['initial_scale'], 24);
     expect(serialized['drag_boundary_padding_tiles'], 8);
   });
 
@@ -199,7 +199,7 @@ void main() {
         'location_image_flow_opacity': 2,
         'location_image_flow_duration_seconds': 20,
         'location_image_flow_blend_mode': 'invalid',
-        'initial_scale_factor': 4,
+        'initial_scale': 40,
         'drag_boundary_padding_tiles': 40,
       }),
     });
@@ -231,56 +231,60 @@ void main() {
       settings.locationImageFlowBlendMode,
       tilemapDefaultLocationImageFlowBlendMode,
     );
-    expect(settings.initialScaleFactor, tilemapDefaultInitialScaleFactor);
+    expect(settings.initialScale, tilemapDefaultInitialScale);
     expect(
       settings.dragBoundaryPaddingTiles,
       tilemapDefaultDragBoundaryPaddingTiles,
     );
   });
 
-  test('old cached settings default the location shimmer to enabled', () async {
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      TilemapSettingsStore.storageKey: jsonEncode({
-        'schema_version': 1,
-        'visual_mode': 'light',
-        'fog_control_points': [
-          for (final point in tilemapDefaultFogControlPoints)
-            {'position': point.position, 'opacity': point.opacity},
-        ],
-        'blend_fog_with_shadow_tiles': false,
-        'show_shadow_zero_borders': true,
-        'initial_scale_factor': 1,
-      }),
-    });
+  test(
+    'old cached settings use new defaults for added render fields',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        TilemapSettingsStore.storageKey: jsonEncode({
+          'schema_version': 1,
+          'visual_mode': 'light',
+          'fog_control_points': [
+            for (final point in tilemapDefaultFogControlPoints)
+              {'position': point.position, 'opacity': point.opacity},
+          ],
+          'blend_fog_with_shadow_tiles': false,
+          'show_shadow_zero_borders': true,
+          'initial_scale_factor': 1,
+        }),
+      });
 
-    final settings = await const TilemapSettingsStore().load();
+      final settings = await const TilemapSettingsStore().load();
 
-    expect(settings.showLocationImageFlow, true);
-    expect(
-      settings.locationImageFlowAngleDegrees,
-      tilemapDefaultLocationImageFlowAngleDegrees,
-    );
-    expect(
-      settings.locationImageFlowGradientPoints,
-      tilemapDefaultLocationImageFlowGradientPoints,
-    );
-    expect(
-      settings.locationImageFlowOpacity,
-      tilemapDefaultLocationImageFlowOpacity,
-    );
-    expect(
-      settings.locationImageFlowDurationSeconds,
-      tilemapDefaultLocationImageFlowDurationSeconds,
-    );
-    expect(
-      settings.locationImageFlowBlendMode,
-      tilemapDefaultLocationImageFlowBlendMode,
-    );
-    expect(
-      settings.dragBoundaryPaddingTiles,
-      tilemapDefaultDragBoundaryPaddingTiles,
-    );
-  });
+      expect(settings.showLocationImageFlow, true);
+      expect(
+        settings.locationImageFlowAngleDegrees,
+        tilemapDefaultLocationImageFlowAngleDegrees,
+      );
+      expect(
+        settings.locationImageFlowGradientPoints,
+        tilemapDefaultLocationImageFlowGradientPoints,
+      );
+      expect(
+        settings.locationImageFlowOpacity,
+        tilemapDefaultLocationImageFlowOpacity,
+      );
+      expect(
+        settings.locationImageFlowDurationSeconds,
+        tilemapDefaultLocationImageFlowDurationSeconds,
+      );
+      expect(
+        settings.locationImageFlowBlendMode,
+        tilemapDefaultLocationImageFlowBlendMode,
+      );
+      expect(settings.initialScale, tilemapDefaultInitialScale);
+      expect(
+        settings.dragBoundaryPaddingTiles,
+        tilemapDefaultDragBoundaryPaddingTiles,
+      );
+    },
+  );
 
   test('clear removes cached settings and restores defaults', () async {
     const store = TilemapSettingsStore();
@@ -296,7 +300,7 @@ void main() {
       locationImageFlowOpacity: 0.5,
       locationImageFlowDurationSeconds: 6,
       locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.overlay,
-      initialScaleFactor: 1.25,
+      initialScale: 24,
       dragBoundaryPaddingTiles: 9,
     );
     await store.save(settings);
