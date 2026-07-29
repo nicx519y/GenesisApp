@@ -933,7 +933,9 @@ void main() {
     );
     expect(find.text('Ada checks the tilemap.'), findsOneWidget);
 
-    await tester.tap(find.text('Ada checks the tilemap.'));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('tilemap-location-avatar-char-a')),
+    );
     await tester.pump();
 
     expect(openedPoint?.id, 'leaf');

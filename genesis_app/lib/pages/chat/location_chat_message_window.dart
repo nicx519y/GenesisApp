@@ -218,12 +218,36 @@ String resolveLocationChatMessageSenderNameForTesting({
 
 @visibleForTesting
 String resolveLocationChatMessageAvatarForTesting({
+  String userId = '',
   required String senderId,
   required Iterable<Map<String, dynamic>> characters,
+  Map<String, WorldChatroomEntity> entitiesById =
+      const <String, WorldChatroomEntity>{},
 }) {
   final character = _locationChatCharacterForSenderId(characters, senderId);
-  if (character == null) return '';
-  return _firstMapImageUrl(character, const ['avatar']);
+  final characterAvatar = character == null
+      ? ''
+      : _firstMapImageUrl(character, const ['avatar']);
+  return firstNonEmpty([
+    characterAvatar,
+    _locationChatEntityAvatarForIdentity(entitiesById, userId),
+    _locationChatEntityAvatarForIdentity(entitiesById, senderId),
+  ]);
+}
+
+String _locationChatEntityAvatarForIdentity(
+  Map<String, WorldChatroomEntity> entitiesById,
+  String identity,
+) {
+  final identityKey = _chatroomIdentityKey(identity);
+  if (identityKey.isEmpty) return '';
+  for (final entry in entitiesById.entries) {
+    if (_chatroomIdentityKey(entry.key) == identityKey ||
+        _chatroomIdentityKey(entry.value.id) == identityKey) {
+      return entry.value.avatarUrl.trim();
+    }
+  }
+  return '';
 }
 
 Map<String, dynamic>? _locationChatCharacterForSenderId(

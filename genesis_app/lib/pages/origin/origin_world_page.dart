@@ -22,7 +22,6 @@ import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
-import '../../components/tilemap/tilemap_settings_button_visibility.dart';
 import '../../components/world_map.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
@@ -646,6 +645,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         }
 
         final processedLocationTree = origin.processedLocationTree;
+        final initialTilemapLocationId = processedLocationTree
+            .initialTilemapLocationId(
+              syntheticRootId: originSyntheticRootLocationId,
+            );
         final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
         final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
         final renderLocationNodes = processedLocationTree.initialMapRenderRoots;
@@ -763,7 +766,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             implementationKey: PageStorageKey<String>(
               'origin-tilemap-${origin.oid}',
             ),
-            locationId: 'root',
+            locationId: initialTilemapLocationId,
             locationNodes: listLocationNodes,
             showVisualModeToggle: !_showIntroPage,
             visualModeToggleTop: topPadding + 8,
@@ -783,8 +786,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             mapOverlay: _buildPersistentMapOverlay(
               topPadding,
               locationCount: locationCount,
-              canShowTilemapSettingsButton:
-                  origin.definitionVersion == 2 && !_showIntroPage,
             ),
             bottomSheetOverlayBuilder: (minChildSize) =>
                 _OriginDetailDraggableSheet(

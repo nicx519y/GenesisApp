@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -18,7 +17,7 @@ import '../../../ui/components/genesis_static_network_image.dart';
 import '../../../ui/tokens/genesis_colors.dart';
 import '../../../ui/tokens/genesis_typography.dart';
 import '../../../ui/text/genesis_text_input_formatters.dart';
-import '../../../utils/genesis_image_resource.dart';
+import '../../../utils/genesis_message_image.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_ui_style_config.dart';

@@ -29,8 +29,10 @@ extension _LocationChatIdentity on _LocationChatPanelState {
   }) {
     final state = identityState ?? _chatroomState;
     final avatarUrl = resolveLocationChatMessageAvatarForTesting(
+      userId: message.userId,
       senderId: message.senderId,
       characters: state.world?.characters ?? const <Map<String, dynamic>>[],
+      entitiesById: state.entitiesById,
     );
     return _resizedLocationChatAvatarUrl(avatarUrl);
   }

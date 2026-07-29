@@ -261,6 +261,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       currentUid: _currentUid,
     );
     final processedLocationTree = world.processedLocationTree;
+    final initialTilemapLocationId = processedLocationTree
+        .initialTilemapLocationId(
+          syntheticRootId: worldSyntheticRootLocationId,
+        );
     final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
     final rootMapImageUrl = _rootMapImageUrlForWorld(world);
     final renderLocationNodes = processedLocationTree.initialMapRenderRoots;
@@ -346,7 +350,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           implementationKey: PageStorageKey<String>(
             'world-tilemap-${widget.wid}',
           ),
-          locationId: 'root',
+          locationId: initialTilemapLocationId,
           locationNodes: listLocationNodes,
           visualModeToggleTop: topPadding + 6,
           visualModeToggleRight: worldMapBackButtonLeft,

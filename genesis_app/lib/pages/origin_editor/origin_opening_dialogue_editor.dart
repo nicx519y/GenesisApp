@@ -387,6 +387,7 @@ class _OpeningImageEditor extends StatelessWidget {
                   height: width,
                   uploadOriginalImage: true,
                   preserveImageAspectRatio: true,
+                  useMessageImageSizing: true,
                   previewAlignment: Alignment.center,
                   showRemoveLinkWhenFilled: false,
                   onChanged: onChanged,

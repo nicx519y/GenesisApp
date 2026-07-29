@@ -624,7 +624,7 @@ void main() {
     );
   });
 
-  test('drag boundary uses shadow-one tile bounds plus five tile padding', () {
+  test('drag boundary uses shadow-one tile bounds plus two tile padding', () {
     const projection = TilemapProjection(
       mapWidth: 64,
       mapHeight: 32,
@@ -639,7 +639,7 @@ void main() {
 
     expect(
       tilemapDragBoundaryForShadowTiles(projection: projection, tiles: tiles),
-      const Rect.fromLTRB(-64, -72, 120, 100),
+      const Rect.fromLTRB(-16, -24, 72, 52),
     );
     expect(
       tilemapDragBoundaryForShadowTiles(

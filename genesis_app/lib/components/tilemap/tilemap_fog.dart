@@ -37,11 +37,20 @@ class TilemapFogControlPoint {
 }
 
 const List<TilemapFogControlPoint> tilemapDefaultFogControlPoints = [
-  TilemapFogControlPoint(position: 0.01, opacity: 0.32),
-  TilemapFogControlPoint(position: 0.25, opacity: 0.54),
-  TilemapFogControlPoint(position: 0.44, opacity: 0.68),
-  TilemapFogControlPoint(position: 0.70, opacity: 0.83),
-  TilemapFogControlPoint(position: 1, opacity: 1),
+  TilemapFogControlPoint(position: 0, opacity: 0.3011579949238584),
+  TilemapFogControlPoint(
+    position: 0.1972931338028169,
+    opacity: 0.6031091370558366,
+  ),
+  TilemapFogControlPoint(
+    position: 0.40459947183098594,
+    opacity: 0.7530139593908627,
+  ),
+  TilemapFogControlPoint(
+    position: 0.6516835387323944,
+    opacity: 0.9032470577983234,
+  ),
+  TilemapFogControlPoint(position: 0.8515625, opacity: 1),
 ];
 
 double tilemapFogOpacityForDistance({

@@ -5337,7 +5337,41 @@ void main() {
   });
 
   testWidgets(
-    'origin Tilemap navigation only reserves a visible settings button',
+    'origin detail version 2 selects first multiple-leaf Tilemap location',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originLocations: const [
+          {'location_id': 'top', 'location_pid': ''},
+          {'location_id': 'branch_a', 'location_pid': 'top'},
+          {'location_id': 'leaf_a1', 'location_pid': 'branch_a'},
+          {'location_id': 'leaf_a2', 'location_pid': 'branch_a'},
+          {'location_id': 'branch_b', 'location_pid': 'top'},
+          {'location_id': 'leaf_b1', 'location_pid': 'branch_b'},
+          {'location_id': 'leaf_b2', 'location_pid': 'branch_b'},
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final requests = transport.requestsFor('/api/v1/origin/map');
+      expect(requests, hasLength(1));
+      expect(requests.single.uri.queryParameters, {
+        'origin_id': 'o_test_1',
+        'location_id': 'branch_a',
+      });
+    },
+  );
+
+  testWidgets(
+    'origin Tilemap navigation always reserves settings button space',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
       await tester.pumpWidget(
@@ -5361,7 +5395,7 @@ void main() {
       expect(settingsButton, findsNothing);
       expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 12),
+        moreOrLessEquals(viewportWidth - 60),
       );
 
       await tilemapSettingsButtonVisibility.setVisible(true);
@@ -5379,7 +5413,7 @@ void main() {
       expect(settingsButton, findsNothing);
       expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 12),
+        moreOrLessEquals(viewportWidth - 60),
       );
     },
   );
@@ -16023,7 +16057,7 @@ void main() {
     },
   );
 
-  testWidgets('world detail version 2 uses root Tilemap endpoint', (
+  testWidgets('world detail version 2 uses last leaf parent for Tilemap', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
@@ -16043,7 +16077,7 @@ void main() {
     expect(requests, hasLength(1));
     expect(requests.single.uri.queryParameters, {
       'world_id': 'w_test_1',
-      'location_id': 'root',
+      'location_id': 'l_w_test_1',
     });
   });
 

@@ -17,6 +17,7 @@ import '../../ui/text/genesis_text_input_formatters.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/genesis_image_resource.dart';
+import '../../utils/genesis_message_image.dart';
 import '../../utils/image_format_guards.dart';
 
 part 'create_form_text_fields.dart';

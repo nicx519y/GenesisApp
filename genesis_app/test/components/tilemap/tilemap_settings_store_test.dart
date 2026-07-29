@@ -68,6 +68,36 @@ void main() {
     );
   });
 
+  test('declares the tuned Tilemap rendering parameters as defaults', () {
+    expect(TilemapRenderSettings.defaults().toJson(), {
+      'schema_version': 1,
+      'visual_mode': 'dark',
+      'fog_control_points': [
+        {'position': 0.0, 'opacity': 0.3011579949238584},
+        {'position': 0.1972931338028169, 'opacity': 0.6031091370558366},
+        {'position': 0.40459947183098594, 'opacity': 0.7530139593908627},
+        {'position': 0.6516835387323944, 'opacity': 0.9032470577983234},
+        {'position': 0.8515625, 'opacity': 1.0},
+      ],
+      'blend_fog_with_shadow_tiles': true,
+      'show_shadow_zero_borders': false,
+      'show_location_image_flow': true,
+      'location_image_flow_angle_degrees': 267.88,
+      'location_image_flow_gradient_points': [
+        {'position': 0.0, 'color': '#00624700'},
+        {'position': 0.24, 'color': '#556AFFA6'},
+        {'position': 0.51, 'color': '#D9B9B088'},
+        {'position': 0.76, 'color': '#55FFD86A'},
+        {'position': 1.0, 'color': '#00926C00'},
+      ],
+      'location_image_flow_opacity': 0.49,
+      'location_image_flow_duration_seconds': 7.5,
+      'location_image_flow_blend_mode': 'plus',
+      'initial_scale_factor': 0.86,
+      'drag_boundary_padding_tiles': 2.0,
+    });
+  });
+
   test('round trips every tilemap rendering setting', () async {
     const gradientPoints = [
       TilemapLocationImageFlowGradientPoint(

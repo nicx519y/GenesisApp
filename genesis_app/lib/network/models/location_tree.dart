@@ -59,6 +59,15 @@ class ProcessedLocationTree<T> {
   List<LocationTreeNode<T>> get flattenedRenderNodes =>
       flattenLocationTree(renderRoots);
 
+  String initialTilemapLocationId({required String syntheticRootId}) {
+    final initialNode = _resolveInitialTilemapLocationNode(roots);
+    final initialNodeId = initialNode?.id.trim() ?? '';
+    if (initialNodeId.isEmpty || initialNodeId == syntheticRootId.trim()) {
+      return 'root';
+    }
+    return initialNodeId;
+  }
+
   LocationTreeNode<T>? nodeById(String nodeId) {
     return _nodesById[nodeId.trim()];
   }
@@ -238,6 +247,36 @@ List<LocationTreeNode<T>> flattenLocationTree<T>(
     visit(root);
   }
   return flattened;
+}
+
+LocationTreeNode<T>? _resolveInitialTilemapLocationNode<T>(
+  List<LocationTreeNode<T>> roots,
+) {
+  LocationTreeNode<T>? firstMultipleLeafParent;
+  LocationTreeNode<T>? lastLeafParent;
+
+  bool visit(LocationTreeNode<T> node, LocationTreeNode<T>? parent) {
+    if (node.children.isEmpty) {
+      lastLeafParent = parent;
+      return false;
+    }
+    final directLeafCount = node.children
+        .where((child) => child.children.isEmpty)
+        .length;
+    if (directLeafCount >= 2) {
+      firstMultipleLeafParent = node;
+      return true;
+    }
+    for (final child in node.children) {
+      if (visit(child, node)) return true;
+    }
+    return false;
+  }
+
+  for (final root in roots) {
+    if (visit(root, null)) return firstMultipleLeafParent;
+  }
+  return lastLeafParent;
 }
 
 bool _wouldCreateCycle<T>(

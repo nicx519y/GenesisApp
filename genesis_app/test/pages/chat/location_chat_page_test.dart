@@ -682,6 +682,7 @@ void main() {
   test('matched character avatar resolves its image resource object', () {
     const xlUrl = 'https://example.test/character_800_600.webp';
     const smUrl = 'https://example.test/character_400_300.webp';
+    const entityUrl = 'https://example.test/entity.webp';
     const characters = <Map<String, dynamic>>[
       {
         'char_id': 'char-role',
@@ -697,8 +698,50 @@ void main() {
       resolveLocationChatMessageAvatarForTesting(
         senderId: 'char-role',
         characters: characters,
+        entitiesById: const {
+          'CHAR-ROLE': WorldChatroomEntity(
+            id: 'char-role',
+            name: 'Entity Role',
+            avatarUrl: entityUrl,
+            type: WorldChatroomEntityType.character,
+            locationId: 'loc-1',
+          ),
+        },
       ),
       xlUrl,
+    );
+    expect(
+      resolveLocationChatMessageAvatarForTesting(
+        senderId: 'entity-role',
+        characters: const <Map<String, dynamic>>[],
+        entitiesById: const {
+          'ENTITY-ROLE': WorldChatroomEntity(
+            id: 'entity-role',
+            name: 'Entity Role',
+            avatarUrl: entityUrl,
+            type: WorldChatroomEntityType.character,
+            locationId: 'loc-1',
+          ),
+        },
+      ),
+      entityUrl,
+    );
+    expect(
+      resolveLocationChatMessageAvatarForTesting(
+        userId: 'user-role',
+        senderId: 'unknown-sender',
+        characters: const <Map<String, dynamic>>[],
+        entitiesById: const {
+          'user-role': WorldChatroomEntity(
+            id: 'user-role',
+            name: 'User Role',
+            avatarUrl: entityUrl,
+            type: WorldChatroomEntityType.player,
+            locationId: 'loc-1',
+          ),
+        },
+      ),
+      entityUrl,
     );
     expect(
       resolveLocationChatMessageAvatarForTesting(
@@ -707,6 +750,46 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  testWidgets('inactive opening preview uses entity avatar', (tester) async {
+    const avatarAsset = 'assets/images/default_list_image.png';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'origin-preview',
+          locationId: 'loc-1',
+          active: false,
+          openingPreviewMessages: [
+            WorldChatroomMessage(
+              messageId: 0,
+              conversationRoundId: 'opening-preview-0',
+              roundOrder: 0,
+              locationId: 'loc-1',
+              senderType: 'character',
+              senderId: 'char-role',
+              senderName: 'Preview Role',
+              content: 'Opening line.',
+              createdAt: null,
+            ),
+          ],
+          openingPreviewEntities: [
+            WorldChatroomEntity(
+              id: 'CHAR-ROLE',
+              name: 'Preview Role',
+              avatarUrl: avatarAsset,
+              type: WorldChatroomEntityType.character,
+              locationId: 'loc-1',
+              isAi: true,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final avatar = tester.widget<ChatAvatar>(find.byType(ChatAvatar));
+    expect(avatar.imageUrl, avatarAsset);
   });
 
   test('name list uses AI role names instead of real user names', () {
