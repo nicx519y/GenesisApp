@@ -139,6 +139,13 @@ void main() {
             ),
           )
           .onChanged!(1.2);
+      tester
+          .widget<Slider>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-drag-boundary-padding'),
+            ),
+          )
+          .onChanged!(7);
       final fogCurve = find.byKey(
         const ValueKey<String>('tilemap-settings-fog-curve'),
       );
@@ -292,6 +299,7 @@ void main() {
         TilemapLocationImageFlowBlendMode.overlay,
       );
       expect(savedSettings.initialScaleFactor, 1.2);
+      expect(savedSettings.dragBoundaryPaddingTiles, 7);
 
       transport.complete(_locationTilemapData('leaf', shadow: 1));
       await tester.pump();
@@ -330,6 +338,7 @@ void main() {
         TilemapLocationImageFlowBlendMode.overlay,
       );
       expect(renderer.initialScaleFactor, 1.2);
+      expect(renderer.dragBoundaryPaddingTiles, 7);
       expect(
         find.byKey(const ValueKey<String>('tilemap-grid')),
         findsOneWidget,
@@ -388,6 +397,7 @@ void main() {
       locationImageFlowDurationSeconds: 5,
       locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
       initialScaleFactor: 1.3,
+      dragBoundaryPaddingTiles: 9,
     );
     await const TilemapSettingsStore().save(cachedSettings);
     final transport = _DelayedTilemapTransport();
@@ -438,6 +448,7 @@ void main() {
       TilemapLocationImageFlowBlendMode.screen,
     );
     expect(renderer.initialScaleFactor, 1.3);
+    expect(renderer.dragBoundaryPaddingTiles, 9);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('tilemap-settings-button')),
@@ -480,6 +491,12 @@ void main() {
     expect(
       find.byKey(
         const ValueKey<String>('tilemap-settings-location-flow-blend-mode'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-settings-drag-boundary-padding'),
       ),
       findsOneWidget,
     );

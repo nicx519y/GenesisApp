@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 
 import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_debug_content_config.dart'
@@ -10,6 +11,7 @@ import 'package:genesis_flutter_android/pages/origin_editor/origin_debug_content
 import 'package:genesis_flutter_android/pages/origin_editor/origin_debug_content_config_release.dart'
     as release_content;
 import 'package:genesis_flutter_android/pages/origin_editor/origin_debug_draft_factory.dart';
+import 'package:genesis_flutter_android/pages/origin_editor/origin_debug_image_upload.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_debug_tools_release.dart'
     as release_tools;
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
@@ -229,6 +231,84 @@ void main() {
     expect(repository.deletedLocationIds(generated), isEmpty);
   });
 
+  test(
+    'generated cloud images are downloaded, uploaded, and replaced atomically',
+    () async {
+      const existingServerUrl = 'https://cdn.worldo.ai/existing-location.jpg';
+      final current = CreateOriginDraft.empty().copyWith(
+        locations: <LocationDraft>[
+          const LocationDraft(
+            locationId: 'existing',
+            level: 1,
+            imageUrl: existingServerUrl,
+          ),
+        ],
+      );
+      final randomDraft = generateRandomCreateOriginDraft(
+        current,
+        random: Random(5),
+        now: DateTime.utc(2026, 7, 29, 9, 0),
+      );
+      final generated = randomDraft.copyWith(
+        locations: <LocationDraft>[
+          const LocationDraft(
+            locationId: 'existing',
+            level: 1,
+            imageUrl: existingServerUrl,
+          ),
+          ...randomDraft.locations,
+        ],
+      );
+      final downloadedUrls = <String>[];
+      final uploadedFilenames = <String>[];
+      final imageBytes = Uint8List.fromList(
+        img.encodeJpg(img.Image(width: 4, height: 3)),
+      );
+      var uploadIndex = 0;
+
+      final uploaded = await uploadGeneratedOriginDebugImages(
+        current: current,
+        generated: generated,
+        maxConcurrentUploads: 1,
+        downloadImage: (sourceUrl) async {
+          downloadedUrls.add(sourceUrl.toString());
+          return imageBytes;
+        },
+        uploadImage: (image) async {
+          uploadedFilenames.add(image.filename);
+          uploadIndex += 1;
+          return 'https://cdn.worldo.ai/debug-upload-$uploadIndex.jpg';
+        },
+      );
+
+      expect(downloadedUrls, isNotEmpty);
+      expect(uploadedFilenames, hasLength(downloadedUrls.length));
+      expect(
+        uploadedFilenames.every((filename) => filename.endsWith('.jpg')),
+        isTrue,
+      );
+      expect(
+        uploaded.locations
+            .firstWhere((location) => location.locationId == 'existing')
+            .imageUrl,
+        existingServerUrl,
+      );
+      expect(
+        <String>[
+          uploaded.basics.coverImageUrl,
+          ...uploaded.characters.map((character) => character.avatarUrl),
+          ...uploaded.locations
+              .where((location) => location.level == 3)
+              .map((location) => location.imageUrl),
+          ...uploaded.opening.dialogue
+              .where((item) => item.type == OpeningDialogueDraft.imageType)
+              .map((item) => item.content),
+        ].every((url) => url.startsWith('https://cdn.worldo.ai/')),
+        isTrue,
+      );
+    },
+  );
+
   testWidgets(
     'debug random button is bottom-left and refreshes the draft summary',
     (tester) async {
@@ -250,11 +330,12 @@ void main() {
             locationsPageBuilder: (_) => const SizedBox.shrink(),
             openingPageBuilder: (_) => const SizedBox.shrink(),
             storyEventsPageBuilder: (_) => const SizedBox.shrink(),
-            debugDraftGenerator: (current) => generateRandomCreateOriginDraft(
-              current,
-              random: Random(3),
-              now: DateTime.utc(2026, 7, 28, 12, 0),
-            ),
+            debugDraftGenerator: (_, current) =>
+                generateRandomCreateOriginDraft(
+                  current,
+                  random: Random(3),
+                  now: DateTime.utc(2026, 7, 28, 12, 0),
+                ),
             onSubmit: (_, _, _) async => const OriginSubmitResult(message: ''),
           ),
         ),
@@ -307,7 +388,7 @@ void main() {
           locationsPageBuilder: (_) => const SizedBox.shrink(),
           openingPageBuilder: (_) => const SizedBox.shrink(),
           storyEventsPageBuilder: (_) => const SizedBox.shrink(),
-          debugDraftGenerator: (current) => current.copyWith(
+          debugDraftGenerator: (_, current) => current.copyWith(
             basics: const BasicsDraft(originName: 'Randomized name'),
             characters: const <CharacterDraft>[
               CharacterDraft(name: 'Randomized character'),

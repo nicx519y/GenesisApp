@@ -624,6 +624,58 @@ void main() {
     );
   });
 
+  test('drag boundary uses shadow-one tile bounds plus five tile padding', () {
+    const projection = TilemapProjection(
+      mapWidth: 64,
+      mapHeight: 32,
+      tileExtent: 16,
+      originX: 24,
+    );
+    const tiles = [
+      TilemapCell(x: 0, y: 0, type: 'a'),
+      TilemapCell(x: 1, y: 1, type: 'a', shadow: 1),
+      TilemapCell(x: 2, y: 1, type: 'a', shadow: 1),
+    ];
+
+    expect(
+      tilemapDragBoundaryForShadowTiles(projection: projection, tiles: tiles),
+      const Rect.fromLTRB(-64, -72, 120, 100),
+    );
+    expect(
+      tilemapDragBoundaryForShadowTiles(
+        projection: projection,
+        tiles: const [TilemapCell(x: 0, y: 0, type: 'a')],
+      ),
+      isNull,
+    );
+  });
+
+  test(
+    'drag boundary constraint prevents panning beyond its viewport edge',
+    () {
+      final oversizedBoundaryTransform = Matrix4.identity()
+        ..setEntry(0, 0, 2)
+        ..setEntry(1, 1, 2)
+        ..setTranslationRaw(50, -200, 0);
+
+      final constrained = tilemapConstrainTransformToBoundary(
+        transform: oversizedBoundaryTransform,
+        viewportSize: const Size(100, 80),
+        sceneBoundary: const Rect.fromLTWH(0, 0, 100, 80),
+      );
+      expect(constrained.getTranslation().x, 0);
+      expect(constrained.getTranslation().y, -80);
+
+      final centered = tilemapConstrainTransformToBoundary(
+        transform: Matrix4.identity()..setTranslationRaw(-100, -100, 0),
+        viewportSize: const Size(100, 80),
+        sceneBoundary: const Rect.fromLTWH(0, 0, 50, 40),
+      );
+      expect(centered.getTranslation().x, 25);
+      expect(centered.getTranslation().y, 20);
+    },
+  );
+
   test('initial transform fits visible tile width inside screen margins', () {
     const viewportSize = Size(320, 640);
     const contentBounds = Rect.fromLTWH(40, 20, 48, 48);
@@ -866,6 +918,69 @@ void main() {
       findsOneWidget,
     );
     expect(tilemapLocationHighlightColor, const Color(0xFFFFD54F));
+  });
+
+  testWidgets('renderer reuses legacy zoom control in the bottom-right', (
+    tester,
+  ) async {
+    final config = TilemapConfig.fromTiles(
+      id: 'zoom_control',
+      width: 1,
+      height: 1,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: const [TilemapCell(x: 0, y: 0, type: 'a', shadow: 1)],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 320,
+            height: 480,
+            child: TilemapRenderer(config: config),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final transformFinder = find.byKey(
+      const ValueKey<String>('tilemap-tile-transform'),
+    );
+    final zoomControl = find.byKey(
+      const ValueKey<String>('world-map-zoom-control'),
+    );
+    final zoomIn = find.byKey(const ValueKey<String>('world-map-zoom-in'));
+    final zoomOut = find.byKey(const ValueKey<String>('world-map-zoom-out'));
+    final initialScale = tester
+        .widget<Transform>(transformFinder)
+        .transform
+        .getMaxScaleOnAxis();
+
+    expect(zoomControl, findsOneWidget);
+    expect(zoomIn, findsOneWidget);
+    expect(zoomOut, findsOneWidget);
+    expect(tester.getBottomRight(zoomControl), const Offset(548, 510));
+
+    await tester.tap(zoomIn);
+    await tester.pump();
+
+    final zoomedInScale = tester
+        .widget<Transform>(transformFinder)
+        .transform
+        .getMaxScaleOnAxis();
+    expect(
+      zoomedInScale,
+      closeTo(initialScale * tilemapZoomControlScaleFactor, 0.0001),
+    );
+
+    await tester.tap(zoomOut);
+    await tester.pump();
+
+    expect(
+      tester.widget<Transform>(transformFinder).transform.getMaxScaleOnAxis(),
+      closeTo(initialScale, 0.0001),
+    );
   });
 
   testWidgets(

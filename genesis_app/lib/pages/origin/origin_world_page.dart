@@ -22,6 +22,7 @@ import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
+import '../../components/tilemap/tilemap_settings_button_visibility.dart';
 import '../../components/world_map.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
@@ -782,7 +783,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             mapOverlay: _buildPersistentMapOverlay(
               topPadding,
               locationCount: locationCount,
-              reserveTilemapVisualModeToggle:
+              canShowTilemapSettingsButton:
                   origin.definitionVersion == 2 && !_showIntroPage,
             ),
             bottomSheetOverlayBuilder: (minChildSize) =>

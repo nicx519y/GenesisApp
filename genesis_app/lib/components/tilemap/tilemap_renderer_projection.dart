@@ -153,6 +153,12 @@ class TilemapProjection {
     }
     return _boundsForOffsets(points);
   }
+
+  Rect polygonBoundsForTiles(Iterable<TilemapCell> tiles) {
+    return _boundsForOffsets([
+      for (final tile in tiles) ...polygonForTile(tile),
+    ]);
+  }
 }
 
 Matrix4 tilemapInitialTransform({
@@ -185,6 +191,26 @@ List<TilemapCell> tilemapInitialContentTiles(Iterable<TilemapCell> tiles) {
       .where((tile) => !tile.hasShadow)
       .toList(growable: false);
   return shadowZeroTiles.isEmpty ? allTiles : shadowZeroTiles;
+}
+
+Rect? tilemapDragBoundaryForShadowTiles({
+  required TilemapProjection projection,
+  required Iterable<TilemapCell> tiles,
+  double paddingTiles = tilemapDefaultDragBoundaryPaddingTiles,
+}) {
+  final shadowTiles = tiles
+      .where((tile) => tile.hasShadow)
+      .toList(growable: false);
+  if (shadowTiles.isEmpty) return null;
+  final resolvedPaddingTiles = paddingTiles.isFinite
+      ? paddingTiles.clamp(
+          tilemapDragBoundaryPaddingTilesMin,
+          tilemapDragBoundaryPaddingTilesMax,
+        )
+      : tilemapDefaultDragBoundaryPaddingTiles;
+  return projection
+      .polygonBoundsForTiles(shadowTiles)
+      .inflate(resolvedPaddingTiles * projection.tileExtent);
 }
 
 double tilemapInitialScaleForContentWidth({
@@ -251,6 +277,59 @@ Matrix4 tilemapTransformForSceneFocalPoint({
       viewportFocalPoint.dy - sceneFocalPoint.dy * scale,
       0,
     );
+}
+
+Matrix4 tilemapConstrainTransformToBoundary({
+  required Matrix4 transform,
+  required Size viewportSize,
+  required Rect? sceneBoundary,
+}) {
+  if (sceneBoundary == null ||
+      sceneBoundary.isEmpty ||
+      viewportSize.isEmpty ||
+      !viewportSize.width.isFinite ||
+      !viewportSize.height.isFinite) {
+    return transform;
+  }
+  final scale = tilemapTransformScale(transform);
+  if (!scale.isFinite || scale <= 0) return transform;
+  final translation = transform.getTranslation();
+  final constrainedX = _tilemapConstrainedTranslation(
+    current: translation.x,
+    viewportExtent: viewportSize.width,
+    boundaryStart: sceneBoundary.left,
+    boundaryEnd: sceneBoundary.right,
+    scale: scale,
+  );
+  final constrainedY = _tilemapConstrainedTranslation(
+    current: translation.y,
+    viewportExtent: viewportSize.height,
+    boundaryStart: sceneBoundary.top,
+    boundaryEnd: sceneBoundary.bottom,
+    scale: scale,
+  );
+  if ((constrainedX - translation.x).abs() < 0.000001 &&
+      (constrainedY - translation.y).abs() < 0.000001) {
+    return transform;
+  }
+  return transform.clone()
+    ..setTranslationRaw(constrainedX, constrainedY, translation.z);
+}
+
+double _tilemapConstrainedTranslation({
+  required double current,
+  required double viewportExtent,
+  required double boundaryStart,
+  required double boundaryEnd,
+  required double scale,
+}) {
+  final scaledExtent = (boundaryEnd - boundaryStart) * scale;
+  if (scaledExtent <= viewportExtent) {
+    return viewportExtent / 2 - (boundaryStart + boundaryEnd) * scale / 2;
+  }
+  final minimum = viewportExtent - boundaryEnd * scale;
+  final maximum = -boundaryStart * scale;
+  return current.clamp(minimum, maximum).toDouble();
 }
 
 Offset tilemapLocationBubbleSceneAnchor(

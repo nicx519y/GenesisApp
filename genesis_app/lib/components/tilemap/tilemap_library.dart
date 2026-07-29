@@ -111,6 +111,7 @@ class _TilemapState extends State<Tilemap> {
   TilemapLocationImageFlowBlendMode _locationImageFlowBlendMode =
       tilemapDefaultLocationImageFlowBlendMode;
   double _initialScaleFactor = tilemapDefaultInitialScaleFactor;
+  double _dragBoundaryPaddingTiles = tilemapDefaultDragBoundaryPaddingTiles;
   bool _showSettings = false;
   bool _settingsReady = false;
   Timer? _settingsSaveTimer;
@@ -179,6 +180,7 @@ class _TilemapState extends State<Tilemap> {
       locationImageFlowDurationSeconds: _locationImageFlowDurationSeconds,
       locationImageFlowBlendMode: _locationImageFlowBlendMode,
       initialScaleFactor: _initialScaleFactor,
+      dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
     );
   }
 
@@ -199,6 +201,7 @@ class _TilemapState extends State<Tilemap> {
           settings.locationImageFlowDurationSeconds;
       _locationImageFlowBlendMode = settings.locationImageFlowBlendMode;
       _initialScaleFactor = settings.initialScaleFactor;
+      _dragBoundaryPaddingTiles = settings.dragBoundaryPaddingTiles;
       _settingsReady = true;
     });
   }
@@ -299,6 +302,7 @@ class _TilemapState extends State<Tilemap> {
           defaults.locationImageFlowDurationSeconds;
       _locationImageFlowBlendMode = defaults.locationImageFlowBlendMode;
       _initialScaleFactor = defaults.initialScaleFactor;
+      _dragBoundaryPaddingTiles = defaults.dragBoundaryPaddingTiles;
     });
     ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()
@@ -600,6 +604,19 @@ class _TilemapState extends State<Tilemap> {
     _scheduleSettingsSave();
   }
 
+  void _setDragBoundaryPaddingTiles(double value) {
+    final resolved = value
+        .roundToDouble()
+        .clamp(
+          tilemapDragBoundaryPaddingTilesMin,
+          tilemapDragBoundaryPaddingTilesMax,
+        )
+        .toDouble();
+    if (_dragBoundaryPaddingTiles == resolved) return;
+    setState(() => _dragBoundaryPaddingTiles = resolved);
+    _scheduleSettingsSave();
+  }
+
   void _toggleSettings() {
     final willClose = _showSettings;
     setState(() => _showSettings = !_showSettings);
@@ -668,6 +685,7 @@ class _TilemapState extends State<Tilemap> {
                   _locationImageFlowDurationSeconds,
               locationImageFlowBlendMode: _locationImageFlowBlendMode,
               initialScaleFactor: _initialScaleFactor,
+              dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
             );
     }
     final settingsButtonTop =
@@ -720,6 +738,7 @@ class _TilemapState extends State<Tilemap> {
                     _locationImageFlowDurationSeconds,
                 locationImageFlowBlendMode: _locationImageFlowBlendMode,
                 initialScaleFactor: _initialScaleFactor,
+                dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
                 onVisualModeChanged: _setVisualMode,
                 onFogControlPointsChanged: _setFogControlPoints,
                 onBlendFogWithShadowTilesChanged: _setBlendFogWithShadowTiles,
@@ -735,6 +754,7 @@ class _TilemapState extends State<Tilemap> {
                 onLocationImageFlowBlendModeChanged:
                     _setLocationImageFlowBlendMode,
                 onInitialScaleFactorChanged: _setInitialScaleFactor,
+                onDragBoundaryPaddingTilesChanged: _setDragBoundaryPaddingTiles,
                 onCopySettings: _copySettingsToClipboard,
                 onResetSettings: _resetSettings,
                 onClose: _closeSettings,

@@ -4,26 +4,97 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../network/api_client.dart';
+import '../../network/io_http_transport.dart';
+import '../../network/json_utils.dart';
+import '../../utils/genesis_image_resource.dart';
 import '../create/create_origin_draft_store.dart';
 import 'origin_debug_draft_factory.dart';
+import 'origin_debug_image_upload.dart';
 import 'origin_draft_repository.dart';
 
 typedef OriginDebugDraftGenerator =
-    FutureOr<CreateOriginDraft> Function(CreateOriginDraft currentDraft);
+    FutureOr<CreateOriginDraft> Function(
+      BuildContext context,
+      CreateOriginDraft currentDraft,
+    );
 
 OriginDebugDraftGenerator? createOriginDebugDraftGenerator() {
-  return kDebugMode ? generateRandomCreateOriginDraft : null;
+  if (!kDebugMode) return null;
+  return (context, currentDraft) async {
+    final generated = generateRandomCreateOriginDraft(currentDraft);
+    return _uploadGeneratedImages(context, currentDraft, generated);
+  };
 }
 
 OriginDebugDraftGenerator? editOriginDebugDraftGenerator(
   TextEditingController updateNotesController,
 ) {
   if (!kDebugMode) return null;
-  return (currentDraft) {
+  return (context, currentDraft) async {
+    final generated = await _uploadGeneratedImages(
+      context,
+      currentDraft,
+      generateRandomEditOriginDraft(currentDraft),
+    );
+    if (!context.mounted) return generated;
     updateNotesController.text = 'Generated random test content in debug mode.';
-    return generateRandomEditOriginDraft(currentDraft);
+    return generated;
   };
+}
+
+final Map<String, ApiClient> _debugImageDownloadClients = <String, ApiClient>{};
+
+Future<CreateOriginDraft> _uploadGeneratedImages(
+  BuildContext context,
+  CreateOriginDraft current,
+  CreateOriginDraft generated,
+) {
+  final services = AppServicesScope.read(context);
+  final uploadApi = services.api.v1.upload;
+  final debugProxy = services.config.debugProxy.trim();
+  final downloadClient = _debugImageDownloadClients.putIfAbsent(
+    debugProxy,
+    () => ApiClient(
+      baseUrl: 'https://localhost.invalid/',
+      defaultHeaders: const <String, String>{'accept': 'image/*'},
+      transport: IoHttpTransport(proxy: debugProxy),
+      timeoutMs: 120000,
+      retryPolicy: ApiRetryPolicy.safe,
+    ),
+  );
+  return uploadGeneratedOriginDebugImages(
+    current: current,
+    generated: generated,
+    downloadImage: (sourceUrl) async {
+      if (!context.mounted) {
+        throw StateError('Debug image generation was cancelled.');
+      }
+      final bytes = await downloadClient.downloadBytes(sourceUrl.toString());
+      return Uint8List.fromList(bytes);
+    },
+    uploadImage: (image) async {
+      if (!context.mounted) {
+        throw StateError('Debug image generation was cancelled.');
+      }
+      final uploaded = await uploadApi.image(
+        bytes: image.bytes,
+        filename: image.filename,
+        contentType: image.contentType,
+      );
+      final uploadedUrl = GenesisImageResourceRegistry.resolve(
+        uploaded,
+      ).displayUrl;
+      if (uploadedUrl.trim().isEmpty) {
+        throw StateError(
+          'Upload returned an empty URL: ${asString(uploaded['object_key'])}',
+        );
+      }
+      return uploadedUrl;
+    },
+  );
 }
 
 Widget? buildOriginDebugRandomContentButton({
@@ -71,10 +142,10 @@ class _OriginDebugRandomContentButtonState
     setState(() => _isGenerating = true);
     try {
       final current = await widget.repository.loadSummaryDraft();
-      final generated = _markChangedDebugSectionsSaved(
-        current,
-        await widget.generator(current),
-      );
+      if (!mounted) return;
+      final generatedDraft = await widget.generator(context, current);
+      if (!mounted) return;
+      final generated = _markChangedDebugSectionsSaved(current, generatedDraft);
       await widget.repository.saveFinalDraft(generated);
       if (!mounted) return;
       await widget.onGenerated();

@@ -18,6 +18,7 @@ class TilemapRenderSettings {
     required this.locationImageFlowDurationSeconds,
     required this.locationImageFlowBlendMode,
     required this.initialScaleFactor,
+    required this.dragBoundaryPaddingTiles,
   });
 
   factory TilemapRenderSettings.defaults() {
@@ -36,6 +37,7 @@ class TilemapRenderSettings {
           tilemapDefaultLocationImageFlowDurationSeconds,
       locationImageFlowBlendMode: tilemapDefaultLocationImageFlowBlendMode,
       initialScaleFactor: tilemapDefaultInitialScaleFactor,
+      dragBoundaryPaddingTiles: tilemapDefaultDragBoundaryPaddingTiles,
     );
   }
 
@@ -90,6 +92,13 @@ class TilemapRenderSettings {
       initialScaleFactor:
           _readInitialScaleFactor(json['initial_scale_factor']) ??
           defaults.initialScaleFactor,
+      dragBoundaryPaddingTiles:
+          _readDouble(
+            json['drag_boundary_padding_tiles'],
+            min: tilemapDragBoundaryPaddingTilesMin,
+            max: tilemapDragBoundaryPaddingTilesMax,
+          ) ??
+          defaults.dragBoundaryPaddingTiles,
     );
   }
 
@@ -105,6 +114,7 @@ class TilemapRenderSettings {
   final double locationImageFlowDurationSeconds;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
   final double initialScaleFactor;
+  final double dragBoundaryPaddingTiles;
 
   String toSerializedJson() {
     return const JsonEncoder.withIndent('  ').convert(toJson());
@@ -130,6 +140,7 @@ class TilemapRenderSettings {
       'location_image_flow_duration_seconds': locationImageFlowDurationSeconds,
       'location_image_flow_blend_mode': locationImageFlowBlendMode.name,
       'initial_scale_factor': initialScaleFactor,
+      'drag_boundary_padding_tiles': dragBoundaryPaddingTiles,
     };
   }
 

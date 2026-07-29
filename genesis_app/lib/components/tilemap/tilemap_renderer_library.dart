@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../legacy_world_map/legacy_world_map_gesture.dart';
 import '../world_map_contract.dart';
 import '../world_point.dart';
 import 'tilemap_fog.dart';
@@ -30,6 +31,10 @@ const double tilemapMaxScale = 30;
 const double tilemapInitialScaleFactorMin = 0.5;
 const double tilemapInitialScaleFactorMax = 2;
 const double tilemapDefaultInitialScaleFactor = 0.86;
+const double tilemapDragBoundaryPaddingTilesMin = 0;
+const double tilemapDragBoundaryPaddingTilesMax = 20;
+const double tilemapDefaultDragBoundaryPaddingTiles = 5;
+const double tilemapZoomControlScaleFactor = 1.25;
 const bool tilemapDefaultBlendFogWithShadowTiles = true;
 const bool tilemapDefaultShowShadowZeroBorders = false;
 const bool tilemapDefaultShowLocationImageFlow = true;

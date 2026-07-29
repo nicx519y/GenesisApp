@@ -4,18 +4,29 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
   Widget _buildPersistentMapOverlay(
     double top, {
     int locationCount = 0,
-    bool reserveTilemapVisualModeToggle = false,
+    bool canShowTilemapSettingsButton = false,
   }) {
-    return Positioned(
-      left: 12,
-      right: reserveTilemapVisualModeToggle ? 60 : 12,
-      top: top + 8,
-      child: WorldTopOverlayBar(
-        pointsCount: locationCount,
-        controller: _tabController,
-        onTabTap: _handleMapModeTabTap,
-        secondaryTabIsIntro: true,
-      ),
+    Widget buildOverlay({required bool reserveSettingsButtonSpace}) {
+      return Positioned(
+        left: 12,
+        right: reserveSettingsButtonSpace ? 60 : 12,
+        top: top + 8,
+        child: WorldTopOverlayBar(
+          pointsCount: locationCount,
+          controller: _tabController,
+          onTabTap: _handleMapModeTabTap,
+          secondaryTabIsIntro: true,
+        ),
+      );
+    }
+
+    if (!canShowTilemapSettingsButton) {
+      return buildOverlay(reserveSettingsButtonSpace: false);
+    }
+    return ValueListenableBuilder<bool>(
+      valueListenable: tilemapSettingsButtonVisibility.listenable,
+      builder: (context, settingsButtonVisible, child) =>
+          buildOverlay(reserveSettingsButtonSpace: settingsButtonVisible),
     );
   }
 
