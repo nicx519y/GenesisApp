@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../world_map_contract.dart';
 
-const int legacyWorldMapBubblePageMaxCharacters = 144;
 const Duration legacyWorldMapBubbleDisplayDuration = Duration(seconds: 4);
 const Duration legacyWorldMapBubbleGapDuration = Duration(milliseconds: 500);
 
@@ -13,22 +12,18 @@ List<String> worldMapMessageBubblePagesForTesting(String content) {
   return legacyWorldMapMessageBubblePages(content);
 }
 
-List<String> legacyWorldMapMessageBubblePages(String content) {
-  final normalized = content.trim().replaceAll(RegExp(r'\s+'), ' ');
-  if (normalized.isEmpty) return const <String>[];
-  final pages = <String>[];
-  var remaining = normalized;
-  while (remaining.length > legacyWorldMapBubblePageMaxCharacters) {
-    var split = remaining.lastIndexOf(
-      ' ',
-      legacyWorldMapBubblePageMaxCharacters,
-    );
-    if (split <= 0) split = legacyWorldMapBubblePageMaxCharacters;
-    pages.add(remaining.substring(0, split).trim());
-    remaining = remaining.substring(split).trim();
-  }
-  if (remaining.isNotEmpty) pages.add(remaining);
-  return List<String>.unmodifiable(pages);
+List<String> legacyWorldMapMessageBubblePages(
+  String content, {
+  TextDirection textDirection = TextDirection.ltr,
+  TextScaler? textScaler,
+  TextStyle? textStyle,
+}) {
+  return splitWorldMapMessageBubblePages(
+    content,
+    textDirection: textDirection,
+    textScaler: textScaler,
+    textStyle: textStyle,
+  );
 }
 
 class LegacyWorldMapPositionedMessageBubble extends StatelessWidget {

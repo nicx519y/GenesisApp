@@ -277,11 +277,12 @@ void main() {
       users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
       activeBubble: const WorldMapMessageBubble(
         characterId: 'char_a',
-        content: 'Short.',
+        content: 'who are you',
       ),
     );
 
     final shortSize = tester.getSize(find.byKey(bubbleBodyKey));
+    final shortTextSize = tester.getSize(find.text('who are you'));
 
     await _pumpWorldMap(
       tester,
@@ -296,6 +297,7 @@ void main() {
 
     final longSize = tester.getSize(find.byKey(bubbleBodyKey));
     expect(shortSize.width, lessThan(longSize.width));
+    expect(shortTextSize.height, lessThan(20));
     expect(longSize.width, worldMapMessageBubbleMaxWidth);
     expect(shortSize.height, lessThan(longSize.height));
   });
@@ -397,18 +399,25 @@ void main() {
         WorldMapMessageBubble(characterId: 'char_a', content: longText),
       ],
     );
+    final pages = resolveWorldMapMessageBubblePages(
+      tester.element(
+        find.byKey(const ValueKey<String>('world-map-message-bubble-body')),
+      ),
+      longText,
+    );
 
-    expect(find.textContaining('Ava counts every crate'), findsOneWidget);
-    expect(find.textContaining('night manager waits'), findsNothing);
+    expect(pages, hasLength(greaterThan(1)));
+    expect(find.text(pages.first), findsOneWidget);
+    for (final page in pages.skip(1)) {
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text(page), findsOneWidget);
+    }
 
     await tester.pump(const Duration(seconds: 4));
-    expect(find.textContaining('night manager waits'), findsOneWidget);
-
-    await tester.pump(const Duration(seconds: 4));
-    expect(find.textContaining('night manager waits'), findsNothing);
+    expect(find.text(pages.last), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.textContaining('Ava counts every crate'), findsOneWidget);
+    expect(find.text(pages.first), findsOneWidget);
   });
 
   testWidgets('world map keeps the first-page width for a short remainder', (
@@ -423,11 +432,15 @@ void main() {
         WorldMapMessageBubble(characterId: 'char_a', content: longText),
       ],
     );
+    final pages = resolveWorldMapMessageBubblePages(
+      tester.element(find.byKey(bubbleBodyKey)),
+      longText,
+    );
 
     final firstPageWidth = tester.getSize(find.byKey(bubbleBodyKey)).width;
 
     await tester.pump(const Duration(seconds: 4));
-    expect(find.text('tail'), findsOneWidget);
+    expect(find.text(pages[1]), findsOneWidget);
     final remainderWidth = tester.getSize(find.byKey(bubbleBodyKey)).width;
 
     expect(firstPageWidth, worldMapMessageBubbleMaxWidth);
@@ -449,9 +462,15 @@ void main() {
         WorldMapMessageBubble(characterId: 'char_a', content: longText),
       ],
     );
+    final pages = resolveWorldMapMessageBubblePages(
+      tester.element(
+        find.byKey(const ValueKey<String>('world-map-message-bubble-body')),
+      ),
+      longText,
+    );
 
     await tester.pump(const Duration(seconds: 4));
-    expect(find.textContaining('night manager waits'), findsOneWidget);
+    expect(find.text(pages[1]), findsOneWidget);
 
     await _pumpWorldMap(
       tester,
@@ -461,10 +480,10 @@ void main() {
       ],
       messageBubblePlaybackPaused: true,
     );
-    expect(find.textContaining('night manager waits'), findsNothing);
+    expect(find.text(pages[1]), findsNothing);
 
     await tester.pump(const Duration(seconds: 10));
-    expect(find.textContaining('night manager waits'), findsNothing);
+    expect(find.text(pages[1]), findsNothing);
 
     await _pumpWorldMap(
       tester,
@@ -473,7 +492,7 @@ void main() {
         WorldMapMessageBubble(characterId: 'char_a', content: longText),
       ],
     );
-    expect(find.textContaining('night manager waits'), findsOneWidget);
+    expect(find.text(pages[1]), findsOneWidget);
   });
 
   test('player controlled map avatar uses highlighted border', () {

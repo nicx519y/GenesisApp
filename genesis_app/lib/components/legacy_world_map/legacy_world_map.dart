@@ -689,7 +689,7 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
   }
 
   List<String> _messageBubblePages(String content) {
-    return legacyWorldMapMessageBubblePages(content);
+    return resolveWorldMapMessageBubblePages(context, content);
   }
 
   WorldMapMessageBubble? _activeBubbleForPlayback() {

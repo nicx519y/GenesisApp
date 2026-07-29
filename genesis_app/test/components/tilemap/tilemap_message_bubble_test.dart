@@ -9,7 +9,6 @@ void main() {
     final pages = tilemapMessageBubblePages(content);
 
     expect(pages, hasLength(greaterThan(1)));
-    expect(pages.every((page) => page.length <= 144), isTrue);
     expect(pages.join(' '), content);
   });
 
@@ -83,7 +82,7 @@ void main() {
     expect(activeBubble?.preservePageWidth, isFalse);
 
     await tester.pump(tilemapMessageBubbleDisplayDuration);
-    expect(activeBubble?.content, 'tail');
+    expect(activeBubble?.content, isNotEmpty);
     expect(activeBubble?.preservePageWidth, isTrue);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -92,6 +91,8 @@ void main() {
   testWidgets('Tilemap character bubble adapts short single-page content', (
     tester,
   ) async {
+    const text = 'who are you';
+
     Widget harness({bool preservePageWidth = false}) {
       return MaterialApp(
         home: SizedBox(
@@ -101,7 +102,7 @@ void main() {
             clipBehavior: Clip.none,
             children: [
               TilemapCharacterMessageBubble(
-                text: 'Short.',
+                text: text,
                 avatarTopLeft: const Offset(120, 100),
                 viewportWidth: 300,
                 preservePageWidth: preservePageWidth,
@@ -116,13 +117,51 @@ void main() {
     const bodyKey = ValueKey<String>('tilemap-character-message-bubble-body');
     await tester.pumpWidget(harness());
     final adaptiveWidth = tester.getSize(find.byKey(bodyKey)).width;
+    final adaptiveTextHeight = tester.getSize(find.text(text)).height;
 
     await tester.pumpWidget(harness(preservePageWidth: true));
     final preservedWidth = tester.getSize(find.byKey(bodyKey)).width;
 
     expect(adaptiveWidth, lessThan(worldMapMessageBubbleMaxWidth));
+    expect(adaptiveTextHeight, lessThan(20));
     expect(preservedWidth, worldMapMessageBubbleMaxWidth);
   });
+
+  testWidgets(
+    'Tilemap adaptive bubble keeps fitting Chinese text on one line',
+    (tester) async {
+      const text = '艾达正在检查店铺门口。';
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SizedBox(
+            width: 300,
+            height: 500,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                TilemapCharacterMessageBubble(
+                  text: text,
+                  avatarTopLeft: Offset(120, 100),
+                  viewportWidth: 300,
+                  onTap: null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final textSize = tester.getSize(find.text(text));
+      final bodySize = tester.getSize(
+        find.byKey(
+          const ValueKey<String>('tilemap-character-message-bubble-body'),
+        ),
+      );
+
+      expect(textSize.height, lessThan(20));
+      expect(bodySize.width, lessThan(worldMapMessageBubbleMaxWidth));
+    },
+  );
 
   testWidgets('Tilemap character bubble first pins its body to the viewport', (
     tester,

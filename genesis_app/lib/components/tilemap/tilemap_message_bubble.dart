@@ -8,7 +8,6 @@ import 'tilemap_location_avatars.dart';
 
 const Duration tilemapMessageBubbleDisplayDuration = Duration(seconds: 4);
 const Duration tilemapMessageBubbleGapDuration = Duration(milliseconds: 500);
-const int tilemapMessageBubblePageMaxCharacters = 144;
 
 typedef TilemapMessageBubbleBuilder =
     Widget Function(BuildContext context, WorldMapMessageBubble? activeBubble);
@@ -69,7 +68,7 @@ class _TilemapMessageBubblePlaybackState
       return null;
     }
     final bubble = _visibleBubbles[_bubbleIndex % _visibleBubbles.length];
-    final pages = tilemapMessageBubblePages(bubble.content);
+    final pages = _messageBubblePages(bubble.content);
     if (pages.isEmpty) return null;
     return WorldMapMessageBubble(
       characterId: bubble.characterId,
@@ -121,9 +120,7 @@ class _TilemapMessageBubblePlaybackState
           if (_bubbleVisible) {
             final activeBubble =
                 _visibleBubbles[_bubbleIndex % _visibleBubbles.length];
-            final pageCount = tilemapMessageBubblePages(
-              activeBubble.content,
-            ).length;
+            final pageCount = _messageBubblePages(activeBubble.content).length;
             if (_pageIndex + 1 < pageCount) {
               _pageIndex += 1;
             } else {
@@ -145,6 +142,10 @@ class _TilemapMessageBubblePlaybackState
     _timer = null;
   }
 
+  List<String> _messageBubblePages(String content) {
+    return resolveWorldMapMessageBubblePages(context, content);
+  }
+
   String _playbackSignature(List<WorldMapMessageBubble> bubbles) {
     return bubbles
         .map((bubble) => '${bubble.characterId.trim()}\u{1f}${bubble.content}')
@@ -153,22 +154,18 @@ class _TilemapMessageBubblePlaybackState
 }
 
 @visibleForTesting
-List<String> tilemapMessageBubblePages(String content) {
-  final normalized = content.trim().replaceAll(RegExp(r'\s+'), ' ');
-  if (normalized.isEmpty) return const <String>[];
-  final pages = <String>[];
-  var remaining = normalized;
-  while (remaining.length > tilemapMessageBubblePageMaxCharacters) {
-    var split = remaining.lastIndexOf(
-      ' ',
-      tilemapMessageBubblePageMaxCharacters,
-    );
-    if (split <= 0) split = tilemapMessageBubblePageMaxCharacters;
-    pages.add(remaining.substring(0, split).trim());
-    remaining = remaining.substring(split).trim();
-  }
-  if (remaining.isNotEmpty) pages.add(remaining);
-  return List<String>.unmodifiable(pages);
+List<String> tilemapMessageBubblePages(
+  String content, {
+  TextDirection textDirection = TextDirection.ltr,
+  TextScaler? textScaler,
+  TextStyle? textStyle,
+}) {
+  return splitWorldMapMessageBubblePages(
+    content,
+    textDirection: textDirection,
+    textScaler: textScaler,
+    textStyle: textStyle,
+  );
 }
 
 Offset tilemapMessageBubbleAvatarTopLeft({
