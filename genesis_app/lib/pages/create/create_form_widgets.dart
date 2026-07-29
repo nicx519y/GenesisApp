@@ -732,6 +732,7 @@ class CreateUploadBox extends StatefulWidget {
     this.iconSize = 38,
     this.borderRadius = GenesisImageRadii.contentValue,
     this.cropSize,
+    this.maxOutputSize,
     this.uploadOriginalImage = false,
     this.preserveImageAspectRatio = false,
     this.previewAlignment = Alignment.center,
@@ -750,6 +751,9 @@ class CreateUploadBox extends StatefulWidget {
   final double iconSize;
   final double borderRadius;
   final Size? cropSize;
+
+  /// Opts this upload into a physical-pixel ceiling without upscaling.
+  final Size? maxOutputSize;
   final bool uploadOriginalImage;
   final bool preserveImageAspectRatio;
   final Alignment previewAlignment;
@@ -918,6 +922,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
           builder: (_) => LocalImageCropPage(
             imageBytes: image.bytes,
             cropSize: _resolvedCropSize,
+            maxOutputSize: widget.maxOutputSize,
             filename: _pngFilenameFor(image.filename),
             contentType: 'image/png',
             uploadOnConfirm: false,

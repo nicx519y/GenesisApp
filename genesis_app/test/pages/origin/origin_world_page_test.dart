@@ -129,6 +129,81 @@ void main() {
     expect(messages.last.currentTime, 'Opening time.');
   });
 
+  test(
+    'origin opening preview prefers top-level init group and keeps nar_pic',
+    () {
+      final origin = _originDetail(
+        characters: const <OriginCharacter>[],
+        locations: [
+          OriginLocation.fromJson(const {
+            'id': 12,
+            'origin_id': 1,
+            'location_id': 'loc_1',
+            'location_name': 'Town Square',
+          }),
+        ],
+        initLocationGroup: const OriginInitLocationGroup(
+          locationId: 'loc_1',
+          initialDialogue: [
+            OriginDialogueLine(
+              charId: 'nar',
+              charName: 'Narrator',
+              content: 'The square wakes.',
+            ),
+            OriginDialogueLine(
+              charId: 'char_1',
+              charName: 'Sam',
+              content: 'We should go.',
+            ),
+            OriginDialogueLine(
+              charId: 'nar_pic',
+              charName: 'Narrator',
+              content: 'https://cdn.example.com/opening.webp',
+            ),
+          ],
+        ),
+        ticks: const [
+          {
+            'tick_no': 1,
+            'tick_result': {
+              'location_groups': [
+                {
+                  'location_id': 'loc_1',
+                  'initial_dialogue': [
+                    {
+                      'char_id': 'char_legacy',
+                      'char_name': 'Legacy',
+                      'content': 'Legacy tick line.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      );
+
+      final messages = originOpeningPreviewMessagesForTesting(origin, const [
+        'loc_1',
+      ]);
+
+      expect(messages.map((message) => message.content), [
+        'The square wakes.',
+        'We should go.',
+        'https://cdn.example.com/opening.webp',
+      ]);
+      expect(messages.map((message) => message.senderType), [
+        'narrator',
+        'character',
+        'image',
+      ]);
+      expect(
+        messages.map((message) => message.content),
+        isNot(contains('Legacy tick line.')),
+      );
+    },
+  );
+
   test('origin location opening preview resolves character avatars', () {
     final messages = originLocationOpeningPreviewMessagesForTesting(
       [
@@ -283,6 +358,8 @@ void main() {
 OriginDetail _originDetail({
   required List<OriginCharacter> characters,
   required List<OriginLocation> locations,
+  OriginInitLocationGroup? initLocationGroup,
+  List<Map<String, dynamic>> ticks = const <Map<String, dynamic>>[],
 }) {
   return OriginDetail(
     id: 1,
@@ -299,5 +376,7 @@ OriginDetail _originDetail({
     updatedAt: null,
     characters: characters,
     locations: locations,
+    initLocationGroup: initLocationGroup,
+    ticks: ticks,
   );
 }

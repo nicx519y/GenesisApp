@@ -24,10 +24,6 @@ abstract interface class BillingPlatform {
     required BillingStoreProduct product,
     required String billingAccountId,
   });
-
-  Future<List<BillingPurchase>> queryPastPurchases({
-    required String billingAccountId,
-  });
 }
 
 class GooglePlayBillingPlatform implements BillingPlatform {
@@ -190,29 +186,6 @@ class GooglePlayBillingPlatform implements BillingPlatform {
     }
     return true;
   }
-
-  @override
-  Future<List<BillingPurchase>> queryPastPurchases({
-    required String billingAccountId,
-  }) async {
-    if (defaultTargetPlatform != TargetPlatform.android) {
-      return const <BillingPurchase>[];
-    }
-    final addition = _inAppPurchase
-        .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-    final response = await addition.queryPastPurchases(
-      applicationUserName: billingAccountId,
-    );
-    if (response.error != null) {
-      throw BillingPlatformException(
-        response.error!.code,
-        response.error!.message,
-      );
-    }
-    return response.pastPurchases
-        .map(_toBillingPurchase)
-        .toList(growable: false);
-  }
 }
 
 void _logGoogleProductDetails(GooglePlayProductDetails product) {
@@ -347,7 +320,34 @@ BillingPurchase _toBillingPurchase(PurchaseDetails purchase) {
         purchase.verificationData.localVerificationData,
     purchaseTime: purchase.transactionDate ?? '',
     status: status,
-    errorCode: purchase.error?.code,
+    obfuscatedAccountId: googlePurchase?.obfuscatedAccountId,
+    errorCode: googlePlayPurchaseErrorCode(
+      code: purchase.error?.code,
+      message: purchase.error?.message,
+    ),
     errorMessage: purchase.error?.message,
   );
+}
+
+String? googlePlayPurchaseErrorCode({String? code, String? message}) {
+  final rawMessage = message?.trim() ?? '';
+  const responsePrefix = 'BillingResponse.';
+  if (rawMessage.startsWith(responsePrefix)) {
+    return _toSnakeCase(rawMessage.substring(responsePrefix.length));
+  }
+
+  final rawCode = code?.trim() ?? '';
+  if (rawCode.isEmpty) return null;
+  return _toSnakeCase(rawCode);
+}
+
+String _toSnakeCase(String value) {
+  return value
+      .replaceAllMapped(
+        RegExp(r'([a-z0-9])([A-Z])'),
+        (match) => '${match.group(1)}_${match.group(2)}',
+      )
+      .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '')
+      .toLowerCase();
 }

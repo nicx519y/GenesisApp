@@ -423,6 +423,8 @@ class CreateOriginDraft {
           .where((text) => !isGenesisUgcTextBlank(text))
           .map((text) => <String, dynamic>{'content': text})
           .toList(growable: false),
+      if (openingSaved && opening.isComplete)
+        'init_location_group': _createOpeningPayload(),
     };
 
     if (basics.metricJson.trim().isNotEmpty) {
@@ -436,6 +438,28 @@ class CreateOriginDraft {
     }
 
     return payload;
+  }
+
+  Map<String, dynamic> _createOpeningPayload() {
+    return <String, dynamic>{
+      'location_id': opening.locationId.trim(),
+      'initial_dialogue': opening.dialogue
+          .map((item) {
+            final type = item.type.trim();
+            return <String, dynamic>{
+              'char_id': switch (type) {
+                OpeningDialogueDraft.narratorType => 'nar',
+                OpeningDialogueDraft.imageType => 'nar_pic',
+                OpeningDialogueDraft.characterType => item.characterId.trim(),
+                _ => throw StateError('Unsupported opening dialogue: $type'),
+              },
+              'content': type == OpeningDialogueDraft.imageType
+                  ? item.content.trim()
+                  : normalizeGenesisUgcTextForSubmission(item.content),
+            };
+          })
+          .toList(growable: false),
+    };
   }
 
   List<Map<String, dynamic>> _createLocationPayloadList() {

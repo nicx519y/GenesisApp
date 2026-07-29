@@ -152,6 +152,8 @@ class LocationChatDebugSlice {
       'senderId': message.senderId,
       'clientMsgId': message.clientMsgId,
       'streaming': message.streaming,
+      'messageType': message.messageType,
+      'message_type': message.messageType,
       'contentPreview': _preview(message.content),
       'currentTime': message.currentTime,
       'createdAt': message.createdAt?.toIso8601String(),

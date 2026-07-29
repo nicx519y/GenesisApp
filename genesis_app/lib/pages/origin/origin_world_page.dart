@@ -55,7 +55,6 @@ import '../world/world_header.dart';
 import '../world/world_map_bubble_candidates.dart';
 import '../world/world_navigation.dart';
 import '../world/world_page_result.dart';
-import 'origin_launch_coordinator.dart';
 import 'origin_launch_flow.dart';
 
 part 'origin_world_map_shell.dart';
@@ -115,8 +114,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   static const double _launchWaitAvatarSize = 88;
 
   late final TabController _tabController;
-  final OriginLaunchCoordinator _launchCoordinator =
-      OriginLaunchCoordinator.instance;
   Future<OriginDetail>? _future;
   Future<void>? _copyWorldProgressFuture;
   List<WorldSummaryLatestItem> _copyWorldProgressSummaries =
@@ -124,13 +121,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<List<OriginLaunchedWorldRole>>? _launchedWorldsFuture;
   List<OriginLaunchedWorldRole>? _preloadedLaunchedWorlds;
   bool _launching = false;
-  bool _didResumePendingLaunch = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
   List<GenesisGenerationWaitAvatar> _launchWaitAvatars =
       const <GenesisGenerationWaitAvatar>[];
   _OriginLocationChatDescriptor? _activeChatLocation;
-  late final VoidCallback _removeLaunchOutcomeListener;
 
   SystemUiOverlayStyle get _baseStatusBarStyle => _showIntroPage
       ? _transparentDarkStatusBarStyle
@@ -141,10 +136,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
-    _launchCoordinator.state.addListener(_syncLaunchState);
-    _removeLaunchOutcomeListener = _launchCoordinator.addOutcomeListener(
-      _handleLaunchOutcome,
-    );
   }
 
   @override
@@ -152,10 +143,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     super.didChangeDependencies();
     _future ??= _loadOriginDetail();
     _copyWorldProgressFuture ??= _loadCopyWorldProgress();
-    if (!_didResumePendingLaunch) {
-      _didResumePendingLaunch = true;
-      _resumePendingLaunch();
-    }
   }
 
   @override
@@ -171,9 +158,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _showIntroPage = false;
       _tabController.index = 0;
       SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
-      _didResumePendingLaunch = false;
-      _syncLaunchState();
-      _resumePendingLaunch();
     }
   }
 
@@ -190,8 +174,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   void dispose() {
     GenesisSystemUiChrome.applyDefault();
-    _launchCoordinator.state.removeListener(_syncLaunchState);
-    _removeLaunchOutcomeListener();
     _tabController.dispose();
     super.dispose();
   }
@@ -326,31 +308,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
       _copyWorldProgressFuture = _loadCopyWorldProgress();
     });
-  }
-
-  void _resumePendingLaunch() {
-    final api = AppServicesScope.read(context).api;
-    unawaited(
-      _launchCoordinator.ensurePolling(
-        originId: widget.oid,
-        loadWorld: api.getWorld,
-        context: context,
-      ),
-    );
-    _syncLaunchState();
-  }
-
-  void _syncLaunchState() {
-    if (!mounted) return;
-    final launching = _launchCoordinator.isLaunchingOrigin(widget.oid);
-    if (_launching != launching) {
-      setState(() => _launching = launching);
-    }
-  }
-
-  void _handleLaunchOutcome(OriginLaunchOutcome outcome) {
-    if (!mounted || outcome.originId != widget.oid) return;
-    _syncLaunchState();
   }
 
   void _handleLaunchWaitBack() {
@@ -504,12 +461,24 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _enterLaunchedWorld(existingWorldId);
       return;
     }
-    await _launchOrigin(origin, selection);
+    await _launchOrigin(
+      origin,
+      selection,
+      initialLocationId:
+          _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
+    );
   }
 
-  void _enterLaunchedWorld(String worldId) {
+  void _enterLaunchedWorld(String worldId, {String initialLocationId = ''}) {
     final navigator = Navigator.of(context);
-    openWorldFromMyWorldsRoot(navigator, arguments: {'wid': worldId});
+    openWorldFromMyWorldsRoot(
+      navigator,
+      arguments: {
+        'wid': worldId,
+        if (initialLocationId.trim().isNotEmpty)
+          'initial_location_id': initialLocationId.trim(),
+      },
+    );
   }
 
   Future<List<OriginLaunchedWorldRole>> _loadLaunchedWorldRoles(
@@ -563,18 +532,23 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _launchWaitAvatars = avatars;
       _launching = true;
     });
-    final started = await startOriginLaunch(
+    final launchedWorldId = await startOriginLaunch(
       context: context,
       origin: origin,
       roleSelection: roleSelection,
-      initialLocationId: initialLocationId,
     );
     if (!mounted) return;
-    if (!started) {
+    if (launchedWorldId == null) {
       setState(() => _launching = false);
       return;
     }
-    _syncLaunchState();
+    setState(() => _launching = false);
+    final shouldEnter = await showOriginLaunchSuccessPrompt(
+      context: context,
+      worldId: launchedWorldId,
+    );
+    if (!mounted || !shouldEnter) return;
+    _enterLaunchedWorld(launchedWorldId, initialLocationId: initialLocationId);
   }
 
   Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
@@ -679,17 +653,20 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             panelCollapsedHeightOffset: _mapLoadingCollapsedHeightOffset,
             mapOverlay: _buildPersistentMapOverlay(topPadding),
             map: WorldKeepAlivePage(
-              child: WorldMap(
-                key: PageStorageKey<String>('origin-map-loading-${widget.oid}'),
-                points: const <WorldPoint>[],
-                listPoints: const <WorldPoint>[],
-                locationNodes: const <WorldMapLocationNode>[],
-                fallbackOnEmptyMapUrl: false,
-                dimmed: false,
-                showPointsList: false,
-                pointsListOuterScrollHandoff: false,
-                overlayTop: topPadding + 8 + 48,
-                drillExitTop: topPadding + 68,
+              child: WorldMap.origin(
+                definitionVersion: null,
+                originId: widget.oid,
+                common: WorldMapCommonConfig(drillExitTop: topPadding + 68),
+                legacy: LegacyWorldMapConfig(
+                  implementationKey: PageStorageKey<String>(
+                    'origin-map-loading-${widget.oid}',
+                  ),
+                  points: const <WorldPoint>[],
+                  listPoints: const <WorldPoint>[],
+                  fallbackOnEmptyMapUrl: false,
+                  pointsListOuterScrollHandoff: false,
+                  overlayTop: topPadding + 8 + 48,
+                ),
               ),
             ),
           );
@@ -761,7 +738,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                           processedLocationTree.aggregateValues<UserAvatar>(
                             node.id,
                             avatarsByLocation,
-                            idOf: _userAvatarStableId,
+                            idOf: worldMapAvatarStableId,
                           ),
                     )
                     .toList(growable: false),
@@ -788,7 +765,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                           processedLocationTree.aggregateValues<UserAvatar>(
                             node.id,
                             avatarsByLocation,
-                            idOf: _userAvatarStableId,
+                            idOf: worldMapAvatarStableId,
                           ),
                     )
                     .toList(growable: false),
@@ -799,6 +776,52 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         final locationCount = listLocationNodes.isNotEmpty
             ? _originLeafLocationNodeCount(listLocationNodes)
             : listPoints.length;
+        final Widget map = WorldMap.origin(
+          definitionVersion: origin.definitionVersion,
+          originId: origin.oid,
+          common: WorldMapCommonConfig(
+            locationNodes: locationNodes,
+            drillExitTop: topPadding + 68,
+            messageBubbles: _activeChatLocation == null
+                ? _originMapMessageBubbles(origin)
+                : const <WorldMapMessageBubble>[],
+            messageBubblePlaybackPaused: _activeChatLocation != null,
+            onMapTap: () => _recordWorldoMapClick(origin),
+            onPointTap: (point) => _openChatForPoint(origin, point),
+          ),
+          legacy: LegacyWorldMapConfig(
+            implementationKey: PageStorageKey<String>(
+              'origin-map-${origin.oid}',
+            ),
+            points: points,
+            listPoints: listPoints,
+            listLocationNodes: listLocationNodes,
+            mapImageUrl: mapImageUrl,
+            dimmed: _showIntroPage,
+            showPointsList: _showIntroPage,
+            pointsListBuilder: _showIntroPage
+                ? (context) => _OriginIntroList(
+                    origin: origin,
+                    topPadding: topPadding + 8 + 48,
+                    onOriginChanged: _refreshOriginDetail,
+                  )
+                : null,
+            initialZoomScale: _showIntroPage ? 1 : 1.2,
+            enableAvatarScaleReboundHint: true,
+            pointsListOuterScrollHandoff: false,
+            overlayTop: topPadding + 8 + 48,
+          ),
+          tilemap: WorldMapTilemapOptions(
+            implementationKey: PageStorageKey<String>(
+              'origin-tilemap-${origin.oid}',
+            ),
+            locationId: 'root',
+            locationNodes: listLocationNodes,
+            showVisualModeToggle: !_showIntroPage,
+            visualModeToggleTop: topPadding + 8,
+            visualModeToggleRight: 12,
+          ),
+        );
 
         return PopScope(
           canPop: _activeChatLocation == null,
@@ -812,6 +835,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             mapOverlay: _buildPersistentMapOverlay(
               topPadding,
               locationCount: locationCount,
+              reserveTilemapVisualModeToggle:
+                  origin.definitionVersion == 2 && !_showIntroPage,
             ),
             bottomSheetOverlayBuilder: (minChildSize) =>
                 _OriginDetailDraggableSheet(
@@ -833,36 +858,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
               onLaunch: () => _showLaunchRoleSheet(origin),
             ),
             topOverlay: _buildLocationChatOverlay(origin),
-            map: WorldKeepAlivePage(
-              child: WorldMap(
-                key: PageStorageKey<String>('origin-map-${origin.oid}'),
-                points: points,
-                listPoints: listPoints,
-                locationNodes: locationNodes,
-                listLocationNodes: listLocationNodes,
-                mapImageUrl: mapImageUrl,
-                messageBubbles: _activeChatLocation == null
-                    ? _originMapMessageBubbles(origin)
-                    : const <WorldMapMessageBubble>[],
-                messageBubblePlaybackPaused: _activeChatLocation != null,
-                dimmed: _showIntroPage,
-                showPointsList: _showIntroPage,
-                pointsListBuilder: _showIntroPage
-                    ? (context) => _OriginIntroList(
-                        origin: origin,
-                        topPadding: topPadding + 8 + 48,
-                        onOriginChanged: _refreshOriginDetail,
-                      )
-                    : null,
-                initialZoomScale: _showIntroPage ? 1 : 1.2,
-                enableAvatarScaleReboundHint: true,
-                pointsListOuterScrollHandoff: false,
-                overlayTop: topPadding + 8 + 48,
-                drillExitTop: topPadding + 68,
-                onMapTap: () => _recordWorldoMapClick(origin),
-                onPointTap: (point) => _openChatForPoint(origin, point),
-              ),
-            ),
+            map: WorldKeepAlivePage(child: map),
           ),
         );
       },

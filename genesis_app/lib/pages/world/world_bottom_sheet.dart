@@ -15,6 +15,7 @@ import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import 'world_constants.dart';
+import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_sections.dart';
 
@@ -162,8 +163,6 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.newUserJoinNoticesListenable,
     required this.eventsCache,
     required this.currentUid,
-    required this.locationPoints,
-    required this.locationNodes,
     required this.recentChatLocationIds,
     required this.onLocationTap,
     this.onDeleteWorld,
@@ -177,8 +176,6 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
   newUserJoinNoticesListenable;
   final WorldSectionsEventsCache eventsCache;
   final String currentUid;
-  final List<WorldPoint> locationPoints;
-  final List<WorldMapLocationNode> locationNodes;
   final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint> onLocationTap;
   final Future<void> Function(BuildContext context, WorldDetail world)?
@@ -468,11 +465,15 @@ class WorldSingleSectionBottomSheetState
   }
 
   Widget _buildLocationsSectionPage() {
+    final locationData = worldLocationListDataFor(
+      _currentWorld,
+      currentUid: widget.currentUid,
+    );
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
       child: WorldLocationList(
-        points: widget.locationPoints,
-        locationNodes: widget.locationNodes,
+        points: locationData.points,
+        locationNodes: locationData.locationNodes,
         recentChatLocationIds: widget.recentChatLocationIds,
         enableOuterScrollHandoff: false,
         padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),

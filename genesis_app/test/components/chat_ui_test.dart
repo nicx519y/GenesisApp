@@ -916,6 +916,40 @@ void main() {
     expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
   });
 
+  testWidgets('self chat markdown uses the sent message text color', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'me',
+              senderName: 'Me',
+              text: '*historical role message*',
+              isMe: true,
+              status: 'sent',
+              senderType: 'character',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    final bubbleText = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(
+      _textFragmentColor(bubbleText, 'historical role message'),
+      kLocationChatStyle.bubbleTextStyle.color,
+    );
+  });
+
   testWidgets('chat markdown preserves backslash text', (
     WidgetTester tester,
   ) async {
@@ -1877,6 +1911,38 @@ void main() {
     final badgeCenter = tester.getCenter(find.byType(ChatSendingBadge));
     final bubbleCenter = tester.getCenter(find.byType(ChatMessageBubble));
     expect(badgeCenter.dy, closeTo(bubbleCenter.dy, 1));
+  });
+
+  testWidgets('nar_pic chat message renders as an image instead of URL text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'opening-image',
+              senderId: 'nar_pic',
+              senderName: 'Narrator',
+              senderType: 'image',
+              imageUrl: 'assets/images/default_list_image.png',
+              text: 'assets/images/default_list_image.png',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ChatImageMessage), findsOneWidget);
+    expect(find.byType(ChatMessageBubble), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('chat-image-message-opening-image')),
+      findsOneWidget,
+    );
+    expect(find.text('assets/images/default_list_image.png'), findsNothing);
   });
 }
 

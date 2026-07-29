@@ -15,6 +15,15 @@ abstract class V1ApiResource {
     return data == null ? <String, dynamic>{} : asJsonMap(data);
   }
 
+  Future<Map<String, dynamic>> getMapPreservingKeys(
+    String path, [
+    Map<String, Object?>? query,
+  ]) async {
+    final json = await client.get<Object?>('v1/$path', query: query);
+    final data = handleV1ResponseErrNo(json, normalizeKeys: false);
+    return data == null ? <String, dynamic>{} : asJsonMap(data);
+  }
+
   Future<Object?> getData(String path, [Map<String, Object?>? query]) async {
     final json = await client.get<Object?>('v1/$path', query: query);
     return handleV1ResponseErrNo(json);
@@ -51,15 +60,18 @@ abstract class V1ApiResource {
 /// `{"err_no":0,"err_msg":"succ","data":...}`.
 ///
 /// It also accepts the legacy spellings `err_str`, `errNo`, and `errStr`,
-/// then returns response `data` with all object keys normalized to snake_case.
-Object? handleV1ResponseErrNo(Object? json) {
-  if (json is! Map) return _normalizeV1Keys(json);
+/// By default it returns response `data` with object keys normalized to
+/// snake_case. Opaque payloads such as map JSON can disable normalization.
+Object? handleV1ResponseErrNo(Object? json, {bool normalizeKeys = true}) {
+  if (json is! Map) return normalizeKeys ? _normalizeV1Keys(json) : json;
   final map = asJsonMap(json);
   final errNoRaw = map.containsKey('err_no') ? map['err_no'] : map['errNo'];
-  if (errNoRaw == null) return _normalizeV1Keys(map);
+  if (errNoRaw == null) return normalizeKeys ? _normalizeV1Keys(map) : map;
 
   final errNo = asInt(errNoRaw);
-  if (errNo == 0) return _normalizeV1Keys(map['data']);
+  if (errNo == 0) {
+    return normalizeKeys ? _normalizeV1Keys(map['data']) : map['data'];
+  }
 
   throw ApiException(
     message: asString(

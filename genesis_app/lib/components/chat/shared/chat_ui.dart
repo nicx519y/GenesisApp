@@ -10,6 +10,7 @@ import '../../../components/ai_content_disclaimer.dart';
 import '../../../icons/custom_icon_assets.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
+import '../../../ui/components/genesis_list_image.dart';
 import '../../../ui/components/genesis_safe_area.dart';
 import '../../../ui/tokens/genesis_colors.dart';
 import '../../../ui/tokens/genesis_typography.dart';
@@ -103,6 +104,7 @@ class ChatMessageVm {
     required this.senderId,
     required this.senderName,
     this.avatarUrl = '',
+    this.imageUrl = '',
     this.isPlayerControlledRole = false,
     required this.text,
     this.currentTime = '',
@@ -134,10 +136,11 @@ class ChatMessageVm {
   final String senderId;
   String senderName;
   String avatarUrl;
+  String imageUrl;
   bool isPlayerControlledRole;
   String text;
   String currentTime;
-  final bool isMe;
+  bool isMe;
   String status;
   final String senderType;
   String? error;
@@ -148,6 +151,11 @@ class ChatMessageVm {
   bool get isNarrator => senderType == 'narrator';
 
   bool get isTick => senderType == 'tick';
+
+  bool get isImage =>
+      senderType == 'image' ||
+      senderType == 'nar_pic' ||
+      imageUrl.trim().isNotEmpty;
 }
 
 typedef ChatMessageLongPressStart =
@@ -1088,6 +1096,15 @@ class ChatMessageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
+    if (message.isImage) {
+      return ChatImageMessage(
+        message: message,
+        style: style,
+        onLongPressStart: onMessageLongPressStart == null
+            ? null
+            : (details) => onMessageLongPressStart!(context, message, details),
+      );
+    }
     if (message.isSystem) {
       return ChatSystemMessage(
         text: message.isTick ? _tickAdvanceText(message) : message.text,
@@ -1293,6 +1310,49 @@ class ChatMessageRow extends StatelessWidget {
   }
 }
 
+class ChatImageMessage extends StatelessWidget {
+  const ChatImageMessage({
+    super.key,
+    required this.message,
+    required this.style,
+    this.onLongPressStart,
+  });
+
+  static const double imageSize = 200;
+
+  final ChatMessageVm message;
+  final ChatUiStyleConfig style;
+  final GestureLongPressStartCallback? onLongPressStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: style.avatarSideSpacerWidth,
+        bottom: style.rowBottomPadding,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: GestureDetector(
+          onLongPressStart: onLongPressStart,
+          child: GenesisListImage(
+            key: ValueKey<String>('chat-image-message-${message.localId}'),
+            imageUrl: message.imageUrl.trim().isNotEmpty
+                ? message.imageUrl
+                : message.text,
+            width: imageSize,
+            height: imageSize,
+            fit: BoxFit.contain,
+            borderRadius: BorderRadius.circular(
+              style.systemMessageBorderRadius,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 double _normalBubbleMaxWidth(BuildContext context, ChatUiStyleConfig style) {
   return _normalBubbleMaxWidthForWidth(MediaQuery.sizeOf(context).width, style);
 }
@@ -1352,6 +1412,7 @@ class ChatMessageBubble extends StatelessWidget {
         child: _InlineMarkdownText(
           text: text.isEmpty ? '...' : text,
           style: style.bubbleTextStyle,
+          useBaseColorForEmphasis: message.isMe,
         ),
       ),
     );
@@ -1668,6 +1729,7 @@ class _InlineMarkdownText extends StatelessWidget {
     this.maxLines,
     this.overflow,
     this.textAlign,
+    this.useBaseColorForEmphasis = false,
   });
 
   final String text;
@@ -1675,6 +1737,7 @@ class _InlineMarkdownText extends StatelessWidget {
   final int? maxLines;
   final TextOverflow? overflow;
   final TextAlign? textAlign;
+  final bool useBaseColorForEmphasis;
 
   @override
   Widget build(BuildContext context) {
@@ -1687,6 +1750,7 @@ class _InlineMarkdownText extends StatelessWidget {
           genesisDisplaySafeText(text),
           textStyle,
           platform,
+          useBaseColorForEmphasis: useBaseColorForEmphasis,
         ),
       ),
       maxLines: maxLines,
@@ -1699,8 +1763,9 @@ class _InlineMarkdownText extends StatelessWidget {
 List<InlineSpan> _inlineMarkdownSpans(
   String text,
   TextStyle baseStyle,
-  TargetPlatform platform,
-) {
+  TargetPlatform platform, {
+  bool useBaseColorForEmphasis = false,
+}) {
   final spans = <InlineSpan>[];
   final buffer = StringBuffer();
   var index = 0;
@@ -1722,7 +1787,9 @@ List<InlineSpan> _inlineMarkdownSpans(
             text.substring(index + 1, end),
             baseStyle,
             platform,
-            color: const Color(0xFF888888),
+            color: useBaseColorForEmphasis
+                ? baseStyle.color
+                : const Color(0xFF888888),
           ),
         );
         index = end + 1;

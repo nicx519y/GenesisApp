@@ -9,6 +9,7 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/models/tilemap_definition.dart';
 import 'package:genesis_flutter_android/network/v1/upload_api.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
@@ -510,7 +511,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"status":"completed","granted_gems":550}}',
+            '{"err_no":0,"err_msg":"succ","data":{"status":"completed","granted_gems":550,"transaction_id":"GPA.1"}}',
       ),
     );
     final api = _apiWith(
@@ -548,6 +549,7 @@ void main() {
     });
     expect(report.status, GemPurchaseReportStatus.completed);
     expect(report.grantedGems, 550);
+    expect(report.transactionId, 'GPA.1');
   });
 
   test(
@@ -1023,7 +1025,7 @@ void main() {
     );
   });
 
-  test('getOrigin maps detail preview fields from v1 detail', () async {
+  test('getOrigin maps the complete v1 origin detail contract', () async {
     final apiTransport = _FakeTransport(
       handler: (request) => TransportResponse(
         statusCode: 200,
@@ -1035,29 +1037,134 @@ void main() {
             'info': {
               'origin_id': 'o_1',
               'origin_name': 'Origin One',
-              'origin_version': '1',
+              'origin_version': '7',
+              'origin_version_time': 1716000060,
+              'definition_version': 2,
+              'language': 'zh-Hans',
+              'current_time': 'Day 7, 19:10',
               'owner_uid': 'u_1',
               'owner_name': 'Tester',
+              'owner_user': {
+                'uid': 'u_1',
+                'name': 'Tester',
+                'avatar': {
+                  'sm_url': 'https://cdn.example.com/owner-sm.webp',
+                  'xl_url': 'https://cdn.example.com/owner-xl.webp',
+                  'object_key': 'owner-xl.webp',
+                },
+                'deleted': false,
+                'follower_cnt': 11,
+                'following_cnt': 12,
+                'friend_cnt': 13,
+                'create_origin_cnt': 14,
+                'launch_world_cnt': 15,
+                'join_world_cnt': 16,
+              },
               'brief': 'Brief shown in World View.',
-              'setting': 'Internal setting text.',
-              'events': const <Object?>[],
-              'tags': const <Object?>[],
+              'tags': const <Object?>['adventure', 'school'],
               'metric': const <String, Object?>{'unit': '%'},
               'created_at': 1716000000,
-              'started_at': 'Day 1',
-              'tick_duration_days': 30,
-              'cover': '',
-              'map_url': '',
+              'cover': {
+                'sm_url': 'https://cdn.example.com/cover-sm.webp',
+                'xl_url': 'https://cdn.example.com/cover-xl.webp',
+                'object_key': 'cover-xl.webp',
+              },
+              'map_url': 'https://cdn.example.com/map.webp',
               'status': 10,
             },
-            'stats': const <String, Object?>{},
-            'characters': const <Object?>[],
+            'stats': const <String, Object?>{
+              'copy_cnt': 21,
+              'discuss_cnt': 22,
+              'character_cnt': 23,
+              'connect_cnt': 24,
+              'location_cnt': 25,
+              'max_tick_cnt': 26,
+            },
+            'init_location_group': const {
+              'location_id': 'loc_1',
+              'initial_dialogue': [
+                {
+                  'char_id': 'nar',
+                  'char_name': 'Narrator',
+                  'content': 'The gate opens.',
+                },
+                {
+                  'char_id': 'char_1',
+                  'char_name': 'Sam',
+                  'content': 'We should go.',
+                },
+                {
+                  'char_id': 'nar_pic',
+                  'char_name': 'Narrator',
+                  'content': 'https://cdn.example.com/opening.webp',
+                },
+              ],
+            },
+            'characters': const [
+              {
+                'char_id': 'char_1',
+                'type': 'custom',
+                'player_uid': 'u_player',
+                'player_username': 'Player',
+                'player_user': {
+                  'uid': 'u_player',
+                  'name': 'Player',
+                  'avatar': {
+                    'sm_url': 'https://cdn.example.com/player-sm.webp',
+                    'xl_url': 'https://cdn.example.com/player-xl.webp',
+                    'object_key': 'player-xl.webp',
+                  },
+                  'deleted': false,
+                  'follower_cnt': 1,
+                  'following_cnt': 2,
+                  'friend_cnt': 3,
+                  'create_origin_cnt': 4,
+                  'launch_world_cnt': 5,
+                  'join_world_cnt': 6,
+                },
+                'player_joined_at': 1716000020,
+                'name': 'Sam',
+                'identity': 'Guide',
+                'brief': 'Knows the old roads.',
+                'goal': 'Reach the gate.',
+                'avatar': {
+                  'sm_url': 'https://cdn.example.com/sam-sm.webp',
+                  'xl_url': 'https://cdn.example.com/sam-xl.webp',
+                  'object_key': 'sam-xl.webp',
+                },
+                'initial_location_id': 'loc_1',
+                'location_id': 'loc_2',
+                'metric_value': 9,
+                'delta': -2,
+              },
+            ],
             'locations': const [
               {
                 'location_id': 'loc_1',
+                'level': 1,
+                'location_pid': '',
                 'location_name': 'Gate',
                 'location_description': 'Gate fallback description.',
                 'location_paragraph': 'Gate launch paragraph.',
+                'location_timestamp': 'Day 1, 08:30',
+                'location_summary': 'The gate is open.',
+                'image': {
+                  'sm_url': 'https://cdn.example.com/gate-sm.webp',
+                  'xl_url': 'https://cdn.example.com/gate-xl.webp',
+                  'object_key': 'gate-xl.webp',
+                },
+                'x_percent': 20,
+                'y_percent': 30,
+                'x': 128.5,
+                'y': -64.25,
+                'map_url': 'https://cdn.example.com/gate-map.webp',
+                'dialogue': [
+                  {
+                    'char_id': 'char_1',
+                    'char_name': 'Sam',
+                    'content': 'Doors open at eight.',
+                  },
+                ],
               },
             ],
             'ticks': const [
@@ -1090,7 +1197,39 @@ void main() {
     expect(apiTransport.requests, hasLength(1));
     expect(apiTransport.lastRequest!.uri.queryParameters['origin_id'], 'o_1');
     expect(origin.worldView, 'Brief shown in World View.');
-    expect(origin.worldView, isNot('Internal setting text.'));
+    expect(origin.description, 'Brief shown in World View.');
+    expect(origin.originVersion, '7');
+    expect(origin.versionNum, 7);
+    expect(origin.originVersionTime?.millisecondsSinceEpoch, 1716000060000);
+    expect(origin.language, 'zh-Hans');
+    expect(origin.currentTime, 'Day 7, 19:10');
+    expect(origin.status, 10);
+    expect(origin.ownerUser.uid, 'u_1');
+    expect(origin.ownerUser.followerCount, 11);
+    expect(origin.ownerUser.avatarResource.objectKey, 'owner-xl.webp');
+    expect(origin.coverResource.objectKey, 'cover-xl.webp');
+    expect(origin.copyCount, 21);
+    expect(origin.discussCount, 22);
+    expect(origin.characterCount, 23);
+    expect(origin.connectCount, 24);
+    expect(origin.locationCount, 25);
+    expect(origin.maxTickCount, 26);
+    expect(origin.tags, ['adventure', 'school']);
+    expect(origin.initLocationGroup?.locationId, 'loc_1');
+    expect(
+      origin.initLocationGroup?.initialDialogue.map((line) => line.charId),
+      ['nar', 'char_1', 'nar_pic'],
+    );
+    final character = origin.characters.single;
+    expect(character.type, 'custom');
+    expect(character.playerUser.uid, 'u_player');
+    expect(character.playerJoinedAt, 1716000020);
+    expect(character.currentLocationBusinessId, 'loc_2');
+    expect(character.initialLocationBusinessId, 'loc_1');
+    expect(character.currentLocationId, isNot(character.initialLocationId));
+    expect(character.metricValue, 9);
+    expect(character.delta, -2);
+    expect(character.avatarResource.objectKey, 'sam-xl.webp');
     expect(origin.ticks.single['tick_result'], isA<Map>());
     expect(
       (origin.ticks.single['tick_result'] as Map)['narrator'],
@@ -1101,7 +1240,113 @@ void main() {
       'Day 1, 08:30',
     );
     expect(origin.metric['unit'], '%');
-    expect(origin.locations.single.locationParagraph, 'Gate launch paragraph.');
+    expect(origin.definitionVersion, 2);
+    final location = origin.locations.single;
+    expect(location.level, 1);
+    expect(location.locationParagraph, 'Gate launch paragraph.');
+    expect(location.locationTimestamp, 'Day 1, 08:30');
+    expect(location.locationSummary, 'The gate is open.');
+    expect(location.xPercent, 20);
+    expect(location.yPercent, 30);
+    expect(location.x, 128.5);
+    expect(location.y, -64.25);
+    expect(location.imageResource.objectKey, 'gate-xl.webp');
+    expect(location.dialogue.single.content, 'Doors open at eight.');
+  });
+
+  test('getOriginMap uses map contract and preserves tilemap JSON', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'tile_types': {'grass': 'https://cdn.example.com/tiles/grass.png'},
+            'map_json': {
+              'width': 2,
+              'height': 3,
+              'tiles': [
+                {
+                  'x': 0,
+                  'y': 1,
+                  'type': 'grass',
+                  'shadow': 1,
+                  'location_id': 'loc_grass',
+                },
+              ],
+            },
+          },
+        }),
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final definition = await api.getOriginMap(
+      originId: 'o_1',
+      locationId: 'root',
+    );
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/map');
+    expect(apiTransport.lastRequest!.uri.queryParameters, {
+      'origin_id': 'o_1',
+      'location_id': 'root',
+    });
+    expect(definition.isAvailable, true);
+    expect(
+      definition.tileTypes!['grass'],
+      'https://cdn.example.com/tiles/grass.png',
+    );
+    expect(definition.tiles, hasLength(1));
+    expect(definition.tiles.single.x, 0);
+    expect(definition.tiles.single.y, 1);
+    expect(definition.tiles.single.type, 'grass');
+    expect(definition.tiles.single.shadow, 1);
+    expect(definition.tiles.single.locationId, 'loc_grass');
+    expect(definition.mapJson!.width, 2);
+    expect(definition.mapJson!.height, 3);
+  });
+
+  test('tilemap shadow defaults to zero and rejects unsupported values', () {
+    Map<String, dynamic> definitionWithShadow(Object? shadow) {
+      return {
+        'tile_types': {'grass': 'https://cdn.example.com/tiles/grass.png'},
+        'map_json': {
+          'width': 1,
+          'height': 1,
+          'tiles': [
+            {
+              'x': 0,
+              'y': 0,
+              'type': 'grass',
+              if (shadow != null) 'shadow': shadow,
+            },
+          ],
+        },
+      };
+    }
+
+    expect(
+      TilemapDefinition.fromJson(
+        definitionWithShadow(null),
+      ).tiles.single.shadow,
+      0,
+    );
+    expect(
+      () => TilemapDefinition.fromJson(definitionWithShadow(2)),
+      throwsArgumentError,
+    );
   });
 
   test('getOriginInfo uses lightweight origin info contract', () async {
@@ -1468,6 +1713,171 @@ void main() {
     expect(locations.single['location_description'], 'A quiet tower.');
   });
 
+  test('createOriginV2 posts automatic-map create contract', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'origin_id': 'o_v2_created',
+            'origin_version': '1',
+            'origin_version_time': 1780000000,
+            'origin_name': 'Automatic Map Origin',
+          },
+        }),
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final result = await api.createOriginV2(
+      payload: {
+        'name': 'Automatic Map Origin',
+        'origin_version': 'draft-1',
+        'definition_version': 1,
+        'world_view': 'A generated city.',
+        'world_setting': 'Every street remembers.',
+        'event_list': const [
+          {'content': 'The city wakes.'},
+        ],
+        'tags': const ['city'],
+        'metric': const {'label': 'Trust'},
+        'started_at': 'Day 1',
+        'tick_duration_days': 1,
+        'cover': const {
+          'sm_url': 'cover-small.webp',
+          'xl_url': 'cover-large.webp',
+          'object_key': 'covers/cover-large.webp',
+        },
+        'map_url': 'legacy-map.webp',
+        'tile_types': const {
+          'grass': {'texture': 'grass_01', 'walkable': true},
+        },
+        'character_list': const [
+          {
+            'char_id': 'char_1',
+            'name': 'Ari',
+            'avatar': {
+              'sm_url': 'avatar-small.webp',
+              'xl_url': 'avatar-large.webp',
+              'object_key': 'avatars/avatar-large.webp',
+            },
+          },
+        ],
+        'location_list': const [
+          {
+            'location_id': 'loc_tmp_1',
+            'location_pid': 'loc_tmp_parent',
+            'level': 3,
+            'name': 'Gate',
+            'image': {
+              'sm_url': 'gate-small.webp',
+              'xl_url': 'gate-large.webp',
+              'object_key': 'locations/gate-large.webp',
+            },
+          },
+        ],
+        'init_location_group': const {
+          'location_id': 'loc_1_1_1',
+          'initial_dialogue': [
+            {'char_id': 'nar', 'content': 'The gate opens.'},
+            {'char_id': 'nar_pic', 'content': 'opening.webp'},
+          ],
+        },
+      },
+    );
+
+    expect(result.oid, 'o_v2_created');
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v2/origin/create');
+    final body =
+        jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!))
+            as Map<String, dynamic>;
+    expect(body['origin_name'], 'Automatic Map Origin');
+    expect(body['definition_version'], 1);
+    expect(body['tick_duration_time'], '1 day');
+    expect(body['cover'], isA<Map>());
+    expect(body['map_url'], 'legacy-map.webp');
+    expect(body['tile_types'], isA<Map>());
+    expect(body['characters'], hasLength(1));
+    expect(body['locations'], hasLength(1));
+    expect((body['characters'] as List).single['avatar'], isA<Map>());
+    expect(
+      (body['locations'] as List).single['location_pid'],
+      'loc_tmp_parent',
+    );
+    expect((body['locations'] as List).single['level'], 3);
+    expect((body['locations'] as List).single['image'], isA<Map>());
+    expect((body['init_location_group'] as Map)['location_id'], 'loc_1_1_1');
+  });
+
+  test('updateOriginV2 posts automatic-map update contract', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'origin_id': 'o_v2_updated',
+            'origin_version': '3',
+            'origin_version_time': 1780000100,
+            'origin_name': 'Updated Automatic Map Origin',
+          },
+        }),
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final result = await api.updateOriginV2(
+      oid: 'o_v2_updated',
+      payload: {
+        'name': 'Updated Automatic Map Origin',
+        'origin_version': '2',
+        'world_view': 'Updated brief.',
+        'world_setting': 'Updated setting.',
+        'event_list': const <Map<String, Object?>>[],
+        'cover': 'cover.webp',
+        'character_list': const <Map<String, Object?>>[],
+        'location_list': const <Map<String, Object?>>[],
+        'deleted_char_ids': const ['char_removed'],
+        'deleted_location_ids': const ['loc_removed'],
+        'update_notes': 'Regenerate the map.',
+      },
+    );
+
+    expect(result.oid, 'o_v2_updated');
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v2/origin/update');
+    final body =
+        jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!))
+            as Map<String, dynamic>;
+    expect(body['origin_id'], 'o_v2_updated');
+    expect(body['origin_name'], 'Updated Automatic Map Origin');
+    expect(body['events'], isEmpty);
+    expect(body['update_notes'], 'Regenerate the map.');
+    expect(body['deleted_char_ids'], ['char_removed']);
+    expect(body['deleted_location_ids'], ['loc_removed']);
+    expect(body.containsKey('init_location_group'), isFalse);
+  });
+
   test('getWorld maps tick_result narrator paragraphs from detail', () async {
     final apiTransport = _FakeTransport(
       handler: (request) => TransportResponse(
@@ -1481,6 +1891,7 @@ void main() {
               'world_id': 'w_1',
               'world_name': 'World One',
               'origin_id': 'o_1',
+              'definition_version': 2,
               'owner_uid': 'u_1',
               'owner_name': 'Tester',
               'metric': const <String, Object?>{
@@ -1554,6 +1965,7 @@ void main() {
     expect(location['location_description'], 'Gate fallback description.');
     expect(world.relationStatus, 'owner');
     expect(world.metric['label'], 'Goal Progress');
+    expect(world.definitionVersion, 2);
     expect(world.latestNarrator, 'Narrator from tick result.');
     expect(tickResult['narrator'], 'Narrator from tick result.');
     expect(paragraph['location_id'], 'loc_1');
@@ -1562,6 +1974,41 @@ void main() {
       'name': 'Iris Vale',
       'delta': '+3 focus',
     });
+  });
+
+  test('getWorldMap accepts empty data for legacy definitions', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final definition = await api.getWorldMap(
+      worldId: 'w_1',
+      locationId: 'loc_1',
+    );
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/world/map');
+    expect(apiTransport.lastRequest!.uri.queryParameters, {
+      'world_id': 'w_1',
+      'location_id': 'loc_1',
+    });
+    expect(definition.isAvailable, false);
+    expect(definition.tileTypes, isNull);
+    expect(definition.mapJson, isNull);
   });
 
   test('getWorldInfo uses lightweight world info contract', () async {
@@ -2445,6 +2892,54 @@ void main() {
       expect(await sessionStore.readAuthToken(), isNull);
     },
   );
+
+  test('backend login waits for gateway preparation', () async {
+    final preparation = Completer<void>();
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        expect(request.uri.path, endsWith('/v1/user/oauth/google'));
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":0,"err_msg":"succ","data":{"token":"backend-token","user":{"uid":"u_2","name":"User"}}}',
+        );
+      },
+    );
+    final sessionStore = MemoryUserSessionStore();
+    final identityAuth = _FakeIdentityAuthService();
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: identityAuth,
+    );
+    final coordinator = GenesisBackendAuthCoordinator(
+      api: api,
+      identityAuth: identityAuth,
+      sessionStore: sessionStore,
+      prepareBackendRequest: () => preparation.future,
+    );
+
+    final login = coordinator.loginWithIdentity(
+      const AuthSession(
+        provider: IdentityProvider.google,
+        providerIdToken: 'google-token',
+        displayName: 'User',
+        photoUrl: '',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(apiTransport.requests, isEmpty);
+
+    preparation.complete();
+    final user = await login;
+
+    expect(user.uid, 'u_2');
+    expect(apiTransport.requests, hasLength(1));
+  });
 
   test(
     'backend signOut posts logout then clears identity and local session',
@@ -3387,6 +3882,44 @@ void main() {
       expect(pageNotFoundCount, 0);
     },
   );
+
+  test('tilemap 1404 stays local without page-not-found callback', () async {
+    for (final source in const <String>['origin', 'world']) {
+      var pageNotFoundCount = 0;
+      final transport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":1404,"err_msg":"Page not found","data":{}}',
+        ),
+      );
+      final api = GenesisApi(
+        useMock: false,
+        transport: transport,
+        platformConfig: const _TestPlatformConfig(),
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: MemoryUserSessionStore(),
+        onPageNotFound: (_) async {
+          pageNotFoundCount += 1;
+        },
+      );
+
+      final request = source == 'origin'
+          ? api.getOriginMap(originId: 'o_1', locationId: 'loc_1')
+          : api.getWorldMap(worldId: 'w_1', locationId: 'loc_1');
+      await expectLater(
+        request,
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 1404)
+              .having((error) => error.kind, 'kind', ApiExceptionKind.business),
+        ),
+      );
+
+      expect(transport.lastRequest!.uri.path, '/api/v1/$source/map');
+      expect(pageNotFoundCount, 0);
+    }
+  });
 }
 
 TransportResponse _gatewayAuthResponse(TransportRequest request) {

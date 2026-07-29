@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/location_tree.dart';
+import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_map_data.dart';
 
 void main() {
@@ -50,5 +51,59 @@ void main() {
     expect(points.map((point) => point.id), ['a', 'b']);
     expect(points.every((point) => point.sceneId == point.id), isTrue);
     expect(points.every((point) => point.isLeafLocation), isTrue);
+  });
+
+  test('builds location sheet data from the current world hierarchy', () {
+    final world = WorldDetail.fromJson({
+      'world_id': 'w-1',
+      'locations': [
+        {
+          'location_id': 'root',
+          'location_name': 'Root',
+          'image': {
+            'sm_url': 'https://cdn.example.com/root-sm.webp',
+            'xl_url': 'https://cdn.example.com/root-xl.webp',
+          },
+        },
+        {
+          'location_id': 'child',
+          'location_pid': 'root',
+          'location_name': 'Child',
+          'image': '',
+          'icon': 'https://cdn.example.com/child-legacy.webp',
+        },
+      ],
+    });
+
+    final data = worldLocationListDataFor(world, currentUid: '');
+
+    expect(data.points.map((point) => point.sceneId), [
+      '__world_root__',
+      'root',
+      'child',
+    ]);
+    final rootPoint = data.points.singleWhere(
+      (point) => point.sceneId == 'root',
+    );
+    final childPoint = data.points.singleWhere(
+      (point) => point.sceneId == 'child',
+    );
+    expect(rootPoint.iconUrl, 'https://cdn.example.com/root-xl.webp');
+    expect(childPoint.iconUrl, 'https://cdn.example.com/child-legacy.webp');
+    expect(data.locationNodes, hasLength(1));
+    expect(data.locationNodes.single.id, '__world_root__');
+    final rootNode = data.locationNodes.single.children.single;
+    expect(rootNode.id, 'root');
+    expect(rootNode.children.single.id, 'child');
+  });
+
+  test('keeps the location sheet empty without location data', () {
+    final data = worldLocationListDataFor(
+      WorldDetail.fromJson({'world_id': 'w-empty'}),
+      currentUid: '',
+    );
+
+    expect(data.points, isEmpty);
+    expect(data.locationNodes, isEmpty);
   });
 }

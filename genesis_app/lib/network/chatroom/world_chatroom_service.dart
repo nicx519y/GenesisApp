@@ -11,6 +11,7 @@ import '../models/world.dart';
 import 'chatroom_client.dart';
 import 'chatroom_connection_controller.dart';
 import 'chatroom_http_models.dart';
+import 'chatroom_message_type.dart';
 import 'chatroom_message_storage.dart';
 import 'chatroom_models.dart';
 
@@ -2387,6 +2388,7 @@ class WorldChatroomService {
       'user_id': message.userId,
       'client_msg_id': message.clientMsgId,
       'content': message.content,
+      'message_type': message.messageType,
       'current_time': message.currentTime,
       'is_llm_stream': message.isLlmStreamMessage,
       'ts': message.createdAt?.millisecondsSinceEpoch,
@@ -2413,6 +2415,7 @@ class WorldChatroomService {
       'user_id': message.userId,
       'client_msg_id': '',
       'content': message.content,
+      'message_type': message.messageType,
       'current_time': message.currentTime,
       'ts': message.createdAt?.millisecondsSinceEpoch,
     };
@@ -2571,6 +2574,7 @@ class WorldChatroomMessage {
     required this.senderName,
     this.clientMsgId = '',
     required this.content,
+    this.messageType = chatroomTextMessageType,
     this.currentTime = '',
     required this.createdAt,
     this.streaming = false,
@@ -2590,6 +2594,7 @@ class WorldChatroomMessage {
   final String senderName;
   final String clientMsgId;
   final String content;
+  final String messageType;
   final String currentTime;
   final DateTime? createdAt;
   final bool streaming;
@@ -2616,6 +2621,7 @@ class WorldChatroomMessage {
       senderName: message.senderName,
       clientMsgId: '',
       content: message.content,
+      messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.createdAt,
     );
@@ -2639,6 +2645,7 @@ class WorldChatroomMessage {
       senderName: asString(json['sender_name']),
       clientMsgId: asString(json['client_msg_id']),
       content: asString(json['content']),
+      messageType: normalizeChatroomMessageType(json['message_type']),
       currentTime: asString(json['current_time']),
       createdAt: asDateTime(json['ts']),
       isLlmStreamMessage: asBool(json['is_llm_stream']),
@@ -2661,6 +2668,7 @@ class WorldChatroomMessage {
       senderName: message.senderName,
       clientMsgId: message.clientMsgId,
       content: message.content,
+      messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.createdAt ?? message.ts,
     );
@@ -2685,6 +2693,7 @@ class WorldChatroomMessage {
       senderId: message.senderId,
       senderName: message.senderName,
       content: message.content,
+      messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.createdAt ?? message.ts,
     );
@@ -2708,6 +2717,7 @@ class WorldChatroomMessage {
       senderId: message.senderId,
       senderName: message.senderName,
       content: message.content.isEmpty ? message.currentTime : message.content,
+      messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.ts,
     );
@@ -2748,6 +2758,7 @@ class WorldChatroomMessage {
     String? senderName,
     String? clientMsgId,
     String? content,
+    String? messageType,
     String? currentTime,
     DateTime? createdAt,
     bool? streaming,
@@ -2767,6 +2778,7 @@ class WorldChatroomMessage {
       senderName: senderName ?? this.senderName,
       clientMsgId: clientMsgId ?? this.clientMsgId,
       content: content ?? this.content,
+      messageType: messageType ?? this.messageType,
       currentTime: currentTime ?? this.currentTime,
       createdAt: createdAt ?? this.createdAt,
       streaming: streaming ?? this.streaming,

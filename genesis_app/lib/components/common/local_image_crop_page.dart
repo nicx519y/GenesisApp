@@ -8,11 +8,39 @@ import 'package:flutter/material.dart';
 import '../../utils/image_upload_processing.dart';
 import 'genesis_center_toast.dart';
 
+@visibleForTesting
+({int width, int height}) calculateLocalImageCropOutputSize({
+  required Rect sourceRect,
+  required Size cropSize,
+  Size? maxOutputSize,
+}) {
+  final requestedSize = maxOutputSize ?? cropSize;
+  final maxWidth = requestedSize.width.round().clamp(1, 4096).toInt();
+  final maxHeight = requestedSize.height.round().clamp(1, 4096).toInt();
+  final scale = math.min(
+    1.0,
+    math.min(maxWidth / sourceRect.width, maxHeight / sourceRect.height),
+  );
+
+  if (maxOutputSize == null) {
+    return (
+      width: math.max(1, (maxWidth * scale).round()),
+      height: math.max(1, (maxHeight * scale).round()),
+    );
+  }
+
+  return (
+    width: (sourceRect.width * scale).round().clamp(1, maxWidth).toInt(),
+    height: (sourceRect.height * scale).round().clamp(1, maxHeight).toInt(),
+  );
+}
+
 class LocalImageCropPage extends StatefulWidget {
   const LocalImageCropPage({
     super.key,
     required this.imageBytes,
     required this.cropSize,
+    this.maxOutputSize,
     this.onUpload,
     this.filename = 'crop.png',
     this.contentType = 'image/png',
@@ -21,6 +49,10 @@ class LocalImageCropPage extends StatefulWidget {
 
   final Uint8List imageBytes;
   final Size cropSize;
+
+  /// Optional physical-pixel ceiling. When set, cropped source pixels are
+  /// never enlarged; omitting it preserves the existing crop output behavior.
+  final Size? maxOutputSize;
   final String filename;
   final String contentType;
   final bool uploadOnConfirm;
@@ -44,6 +76,62 @@ class LocalImageCropResult {
   final int height;
   final String filename;
   final String contentType;
+}
+
+@visibleForTesting
+Future<LocalImageCropResult> createLocalImageCropResult({
+  required ui.Image image,
+  required Rect sourceRect,
+  required Size cropSize,
+  Size? maxOutputSize,
+  required String filename,
+  required String contentType,
+}) async {
+  final targetSize = calculateLocalImageCropOutputSize(
+    sourceRect: sourceRect,
+    cropSize: cropSize,
+    maxOutputSize: maxOutputSize,
+  );
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final paint = Paint()..filterQuality = FilterQuality.high;
+  canvas.drawImageRect(
+    image,
+    sourceRect,
+    Rect.fromLTWH(
+      0,
+      0,
+      targetSize.width.toDouble(),
+      targetSize.height.toDouble(),
+    ),
+    paint,
+  );
+  final picture = recorder.endRecording();
+  final croppedImage = await picture.toImage(
+    targetSize.width,
+    targetSize.height,
+  );
+  final byteData = await croppedImage.toByteData(
+    format: ui.ImageByteFormat.png,
+  );
+  croppedImage.dispose();
+  picture.dispose();
+  final bytes = byteData?.buffer.asUint8List();
+  if (bytes == null || bytes.isEmpty) {
+    throw StateError('Crop failed');
+  }
+  final uploadImage = await prepareImageForUpload(
+    bytes: bytes,
+    filename: filename,
+    contentType: contentType,
+  );
+  return LocalImageCropResult(
+    bytes: uploadImage.bytes,
+    width: targetSize.width,
+    height: targetSize.height,
+    filename: uploadImage.filename,
+    contentType: uploadImage.contentType,
+  );
 }
 
 class _LocalImageCropPageState extends State<LocalImageCropPage> {
@@ -373,59 +461,13 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
       logicalRect.bottom / imageViewSize.height * image.height,
     );
 
-    final targetSize = _targetOutputSize(sourceRect);
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    final paint = Paint()..filterQuality = FilterQuality.high;
-    canvas.drawImageRect(
-      image,
-      sourceRect,
-      Rect.fromLTWH(
-        0,
-        0,
-        targetSize.width.toDouble(),
-        targetSize.height.toDouble(),
-      ),
-      paint,
-    );
-    final picture = recorder.endRecording();
-    final croppedImage = await picture.toImage(
-      targetSize.width,
-      targetSize.height,
-    );
-    final byteData = await croppedImage.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
-    croppedImage.dispose();
-    picture.dispose();
-    final bytes = byteData?.buffer.asUint8List();
-    if (bytes == null || bytes.isEmpty) {
-      throw StateError('Crop failed');
-    }
-    final uploadImage = await prepareImageForUpload(
-      bytes: bytes,
+    return createLocalImageCropResult(
+      image: image,
+      sourceRect: sourceRect,
+      cropSize: widget.cropSize,
+      maxOutputSize: widget.maxOutputSize,
       filename: widget.filename,
       contentType: widget.contentType,
-    );
-    return LocalImageCropResult(
-      bytes: uploadImage.bytes,
-      width: targetSize.width,
-      height: targetSize.height,
-      filename: uploadImage.filename,
-      contentType: uploadImage.contentType,
-    );
-  }
-
-  ({int width, int height}) _targetOutputSize(Rect sourceRect) {
-    final maxWidth = widget.cropSize.width.round().clamp(1, 4096);
-    final maxHeight = widget.cropSize.height.round().clamp(1, 4096);
-    final scale = math.min(
-      1.0,
-      math.min(maxWidth / sourceRect.width, maxHeight / sourceRect.height),
-    );
-    return (
-      width: math.max(1, (maxWidth * scale).round()),
-      height: math.max(1, (maxHeight * scale).round()),
     );
   }
 }

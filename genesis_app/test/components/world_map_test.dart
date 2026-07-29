@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/legacy_world_map/legacy_world_map.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/components/world_map_interaction_notification.dart';
@@ -344,11 +345,13 @@ void main() {
 
     final widgets = tester.allWidgets.toList(growable: false);
     final lastPointMarkerLayer = widgets.lastIndexWhere(
-      (widget) => widget.runtimeType.toString() == '_WorldPointPositioned',
+      (widget) =>
+          widget.runtimeType.toString() == 'LegacyWorldMapPointPositioned',
     );
     final bubbleOverlayLayer = widgets.indexWhere(
       (widget) =>
-          widget.runtimeType.toString() == '_WorldPointMessageBubblePositioned',
+          widget.runtimeType.toString() ==
+          'LegacyWorldMapPointMessageBubblePositioned',
     );
 
     expect(find.text('Ava checks the storefront.'), findsOneWidget);
@@ -731,7 +734,10 @@ void main() {
                   ? const SizedBox(
                       width: 375,
                       height: 670,
-                      child: WorldMap(points: <WorldPoint>[]),
+                      child: LegacyWorldMap(
+                        common: WorldMapCommonConfig(),
+                        config: LegacyWorldMapConfig(points: <WorldPoint>[]),
+                      ),
                     )
                   : const SizedBox.shrink();
             },
@@ -774,7 +780,9 @@ void main() {
   });
 
   test('world map defers image dimension rebuilds during build', () {
-    final source = File('lib/components/world_map.dart').readAsStringSync();
+    final source = File(
+      'lib/components/legacy_world_map/legacy_world_map.dart',
+    ).readAsStringSync();
 
     expect(source, contains('SchedulerPhase.persistentCallbacks'));
     expect(source, contains('WidgetsBinding.instance.addPostFrameCallback'));
@@ -1255,7 +1263,10 @@ void main() {
         home: WorldDetailsPageScaffold(
           panelTopGap: 50,
           panelCollapsedHeightOffset: 100,
-          map: WorldMap(points: points, showPointsList: true),
+          map: LegacyWorldMap(
+            common: const WorldMapCommonConfig(),
+            config: LegacyWorldMapConfig(points: points, showPointsList: true),
+          ),
           slivers: const [
             SliverToBoxAdapter(
               child: SizedBox(key: ValueKey('details-content'), height: 900),
@@ -1579,63 +1590,67 @@ void main() {
               return SizedBox(
                 width: _mapSize.width,
                 height: _mapSize.height,
-                child: WorldMap(
-                  showPointsList: showPointsList,
-                  points: const [],
-                  locationNodes: const [
-                    WorldMapLocationNode(
-                      id: 'root',
-                      isRoot: true,
-                      point: WorldPoint(
+                child: LegacyWorldMap(
+                  common: WorldMapCommonConfig(
+                    locationNodes: const [
+                      WorldMapLocationNode(
                         id: 'root',
-                        sceneId: 'root',
-                        name: 'Root Hub',
-                        type: WorldPointType.portal,
-                        position: Offset(0.3, 0.35),
-                        users: [],
-                        isLeafLocation: false,
-                      ),
-                      children: [
-                        WorldMapLocationNode(
-                          id: 'district',
-                          point: WorldPoint(
-                            id: 'district',
-                            sceneId: 'district',
-                            name: 'Rail District',
-                            type: WorldPointType.shop,
-                            position: Offset(0.5, 0.35),
-                            users: [],
-                            isLeafLocation: false,
-                          ),
-                          children: [
-                            WorldMapLocationNode(
-                              id: 'leaf',
-                              point: WorldPoint(
-                                id: 'leaf',
-                                sceneId: 'leaf',
-                                name: 'Leaf Dock',
-                                type: WorldPointType.shop,
-                                position: Offset(0.7, 0.35),
-                                users: [],
-                              ),
-                            ),
-                            WorldMapLocationNode(
-                              id: 'leaf-2',
-                              point: WorldPoint(
-                                id: 'leaf-2',
-                                sceneId: 'leaf-2',
-                                name: 'Signal Room',
-                                type: WorldPointType.camp,
-                                position: Offset(0.45, 0.55),
-                                users: [],
-                              ),
-                            ),
-                          ],
+                        isRoot: true,
+                        point: WorldPoint(
+                          id: 'root',
+                          sceneId: 'root',
+                          name: 'Root Hub',
+                          type: WorldPointType.portal,
+                          position: Offset(0.3, 0.35),
+                          users: [],
+                          isLeafLocation: false,
                         ),
-                      ],
-                    ),
-                  ],
-                  onPointTap: (_) {},
+                        children: [
+                          WorldMapLocationNode(
+                            id: 'district',
+                            point: WorldPoint(
+                              id: 'district',
+                              sceneId: 'district',
+                              name: 'Rail District',
+                              type: WorldPointType.shop,
+                              position: Offset(0.5, 0.35),
+                              users: [],
+                              isLeafLocation: false,
+                            ),
+                            children: [
+                              WorldMapLocationNode(
+                                id: 'leaf',
+                                point: WorldPoint(
+                                  id: 'leaf',
+                                  sceneId: 'leaf',
+                                  name: 'Leaf Dock',
+                                  type: WorldPointType.shop,
+                                  position: Offset(0.7, 0.35),
+                                  users: [],
+                                ),
+                              ),
+                              WorldMapLocationNode(
+                                id: 'leaf-2',
+                                point: WorldPoint(
+                                  id: 'leaf-2',
+                                  sceneId: 'leaf-2',
+                                  name: 'Signal Room',
+                                  type: WorldPointType.camp,
+                                  position: Offset(0.45, 0.55),
+                                  users: [],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                    onPointTap: (_) {},
+                  ),
+                  config: LegacyWorldMapConfig(
+                    showPointsList: showPointsList,
+                    points: const [],
+                  ),
                 ),
               );
             },
@@ -2336,33 +2351,37 @@ Future<void> _pumpWorldMap(
             child: SizedBox(
               width: size.width,
               height: size.height,
-              child: WorldMap(
-                mapImageUrl: mapImageUrl,
-                preloadMapImageUrls: preloadMapImageUrls,
-                fallbackOnEmptyMapUrl: fallbackOnEmptyMapUrl,
-                showPointsList: showPointsList,
-                listPoints: listPoints,
-                locationNodes: locationNodes,
-                activeBubble: activeBubble,
-                messageBubbles: messageBubbles,
-                messageBubblePlaybackPaused: messageBubblePlaybackPaused,
-                initialZoomScale: initialZoomScale,
-                recentChatMapLocationIds: recentChatMapLocationIds,
-                onDrillIntoLocation: onDrillIntoLocation,
-                onMapTap: onMapTap,
-                onPointTap: onPointTap,
-                onHorizontalPanStateChanged: onHorizontalPanStateChanged,
-                points:
-                    points ??
-                    [
-                      WorldPoint(
-                        id: 'point-1',
-                        name: 'Gate',
-                        type: WorldPointType.portal,
-                        position: _pointPosition,
-                        users: users,
-                      ),
-                    ],
+              child: LegacyWorldMap(
+                common: WorldMapCommonConfig(
+                  locationNodes: locationNodes,
+                  messageBubbles: messageBubbles,
+                  messageBubblePlaybackPaused: messageBubblePlaybackPaused,
+                  onDrillIntoLocation: onDrillIntoLocation,
+                  onMapTap: onMapTap,
+                  onPointTap: onPointTap,
+                ),
+                config: LegacyWorldMapConfig(
+                  mapImageUrl: mapImageUrl,
+                  preloadMapImageUrls: preloadMapImageUrls,
+                  fallbackOnEmptyMapUrl: fallbackOnEmptyMapUrl,
+                  showPointsList: showPointsList,
+                  listPoints: listPoints,
+                  activeBubble: activeBubble,
+                  initialZoomScale: initialZoomScale,
+                  recentChatMapLocationIds: recentChatMapLocationIds,
+                  onHorizontalPanStateChanged: onHorizontalPanStateChanged,
+                  points:
+                      points ??
+                      [
+                        WorldPoint(
+                          id: 'point-1',
+                          name: 'Gate',
+                          type: WorldPointType.portal,
+                          position: _pointPosition,
+                          users: users,
+                        ),
+                      ],
+                ),
               ),
             ),
           ),

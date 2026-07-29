@@ -127,10 +127,10 @@ _OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
     for (final location in origin.allLocations)
       if (location.locationId.trim().isNotEmpty) location.locationId.trim(),
   };
-  if (locationIds.isEmpty || origin.ticks.isEmpty) return null;
+  if (locationIds.isEmpty) return null;
 
-  final sourceMessages = originLocationOpeningPreviewMessagesForTesting(
-    origin.ticks,
+  final sourceMessages = _originLocationOpeningPreviewMessages(
+    origin,
     locationIds,
   );
   if (!sourceMessages.any((message) => message.senderType != 'tick')) {
@@ -181,6 +181,7 @@ _OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
           senderId: source.senderId,
           senderName: senderName,
           avatarUrl: entity?.avatarUrl ?? '',
+          imageUrl: senderType == 'image' ? source.content : '',
           text: source.content,
           currentTime: currentTime,
           isMe: false,
@@ -219,10 +220,56 @@ List<WorldChatroomMessage> _originLocationOpeningPreviewMessages(
   OriginDetail origin,
   Iterable<String> locationIds,
 ) {
+  final initLocationGroup = origin.initLocationGroup;
+  if (initLocationGroup != null) {
+    final messages = originInitialLocationGroupPreviewMessagesForTesting(
+      initLocationGroup,
+      locationIds,
+      createdAt: origin.createdAt,
+    );
+    if (messages.isNotEmpty) return messages;
+  }
   return originLocationOpeningPreviewMessagesForTesting(
     origin.ticks,
     locationIds,
   );
+}
+
+@visibleForTesting
+List<WorldChatroomMessage> originOpeningPreviewMessagesForTesting(
+  OriginDetail origin,
+  Iterable<String> locationIds,
+) {
+  return _originLocationOpeningPreviewMessages(origin, locationIds);
+}
+
+@visibleForTesting
+List<WorldChatroomMessage> originInitialLocationGroupPreviewMessagesForTesting(
+  OriginInitLocationGroup group,
+  Iterable<String> locationIds, {
+  DateTime? createdAt,
+}) {
+  return originLocationOpeningPreviewMessagesForTesting(<Map<String, dynamic>>[
+    <String, dynamic>{
+      'tick_no': 0,
+      'created_at': createdAt,
+      'tick_result': <String, dynamic>{
+        'location_groups': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'location_id': group.locationId,
+            'initial_dialogue': <Map<String, dynamic>>[
+              for (final line in group.initialDialogue)
+                <String, dynamic>{
+                  'char_id': line.charId,
+                  'char_name': line.charName,
+                  'content': line.content,
+                },
+            ],
+          },
+        ],
+      },
+    },
+  ], locationIds);
 }
 
 @visibleForTesting
@@ -317,16 +364,21 @@ List<WorldChatroomMessage> originLocationOpeningPreviewMessagesForTesting(
                   ? 'opening-preview-$index'
                   : charId;
               final senderName = charName.isEmpty ? senderId : charName;
-              final isNarrator =
-                  charId.trim().toLowerCase() == 'nar' &&
-                  charName.trim().toLowerCase() == 'narrator';
+              final normalizedCharId = charId.trim().toLowerCase();
+              final isNarrator = normalizedCharId == 'nar';
+              final isImage =
+                  normalizedCharId == 'nar_pic' || normalizedCharId == 'image';
               return WorldChatroomMessage(
                 messageId: 0,
                 conversationRoundId: 'opening-preview-$index',
                 roundOrder: index,
                 tickNo: tickNo == 0 ? 1 : tickNo,
                 locationId: groupLocationId,
-                senderType: isNarrator ? 'narrator' : 'character',
+                senderType: isImage
+                    ? 'image'
+                    : isNarrator
+                    ? 'narrator'
+                    : 'character',
                 senderId: senderId,
                 senderName: senderName,
                 currentTime: currentTime,

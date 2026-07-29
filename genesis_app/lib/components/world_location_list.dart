@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../icons/custom_icon_assets.dart';
 import '../ui/components/recent_chat_marker.dart';
 import '../ui/components/genesis_list_image.dart';
+import '../utils/genesis_image_resource.dart';
 import 'world_details_shell.dart';
 import 'world_point.dart';
 
@@ -733,10 +734,7 @@ class _PointListCover extends StatelessWidget {
     return SizedBox(
       width: 64,
       height: 64,
-      child: GenesisListImage(
-        imageUrl: point.iconUrl,
-        placeholderAsset: _locationDefaultImageAsset,
-      ),
+      child: _LocationCoverImage(point: point),
     );
   }
 }
@@ -751,10 +749,39 @@ class _LocationCardCover extends StatelessWidget {
     return SizedBox(
       width: 64,
       height: 64,
-      child: GenesisListImage(
-        imageUrl: point.iconUrl,
-        placeholderAsset: _locationDefaultImageAsset,
-      ),
+      child: _LocationCoverImage(point: point),
+    );
+  }
+}
+
+class _LocationCoverImage extends StatelessWidget {
+  const _LocationCoverImage({required this.point});
+
+  final WorldPoint point;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final logicalWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 64.0;
+        final logicalHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : 64.0;
+        final rawUrl = point.iconUrl.trim();
+        final resizedUrl = resizeGenesisImageUrl(
+          rawUrl,
+          logicalWidth: logicalWidth,
+          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        );
+        return GenesisListImage(
+          imageUrl: resizedUrl.isNotEmpty ? resizedUrl : rawUrl,
+          width: logicalWidth,
+          height: logicalHeight,
+          placeholderAsset: _locationDefaultImageAsset,
+        );
+      },
     );
   }
 }

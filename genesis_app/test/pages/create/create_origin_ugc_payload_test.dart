@@ -57,4 +57,124 @@ void main() {
     final event = (payload['event_list'] as List).single as Map;
     expect(event['content'], '  Event\ncontinues  ');
   });
+
+  test('complete saved opening maps to ordered initial dialogue', () {
+    final draft = CreateOriginDraft.empty().copyWith(
+      opening: const OpeningDraft(
+        locationId: ' location-raw ',
+        dialogue: <OpeningDialogueDraft>[
+          OpeningDialogueDraft(
+            type: OpeningDialogueDraft.narratorType,
+            content:
+                r'First \n'
+                '\r\nSecond',
+          ),
+          OpeningDialogueDraft(
+            type: OpeningDialogueDraft.imageType,
+            content: ' https://cdn.example.com/opening.png ',
+          ),
+          OpeningDialogueDraft(
+            type: OpeningDialogueDraft.characterType,
+            characterId: ' character-raw ',
+            content: 'Hello\rworld',
+          ),
+        ],
+      ),
+      openingSaved: true,
+    );
+
+    final payload = draft.toCreateOriginPayload();
+    final opening = payload['init_location_group'] as Map;
+    expect(opening['location_id'], 'location-raw');
+
+    final dialogue = opening['initial_dialogue'] as List;
+    expect(dialogue, <Map<String, dynamic>>[
+      <String, dynamic>{
+        'char_id': 'nar',
+        'content':
+            r'First \n'
+            '\nSecond',
+      },
+      <String, dynamic>{
+        'char_id': 'nar_pic',
+        'content': 'https://cdn.example.com/opening.png',
+      },
+      <String, dynamic>{'char_id': 'character-raw', 'content': 'Hello\nworld'},
+    ]);
+  });
+
+  test('location payload preserves flat hierarchy links and order', () {
+    final draft = CreateOriginDraft.empty().copyWith(
+      locations: const <LocationDraft>[
+        LocationDraft(locationId: 'scene', level: 1, name: 'Scene'),
+        LocationDraft(
+          locationId: 'area',
+          parentLocationId: 'scene',
+          level: 2,
+          name: 'Area',
+        ),
+        LocationDraft(
+          locationId: 'room',
+          parentLocationId: 'area',
+          level: 3,
+          name: 'Room',
+        ),
+      ],
+      locationsSaved: true,
+    );
+
+    final locations =
+        draft.toCreateOriginPayload()['location_list'] as List<dynamic>;
+    expect(
+      locations
+          .map(
+            (item) => (
+              id: (item as Map<String, dynamic>)['location_id'],
+              pid: item['location_pid'],
+              level: item['level'],
+            ),
+          )
+          .toList(),
+      <({String id, String? pid, int level})>[
+        (id: 'scene', pid: null, level: 1),
+        (id: 'area', pid: 'scene', level: 2),
+        (id: 'room', pid: 'area', level: 3),
+      ],
+    );
+  });
+
+  test('opening payload requires both saved and complete state', () {
+    final completeOpening = CreateOriginDraft.empty().copyWith(
+      opening: const OpeningDraft(
+        locationId: 'location-1',
+        dialogue: <OpeningDialogueDraft>[
+          OpeningDialogueDraft(
+            type: OpeningDialogueDraft.narratorType,
+            content: 'Ready',
+          ),
+        ],
+      ),
+    );
+    final incompleteOpening = completeOpening.copyWith(
+      opening: const OpeningDraft(
+        locationId: 'location-1',
+        dialogue: <OpeningDialogueDraft>[
+          OpeningDialogueDraft(
+            type: OpeningDialogueDraft.characterType,
+            content: 'Missing character',
+          ),
+        ],
+      ),
+      openingSaved: true,
+    );
+
+    expect(
+      completeOpening.toCreateOriginPayload(),
+      isNot(contains('init_location_group')),
+    );
+    expect(
+      incompleteOpening.toCreateOriginPayload(),
+      isNot(contains('init_location_group')),
+    );
+  });
 }

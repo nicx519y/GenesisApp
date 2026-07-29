@@ -6,7 +6,9 @@ import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 void main() {
   final worldPageSource = File('lib/pages/world/world_page.dart');
   final worldHeaderSource = File('lib/pages/world/world_header.dart');
-  final worldMapSource = File('lib/components/world_map.dart');
+  final worldMapSource = File(
+    'lib/components/legacy_world_map/legacy_world_map_background.dart',
+  );
   final worldBottomSheetSource = File(
     'lib/pages/world/world_bottom_sheet.dart',
   );
@@ -37,6 +39,33 @@ void main() {
     expect(source, isNot(contains('class WorldSingleSectionBottomSheet')));
     expect(source, isNot(contains('class WorldEventsSection')));
     expect(source, isNot(contains('class WorldLocationChatPageCache')));
+  });
+
+  test('world loading shell keeps the settled panel geometry', () {
+    final source = worldPageSource.readAsStringSync();
+    final loadingShell = source.substring(
+      source.indexOf('Widget _buildInitialLoadingScaffold'),
+      source.indexOf('Widget _buildPersistentMapOverlay'),
+    );
+
+    expect(
+      loadingShell,
+      contains(
+        'final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);',
+      ),
+    );
+    expect(
+      loadingShell,
+      contains('fixedCollapsedPanelHeight: collapsedPanelHeight'),
+    );
+    expect(
+      loadingShell,
+      contains('fixedCollapsedPanelHeightIncludesBottomSafeArea: true'),
+    );
+    expect(loadingShell, contains('contentBottomPaddingOverride: 0'));
+    expect(loadingShell, contains("'world-map-loading-background'"));
+    expect(loadingShell, contains('kWorldMapLoadingBackgroundColor'));
+    expect(loadingShell, isNot(contains('map: WorldMap(')));
   });
 
   test('world map owns identity while collapsed panel keeps only actions', () {
@@ -284,7 +313,10 @@ void main() {
     final source = worldPageSource.readAsStringSync();
 
     expect(source, contains('worldMapBubbleCandidatesFor('));
-    expect(source, contains('messageBubbles: _activeChatLocationId.isEmpty'));
+    expect(
+      source,
+      matches(RegExp(r'messageBubbles:\s+_activeChatLocationId\.isEmpty')),
+    );
     expect(source, contains('_mapBubbleMessagesReady'));
     expect(source, contains('_mapMessageBubbles'));
     expect(
@@ -335,12 +367,9 @@ void main() {
     );
     expect(
       launchWaitAvatarPrecache,
-      contains('onError: (exception, stackTrace)'),
+      contains('unawaited(_precacheOriginAvatarFile(resolvedUrl))'),
     );
-    expect(
-      launchWaitAvatarPrecache,
-      isNot(contains('precacheImage(provider, context).catchError')),
-    );
+    expect(launchWaitAvatarPrecache, contains('catch (error)'));
   });
 
   test('world tick completion closes other sheets before opening events', () {

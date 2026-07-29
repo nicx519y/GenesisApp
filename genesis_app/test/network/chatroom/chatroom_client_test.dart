@@ -12,6 +12,26 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('nar_new_message normalizes message_type and defaults to text', () {
+    ChatroomNarratorMessage parse(Map<String, dynamic> payload) {
+      return chatroomEventFromEnvelope(
+            ChatroomEnvelope.fromJson({
+              'type': 'nar_new_message',
+              'payload': payload,
+            }),
+          )
+          as ChatroomNarratorMessage;
+    }
+
+    expect(parse({'message_type': ' IMAGE '}).messageType, 'image');
+    expect(parse(const {}).messageType, 'text');
+    expect(parse({'message_type': '   '}).messageType, 'text');
+    expect(
+      parse({'message_type': ' Future_Format '}).messageType,
+      'future_format',
+    );
+  });
+
   test('connect only opens socket with world query and auth header', () async {
     final socket = _FakeChatroomSocket();
     final transport = _FakeChatroomTransport(socket);
@@ -747,7 +767,7 @@ void main() {
       'sender_name': '旁白',
       'location_id': 'loc-2',
       'broadcast': true,
-      'payload': {'content': '*旁白推进剧情*'},
+      'payload': {'content': '*旁白推进剧情*', 'message_type': ' IMAGE '},
     });
     await _tick();
 
@@ -762,11 +782,14 @@ void main() {
     expect(join.characterName, '老沈');
     expect(join.playerUid, 'user-2');
     expect(join.playerUsername, 'Nikos');
-    expect(events.whereType<ChatroomUserMessage>().single.content, '你好');
+    final userMessage = events.whereType<ChatroomUserMessage>().single;
+    expect(userMessage.content, '你好');
+    expect(userMessage.messageType, 'text');
     final tick = events.whereType<ChatroomTickAdvanceMessage>().single;
     expect(tick.currentTime, 'Day 45, 19:30');
     expect(tick.tickNo, 7);
     expect(tick.content, 'Day 45, 19:30');
+    expect(tick.messageType, 'text');
     final narrator = events.whereType<ChatroomNarratorMessage>().single;
     expect(narrator.messageId, 155);
     expect(narrator.conversationRoundId, '1349');
@@ -774,6 +797,7 @@ void main() {
     expect(narrator.senderId, 'nar');
     expect(narrator.senderName, '旁白');
     expect(narrator.content, '*旁白推进剧情*');
+    expect(narrator.messageType, 'image');
     expect(narrator.broadcast, isTrue);
     await sub.cancel();
     await session.close();

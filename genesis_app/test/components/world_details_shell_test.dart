@@ -78,6 +78,27 @@ void main() {
     );
   });
 
+  testWidgets('world details content has an opaque white background', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: WorldDetailsPageScaffold(
+          map: ColoredBox(color: Colors.green),
+          slivers: [SliverToBoxAdapter(child: SizedBox(height: 80))],
+        ),
+      ),
+    );
+
+    final contentBackground = tester.widget<DecoratedSliver>(
+      find.byKey(const ValueKey<String>('world-details-content-background')),
+    );
+    expect(
+      contentBackground.decoration,
+      const BoxDecoration(color: Colors.white),
+    );
+  });
+
   testWidgets('world details page scaffold uses explicit map height settings', (
     tester,
   ) async {

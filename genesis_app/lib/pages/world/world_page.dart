@@ -2020,8 +2020,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _openWorldBottomSheet(
     WorldBottomSheetKind kind, {
-    List<WorldPoint> locationPoints = const <WorldPoint>[],
-    List<WorldMapLocationNode> locationNodes = const <WorldMapLocationNode>[],
     bool scrollEventsToLatest = false,
     int? eventsTargetTickNumber,
   }) {
@@ -2070,8 +2068,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
             eventsCache: _sectionsEventsCache,
             currentUid: _currentUid,
-            locationPoints: locationPoints,
-            locationNodes: locationNodes,
             recentChatLocationIds: _recentChatLocationIds,
             onLocationTap: _handleBottomSheetLocationTap,
             onDeleteWorld: _confirmAndDeleteWorldFromDetail,
@@ -2170,35 +2166,52 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final recentMapLocationIds = _recentChatLocationPathIds;
     final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
-      final map = WorldMap(
-        key: PageStorageKey<String>('world-map-tab-$tabIndex'),
-        points: points,
-        listPoints: listPoints,
-        locationNodes: locationNodes,
-        listLocationNodes: listLocationNodes,
-        messageBubbles: _activeChatLocationId.isEmpty && _mapBubbleMessagesReady
-            ? _mapMessageBubbles
-            : const <WorldMapMessageBubble>[],
-        messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty,
-        mapImageUrl: rootMapImageUrl,
-        dimmed: pointMode,
-        showPointsList: pointMode,
-        recentChatLocationIds: _recentChatLocationIds,
-        recentChatMapLocationIds: recentMapLocationIds,
-        initialZoomScale: pointMode ? 1 : 1.2,
-        pointsListOuterScrollHandoff: false,
-        overlayTop:
-            topPadding +
-            8 +
-            (pointMode ? worldMapTabsHeight + 8 : worldMapContentTopOffset),
-        drillExitTop: topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
-        drillExitMaxWidth: worldSecondaryMapControlWidth,
-        onDrillIntoLocation: _showMapTab,
-        onHorizontalPanStateChanged: tabIndex == 0
-            ? _handleWorldMapHorizontalPanStateChanged
-            : null,
-        onMapTap: _recordWorldMapClick,
-        onPointTap: _openChatForPoint,
+      final Widget map = WorldMap.world(
+        definitionVersion: world.definitionVersion,
+        worldId: widget.wid,
+        common: WorldMapCommonConfig(
+          locationNodes: locationNodes,
+          drillExitTop:
+              topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
+          messageBubbles:
+              _activeChatLocationId.isEmpty && _mapBubbleMessagesReady
+              ? _mapMessageBubbles
+              : const <WorldMapMessageBubble>[],
+          messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty,
+          onDrillIntoLocation: _showMapTab,
+          onMapTap: _recordWorldMapClick,
+          onPointTap: _openChatForPoint,
+        ),
+        legacy: LegacyWorldMapConfig(
+          implementationKey: PageStorageKey<String>('world-map-tab-$tabIndex'),
+          points: points,
+          listPoints: listPoints,
+          listLocationNodes: listLocationNodes,
+          mapImageUrl: rootMapImageUrl,
+          dimmed: pointMode,
+          showPointsList: pointMode,
+          recentChatLocationIds: _recentChatLocationIds,
+          recentChatMapLocationIds: recentMapLocationIds,
+          initialZoomScale: pointMode ? 1 : 1.2,
+          pointsListOuterScrollHandoff: false,
+          overlayTop:
+              topPadding +
+              8 +
+              (pointMode ? worldMapTabsHeight + 8 : worldMapContentTopOffset),
+          drillExitMaxWidth: worldSecondaryMapControlWidth,
+          onHorizontalPanStateChanged: tabIndex == 0
+              ? _handleWorldMapHorizontalPanStateChanged
+              : null,
+        ),
+        tilemap: WorldMapTilemapOptions(
+          implementationKey: PageStorageKey<String>(
+            'world-tilemap-${widget.wid}',
+          ),
+          locationId: 'root',
+          locationNodes: listLocationNodes,
+          visualModeToggleTop: topPadding + 6,
+          visualModeToggleRight: worldMapBackButtonLeft,
+        ),
       );
       return WorldKeepAlivePage(child: map);
     }
@@ -2273,11 +2286,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               child: WorldBottomTags(
                 eventsUnread: _eventsUnread,
                 showDetailUnreadDot: _hasUnreadNewUserJoin,
-                onTap: (kind) => _openWorldBottomSheet(
-                  kind,
-                  locationPoints: listPoints,
-                  locationNodes: listLocationNodes,
-                ),
+                onTap: _openWorldBottomSheet,
               ),
             ),
             Positioned.fill(
@@ -2327,23 +2336,19 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   Widget _buildInitialLoadingScaffold(double topPadding) {
+    final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     return WorldDetailsPageScaffold(
       panelTopGap: 50,
       panelCollapsedHeightOffset: 120,
       scrollPhysics: const NeverScrollableScrollPhysics(),
       persistentTopOverlay: _buildPersistentMapOverlay(topPadding),
-      map: WorldMap(
-        points: const <WorldPoint>[],
-        listPoints: const <WorldPoint>[],
-        locationNodes: const <WorldMapLocationNode>[],
-        fallbackOnEmptyMapUrl: false,
-        dimmed: false,
-        showPointsList: false,
-        recentChatLocationIds: _recentChatLocationIds,
-        pointsListOuterScrollHandoff: false,
-        overlayTop: topPadding + 8 + worldMapContentTopOffset,
-        drillExitTop: topPadding + 8 + worldMapContentTopOffset + 12,
+      map: ColoredBox(
+        key: const ValueKey<String>('world-map-loading-background'),
+        color: kWorldMapLoadingBackgroundColor,
       ),
+      fixedCollapsedPanelHeight: collapsedPanelHeight,
+      fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
+      contentBottomPaddingOverride: 0,
       slivers: const [WorldDetailsLoadingContent()],
     );
   }

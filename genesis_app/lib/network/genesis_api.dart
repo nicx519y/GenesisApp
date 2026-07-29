@@ -12,11 +12,13 @@ import 'local_mock_genesis_transport.dart';
 import 'models/location_tree.dart';
 import 'models/origin.dart';
 import 'models/paged_response.dart';
+import 'models/tilemap_definition.dart';
 import 'models/user.dart';
 import 'models/world.dart';
 import 'models/world_message.dart';
 import 'http_transport.dart';
 import 'v1/genesis_v1_api.dart';
+import 'v2/genesis_v2_api.dart';
 import '../app/config/platform_config.dart';
 import '../app/debug/location_chat_debug_http.dart';
 import '../platform/auth/auth_session.dart';
@@ -127,6 +129,7 @@ class GenesisApi {
           responseProcessor: _processGenesisResponse,
         );
     v1 = GenesisV1Api(_apiClient);
+    v2 = GenesisV2Api(_apiClient);
     chatroomHttp = ChatroomHttpApi(_chatroomHttpClient);
   }
 
@@ -134,6 +137,7 @@ class GenesisApi {
   late final ApiClient _healthClient;
   late final ApiClient _chatroomHttpClient;
   late final GenesisV1Api v1;
+  late final GenesisV2Api v2;
   late final ChatroomHttpApi chatroomHttp;
   late final DeviceIdService _deviceIdService;
   late final UserSessionStore _sessionStore;
@@ -202,7 +206,7 @@ class GenesisApi {
   }
 
   void _throwIfPageNotFound(ApiResponse response) {
-    if (_isRecoverableListNotFound(response.uri)) return;
+    if (_isRecoverablePageNotFound(response.uri)) return;
 
     final data = response.data;
     final int? errNo;
@@ -229,8 +233,10 @@ class GenesisApi {
     );
   }
 
-  bool _isRecoverableListNotFound(Uri uri) {
-    return uri.path == '/api/v1/user/followers';
+  bool _isRecoverablePageNotFound(Uri uri) {
+    return uri.path == '/api/v1/user/followers' ||
+        uri.path == '/api/v1/origin/map' ||
+        uri.path == '/api/v1/world/map';
   }
 
   Future<String> ensureUid() => _ensureUid();
@@ -537,6 +543,14 @@ class GenesisApi {
     return detail;
   }
 
+  Future<TilemapDefinition> getOriginMap({
+    required String originId,
+    required String locationId,
+  }) async {
+    final map = await v1.origin.map(originId: originId, locationId: locationId);
+    return TilemapDefinition.fromJson(map);
+  }
+
   Future<OriginDetail> getOriginInfo(String oid) async {
     final detail = _originDetailFromV1(await v1.origin.info(oid: oid));
     _originIdToWorldview[detail.id] = detail.oid;
@@ -718,6 +732,14 @@ class GenesisApi {
 
   Future<WorldDetail> getWorld(String wid) async {
     return _worldDetailFromV1(await v1.world.detail(worldId: wid));
+  }
+
+  Future<TilemapDefinition> getWorldMap({
+    required String worldId,
+    required String locationId,
+  }) async {
+    final map = await v1.world.map(worldId: worldId, locationId: locationId);
+    return TilemapDefinition.fromJson(map);
   }
 
   Future<WorldDetail> getWorldInfo(String wid) async {
@@ -992,6 +1014,38 @@ class GenesisApi {
     return CreateOriginResult(worldviewId: oid, oid: oid);
   }
 
+  Future<CreateOriginResult> createOriginV2({
+    required Map<String, dynamic> payload,
+  }) async {
+    final events = _createOriginEventStrings(payload['event_list']);
+    final created = await v2.origin.create(
+      originName: asString(payload['name']),
+      originVersion: _createOriginOptionalString(payload['origin_version']),
+      definitionVersion: _createOriginOptionalInt(
+        payload['definition_version'],
+      ),
+      brief: asString(payload['world_view']),
+      setting: asString(payload['world_setting']),
+      events: events.isEmpty ? null : events,
+      tags: _createOriginStringList(payload['tags']),
+      metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
+      startedAt: _createOriginOptionalString(payload['started_at']),
+      tickDurationTime: _createOriginTickDurationTime(payload),
+      cover: _createOriginImageInput(payload['cover']),
+      mapUrl: _createOriginOptionalString(payload['map_url']),
+      tileTypes: payload['tile_types'] is Map
+          ? asJsonMap(payload['tile_types'])
+          : null,
+      characters: _createOriginCharacters(payload),
+      locations: _createOriginLocations(payload),
+      initLocationGroup: payload['init_location_group'] is Map
+          ? asJsonMap(payload['init_location_group'])
+          : null,
+    );
+    final oid = _originIdFromUpsert(created);
+    return CreateOriginResult(worldviewId: oid, oid: oid);
+  }
+
   Future<CreateOriginResult> updateOrigin({
     required String oid,
     required Map<String, dynamic> payload,
@@ -1031,6 +1085,47 @@ class GenesisApi {
         fallback: asString(updated['origin_id'], fallback: oid),
       ),
     );
+    return CreateOriginResult(worldviewId: updatedOid, oid: updatedOid);
+  }
+
+  Future<CreateOriginResult> updateOriginV2({
+    required String oid,
+    required Map<String, dynamic> payload,
+  }) async {
+    final events = _createOriginEventStrings(payload['event_list']);
+    final updated = await v2.origin.update(
+      originId: asString(payload['origin_id'], fallback: oid),
+      originName: asString(payload['name']),
+      originVersion: _createOriginOptionalString(payload['origin_version']),
+      definitionVersion: _createOriginOptionalInt(
+        payload['definition_version'],
+      ),
+      brief: asString(payload['world_view']),
+      setting: asString(payload['world_setting']),
+      events: payload['event_list'] is List ? events : null,
+      tags: _createOriginStringList(payload['tags']),
+      metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
+      startedAt: _createOriginOptionalString(payload['started_at']),
+      tickDurationTime: _createOriginTickDurationTime(payload),
+      cover: _createOriginImageInput(payload['cover']),
+      mapUrl: _createOriginOptionalString(payload['map_url']),
+      tileTypes: payload['tile_types'] is Map
+          ? asJsonMap(payload['tile_types'])
+          : null,
+      characters: _createOriginCharacters(payload),
+      locations: _createOriginLocations(payload),
+      deletedCharIds:
+          _createOriginStringList(payload['deleted_char_ids']) ??
+          const <String>[],
+      deletedLocationIds:
+          _createOriginStringList(payload['deleted_location_ids']) ??
+          const <String>[],
+      updateNotes: _createOriginOptionalString(payload['update_notes']),
+      initLocationGroup: payload['init_location_group'] is Map
+          ? asJsonMap(payload['init_location_group'])
+          : null,
+    );
+    final updatedOid = _originIdFromUpsert(updated, fallback: oid);
     return CreateOriginResult(worldviewId: updatedOid, oid: updatedOid);
   }
 }
@@ -1168,10 +1263,33 @@ String? _createOriginOptionalString(Object? raw) {
   return value.isEmpty ? null : value;
 }
 
+Object? _createOriginImageInput(Object? raw) {
+  if (raw is Map) return asJsonMap(raw);
+  return _createOriginOptionalString(raw);
+}
+
 int? _createOriginOptionalInt(Object? raw) {
   if (raw == null) return null;
   if (raw is String && raw.trim().isEmpty) return null;
   return asInt(raw);
+}
+
+String _originIdFromUpsert(
+  Map<String, dynamic> response, {
+  String fallback = '',
+}) {
+  final detail = response['info'] is Map
+      ? asJsonMap(response['info'])
+      : response['origin'] is Map
+      ? asJsonMap(response['origin'])
+      : response;
+  return asString(
+    detail['origin_id'],
+    fallback: asString(
+      detail['oid'],
+      fallback: asString(response['origin_id'], fallback: fallback),
+    ),
+  );
 }
 
 String? _createOriginTickDurationTime(Map<String, dynamic> payload) {
@@ -1213,7 +1331,7 @@ List<Map<String, dynamic>> _createOriginCharacters(
           ),
           'bio': asString(item['bio'], fallback: asString(item['description'])),
           'goal': asString(item['goal']),
-          'avatar': asString(item['avatar']),
+          'avatar': _createOriginImageInput(item['avatar']) ?? '',
           'initial_location_id': asString(
             item['initial_location_id'],
             fallback: initialLocationByCharacter[charId] ?? '',
@@ -1247,7 +1365,10 @@ List<Map<String, dynamic>> _createOriginLocations(
             ),
           ),
           'location_summary': asString(item['location_summary']),
-          'image': asString(item['image'], fallback: asString(item['icon'])),
+          'image':
+              _createOriginImageInput(item['image']) ??
+              _createOriginImageInput(item['icon']) ??
+              '',
           'x_percent': asInt(item['x_percent']),
           'y_percent': asInt(item['y_percent']),
           'map_url': asString(item['map_url']),
@@ -1326,12 +1447,19 @@ String resolveAssetUrl(String raw) {
   return '$base$value';
 }
 
-String _resolveImageAssetUrl(Object? raw, {Object? fallback}) {
+GenesisImageResource _resolveImageAssetResource(
+  Object? raw, {
+  Object? fallback,
+}) {
   final resource = GenesisImageResource.fromJson(
     raw,
     fallback: fallback,
   ).mapUrls(resolveAssetUrl);
-  return GenesisImageResourceRegistry.register(resource).displayUrl;
+  return GenesisImageResourceRegistry.register(resource);
+}
+
+String _resolveImageAssetUrl(Object? raw, {Object? fallback}) {
+  return _resolveImageAssetResource(raw, fallback: fallback).displayUrl;
 }
 
 int _pageFromOffset({required int limit, required int offset}) {
@@ -1623,10 +1751,11 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
   final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : origin;
   final oid = asString(origin['oid'], fallback: asString(origin['origin_id']));
   final id = _stableInt(oid);
-  final cover = _resolveImageAssetUrl(
+  final coverResource = _resolveImageAssetResource(
     origin['cover'],
     fallback: origin['map_url'],
   );
+  final cover = coverResource.displayUrl;
   final mapUrlRaw = asString(origin['map_url']).trim();
   final mapUrl = mapUrlRaw.isNotEmpty ? resolveAssetUrl(mapUrlRaw) : cover;
   final charactersRaw = raw['character_list'] ?? raw['characters'];
@@ -1657,12 +1786,12 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
       fallback: asString(origin['origin_name'], fallback: oid),
     ),
     description: asString(
-      origin['world_setting'],
+      origin['brief'],
       fallback: asString(
-        origin['display_subtitle'],
+        origin['world_setting'],
         fallback: asString(
-          origin['setting'],
-          fallback: asString(origin['brief']),
+          origin['display_subtitle'],
+          fallback: asString(origin['setting']),
         ),
       ),
     ),
@@ -1694,6 +1823,15 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
         fallback: asString(origin['originator']),
       ),
     ),
+    ownerUser: _originUserInfoFromV1(ownerUser),
+    originVersion: asString(
+      origin['origin_version'],
+      fallback: asString(
+        origin['version_num'],
+        fallback: asString(origin['origin_version_num']),
+      ),
+    ),
+    originVersionTime: _apiDateTime(origin['origin_version_time']),
     versionNum: asInt(
       origin['version_num'],
       fallback: asInt(
@@ -1701,6 +1839,10 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
         fallback: asInt(origin['origin_version_num']),
       ),
     ),
+    definitionVersion: asInt(origin['definition_version'], fallback: 1),
+    language: asString(origin['language']),
+    currentTime: asString(origin['current_time']),
+    status: asInt(origin['status']),
     startTime: asString(
       origin['started_at'],
       fallback: asString(origin['start_time']),
@@ -1712,6 +1854,8 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
       stats['character_cnt'],
       fallback: asInt(stats['ai_character_cnt'], fallback: characters.length),
     ),
+    locationCount: asInt(stats['location_cnt'], fallback: locations.length),
+    maxTickCount: asInt(stats['max_tick_cnt']),
     tags: _tagsFromV1(origin['tags']),
     createdAt: _apiDateTime(origin['created_at']),
     updatedAt: _apiDateTime(
@@ -1727,13 +1871,19 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
     metric: origin['metric'] is Map
         ? asJsonMap(origin['metric'])
         : const <String, dynamic>{},
+    coverResource: coverResource,
+    initLocationGroup: OriginInitLocationGroup.fromJsonOrNull(
+      raw['init_location_group'] ?? origin['init_location_group'],
+    ),
   );
 }
 
 List<Map<String, dynamic>> _originTicksFromV1(Map<String, dynamic> raw) {
   final ticksRaw = raw['tick_list'] ?? raw['ticks'];
   if (ticksRaw is! List) return const <Map<String, dynamic>>[];
-  return asJsonList(ticksRaw).indexed
+  return asJsonList(ticksRaw)
+      .whereType<Map>()
+      .indexed
       .map((entry) {
         final index = entry.$1;
         final tick = asJsonMap(entry.$2);
@@ -1742,15 +1892,17 @@ List<Map<String, dynamic>> _originTicksFromV1(Map<String, dynamic> raw) {
             : tick;
         final paragraphsRaw = result['paragraphs'];
         final paragraphs = paragraphsRaw is List
-            ? asJsonList(
-                paragraphsRaw,
-              ).map((e) => asJsonMap(e)).toList(growable: false)
+            ? asJsonList(paragraphsRaw)
+                  .whereType<Map>()
+                  .map((e) => asJsonMap(e))
+                  .toList(growable: false)
             : const <Map<String, dynamic>>[];
         final locationGroupsRaw = result['location_groups'];
         final locationGroups = locationGroupsRaw is List
-            ? asJsonList(
-                locationGroupsRaw,
-              ).map((e) => asJsonMap(e)).toList(growable: false)
+            ? asJsonList(locationGroupsRaw)
+                  .whereType<Map>()
+                  .map((e) => asJsonMap(e))
+                  .toList(growable: false)
             : const <Map<String, dynamic>>[];
 
         return <String, dynamic>{
@@ -1884,6 +2036,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     originId: originId,
     ownerUid: asString(world['owner_uid']),
     ownerName: asString(world['owner_name']),
+    definitionVersion: asInt(world['definition_version'], fallback: 1),
     name: asString(world['world_name']),
     brief: asString(world['brief'], fallback: asString(world['setting'])),
     cover: cover,
@@ -1960,16 +2113,25 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
     raw['character_id'],
     fallback: asString(raw['char_id']),
   );
-  final locationId = asString(
-    raw['location_id'],
-    fallback: asString(raw['initial_location_id']),
+  final currentLocationBusinessId = asString(raw['location_id']);
+  final initialLocationBusinessId = asString(raw['initial_location_id']);
+  final currentLocationId = _stableInt(
+    currentLocationBusinessId.isNotEmpty
+        ? currentLocationBusinessId
+        : initialLocationBusinessId,
   );
-  final stableLocationId = _stableInt(locationId);
+  final initialLocationId = _stableInt(
+    initialLocationBusinessId.isNotEmpty
+        ? initialLocationBusinessId
+        : currentLocationBusinessId,
+  );
+  final avatarResource = _resolveImageAssetResource(raw['avatar']);
   return OriginCharacter(
     id: asInt(raw['id'], fallback: _stableInt(characterId)),
     characterId: characterId,
     originId: originId,
     name: asString(raw['name']),
+    type: asString(raw['type'], fallback: 'ai'),
     playerUid: asString(raw['player_uid']),
     playerUsername: asString(
       playerUser['name'],
@@ -1979,12 +2141,19 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
       playerUser['deleted'],
       fallback: raw['player_deleted'],
     ),
-    avatar: _resolveImageAssetUrl(raw['avatar']),
+    playerUser: _originUserInfoFromV1(playerUser),
+    playerJoinedAt: asInt(raw['player_joined_at']),
+    avatar: avatarResource.displayUrl,
+    avatarResource: avatarResource,
     tags: asString(raw['identity']),
     tagline: asString(raw['brief']),
     goal: asString(raw['goal']),
-    currentLocationId: stableLocationId,
-    initialLocationId: stableLocationId,
+    currentLocationId: currentLocationId,
+    initialLocationId: initialLocationId,
+    currentLocationBusinessId: currentLocationBusinessId,
+    initialLocationBusinessId: initialLocationBusinessId,
+    metricValue: asInt(raw['metric_value']),
+    delta: asInt(raw['delta']),
     createdAt: _apiDateTime(raw['created_at']),
     updatedAt: _apiDateTime(raw['updated_at']),
   );
@@ -1993,11 +2162,12 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
 OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
   final locationId = asString(raw['location_id']);
   final parentLocationId = asString(raw['location_pid']);
+  final imageResource = _resolveImageAssetResource(raw['image']);
   return OriginLocation(
     id: asInt(raw['id'], fallback: _stableInt(locationId)),
     originId: originId,
     name: asString(raw['name'], fallback: asString(raw['location_name'])),
-    icon: _resolveImageAssetUrl(raw['image']),
+    icon: imageResource.displayUrl,
     mapUrl: resolveAssetUrl(asString(raw['map_url'])),
     description: asString(
       raw['location_description'],
@@ -2006,23 +2176,47 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
         fallback: asString(raw['location_summary']),
       ),
     ),
+    level: asInt(raw['level']),
     locationParagraph: asString(
       raw['location_paragraph'],
       fallback: asString(raw['location_garagraph']),
     ),
+    locationTimestamp: asString(raw['location_timestamp']),
+    locationSummary: asString(raw['location_summary']),
     position: asInt(raw['position']),
     isActive: true,
     xPercent: _asDouble(raw['x_percent']),
     yPercent: _asDouble(raw['y_percent']),
+    x: _asDouble(raw['x']),
+    y: _asDouble(raw['y']),
+    imageResource: imageResource,
     createdAt: _apiDateTime(raw['created_at']),
     updatedAt: _apiDateTime(raw['updated_at']),
     locationId: locationId,
     parentLocationId: parentLocationId,
     dialogue: raw['dialogue'] is List
         ? asJsonList(raw['dialogue'])
+              .whereType<Map>()
               .map((item) => OriginDialogueLine.fromJson(asJsonMap(item)))
               .toList(growable: false)
         : const <OriginDialogueLine>[],
+  );
+}
+
+OriginUserInfo _originUserInfoFromV1(Map<String, dynamic> raw) {
+  final avatarResource = _resolveImageAssetResource(raw['avatar']);
+  return OriginUserInfo(
+    uid: asString(raw['uid']),
+    name: asString(raw['name']),
+    avatar: avatarResource.displayUrl,
+    avatarResource: avatarResource,
+    deleted: entityDeleted(raw['deleted']),
+    followerCount: asInt(raw['follower_cnt']),
+    followingCount: asInt(raw['following_cnt']),
+    friendCount: asInt(raw['friend_cnt']),
+    createOriginCount: asInt(raw['create_origin_cnt']),
+    launchWorldCount: asInt(raw['launch_world_cnt']),
+    joinWorldCount: asInt(raw['join_world_cnt']),
   );
 }
 

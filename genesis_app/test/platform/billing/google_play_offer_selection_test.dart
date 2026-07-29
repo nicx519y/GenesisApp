@@ -120,4 +120,18 @@ void main() {
 
     expect(selected, isNull);
   });
+
+  test('normalizes Google BillingResponse callback errors', () {
+    expect(
+      googlePlayPurchaseErrorCode(
+        code: 'purchase_error',
+        message: 'BillingResponse.networkError',
+      ),
+      'network_error',
+    );
+    expect(
+      googlePlayPurchaseErrorCode(code: 'purchase_error'),
+      'purchase_error',
+    );
+  });
 }

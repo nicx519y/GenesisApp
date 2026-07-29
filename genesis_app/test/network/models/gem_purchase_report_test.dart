@@ -7,10 +7,12 @@ void main() {
       final report = GemPurchaseReport.fromJson(<String, dynamic>{
         'status': status.name,
         'granted_gems': 550,
+        'transaction_id': 'GPA.1234-5678',
       });
 
       expect(report.status, status);
       expect(report.grantedGems, 550);
+      expect(report.transactionId, 'GPA.1234-5678');
     });
   }
 

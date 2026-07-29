@@ -71,12 +71,16 @@ class _AppShellPageState extends State<AppShellPage>
   Timer? _attDelayTimer;
   var _attWaitingForResume = false;
   var _attScheduleStarted = false;
+  var _initialBillingRecoveryStarted = false;
+  late bool _hasSeenResumed;
+  String? _lastBillingRecoveryUid;
   AppLifecycleState? _lifecycleState;
 
   @override
   void initState() {
     super.initState();
     _lifecycleState = WidgetsBinding.instance.lifecycleState;
+    _hasSeenResumed = _lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     AppStartupCoordinator.postLaunchWorkAllowedListenable.addListener(
       _handlePostLaunchWorkAllowed,
@@ -102,6 +106,7 @@ class _AppShellPageState extends State<AppShellPage>
       _startAppRuntime();
       _startColdStartHomeTargetResolutionIfNeeded();
       _startPostLaunchWorkIfAllowed();
+      _startInitialBillingRecoveryIfReady();
       _scheduleAttRequest();
     });
   }
@@ -125,8 +130,16 @@ class _AppShellPageState extends State<AppShellPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final previousState = _lifecycleState;
+    final isFirstObservedResume = !_hasSeenResumed;
     _lifecycleState = state;
     if (state == AppLifecycleState.resumed) {
+      _hasSeenResumed = true;
+      _startInitialBillingRecoveryIfReady();
+      if (!isFirstObservedResume &&
+          previousState != AppLifecycleState.resumed) {
+        unawaited(_recoverBilling(BillingRecoverySource.foreground));
+      }
       if (_attWaitingForResume) {
         _attWaitingForResume = false;
         _requestAttIfNeeded();
@@ -136,11 +149,6 @@ class _AppShellPageState extends State<AppShellPage>
         if (!_coldStartHomeTargetResolved) return;
         _startMessagesPolling();
         _notifyActiveTabActivated();
-        unawaited(
-          AppServicesScope.read(
-            context,
-          ).billing?.recover(BillingRecoverySource.foreground),
-        );
       }
     } else {
       _stopMessagesPolling();
@@ -439,9 +447,18 @@ class _AppShellPageState extends State<AppShellPage>
         );
         return;
       case 4:
-        GenesisTelemetry.collectLog(actionType: 'pageview', action: 'me');
+        unawaited(_recordMeTabPageView());
         return;
     }
+  }
+
+  Future<void> _recordMeTabPageView() async {
+    final isLoggedIn = await _hasLocalLoginSession();
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'me',
+      object1: isLoggedIn ? 'logged_in' : 'logged_out',
+    );
   }
 
   void _notifyActiveTabActivated() {
@@ -469,12 +486,46 @@ class _AppShellPageState extends State<AppShellPage>
     _resetSessionBoundState(selectedIndex: _selectedIndex);
     final services = AppServicesScope.read(context);
     services.billing?.resetForSession();
+    unawaited(
+      _recoverBilling(BillingRecoverySource.foreground, onlyIfUidChanged: true),
+    );
     unawaited(services.directMessageConversations.loadFromDb());
     if (_selectedIndex == 3) {
       unawaited(_messagesPoller.runNow());
     }
     if (_selectedIndex == 4) {
       _notifyActiveTabActivated();
+    }
+  }
+
+  void _startInitialBillingRecoveryIfReady() {
+    if (_initialBillingRecoveryStarted) return;
+    final lifecycleState = _lifecycleState;
+    if (lifecycleState != null && lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    _initialBillingRecoveryStarted = true;
+    unawaited(_recoverBilling(BillingRecoverySource.appStart));
+  }
+
+  Future<void> _recoverBilling(
+    BillingRecoverySource source, {
+    bool onlyIfUidChanged = false,
+  }) async {
+    if (!mounted) return;
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (!mounted) return;
+    if (uid.isEmpty || uid.startsWith('guest_')) {
+      _lastBillingRecoveryUid = null;
+      return;
+    }
+    if (onlyIfUidChanged && uid == _lastBillingRecoveryUid) return;
+    await services.billing?.recover(source);
+    if (!mounted) return;
+    final currentUid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (mounted && currentUid == uid) {
+      _lastBillingRecoveryUid = uid;
     }
   }
 
