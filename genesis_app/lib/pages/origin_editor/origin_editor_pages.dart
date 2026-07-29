@@ -26,9 +26,21 @@ import 'origin_draft_repository.dart';
 
 part 'origin_basics_editor_page.dart';
 part 'origin_characters_editor_page.dart';
+part 'origin_character_editor_widgets.dart';
+part 'origin_editor_section_widgets.dart';
+part 'origin_editor_style.dart';
 part 'origin_locations_editor_page.dart';
+part 'origin_locations_shared.dart';
 part 'origin_opening_editor_page.dart';
 part 'origin_story_events_editor_page.dart';
+part 'origin_locations_tree.dart';
+part 'origin_locations_tree_flow.dart';
+part 'origin_locations_editor_view.dart';
+part 'origin_locations_preview.dart';
+part 'origin_opening_location_field.dart';
+part 'origin_opening_dialogue_editor.dart';
+part 'origin_opening_location_picker.dart';
+part 'origin_opening_models.dart';
 
 bool _characterDraftHasContent(CharacterDraft item) {
   return item.avatarUrl.trim().isNotEmpty ||

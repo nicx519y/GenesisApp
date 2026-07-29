@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/agent_control/agent_control_models.dart';
 import 'package:genesis_flutter_android/app/agent_control/agent_control_registry.dart';
@@ -7,6 +8,14 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+  });
+  tearDownAll(() {
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   late MemoryUserSessionStore sessionStore;
   late AgentControlRegistry registry;
   late AgentControlContext context;

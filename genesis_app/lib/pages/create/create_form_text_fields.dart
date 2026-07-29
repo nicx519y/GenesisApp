@@ -1,0 +1,495 @@
+part of 'create_form_library.dart';
+
+class CreateTextFieldBlock extends StatefulWidget {
+  const CreateTextFieldBlock({
+    super.key,
+    required this.label,
+    required this.controller,
+    required this.hintText,
+    required this.onChanged,
+    this.maxLength,
+    this.showCounter = true,
+    this.counterInside = false,
+    this.note,
+    this.minLines = 1,
+    this.maxLines,
+    this.prefix,
+    this.labelSize = 14,
+    this.labelFontWeight = FontWeight.w600,
+    this.labelInputGap = 10,
+    this.inputLineHeight = 1.42,
+    this.textInputAction,
+    this.onEditingComplete,
+    this.onSubmitted,
+    this.scrollPadding,
+    this.inputFormatters = const [],
+    this.focusNode,
+    this.nextFocusNode,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String hintText;
+  final ValueChanged<String> onChanged;
+  final int? maxLength;
+  final bool showCounter;
+  final bool counterInside;
+  final String? note;
+  final int minLines;
+  final int? maxLines;
+  final Widget? prefix;
+  final double labelSize;
+  final FontWeight labelFontWeight;
+  final double labelInputGap;
+  final double inputLineHeight;
+  final TextInputAction? textInputAction;
+  final VoidCallback? onEditingComplete;
+  final ValueChanged<String>? onSubmitted;
+  final EdgeInsets? scrollPadding;
+  final List<TextInputFormatter> inputFormatters;
+  final FocusNode? focusNode;
+  final FocusNode? nextFocusNode;
+
+  @override
+  State<CreateTextFieldBlock> createState() => _CreateTextFieldBlockState();
+}
+
+class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
+    with WidgetsBindingObserver {
+  late final FocusNode _internalFocusNode;
+  late FocusNode _observedFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _internalFocusNode = FocusNode();
+    _observedFocusNode = _focusNode;
+    _observedFocusNode.addListener(_handleFocusChanged);
+    widget.controller.addListener(_normalizeControllerText);
+    _normalizeControllerText();
+  }
+
+  @override
+  void didUpdateWidget(covariant CreateTextFieldBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_normalizeControllerText);
+      widget.controller.addListener(_normalizeControllerText);
+      _normalizeControllerText();
+    }
+    if (oldWidget.focusNode != widget.focusNode) {
+      _observedFocusNode.removeListener(_handleFocusChanged);
+      _observedFocusNode = _focusNode;
+      _observedFocusNode.addListener(_handleFocusChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _observedFocusNode.removeListener(_handleFocusChanged);
+    widget.controller.removeListener(_normalizeControllerText);
+    _internalFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (_observedFocusNode.hasFocus) _ensureBlockVisible();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (_observedFocusNode.hasFocus) _ensureBlockVisible();
+  }
+
+  void _ensureBlockVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_observedFocusNode.hasFocus) return;
+      unawaited(
+        Scrollable.ensureVisible(
+          context,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        ),
+      );
+    });
+  }
+
+  void _normalizeControllerText() {
+    if (_isSingleLine) return;
+    final value = widget.controller.value;
+    final sanitized = genesisConsecutiveNewlineLimitedTextEditingValue(value);
+    if (sanitized == value) return;
+    widget.controller.value = sanitized;
+  }
+
+  void _handleEditingComplete() {
+    final customHandler = widget.onEditingComplete;
+    if (customHandler != null) {
+      customHandler();
+      return;
+    }
+
+    final nextFocusNode = widget.nextFocusNode;
+    if (nextFocusNode != null && nextFocusNode.canRequestFocus) {
+      nextFocusNode.requestFocus();
+      return;
+    }
+
+    if (!_focusNode.nextFocus()) {
+      _focusNode.unfocus();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.label.isNotEmpty) ...[
+          Text(
+            widget.label,
+            style: TextStyle(
+              color: createFormText,
+              fontSize: widget.labelSize,
+              fontWeight: widget.labelFontWeight,
+              height: 1.2,
+            ),
+          ),
+          // Field internal spacing: label -> input box.
+          SizedBox(height: widget.labelInputGap),
+        ],
+        Container(
+          decoration: BoxDecoration(
+            color: createFormFieldFill,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          alignment: _isSingleLine ? Alignment.center : Alignment.topCenter,
+          child: Row(
+            crossAxisAlignment: _isSingleLine
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
+            children: [
+              if (widget.prefix != null) ...[
+                widget.prefix!,
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: TextFieldTapRegion(
+                  groupId: createFormTextFieldTapRegionGroup,
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: _focusNode,
+                    scrollPadding:
+                        widget.scrollPadding ??
+                        const EdgeInsets.fromLTRB(
+                          20,
+                          20,
+                          20,
+                          kMinInteractiveDimension,
+                        ),
+                    onChanged: widget.onChanged,
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
+                    keyboardType: _resolvedKeyboardType,
+                    textInputAction: _resolvedTextInputAction,
+                    onEditingComplete: _shouldHandleEditingComplete
+                        ? _handleEditingComplete
+                        : null,
+                    onSubmitted: widget.onSubmitted,
+                    inputFormatters: [
+                      if (!_isSingleLine)
+                        const GenesisConsecutiveNewlineLimiter(),
+                      ...widget.inputFormatters,
+                    ],
+                    maxLength: widget.maxLength,
+                    minLines: widget.minLines,
+                    maxLines: widget.maxLines,
+                    style: GenesisTypography.withFallback(
+                      TextStyle(
+                        color: createFormText,
+                        fontSize: 14,
+                        height: widget.inputLineHeight,
+                      ),
+                    ),
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                      hintText: widget.hintText,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      hintStyle: GenesisTypography.withFallback(
+                        TextStyle(
+                          color: createFormHint,
+                          fontSize: 14,
+                          letterSpacing: 0,
+                          height: widget.inputLineHeight,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (_showsCounterInside) ...[
+                const SizedBox(width: 8),
+                _CreateFieldCounter(counter: _counterText),
+              ],
+            ],
+          ),
+        ),
+        if (_hasSupportLine) ...[
+          const SizedBox(height: 8),
+          _CreateFieldSupportLine(
+            note: widget.note,
+            counter: _showsCounterOutside ? _counterText : null,
+          ),
+        ],
+      ],
+    );
+  }
+
+  bool get _hasNote => widget.note?.trim().isNotEmpty == true;
+
+  bool get _hasSupportLine => _hasNote || _showsCounterOutside;
+
+  bool get _showsCounterInside =>
+      widget.counterInside && widget.maxLength != null && widget.showCounter;
+
+  bool get _showsCounterOutside =>
+      !widget.counterInside && widget.maxLength != null && widget.showCounter;
+
+  String get _counterText =>
+      '${widget.controller.text.characters.length} / ${widget.maxLength}';
+
+  bool get _isSingleLine =>
+      (widget.maxLines ?? widget.minLines) == 1 && widget.minLines == 1;
+
+  TextInputAction get _resolvedTextInputAction {
+    final action = widget.textInputAction;
+    if (action != null) return action;
+    return _isSingleLine ? TextInputAction.done : TextInputAction.newline;
+  }
+
+  TextInputType get _resolvedKeyboardType {
+    return _isSingleLine ? TextInputType.text : TextInputType.multiline;
+  }
+
+  bool get _shouldHandleEditingComplete {
+    if (widget.onEditingComplete != null) return true;
+    return _resolvedTextInputAction != TextInputAction.newline;
+  }
+
+  FocusNode get _focusNode => widget.focusNode ?? _internalFocusNode;
+}
+
+class _CreateFieldSupportLine extends StatelessWidget {
+  const _CreateFieldSupportLine({required this.note, required this.counter});
+
+  final String? note;
+  final String? counter;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedNote = note?.trim() ?? '';
+    final hasNote = normalizedNote.isNotEmpty;
+    if (!hasNote) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: _CreateFieldCounter(counter: counter ?? ''),
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: CreateFormNote(note: normalizedNote)),
+        if (counter != null) ...[
+          const SizedBox(width: 12),
+          _CreateFieldCounter(counter: counter!),
+        ],
+      ],
+    );
+  }
+}
+
+class CreateFormNote extends StatelessWidget {
+  const CreateFormNote({super.key, required this.note, this.markdown = false});
+
+  final String note;
+  final bool markdown;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 0),
+          child: SvgPicture.asset(
+            createFormInfoIconAsset,
+            width: 16,
+            height: 16,
+            colorFilter: const ColorFilter.mode(
+              createFormNote,
+              BlendMode.srcIn,
+            ),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: _CreateFormNoteText(note: note, markdown: markdown),
+        ),
+      ],
+    );
+  }
+}
+
+class _CreateFormNoteText extends StatelessWidget {
+  const _CreateFormNoteText({required this.note, required this.markdown});
+
+  final String note;
+  final bool markdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = createFormSupportTextStyle.copyWith(
+      color: createFormNote,
+    );
+    if (!markdown) {
+      return Text(note, softWrap: true, style: baseStyle);
+    }
+
+    final platform = Theme.of(context).platform;
+    return RichText(
+      text: TextSpan(
+        style: baseStyle,
+        children: _markdownSpans(note, platform),
+      ),
+    );
+  }
+
+  List<InlineSpan> _markdownSpans(String value, TargetPlatform platform) {
+    final spans = <InlineSpan>[];
+    var index = 0;
+    while (index < value.length) {
+      final boldStart = value.indexOf('**', index);
+      final italicStart = value.indexOf('*', index);
+      final nextStart = _nextMarkdownStart(boldStart, italicStart);
+      if (nextStart < 0) {
+        spans.add(TextSpan(text: value.substring(index)));
+        break;
+      }
+      if (nextStart > index) {
+        spans.add(TextSpan(text: value.substring(index, nextStart)));
+      }
+
+      if (boldStart == nextStart) {
+        final end = value.indexOf('**', nextStart + 2);
+        if (end < 0) {
+          spans.add(TextSpan(text: value.substring(nextStart)));
+          break;
+        }
+        spans.add(
+          TextSpan(
+            text: value.substring(nextStart + 2, end),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        );
+        index = end + 2;
+      } else {
+        final end = value.indexOf('*', nextStart + 1);
+        if (end < 0) {
+          spans.add(TextSpan(text: value.substring(nextStart)));
+          break;
+        }
+        spans.addAll(
+          _inlineEmphasisSpans(value.substring(nextStart + 1, end), platform),
+        );
+        index = end + 1;
+      }
+    }
+    return spans;
+  }
+
+  int _nextMarkdownStart(int boldStart, int italicStart) {
+    final normalizedItalicStart = italicStart == boldStart
+        ? _valueNotFound
+        : italicStart;
+    if (boldStart < 0) return normalizedItalicStart;
+    if (normalizedItalicStart < 0) return boldStart;
+    return boldStart < normalizedItalicStart
+        ? boldStart
+        : normalizedItalicStart;
+  }
+}
+
+List<InlineSpan> _inlineEmphasisSpans(String text, TargetPlatform platform) {
+  final style = GenesisTypography.inlineEmphasis(
+    const TextStyle(),
+    platform: platform,
+  );
+  if (platform != TargetPlatform.iOS) {
+    return <InlineSpan>[TextSpan(text: text, style: style)];
+  }
+
+  return _emphasisTextPieces(text)
+      .map(
+        (piece) => piece.trim().isEmpty
+            ? TextSpan(text: piece, style: style)
+            : _skewedInlineEmphasisSpan(piece, style),
+      )
+      .toList(growable: false);
+}
+
+InlineSpan _skewedInlineEmphasisSpan(String text, TextStyle style) {
+  return WidgetSpan(
+    alignment: PlaceholderAlignment.baseline,
+    baseline: TextBaseline.alphabetic,
+    child: Transform(
+      alignment: Alignment.center,
+      transform: Matrix4.skewX(GenesisTypography.iosInlineEmphasisSkew),
+      transformHitTests: false,
+      child: Text(text, style: style),
+    ),
+  );
+}
+
+List<String> _emphasisTextPieces(String text) {
+  final pieces = <String>[];
+  for (final match in RegExp(r'\s+|[^\s]+').allMatches(text)) {
+    final piece = match.group(0)!;
+    if (piece.trim().isEmpty || !_shouldSplitEmphasisPiece(piece)) {
+      pieces.add(piece);
+      continue;
+    }
+    pieces.addAll(piece.runes.map(String.fromCharCode));
+  }
+  return pieces;
+}
+
+bool _shouldSplitEmphasisPiece(String piece) {
+  var runeCount = 0;
+  for (final rune in piece.runes) {
+    runeCount += 1;
+    if (rune > 0x7F || runeCount > 16) return true;
+  }
+  return false;
+}
+
+const int _valueNotFound = -1;
+
+class _CreateFieldCounter extends StatelessWidget {
+  const _CreateFieldCounter({required this.counter});
+
+  final String counter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      counter,
+      textAlign: TextAlign.right,
+      style: createFormSupportTextStyle.copyWith(color: createFormMuted),
+    );
+  }
+}

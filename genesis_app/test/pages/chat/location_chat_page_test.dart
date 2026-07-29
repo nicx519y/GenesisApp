@@ -14,6 +14,21 @@ import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
+String _readLocationChatImplementationSource() {
+  return [
+    'lib/pages/chat/location_chat_page.dart',
+    'lib/pages/chat/location_chat_panel_connection.dart',
+    'lib/pages/chat/location_chat_message_reconciler.dart',
+    'lib/pages/chat/location_chat_send_actions.dart',
+    'lib/pages/chat/location_chat_message_window.dart',
+    'lib/pages/chat/location_chat_identity.dart',
+    'lib/pages/chat/location_chat_scroll_actions.dart',
+    'lib/pages/chat/location_chat_layout.dart',
+    'lib/pages/chat/location_chat_panel_widgets.dart',
+    'lib/pages/chat/location_chat_shared.dart',
+  ].map((path) => File(path).readAsStringSync()).join('\n');
+}
+
 void main() {
   test('location chat panel hides the inactive more button by default', () {
     const panel = LocationChatPanel(worldId: 'world-1', locationId: 'loc-1');
@@ -454,9 +469,7 @@ void main() {
   });
 
   test('location chat model entry is server driven and world scoped', () {
-    final source = File(
-      'lib/pages/chat/location_chat_page.dart',
-    ).readAsStringSync();
+    final source = _readLocationChatImplementationSource();
 
     expect(source, isNot(contains("modelLabel: 'CC4.5'")));
     expect(source, contains('sessionStore.readUserInfo()'));
@@ -822,9 +835,7 @@ void main() {
   });
 
   test('local hydrate ignores stale disposed provided chatroom services', () {
-    final panelSource = File(
-      'lib/pages/chat/location_chat_page.dart',
-    ).readAsStringSync();
+    final panelSource = _readLocationChatImplementationSource();
     final serviceSource = File(
       'lib/network/chatroom/world_chatroom_service.dart',
     ).readAsStringSync();
@@ -921,6 +932,7 @@ void main() {
           messageId: 0,
           locationMessageId: 0,
           senderType: 'tick',
+          tickNo: 1,
           content: 'Day 1, 20:00',
         ),
         _message(messageId: 55, locationMessageId: 55, content: 'turn 19'),
@@ -935,6 +947,26 @@ void main() {
       );
     },
   );
+
+  test('visible location chat messages hide ticks without a number', () {
+    final source = [
+      _message(
+        messageId: 1,
+        locationMessageId: 0,
+        senderType: 'tick',
+        tickNo: 0,
+        content: 'Day 1, 20:00',
+      ),
+      _message(messageId: 2, locationMessageId: 1, content: 'one'),
+    ];
+
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.content),
+      ['one'],
+    );
+  });
 
   test('visible location chat messages keep leading cursorless records', () {
     final source = [
@@ -1176,6 +1208,7 @@ WorldChatroomMessage _message({
   required int locationMessageId,
   required String content,
   String senderType = 'user',
+  int? tickNo,
   String? senderId,
   bool isLlmStreamMessage = false,
 }) {
@@ -1184,7 +1217,7 @@ WorldChatroomMessage _message({
     locationMessageId: locationMessageId,
     conversationRoundId: '$messageId',
     roundOrder: 0,
-    tickNo: senderType == 'tick' ? messageId : 0,
+    tickNo: tickNo ?? (senderType == 'tick' ? messageId : 0),
     locationId: 'loc-1',
     senderType: senderType,
     senderId: senderId ?? (senderType == 'tick' ? 'tick' : 'u_peer'),

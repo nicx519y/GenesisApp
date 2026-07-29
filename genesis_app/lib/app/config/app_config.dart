@@ -1,4 +1,5 @@
 import '../../network/genesis_api.dart';
+import '../../network/local_mock_runtime.dart';
 
 class AppConfig {
   static const defaultAppleWebClientId = 'com.worldo.ai.signin';
@@ -82,9 +83,18 @@ class AppConfig {
   final bool? _useMockOverride;
 
   bool? get useMock {
+    if (!kLocalMockTransportAvailable) return false;
     final override = _useMockOverride;
     if (override != null) return override;
     return mockApiOverrideFromEnvironment(apiEnvironment);
+  }
+
+  String get effectiveApiEnvironment {
+    if (!kLocalMockTransportAvailable &&
+        mockApiOverrideFromEnvironment(apiEnvironment) == true) {
+      return 'real';
+    }
+    return apiEnvironment.trim();
   }
 
   AppConfig copyWith({

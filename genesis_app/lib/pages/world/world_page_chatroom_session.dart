@@ -1,0 +1,440 @@
+part of 'world_page.dart';
+
+extension _WorldPageChatroomSession on _WorldPageState {
+  void _startWorldChatroom() {
+    if (_worldChatroom != null) return;
+    final services = AppServicesScope.read(context);
+    final service = _createWorldChatroom(services);
+    _attachWorldChatroom(service);
+    unawaited(_connectWorldChatroom(service, services));
+  }
+
+  WorldChatroomService _createWorldChatroom(AppServices services) {
+    _lastAppliedNewUserJoinRevision = 0;
+    final service = WorldChatroomService(
+      api: services.api,
+      client: services.chatroom,
+      messageStorage: services.chatroomMessages,
+      refreshInitialSnapshotOnConnect: false,
+    );
+    final world = _world;
+    if (world != null) {
+      service.applyWorldSnapshot(world);
+    }
+    return service;
+  }
+
+  void _attachWorldChatroom(WorldChatroomService service) {
+    _worldChatroom = service;
+    _worldChatroomSub = service.states.listen(_handleWorldChatroomState);
+    _worldChatroomFailureSub = bindChatroomFailureToast(
+      context,
+      service.failures,
+      shouldShow: (failure) => failure.code != 'snapshot_failed',
+      onFailure: _handleWorldChatroomFailure,
+    );
+    _worldChatroomBalanceSub = bindGemBalancePrompt(
+      context,
+      service.balanceAlerts,
+    );
+  }
+
+  void _handleWorldChatroomFailure(ChatroomFailureEvent failure) {
+    if (!isChatroomUnauthorizedFailure(failure)) return;
+    unawaited(_recoverWorldChatroomAuthentication());
+  }
+
+  Future<void> _recoverWorldChatroomAuthentication() {
+    final existing = _worldChatroomAuthRecovery;
+    if (existing != null) return existing;
+    final recovery = _performWorldChatroomAuthenticationRecovery();
+    _worldChatroomAuthRecovery = recovery;
+    return recovery.whenComplete(() {
+      if (identical(_worldChatroomAuthRecovery, recovery)) {
+        _worldChatroomAuthRecovery = null;
+      }
+    });
+  }
+
+  Future<void> _performWorldChatroomAuthenticationRecovery() async {
+    final oldService = _worldChatroom;
+    try {
+      await _detachWorldChatroomForAuthentication(oldService);
+      if (!mounted) return;
+
+      final services = AppServicesScope.read(context);
+      await services.sessionStore.clearUid();
+      services.notifySessionChanged();
+      try {
+        await services.identityAuth.signOutIdentity();
+      } catch (error) {
+        debugPrint(
+          '[Auth][WorldChatroomUnauthorized] identity sign out failed: $error',
+        );
+      }
+      if (!mounted) return;
+
+      final loggedIn = await ensureGenesisLogin(context);
+      if (!mounted) return;
+      if (!loggedIn) {
+        if (identical(_worldChatroom, oldService)) {
+          _worldChatroom = null;
+        }
+        _exitWorldAfterAuthenticationCancelled();
+        return;
+      }
+
+      await _loadCurrentUid();
+      if (!mounted) return;
+      final replacement = _createWorldChatroom(services);
+      final identity = await _chatroomIdentity(services);
+      try {
+        await replacement.connect(worldId: widget.wid, identity: identity);
+      } catch (error) {
+        debugPrint(
+          '[Auth][WorldChatroomUnauthorized] reconnect failed: $error',
+        );
+      }
+      if (!mounted) {
+        await replacement.dispose();
+        return;
+      }
+
+      final activeLocationId = _activeChatLocationId.trim();
+      final activeDescriptor = _locationChatDescriptors[activeLocationId];
+      if (activeDescriptor?.isLeafLocation == true) {
+        try {
+          await replacement.join(locationId: activeLocationId);
+        } catch (error) {
+          debugPrint(
+            '[Auth][WorldChatroomUnauthorized] location rejoin failed: $error',
+          );
+        }
+      }
+      if (!mounted) {
+        await replacement.dispose();
+        return;
+      }
+      _attachWorldChatroom(replacement);
+      _setWorldPageState(() {
+        _preloadedLocationMessageIds.clear();
+        _preloadingLocationMessageFutures.clear();
+        _mapBubbleMessagesReady = false;
+        _recentChatLocationIds = const <String>{};
+        _recentChatLocationPathIds = const <String>{};
+        _replaceMapBubbleCandidates(const <WorldMapBubbleCandidate>[]);
+      });
+      _handleWorldChatroomState(replacement.state);
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[Auth][WorldChatroomUnauthorized] recovery failed: $error\n$stackTrace',
+      );
+      if (!mounted) return;
+      if (identical(_worldChatroom, oldService)) {
+        _worldChatroom = null;
+      }
+      _exitWorldAfterAuthenticationCancelled();
+    }
+  }
+
+  Future<void> _detachWorldChatroomForAuthentication(
+    WorldChatroomService? service,
+  ) async {
+    await _worldChatroomSub?.cancel();
+    await _worldChatroomFailureSub?.cancel();
+    await _worldChatroomBalanceSub?.cancel();
+    _worldChatroomSub = null;
+    _worldChatroomFailureSub = null;
+    _worldChatroomBalanceSub = null;
+    if (service != null) await service.dispose();
+  }
+
+  void _exitWorldAfterAuthenticationCancelled() {
+    final navigator = Navigator.of(context);
+    if (_activeChatLocationId.isEmpty) {
+      unawaited(navigator.maybePop());
+      return;
+    }
+    _setWorldPageState(() {
+      _activeChatLocationId = '';
+      _locationChatPageCache.deactivate();
+    });
+    _syncWorldStatusBarForMainTab();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(navigator.maybePop());
+    });
+  }
+
+  void _handleWorldChatroomState(WorldChatroomState state) {
+    if (!mounted) return;
+    final world = state.world;
+    final currentWorld = world ?? _world;
+    final currentRelationStatus = currentWorld?.relationStatus ?? '';
+    final canShowWorldTickProgress =
+        _worldChatroom != null ||
+        shouldConnectWorldChatroom(currentRelationStatus);
+    final latestNewUserJoin = state.latestNewUserJoin;
+    final hasNewUserJoin =
+        latestNewUserJoin != null &&
+        state.latestNewUserJoinRevision > _lastAppliedNewUserJoinRevision;
+    final newUserJoinNotice = hasNewUserJoin
+        ? _newUserJoinNoticeFromEvent(latestNewUserJoin)
+        : null;
+    var shouldSyncRelationStatus = false;
+    final previousInputBlocked = _lastChatroomInputBlocked;
+    _lastChatroomInputBlocked = state.inputBlocked;
+    final tickDoneFromPush =
+        _worldTickInProgress &&
+        previousInputBlocked == true &&
+        !state.inputBlocked &&
+        !_worldTickDoneHandling;
+    final tickStartedFromPush =
+        canShowWorldTickProgress &&
+        state.inputBlocked &&
+        previousInputBlocked != true &&
+        !_worldTickInProgress;
+    final socketCurrentTime = state.latestSocketCurrentTime.trim();
+    final socketTickNo = state.latestSocketTickNo;
+    final shouldApplySocketWorldProgress =
+        (socketCurrentTime.isNotEmpty || socketTickNo > 0) &&
+        state.latestSocketCurrentTimeRevision >
+            _lastAppliedChatroomWorldProgressRevision;
+    _setWorldPageState(() {
+      if (world != null && _shouldApplyChatroomWorldSnapshot(world)) {
+        _world = world;
+        _sectionsWorldNotifier.value = world;
+        _syncLocationChatDescriptors(world);
+        shouldSyncRelationStatus = true;
+      }
+      final currentWorldDetail = _world;
+      if (shouldApplySocketWorldProgress && currentWorldDetail != null) {
+        _world = currentWorldDetail.copyWith(
+          tickCount: socketTickNo > 0 ? socketTickNo : null,
+          currentTime: socketCurrentTime.isEmpty ? null : socketCurrentTime,
+        );
+        _sectionsWorldNotifier.value = _world;
+        _lastAppliedChatroomWorldProgressRevision =
+            state.latestSocketCurrentTimeRevision;
+      }
+      _replaceMapBubbleCandidates(
+        _buildMapBubbleCandidates(state, currentWorld),
+      );
+      _applyRecentChatLocationSelection(state, _world ?? currentWorld);
+      if (newUserJoinNotice != null) {
+        _applyNewUserJoinNotice(
+          newUserJoinNotice,
+          state.latestNewUserJoinRevision,
+        );
+      }
+    });
+    if (shouldSyncRelationStatus) {
+      _syncWorldChatroomForRelationStatus(world!.relationStatus);
+    }
+    if (tickStartedFromPush) {
+      _setWorldTickInProgress(true);
+      _startWorldTickTracking();
+    }
+    if (tickDoneFromPush) {
+      unawaited(_handleWorldTickDone());
+    }
+  }
+
+  void _applyRecentChatLocationSelection(
+    WorldChatroomState state,
+    WorldDetail? world,
+  ) {
+    final selection = _recentChatLocationSelectionForState(state, world);
+    _recentChatLocationIds = selection == null
+        ? const <String>{}
+        : Set<String>.unmodifiable([selection.locationId]);
+    _recentChatLocationPathIds = selection?.pathIds ?? const <String>{};
+  }
+
+  ({String locationId, Set<String> pathIds})?
+  _recentChatLocationSelectionForState(
+    WorldChatroomState state,
+    WorldDetail? world,
+  ) {
+    if (world == null) return null;
+    final leafDescriptors = <String, WorldLocationChatPanelDescriptor>{
+      for (final descriptor in _locationChatDescriptors.values)
+        if (descriptor.isLeafLocation &&
+            descriptor.locationId.trim().isNotEmpty)
+          descriptor.locationId.trim(): descriptor,
+    };
+    final fallbackLeafLocationIds = world.processedLocationTree.flattened
+        .where((node) => node.children.isEmpty)
+        .map((node) => node.id);
+    final latestLocationId = latestChatLocationIdFromMessages(
+      allLocationsLoaded: _mapBubbleMessagesReady,
+      messagesByLocation: state.messagesByLocation,
+      allowedLocationIds: leafDescriptors.isNotEmpty
+          ? leafDescriptors.keys
+          : fallbackLeafLocationIds,
+    );
+    if (latestLocationId.isEmpty) return null;
+    final descriptorPath =
+        leafDescriptors[latestLocationId]?.recentChatLocationPathIds ??
+        const <String>[];
+    if (descriptorPath.isNotEmpty) {
+      return (
+        locationId: latestLocationId,
+        pathIds: Set<String>.unmodifiable(
+          worldOrderedNonEmptyStrings([...descriptorPath, latestLocationId]),
+        ),
+      );
+    }
+    return (
+      locationId: latestLocationId,
+      pathIds: Set<String>.unmodifiable(
+        _locationPathIdsForLocationId(
+          latestLocationId,
+          world.processedLocationTree,
+        ),
+      ),
+    );
+  }
+
+  WorldNewUserJoinNotice _newUserJoinNoticeFromEvent(
+    ChatroomNewUserJoinEvent event,
+  ) {
+    return WorldNewUserJoinNotice(
+      characterId: event.characterId,
+      characterType: event.characterType,
+      characterName: event.characterName,
+      playerUid: event.playerUid,
+      playerUsername: event.playerUsername,
+      ts: event.ts,
+    );
+  }
+
+  void _applyNewUserJoinNotice(WorldNewUserJoinNotice notice, int revision) {
+    _lastAppliedNewUserJoinRevision = revision;
+    if (_isDetailBottomSheetVisible) {
+      _pendingNewUserJoinNotice = null;
+      _hasUnreadNewUserJoin = false;
+      _newUserJoinNoticesNotifier.value = <WorldNewUserJoinNotice>[notice];
+      return;
+    }
+    _pendingNewUserJoinNotice = notice;
+    _hasUnreadNewUserJoin = true;
+  }
+
+  void _activateDetailNewUserJoinNotices() {
+    final pending = _pendingNewUserJoinNotice;
+    if (pending != null) {
+      _newUserJoinNoticesNotifier.value = <WorldNewUserJoinNotice>[pending];
+      _pendingNewUserJoinNotice = null;
+    }
+    _hasUnreadNewUserJoin = false;
+  }
+
+  void _syncWorldChatroomForRelationStatus(String relationStatus) {
+    if (shouldConnectWorldChatroom(relationStatus)) {
+      _startWorldChatroom();
+      return;
+    }
+    _stopWorldChatroom();
+  }
+
+  void _maybeOpenInitialLocationChat() {
+    final initialLocationId = _pendingInitialLocationId;
+    final world = _world;
+    if (initialLocationId.isEmpty || world == null) return;
+    if (_worldChatroom == null) {
+      if (!shouldConnectWorldChatroom(world.relationStatus)) {
+        _pendingInitialLocationId = '';
+      }
+      return;
+    }
+    final descriptor =
+        _locationChatDescriptors[initialLocationId] ??
+        _locationChatDescriptors.values
+            .where(
+              (item) =>
+                  item.localMessageLocationIds.contains(initialLocationId),
+            )
+            .firstOrNull;
+    _pendingInitialLocationId = '';
+    if (descriptor == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _activeChatLocationId.isNotEmpty) return;
+      unawaited(_showCachedLocationChat(descriptor));
+    });
+  }
+
+  void _stopWorldChatroom() {
+    final chatroom = _worldChatroom;
+    if (chatroom == null) return;
+    unawaited(_worldChatroomSub?.cancel());
+    unawaited(_worldChatroomFailureSub?.cancel());
+    unawaited(_worldChatroomBalanceSub?.cancel());
+    _worldChatroomSub = null;
+    _worldChatroomFailureSub = null;
+    _worldChatroomBalanceSub = null;
+    _worldChatroom = null;
+    _preloadedLocationMessageIds.clear();
+    _preloadingLocationMessageFutures.clear();
+    _mapBubbleMessagesReady = false;
+    if (mounted) {
+      _setWorldPageState(() {
+        _activeChatLocationId = '';
+        _recentChatLocationIds = const <String>{};
+        _recentChatLocationPathIds = const <String>{};
+        _locationChatPageCache.clear();
+        _replaceMapBubbleCandidates(const <WorldMapBubbleCandidate>[]);
+      });
+    }
+    unawaited(_disposeWorldChatroom(chatroom));
+  }
+
+  Future<void> _connectWorldChatroom(
+    WorldChatroomService service,
+    AppServices services,
+  ) async {
+    try {
+      final identity = await _chatroomIdentity(services);
+      if (!mounted || !identical(_worldChatroom, service)) return;
+      await service.connect(worldId: widget.wid, identity: identity);
+      if (!mounted || !identical(_worldChatroom, service)) return;
+      _scheduleLocationChatPrecache();
+    } catch (_) {
+      // The service emits failures and keeps reconnecting while desired.
+    }
+  }
+
+  Future<ChatroomConnectionIdentity> _chatroomIdentity(
+    AppServices services,
+  ) async {
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final userInfo = await services.sessionStore.readUserInfo();
+    final cachedUid = userInfo == null
+        ? ''
+        : worldMapString(userInfo, const ['uid']);
+    final senderId = worldFirstNonEmpty([uid, cachedUid, 'local-user']);
+    final senderName = worldFirstNonEmpty([
+      worldMapString(userInfo ?? const <String, dynamic>{}, const [
+        'display_name',
+        'nickname',
+        'name',
+      ]),
+      formatUidForDisplay(uid),
+      'Me',
+    ]);
+    return ChatroomConnectionIdentity(
+      userId: senderId,
+      senderId: senderId,
+      senderName: senderName,
+    );
+  }
+
+  Future<void> _disposeWorldChatroom(WorldChatroomService service) async {
+    try {
+      await service.disconnect();
+    } catch (_) {
+      // Leaving the page should not be blocked by socket shutdown errors.
+    }
+    await service.dispose();
+  }
+}

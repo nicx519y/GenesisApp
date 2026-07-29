@@ -197,9 +197,9 @@ class GenesisTelemetry {
       appBuild: version.versionCode.trim(),
       deviceId: deviceId,
       platform: defaultTargetPlatform.name,
-      environment: config.apiEnvironment.trim().isEmpty
+      environment: config.effectiveApiEnvironment.isEmpty
           ? 'production'
-          : config.apiEnvironment.trim(),
+          : config.effectiveApiEnvironment,
       currentPage: genesisCurrentPageClassName.value,
     );
     if (!_sinkOverriddenForTesting) {

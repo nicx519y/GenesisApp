@@ -1,0 +1,310 @@
+part of 'chat_ui_library.dart';
+
+class ChatComposer extends StatelessWidget {
+  const ChatComposer({
+    super.key,
+    required this.controller,
+    required this.inputEnabled,
+    required this.sendEnabled,
+    required this.sending,
+    required this.onSend,
+    this.onHeightChanged,
+    this.sendLabel,
+    this.hintText,
+    this.style,
+    this.bottomSafeAreaInset,
+    this.focusNode,
+    this.onInputTap,
+  });
+
+  final TextEditingController controller;
+  final bool inputEnabled;
+  final bool sendEnabled;
+  final bool sending;
+  final Future<void> Function() onSend;
+  final ValueChanged<double>? onHeightChanged;
+  final String? sendLabel;
+  final String? hintText;
+  final ChatUiStyleConfig? style;
+  final double? bottomSafeAreaInset;
+  final FocusNode? focusNode;
+  final VoidCallback? onInputTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
+    final submitFromKeyboard = !style.showComposerSendButton;
+    final bottomInset =
+        bottomSafeAreaInset ?? GenesisSafeAreaInsets.bottom(context);
+    return _ChatComposerHeightObserver(
+      onHeightChanged: onHeightChanged,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: style.composerBackdropBlurSigma,
+            sigmaY: style.composerBackdropBlurSigma,
+          ),
+          child: Container(
+            padding: style.composerPadding.copyWith(
+              bottom: style.composerPadding.bottom + bottomInset,
+            ),
+            decoration: BoxDecoration(
+              color: style.composerBackgroundGradient == null
+                  ? style.composerBackgroundColor
+                  : null,
+              gradient: style.composerBackgroundGradient,
+            ),
+            child: TextFieldTapRegion(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (style.showComposerVoiceButton) ...[
+                    _ComposerIconButton(
+                      icon: MyFlutterApp.voice,
+                      onPressed: inputEnabled ? () {} : null,
+                      style: style,
+                    ),
+                    SizedBox(width: style.composerLeadingGap),
+                  ],
+                  Expanded(
+                    child: Container(
+                      constraints: BoxConstraints(
+                        minHeight: style.inputMinHeight,
+                        maxHeight: style.inputMaxHeight,
+                      ),
+                      decoration: BoxDecoration(
+                        color: style.inputBackgroundColor,
+                        borderRadius: BorderRadius.circular(
+                          style.systemMessageBorderRadius,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        enabled: inputEnabled,
+                        minLines: style.inputMinLines,
+                        maxLines: style.inputMaxLines,
+                        keyboardType: submitFromKeyboard
+                            ? TextInputType.text
+                            : TextInputType.multiline,
+                        textInputAction: submitFromKeyboard
+                            ? TextInputAction.send
+                            : TextInputAction.newline,
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
+                        onTap: onInputTap,
+                        onSubmitted: submitFromKeyboard
+                            ? (_) {
+                                if (sendEnabled) unawaited(onSend());
+                              }
+                            : null,
+                        style: GenesisTypography.withFallback(
+                          style.inputTextStyle,
+                        ),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          hintText: hintText,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: style.inputHorizontalPadding,
+                            vertical: style.inputVerticalPadding,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (style.showComposerStickerButton) ...[
+                    SizedBox(width: style.composerActionGap),
+                    _ComposerIconButton(
+                      icon: MyFlutterApp.sticker,
+                      onPressed: inputEnabled ? () {} : null,
+                      style: style,
+                    ),
+                  ],
+                  if (style.showComposerAddButton) ...[
+                    SizedBox(width: style.composerActionGap),
+                    _ComposerIconButton(
+                      icon: MyFlutterApp.add2,
+                      onPressed: inputEnabled ? () {} : null,
+                      style: style,
+                    ),
+                  ],
+                  if (style.showComposerSendButton) ...[
+                    SizedBox(width: style.composerActionGap),
+                    _ComposerSendButton(
+                      sending: sending,
+                      onPressed: sendEnabled ? onSend : null,
+                      label: sendLabel,
+                      style: style,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatComposerHeightObserver extends StatefulWidget {
+  const _ChatComposerHeightObserver({
+    required this.child,
+    required this.onHeightChanged,
+  });
+
+  final Widget child;
+  final ValueChanged<double>? onHeightChanged;
+
+  @override
+  State<_ChatComposerHeightObserver> createState() =>
+      _ChatComposerHeightObserverState();
+}
+
+class _ChatComposerHeightObserverState
+    extends State<_ChatComposerHeightObserver> {
+  double? _lastHeight;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleReportHeight();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChatComposerHeightObserver oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleReportHeight();
+  }
+
+  void _scheduleReportHeight() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final height = context.size?.height;
+      if (height == null || height == _lastHeight) return;
+      _lastHeight = height;
+      widget.onHeightChanged?.call(height);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _scheduleReportHeight();
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        _scheduleReportHeight();
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(child: widget.child),
+    );
+  }
+}
+
+class _ComposerIconButton extends StatelessWidget {
+  const _ComposerIconButton({
+    required this.icon,
+    required this.onPressed,
+    required this.style,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: style.composerIconButtonSize,
+      height: style.composerIconButtonSize,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        onPressed: onPressed,
+        icon: Icon(
+          icon,
+          color: style.composerIconColor,
+          size: style.composerIconSize,
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerSendButton extends StatelessWidget {
+  const _ComposerSendButton({
+    required this.sending,
+    required this.onPressed,
+    required this.style,
+    this.label,
+  });
+
+  final bool sending;
+  final VoidCallback? onPressed;
+  final ChatUiStyleConfig style;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null && !sending;
+    final background = enabled || sending
+        ? style.composerSendButtonColor
+        : style.composerSendButtonDisabledColor;
+    return SizedBox(
+      key: const ValueKey('chat-composer-send-button'),
+      width: style.composerSendButtonWidth,
+      height: style.composerSendButtonHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
+        ),
+        child: TextButton(
+          style: TextButton.styleFrom(
+            fixedSize: Size(
+              style.composerSendButtonWidth,
+              style.composerSendButtonHeight,
+            ),
+            minimumSize: Size(
+              style.composerSendButtonWidth,
+              style.composerSendButtonHeight,
+            ),
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            foregroundColor: style.composerSendButtonIconColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                style.systemMessageBorderRadius,
+              ),
+            ),
+          ),
+          onPressed: enabled ? onPressed : null,
+          child: sending
+              ? SizedBox(
+                  width: style.composerSendButtonLoadingSize,
+                  height: style.composerSendButtonLoadingSize,
+                  child: CircularProgressIndicator(
+                    strokeWidth: style.composerSendButtonLoadingStrokeWidth,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      style.composerSendButtonIconColor,
+                    ),
+                  ),
+                )
+              : label == null
+              ? Icon(
+                  Icons.send,
+                  color: style.composerSendButtonIconColor,
+                  size: style.composerSendButtonIconSize,
+                )
+              : Text(
+                  genesisDisplaySafeText(label!),
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(
+                    color: style.composerSendButtonIconColor,
+                    fontSize: 14,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}

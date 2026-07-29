@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,6 +12,22 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    tilemapSettingsButtonVisibility.resetForTesting();
+  });
+
+  test('settings button visibility defaults to false and persists', () async {
+    expect(await tilemapSettingsButtonVisibility.load(), isFalse);
+    expect(tilemapSettingsButtonVisibility.value, isFalse);
+
+    await tilemapSettingsButtonVisibility.setVisible(true);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getBool(TilemapSettingsButtonVisibilityController.storageKey),
+      isTrue,
+    );
+    tilemapSettingsButtonVisibility.resetForTesting();
+    expect(await tilemapSettingsButtonVisibility.load(), isTrue);
   });
 
   test('returns tilemap defaults when no cached settings exist', () async {

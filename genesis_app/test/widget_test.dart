@@ -21,6 +21,7 @@ import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dar
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
@@ -36,7 +37,10 @@ import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
 import 'package:genesis_flutter_android/components/me/signed_out_me_view.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
+import 'package:genesis_flutter_android/components/world_map_location_action.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
@@ -84,8 +88,6 @@ import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_feed_cache_store.dart';
-import 'package:genesis_flutter_android/pages/origin/origin_launch_coordinator.dart';
-import 'package:genesis_flutter_android/pages/origin/origin_launch_pending_store.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.dart';
@@ -319,6 +321,7 @@ class _FakeBillingService implements BillingService {
   );
   final StreamController<BillingUiEvent> _events =
       StreamController<BillingUiEvent>.broadcast();
+  final List<BillingRecoverySource> recoverSources = <BillingRecoverySource>[];
 
   @override
   Stream<BillingUiEvent> get events => _events.stream;
@@ -334,7 +337,9 @@ class _FakeBillingService implements BillingService {
   }) async {}
 
   @override
-  Future<void> recover(BillingRecoverySource source) async {}
+  Future<void> recover(BillingRecoverySource source) async {
+    recoverSources.add(source);
+  }
 
   @override
   void resetForSession() {}
@@ -347,6 +352,24 @@ class _FakeBillingService implements BillingService {
     _state.dispose();
     _events.close();
   }
+}
+
+class _CapturingTelemetrySink implements GenesisTelemetrySink {
+  final List<GenesisTelemetryEvent> events = <GenesisTelemetryEvent>[];
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    events.add(event);
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {}
+
+  @override
+  Future<void> setUserId(String? uid) async {}
 }
 
 class _FakeIdentityAuthService implements IdentityAuthService {
@@ -474,6 +497,8 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldTickErrMsg = 'Insufficient Gems',
     this.worldTickListCompleter,
     this.hotTagsCompleter,
+    this.originDefinitionVersion = 1,
+    this.worldDefinitionVersion = 1,
   });
 
   final requests = <TransportRequest>[];
@@ -507,12 +532,18 @@ class _RecordingV1ListTransport implements HttpTransport {
   final String worldTickErrMsg;
   final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
+  final int originDefinitionVersion;
+  final int worldDefinitionVersion;
   int _worldDetailRequestIndex = 0;
   int _tickLockStatusRequestIndex = 0;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
+    if (request.uri.path.endsWith('/origin/map') ||
+        request.uri.path.endsWith('/world/map')) {
+      return _jsonResponse({});
+    }
     if (request.uri.path.endsWith('/origin/detail')) {
       final pendingResponse = originDetailCompleter;
       if (pendingResponse != null) return pendingResponse.future;
@@ -957,6 +988,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'origin_name': 'Origin detail $fallback',
         'origin_version': '1',
         'origin_version_time': 1777680000,
+        'definition_version': originDefinitionVersion,
         'owner_uid': 'u_test',
         'owner_name': 'Tester',
         'brief': 'Origin detail subtitle',
@@ -1048,6 +1080,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'origin_id': 'o_for_$fallback',
         'origin_version': '1',
         'origin_version_time': '2026-05-01T00:00:00Z',
+        'definition_version': worldDefinitionVersion,
         'brief': 'World detail subtitle',
         'setting': 'World detail setting',
         'events': ['World detail loaded.'],
@@ -1912,6 +1945,16 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         'ticks': const <Object?>[],
       };
     }
+    if (request.method == 'POST' &&
+        request.uri.path == '/api/v2/origin/create') {
+      final body = decodedBody(request);
+      data = {
+        'origin_id': 'o_created_1',
+        'origin_version': '1',
+        'origin_version_time': 1770000000,
+        'origin_name': body['origin_name'],
+      };
+    }
     if (request.method == 'GET' &&
         request.uri.path == '/api/v2/origin/foredit') {
       final oid = request.uri.queryParameters['origin_id'] ?? '';
@@ -2002,6 +2045,16 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         'ticks': const <Object?>[],
       };
     }
+    if (request.method == 'POST' &&
+        request.uri.path == '/api/v2/origin/update') {
+      final body = decodedBody(request);
+      data = {
+        'origin_id': body['origin_id'],
+        'origin_version': '2',
+        'origin_version_time': 1770000001,
+        'origin_name': body['origin_name'],
+      };
+    }
     return TransportResponse(
       statusCode: 200,
       headers: const {'content-type': 'application/json'},
@@ -2022,16 +2075,142 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    tilemapSettingsButtonVisibility.resetForTesting();
     BlockedUserReviewReturn.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
-    OriginLaunchCoordinator.instance.resetForTesting();
   });
 
   tearDown(() async {
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
-    OriginLaunchCoordinator.instance.resetForTesting();
     BlockedUserReviewReturn.resetForTesting();
-    await OriginLaunchPendingStore.clear();
+  });
+
+  testWidgets(
+    'AppShell owns initial and background-to-foreground billing recovery',
+    (WidgetTester tester) async {
+      final billing = _FakeBillingService();
+      final services = await _testServices(billingService: billing);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(billing.recoverSources, [BillingRecoverySource.appStart]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(billing.recoverSources, [
+        BillingRecoverySource.appStart,
+        BillingRecoverySource.foreground,
+      ]);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(billing.recoverSources, [
+        BillingRecoverySource.appStart,
+        BillingRecoverySource.foreground,
+      ]);
+    },
+  );
+
+  testWidgets('AppShell recovers once when the UID changes', (
+    WidgetTester tester,
+  ) async {
+    final billing = _FakeBillingService();
+    final sessionStore = MemoryUserSessionStore();
+    final services = await _testServices(
+      billingService: billing,
+      sessionStoreOverride: sessionStore,
+      initialUid: 'u_first',
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(billing.recoverSources, [BillingRecoverySource.appStart]);
+
+    await sessionStore.saveUid('u_second');
+    services.notifySessionChanged();
+    await tester.pump();
+    await tester.pump();
+
+    expect(billing.recoverSources, [
+      BillingRecoverySource.appStart,
+      BillingRecoverySource.foreground,
+    ]);
+
+    services.notifySessionChanged();
+    await tester.pump();
+    await tester.pump();
+
+    expect(billing.recoverSources, [
+      BillingRecoverySource.appStart,
+      BillingRecoverySource.foreground,
+    ]);
+  });
+
+  testWidgets('Me page view records the current login state', (
+    WidgetTester tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final sessionStore = MemoryUserSessionStore();
+    final services = await _testServices(
+      sessionStoreOverride: sessionStore,
+      initialUid: null,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Me'));
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.text('Home'));
+    await tester.pump();
+    await sessionStore.saveUid('u_logged_in');
+    await sessionStore.saveAuthToken('backend-token');
+    services.notifySessionChanged();
+    await tester.pump();
+
+    await tester.tap(find.text('Me'));
+    await tester.pump();
+    await tester.pump();
+
+    final mePageViews = telemetry.events
+        .where(
+          (event) =>
+              event.category == 'collect.log' &&
+              event.name == 'me' &&
+              event.data['action_type'] == 'pageview',
+        )
+        .toList(growable: false);
+    expect(mePageViews.map((event) => event.data['object1']), [
+      'logged_out',
+      'logged_in',
+    ]);
   });
 
   testWidgets('force upgrade gate renders child when upgrade is not required', (
@@ -5123,6 +5302,106 @@ void main() {
     expect(find.text('View More >'), findsOneWidget);
   });
 
+  testWidgets('origin detail version 2 uses root Tilemap endpoint', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tilemap), findsOneWidget);
+    final requests = transport.requestsFor('/api/v1/origin/map');
+    expect(requests, hasLength(1));
+    expect(requests.single.uri.queryParameters, {
+      'origin_id': 'o_test_1',
+      'location_id': 'root',
+    });
+
+    await tester.tap(find.text('Info.'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Tilemap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+
+    await tester.tap(find.text('Map'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Tilemap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+  });
+
+  testWidgets(
+    'origin v2 Tilemap keeps full single-child tree for location taps',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originLocations: const [
+          {
+            'location_id': 'loc_1',
+            'location_pid': '',
+            'level': 1,
+            'location_name': 'Maplewood',
+          },
+          {
+            'location_id': 'loc_1_1',
+            'location_pid': 'loc_1',
+            'level': 2,
+            'location_name': 'Family Home',
+          },
+          {
+            'location_id': 'loc_1_1_1',
+            'location_pid': 'loc_1_1',
+            'level': 3,
+            'location_name': 'Living Room',
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final tilemap = tester.widget<Tilemap>(find.byType(Tilemap));
+      expect(
+        findWorldMapLocationNode(tilemap.locationNodes, 'loc_1'),
+        isNotNull,
+      );
+      expect(
+        findWorldMapLocationNode(tilemap.locationNodes, 'loc_1_1_1'),
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets('origin detail version 1 keeps WorldMap without map request', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(originDefinitionVersion: 1);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tilemap), findsNothing);
+    expect(find.byType(WorldMap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
+  });
+
   testWidgets('Origin detail discuss area opens discuss page when populated', (
     WidgetTester tester,
   ) async {
@@ -5469,6 +5748,7 @@ void main() {
     tester.view.physicalSize = const Size(360, 780);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
+    final chatroom = _FakeChatroomClient();
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'approved',
       originCharacters: const [
@@ -5499,6 +5779,7 @@ void main() {
           transport: transport,
           useMock: false,
           initialAuthToken: 'token',
+          chatroom: chatroom,
         ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
@@ -5868,6 +6149,16 @@ void main() {
     expect(launchBody['origin_id'], 'o_test_1');
     expect(launchBody.containsKey('oid'), isFalse);
     expect(launchBody['preset_character_id'], 'c_o_test_1');
+    expect(
+      _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
+      findsOneWidget,
+    );
+    expect(find.byType(WorldPage), findsNothing);
+    await tester.tap(find.text('Enter'));
+    await tester.pumpAndSettle();
+    final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
+    expect(launchedWorldPage.wid, 'w_launched_from_origin');
+    expect(launchedWorldPage.waitForTick1, isFalse);
     final worldRequests = transport.requestsFor('/api/v1/world/detail');
     expect(worldRequests, isNotEmpty);
     expect(
@@ -6013,6 +6304,7 @@ void main() {
   testWidgets(
     'Origin preset role direct launch keeps initial dialogue location',
     (WidgetTester tester) async {
+      final chatroom = _FakeChatroomClient();
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'approved',
         worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
@@ -6044,6 +6336,7 @@ void main() {
             transport: transport,
             useMock: false,
             initialAuthToken: 'token',
+            chatroom: chatroom,
           ),
           child: MaterialApp(
             onGenerateRoute: AppRouter.onGenerateRoute,
@@ -6058,18 +6351,28 @@ void main() {
       );
       await _dragOriginPanelUntilVisible(tester, directLaunch);
       tester.widget<InkWell>(directLaunch).onTap!();
-      await tester.pump();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      final pending = await OriginLaunchPendingStore.load();
-      expect(pending?.initialLocationId, 'l_o_test_1');
-      OriginLaunchCoordinator.instance.resetForTesting();
+      expect(
+        _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
+        findsOneWidget,
+      );
+      expect(find.byType(WorldPage), findsNothing);
+      await tester.tap(find.text('Enter'));
+      await tester.pumpAndSettle();
+      final launchedWorldPage = tester.widget<WorldPage>(
+        find.byType(WorldPage),
+      );
+      expect(launchedWorldPage.wid, 'w_launched_from_origin');
+      expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
+      expect(launchedWorldPage.waitForTick1, isFalse);
     },
   );
 
-  testWidgets('Origin launch records pending world and waits in background', (
+  testWidgets('Origin launch enters world without async confirmation polling', (
     WidgetTester tester,
   ) async {
+    final chatroom = _FakeChatroomClient();
     final transport = _RecordingV1ListTransport(
       worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
       worldDetailTickCountsByRequest: const [0],
@@ -6080,6 +6383,7 @@ void main() {
           transport: transport,
           useMock: false,
           initialAuthToken: 'token',
+          chatroom: chatroom,
         ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
@@ -6099,62 +6403,31 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('World detail w_launched_from_origin'), findsNothing);
-    final pendingLaunch = await OriginLaunchPendingStore.load();
-    expect(pendingLaunch?.originId, 'o_test_1');
-    expect(pendingLaunch?.worldId, 'w_launched_from_origin');
-    expect(pendingLaunch?.initialLocationId, isEmpty);
-    expect(OriginLaunchCoordinator.instance.state.value?.originId, 'o_test_1');
     expect(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
       findsOneWidget,
     );
-    final waitDialog = tester.widget<AlertDialog>(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
-    );
-    expect(waitDialog.backgroundColor, const Color(0xFFFFFFFF));
+    expect(find.byType(WorldPage), findsNothing);
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     expect(
-      waitDialog.shape,
-      const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
+      transport
+          .requestsFor('/api/v1/world/detail')
+          .where(
+            (request) =>
+                request.uri.queryParameters['world_id'] ==
+                'w_launched_from_origin',
+          ),
+      isEmpty,
     );
-    final waitTitleFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is Text &&
-          (widget.data ?? '').startsWith('Launching the Worldo'),
-    );
-    expect(waitTitleFinder, findsOneWidget);
-    final waitTitle = tester.widget<Text>(waitTitleFinder);
-    expect(waitTitle.style?.fontSize, 16);
-    expect(waitTitle.style?.fontWeight, FontWeight.w600);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('world-tick1-wait-dialog')),
-        matching: find.byType(CircularProgressIndicator),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.text(
-        'In world, click the map, enter the location, and start interacting with the characters to move the world forward.',
-      ),
-      findsOneWidget,
-    );
-    final waitBody = tester.widget<Text>(
-      find.text(
-        'In world, click the map, enter the location, and start interacting with the characters to move the world forward.',
-      ),
-    );
-    expect(waitBody.style?.fontSize, 14);
-    expect(waitTitle.data, endsWith('.'));
-    final initialWaitTitleText = waitTitle.data;
-    await tester.pump(const Duration(milliseconds: 400));
-    final animatedWaitTitle = tester.widget<Text>(waitTitleFinder);
-    expect(animatedWaitTitle.data, isNot(initialWaitTitleText));
+
+    await tester.tap(find.text('Enter'));
+    await tester.pumpAndSettle();
+    final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
+    expect(launchedWorldPage.wid, 'w_launched_from_origin');
+    expect(launchedWorldPage.waitForTick1, isFalse);
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     var worldRequests = transport
         .requestsFor('/api/v1/world/detail')
         .where(
@@ -6164,19 +6437,10 @@ void main() {
         )
         .toList(growable: false);
     expect(worldRequests, hasLength(1));
-    expect(
-      worldRequests.last.uri.queryParameters['world_id'],
-      'w_launched_from_origin',
-    );
 
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 11));
     await tester.pump();
 
-    expect(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
-      findsOneWidget,
-    );
-    expect(await OriginLaunchPendingStore.load(), isNotNull);
     worldRequests = transport
         .requestsFor('/api/v1/world/detail')
         .where(
@@ -6186,7 +6450,6 @@ void main() {
         )
         .toList(growable: false);
     expect(worldRequests, hasLength(1));
-    OriginLaunchCoordinator.instance.resetForTesting();
   });
 
   testWidgets('Origin detail location opens launch-only chat panel', (
@@ -12580,7 +12843,7 @@ void main() {
     );
   });
 
-  testWidgets('create save posts v1 origin and waits while processing', (
+  testWidgets('create save posts v2 origin and polls until ready', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingCreateOriginTransport(
@@ -12665,16 +12928,12 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pump();
     for (var i = 0; i < 300; i++) {
-      if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
+      if (transport.requestsFor('/api/v2/origin/create').isNotEmpty) break;
       await tester.pump(const Duration(milliseconds: 10));
     }
-    for (var i = 0; i < 300; i++) {
-      if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
-      await tester.pump(const Duration(milliseconds: 10));
-    }
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    final requests = transport.requestsFor('/api/v1/origin/create');
+    final requests = transport.requestsFor('/api/v2/origin/create');
     expect(requests, hasLength(1));
     final body = transport.decodedBody(requests.single);
     expect(body.containsKey('origin_id'), isFalse);
@@ -12699,60 +12958,19 @@ void main() {
     expect(locationList.single['location_id'], 'location_local_1');
     expect(locationList.single.containsKey('location_pid'), isFalse);
     expect(locationList.single['location_name'], 'Gate');
+    expect(body['init_location_group'], {
+      'location_id': 'location_local_1',
+      'initial_dialogue': [
+        {'char_id': 'nar', 'content': 'The gate opens.'},
+      ],
+    });
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
     final pendingCreate = await OriginPendingSubmissionStore.loadCreating();
-    expect(pendingCreate?.originId, 'o_created_1');
-    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
-      findsOneWidget,
-    );
-    final createWaitTitleFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is Text &&
-          (widget.data ?? '').startsWith('Creating your Worldo'),
-    );
-    expect(createWaitTitleFinder, findsOneWidget);
-    final initialCreateWaitTitle = tester
-        .widget<Text>(createWaitTitleFinder)
-        .data;
-    await tester.pump(const Duration(milliseconds: 400));
-    final animatedCreateWaitTitle = tester
-        .widget<Text>(createWaitTitleFinder)
-        .data;
-    expect(animatedCreateWaitTitle, isNot(initialCreateWaitTitle));
-    expect(
-      find.byKey(const ValueKey('create-worldo-wait-perspective-text')),
-      findsOneWidget,
-    );
-    expect(find.text('A public world view.'), findsOneWidget);
-    expect(find.text('Hidden rules.'), findsOneWidget);
-    expect(find.text('Ari: Guide. Calm'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is SvgPicture &&
-            widget.bytesLoader is SvgAssetLoader &&
-            (widget.bytesLoader as SvgAssetLoader).assetName ==
-                'assets/svg/worldo-logo.svg',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      _richTextWithPlainText('Worldo #Origin o_created_1 created!'),
-      findsNothing,
-    );
-    await tester.pump(const Duration(seconds: 5));
-    await tester.runAsync(() async {
-      for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/info').length >= 2) break;
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-    });
-    await tester.pumpAndSettle();
+    expect(pendingCreate, isNull);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     expect(
       _richTextWithPlainText('Worldo #Crystal City created!'),
       findsOneWidget,
@@ -12766,7 +12984,7 @@ void main() {
     expect(find.text('View'), findsOneWidget);
   });
 
-  testWidgets('create clears draft after origin info reports complete', (
+  testWidgets('create clears draft after origin info reports ready', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingCreateOriginTransport(
@@ -12805,7 +13023,12 @@ void main() {
 
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          backendAuthenticated: true,
+          initialAuthToken: 'backend-token',
+          transport: transport,
+          useMock: false,
+        ),
         child: MaterialApp(
           navigatorKey: genesisNavigatorKey,
           home: const CreateOriginPage(),
@@ -12821,13 +13044,12 @@ void main() {
     await tester.pump();
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/create').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
-    });
-    await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
+        final storedDraft = await CreateOriginDraftStore.load();
+        if (!storedDraft.hasAllSectionsSaved) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -12840,6 +13062,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('View'), findsOneWidget);
+    expect(await OriginPendingSubmissionStore.loadCreating(), isNull);
+    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
   });
 
   testWidgets('create page resumes pending origin after app rebuild', (
@@ -12893,7 +13117,7 @@ void main() {
     });
     await tester.pump();
 
-    expect(transport.requestsFor('/api/v1/origin/create'), isEmpty);
+    expect(transport.requestsFor('/api/v2/origin/create'), isEmpty);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
     expect(
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
@@ -13038,7 +13262,7 @@ void main() {
       }),
       const Color(0xFFBFD8CD),
     );
-    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    expect(transport.requestsFor('/api/v2/origin/update'), isEmpty);
 
     await tester.tap(find.text('Basics'));
     await tester.pumpAndSettle();
@@ -13058,7 +13282,7 @@ void main() {
     );
     expect(rootPublish.onPressed, isNull);
 
-    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    expect(transport.requestsFor('/api/v2/origin/update'), isEmpty);
 
     await tester.tap(find.text('Opening'));
     await tester.pumpAndSettle();
@@ -13119,7 +13343,7 @@ void main() {
     await tester.pump();
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/update').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/update').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -13131,7 +13355,7 @@ void main() {
     });
     await tester.pump();
 
-    final updateRequests = transport.requestsFor('/api/v1/origin/update');
+    final updateRequests = transport.requestsFor('/api/v2/origin/update');
     expect(updateRequests, hasLength(1));
     final body = transport.decodedBody(updateRequests.single);
     expect(body.containsKey('oid'), isFalse);
@@ -13180,6 +13404,15 @@ void main() {
       'Archive',
     );
     expect(editedLocations.single.containsKey('location_pid'), isFalse);
+    expect(body['init_location_group'], {
+      'location_id': 'location_edit_1',
+      'initial_dialogue': [
+        {
+          'char_id': 'nar',
+          'content': 'The archive opens for the first visitor.',
+        },
+      ],
+    });
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
@@ -13311,7 +13544,7 @@ void main() {
     await tester.pump();
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/update').isNotEmpty) break;
+        if (transport.requestsFor('/api/v2/origin/update').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -13323,7 +13556,7 @@ void main() {
     });
     await tester.pumpAndSettle();
 
-    expect(transport.requestsFor('/api/v1/origin/update'), hasLength(1));
+    expect(transport.requestsFor('/api/v2/origin/update'), hasLength(1));
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
     expect(
       _richTextWithPlainText('Worldo #Edited Origin published!'),
@@ -13363,7 +13596,7 @@ void main() {
     });
     await tester.pump();
 
-    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    expect(transport.requestsFor('/api/v2/origin/update'), isEmpty);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
     expect(
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
@@ -13844,6 +14077,38 @@ void main() {
     expect(
       tester.getTopLeft(find.text('AAID:')).dy,
       isNot(tester.getTopLeft(find.text('ANDROID_ID:')).dy),
+    );
+  });
+
+  testWidgets('developer page controls the Tilemap settings button', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final visibilitySwitch = find.byKey(
+      const ValueKey<String>('developer-tilemap-settings-button-switch'),
+    );
+    expect(visibilitySwitch, findsOneWidget);
+    expect(tester.widget<Switch>(visibilitySwitch).value, isFalse);
+    expect(tilemapSettingsButtonVisibility.value, isFalse);
+
+    await tester.tap(visibilitySwitch);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(visibilitySwitch).value, isTrue);
+    expect(tilemapSettingsButtonVisibility.value, isTrue);
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getBool(TilemapSettingsButtonVisibilityController.storageKey),
+      isTrue,
     );
   });
 
@@ -15708,6 +15973,50 @@ void main() {
       expect(chatroom.session.disconnectCount, greaterThan(0));
     },
   );
+
+  testWidgets('world detail version 2 uses root Tilemap endpoint', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'anonymous',
+      worldDefinitionVersion: 2,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tilemap), findsOneWidget);
+    final requests = transport.requestsFor('/api/v1/world/map');
+    expect(requests, hasLength(1));
+    expect(requests.single.uri.queryParameters, {
+      'world_id': 'w_test_1',
+      'location_id': 'root',
+    });
+  });
+
+  testWidgets('world detail version 1 keeps WorldMap without map request', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'anonymous',
+      worldDefinitionVersion: 1,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Tilemap), findsNothing);
+    expect(find.byType(WorldMap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/map'), isEmpty);
+  });
 
   testWidgets('world page loading map does not show fallback background', (
     WidgetTester tester,
@@ -18599,6 +18908,94 @@ void main() {
       find.byKey(const ValueKey('location-chat-new-message-notice')),
       findsNothing,
     );
+  });
+
+  testWidgets('location chat uses character name for matching sender char id', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldCharacters: const [
+        {
+          'type': 'player',
+          'player_uid': 'u_other',
+          'player_username': 'Actual Username',
+          'char_id': 'c_other',
+          'name': 'Role Persona',
+          'identity': 'Visitor',
+          'brief': 'Visits the world',
+          'description': 'A player role.',
+          'goal': 'Talk',
+          'avatar': '',
+          'location_id': 'l_world-1',
+        },
+      ],
+      worldLocations: const [
+        {
+          'location_id': 'l_world-1',
+          'location_name': 'World Location',
+          'location_summary': 'A world location.',
+          'image': '',
+          'map_url': '',
+          'x_percent': 35,
+          'y_percent': 45,
+        },
+      ],
+    );
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pumpAndSettle();
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'location_id': 'l_world-1',
+        'location_name': 'World Location',
+      },
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    chatroom.session.emit(
+      const ChatroomAiStreamStart(
+        sessionId: 'sess-1',
+        locationId: 'l_world-1',
+        globalMessageId: 127,
+        messageId: 127,
+        locationMessageId: 127,
+        conversationRoundId: '1318',
+        roundOrder: 0,
+        senderType: 'character',
+        senderId: 'c_other',
+        senderName: 'Actual Username',
+        currentTime: '2026-06-25T00:00:00Z',
+      ),
+    );
+    chatroom.session.emit(
+      const ChatroomAiStreamEnd(
+        sessionId: 'sess-1',
+        locationId: 'l_world-1',
+        globalMessageId: 127,
+        messageId: 127,
+        locationMessageId: 127,
+        conversationRoundId: '1318',
+        senderId: 'c_other',
+        content: 'role name check',
+        createdAt: null,
+        currentTime: '2026-06-25T00:00:00Z',
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Role Persona'), findsOneWidget);
+    expect(find.text('Actual Username'), findsNothing);
+    expect(find.text('role name check'), findsOneWidget);
   });
 
   testWidgets('location chat shows role name instead of pushed username', (

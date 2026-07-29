@@ -6,9 +6,11 @@ import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 
 void main() {
-  final originSectionsSource = File(
+  final originSectionsSource = [
     'lib/pages/origin/origin_world_sections.dart',
-  );
+    'lib/pages/origin/origin_world_role_setup.dart',
+    'lib/pages/origin/origin_world_characters.dart',
+  ].map((path) => File(path).readAsStringSync()).join('\n');
 
   test('origin detail sheet uses main ui horizontal padding', () {
     expect(originDetailSheetHorizontalPaddingForTesting, 12);
@@ -332,7 +334,7 @@ void main() {
   test(
     'origin character section omits description and uses unified body rhythm',
     () {
-      final source = originSectionsSource.readAsStringSync();
+      final source = originSectionsSource;
       final characterRow = source.substring(
         source.indexOf('class _OriginCharacterRow'),
         source.indexOf('class _OriginCharacterPortrait'),

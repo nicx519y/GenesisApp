@@ -5,6 +5,35 @@ import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 
 void main() {
   final worldPageSource = File('lib/pages/world/world_page.dart');
+  final worldPageRootSource = worldPageSource.readAsStringSync();
+  final worldPageLayoutSource = File(
+    'lib/pages/world/world_page_layout.dart',
+  ).readAsStringSync();
+  final worldPageDetailSyncSource = File(
+    'lib/pages/world/world_page_detail_sync.dart',
+  ).readAsStringSync();
+  final worldPageTickFlowSource = File(
+    'lib/pages/world/world_page_tick_flow.dart',
+  ).readAsStringSync();
+  final worldPageSheetsSource = File(
+    'lib/pages/world/world_page_sheets.dart',
+  ).readAsStringSync();
+  final worldPageImplementationSource =
+      [
+            worldPageRootSource,
+            'lib/pages/world/world_page_tabs.dart',
+            'lib/pages/world/world_page_chatroom_session.dart',
+            'lib/pages/world/world_page_detail_sync.dart',
+            'lib/pages/world/world_page_tick_flow.dart',
+            'lib/pages/world/world_page_location_chat.dart',
+            'lib/pages/world/world_page_sheets.dart',
+            'lib/pages/world/world_page_layout.dart',
+          ]
+          .map((source) {
+            if (source == worldPageRootSource) return source;
+            return File(source).readAsStringSync();
+          })
+          .join('\n');
   final worldHeaderSource = File('lib/pages/world/world_header.dart');
   final worldMapSource = File(
     'lib/components/legacy_world_map/legacy_world_map_background.dart',
@@ -14,7 +43,13 @@ void main() {
   );
   final originWorldPageSource = File('lib/pages/origin/origin_world_page.dart');
   final worldModelsSource = File('lib/pages/world/world_models.dart');
-  final worldSectionsSource = File('lib/pages/world/world_sections.dart');
+  final worldSectionsSource = [
+    'lib/pages/world/world_sections.dart',
+    'lib/pages/world/world_sections_loading_detail.dart',
+    'lib/pages/world/world_sections_events.dart',
+    'lib/pages/world/world_sections_tick_cards.dart',
+    'lib/pages/world/world_sections_characters.dart',
+  ].map((path) => File(path).readAsStringSync()).join('\n');
   final worldLocationChatSource = File(
     'lib/pages/world/world_location_chat_host.dart',
   );
@@ -29,7 +64,7 @@ void main() {
   }
 
   test('world page keeps only page shell and delegates modules', () {
-    final source = worldPageSource.readAsStringSync();
+    final source = worldPageRootSource;
 
     expect(source, contains('class WorldPage extends StatefulWidget'));
     expect(source, contains('class _WorldPageState'));
@@ -42,7 +77,7 @@ void main() {
   });
 
   test('world loading shell keeps the settled panel geometry', () {
-    final source = worldPageSource.readAsStringSync();
+    final source = worldPageLayoutSource;
     final loadingShell = source.substring(
       source.indexOf('Widget _buildInitialLoadingScaffold'),
       source.indexOf('Widget _buildPersistentMapOverlay'),
@@ -77,10 +112,7 @@ void main() {
     );
 
     expect(headerSource, contains('class WorldMapIdentityPill'));
-    expect(
-      worldPageSource.readAsStringSync(),
-      contains('WorldMapIdentityPill('),
-    );
+    expect(worldPageImplementationSource, contains('WorldMapIdentityPill('));
     expect(source, contains('LayoutBuilder'));
     expect(source, contains('maxIdentityWidth'));
     expect(source, isNot(contains('maxWidth: 240')));
@@ -92,7 +124,7 @@ void main() {
   });
 
   test('world map top overlay does not expose a separate Model entry', () {
-    final source = worldPageSource.readAsStringSync();
+    final source = worldPageLayoutSource;
     final overlayStart = source.indexOf('Widget _buildPersistentMapOverlay(');
     final overlay = source.substring(overlayStart, source.length);
 
@@ -125,13 +157,9 @@ void main() {
       bottomSheet.indexOf('class WorldSingleSectionBottomSheet'),
       bottomSheet.indexOf('class WorldSingleSectionSheetHeader'),
     );
-    final sectionListView = worldSectionsSource.readAsStringSync().substring(
-      worldSectionsSource.readAsStringSync().indexOf(
-        'class WorldSectionListView',
-      ),
-      worldSectionsSource.readAsStringSync().indexOf(
-        'class WorldEventsSection',
-      ),
+    final sectionListView = worldSectionsSource.substring(
+      worldSectionsSource.indexOf('class WorldSectionListView'),
+      worldSectionsSource.indexOf('class WorldEventsSection'),
     );
 
     expect(tags, contains("label: 'Locations'"));
@@ -191,7 +219,7 @@ void main() {
   });
 
   test('world detail includes cast content below the brief', () {
-    final sections = worldSectionsSource.readAsStringSync();
+    final sections = worldSectionsSource;
     final detailSection = sections.substring(
       sections.indexOf('class WorldDetailSection'),
       sections.indexOf('class WorldDetailSectionTitle'),
@@ -227,7 +255,7 @@ void main() {
   });
 
   test('world cast subtitle uses readable body sizing', () {
-    final sections = worldSectionsSource.readAsStringSync();
+    final sections = worldSectionsSource;
     final characterRow = sections.substring(
       sections.indexOf('class WorldCharacterRow'),
       sections.indexOf('String worldResizedCharacterAvatarUrl'),
@@ -299,7 +327,7 @@ void main() {
   });
 
   test('world detail cover uses static network image', () {
-    final sections = worldSectionsSource.readAsStringSync();
+    final sections = worldSectionsSource;
     final cover = sections.substring(
       sections.indexOf('class WorldDetailCoverImage'),
       sections.indexOf('class WorldStatusSection'),
@@ -310,7 +338,7 @@ void main() {
   });
 
   test('world map bubbles are derived from chatroom state', () {
-    final source = worldPageSource.readAsStringSync();
+    final source = worldPageImplementationSource;
 
     expect(source, contains('worldMapBubbleCandidatesFor('));
     expect(
@@ -330,7 +358,7 @@ void main() {
 
   test('image precaches handle failures with onError', () {
     final worldMap = worldMapSource.readAsStringSync();
-    final worldPage = worldPageSource.readAsStringSync();
+    final worldPage = worldPageDetailSyncSource;
     final originWorldPage = originWorldPageSource.readAsStringSync();
     final preloadSecondaryImages = worldMap.substring(
       worldMap.indexOf('Future<void> _preloadSecondaryImages'),
@@ -373,22 +401,25 @@ void main() {
   });
 
   test('world tick completion closes other sheets before opening events', () {
-    final source = worldPageSource.readAsStringSync();
-    final tickDone = source.substring(
-      source.indexOf('Future<void> _handleWorldTickDone()'),
-      source.indexOf('void _showOrSelectEventsAfterTick()'),
+    final tickDone = worldPageTickFlowSource.substring(
+      worldPageTickFlowSource.indexOf('Future<void> _handleWorldTickDone()'),
+      worldPageTickFlowSource.indexOf('void _showOrSelectEventsAfterTick()'),
     );
-    final showOrSelectEvents = source.substring(
-      source.indexOf('void _showOrSelectEventsAfterTick()'),
-      source.indexOf('void _markWorldTickIdle()'),
+    final showOrSelectEvents = worldPageTickFlowSource.substring(
+      worldPageTickFlowSource.indexOf('void _showOrSelectEventsAfterTick()'),
+      worldPageTickFlowSource.indexOf('void _markWorldTickIdle()'),
     );
-    final suppressAutoEvents = source.substring(
-      source.indexOf('bool get _shouldSuppressAutoEventsAfterTick'),
-      source.indexOf('void _showOrSelectEventsAfterTick()'),
+    final suppressAutoEvents = worldPageTickFlowSource.substring(
+      worldPageTickFlowSource.indexOf(
+        'bool get _shouldSuppressAutoEventsAfterTick',
+      ),
+      worldPageTickFlowSource.indexOf('void _showOrSelectEventsAfterTick()'),
     );
-    final openBottomSheet = source.substring(
-      source.indexOf('void _openWorldBottomSheet('),
-      source.indexOf('@override\n  Widget build(BuildContext context)'),
+    final openBottomSheet = worldPageSheetsSource.substring(
+      worldPageSheetsSource.indexOf('void _openWorldBottomSheet('),
+      worldPageSheetsSource.indexOf(
+        'Future<void> _confirmAndDeleteWorldFromDetail(',
+      ),
     );
 
     expect(tickDone, contains('_showOrSelectEventsAfterTick();'));
@@ -431,7 +462,7 @@ void main() {
 
   test('world events force refreshes and releases stale target', () {
     final bottomSheet = worldBottomSheetSource.readAsStringSync();
-    final sections = worldSectionsSource.readAsStringSync();
+    final sections = worldSectionsSource;
     final ensureEvents = bottomSheet.substring(
       bottomSheet.indexOf('void _ensureEventsForCurrentWorld'),
       bottomSheet.indexOf('void _mutateEventsCache'),
@@ -482,7 +513,7 @@ void main() {
   });
 
   test('world tick edge pull ignores stale pointer callbacks', () {
-    final sections = worldSectionsSource.readAsStringSync();
+    final sections = worldSectionsSource;
     final tickCardState = sections.substring(
       sections.indexOf('class WorldTickEventCardPageState'),
       sections.indexOf('class WorldTickCardScrollPhysics'),
@@ -501,7 +532,7 @@ void main() {
   });
 
   test('location chat code lives outside world page', () {
-    final worldPage = worldPageSource.readAsStringSync();
+    final worldPage = worldPageImplementationSource;
     final locationChat = worldLocationChatSource.readAsStringSync();
 
     expect(locationChat, contains('class WorldLocationChatRouterHost'));

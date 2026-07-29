@@ -9,6 +9,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
 import 'package:genesis_flutter_android/components/world_map_contract.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
@@ -18,8 +19,43 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   setUp(() {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    tilemapSettingsButtonVisibility.resetForTesting();
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      TilemapSettingsButtonVisibilityController.storageKey: true,
+    });
   });
+
+  testWidgets(
+    'Tilemap hides the settings button by default and reacts when enabled',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      tilemapSettingsButtonVisibility.resetForTesting();
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(_DelayedTilemapTransport()),
+          child: const MaterialApp(
+            home: Scaffold(body: Tilemap.origin(originId: 'o_1')),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-settings-button')),
+        findsNothing,
+      );
+
+      await tilemapSettingsButtonVisibility.setVisible(true);
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-settings-button')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'Tilemap hides the grid until root map and initial transform are ready',

@@ -13,6 +13,7 @@ import '../../network/direct_message_message_store.dart';
 import '../../network/gateway_auth.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../network/local_mock_runtime.dart';
 import '../../network/network_runtime_factory.dart';
 import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
@@ -149,11 +150,12 @@ class ServiceRegistry {
     }
 
     final debugProxy = config.debugProxy.trim();
-    final useMock = config.useMock;
+    final effectiveUseMock =
+        config.useMock == true && kLocalMockTransportAvailable;
     const networkRuntimeFactory = NetworkRuntimeFactory();
     final httpTransport = networkRuntimeFactory.buildHttpTransport(
       debugProxy: debugProxy,
-      useMock: useMock == true,
+      useMock: effectiveUseMock,
     );
     final socketTransport = networkRuntimeFactory.buildWebSocketTransport(
       debugProxy: debugProxy,
@@ -165,7 +167,7 @@ class ServiceRegistry {
     GatewayRequestInterceptor? gatewayRequestInterceptor;
     GatewayHandshakeHeaderSigner? gatewayWsHandshakeHeaderSigner;
     GatewayAuthCoordinator? gatewayAuthCoordinator;
-    if (useMock != true) {
+    if (!effectiveUseMock) {
       gatewayAuthCoordinator = GatewayAuthCoordinator(
         gatewayBaseUrl: config.gatewayApiBaseUrl,
         appHeaderProvider: appRequestHeaders.headers,
@@ -182,7 +184,7 @@ class ServiceRegistry {
       );
     }
     final api = GenesisApi(
-      useMock: useMock,
+      useMock: effectiveUseMock,
       transport: httpTransport,
       platformConfig: platformConfig,
       gatewayApiBaseUrl: config.gatewayApiBaseUrl,

@@ -60,6 +60,8 @@ import 'origin_launch_flow.dart';
 part 'origin_world_map_shell.dart';
 part 'origin_world_detail_sheet.dart';
 part 'origin_world_sections.dart';
+part 'origin_world_role_setup.dart';
+part 'origin_world_characters.dart';
 part 'origin_world_copy_progress.dart';
 part 'origin_world_location_chat.dart';
 part 'origin_world_map_data.dart';

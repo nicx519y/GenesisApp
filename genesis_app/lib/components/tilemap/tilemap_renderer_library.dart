@@ -1,0 +1,136 @@
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+
+import '../world_map_contract.dart';
+import '../world_point.dart';
+import 'tilemap_fog.dart';
+import 'tilemap_location_avatars.dart';
+import 'tilemap_message_bubble.dart';
+import 'tilemap_model.dart';
+
+export 'tilemap_fog.dart';
+
+part 'tilemap_renderer_projection.dart';
+part 'tilemap_renderer_index.dart';
+part 'tilemap_renderer_widget.dart';
+part 'tilemap_renderer_labels.dart';
+part 'tilemap_renderer_tile_layer.dart';
+part 'tilemap_renderer_image_flow.dart';
+part 'tilemap_renderer_fog_shadow.dart';
+
+const double tilemapBaseTileExtent = 16;
+const double tilemapPlaceholderScale = 10;
+const double tilemapInitialHorizontalMargin = 16;
+const double tilemapMinScale = 5;
+const double tilemapMaxScale = 30;
+const double tilemapInitialScaleFactorMin = 0.5;
+const double tilemapInitialScaleFactorMax = 2;
+const double tilemapDefaultInitialScaleFactor = 0.86;
+const bool tilemapDefaultBlendFogWithShadowTiles = true;
+const bool tilemapDefaultShowShadowZeroBorders = false;
+const bool tilemapDefaultShowLocationImageFlow = true;
+const double tilemapDefaultLocationImageFlowAngleDegrees = 267.88;
+const double tilemapDefaultLocationImageFlowOpacity = 0.49;
+const double tilemapDefaultLocationImageFlowDurationSeconds = 7.50;
+const TilemapLocationImageFlowBlendMode
+tilemapDefaultLocationImageFlowBlendMode =
+    TilemapLocationImageFlowBlendMode.plus;
+const double tilemapLocationImageFlowDurationSecondsMin = 0.5;
+const double tilemapLocationImageFlowDurationSecondsMax = 10;
+const double tilemapLocationImageFlowActiveFraction = 2 / 3;
+const double tilemapLocationImageFlowBandWidthFraction = 0.18;
+
+@immutable
+class TilemapLocationImageFlowGradientPoint {
+  const TilemapLocationImageFlowGradientPoint({
+    required this.position,
+    required this.color,
+  });
+
+  final double position;
+  final Color color;
+
+  TilemapLocationImageFlowGradientPoint copyWith({
+    double? position,
+    Color? color,
+  }) {
+    return TilemapLocationImageFlowGradientPoint(
+      position: position ?? this.position,
+      color: color ?? this.color,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is TilemapLocationImageFlowGradientPoint &&
+        other.position == position &&
+        other.color == color;
+  }
+
+  @override
+  int get hashCode => Object.hash(position, color);
+}
+
+enum TilemapLocationImageFlowBlendMode { normal, screen, overlay, plus }
+
+const List<TilemapLocationImageFlowGradientPoint>
+tilemapDefaultLocationImageFlowGradientPoints = [
+  TilemapLocationImageFlowGradientPoint(position: 0, color: Color(0x00624700)),
+  TilemapLocationImageFlowGradientPoint(
+    position: 0.24,
+    color: Color(0x556AFFA6),
+  ),
+  TilemapLocationImageFlowGradientPoint(
+    position: 0.51,
+    color: Color(0xD9B9B088),
+  ),
+  TilemapLocationImageFlowGradientPoint(
+    position: 0.76,
+    color: Color(0x55FFD86A),
+  ),
+  TilemapLocationImageFlowGradientPoint(position: 1, color: Color(0x00926C00)),
+];
+
+typedef TilemapTileActionHandler = Future<void> Function(TilemapCell tile);
+typedef TilemapLocationNameResolver = String? Function(TilemapCell tile);
+typedef TilemapLocationAvatarsResolver =
+    List<UserAvatar> Function(TilemapCell tile);
+
+enum TilemapVisualMode { light, dark }
+
+const TilemapVisualMode tilemapDefaultVisualMode = TilemapVisualMode.dark;
+
+@immutable
+class TilemapVisualStyle {
+  const TilemapVisualStyle({
+    required this.backgroundColor,
+    required this.gridLineColor,
+  });
+
+  final Color backgroundColor;
+  final Color gridLineColor;
+}
+
+const TilemapVisualStyle tilemapLightVisualStyle = TilemapVisualStyle(
+  backgroundColor: Color(0xFFFAFAF8),
+  gridLineColor: Color(0xFFD7D6D2),
+);
+const TilemapVisualStyle tilemapDarkVisualStyle = TilemapVisualStyle(
+  backgroundColor: Color(0xFF37362E),
+  gridLineColor: Color(0xFF2E2D26),
+);
+
+TilemapVisualStyle tilemapVisualStyleFor(TilemapVisualMode mode) {
+  return switch (mode) {
+    TilemapVisualMode.light => tilemapLightVisualStyle,
+    TilemapVisualMode.dark => tilemapDarkVisualStyle,
+  };
+}
+
+const Color tilemapLocationHighlightColor = Color(0xFFFFD54F);
+const Color tilemapShadowZeroBorderColor = Color(0xFFFFFF00);
+const double tilemapShadowZeroBorderWidth = 2;

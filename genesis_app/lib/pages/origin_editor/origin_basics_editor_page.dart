@@ -673,9 +673,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   }
 }
 
-const double _fieldLabelInputGap = 8;
-const double _fieldGroupGap = 22;
-
 class _AdvancedSettingsDivider extends StatelessWidget {
   const _AdvancedSettingsDivider();
 

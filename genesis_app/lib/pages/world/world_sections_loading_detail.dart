@@ -1,0 +1,579 @@
+// ignore_for_file: use_key_in_widget_constructors
+
+part of 'world_sections_library.dart';
+
+class WorldDetailsLoadingContent extends StatelessWidget {
+  const WorldDetailsLoadingContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverList.list(
+      children: const [
+        WorldHeaderLoadingSkeleton(),
+        SizedBox(height: 4),
+        WorldEventLoadingSkeleton(),
+      ],
+    );
+  }
+}
+
+class WorldHeaderLoadingSkeleton extends StatelessWidget {
+  const WorldHeaderLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            SizedBox(width: 38),
+            Expanded(
+              child: Align(
+                alignment: Alignment.center,
+                child: WorldLoadingBone(width: 168, height: 18),
+              ),
+            ),
+            SizedBox(width: 38),
+          ],
+        ),
+        SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(child: WorldLoadingBone(width: 128, height: 12)),
+            SizedBox(width: 18),
+            WorldLoadingBone(width: 112, height: 12),
+          ],
+        ),
+        SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: Wrap(
+                spacing: 20,
+                runSpacing: 8,
+                children: [
+                  WorldLoadingBone(width: 42, height: 12),
+                  WorldLoadingBone(width: 46, height: 12),
+                  WorldLoadingBone(width: 40, height: 12),
+                  WorldLoadingBone(width: 44, height: 12),
+                ],
+              ),
+            ),
+            SizedBox(width: 14),
+            WorldLoadingBone(width: 120, height: 28, radius: 8),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class WorldEventLoadingSkeleton extends StatelessWidget {
+  const WorldEventLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        WorldLoadingBone(width: 96, height: 14),
+        SizedBox(height: 14),
+        WorldLoadingBone(widthFactor: 0.92, height: 12),
+        SizedBox(height: 8),
+        WorldLoadingBone(widthFactor: 0.78, height: 12),
+        SizedBox(height: 8),
+        WorldLoadingBone(widthFactor: 0.86, height: 12),
+        SizedBox(height: 18),
+        WorldLoadingBone(widthFactor: 0.48, height: 12),
+        SizedBox(height: 14),
+        WorldLoadingBone(widthFactor: 0.96, height: 92, radius: 6),
+      ],
+    );
+  }
+}
+
+class WorldLoadingBone extends StatelessWidget {
+  const WorldLoadingBone({
+    this.width,
+    this.widthFactor,
+    required this.height,
+    this.radius = 4,
+  });
+
+  final double? width;
+  final double? widthFactor;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9EDF2),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: SizedBox(width: width, height: height),
+    );
+    final widthFactor = this.widthFactor;
+    if (widthFactor == null) return child;
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      alignment: Alignment.centerLeft,
+      child: child,
+    );
+  }
+}
+
+class WorldDetailSection extends StatelessWidget {
+  const WorldDetailSection({
+    required this.world,
+    required this.currentUid,
+    this.newUserJoinNotice,
+    this.onDeleteWorld,
+  });
+
+  final WorldDetail world;
+  final String currentUid;
+  final WorldNewUserJoinNotice? newUserJoinNotice;
+  final Future<void> Function(BuildContext context, WorldDetail world)?
+  onDeleteWorld;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
+    final owner = worldOwnerDisplayName(world);
+    final ownerUid = world.ownerUid.trim();
+    final version = world.origin.versionNum <= 0 ? 1 : world.origin.versionNum;
+    final sourceWorldoOid = world.origin.oid.trim();
+    final sourceWorldoRouteId = sourceWorldoOid.isNotEmpty
+        ? sourceWorldoOid
+        : world.originId > 0
+        ? '${world.originId}'
+        : '';
+    final sourceOid = sourceWorldoOid.isEmpty
+        ? '${world.originId}'
+        : sourceWorldoOid;
+    final canOpenSourceWorldo = sourceWorldoRouteId.isNotEmpty;
+    final brief = world.brief.trim().isEmpty ? '-' : world.brief.trim();
+    final cover = worldResolveAssetUrl(world.cover).trim();
+    final canDeleteWorld = worldCanDeleteLaunchedOnlyBySelf(world, currentUid);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const SizedBox(width: 38),
+            Expanded(
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 18,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF4B6192),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 38,
+              child: GenesisMoreActionMenuButton(
+                buttonSize: 18 * 1.25,
+                items: [
+                  genesisReportMenuItem(
+                    context: context,
+                    targetType: 'world',
+                    targetId: world.worldId,
+                  ),
+                  GenesisActionMenuItem(
+                    label: 'Delete',
+                    iconAsset: genesisDeleteIconAsset,
+                    textStyle: TextStyle(
+                      fontSize: 12,
+                      height: 1.2,
+                      fontWeight: FontWeight.w400,
+                      color: canDeleteWorld
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.45),
+                    ),
+                    onSelected: () {
+                      if (!canDeleteWorld) {
+                        showGenesisToast(
+                          context,
+                          'Only worlds launched by you alone can be deleted.',
+                          duration: const Duration(seconds: 3),
+                        );
+                        return;
+                      }
+                      unawaited(onDeleteWorld?.call(context, world));
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        GenesisPairedMetaRow(
+          leftLabel: 'WID',
+          leftValue: world.worldId,
+          leftDisplayValue: world.deleted ? deletedEntityDisplayText : null,
+          leftCopyEnabled: !world.deleted,
+          leftStyle: worldHeaderMetaTextStyle,
+          leftIconColor: worldHeaderMetaColor,
+          rightText: 'Owner: $owner',
+          rightOnTap: ownerUid.isEmpty || world.ownerDeleted
+              ? null
+              : () => Navigator.of(
+                  context,
+                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
+          rightStyle: worldHeaderMetaTextStyle,
+          rightIconColor: worldHeaderMetaColor,
+        ),
+        const SizedBox(height: 0),
+        GenesisInlineMetaLabel(
+          text: 'Source Worldo: $sourceOid · V$version',
+          onTap: !canOpenSourceWorldo
+              ? null
+              : () => Navigator.of(context).pushNamed(
+                  RouteNames.originWorld,
+                  arguments: {
+                    'oid': sourceWorldoRouteId,
+                    'originId': world.originId,
+                  },
+                ),
+          style: CopyableIdLabel.textStyle,
+          trailingIcon: canOpenSourceWorldo ? Icons.chevron_right : null,
+          trailingIconColor: worldHeaderMetaColor,
+          trailingIconSize: 16,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (newUserJoinNotice == null)
+              const Spacer()
+            else
+              Expanded(
+                child: SizedBox(
+                  height: 35,
+                  child: _WorldNewUserJoinNoticeSwitcher(
+                    notice: newUserJoinNotice!,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 16),
+            GenesisPrimaryButton(
+              label: 'Invite',
+              onPressed: () => _copyInviteText(context, worldName: title),
+              height: 35,
+              width: 140,
+              backgroundColor: const Color(0xFFFF2442),
+              disabledBackgroundColor: const Color(
+                0xFFFF2442,
+              ).withValues(alpha: 0.62),
+              foregroundColor: Colors.white,
+              fontSize: 16,
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        const WorldDetailSectionTitle(
+          icon: MyFlutterApp.eye,
+          iconColor: Color(0xFFFF2442),
+          title: 'World Brief',
+        ),
+        const SizedBox(height: 8),
+        Text(brief, style: worldDetailBodyTextStyle),
+        const SizedBox(height: 8),
+        WorldDetailCoverImage(url: cover),
+        const SizedBox(height: 24),
+        const WorldDetailSectionTitle(
+          asset: worldSectionCastIconAsset,
+          iconSize: 17,
+          iconColor: Color(0xFF666666),
+          title: 'Cast',
+        ),
+        const SizedBox(height: 8),
+        WorldCharactersSection(world: world, currentUid: currentUid),
+      ],
+    );
+  }
+
+  Future<void> _copyInviteText(
+    BuildContext context, {
+    required String worldName,
+  }) async {
+    await Clipboard.setData(
+      ClipboardData(
+        text: worldInviteShareTextForTesting(
+          worldName: worldName,
+          wid: world.worldId,
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    showGenesisToast(context, 'Link copied. Share it with your friends.');
+  }
+}
+
+String worldInviteShareTextForTesting({
+  required String worldName,
+  required String wid,
+}) {
+  final resolvedWid = wid.trim();
+  final resolvedWorldName = worldName.trim().isEmpty
+      ? resolvedWid
+      : worldName.trim();
+  return 'Join my world "$resolvedWorldName" on Worldo!\n'
+      '$resolvedWid\n'
+      'Search this WID on Worldo to find and join.\n'
+      'https://worldo.ai/download';
+}
+
+class _WorldNewUserJoinNoticeSwitcher extends StatelessWidget {
+  const _WorldNewUserJoinNoticeSwitcher({required this.notice});
+
+  final WorldNewUserJoinNotice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentKey = ValueKey<String>(_noticeAnimationKey(notice));
+    return ClipRect(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final isIncoming = child.key == currentKey;
+          final offset = isIncoming
+              ? Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: Offset.zero,
+                ).animate(animation)
+              : Tween<Offset>(
+                  begin: const Offset(0, -1),
+                  end: Offset.zero,
+                ).animate(animation);
+          return SlideTransition(position: offset, child: child);
+        },
+        child: _WorldNewUserJoinNoticeText(key: currentKey, notice: notice),
+      ),
+    );
+  }
+
+  String _noticeAnimationKey(WorldNewUserJoinNotice notice) {
+    return [
+      notice.characterId,
+      notice.playerUid,
+      notice.playerUsername,
+      notice.characterName,
+      notice.ts?.millisecondsSinceEpoch ?? 0,
+    ].join('|');
+  }
+}
+
+class _WorldNewUserJoinNoticeText extends StatelessWidget {
+  const _WorldNewUserJoinNoticeText({super.key, required this.notice});
+
+  final WorldNewUserJoinNotice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    const baseStyle = TextStyle(
+      color: Color(0xFF666666),
+      fontSize: 12,
+      height: 1.2,
+      fontWeight: FontWeight.w400,
+    );
+    const emphasisStyle = TextStyle(
+      color: Color(0xFF111111),
+      fontWeight: FontWeight.w600,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: constraints.maxWidth,
+              child: RichText(
+                maxLines: 2,
+                overflow: TextOverflow.clip,
+                text: TextSpan(
+                  style: baseStyle,
+                  children: [
+                    TextSpan(
+                      text: notice.displayPlayerUsername,
+                      style: emphasisStyle,
+                    ),
+                    const TextSpan(text: ' launched as '),
+                    TextSpan(
+                      text: notice.displayCharacterName,
+                      style: emphasisStyle,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class WorldDetailSectionTitle extends StatelessWidget {
+  const WorldDetailSectionTitle({
+    this.icon,
+    this.asset,
+    this.iconSize = 14,
+    required this.iconColor,
+    required this.title,
+  }) : assert(icon != null || asset != null);
+
+  final IconData? icon;
+  final String? asset;
+  final double iconSize;
+  final Color iconColor;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final asset = this.asset;
+    return Row(
+      children: [
+        if (asset != null)
+          SvgPicture.asset(
+            asset,
+            width: iconSize,
+            height: iconSize,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          )
+        else
+          Icon(icon, size: iconSize, color: iconColor),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF111111),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class WorldDetailCoverImage extends StatelessWidget {
+  const WorldDetailCoverImage({required this.url});
+
+  static const double _maxHeight = 360;
+  static const double _aspectRatio = 2 / 3;
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewerUrl = url.trim();
+    final fallback = Container(
+      color: const Color(0xFFEFF1F4),
+      alignment: Alignment.center,
+      child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaHeight = MediaQuery.sizeOf(context).height;
+        final maxHeight = mediaHeight.isFinite
+            ? _maxHeight.clamp(0.0, mediaHeight * 0.35).toDouble()
+            : _maxHeight;
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : maxHeight * _aspectRatio;
+        final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
+        final height = width / _aspectRatio;
+
+        final preview = Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: ClipRRect(
+              borderRadius: GenesisImageRadii.content,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final imageUrl = selectGenesisImageUrl(
+                    url,
+                    logicalWidth: constraints.maxWidth.isFinite
+                        ? constraints.maxWidth
+                        : null,
+                    logicalHeight: constraints.maxHeight.isFinite
+                        ? constraints.maxHeight
+                        : null,
+                    devicePixelRatio:
+                        MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+                  );
+                  return imageUrl.isEmpty
+                      ? fallback
+                      : imageUrl.startsWith('assets/')
+                      ? Image.asset(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              fallback,
+                        )
+                      : GenesisStaticNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_) => fallback,
+                          errorWidget: (_, _) => fallback,
+                        );
+                },
+              ),
+            ),
+          ),
+        );
+        if (viewerUrl.isEmpty) return preview;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => showGenesisImageViewer(context, imageUrls: [viewerUrl]),
+          child: preview,
+        );
+      },
+    );
+  }
+}
+
+class WorldSectionListView extends StatelessWidget {
+  const WorldSectionListView({required this.storageKey, required this.child});
+
+  final String storageKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      key: PageStorageKey<String>(storageKey),
+      primary: false,
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
+      children: [child],
+    );
+  }
+}
