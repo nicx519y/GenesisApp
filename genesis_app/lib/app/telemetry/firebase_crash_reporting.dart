@@ -10,8 +10,23 @@ class FirebaseCrashReporting {
 
   static Future<void> enable() async {
     if (_enabled) return;
+    final crashlytics = FirebaseCrashlytics.instance;
+    if (!kReleaseMode) {
+      try {
+        await crashlytics.setCrashlyticsCollectionEnabled(false);
+        await crashlytics.deleteUnsentReports();
+        debugPrint(
+          '[Telemetry][FirebaseCrashlytics] collection disabled '
+          'and unsent reports deleted for non-release build',
+        );
+      } catch (e, st) {
+        debugPrint('[Telemetry][FirebaseCrashlytics] disable failed: $e');
+        debugPrint('[Telemetry][FirebaseCrashlytics] stacktrace:\n$st');
+      }
+      return;
+    }
     try {
-      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+      await crashlytics.setCrashlyticsCollectionEnabled(true);
       _installFlutterErrorHandler();
       _installPlatformErrorHandler();
       _enabled = true;
