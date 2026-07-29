@@ -13,7 +13,16 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       locationId: widget.locationId,
     );
     _requestVisibleMessageGapFillIfNeeded(renderWindow.gaps, source);
-    final visibleSource = renderWindow.messages;
+    final visibleSource = renderWindow.messages
+        .where(
+          (message) =>
+              resolveChatroomMessageRenderKind(
+                messageType: message.messageType,
+                senderId: message.senderId,
+              ) !=
+              ChatroomMessageRenderKind.hidden,
+        )
+        .toList(growable: false);
     final previous = _messages.where((message) => !message.isSystem).toList();
     final existingByKey = {
       for (final message in previous) message.localId: message,
@@ -62,8 +71,16 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         identityState: resolvedIdentityState,
       );
       final text = _locationChatMessageDisplayText(message);
-      final senderType = _messageSenderType(message);
-      final imageUrl = senderType == 'image' ? text.trim() : '';
+      final renderKind = resolveChatroomMessageRenderKind(
+        messageType: message.messageType,
+        senderId: message.senderId,
+      );
+      final senderType = renderKind == ChatroomMessageRenderKind.image
+          ? 'image'
+          : _messageSenderType(message);
+      final imageUrl = renderKind == ChatroomMessageRenderKind.image
+          ? text.trim()
+          : '';
       final currentTime = _messageCurrentTime(message);
       final createdAt = message.createdAt ?? DateTime.now();
       if (existing != null) {
@@ -369,7 +386,6 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
   String _messageSenderType(WorldChatroomMessage message) {
     final senderType = message.senderType.trim().toLowerCase();
     if (senderType == 'narrator') {
-      if (_senderIdIsNarratorPicture(message.senderId)) return 'image';
       return _senderIdIsNarrator(message.senderId) ? 'narrator' : 'character';
     }
     if (senderType == 'tick') return 'tick';

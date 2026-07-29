@@ -63,6 +63,29 @@ void main() {
     },
   );
 
+  test('stored legacy nar_pic messages default to image only when absent', () {
+    final legacy = WorldChatroomMessage.fromStorageJson({
+      'msg_id': 3,
+      'location_msg_id': 3,
+      'location_id': 'loc-1',
+      'sender_type': 'narrator',
+      'sender_id': 'nar_pic',
+      'content': 'https://cdn.example.com/legacy.png',
+    });
+    final explicitText = WorldChatroomMessage.fromStorageJson({
+      'msg_id': 4,
+      'location_msg_id': 4,
+      'location_id': 'loc-1',
+      'sender_type': 'narrator',
+      'sender_id': 'nar_pic',
+      'content': 'This is text',
+      'message_type': 'text',
+    });
+
+    expect(legacy.messageType, 'image');
+    expect(explicitText.messageType, 'text');
+  });
+
   test(
     'message storage keeps an existing LLM stream marker during merge',
     () async {

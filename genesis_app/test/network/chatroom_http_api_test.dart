@@ -157,6 +157,29 @@ void main() {
       }).messageType,
       'future_format',
     );
+    expect(
+      ChatroomHttpMessage.fromJson({
+        'message_id': 4,
+        'sender_id': 'nar_pic',
+      }).messageType,
+      'image',
+    );
+    expect(
+      ChatroomHttpMessage.fromJson({
+        'message_id': 5,
+        'sender_id': 'nar_pic',
+        'message_type': null,
+      }).messageType,
+      'text',
+    );
+    expect(
+      ChatroomHttpMessage.fromJson({
+        'message_id': 6,
+        'sender_id': 'nar_pic',
+        'message_type': 'text',
+      }).messageType,
+      'text',
+    );
   });
 
   test('ChatroomMessageListResponse preserves raw response json', () {

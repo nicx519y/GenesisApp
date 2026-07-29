@@ -335,7 +335,7 @@
 - `sender_name`: string，发送者名称
 - `user_id`: string，用户消息时非空
 - `content`: string，消息内容
-- `message_type`: string，消息内容类型；`text` 表示文本，`image` 表示图片且 `content` 保存图片 URL；Flutter 读取时去除首尾空白并转为小写，字段缺失或为空时按 `text` 处理，未知非空值保留但按文本渲染
+- `message_type`: string，消息内容类型；`text` 表示文本，`image` 表示图片且 `content` 保存图片 URL。Flutter 读取时去除首尾空白并转为小写；字段缺失时，旧 `sender_id=nar_pic` 消息兼容为 `image`，其他发送方按 `text`；字段存在但为 `null` 或空字符串时按 `text`。只有 `image + nar_pic` 渲染图片，其他图片发送方和未知非空类型保留在消息模型和缓存中但不渲染
 - `current_time`: string，世界时间，tick advance 时非空
 - `tick_no`: integer，Tick 序号，仅 tick 相关消息时非零
 - `created_at`: string，创建时间，格式为 `2006-01-02 15:04:05`
@@ -1924,8 +1924,8 @@ query：
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
 | `GET /aitown-chat/api/ulocation` | `ChatroomHttpApi.getUserLocations(worldId)` query 使用 `world_id`，响应消费 `locations[].characters[]`，角色字段为 `char_id/player_uid/player_username/name/location_id`；`WorldChatroomService` 用 `player_uid` 识别真实用户并刷新所在 location，本地 mock 从 world detail 角色列表生成同形状响应。 |
-| `GET /aitown-chat/internal/world/messages` | `ChatroomHttpApi.getWorldMessages(worldId)` query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；`WorldChatroomService.refreshLatestMessages(...)` 的 latest 刷新走该 world 级接口，再按响应 location 分桶写入本地队列；`ChatroomHttpMessage` 按新 DTO 解析 `global_message_id/message_id/location_message_id/message_type/current_time/tick_no/created_at`，其中 `message_type` 缺失或为空时按 `text` 处理。 |
-| `GET /aitown-chat/api/messages` | `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)` query 使用 `world_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`；仅用于单 location 的 older 分页/补洞；每条消息消费 `message_type`，`image` 的 `content` 为图片 URL，其他值由客户端按文本处理；本地 mock 返回同形状 `MessageDTO` 字段。 |
+| `GET /aitown-chat/internal/world/messages` | `ChatroomHttpApi.getWorldMessages(worldId)` query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；`WorldChatroomService.refreshLatestMessages(...)` 的 latest 刷新走该 world 级接口，再按响应 location 分桶写入本地队列；`ChatroomHttpMessage` 按新 DTO 解析 `global_message_id/message_id/location_message_id/message_type/current_time/tick_no/created_at`。字段缺失时，旧 `sender_id=nar_pic` 消息兼容为 `image`，其他发送方按 `text`；字段显式为空时按 `text`。 |
+| `GET /aitown-chat/api/messages` | `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)` query 使用 `world_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`；仅用于单 location 的 older 分页/补洞；每条消息消费 `message_type`，`image` 的 `content` 为图片 URL。只有 `image + nar_pic` 渲染图片；其他图片发送方和未知非空类型正常存储但不渲染。本地 mock 返回同形状 `MessageDTO` 字段。 |
 | `POST /aitown-chat/internal/tick/lock` | 已新增 `ChatroomHttpApi.lockWorld(worldId)`，按 Apifox 同时发送 query `world_id` 与 multipart form `world_id`，响应消费 `locked`。 |
 | `GET /aitown-chat/internal/tick/progress` | 已新增 `ChatroomHttpApi.tickProgress(worldId)`，响应消费 `progress/pending_messages/active_llm_calls`。 |
 | `POST /aitown-chat/internal/tick/unlock` | 已新增 `ChatroomHttpApi.unlockWorld(worldId)`，multipart form 发送 `world_id`，响应消费 `unlocked`。 |

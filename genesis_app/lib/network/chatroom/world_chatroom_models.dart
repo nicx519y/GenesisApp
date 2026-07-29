@@ -186,6 +186,7 @@ class WorldChatroomMessage {
   }
 
   factory WorldChatroomMessage.fromStorageJson(Map<String, dynamic> json) {
+    final senderId = asString(json['sender_id']);
     return WorldChatroomMessage(
       globalMessageId: asInt(json['global_msg_id']),
       messageId: asInt(json['msg_id']),
@@ -199,11 +200,15 @@ class WorldChatroomMessage {
       locationId: asString(json['location_id']),
       senderType: asString(json['sender_type']),
       userId: asString(json['user_id']),
-      senderId: asString(json['sender_id']),
+      senderId: senderId,
       senderName: asString(json['sender_name']),
       clientMsgId: asString(json['client_msg_id']),
       content: asString(json['content']),
-      messageType: normalizeChatroomMessageType(json['message_type']),
+      messageType: resolveIncomingChatroomMessageType(
+        hasMessageTypeField: json.containsKey('message_type'),
+        rawMessageType: json['message_type'],
+        senderId: senderId,
+      ),
       currentTime: asString(json['current_time']),
       createdAt: asDateTime(json['ts']),
       isLlmStreamMessage: asBool(json['is_llm_stream']),

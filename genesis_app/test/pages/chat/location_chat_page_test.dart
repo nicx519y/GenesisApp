@@ -581,6 +581,8 @@ void main() {
 
     expect(websocketMessage.senderType, 'narrator');
     expect(httpMessage.senderType, 'narrator');
+    expect(websocketMessage.messageType, 'image');
+    expect(httpMessage.messageType, 'image');
     expect(find.byType(ChatImageMessage), findsNWidgets(2));
     expect(find.byType(ChatMessageBubble), findsNothing);
     final imageMessages = tester.widgetList<ChatImageMessage>(
@@ -596,6 +598,97 @@ void main() {
     );
     expect(find.text(imageUrl), findsNothing);
   });
+
+  testWidgets(
+    'location chat only renders nar_pic images and hides unknown types',
+    (tester) async {
+      const visibleImage = 'assets/images/default_list_image.png';
+      final acceptedImage = WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromJson({
+          'global_message_id': 1,
+          'message_id': 1,
+          'location_msg_id': 1,
+          'location_id': 'location-current',
+          'conversation_round_id': 1,
+          'sender_type': 'narrator',
+          'sender_id': 'nar_pic',
+          'sender_name': 'Narrator',
+          'content': visibleImage,
+          'message_type': 'image',
+        }),
+      );
+      final blockedImage = WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromJson({
+          'global_message_id': 2,
+          'message_id': 2,
+          'location_msg_id': 2,
+          'location_id': 'location-current',
+          'conversation_round_id': 2,
+          'sender_type': 'narrator',
+          'sender_id': 'nar',
+          'sender_name': 'Narrator',
+          'content': 'https://cdn.example.com/blocked.png',
+          'message_type': 'image',
+        }),
+      );
+      final unknown = WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromJson({
+          'global_message_id': 3,
+          'message_id': 3,
+          'location_msg_id': 3,
+          'location_id': 'location-current',
+          'conversation_round_id': 3,
+          'sender_type': 'narrator',
+          'sender_id': 'nar_pic',
+          'sender_name': 'Narrator',
+          'content': 'https://cdn.example.com/future.bin',
+          'message_type': 'future_format',
+        }),
+      );
+      final explicitText = WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromJson({
+          'global_message_id': 4,
+          'message_id': 4,
+          'location_msg_id': 4,
+          'location_id': 'location-current',
+          'conversation_round_id': 4,
+          'sender_type': 'narrator',
+          'sender_id': 'nar_pic',
+          'sender_name': 'Narrator',
+          'content': 'Visible narrator text',
+          'message_type': 'text',
+        }),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            active: false,
+            openingPreviewMessages: [
+              acceptedImage,
+              blockedImage,
+              unknown,
+              explicitText,
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(acceptedImage.messageType, 'image');
+      expect(blockedImage.messageType, 'image');
+      expect(unknown.messageType, 'future_format');
+      expect(explicitText.messageType, 'text');
+      expect(find.byType(ChatImageMessage), findsOneWidget);
+      expect(find.text('Visible narrator text'), findsOneWidget);
+      expect(find.text('https://cdn.example.com/blocked.png'), findsNothing);
+      expect(find.text('https://cdn.example.com/future.bin'), findsNothing);
+      expect(find.byType(ChatAvatar), findsNothing);
+      expect(find.text('Narrator'), findsNothing);
+    },
+  );
 
   testWidgets('location chat updates when cached selected model arrives', (
     tester,
