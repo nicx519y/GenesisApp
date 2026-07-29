@@ -25,6 +25,7 @@ class TilemapRenderer extends StatefulWidget {
         tilemapDefaultLocationImageFlowDurationSeconds,
     this.locationImageFlowBlendMode = tilemapDefaultLocationImageFlowBlendMode,
     this.initialScaleFactor = tilemapDefaultInitialScaleFactor,
+    this.dragBoundaryPaddingTiles = tilemapDefaultDragBoundaryPaddingTiles,
   });
 
   final TilemapConfig config;
@@ -47,6 +48,7 @@ class TilemapRenderer extends StatefulWidget {
   final double locationImageFlowDurationSeconds;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
   final double initialScaleFactor;
+  final double dragBoundaryPaddingTiles;
 
   @override
   State<TilemapRenderer> createState() => _TilemapRendererState();
@@ -64,6 +66,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
   Size? _lastMapSize;
   Rect? _lastContentBounds;
   double? _lastInitialScaleFactor;
+  Rect? _lastDragBoundary;
   TilemapConfig? _renderIndexConfig;
   double? _renderIndexMapWidth;
   double? _renderIndexMapHeight;
@@ -194,321 +197,388 @@ class _TilemapRendererState extends State<TilemapRenderer>
           final contentBounds = projection.imageBoundsForTiles(
             tilemapInitialContentTiles(widget.config.tiles),
           );
+          final dragBoundary = tilemapDragBoundaryForShadowTiles(
+            projection: projection,
+            tiles: widget.config.tiles,
+            paddingTiles: widget.dragBoundaryPaddingTiles,
+          );
           _syncInitialTransform(
             viewportSize: viewportSize,
             mapSize: mapSize,
             contentBounds: contentBounds,
             initialScaleFactor: widget.initialScaleFactor,
+            dragBoundary: dragBoundary,
           );
           return SizedBox(
             width: viewportWidth,
             height: viewportHeight,
-            child: ClipRect(
-              child: GestureDetector(
-                key: const ValueKey<String>('tilemap-gesture-layer'),
-                behavior: HitTestBehavior.opaque,
-                onScaleStart: (details) {
-                  _hasUserTransformedMap = true;
-                  _gestureStartTransform = _transformationController.value
-                      .clone();
-                  _gestureStartFocalPoint = details.localFocalPoint;
-                },
-                onScaleUpdate: (details) {
-                  _transformationController.value = tilemapGestureTransform(
-                    startTransform: _gestureStartTransform,
-                    startFocalPoint: _gestureStartFocalPoint,
-                    currentFocalPoint: details.localFocalPoint,
-                    gestureScale: details.scale,
-                  );
-                },
-                onTapUp: (details) {
-                  widget.onMapTap?.call();
-                  unawaited(_handleTap(details.localPosition, projection));
-                },
-                child: ValueListenableBuilder<Matrix4>(
-                  valueListenable: _transformationController,
-                  builder: (context, matrix, _) {
-                    final scale = tilemapTransformScale(matrix);
-                    final tilePixelSize = projection.tilePixelSize(
-                      scale: scale,
-                      devicePixelRatio: devicePixelRatio,
-                    );
-                    final visibleSceneBounds = tilemapVisibleSceneBounds(
-                      transform: matrix,
-                      viewportSize: viewportSize,
-                    );
-                    final records = _resolveRetainedRecords(
-                      renderIndex: renderIndex,
-                      visibleSceneBounds: visibleSceneBounds,
-                    );
-                    final tiles = _retainedTiles;
-                    final fogBounds = _retainedSceneBounds!.inflate(
-                      projection.tileExtent / tilemapFogSamplesPerTileExtent,
-                    );
-                    final fogField = !renderIndex.hasFogTiles
-                        ? null
-                        : _resolveFogField(
-                            projection: projection,
-                            fogBounds: fogBounds,
-                          );
-                    final locationLabels = <_TilemapLocationLabelData>[];
-                    final locationImageFlowTileKeys = <String>{};
-                    for (final tile in tiles) {
-                      if (!tile.isLocationTile) continue;
-                      final name =
-                          widget.locationNameForTile?.call(tile)?.trim() ?? '';
-                      if (name.isEmpty) continue;
-                      if (!tile.hasShadow) {
-                        locationImageFlowTileKeys.add(tile.cellKey);
-                      }
-                      locationLabels.add(
-                        _TilemapLocationLabelData(
-                          tile: tile,
-                          name: name,
-                          avatars:
-                              widget.locationAvatarsForTile?.call(tile) ??
-                              const <UserAvatar>[],
-                        ),
-                      );
-                    }
-                    _updateLocationImageFlowDemand(
-                      showLocationImageFlow &&
-                          locationImageFlowTileKeys.isNotEmpty,
-                    );
-                    return AnimatedBuilder(
-                      animation: _highlightController,
-                      builder: (context, _) {
-                        final highlightedTile = _highlightedTile(
-                          tiles,
-                          _highlightOpacity.value,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ClipRect(
+                    child: GestureDetector(
+                      key: const ValueKey<String>('tilemap-gesture-layer'),
+                      behavior: HitTestBehavior.opaque,
+                      onScaleStart: (details) {
+                        _hasUserTransformedMap = true;
+                        _gestureStartTransform = _transformationController.value
+                            .clone();
+                        _gestureStartFocalPoint = details.localFocalPoint;
+                      },
+                      onScaleUpdate: (details) {
+                        final gestureTransform = tilemapGestureTransform(
+                          startTransform: _gestureStartTransform,
+                          startFocalPoint: _gestureStartFocalPoint,
+                          currentFocalPoint: details.localFocalPoint,
+                          gestureScale: details.scale,
                         );
-                        final visibleCharacterIds = <String>{
-                          for (final label in locationLabels)
-                            for (final avatar in label.avatars)
-                              if (avatar.id.trim().isNotEmpty) avatar.id.trim(),
-                        };
-                        return TilemapMessageBubblePlayback(
-                          messageBubbles: widget.messageBubbles,
-                          visibleCharacterIds: visibleCharacterIds,
-                          paused: widget.messageBubblePlaybackPaused,
-                          builder: (context, activeBubble) {
-                            _TilemapLocationLabelData? activeBubbleLabel;
-                            var activeBubbleAvatarIndex = -1;
-                            if (activeBubble != null) {
-                              for (final label in locationLabels) {
-                                final avatarIndex = label.avatars.indexWhere(
-                                  (avatar) =>
-                                      avatar.id.trim() ==
-                                      activeBubble.characterId.trim(),
-                                );
-                                if (avatarIndex < 0) continue;
-                                activeBubbleLabel = label;
-                                activeBubbleAvatarIndex = avatarIndex;
-                                break;
-                              }
-                            }
-                            final activeBubbleLocationAnchor =
-                                activeBubbleLabel == null
-                                ? null
-                                : MatrixUtils.transformPoint(
-                                    matrix,
-                                    tilemapLocationBubbleSceneAnchor(
-                                      projection,
-                                      activeBubbleLabel.tile,
-                                    ),
-                                  );
-                            final activeBubbleAvatarTopLeft =
-                                activeBubbleLocationAnchor == null
-                                ? null
-                                : tilemapMessageBubbleAvatarTopLeft(
-                                    locationBubbleAnchor:
-                                        activeBubbleLocationAnchor,
-                                    avatarIndex: activeBubbleAvatarIndex,
-                                    avatarCount:
-                                        activeBubbleLabel!.avatars.length,
-                                  );
-                            return Stack(
-                              fit: StackFit.expand,
-                              clipBehavior: Clip.none,
-                              children: [
-                                Positioned.fill(
-                                  child: CustomPaint(
-                                    key: const ValueKey<String>('tilemap-grid'),
-                                    painter: _TilemapInfiniteGridPainter(
-                                      projection: projection,
-                                      scale: scale,
-                                      translation: Offset(
-                                        matrix.getTranslation().x,
-                                        matrix.getTranslation().y,
-                                      ),
-                                      lineColor: visualStyle.gridLineColor,
-                                    ),
-                                  ),
-                                ),
-                                if (renderIndex.hasFogTiles)
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      key: const ValueKey<String>(
-                                        'tilemap-fog-layer',
-                                      ),
-                                      child: Transform(
-                                        transform: matrix,
-                                        alignment: Alignment.topLeft,
-                                        child: SizedBox(
-                                          width: projection.mapWidth,
-                                          height: projection.mapHeight,
-                                          child: CustomPaint(
-                                            key: const ValueKey<String>(
-                                              'tilemap-fog-paint',
-                                            ),
-                                            painter: _TilemapFogPainter(
-                                              fogField!,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                Transform(
-                                  transform: matrix,
-                                  alignment: Alignment.topLeft,
-                                  child: SizedBox(
-                                    width: projection.mapWidth,
-                                    height: projection.mapHeight,
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        for (final record in records)
-                                          _ProjectedTile(
-                                            key: ValueKey<String>(
-                                              'tile-${record.tile.x}-'
-                                              '${record.tile.y}',
-                                            ),
-                                            tile: record.tile,
-                                            asset:
-                                                resolveTilemapAssetForDisplaySize(
-                                                  widget.config
-                                                      .baseAssetUrlForTile(
-                                                        record.tile,
-                                                      ),
-                                                  tilePixelSize,
-                                                ),
-                                            topLeft: record.imageTopLeft,
-                                            extent: projection.tileExtent,
-                                            locationImageFlowAnimation:
-                                                showLocationImageFlow &&
-                                                    locationImageFlowTileKeys
-                                                        .contains(
-                                                          record.tile.cellKey,
-                                                        )
-                                                ? _locationImageFlowController
-                                                : null,
-                                            locationImageFlowPhase:
-                                                tilemapLocationImageFlowPhase(
-                                                  record.tile,
-                                                ),
-                                            locationImageFlowAngleDegrees: widget
-                                                .locationImageFlowAngleDegrees,
-                                            locationImageFlowGradientPoints: widget
-                                                .locationImageFlowGradientPoints,
-                                            locationImageFlowOpacity:
-                                                widget.locationImageFlowOpacity,
-                                            locationImageFlowBlendMode: widget
-                                                .locationImageFlowBlendMode,
-                                            fogField:
-                                                widget.blendFogWithShadowTiles &&
-                                                    record.tile.hasShadow
-                                                ? fogField
-                                                : null,
-                                            onImageError: widget.onImageError,
-                                          ),
-                                        if (highlightedTile != null)
-                                          _ProjectedTileHighlight(
-                                            key: ValueKey<String>(
-                                              'tile-highlight-${highlightedTile.x}-${highlightedTile.y}',
-                                            ),
-                                            tile: highlightedTile,
-                                            projection: projection,
-                                            opacity: _highlightOpacity.value,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                if (widget.showShadowZeroBorders &&
-                                    renderIndex.hasShadowZeroTiles)
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      key: const ValueKey<String>(
-                                        'tilemap-shadow-zero-border-layer',
-                                      ),
-                                      child: Transform(
-                                        transform: matrix,
-                                        alignment: Alignment.topLeft,
-                                        child: SizedBox(
-                                          width: projection.mapWidth,
-                                          height: projection.mapHeight,
-                                          child: CustomPaint(
-                                            key: const ValueKey<String>(
-                                              'tilemap-shadow-zero-border-paint',
-                                            ),
-                                            painter:
-                                                _TilemapShadowZeroBorderPainter(
-                                                  projection: projection,
-                                                  tiles: tiles,
-                                                  scale: scale,
-                                                ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                for (final label in locationLabels)
-                                  _TilemapLocationBubble(
-                                    key: ValueKey<String>(
-                                      'tile-location-label-'
-                                      '${label.tile.x}-${label.tile.y}',
-                                    ),
-                                    name: label.name,
-                                    avatars: label.avatars,
-                                    onLabelTap: widget.onTileAction == null
-                                        ? null
-                                        : () =>
-                                              _handleOverlayTileTap(label.tile),
-                                    onAvatarTap: widget.onTileAction == null
-                                        ? null
-                                        : () =>
-                                              _handleOverlayTileTap(label.tile),
-                                    anchor: MatrixUtils.transformPoint(
-                                      matrix,
-                                      tilemapLocationBubbleSceneAnchor(
-                                        projection,
-                                        label.tile,
-                                      ),
-                                    ),
-                                  ),
-                                if (activeBubble != null &&
-                                    activeBubbleLabel != null &&
-                                    activeBubbleAvatarTopLeft != null)
-                                  TilemapCharacterMessageBubble(
-                                    text: activeBubble.content,
-                                    avatarTopLeft: activeBubbleAvatarTopLeft,
-                                    viewportWidth: viewportSize.width,
-                                    onTap: widget.onTileAction == null
-                                        ? null
-                                        : () => _handleOverlayTileTap(
-                                            activeBubbleLabel!.tile,
-                                          ),
-                                  ),
-                              ],
+                        _transformationController.value =
+                            tilemapConstrainTransformToBoundary(
+                              transform: gestureTransform,
+                              viewportSize: viewportSize,
+                              sceneBoundary: dragBoundary,
                             );
-                          },
+                      },
+                      onTapUp: (details) {
+                        widget.onMapTap?.call();
+                        unawaited(
+                          _handleTap(details.localPosition, projection),
                         );
                       },
-                    );
-                  },
+                      child: ValueListenableBuilder<Matrix4>(
+                        valueListenable: _transformationController,
+                        builder: (context, matrix, _) {
+                          final scale = tilemapTransformScale(matrix);
+                          final tilePixelSize = projection.tilePixelSize(
+                            scale: scale,
+                            devicePixelRatio: devicePixelRatio,
+                          );
+                          final visibleSceneBounds = tilemapVisibleSceneBounds(
+                            transform: matrix,
+                            viewportSize: viewportSize,
+                          );
+                          final records = _resolveRetainedRecords(
+                            renderIndex: renderIndex,
+                            visibleSceneBounds: visibleSceneBounds,
+                          );
+                          final tiles = _retainedTiles;
+                          final fogBounds = _retainedSceneBounds!.inflate(
+                            projection.tileExtent /
+                                tilemapFogSamplesPerTileExtent,
+                          );
+                          final fogField = !renderIndex.hasFogTiles
+                              ? null
+                              : _resolveFogField(
+                                  projection: projection,
+                                  fogBounds: fogBounds,
+                                );
+                          final locationLabels = <_TilemapLocationLabelData>[];
+                          final locationImageFlowTileKeys = <String>{};
+                          for (final tile in tiles) {
+                            if (!tile.isLocationTile) continue;
+                            final name =
+                                widget.locationNameForTile
+                                    ?.call(tile)
+                                    ?.trim() ??
+                                '';
+                            if (name.isEmpty) continue;
+                            if (!tile.hasShadow) {
+                              locationImageFlowTileKeys.add(tile.cellKey);
+                            }
+                            locationLabels.add(
+                              _TilemapLocationLabelData(
+                                tile: tile,
+                                name: name,
+                                avatars:
+                                    widget.locationAvatarsForTile?.call(tile) ??
+                                    const <UserAvatar>[],
+                              ),
+                            );
+                          }
+                          _updateLocationImageFlowDemand(
+                            showLocationImageFlow &&
+                                locationImageFlowTileKeys.isNotEmpty,
+                          );
+                          return AnimatedBuilder(
+                            animation: _highlightController,
+                            builder: (context, _) {
+                              final highlightedTile = _highlightedTile(
+                                tiles,
+                                _highlightOpacity.value,
+                              );
+                              final visibleCharacterIds = <String>{
+                                for (final label in locationLabels)
+                                  for (final avatar in label.avatars)
+                                    if (avatar.id.trim().isNotEmpty)
+                                      avatar.id.trim(),
+                              };
+                              return TilemapMessageBubblePlayback(
+                                messageBubbles: widget.messageBubbles,
+                                visibleCharacterIds: visibleCharacterIds,
+                                paused: widget.messageBubblePlaybackPaused,
+                                builder: (context, activeBubble) {
+                                  _TilemapLocationLabelData? activeBubbleLabel;
+                                  var activeBubbleAvatarIndex = -1;
+                                  if (activeBubble != null) {
+                                    for (final label in locationLabels) {
+                                      final avatarIndex = label.avatars
+                                          .indexWhere(
+                                            (avatar) =>
+                                                avatar.id.trim() ==
+                                                activeBubble.characterId.trim(),
+                                          );
+                                      if (avatarIndex < 0) continue;
+                                      activeBubbleLabel = label;
+                                      activeBubbleAvatarIndex = avatarIndex;
+                                      break;
+                                    }
+                                  }
+                                  final activeBubbleLocationAnchor =
+                                      activeBubbleLabel == null
+                                      ? null
+                                      : MatrixUtils.transformPoint(
+                                          matrix,
+                                          tilemapLocationBubbleSceneAnchor(
+                                            projection,
+                                            activeBubbleLabel.tile,
+                                          ),
+                                        );
+                                  final activeBubbleAvatarTopLeft =
+                                      activeBubbleLocationAnchor == null
+                                      ? null
+                                      : tilemapMessageBubbleAvatarTopLeft(
+                                          locationBubbleAnchor:
+                                              activeBubbleLocationAnchor,
+                                          avatarIndex: activeBubbleAvatarIndex,
+                                          avatarCount:
+                                              activeBubbleLabel!.avatars.length,
+                                        );
+                                  return Stack(
+                                    fit: StackFit.expand,
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Positioned.fill(
+                                        child: CustomPaint(
+                                          key: const ValueKey<String>(
+                                            'tilemap-grid',
+                                          ),
+                                          painter: _TilemapInfiniteGridPainter(
+                                            projection: projection,
+                                            scale: scale,
+                                            translation: Offset(
+                                              matrix.getTranslation().x,
+                                              matrix.getTranslation().y,
+                                            ),
+                                            lineColor:
+                                                visualStyle.gridLineColor,
+                                          ),
+                                        ),
+                                      ),
+                                      if (renderIndex.hasFogTiles)
+                                        Positioned.fill(
+                                          child: IgnorePointer(
+                                            key: const ValueKey<String>(
+                                              'tilemap-fog-layer',
+                                            ),
+                                            child: Transform(
+                                              transform: matrix,
+                                              alignment: Alignment.topLeft,
+                                              child: SizedBox(
+                                                width: projection.mapWidth,
+                                                height: projection.mapHeight,
+                                                child: CustomPaint(
+                                                  key: const ValueKey<String>(
+                                                    'tilemap-fog-paint',
+                                                  ),
+                                                  painter: _TilemapFogPainter(
+                                                    fogField!,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      Transform(
+                                        key: const ValueKey<String>(
+                                          'tilemap-tile-transform',
+                                        ),
+                                        transform: matrix,
+                                        alignment: Alignment.topLeft,
+                                        child: SizedBox(
+                                          width: projection.mapWidth,
+                                          height: projection.mapHeight,
+                                          child: Stack(
+                                            clipBehavior: Clip.none,
+                                            children: [
+                                              for (final record in records)
+                                                _ProjectedTile(
+                                                  key: ValueKey<String>(
+                                                    'tile-${record.tile.x}-'
+                                                    '${record.tile.y}',
+                                                  ),
+                                                  tile: record.tile,
+                                                  asset:
+                                                      resolveTilemapAssetForDisplaySize(
+                                                        widget.config
+                                                            .baseAssetUrlForTile(
+                                                              record.tile,
+                                                            ),
+                                                        tilePixelSize,
+                                                      ),
+                                                  topLeft: record.imageTopLeft,
+                                                  extent: projection.tileExtent,
+                                                  locationImageFlowAnimation:
+                                                      showLocationImageFlow &&
+                                                          locationImageFlowTileKeys
+                                                              .contains(
+                                                                record
+                                                                    .tile
+                                                                    .cellKey,
+                                                              )
+                                                      ? _locationImageFlowController
+                                                      : null,
+                                                  locationImageFlowPhase:
+                                                      tilemapLocationImageFlowPhase(
+                                                        record.tile,
+                                                      ),
+                                                  locationImageFlowAngleDegrees:
+                                                      widget
+                                                          .locationImageFlowAngleDegrees,
+                                                  locationImageFlowGradientPoints:
+                                                      widget
+                                                          .locationImageFlowGradientPoints,
+                                                  locationImageFlowOpacity: widget
+                                                      .locationImageFlowOpacity,
+                                                  locationImageFlowBlendMode: widget
+                                                      .locationImageFlowBlendMode,
+                                                  fogField:
+                                                      widget.blendFogWithShadowTiles &&
+                                                          record.tile.hasShadow
+                                                      ? fogField
+                                                      : null,
+                                                  onImageError:
+                                                      widget.onImageError,
+                                                ),
+                                              if (highlightedTile != null)
+                                                _ProjectedTileHighlight(
+                                                  key: ValueKey<String>(
+                                                    'tile-highlight-${highlightedTile.x}-${highlightedTile.y}',
+                                                  ),
+                                                  tile: highlightedTile,
+                                                  projection: projection,
+                                                  opacity:
+                                                      _highlightOpacity.value,
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      if (widget.showShadowZeroBorders &&
+                                          renderIndex.hasShadowZeroTiles)
+                                        Positioned.fill(
+                                          child: IgnorePointer(
+                                            key: const ValueKey<String>(
+                                              'tilemap-shadow-zero-border-layer',
+                                            ),
+                                            child: Transform(
+                                              transform: matrix,
+                                              alignment: Alignment.topLeft,
+                                              child: SizedBox(
+                                                width: projection.mapWidth,
+                                                height: projection.mapHeight,
+                                                child: CustomPaint(
+                                                  key: const ValueKey<String>(
+                                                    'tilemap-shadow-zero-border-paint',
+                                                  ),
+                                                  painter:
+                                                      _TilemapShadowZeroBorderPainter(
+                                                        projection: projection,
+                                                        tiles: tiles,
+                                                        scale: scale,
+                                                      ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      for (final label in locationLabels)
+                                        _TilemapLocationBubble(
+                                          key: ValueKey<String>(
+                                            'tile-location-label-'
+                                            '${label.tile.x}-${label.tile.y}',
+                                          ),
+                                          name: label.name,
+                                          avatars: label.avatars,
+                                          onLabelTap:
+                                              widget.onTileAction == null
+                                              ? null
+                                              : () => _handleOverlayTileTap(
+                                                  label.tile,
+                                                ),
+                                          onAvatarTap:
+                                              widget.onTileAction == null
+                                              ? null
+                                              : () => _handleOverlayTileTap(
+                                                  label.tile,
+                                                ),
+                                          anchor: MatrixUtils.transformPoint(
+                                            matrix,
+                                            tilemapLocationBubbleSceneAnchor(
+                                              projection,
+                                              label.tile,
+                                            ),
+                                          ),
+                                        ),
+                                      if (activeBubble != null &&
+                                          activeBubbleLabel != null &&
+                                          activeBubbleAvatarTopLeft != null)
+                                        TilemapCharacterMessageBubble(
+                                          text: activeBubble.content,
+                                          avatarTopLeft:
+                                              activeBubbleAvatarTopLeft,
+                                          viewportWidth: viewportSize.width,
+                                          onTap: widget.onTileAction == null
+                                              ? null
+                                              : () => _handleOverlayTileTap(
+                                                  activeBubbleLabel!.tile,
+                                                ),
+                                        ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                Positioned(
+                  right: legacyWorldMapZoomControlRightGap,
+                  bottom: legacyWorldMapZoomControlBottomGap,
+                  child: ValueListenableBuilder<Matrix4>(
+                    valueListenable: _transformationController,
+                    builder: (context, matrix, child) {
+                      final scale = tilemapTransformScale(matrix);
+                      return LegacyWorldMapZoomControl(
+                        canZoomIn: scale < tilemapMaxScale - 0.001,
+                        canZoomOut: scale > tilemapMinScale + 0.001,
+                        onZoomIn: () => _zoomByControl(
+                          zoomIn: true,
+                          viewportSize: viewportSize,
+                          dragBoundary: dragBoundary,
+                        ),
+                        onZoomOut: () => _zoomByControl(
+                          zoomIn: false,
+                          viewportSize: viewportSize,
+                          dragBoundary: dragBoundary,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -661,23 +731,73 @@ class _TilemapRendererState extends State<TilemapRenderer>
     required Size mapSize,
     required Rect contentBounds,
     required double initialScaleFactor,
+    required Rect? dragBoundary,
   }) {
+    final dragBoundaryChanged = _lastDragBoundary != dragBoundary;
     if (_lastViewportSize == viewportSize &&
         _lastMapSize == mapSize &&
         _lastContentBounds == contentBounds &&
-        _lastInitialScaleFactor == initialScaleFactor) {
+        _lastInitialScaleFactor == initialScaleFactor &&
+        !dragBoundaryChanged) {
       return;
     }
     _lastViewportSize = viewportSize;
     _lastMapSize = mapSize;
     _lastContentBounds = contentBounds;
     _lastInitialScaleFactor = initialScaleFactor;
-    if (_hasUserTransformedMap) return;
-    _transformationController.value = tilemapInitialTransform(
+    _lastDragBoundary = dragBoundary;
+    if (_hasUserTransformedMap) {
+      if (dragBoundaryChanged) {
+        _transformationController.value = tilemapConstrainTransformToBoundary(
+          transform: _transformationController.value,
+          viewportSize: viewportSize,
+          sceneBoundary: dragBoundary,
+        );
+      }
+      return;
+    }
+    final initialTransform = tilemapInitialTransform(
       viewportSize: viewportSize,
       mapSize: mapSize,
       contentBounds: contentBounds,
       initialScaleFactor: initialScaleFactor,
+    );
+    _transformationController.value = tilemapConstrainTransformToBoundary(
+      transform: initialTransform,
+      viewportSize: viewportSize,
+      sceneBoundary: dragBoundary,
+    );
+  }
+
+  void _zoomByControl({
+    required bool zoomIn,
+    required Size viewportSize,
+    required Rect? dragBoundary,
+  }) {
+    _hasUserTransformedMap = true;
+    final currentTransform = _transformationController.value;
+    final currentScale = tilemapTransformScale(currentTransform);
+    final targetScale =
+        (zoomIn
+                ? currentScale * tilemapZoomControlScaleFactor
+                : currentScale / tilemapZoomControlScaleFactor)
+            .clamp(tilemapMinScale, tilemapMaxScale)
+            .toDouble();
+    if ((targetScale - currentScale).abs() < 0.001) return;
+    final viewportCenter = viewportSize.center(Offset.zero);
+    final sceneCenter = MatrixUtils.transformPoint(
+      Matrix4.inverted(currentTransform),
+      viewportCenter,
+    );
+    final nextTransform = tilemapTransformForSceneFocalPoint(
+      sceneFocalPoint: sceneCenter,
+      viewportFocalPoint: viewportCenter,
+      scale: targetScale,
+    );
+    _transformationController.value = tilemapConstrainTransformToBoundary(
+      transform: nextTransform,
+      viewportSize: viewportSize,
+      sceneBoundary: dragBoundary,
     );
   }
 }

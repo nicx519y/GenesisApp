@@ -41,6 +41,7 @@ import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/components/world_map_location_action.dart';
+import 'package:genesis_flutter_android/components/world_top_overlay_bar.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
@@ -5334,6 +5335,54 @@ void main() {
     expect(find.byType(Tilemap), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
   });
+
+  testWidgets(
+    'origin Tilemap navigation only reserves a visible settings button',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final navigationBar = find.byType(WorldTopOverlayBar);
+      final settingsButton = find.byKey(
+        const ValueKey<String>('tilemap-settings-button'),
+      );
+      final viewportWidth =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
+
+      expect(navigationBar, findsOneWidget);
+      expect(settingsButton, findsNothing);
+      expect(
+        tester.getTopRight(navigationBar).dx,
+        moreOrLessEquals(viewportWidth - 12),
+      );
+
+      await tilemapSettingsButtonVisibility.setVisible(true);
+      await tester.pumpAndSettle();
+
+      expect(settingsButton, findsOneWidget);
+      expect(
+        tester.getTopRight(navigationBar).dx,
+        moreOrLessEquals(viewportWidth - 60),
+      );
+
+      await tilemapSettingsButtonVisibility.setVisible(false);
+      await tester.pumpAndSettle();
+
+      expect(settingsButton, findsNothing);
+      expect(
+        tester.getTopRight(navigationBar).dx,
+        moreOrLessEquals(viewportWidth - 12),
+      );
+    },
+  );
 
   testWidgets(
     'origin v2 Tilemap keeps full single-child tree for location taps',

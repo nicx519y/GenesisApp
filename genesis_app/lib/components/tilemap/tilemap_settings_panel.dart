@@ -47,6 +47,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.locationImageFlowDurationSeconds,
     required this.locationImageFlowBlendMode,
     required this.initialScaleFactor,
+    required this.dragBoundaryPaddingTiles,
     required this.onVisualModeChanged,
     required this.onFogControlPointsChanged,
     required this.onBlendFogWithShadowTilesChanged,
@@ -58,6 +59,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.onLocationImageFlowDurationSecondsChanged,
     required this.onLocationImageFlowBlendModeChanged,
     required this.onInitialScaleFactorChanged,
+    required this.onDragBoundaryPaddingTilesChanged,
     required this.onCopySettings,
     required this.onResetSettings,
     required this.onClose,
@@ -75,6 +77,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final double locationImageFlowDurationSeconds;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
   final double initialScaleFactor;
+  final double dragBoundaryPaddingTiles;
   final ValueChanged<TilemapVisualMode> onVisualModeChanged;
   final ValueChanged<List<TilemapFogControlPoint>> onFogControlPointsChanged;
   final ValueChanged<bool> onBlendFogWithShadowTilesChanged;
@@ -88,6 +91,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final ValueChanged<TilemapLocationImageFlowBlendMode>
   onLocationImageFlowBlendModeChanged;
   final ValueChanged<double> onInitialScaleFactorChanged;
+  final ValueChanged<double> onDragBoundaryPaddingTilesChanged;
   final VoidCallback onCopySettings;
   final VoidCallback onResetSettings;
   final VoidCallback onClose;
@@ -218,6 +222,36 @@ class _TilemapSettingsPanel extends StatelessWidget {
               foregroundColor: foregroundColor,
               secondaryColor: secondaryColor,
               onChanged: onInitialScaleFactorChanged,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Drag boundary',
+              style: TextStyle(
+                color: foregroundColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              'The shadow == 1 tile bounds are expanded by this thickness.',
+              style: TextStyle(color: secondaryColor, fontSize: 10),
+            ),
+            _TilemapSettingsSlider(
+              label: 'Padding',
+              value: dragBoundaryPaddingTiles,
+              min: tilemapDragBoundaryPaddingTilesMin,
+              max: tilemapDragBoundaryPaddingTilesMax,
+              divisions:
+                  (tilemapDragBoundaryPaddingTilesMax -
+                          tilemapDragBoundaryPaddingTilesMin)
+                      .round(),
+              valueLabel: '${dragBoundaryPaddingTiles.round()} tiles',
+              sliderKey: const ValueKey<String>(
+                'tilemap-settings-drag-boundary-padding',
+              ),
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onDragBoundaryPaddingTilesChanged,
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),

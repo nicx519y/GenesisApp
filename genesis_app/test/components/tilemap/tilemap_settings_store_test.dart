@@ -62,6 +62,10 @@ void main() {
       tilemapDefaultLocationImageFlowBlendMode,
     );
     expect(settings.initialScaleFactor, tilemapDefaultInitialScaleFactor);
+    expect(
+      settings.dragBoundaryPaddingTiles,
+      tilemapDefaultDragBoundaryPaddingTiles,
+    );
   });
 
   test('round trips every tilemap rendering setting', () async {
@@ -105,6 +109,7 @@ void main() {
       locationImageFlowDurationSeconds: 4.5,
       locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
       initialScaleFactor: 1.25,
+      dragBoundaryPaddingTiles: 8,
     );
     const store = TilemapSettingsStore();
 
@@ -125,6 +130,7 @@ void main() {
       TilemapLocationImageFlowBlendMode.screen,
     );
     expect(restored.initialScaleFactor, 1.25);
+    expect(restored.dragBoundaryPaddingTiles, 8);
 
     final serialized = jsonDecode(settings.toSerializedJson());
     expect(serialized['schema_version'], 1);
@@ -143,6 +149,7 @@ void main() {
     expect(serialized['location_image_flow_duration_seconds'], 4.5);
     expect(serialized['location_image_flow_blend_mode'], 'screen');
     expect(serialized['initial_scale_factor'], 1.25);
+    expect(serialized['drag_boundary_padding_tiles'], 8);
   });
 
   test('falls back only invalid cached fields', () async {
@@ -163,6 +170,7 @@ void main() {
         'location_image_flow_duration_seconds': 20,
         'location_image_flow_blend_mode': 'invalid',
         'initial_scale_factor': 4,
+        'drag_boundary_padding_tiles': 40,
       }),
     });
 
@@ -194,6 +202,10 @@ void main() {
       tilemapDefaultLocationImageFlowBlendMode,
     );
     expect(settings.initialScaleFactor, tilemapDefaultInitialScaleFactor);
+    expect(
+      settings.dragBoundaryPaddingTiles,
+      tilemapDefaultDragBoundaryPaddingTiles,
+    );
   });
 
   test('old cached settings default the location shimmer to enabled', () async {
@@ -234,6 +246,10 @@ void main() {
       settings.locationImageFlowBlendMode,
       tilemapDefaultLocationImageFlowBlendMode,
     );
+    expect(
+      settings.dragBoundaryPaddingTiles,
+      tilemapDefaultDragBoundaryPaddingTiles,
+    );
   });
 
   test('clear removes cached settings and restores defaults', () async {
@@ -251,6 +267,7 @@ void main() {
       locationImageFlowDurationSeconds: 6,
       locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.overlay,
       initialScaleFactor: 1.25,
+      dragBoundaryPaddingTiles: 9,
     );
     await store.save(settings);
 

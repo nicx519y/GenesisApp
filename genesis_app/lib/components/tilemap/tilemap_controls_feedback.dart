@@ -11,6 +11,7 @@ class _TilemapSettingsSlider extends StatelessWidget {
     required this.foregroundColor,
     required this.secondaryColor,
     required this.onChanged,
+    this.divisions,
   });
 
   final String label;
@@ -22,6 +23,7 @@ class _TilemapSettingsSlider extends StatelessWidget {
   final Color foregroundColor;
   final Color secondaryColor;
   final ValueChanged<double> onChanged;
+  final int? divisions;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +50,7 @@ class _TilemapSettingsSlider extends StatelessWidget {
                 value: value.clamp(min, max).toDouble(),
                 min: min,
                 max: max,
+                divisions: divisions,
                 onChanged: onChanged,
               ),
             ),

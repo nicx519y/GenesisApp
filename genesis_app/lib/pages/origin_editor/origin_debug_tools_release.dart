@@ -6,7 +6,10 @@ import '../create/create_origin_draft_store.dart';
 import 'origin_draft_repository.dart';
 
 typedef OriginDebugDraftGenerator =
-    FutureOr<CreateOriginDraft> Function(CreateOriginDraft currentDraft);
+    FutureOr<CreateOriginDraft> Function(
+      BuildContext context,
+      CreateOriginDraft currentDraft,
+    );
 
 OriginDebugDraftGenerator? createOriginDebugDraftGenerator() => null;
 
