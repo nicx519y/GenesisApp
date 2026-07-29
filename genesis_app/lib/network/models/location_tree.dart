@@ -252,7 +252,7 @@ List<LocationTreeNode<T>> flattenLocationTree<T>(
 LocationTreeNode<T>? _resolveInitialTilemapLocationNode<T>(
   List<LocationTreeNode<T>> roots,
 ) {
-  LocationTreeNode<T>? firstMultipleLeafParent;
+  LocationTreeNode<T>? firstMultipleChildrenNode;
   LocationTreeNode<T>? lastLeafParent;
 
   bool visit(LocationTreeNode<T> node, LocationTreeNode<T>? parent) {
@@ -260,11 +260,8 @@ LocationTreeNode<T>? _resolveInitialTilemapLocationNode<T>(
       lastLeafParent = parent;
       return false;
     }
-    final directLeafCount = node.children
-        .where((child) => child.children.isEmpty)
-        .length;
-    if (directLeafCount >= 2) {
-      firstMultipleLeafParent = node;
+    if (node.children.length >= 2) {
+      firstMultipleChildrenNode = node;
       return true;
     }
     for (final child in node.children) {
@@ -274,7 +271,7 @@ LocationTreeNode<T>? _resolveInitialTilemapLocationNode<T>(
   }
 
   for (final root in roots) {
-    if (visit(root, null)) return firstMultipleLeafParent;
+    if (visit(root, null)) return firstMultipleChildrenNode;
   }
   return lastLeafParent;
 }

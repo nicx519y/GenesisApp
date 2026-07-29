@@ -5337,7 +5337,7 @@ void main() {
   });
 
   testWidgets(
-    'origin detail version 2 selects first multiple-leaf Tilemap location',
+    'origin detail version 2 selects first multiple-children Tilemap location',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(
         originDefinitionVersion: 2,
@@ -5365,7 +5365,7 @@ void main() {
       expect(requests, hasLength(1));
       expect(requests.single.uri.queryParameters, {
         'origin_id': 'o_test_1',
-        'location_id': 'branch_a',
+        'location_id': 'top',
       });
     },
   );
