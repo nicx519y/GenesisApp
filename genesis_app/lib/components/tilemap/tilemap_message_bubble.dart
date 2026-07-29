@@ -74,6 +74,7 @@ class _TilemapMessageBubblePlaybackState
     return WorldMapMessageBubble(
       characterId: bubble.characterId,
       content: pages[_pageIndex % pages.length],
+      preservePageWidth: _pageIndex > 0,
     );
   }
 
@@ -197,11 +198,11 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
     required this.avatarTopLeft,
     required this.viewportWidth,
     required this.onTap,
+    this.preservePageWidth = false,
   });
 
   static const double _bubbleGap = 8;
-  static const double _bubbleWidth = 220;
-  static const double _pointerWidth = 12;
+  static const double _pointerWidth = worldMapMessageBubblePointerWidth;
   static const double _pointerHeight = 10;
   static const double _viewportPadding = 8;
 
@@ -209,19 +210,25 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
   final Offset avatarTopLeft;
   final double viewportWidth;
   final VoidCallback? onTap;
+  final bool preservePageWidth;
 
   @override
   Widget build(BuildContext context) {
+    final bubbleWidth = resolveWorldMapMessageBubbleWidth(
+      context,
+      text,
+      preservePageWidth: preservePageWidth,
+    );
     final avatarCenterX = avatarTopLeft.dx + tilemapLocationAvatarSize / 2;
     final maximumLeft = math.max(
       _viewportPadding,
-      viewportWidth - _bubbleWidth - _viewportPadding,
+      viewportWidth - bubbleWidth - _viewportPadding,
     );
-    final viewportConstrainedLeft = (avatarCenterX - _bubbleWidth / 2)
+    final viewportConstrainedLeft = (avatarCenterX - bubbleWidth / 2)
         .clamp(_viewportPadding, maximumLeft)
         .toDouble();
     final pointerLeft = (avatarCenterX - viewportConstrainedLeft)
-        .clamp(_bubbleWidth / 4, _bubbleWidth * 3 / 4)
+        .clamp(bubbleWidth / 4, bubbleWidth * 3 / 4)
         .toDouble();
     final left = avatarCenterX - pointerLeft;
 
@@ -232,7 +239,7 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
           tilemapLocationAvatarSize +
           _bubbleGap -
           _pointerHeight,
-      width: _bubbleWidth,
+      width: bubbleWidth,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
@@ -272,19 +279,14 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: worldMapMessageBubbleHorizontalPadding,
                       vertical: 9,
                     ),
                     child: Text(
                       text,
                       maxLines: 3,
                       overflow: TextOverflow.clip,
-                      style: const TextStyle(
-                        color: Color(0xFF1F1F1F),
-                        fontSize: 11,
-                        height: 1.25,
-                        fontWeight: FontWeight.w400,
-                      ),
+                      style: worldMapMessageBubbleTextStyle,
                     ),
                   ),
                 ),

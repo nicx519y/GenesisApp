@@ -268,7 +268,7 @@ void main() {
     expect(tappedIds, ['point-1']);
   });
 
-  testWidgets('world map bubble keeps fixed width with adaptive height', (
+  testWidgets('world map bubble adapts width up to the maximum', (
     tester,
   ) async {
     const bubbleBodyKey = ValueKey<String>('world-map-message-bubble-body');
@@ -295,8 +295,8 @@ void main() {
     );
 
     final longSize = tester.getSize(find.byKey(bubbleBodyKey));
-    expect(shortSize.width, longSize.width);
-    expect(shortSize.width, 220);
+    expect(shortSize.width, lessThan(longSize.width));
+    expect(longSize.width, worldMapMessageBubbleMaxWidth);
     expect(shortSize.height, lessThan(longSize.height));
   });
 
@@ -409,6 +409,29 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.textContaining('Ava counts every crate'), findsOneWidget);
+  });
+
+  testWidgets('world map keeps the first-page width for a short remainder', (
+    tester,
+  ) async {
+    final longText = '${List<String>.filled(29, 'word').join(' ')} tail';
+    const bubbleBodyKey = ValueKey<String>('world-map-message-bubble-body');
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: [
+        WorldMapMessageBubble(characterId: 'char_a', content: longText),
+      ],
+    );
+
+    final firstPageWidth = tester.getSize(find.byKey(bubbleBodyKey)).width;
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.text('tail'), findsOneWidget);
+    final remainderWidth = tester.getSize(find.byKey(bubbleBodyKey)).width;
+
+    expect(firstPageWidth, worldMapMessageBubbleMaxWidth);
+    expect(remainderWidth, firstPageWidth);
   });
 
   testWidgets('world map pauses bubble playback while location chat is open', (

@@ -32,13 +32,21 @@ class _OpeningDialogueEditor extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (int index = 0; index < items.length; index++) ...[
-            _OpeningDialogueContentEditor(
-              item: items[index],
-              style: style,
-              onDelete: () => onDelete(items[index]),
-              onChanged: onChanged,
+            CreateKeyboardSafeFocusRegion(
+              builder: (context, focusNode) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _OpeningDialogueContentEditor(
+                    item: items[index],
+                    style: style,
+                    onDelete: () => onDelete(items[index]),
+                    onChanged: onChanged,
+                    focusNode: focusNode,
+                  ),
+                  const SizedBox(height: 14),
+                ],
+              ),
             ),
-            const SizedBox(height: 14),
           ],
           Column(
             key: const ValueKey<String>('opening-dialogue-add-buttons'),
@@ -114,12 +122,14 @@ class _OpeningDialogueContentEditor extends StatelessWidget {
     required this.style,
     required this.onDelete,
     required this.onChanged,
+    required this.focusNode,
   });
 
   final _OpeningDialogueItem item;
   final ChatUiStyleConfig style;
   final VoidCallback onDelete;
   final VoidCallback onChanged;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -129,12 +139,14 @@ class _OpeningDialogueContentEditor extends StatelessWidget {
         style: style,
         onDelete: onDelete,
         onChanged: onChanged,
+        focusNode: focusNode,
       ),
       _OpeningDialogueType.character => _OpeningCharacterEditor(
         item: item,
         style: style,
         onDelete: onDelete,
         onChanged: onChanged,
+        focusNode: focusNode,
       ),
       _OpeningDialogueType.image => _OpeningImageEditor(
         item: item,
@@ -152,12 +164,14 @@ class _OpeningNarratorEditor extends StatelessWidget {
     required this.style,
     required this.onDelete,
     required this.onChanged,
+    required this.focusNode,
   });
 
   final _OpeningDialogueItem item;
   final ChatUiStyleConfig style;
   final VoidCallback onDelete;
   final VoidCallback onChanged;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -196,10 +210,14 @@ class _OpeningNarratorEditor extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: _OpeningDialogueTextField(
+                    key: ValueKey<String>(
+                      '${item.id}-keyboard-safe-text-field',
+                    ),
                     item: item,
                     hintText: 'Enter narrator dialogue',
                     style: style.systemMessageTextStyle,
                     onChanged: onChanged,
+                    focusNode: focusNode,
                   ),
                 ),
               ],
@@ -226,12 +244,14 @@ class _OpeningCharacterEditor extends StatelessWidget {
     required this.style,
     required this.onDelete,
     required this.onChanged,
+    required this.focusNode,
   });
 
   final _OpeningDialogueItem item;
   final ChatUiStyleConfig style;
   final VoidCallback onDelete;
   final VoidCallback onChanged;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -288,10 +308,14 @@ class _OpeningCharacterEditor extends StatelessWidget {
                       ),
                     ),
                     child: _OpeningDialogueTextField(
+                      key: ValueKey<String>(
+                        '${item.id}-keyboard-safe-text-field',
+                      ),
                       item: item,
                       hintText: 'Enter $name dialogue',
                       style: style.bubbleTextStyle,
                       onChanged: onChanged,
+                      focusNode: focusNode,
                     ),
                   ),
                 ],
@@ -316,24 +340,34 @@ class _OpeningCharacterEditor extends StatelessWidget {
 
 class _OpeningDialogueTextField extends StatelessWidget {
   const _OpeningDialogueTextField({
+    super.key,
     required this.item,
     required this.hintText,
     required this.style,
     required this.onChanged,
+    required this.focusNode,
   });
 
   final _OpeningDialogueItem item;
   final String hintText;
   final TextStyle style;
   final VoidCallback onChanged;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       key: ValueKey<String>('${item.id}-field'),
       controller: item.controller,
+      focusNode: focusNode,
       keyboardType: TextInputType.multiline,
       textInputAction: TextInputAction.newline,
+      scrollPadding: const EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        kMinInteractiveDimension,
+      ),
       minLines: 3,
       maxLines: null,
       style: style,

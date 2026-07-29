@@ -613,6 +613,7 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
     return WorldMapMessageBubble(
       characterId: bubble.characterId,
       content: page,
+      preservePageWidth: _messageBubblePageIndex > 0,
     );
   }
 

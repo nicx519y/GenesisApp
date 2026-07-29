@@ -374,6 +374,7 @@ class LegacyWorldMapPointMessageBubblePositioned extends StatelessWidget {
 
     return LegacyWorldMapPositionedMessageBubble(
       text: bubble.content,
+      preservePageWidth: bubble.preservePageWidth,
       markerLeft: left,
       markerTop: top,
       avatarLeft: _worldPointAvatarLeft(bubbleIndex, users.length, markerWidth),

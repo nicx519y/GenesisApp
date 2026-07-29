@@ -1,11 +1,40 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'world_point.dart';
 
 typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
+
+const double worldMapMessageBubbleMaxWidth = 220;
+const double worldMapMessageBubbleHorizontalPadding = 12;
+const double worldMapMessageBubblePointerWidth = 12;
+const TextStyle worldMapMessageBubbleTextStyle = TextStyle(
+  color: Color(0xFF1F1F1F),
+  fontSize: 11,
+  height: 1.25,
+  fontWeight: FontWeight.w400,
+);
+
+double resolveWorldMapMessageBubbleWidth(
+  BuildContext context,
+  String text, {
+  bool preservePageWidth = false,
+}) {
+  if (preservePageWidth) return worldMapMessageBubbleMaxWidth;
+  final normalized = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final painter = TextPainter(
+    text: TextSpan(text: normalized, style: worldMapMessageBubbleTextStyle),
+    maxLines: 1,
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  const horizontalInsets = worldMapMessageBubbleHorizontalPadding * 2;
+  const minimumWidth = worldMapMessageBubblePointerWidth * 3;
+  return (painter.width + horizontalInsets)
+      .clamp(minimumWidth, worldMapMessageBubbleMaxWidth)
+      .toDouble();
+}
 
 @immutable
 class WorldMapHorizontalPanState {
@@ -23,10 +52,12 @@ class WorldMapMessageBubble {
   const WorldMapMessageBubble({
     required this.characterId,
     required this.content,
+    this.preservePageWidth = false,
   });
 
   final String characterId;
   final String content;
+  final bool preservePageWidth;
 }
 
 @immutable

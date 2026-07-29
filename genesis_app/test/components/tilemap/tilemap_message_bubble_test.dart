@@ -58,6 +58,72 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('Tilemap bubble marks only continuation pages to keep width', (
+    tester,
+  ) async {
+    final content = '${List<String>.filled(29, 'word').join(' ')} tail';
+    WorldMapMessageBubble? activeBubble;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TilemapMessageBubblePlayback(
+          messageBubbles: [
+            WorldMapMessageBubble(characterId: 'char_1', content: content),
+          ],
+          visibleCharacterIds: const {'char_1'},
+          paused: false,
+          builder: (context, active) {
+            activeBubble = active;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(activeBubble?.preservePageWidth, isFalse);
+
+    await tester.pump(tilemapMessageBubbleDisplayDuration);
+    expect(activeBubble?.content, 'tail');
+    expect(activeBubble?.preservePageWidth, isTrue);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Tilemap character bubble adapts short single-page content', (
+    tester,
+  ) async {
+    Widget harness({bool preservePageWidth = false}) {
+      return MaterialApp(
+        home: SizedBox(
+          width: 300,
+          height: 500,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              TilemapCharacterMessageBubble(
+                text: 'Short.',
+                avatarTopLeft: const Offset(120, 100),
+                viewportWidth: 300,
+                preservePageWidth: preservePageWidth,
+                onTap: null,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    const bodyKey = ValueKey<String>('tilemap-character-message-bubble-body');
+    await tester.pumpWidget(harness());
+    final adaptiveWidth = tester.getSize(find.byKey(bodyKey)).width;
+
+    await tester.pumpWidget(harness(preservePageWidth: true));
+    final preservedWidth = tester.getSize(find.byKey(bodyKey)).width;
+
+    expect(adaptiveWidth, lessThan(worldMapMessageBubbleMaxWidth));
+    expect(preservedWidth, worldMapMessageBubbleMaxWidth);
+  });
+
   testWidgets('Tilemap character bubble first pins its body to the viewport', (
     tester,
   ) async {
@@ -73,6 +139,7 @@ void main() {
                 text: 'Near the edge',
                 avatarTopLeft: Offset(50, 100),
                 viewportWidth: 300,
+                preservePageWidth: true,
                 onTap: null,
               ),
             ],
@@ -103,6 +170,7 @@ void main() {
                   text: 'Past the left edge',
                   avatarTopLeft: Offset(0, 100),
                   viewportWidth: 300,
+                  preservePageWidth: true,
                   onTap: null,
                 ),
               ],
@@ -146,6 +214,7 @@ void main() {
                   text: 'Past the right edge',
                   avatarTopLeft: Offset(270, 100),
                   viewportWidth: 300,
+                  preservePageWidth: true,
                   onTap: null,
                 ),
               ],

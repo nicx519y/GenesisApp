@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../world_map_contract.dart';
+
 const int legacyWorldMapBubblePageMaxCharacters = 144;
 const Duration legacyWorldMapBubbleDisplayDuration = Duration(seconds: 4);
 const Duration legacyWorldMapBubbleGapDuration = Duration(milliseconds: 500);
@@ -33,6 +35,7 @@ class LegacyWorldMapPositionedMessageBubble extends StatelessWidget {
   const LegacyWorldMapPositionedMessageBubble({
     super.key,
     required this.text,
+    this.preservePageWidth = false,
     required this.markerLeft,
     required this.markerTop,
     required this.avatarLeft,
@@ -43,6 +46,7 @@ class LegacyWorldMapPositionedMessageBubble extends StatelessWidget {
   });
 
   final String text;
+  final bool preservePageWidth;
   final double markerLeft;
   final double markerTop;
   final double avatarLeft;
@@ -53,22 +57,26 @@ class LegacyWorldMapPositionedMessageBubble extends StatelessWidget {
 
   static const double _avatarSize = 42;
   static const double _bubbleGap = 8;
-  static const double _bubbleWidth = 220;
-  static const double _pointerWidth = 12;
+  static const double _pointerWidth = worldMapMessageBubblePointerWidth;
   static const double _pointerHeight = 10;
 
   @override
   Widget build(BuildContext context) {
-    final centeredLeft = avatarLeft + _avatarSize / 2 - _bubbleWidth / 2;
+    final bubbleWidth = resolveWorldMapMessageBubbleWidth(
+      context,
+      text,
+      preservePageWidth: preservePageWidth,
+    );
+    final centeredLeft = avatarLeft + _avatarSize / 2 - bubbleWidth / 2;
     final left = centeredLeft.clamp(
-      -_bubbleWidth / 2,
-      math.max(markerWidth - _bubbleWidth / 2, -_bubbleWidth / 2),
+      -bubbleWidth / 2,
+      math.max(markerWidth - bubbleWidth / 2, -bubbleWidth / 2),
     );
 
     return Positioned(
       left: markerLeft + left.toDouble(),
       top: markerTop + avatarTop + _avatarSize + _bubbleGap - _pointerHeight,
-      width: _bubbleWidth,
+      width: bubbleWidth,
       child: Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: onPointerDown,
@@ -78,7 +86,7 @@ class LegacyWorldMapPositionedMessageBubble extends StatelessWidget {
           child: _MapMessageBubble(
             text: text,
             pointerLeft: (avatarLeft + _avatarSize / 2 - left.toDouble())
-                .clamp(_pointerWidth * 1.5, _bubbleWidth - _pointerWidth * 1.5)
+                .clamp(_pointerWidth * 1.5, bubbleWidth - _pointerWidth * 1.5)
                 .toDouble(),
           ),
         ),
@@ -126,19 +134,14 @@ class _MapMessageBubble extends StatelessWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
+                  horizontal: worldMapMessageBubbleHorizontalPadding,
                   vertical: 9,
                 ),
                 child: Text(
                   text,
                   maxLines: 3,
                   overflow: TextOverflow.clip,
-                  style: const TextStyle(
-                    color: Color(0xFF1F1F1F),
-                    fontSize: 11,
-                    height: 1.25,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  style: worldMapMessageBubbleTextStyle,
                 ),
               ),
             ),
