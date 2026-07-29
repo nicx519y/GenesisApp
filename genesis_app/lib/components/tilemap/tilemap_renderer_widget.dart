@@ -546,6 +546,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                           avatarTopLeft:
                                               activeBubbleAvatarTopLeft,
                                           viewportWidth: viewportSize.width,
+                                          preservePageWidth:
+                                              activeBubble.preservePageWidth,
                                           onTap: widget.onTileAction == null
                                               ? null
                                               : () => _handleOverlayTileTap(

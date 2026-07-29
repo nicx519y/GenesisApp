@@ -613,6 +613,7 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
     return WorldMapMessageBubble(
       characterId: bubble.characterId,
       content: page,
+      preservePageWidth: _messageBubblePageIndex > 0,
     );
   }
 
@@ -688,7 +689,7 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
   }
 
   List<String> _messageBubblePages(String content) {
-    return legacyWorldMapMessageBubblePages(content);
+    return resolveWorldMapMessageBubblePages(context, content);
   }
 
   WorldMapMessageBubble? _activeBubbleForPlayback() {

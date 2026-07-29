@@ -1,5 +1,83 @@
 part of 'create_form_library.dart';
 
+typedef CreateKeyboardSafeFocusRegionBuilder =
+    Widget Function(BuildContext context, FocusNode focusNode);
+
+class CreateKeyboardSafeFocusRegion extends StatefulWidget {
+  const CreateKeyboardSafeFocusRegion({
+    super.key,
+    required this.builder,
+    this.focusNode,
+  });
+
+  final CreateKeyboardSafeFocusRegionBuilder builder;
+  final FocusNode? focusNode;
+
+  @override
+  State<CreateKeyboardSafeFocusRegion> createState() =>
+      _CreateKeyboardSafeFocusRegionState();
+}
+
+class _CreateKeyboardSafeFocusRegionState
+    extends State<CreateKeyboardSafeFocusRegion>
+    with WidgetsBindingObserver {
+  late final FocusNode _internalFocusNode;
+  late FocusNode _observedFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _internalFocusNode = FocusNode();
+    _observedFocusNode = _focusNode;
+    _observedFocusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant CreateKeyboardSafeFocusRegion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      _observedFocusNode.removeListener(_handleFocusChanged);
+      _observedFocusNode = _focusNode;
+      _observedFocusNode.addListener(_handleFocusChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _observedFocusNode.removeListener(_handleFocusChanged);
+    _internalFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (_observedFocusNode.hasFocus) _ensureRegionVisible();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (_observedFocusNode.hasFocus) _ensureRegionVisible();
+  }
+
+  void _ensureRegionVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_observedFocusNode.hasFocus) return;
+      unawaited(
+        Scrollable.ensureVisible(
+          context,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _focusNode);
+
+  FocusNode get _focusNode => widget.focusNode ?? _internalFocusNode;
+}
+
 class CreateTextFieldBlock extends StatefulWidget {
   const CreateTextFieldBlock({
     super.key,
@@ -22,6 +100,7 @@ class CreateTextFieldBlock extends StatefulWidget {
     this.onEditingComplete,
     this.onSubmitted,
     this.scrollPadding,
+    this.visibilityBottomPadding = 0,
     this.inputFormatters = const [],
     this.focusNode,
     this.nextFocusNode,
@@ -46,6 +125,7 @@ class CreateTextFieldBlock extends StatefulWidget {
   final VoidCallback? onEditingComplete;
   final ValueChanged<String>? onSubmitted;
   final EdgeInsets? scrollPadding;
+  final double visibilityBottomPadding;
   final List<TextInputFormatter> inputFormatters;
   final FocusNode? focusNode;
   final FocusNode? nextFocusNode;
@@ -54,18 +134,10 @@ class CreateTextFieldBlock extends StatefulWidget {
   State<CreateTextFieldBlock> createState() => _CreateTextFieldBlockState();
 }
 
-class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
-    with WidgetsBindingObserver {
-  late final FocusNode _internalFocusNode;
-  late FocusNode _observedFocusNode;
-
+class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _internalFocusNode = FocusNode();
-    _observedFocusNode = _focusNode;
-    _observedFocusNode.addListener(_handleFocusChanged);
     widget.controller.addListener(_normalizeControllerText);
     _normalizeControllerText();
   }
@@ -78,41 +150,12 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
       widget.controller.addListener(_normalizeControllerText);
       _normalizeControllerText();
     }
-    if (oldWidget.focusNode != widget.focusNode) {
-      _observedFocusNode.removeListener(_handleFocusChanged);
-      _observedFocusNode = _focusNode;
-      _observedFocusNode.addListener(_handleFocusChanged);
-    }
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _observedFocusNode.removeListener(_handleFocusChanged);
     widget.controller.removeListener(_normalizeControllerText);
-    _internalFocusNode.dispose();
     super.dispose();
-  }
-
-  void _handleFocusChanged() {
-    if (_observedFocusNode.hasFocus) _ensureBlockVisible();
-  }
-
-  @override
-  void didChangeMetrics() {
-    if (_observedFocusNode.hasFocus) _ensureBlockVisible();
-  }
-
-  void _ensureBlockVisible() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_observedFocusNode.hasFocus) return;
-      unawaited(
-        Scrollable.ensureVisible(
-          context,
-          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-        ),
-      );
-    });
   }
 
   void _normalizeControllerText() {
@@ -123,7 +166,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
     widget.controller.value = sanitized;
   }
 
-  void _handleEditingComplete() {
+  void _handleEditingComplete(FocusNode focusNode) {
     final customHandler = widget.onEditingComplete;
     if (customHandler != null) {
       customHandler();
@@ -136,116 +179,121 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
       return;
     }
 
-    if (!_focusNode.nextFocus()) {
-      _focusNode.unfocus();
+    if (!focusNode.nextFocus()) {
+      focusNode.unfocus();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.label.isNotEmpty) ...[
-          Text(
-            widget.label,
-            style: TextStyle(
-              color: createFormText,
-              fontSize: widget.labelSize,
-              fontWeight: widget.labelFontWeight,
-              height: 1.2,
+    return CreateKeyboardSafeFocusRegion(
+      focusNode: widget.focusNode,
+      builder: (context, focusNode) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.label.isNotEmpty) ...[
+            Text(
+              widget.label,
+              style: TextStyle(
+                color: createFormText,
+                fontSize: widget.labelSize,
+                fontWeight: widget.labelFontWeight,
+                height: 1.2,
+              ),
             ),
-          ),
-          // Field internal spacing: label -> input box.
-          SizedBox(height: widget.labelInputGap),
-        ],
-        Container(
-          decoration: BoxDecoration(
-            color: createFormFieldFill,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          alignment: _isSingleLine ? Alignment.center : Alignment.topCenter,
-          child: Row(
-            crossAxisAlignment: _isSingleLine
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            children: [
-              if (widget.prefix != null) ...[
-                widget.prefix!,
-                const SizedBox(width: 8),
-              ],
-              Expanded(
-                child: TextFieldTapRegion(
-                  groupId: createFormTextFieldTapRegionGroup,
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: _focusNode,
-                    scrollPadding:
-                        widget.scrollPadding ??
-                        const EdgeInsets.fromLTRB(
-                          20,
-                          20,
-                          20,
-                          kMinInteractiveDimension,
-                        ),
-                    onChanged: widget.onChanged,
-                    onTapOutside: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
-                    keyboardType: _resolvedKeyboardType,
-                    textInputAction: _resolvedTextInputAction,
-                    onEditingComplete: _shouldHandleEditingComplete
-                        ? _handleEditingComplete
-                        : null,
-                    onSubmitted: widget.onSubmitted,
-                    inputFormatters: [
-                      if (!_isSingleLine)
-                        const GenesisConsecutiveNewlineLimiter(),
-                      ...widget.inputFormatters,
-                    ],
-                    maxLength: widget.maxLength,
-                    minLines: widget.minLines,
-                    maxLines: widget.maxLines,
-                    style: GenesisTypography.withFallback(
-                      TextStyle(
-                        color: createFormText,
-                        fontSize: 14,
-                        height: widget.inputLineHeight,
-                      ),
-                    ),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      counterText: '',
-                      hintText: widget.hintText,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      hintStyle: GenesisTypography.withFallback(
+            // Field internal spacing: label -> input box.
+            SizedBox(height: widget.labelInputGap),
+          ],
+          Container(
+            decoration: BoxDecoration(
+              color: createFormFieldFill,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            alignment: _isSingleLine ? Alignment.center : Alignment.topCenter,
+            child: Row(
+              crossAxisAlignment: _isSingleLine
+                  ? CrossAxisAlignment.center
+                  : CrossAxisAlignment.start,
+              children: [
+                if (widget.prefix != null) ...[
+                  widget.prefix!,
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: TextFieldTapRegion(
+                    groupId: createFormTextFieldTapRegionGroup,
+                    child: TextField(
+                      controller: widget.controller,
+                      focusNode: focusNode,
+                      scrollPadding:
+                          widget.scrollPadding ??
+                          const EdgeInsets.fromLTRB(
+                            20,
+                            20,
+                            20,
+                            kMinInteractiveDimension,
+                          ),
+                      onChanged: widget.onChanged,
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      keyboardType: _resolvedKeyboardType,
+                      textInputAction: _resolvedTextInputAction,
+                      onEditingComplete: _shouldHandleEditingComplete
+                          ? () => _handleEditingComplete(focusNode)
+                          : null,
+                      onSubmitted: widget.onSubmitted,
+                      inputFormatters: [
+                        if (!_isSingleLine)
+                          const GenesisConsecutiveNewlineLimiter(),
+                        ...widget.inputFormatters,
+                      ],
+                      maxLength: widget.maxLength,
+                      minLines: widget.minLines,
+                      maxLines: widget.maxLines,
+                      style: GenesisTypography.withFallback(
                         TextStyle(
-                          color: createFormHint,
+                          color: createFormText,
                           fontSize: 14,
-                          letterSpacing: 0,
                           height: widget.inputLineHeight,
+                        ),
+                      ),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        counterText: '',
+                        hintText: widget.hintText,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        hintStyle: GenesisTypography.withFallback(
+                          TextStyle(
+                            color: createFormHint,
+                            fontSize: 14,
+                            letterSpacing: 0,
+                            height: widget.inputLineHeight,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (_showsCounterInside) ...[
-                const SizedBox(width: 8),
-                _CreateFieldCounter(counter: _counterText),
+                if (_showsCounterInside) ...[
+                  const SizedBox(width: 8),
+                  _CreateFieldCounter(counter: _counterText),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        if (_hasSupportLine) ...[
-          const SizedBox(height: 8),
-          _CreateFieldSupportLine(
-            note: widget.note,
-            counter: _showsCounterOutside ? _counterText : null,
-          ),
+          if (_hasSupportLine) ...[
+            const SizedBox(height: 8),
+            _CreateFieldSupportLine(
+              note: widget.note,
+              counter: _showsCounterOutside ? _counterText : null,
+            ),
+          ],
+          if (widget.visibilityBottomPadding > 0)
+            SizedBox(height: widget.visibilityBottomPadding),
         ],
-      ],
+      ),
     );
   }
 
@@ -279,8 +327,6 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
     if (widget.onEditingComplete != null) return true;
     return _resolvedTextInputAction != TextInputAction.newline;
   }
-
-  FocusNode get _focusNode => widget.focusNode ?? _internalFocusNode;
 }
 
 class _CreateFieldSupportLine extends StatelessWidget {

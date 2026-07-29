@@ -396,7 +396,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
     }
     FocusManager.instance.primaryFocus?.unfocus();
     final draftForm = _LocationForm.copyOf(target.form);
-    final sheetHeight = MediaQuery.sizeOf(context).height * 0.78;
+    final sheetHeight =
+        MediaQuery.sizeOf(context).height * 0.75 -
+        MediaQuery.viewPaddingOf(context).bottom;
     var draftOwnedBySheet = false;
     try {
       final action = await showGenesisModalBottomSheet<_L3EditorSheetAction>(

@@ -500,7 +500,11 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                           const SizedBox(height: 14),
                           Expanded(
                             child: ListView(
-                              padding: const EdgeInsets.only(bottom: 10),
+                              padding: EdgeInsets.only(
+                                bottom: widget.updateNotesController == null
+                                    ? 10
+                                    : 0,
+                              ),
                               children: [
                                 if (widget.showCurrentVersion) ...[
                                   Text(
@@ -826,6 +830,7 @@ class _UpdateNotesField extends StatelessWidget {
       hintText: 'What changed in this version?',
       minLines: 4,
       maxLines: 4,
+      visibilityBottomPadding: 10,
       textInputAction: TextInputAction.done,
       onChanged: (_) {},
       onEditingComplete: () => FocusManager.instance.primaryFocus?.unfocus(),

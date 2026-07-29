@@ -8,7 +8,6 @@ import 'tilemap_location_avatars.dart';
 
 const Duration tilemapMessageBubbleDisplayDuration = Duration(seconds: 4);
 const Duration tilemapMessageBubbleGapDuration = Duration(milliseconds: 500);
-const int tilemapMessageBubblePageMaxCharacters = 144;
 
 typedef TilemapMessageBubbleBuilder =
     Widget Function(BuildContext context, WorldMapMessageBubble? activeBubble);
@@ -69,11 +68,12 @@ class _TilemapMessageBubblePlaybackState
       return null;
     }
     final bubble = _visibleBubbles[_bubbleIndex % _visibleBubbles.length];
-    final pages = tilemapMessageBubblePages(bubble.content);
+    final pages = _messageBubblePages(bubble.content);
     if (pages.isEmpty) return null;
     return WorldMapMessageBubble(
       characterId: bubble.characterId,
       content: pages[_pageIndex % pages.length],
+      preservePageWidth: _pageIndex > 0,
     );
   }
 
@@ -120,9 +120,7 @@ class _TilemapMessageBubblePlaybackState
           if (_bubbleVisible) {
             final activeBubble =
                 _visibleBubbles[_bubbleIndex % _visibleBubbles.length];
-            final pageCount = tilemapMessageBubblePages(
-              activeBubble.content,
-            ).length;
+            final pageCount = _messageBubblePages(activeBubble.content).length;
             if (_pageIndex + 1 < pageCount) {
               _pageIndex += 1;
             } else {
@@ -144,6 +142,10 @@ class _TilemapMessageBubblePlaybackState
     _timer = null;
   }
 
+  List<String> _messageBubblePages(String content) {
+    return resolveWorldMapMessageBubblePages(context, content);
+  }
+
   String _playbackSignature(List<WorldMapMessageBubble> bubbles) {
     return bubbles
         .map((bubble) => '${bubble.characterId.trim()}\u{1f}${bubble.content}')
@@ -152,22 +154,18 @@ class _TilemapMessageBubblePlaybackState
 }
 
 @visibleForTesting
-List<String> tilemapMessageBubblePages(String content) {
-  final normalized = content.trim().replaceAll(RegExp(r'\s+'), ' ');
-  if (normalized.isEmpty) return const <String>[];
-  final pages = <String>[];
-  var remaining = normalized;
-  while (remaining.length > tilemapMessageBubblePageMaxCharacters) {
-    var split = remaining.lastIndexOf(
-      ' ',
-      tilemapMessageBubblePageMaxCharacters,
-    );
-    if (split <= 0) split = tilemapMessageBubblePageMaxCharacters;
-    pages.add(remaining.substring(0, split).trim());
-    remaining = remaining.substring(split).trim();
-  }
-  if (remaining.isNotEmpty) pages.add(remaining);
-  return List<String>.unmodifiable(pages);
+List<String> tilemapMessageBubblePages(
+  String content, {
+  TextDirection textDirection = TextDirection.ltr,
+  TextScaler? textScaler,
+  TextStyle? textStyle,
+}) {
+  return splitWorldMapMessageBubblePages(
+    content,
+    textDirection: textDirection,
+    textScaler: textScaler,
+    textStyle: textStyle,
+  );
 }
 
 Offset tilemapMessageBubbleAvatarTopLeft({
@@ -197,11 +195,11 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
     required this.avatarTopLeft,
     required this.viewportWidth,
     required this.onTap,
+    this.preservePageWidth = false,
   });
 
   static const double _bubbleGap = 8;
-  static const double _bubbleWidth = 220;
-  static const double _pointerWidth = 12;
+  static const double _pointerWidth = worldMapMessageBubblePointerWidth;
   static const double _pointerHeight = 10;
   static const double _viewportPadding = 8;
 
@@ -209,19 +207,25 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
   final Offset avatarTopLeft;
   final double viewportWidth;
   final VoidCallback? onTap;
+  final bool preservePageWidth;
 
   @override
   Widget build(BuildContext context) {
+    final bubbleWidth = resolveWorldMapMessageBubbleWidth(
+      context,
+      text,
+      preservePageWidth: preservePageWidth,
+    );
     final avatarCenterX = avatarTopLeft.dx + tilemapLocationAvatarSize / 2;
     final maximumLeft = math.max(
       _viewportPadding,
-      viewportWidth - _bubbleWidth - _viewportPadding,
+      viewportWidth - bubbleWidth - _viewportPadding,
     );
-    final viewportConstrainedLeft = (avatarCenterX - _bubbleWidth / 2)
+    final viewportConstrainedLeft = (avatarCenterX - bubbleWidth / 2)
         .clamp(_viewportPadding, maximumLeft)
         .toDouble();
     final pointerLeft = (avatarCenterX - viewportConstrainedLeft)
-        .clamp(_bubbleWidth / 4, _bubbleWidth * 3 / 4)
+        .clamp(bubbleWidth / 4, bubbleWidth * 3 / 4)
         .toDouble();
     final left = avatarCenterX - pointerLeft;
 
@@ -232,7 +236,7 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
           tilemapLocationAvatarSize +
           _bubbleGap -
           _pointerHeight,
-      width: _bubbleWidth,
+      width: bubbleWidth,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
@@ -272,19 +276,14 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: worldMapMessageBubbleHorizontalPadding,
                       vertical: 9,
                     ),
                     child: Text(
                       text,
                       maxLines: 3,
                       overflow: TextOverflow.clip,
-                      style: const TextStyle(
-                        color: Color(0xFF1F1F1F),
-                        fontSize: 11,
-                        height: 1.25,
-                        fontWeight: FontWeight.w400,
-                      ),
+                      style: worldMapMessageBubbleTextStyle,
                     ),
                   ),
                 ),

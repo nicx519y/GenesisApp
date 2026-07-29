@@ -9771,6 +9771,10 @@ void main() {
       final narratorTextField = tester.widget<TextField>(narratorField);
       expect(narratorTextField.minLines, 3);
       expect(narratorTextField.maxLines, isNull);
+      expect(
+        narratorTextField.scrollPadding,
+        const EdgeInsets.fromLTRB(20, 20, 20, kMinInteractiveDimension),
+      );
       final narratorContainer = tester.widget<Container>(
         find.byKey(const ValueKey<String>('opening-dialogue-0-narrator')),
       );
@@ -9968,6 +9972,20 @@ void main() {
       final characterTextField = tester.widget<TextField>(characterField);
       expect(characterTextField.minLines, 3);
       expect(characterTextField.maxLines, isNull);
+      expect(
+        characterTextField.scrollPadding,
+        const EdgeInsets.fromLTRB(20, 20, 20, kMinInteractiveDimension),
+      );
+      final characterSafeRegion = find.ancestor(
+        of: characterField,
+        matching: find.byType(CreateKeyboardSafeFocusRegion),
+      );
+      expect(characterSafeRegion, findsOneWidget);
+      expect(
+        tester.getRect(characterSafeRegion).bottom -
+            tester.getRect(characterField).bottom,
+        25,
+      );
       await tester.enterText(characterField, 'Mira checks the index.');
       await tester.pump();
       expect(
@@ -10217,6 +10235,91 @@ void main() {
       );
     },
   );
+
+  testWidgets('opening keeps the focused bottom dialogue above the keyboard', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[],
+        locations: <LocationDraft>[
+          LocationDraft(
+            locationId: 'opening_location',
+            level: 3,
+            name: 'Archive',
+          ),
+        ],
+        storyEvents: <StoryEventDraft>[],
+        opening: OpeningDraft(
+          locationId: 'opening_location',
+          locationName: 'Archive',
+          dialogue: <OpeningDialogueDraft>[
+            OpeningDialogueDraft(
+              type: OpeningDialogueDraft.narratorType,
+              content: 'First dialogue.',
+            ),
+            OpeningDialogueDraft(
+              type: OpeningDialogueDraft.narratorType,
+              content: 'Second dialogue.',
+            ),
+            OpeningDialogueDraft(
+              type: OpeningDialogueDraft.narratorType,
+              content: 'Third dialogue.',
+            ),
+            OpeningDialogueDraft(
+              type: OpeningDialogueDraft.narratorType,
+              content: 'Bottom dialogue.',
+            ),
+          ],
+        ),
+        basicsSaved: false,
+        charactersSaved: false,
+        locationsSaved: true,
+        storyEventsSaved: false,
+        openingSaved: true,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: OriginOpeningEditorPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    final bottomField = find.byKey(
+      const ValueKey<String>('opening-dialogue-3-field'),
+    );
+    final bottomSafeRegion = find.ancestor(
+      of: bottomField,
+      matching: find.byType(CreateKeyboardSafeFocusRegion),
+    );
+    expect(bottomSafeRegion, findsOneWidget);
+    expect(
+      tester.getRect(bottomSafeRegion).bottom -
+          tester.getRect(bottomField).bottom,
+      20,
+    );
+    await tester.ensureVisible(bottomField);
+    await tester.tap(bottomField);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    final keyboardTop = tester.view.physicalSize.height - 300;
+    expect(
+      keyboardTop - tester.getRect(bottomField).bottom,
+      greaterThanOrEqualTo(20),
+    );
+
+    await tester.enterText(bottomField, 'Line 1\nLine 2\nLine 3');
+    await tester.pumpAndSettle();
+    expect(
+      keyboardTop - tester.getRect(bottomField).bottom,
+      greaterThanOrEqualTo(20),
+    );
+  });
 
   testWidgets('opening save persists ordered content and restores it', (
     WidgetTester tester,
@@ -11320,6 +11423,13 @@ void main() {
     await tester.pumpAndSettle();
 
     final block = find.byType(CreateTextFieldBlock);
+    expect(
+      find.descendant(
+        of: block,
+        matching: find.byType(CreateKeyboardSafeFocusRegion),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.byType(TextField));
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
@@ -12124,6 +12234,7 @@ void main() {
     );
     expect(l3Sheet, findsOneWidget);
     final sheetRectWithoutKeyboard = tester.getRect(l3Sheet);
+    expect(sheetRectWithoutKeyboard.height, closeTo(844 * 0.75, 0.01));
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
     expect(tester.getRect(l3Sheet), sheetRectWithoutKeyboard);
@@ -13409,10 +13520,18 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -360));
     await tester.pump();
     expect(find.byType(TextField), findsOneWidget);
-    await tester.enterText(
-      find.byType(TextField).last,
-      'Clarified the archive rules.',
+    final updateNotesField = find.byType(TextField).last;
+    final updateNotesSafeRegion = find.ancestor(
+      of: updateNotesField,
+      matching: find.byType(CreateKeyboardSafeFocusRegion),
     );
+    expect(updateNotesSafeRegion, findsOneWidget);
+    expect(
+      tester.getRect(updateNotesSafeRegion).bottom -
+          tester.getRect(updateNotesField).bottom,
+      closeTo(20, 0.5),
+    );
+    await tester.enterText(updateNotesField, 'Clarified the archive rules.');
     await tester.pump();
     var notesEditable = tester.state<EditableTextState>(
       find.byType(EditableText),
