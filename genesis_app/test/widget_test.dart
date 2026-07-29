@@ -9322,7 +9322,7 @@ void main() {
       expect(narratorField, findsOneWidget);
       final narratorTextField = tester.widget<TextField>(narratorField);
       expect(narratorTextField.minLines, 3);
-      expect(narratorTextField.maxLines, 7);
+      expect(narratorTextField.maxLines, isNull);
       final narratorContainer = tester.widget<Container>(
         find.byKey(const ValueKey<String>('opening-dialogue-0-narrator')),
       );
@@ -9376,6 +9376,19 @@ void main() {
         isNull,
       );
 
+      final narratorInitialHeight = tester.getSize(narratorField).height;
+      await tester.enterText(
+        narratorField,
+        List<String>.generate(
+          10,
+          (index) => 'Narrator line ${index + 1}',
+        ).join('\n'),
+      );
+      await tester.pump();
+      expect(
+        tester.getSize(narratorField).height,
+        greaterThan(narratorInitialHeight),
+      );
       await tester.enterText(narratorField, 'The archive doors open.');
       await tester.pump();
       final narratorEditable = find.descendant(
@@ -9504,6 +9517,9 @@ void main() {
       final characterField = find.byKey(
         const ValueKey<String>('opening-dialogue-1-field'),
       );
+      final characterTextField = tester.widget<TextField>(characterField);
+      expect(characterTextField.minLines, 3);
+      expect(characterTextField.maxLines, isNull);
       await tester.enterText(characterField, 'Mira checks the index.');
       await tester.pump();
       expect(
@@ -10712,6 +10728,112 @@ void main() {
     await tester.pump();
 
     expect(tester.getRect(editor).top, editorRectBeforeInput.top);
+  });
+
+  testWidgets('cancelled bottom L1 add remains visible above Save', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[],
+        locations: <LocationDraft>[
+          LocationDraft(locationId: 'Loc_1', level: 1, name: 'District 1'),
+          LocationDraft(
+            locationId: 'Loc_1_1',
+            parentLocationId: 'Loc_1',
+            level: 2,
+            name: 'Street 1',
+          ),
+          LocationDraft(
+            locationId: 'Loc_1_1_1',
+            parentLocationId: 'Loc_1_1',
+            level: 3,
+            name: 'Station 1',
+          ),
+          LocationDraft(locationId: 'Loc_2', level: 1, name: 'District 2'),
+          LocationDraft(
+            locationId: 'Loc_2_1',
+            parentLocationId: 'Loc_2',
+            level: 2,
+            name: 'Street 2',
+          ),
+          LocationDraft(
+            locationId: 'Loc_2_1_1',
+            parentLocationId: 'Loc_2_1',
+            level: 3,
+            name: 'Station 2',
+          ),
+          LocationDraft(locationId: 'Loc_3', level: 1, name: 'District 3'),
+          LocationDraft(
+            locationId: 'Loc_3_1',
+            parentLocationId: 'Loc_3',
+            level: 2,
+            name: 'Street 3',
+          ),
+          LocationDraft(
+            locationId: 'Loc_3_1_1',
+            parentLocationId: 'Loc_3_1',
+            level: 3,
+            name: 'Station 3',
+          ),
+        ],
+        storyEvents: <StoryEventDraft>[],
+        basicsSaved: false,
+        charactersSaved: false,
+        locationsSaved: true,
+        storyEventsSaved: false,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OriginLocationsEditorPage(
+          repository: repository,
+          useLocationTree: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('L1: 3'), findsOneWidget);
+    expect(find.text('L2: 3'), findsOneWidget);
+    expect(find.text('L3: 3/10 (Added/Max)'), findsOneWidget);
+    await tester.drag(
+      find.byKey(const ValueKey<String>('locations-edit-list')),
+      const Offset(0, -3000),
+    );
+    await tester.pumpAndSettle();
+    final addL1 = find.byKey(const ValueKey<String>('create-add-l1-location'));
+    await tester.ensureVisible(addL1);
+    await tester.tap(addL1);
+    await tester.pump();
+
+    final editor = find.byKey(
+      const ValueKey<String>('locations-inline-name-Loc_4'),
+    );
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(24, 180));
+    await tester.pump();
+    await tester.drag(
+      find.byKey(const ValueKey<String>('locations-edit-list')),
+      const Offset(0, 120),
+    );
+    await tester.pump();
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+
+    final save = find.widgetWithText(GenesisPrimaryButton, 'Save');
+    expect(addL1, findsOneWidget);
+    expect(
+      tester.getTopLeft(save).dy - tester.getBottomRight(addL1).dy,
+      greaterThanOrEqualTo(32),
+    );
   });
 
   testWidgets('multiline create field stays fully above the keyboard', (

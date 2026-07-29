@@ -44,6 +44,8 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   String? _inlineEditingLocationId;
   String? _requiredInlineLocationId;
   String? _requiredFlowL1Id;
+  final GlobalKey _rootAddL1VisibilityKey = GlobalKey();
+  bool _revealRootAddL1AfterKeyboard = false;
   bool _suppressRequiredActionForCurrentTap = false;
   late FocusNode _inlineNameFocusNode;
   late FocusNode _nextInlineNameFocusNode;
@@ -345,6 +347,10 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       _showError('At least one L1 location is required.');
       return;
     }
+    final restoresRootAdd =
+        _requiredFlowL1Id == form.locationId ||
+        _requiredInlineLocationId == form.locationId;
+    if (restoresRootAdd) _markRootAddL1ForReveal();
     _inlineNameFocusNode.unfocus();
     setState(() {
       if (_requiredInlineLocationId == form.locationId ||
@@ -524,6 +530,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
 
     for (final l1 in _treeForms) {
       if (l1.locationId == editingId) {
+        _markRootAddL1ForReveal();
         setState(() {
           _inlineEditingLocationId = null;
           _requiredInlineLocationId = null;
@@ -551,6 +558,29 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
         return;
       }
     }
+  }
+
+  void _markRootAddL1ForReveal() {
+    _revealRootAddL1AfterKeyboard = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _revealRootAddL1IfReady();
+    });
+  }
+
+  void _revealRootAddL1IfReady() {
+    if (!mounted || !_revealRootAddL1AfterKeyboard || _hasKeyboardViewInset()) {
+      return;
+    }
+    final targetContext = _rootAddL1VisibilityKey.currentContext;
+    if (targetContext == null) return;
+    _revealRootAddL1AfterKeyboard = false;
+    unawaited(
+      Scrollable.ensureVisible(
+        targetContext,
+        duration: Duration.zero,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      ),
+    );
   }
 
   Future<void> _confirmAndRemoveLocationBranch({
@@ -776,6 +806,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       return const SizedBox.shrink();
     }
     return Padding(
+      key: _rootAddL1VisibilityKey,
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 6),
       child: _LocationTreeAddButton(
         key: const ValueKey<String>('create-add-l1-location'),
@@ -1785,14 +1816,15 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       child: Column(
         children: [
           Expanded(child: _buildLocationsList(editable: true)),
-          _buildBottomSaveAction(),
+          _buildBottomSaveAction(onShown: _revealRootAddL1IfReady),
         ],
       ),
     );
   }
 
-  Widget _buildBottomSaveAction() {
+  Widget _buildBottomSaveAction({VoidCallback? onShown}) {
     return _KeyboardHiddenBottomAction(
+      onShown: onShown,
       minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
       child: GenesisPrimaryButton(
         label: _isSaving ? 'Saving...' : 'Save',

@@ -758,7 +758,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
       keyboardType: TextInputType.multiline,
       textInputAction: TextInputAction.newline,
       minLines: 3,
-      maxLines: 7,
+      maxLines: null,
       style: style,
       onChanged: (_) => onChanged(),
       decoration: InputDecoration(

@@ -92,10 +92,12 @@ class _KeyboardHiddenBottomAction extends StatefulWidget {
   const _KeyboardHiddenBottomAction({
     required this.child,
     this.minimum = const EdgeInsets.fromLTRB(24, 8, 24, 14),
+    this.onShown,
   });
 
   final Widget child;
   final EdgeInsets minimum;
+  final VoidCallback? onShown;
 
   @override
   State<_KeyboardHiddenBottomAction> createState() =>
@@ -124,6 +126,11 @@ class _KeyboardHiddenBottomActionState
     final nextKeyboardVisible = _hasKeyboardViewInset();
     if (_keyboardVisible == nextKeyboardVisible) return;
     setState(() => _keyboardVisible = nextKeyboardVisible);
+    if (!nextKeyboardVisible && widget.onShown != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onShown?.call();
+      });
+    }
   }
 
   @override
