@@ -173,17 +173,13 @@ Offset tilemapMessageBubbleAvatarTopLeft({
   required int avatarIndex,
   required int avatarCount,
 }) {
-  const locationPointerHeight = 6.93;
-  const locationBodyHeight = 24.0;
-  const avatarGroupTopGap = 6.0;
+  const locationDotCenterToAvatarTop = 10.0;
   return Offset(
     locationBubbleAnchor.dx -
         tilemapLocationAvatarGroupWidth / 2 +
         tilemapLocationAvatarLeft(avatarIndex, avatarCount),
     locationBubbleAnchor.dy +
-        locationPointerHeight +
-        locationBodyHeight +
-        avatarGroupTopGap +
+        locationDotCenterToAvatarTop +
         tilemapLocationAvatarTop(avatarIndex),
   );
 }

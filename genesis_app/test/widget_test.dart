@@ -9556,6 +9556,13 @@ void main() {
             .onPressed,
         isNull,
       );
+      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
+      await tester.pump();
+      expect(
+        find.text('Select an initial location before saving.'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 3));
 
       await tester.tap(
         find.byKey(const ValueKey<String>('opening-location-field')),
@@ -9608,6 +9615,10 @@ void main() {
         ),
         findsNothing,
       );
+      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Select'));
+      await tester.pump();
+      expect(find.text('Select a location first.'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
       await tester.tap(locationOption);
       await tester.pump();
       await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Select'));
@@ -9716,6 +9727,13 @@ void main() {
             .onPressed,
         isNull,
       );
+      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
+      await tester.pump();
+      expect(
+        find.text('Add at least one dialogue item before saving.'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 3));
 
       await tester.ensureVisible(
         find.byKey(const ValueKey<String>('opening-add-narrator')),
@@ -9788,6 +9806,13 @@ void main() {
             .onPressed,
         isNull,
       );
+      await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
+      await tester.pump();
+      expect(
+        find.text('Complete every dialogue item before saving.'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 3));
 
       final narratorInitialHeight = tester.getSize(narratorField).height;
       await tester.enterText(
@@ -10491,7 +10516,19 @@ void main() {
           ),
         ],
         locations: <LocationDraft>[
-          LocationDraft(locationId: 'location_1', name: 'Jenrn ff'),
+          LocationDraft(locationId: 'region_1', level: 1, name: 'Downtown'),
+          LocationDraft(
+            locationId: 'building_1',
+            parentLocationId: 'region_1',
+            level: 2,
+            name: "Joe's Diner",
+          ),
+          LocationDraft(
+            locationId: 'location_1',
+            parentLocationId: 'building_1',
+            level: 3,
+            name: 'Jenrn ff',
+          ),
         ],
         storyEvents: <StoryEventDraft>[
           StoryEventDraft(event: 'First event'),
@@ -10520,11 +10557,13 @@ void main() {
     expect(find.textContaining('World Logic:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
     expect(find.text('1 characters: Tff'), findsOneWidget);
-    expect(find.text('1 locations: Jenrn ff'), findsOneWidget);
+    expect(find.text('L1 · Region : 1'), findsOneWidget);
+    expect(find.text('L2 · Building : 1'), findsOneWidget);
+    expect(find.text('L3 · Room : 1'), findsOneWidget);
     expect(find.text('Jenrn ff'), findsOneWidget);
-    expect(find.text('Narrator*1'), findsOneWidget);
-    expect(find.textContaining('Character dialogue*0'), findsNothing);
-    expect(find.textContaining('Image*0'), findsNothing);
+    expect(find.text('Character dialogue : 0'), findsOneWidget);
+    expect(find.text('Narrator : 1'), findsOneWidget);
+    expect(find.text('Image : 0'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
     expect(find.text('2 events'), findsOneWidget);
   });
@@ -10838,13 +10877,19 @@ void main() {
 
     expect(find.text('L1: 1'), findsOneWidget);
     expect(find.text('L2: 0'), findsOneWidget);
-    expect(find.text('L3: 0/10 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3: 0/15 (Added/Max)'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('locations-statistics-note')),
       findsOneWidget,
     );
     expect(
-      find.text('Add up to 10 L3 locations across your location trees.'),
+      find.text(
+        'Your world is built in 3 levels:\n'
+        'L1 · Region     An area of your world — Downtown\n'
+        "L2 · Building   A building inside it — Joe's Diner\n"
+        'L3 · Room       A room inside that building — The Back Kitchen\n'
+        'Every location needs all three levels. Up to 15 rooms in total.',
+      ),
       findsOneWidget,
     );
     final statisticsNote = find.descendant(
@@ -10860,7 +10905,32 @@ void main() {
       findsOneWidget,
     );
     expect(
+      tester
+          .getBottomLeft(
+            find.byKey(const ValueKey<String>('locations-statistics-note')),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('create-location-l3-count')),
+            )
+            .dy,
+      ),
+    );
+    expect(
       find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
+      findsOneWidget,
+    );
+    final l1NameField = tester.widget<CreateTextFieldBlock>(
+      find.byKey(const ValueKey<String>('locations-inline-name-field-Loc_1')),
+    );
+    expect(l1NameField.hintText, 'L1 Location · Region *');
+    expect(
+      find.text(
+        'An area of your world — a district, a town, a forest. '
+        'Not a single building.',
+      ),
       findsOneWidget,
     );
     expect(find.text('L2 Location'), findsNothing);
@@ -10910,8 +10980,8 @@ void main() {
     );
     final editList = find.byKey(const ValueKey<String>('locations-edit-list'));
     expect(
-      tester.getTopLeft(locationCounts).dy - tester.getTopLeft(editList).dy,
-      closeTo(8, 0.01),
+      tester.getTopLeft(statisticsNote).dy - tester.getTopLeft(editList).dy,
+      closeTo(16, 0.01),
     );
 
     await tester.tap(
@@ -10954,7 +11024,7 @@ void main() {
 
     expect(find.text('Downtown'), findsOneWidget);
     expect(find.text('L2: 1'), findsOneWidget);
-    expect(find.text('L3: 0/10 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3: 0/15 (Added/Max)'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('locations-inline-name-Loc_1_1')),
       findsOneWidget,
@@ -10967,6 +11037,17 @@ void main() {
 
     final l2Editor = find.byKey(
       const ValueKey<String>('locations-inline-name-Loc_1_1'),
+    );
+    final l2NameField = tester.widget<CreateTextFieldBlock>(
+      find.byKey(const ValueKey<String>('locations-inline-name-field-Loc_1_1')),
+    );
+    expect(l2NameField.hintText, 'L2 Location · Building *');
+    expect(
+      find.text(
+        'A building inside this region — a shop, a school, '
+        'an apartment block.',
+      ),
+      findsOneWidget,
     );
     await tester.enterText(
       find.descendant(of: l2Editor, matching: find.byType(TextField)),
@@ -10999,7 +11080,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Add L3 Location'), findsOneWidget);
     expect(find.text('Edit L3 Location'), findsNothing);
-    expect(find.text('L3: 0/10 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3: 0/15 (Added/Max)'), findsOneWidget);
     expect(find.text('L3 Location'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('locations-l3-editor-delete')),
@@ -11012,12 +11093,32 @@ void main() {
     final l3Sheet = find.byKey(
       const ValueKey<String>('locations-l3-editor-sheet'),
     );
+    final l3NameField = tester.widget<CreateTextFieldBlock>(
+      find.descendant(
+        of: l3Sheet,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is CreateTextFieldBlock && widget.label == 'Name *',
+        ),
+      ),
+    );
+    expect(l3NameField.hintText, isEmpty);
+    expect(
+      l3NameField.note,
+      'A room inside the building. Rooftops, courtyards and entrances '
+      'work too.',
+    );
+    expect(find.text(l3NameField.note!), findsOneWidget);
+    await tester.tap(l3Save);
+    await tester.pump();
+    expect(find.text('L3 location name is required.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
     await tester.tap(
       find.byKey(const ValueKey<String>('locations-l3-editor-close')),
     );
     await tester.pumpAndSettle();
     expect(l3Sheet, findsNothing);
-    expect(find.text('L3: 0/10 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3: 0/15 (Added/Max)'), findsOneWidget);
     expect(addL3, findsOneWidget);
     expect(find.text('L3 Location'), findsNothing);
 
@@ -11033,7 +11134,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Central Station'), findsOneWidget);
-    expect(find.text('L3: 1/10 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3: 1/15 (Added/Max)'), findsOneWidget);
     final addL2 = find.byKey(const ValueKey<String>('create-add-l2-Loc_1'));
     final addL1 = find.byKey(const ValueKey<String>('create-add-l1-location'));
     expect(addL2, findsOneWidget);
@@ -11313,7 +11414,7 @@ void main() {
 
     expect(find.text('L1: 3'), findsOneWidget);
     expect(find.text('L2: 3'), findsOneWidget);
-    expect(find.text('L3: 3/10 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3: 3/15 (Added/Max)'), findsOneWidget);
     await tester.drag(
       find.byKey(const ValueKey<String>('locations-edit-list')),
       const Offset(0, -3000),
@@ -11781,8 +11882,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Delete "Market Road"'), findsOneWidget);
     expect(
-      find.text('Delete L2 Market Road and all locations under it?'),
+      find.text('Every L3 locations inside it will be removed too.'),
       findsOneWidget,
     );
     expect(find.text('Delete'), findsOneWidget);
@@ -11795,6 +11897,144 @@ void main() {
 
     expect(find.text('L2: 1'), findsOneWidget);
     expect(find.text('Market Road'), findsNothing);
+  });
+
+  testWidgets(
+    'deleting an L1 branch explains that all descendants are removed',
+    (WidgetTester tester) async {
+      final repository = MemoryOriginDraftRepository(
+        initialDraft: const CreateOriginDraft(
+          basics: BasicsDraft(),
+          characters: <CharacterDraft>[],
+          locations: <LocationDraft>[
+            LocationDraft(locationId: 'downtown', level: 1, name: 'Downtown'),
+            LocationDraft(
+              locationId: 'diner',
+              parentLocationId: 'downtown',
+              level: 2,
+              name: "Joe's Diner",
+            ),
+            LocationDraft(
+              locationId: 'kitchen',
+              parentLocationId: 'diner',
+              level: 3,
+              name: 'Back Kitchen',
+            ),
+            LocationDraft(locationId: 'harbor', level: 1, name: 'Harbor'),
+            LocationDraft(
+              locationId: 'warehouse',
+              parentLocationId: 'harbor',
+              level: 2,
+              name: 'Warehouse',
+            ),
+            LocationDraft(
+              locationId: 'loading_bay',
+              parentLocationId: 'warehouse',
+              level: 3,
+              name: 'Loading Bay',
+            ),
+          ],
+          storyEvents: <StoryEventDraft>[],
+          basicsSaved: false,
+          charactersSaved: false,
+          locationsSaved: true,
+          storyEventsSaved: false,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OriginLocationsEditorPage(
+            repository: repository,
+            useLocationTree: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _openInlineLocationNameEditor(
+        tester,
+        locationText: 'Harbor',
+        locationId: 'harbor',
+      );
+      final harborEditor = find.byKey(
+        const ValueKey<String>('locations-inline-name-harbor'),
+      );
+      await tester.tap(
+        find.descendant(
+          of: harborEditor,
+          matching: find.byType(CreateFormDeleteButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete "Harbor"'), findsOneWidget);
+      expect(
+        find.text('Every L2 and L3 locations inside it will be removed too.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('adding an L3 at the room limit explains how to add another', (
+    WidgetTester tester,
+  ) async {
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: CreateOriginDraft(
+        basics: const BasicsDraft(),
+        characters: const <CharacterDraft>[],
+        locations: <LocationDraft>[
+          const LocationDraft(locationId: 'region', level: 1, name: 'Downtown'),
+          const LocationDraft(
+            locationId: 'building',
+            parentLocationId: 'region',
+            level: 2,
+            name: "Joe's Diner",
+          ),
+          for (var index = 0; index < 15; index++)
+            LocationDraft(
+              locationId: 'room_$index',
+              parentLocationId: 'building',
+              level: 3,
+              name: 'Room ${index + 1}',
+            ),
+        ],
+        storyEvents: const <StoryEventDraft>[],
+        basicsSaved: false,
+        charactersSaved: false,
+        locationsSaved: true,
+        storyEventsSaved: false,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OriginLocationsEditorPage(
+          repository: repository,
+          useLocationTree: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final addL3 = find.byKey(const ValueKey<String>('create-add-l3-building'));
+    await tester.scrollUntilVisible(
+      addL3,
+      500,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey<String>('locations-edit-list')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(addL3);
+    await tester.pump();
+
+    expect(
+      find.text("You've used all 15 rooms. Delete one to add another."),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('location tree and root add spacing is 12px', (
@@ -12498,6 +12738,31 @@ void main() {
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 3));
+
+    await _completeInitialLocationTree(tester);
+    await _openL3LocationEditorSheet(tester, locationName: 'L3 Location');
+    final l3DeleteButton = find.byKey(
+      const ValueKey<String>('locations-l3-editor-delete'),
+    );
+    expect(l3DeleteButton, findsOneWidget);
+    expect(
+      tester
+          .widget<CreateFormDeleteButton>(
+            find.ancestor(
+              of: l3DeleteButton,
+              matching: find.byType(CreateFormDeleteButton),
+            ),
+          )
+          .enabled,
+      isFalse,
+    );
+    await tester.tap(l3DeleteButton);
+    await tester.pump();
+    expect(
+      find.text('"L2 Location" must contain at least one L3 location.'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('edit locations save also requires a complete location', (
@@ -12527,7 +12792,7 @@ void main() {
     expect(saveButton.onPressed, isNull);
   });
 
-  testWidgets('L3 sheet reports when no inline characters are available', (
+  testWidgets('L3 sheet explains when no characters have been created', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
@@ -12548,8 +12813,77 @@ void main() {
       findsNothing,
     );
     expect(find.text('Available to select'), findsOneWidget);
-    expect(find.text('No characters available.'), findsOneWidget);
+    final emptyCharactersMessage = tester.widget<Text>(
+      find.byKey(const ValueKey('available-initial-characters-empty')),
+    );
+    expect(
+      emptyCharactersMessage.data,
+      'No characters yet. Create characters first, then choose where they '
+      'start.',
+    );
+    expect(emptyCharactersMessage.style?.fontSize, 13);
   });
+
+  testWidgets(
+    'L3 sheet explains when characters are assigned to other locations',
+    (WidgetTester tester) async {
+      final repository = MemoryOriginDraftRepository(
+        initialDraft: const CreateOriginDraft(
+          basics: BasicsDraft(),
+          characters: <CharacterDraft>[
+            CharacterDraft(charId: 'char_ari', name: 'Ari'),
+          ],
+          locations: <LocationDraft>[
+            LocationDraft(locationId: 'region', level: 1, name: 'Downtown'),
+            LocationDraft(
+              locationId: 'building',
+              parentLocationId: 'region',
+              level: 2,
+              name: "Joe's Diner",
+            ),
+            LocationDraft(
+              locationId: 'occupied_room',
+              parentLocationId: 'building',
+              level: 3,
+              name: 'Front Counter',
+              initialCharacterIds: <String>['char_ari'],
+            ),
+            LocationDraft(
+              locationId: 'empty_room',
+              parentLocationId: 'building',
+              level: 3,
+              name: 'Back Kitchen',
+            ),
+          ],
+          storyEvents: <StoryEventDraft>[],
+          basicsSaved: false,
+          charactersSaved: true,
+          locationsSaved: true,
+          storyEventsSaved: false,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OriginLocationsEditorPage(
+            repository: repository,
+            useLocationTree: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _openL3LocationEditorSheet(tester, locationName: 'Back Kitchen');
+      final emptyCharactersMessage = tester.widget<Text>(
+        find.byKey(const ValueKey('available-initial-characters-empty')),
+      );
+      expect(
+        emptyCharactersMessage.data,
+        'No characters available. All characters already have an initial '
+        'location.',
+      );
+      expect(emptyCharactersMessage.style?.fontSize, 13);
+    },
+  );
 
   testWidgets('create locations converts an existing flat draft to a tree', (
     WidgetTester tester,
@@ -12809,9 +13143,12 @@ void main() {
     );
     expect(availableAriAvatar.name, 'Ari');
     expect(availableAriAvatar.size, 20);
-    await tester.tap(
-      find.byKey(const ValueKey('available-initial-character-char_ari')),
+    final availableAri = find.byKey(
+      const ValueKey('available-initial-character-char_ari'),
     );
+    await tester.ensureVisible(availableAri);
+    await tester.pumpAndSettle();
+    await tester.tap(availableAri);
     await tester.pump();
 
     expect(
@@ -12833,9 +13170,12 @@ void main() {
       find.byKey(const ValueKey('available-initial-character-char_bex')),
       findsOneWidget,
     );
-    await tester.tap(
-      find.byKey(const ValueKey('initial-character-chip-remove-char_ari')),
+    final removeAri = find.byKey(
+      const ValueKey('initial-character-chip-remove-char_ari'),
     );
+    await tester.ensureVisible(removeAri);
+    await tester.pumpAndSettle();
+    await tester.tap(removeAri);
     await tester.pump();
     expect(
       find.byKey(const ValueKey('available-initial-character-char_ari')),
@@ -13470,7 +13810,7 @@ void main() {
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
     await tester.pumpAndSettle();
     expect(find.text('Archive'), findsOneWidget);
-    expect(find.text('Narrator*1'), findsOneWidget);
+    expect(find.text('Narrator : 1'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
 
     rootPublish = tester.widget<FilledButton>(
@@ -13691,7 +14031,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
     await tester.pumpAndSettle();
-    expect(find.text('Narrator*1'), findsOneWidget);
+    expect(find.text('Narrator : 1'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -360));
     await tester.pump();

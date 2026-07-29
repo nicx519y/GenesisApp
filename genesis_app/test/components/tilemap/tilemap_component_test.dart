@@ -878,14 +878,17 @@ void main() {
     expect(find.byType(Image), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('tile-location-pointer-High School')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(
-      tester.getSize(
-        find.byKey(const ValueKey<String>('tile-location-pointer-High School')),
-      ),
-      const Size(8, 6.93),
+    final locationDot = find.byKey(
+      const ValueKey<String>('tile-location-dot-High School'),
     );
+    expect(locationDot, findsOneWidget);
+    expect(tester.getSize(locationDot), const Size.square(8));
+    final locationDotDecoration =
+        tester.widget<DecoratedBox>(locationDot).decoration as BoxDecoration;
+    expect(locationDotDecoration.shape, BoxShape.circle);
+    expect(locationDotDecoration.color, const Color(0xFF008D68));
     final bubbleBody = tester.widget<Container>(
       find.byKey(
         const ValueKey<String>('tile-location-bubble-body-High School'),
@@ -893,17 +896,41 @@ void main() {
     );
     expect(
       bubbleBody.padding,
-      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
     );
+    expect(bubbleBody.constraints, const BoxConstraints(maxWidth: 141));
+    final labelDecoration = bubbleBody.decoration! as BoxDecoration;
+    expect(labelDecoration.color, Colors.black.withValues(alpha: 0.4));
+    expect(labelDecoration.borderRadius, BorderRadius.circular(4));
+    final locationName = tester.widget<Text>(find.text('High School'));
+    expect(locationName.textAlign, TextAlign.center);
+    expect(locationName.softWrap, true);
+    expect(locationName.style?.color, Colors.white);
+    expect(locationName.style?.fontSize, 10);
+    expect(locationName.style?.height, 1.2);
+    expect(locationName.style?.fontWeight, FontWeight.w600);
 
     final tileRect = tester.getRect(
       find.byKey(const ValueKey<String>('tile-0-0')),
     );
+    final bubbleBodyRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('tile-location-bubble-body-High School'),
+      ),
+    );
+    final locationDotRect = tester.getRect(locationDot);
     final labelRect = tester.getRect(
       find.byKey(const ValueKey<String>('tile-location-label-0-0')),
     );
     expect(labelRect.top, greaterThan(tileRect.center.dy));
+    expect(locationDotRect.center.dx, closeTo(tileRect.center.dx, 0.01));
+    expect(locationDotRect.top - bubbleBodyRect.bottom, closeTo(12, 0.01));
     await tester.tap(find.text('High School'));
+    await tester.pump();
+    expect(tappedTile?.locationId, 'loc_1');
+
+    tappedTile = null;
+    await tester.tap(locationDot);
     await tester.pump();
     expect(tappedTile?.locationId, 'loc_1');
 

@@ -238,8 +238,9 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
     if (_blockForRequiredLocation()) return;
     if (_l3LocationCount >= _OriginLocationsEditorPageState._maxLocations) {
       _showError(
-        'You can add up to '
-        '${_OriginLocationsEditorPageState._maxLocations} L3 locations.',
+        "You've used all "
+        '${_OriginLocationsEditorPageState._maxLocations} rooms. '
+        'Delete one to add another.',
       );
       return;
     }

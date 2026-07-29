@@ -20,7 +20,7 @@ void main() {
     );
 
     expect(anchor.dx, 179);
-    expect(anchor.dy, closeTo(182.93, 0.001));
+    expect(anchor.dy, 156);
   });
 
   testWidgets('Tilemap bubble playback shows a gap and loops', (tester) async {

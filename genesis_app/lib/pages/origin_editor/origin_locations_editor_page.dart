@@ -20,13 +20,21 @@ class OriginLocationsEditorPage extends StatefulWidget {
 }
 
 class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
-  static const int _maxLocations = 10;
+  static const int _maxLocations = 15;
   static const String _statisticsNote =
-      'Add up to 10 L3 locations across your location trees.';
+      'Your world is built in 3 levels:\n'
+      'L1 · Region     An area of your world — Downtown\n'
+      "L2 · Building   A building inside it — Joe's Diner\n"
+      'L3 · Room       A room inside that building — The Back Kitchen\n'
+      'Every location needs all three levels. Up to 15 rooms in total.';
   static const String _l1NameNote =
-      'Use a broad area name, such as a city or region.';
+      'An area of your world — a district, a town, a forest. '
+      'Not a single building.';
   static const String _l2NameNote =
-      'Use a smaller area within this L1 location.';
+      'A building inside this region — a shop, a school, an apartment block.';
+  static const String _l3NameNote =
+      'A room inside the building. Rooftops, courtyards and entrances '
+      'work too.';
   static const String _completeRequiredLocationMessage =
       'Please complete this location or delete it.';
   static const TextStyle _locationCountStyle = TextStyle(

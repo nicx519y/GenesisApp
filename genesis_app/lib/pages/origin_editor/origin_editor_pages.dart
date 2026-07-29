@@ -542,7 +542,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   summary: _locationsSummary(_draft),
                                   completed: _draft.locationsSaved,
                                   modified: _locationsModified(_draft),
-                                  summaryWrap: true,
                                   onTap: () => _openSection(
                                     widget.locationsPageBuilder(
                                       widget.repository,
@@ -698,18 +697,16 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   String _locationsSummary(CreateOriginDraft draft) {
     if (!draft.locationsSaved) return 'Not started yet';
     final locations = draft.locations
-        .where(
-          (item) =>
-              _locationDraftHasContent(item) &&
-              (item.level == 0 || item.level == 3),
-        )
+        .where(_locationDraftHasContent)
         .toList(growable: false);
-    if (locations.isEmpty) return '0 locations';
-    final names = locations
-        .map((item) => _singleLineSummaryText(item.name))
-        .where((name) => name.isNotEmpty)
-        .join(', ');
-    return '${locations.length} locations: $names';
+    final l1Count = locations.where((item) => item.level == 1).length;
+    final l2Count = locations.where((item) => item.level == 2).length;
+    final l3Count = locations
+        .where((item) => item.level != 1 && item.level != 2)
+        .length;
+    return 'L1 · Region : $l1Count\n'
+        'L2 · Building : $l2Count\n'
+        'L3 · Room : $l3Count';
   }
 
   String _storyEventsSummary(CreateOriginDraft draft) {
@@ -738,15 +735,11 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           imageCount += 1;
       }
     }
-    final contentCounts = <String>[
-      if (characterDialogueCount > 0)
-        'Character dialogue*$characterDialogueCount',
-      if (narratorCount > 0) 'Narrator*$narratorCount',
-      if (imageCount > 0) 'Image*$imageCount',
-    ];
     return <String>[
       locationName.isEmpty ? '-' : locationName,
-      if (contentCounts.isNotEmpty) contentCounts.join(', '),
+      'Character dialogue : $characterDialogueCount',
+      'Narrator : $narratorCount',
+      'Image : $imageCount',
     ].join('\n');
   }
 

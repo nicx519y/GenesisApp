@@ -12,6 +12,36 @@ class _TilemapLocationLabelData {
   final List<UserAvatar> avatars;
 }
 
+const double _tilemapLocationLabelMaxWidth = 141;
+const double _tilemapLocationLabelHorizontalPadding = 3;
+const double _tilemapLocationLabelVerticalPadding = 4;
+const double _tilemapLocationLabelToDotSpacing = 12;
+const double _tilemapLocationDotSize = 8;
+const double _tilemapLocationDotToAvatarSpacing = 6;
+const Color _tilemapLocationDotColor = Color(0xFF008D68);
+const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 10,
+  height: 1.2,
+  leadingDistribution: TextLeadingDistribution.even,
+  fontWeight: FontWeight.w600,
+);
+
+double _tilemapLocationLabelHeight(BuildContext context, String name) {
+  final painter =
+      TextPainter(
+        text: TextSpan(text: name, style: _tilemapLocationLabelTextStyle),
+        textAlign: TextAlign.center,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(
+        maxWidth:
+            _tilemapLocationLabelMaxWidth -
+            _tilemapLocationLabelHorizontalPadding * 2,
+      );
+  return painter.height + _tilemapLocationLabelVerticalPadding * 2;
+}
+
 class _TilemapInfiniteGridPainter extends CustomPainter {
   const _TilemapInfiniteGridPainter({
     required this.projection,
@@ -123,103 +153,77 @@ class _TilemapLocationBubble extends StatelessWidget {
       top: anchor.dy,
       child: FractionalTranslation(
         translation: const Offset(-0.5, 0),
-        child: Semantics(
-          label: name,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onLabelTap,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CustomPaint(
-                      key: ValueKey<String>('tile-location-pointer-$name'),
-                      size: const Size(8, 6.93),
-                      painter: const _TilemapLocationBubblePointerPainter(),
+        child: Transform.translate(
+          offset: Offset(
+            0,
+            -_tilemapLocationLabelHeight(context, name) -
+                _tilemapLocationLabelToDotSpacing -
+                _tilemapLocationDotSize / 2,
+          ),
+          child: Semantics(
+            label: name,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onLabelTap,
+                  child: Container(
+                    key: ValueKey<String>('tile-location-bubble-body-$name'),
+                    constraints: const BoxConstraints(
+                      maxWidth: _tilemapLocationLabelMaxWidth,
                     ),
-                    Container(
-                      key: ValueKey<String>('tile-location-bubble-body-$name'),
-                      constraints: const BoxConstraints(maxWidth: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x24000000),
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.location_on_rounded,
-                            color: Color(0xFFFF3B4E),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 3),
-                          Flexible(
-                            child: Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFF3A3A3A),
-                                fontSize: 13,
-                                height: 1.15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _tilemapLocationLabelHorizontalPadding,
+                      vertical: _tilemapLocationLabelVerticalPadding,
                     ),
-                  ],
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 6,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      name,
+                      textAlign: TextAlign.center,
+                      softWrap: true,
+                      style: _tilemapLocationLabelTextStyle,
+                    ),
+                  ),
                 ),
-              ),
-              if (avatars.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                TilemapLocationAvatars(
-                  avatars: avatars,
-                  onAvatarTap: onAvatarTap,
+                const SizedBox(height: _tilemapLocationLabelToDotSpacing),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onLabelTap,
+                  child: DecoratedBox(
+                    key: ValueKey<String>('tile-location-dot-$name'),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _tilemapLocationDotColor,
+                    ),
+                    child: const SizedBox.square(
+                      dimension: _tilemapLocationDotSize,
+                    ),
+                  ),
                 ),
+                if (avatars.isNotEmpty) ...[
+                  const SizedBox(height: _tilemapLocationDotToAvatarSpacing),
+                  TilemapLocationAvatars(
+                    avatars: avatars,
+                    onAvatarTap: onAvatarTap,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
-  }
-}
-
-class _TilemapLocationBubblePointerPainter extends CustomPainter {
-  const _TilemapLocationBubblePointerPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width / 2, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas
-      ..drawShadow(path, const Color(0x24000000), 3, true)
-      ..drawPath(path, Paint()..color = Colors.white);
-  }
-
-  @override
-  bool shouldRepaint(
-    covariant _TilemapLocationBubblePointerPainter oldDelegate,
-  ) {
-    return false;
   }
 }
 

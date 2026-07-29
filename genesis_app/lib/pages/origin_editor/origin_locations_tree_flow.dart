@@ -132,20 +132,22 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
   }) async {
     _inlineNameFocusNode.unfocus();
     final displayName = name.trim().isEmpty ? 'location' : name.trim();
-    final title = 'Delete L$level $displayName and all locations under it?';
+    final subtitle = level == 1
+        ? 'Every L2 and L3 locations inside it will be removed too.'
+        : 'Every L3 locations inside it will be removed too.';
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
-      title: '',
-      titleWidget: Text(
-        title,
-        maxLines: 3,
+      title: 'Delete "$displayName"',
+      titleContent: Text(
+        subtitle,
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
         style: const TextStyle(
-          color: Color(0xFF111111),
-          fontSize: 15,
-          height: 1.4,
-          fontWeight: FontWeight.w600,
+          color: Color(0xFF666666),
+          fontSize: 13,
+          height: 1.3,
+          fontWeight: FontWeight.w400,
         ),
       ),
       titleHeight: 104,
@@ -252,7 +254,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           controller: _inlineNameController,
           focusNode: _inlineNameFocusNode,
           level: level,
-          hintText: 'L1 Location',
+          hintText: 'L1 Location · Region *',
           note: _OriginLocationsEditorPageState._l1NameNote,
           onChanged: _onFormChanged,
           onEditingComplete: _finishInlineNameEdit,
@@ -282,7 +284,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           controller: _inlineNameController,
           focusNode: _inlineNameFocusNode,
           level: level,
-          hintText: 'L2 Location',
+          hintText: 'L2 Location · Building *',
           note: _OriginLocationsEditorPageState._l2NameNote,
           onChanged: _onFormChanged,
           onEditingComplete: _finishInlineNameEdit,
@@ -452,6 +454,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                             index: target.l3Index + 1,
                             showHeader: false,
                             nameFieldLabel: 'Name *',
+                            nameFieldHintText: '',
+                            nameFieldNote:
+                                _OriginLocationsEditorPageState._l3NameNote,
                             fieldLabelFontWeight: FontWeight.w400,
                             form: draftForm,
                             nextFocusNode: null,
@@ -532,6 +537,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                                       : () => Navigator.of(
                                           context,
                                         ).pop(_L3EditorSheetAction.save),
+                                  onDisabledPressed: () => _showError(
+                                    'L3 location name is required.',
+                                  ),
                                 ),
                               ],
                             ),

@@ -49,10 +49,9 @@ void main() {
       expect(transport.requestsFor('/api/v1/origin/foredit'), isEmpty);
       expect(transport.requestsFor('/api/v1/origin/detail'), isEmpty);
       expect(find.text('Archive'), findsOneWidget);
-      expect(
-        find.text('Character dialogue*1, Narrator*1, Image*1'),
-        findsOneWidget,
-      );
+      expect(find.text('Character dialogue : 1'), findsOneWidget);
+      expect(find.text('Narrator : 1'), findsOneWidget);
+      expect(find.text('Image : 1'), findsOneWidget);
 
       await tester.tap(find.text('Basics'));
       await tester.pumpAndSettle();

@@ -19,6 +19,8 @@ class _LocationCard extends StatelessWidget {
     this.titleFontSize = 16,
     this.titleSuffix,
     this.nameFieldLabel = 'Location Name *',
+    this.nameFieldHintText = 'eg. Main Street',
+    this.nameFieldNote,
     this.fieldLabelFontWeight = FontWeight.w600,
     this.availableCharacters,
     this.onAddCharacter,
@@ -40,6 +42,8 @@ class _LocationCard extends StatelessWidget {
   final double titleFontSize;
   final String? titleSuffix;
   final String nameFieldLabel;
+  final String nameFieldHintText;
+  final String? nameFieldNote;
   final FontWeight fieldLabelFontWeight;
   final List<CharacterDraft>? availableCharacters;
   final ValueChanged<String>? onAddCharacter;
@@ -68,7 +72,8 @@ class _LocationCard extends StatelessWidget {
               child: CreateTextFieldBlock(
                 label: nameFieldLabel,
                 controller: form.name,
-                hintText: 'eg. Main Street',
+                hintText: nameFieldHintText,
+                note: nameFieldNote,
                 maxLength: 25,
                 maxLines: 1,
                 labelFontWeight: fieldLabelFontWeight,
@@ -254,11 +259,16 @@ class _InitialCharactersField extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (availableCharacters!.isEmpty)
-            const Text(
-              'No characters available.',
-              style: TextStyle(
+            Text(
+              characters.isEmpty
+                  ? 'No characters yet. Create characters first, then choose '
+                        'where they start.'
+                  : 'No characters available. All characters already have '
+                        'an initial location.',
+              key: const ValueKey('available-initial-characters-empty'),
+              style: const TextStyle(
                 color: createFormMuted,
-                fontSize: 12,
+                fontSize: 13,
                 height: 1.2,
               ),
             )

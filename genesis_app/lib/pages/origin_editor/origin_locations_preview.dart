@@ -178,6 +178,11 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _LocationEditorNote(
+          key: const ValueKey<String>('locations-statistics-note'),
+          text: _OriginLocationsEditorPageState._statisticsNote,
+        ),
+        const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
           child: Wrap(
@@ -200,10 +205,6 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
               ),
             ],
           ),
-        ),
-        _LocationEditorNote(
-          key: const ValueKey<String>('locations-statistics-note'),
-          text: _OriginLocationsEditorPageState._statisticsNote,
         ),
         const SizedBox(height: 16),
       ],
