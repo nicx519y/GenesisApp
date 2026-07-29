@@ -91,7 +91,13 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
 String? _purchaseFailureReason(Map<String, Object?> data) {
   final reason = data['reason'];
   if (reason is! String || reason.isEmpty) return null;
-  if (reason != 'purchase_callback_error' && reason != 'query_failed') {
+  final appendsErrorCode =
+      reason == 'purchase_callback_error' ||
+      reason == 'query_failed' ||
+      reason == 'launch_failed' ||
+      reason == 'report_failed' ||
+      reason == 'report_rejected';
+  if (!appendsErrorCode) {
     return reason;
   }
 
@@ -99,6 +105,11 @@ String? _purchaseFailureReason(Map<String, Object?> data) {
       .trim()
       .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
       .replaceAll(RegExp(r'^_+|_+$'), '');
+  if (reason == 'launch_failed' && errorCode.isEmpty) return reason;
+  if ((reason == 'report_failed' || reason == 'report_rejected') &&
+      errorCode.isEmpty) {
+    return reason;
+  }
   return '$reason[${errorCode.isEmpty ? 'unknown' : errorCode}]';
 }
 

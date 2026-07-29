@@ -1,6 +1,125 @@
 part of 'google_play_billing_service.dart';
 
 extension _GooglePlayBillingRecovery on GooglePlayBillingService {
+  Future<bool> _recoverStorePurchases({
+    List<GemProduct>? productCatalog,
+  }) async {
+    await start();
+    if (_disposed || !_state.value.storeAvailable) return false;
+
+    String billingAccountId;
+    try {
+      billingAccountId = await _resolveBillingAccountId();
+    } catch (_) {
+      return false;
+    }
+    if (billingAccountId.isEmpty || _disposed) return false;
+
+    late final List<BillingPurchase> purchases;
+    try {
+      purchases = await _platform.queryRecoverablePurchases();
+    } catch (error) {
+      debugPrint('[Billing] store recovery query failed: $error');
+      return false;
+    }
+
+    final seenPurchaseKeys = <String>{};
+    for (final purchase in purchases) {
+      final purchaseIdentity = purchase.purchaseToken.trim();
+      final purchaseKey = '${purchase.provider.name}:$purchaseIdentity';
+      if (purchaseIdentity.isNotEmpty && !seenPurchaseKeys.add(purchaseKey)) {
+        continue;
+      }
+      await _recoverStorePurchase(
+        purchase,
+        billingAccountId: billingAccountId,
+        productCatalog: productCatalog,
+      );
+    }
+    return true;
+  }
+
+  Future<void> _recoverStorePurchase(
+    BillingPurchase purchase, {
+    required String billingAccountId,
+    List<GemProduct>? productCatalog,
+  }) async {
+    final token = purchase.purchaseToken.trim();
+    if (token.isEmpty) {
+      debugPrint('[Billing] skipped store recovery without purchase identity');
+      return;
+    }
+
+    BillingPendingPurchase? persistedRecord;
+    try {
+      persistedRecord = await _findPendingPurchase(
+        provider: purchase.provider,
+        purchaseToken: token,
+      );
+    } catch (error) {
+      debugPrint('[Billing] store recovery local lookup failed: $error');
+    }
+
+    final fallbackAttemptId = newBillingAttemptId();
+    final recoveredAttempt = persistedRecord == null
+        ? await _recoveredAttemptFor(
+            purchase,
+            source: BillingRecoverySource.foreground,
+            fallbackAttemptId: fallbackAttemptId,
+            productCatalog: productCatalog,
+          )
+        : null;
+    final now = DateTime.now();
+    final productId = persistedRecord?.productId.trim().isNotEmpty == true
+        ? persistedRecord!.productId.trim()
+        : recoveredAttempt?.product.productId ?? purchase.productId;
+    final record = persistedRecord == null
+        ? _purchaseRecord(
+            purchase: purchase,
+            attemptId: recoveredAttempt?.id ?? fallbackAttemptId,
+            billingAccountId:
+                recoveredAttempt?.billingAccountId ?? billingAccountId,
+            productId: productId,
+            status: BillingPendingPurchaseStatus.received,
+            createdAt: now,
+            updatedAt: now,
+          )
+        : _purchaseRecord(
+            purchase: purchase,
+            attemptId: persistedRecord.attemptId,
+            billingAccountId: persistedRecord.billingAccountId,
+            productId: productId,
+            status: persistedRecord.status,
+            createdAt: persistedRecord.createdAt,
+            updatedAt: now,
+            retryCount: persistedRecord.retryCount,
+            reportTimeoutTracked: persistedRecord.reportTimeoutTracked,
+          );
+    final belongsToCurrentAccount = _storePurchaseBelongsToCurrentAccount(
+      purchase,
+      billingAccountId,
+      persistedRecord: persistedRecord,
+    );
+    final processingKey = record.key;
+    _completedPurchaseKeys.remove(processingKey);
+    await _runExclusivePurchase(processingKey, () async {
+      if (persistedRecord != null && belongsToCurrentAccount) {
+        await _processRecord(
+          record,
+          purchase: purchase,
+          source: BillingRecoverySource.foreground,
+          allowAnyAccount: true,
+        );
+        return;
+      }
+      await _processTransientStoreRecovery(
+        record,
+        purchase: purchase,
+        handleResult: belongsToCurrentAccount,
+      );
+    });
+  }
+
   Future<void> _recoverInternal(
     BillingRecoverySource source, {
     required int sessionGeneration,
@@ -52,10 +171,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     int? sessionGeneration,
   }) async {
     var currentBillingAccountId = billingAccountId?.trim() ?? '';
-    final hasGooglePurchase = purchases.any(
-      (purchase) => purchase.provider == BillingProvider.googlePlay,
-    );
-    if (hasGooglePurchase && currentBillingAccountId.isEmpty) {
+    if (purchases.isNotEmpty && currentBillingAccountId.isEmpty) {
       try {
         currentBillingAccountId = await _resolveBillingAccountId();
       } catch (_) {

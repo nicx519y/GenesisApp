@@ -343,6 +343,11 @@ class _FakeBillingService implements BillingService {
   }
 
   @override
+  Future<bool> recoverStorePurchases({
+    List<GemProduct>? productCatalog,
+  }) async => true;
+
+  @override
   void resetForSession() {}
 
   @override
@@ -14114,6 +14119,10 @@ void main() {
     final services = await _testServices(
       deviceIdService: const _FakeDeviceIdDiagnosticsService(),
       gemWallet: gemWallet,
+      initialUserInfo: const {
+        'uid': 'u_mock',
+        'uuid': '00000000-1111-2222-3333-444444444444',
+      },
     );
     expect(services.deviceId, isA<DeviceIdDiagnosticsService>());
 
@@ -14129,6 +14138,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('UID:'), findsOneWidget);
+    expect(find.text('u_mock'), findsOneWidget);
+    expect(find.text('UUID:'), findsOneWidget);
+    expect(find.text('00000000-1111-2222-3333-444444444444'), findsOneWidget);
     expect(find.text('My Balance:'), findsOneWidget);
     expect(find.text('20,925'), findsOneWidget);
     expect(find.text('ANDROID_ID:'), findsOneWidget);
@@ -14143,7 +14156,14 @@ void main() {
       tester.getTopLeft(find.text('AAID:')).dy,
     );
     expect(find.text('Device ID:'), findsOneWidget);
-    expect(find.text('resolved-device-id'), findsOneWidget);
+    final deviceId = find.text('resolved-device-id');
+    expect(deviceId, findsOneWidget);
+    expect(tester.widget<Text>(deviceId).softWrap, isFalse);
+    expect(tester.widget<Text>(deviceId).maxLines, 1);
+    expect(
+      find.ancestor(of: deviceId, matching: find.byType(FittedBox)),
+      findsOneWidget,
+    );
     expect(find.text('0.2.2/2022'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('android-id')).dy,
@@ -14154,7 +14174,7 @@ void main() {
       lessThan(tester.getTopLeft(find.text('ANDROID_ID:')).dy),
     );
     expect(
-      tester.getTopLeft(find.text('resolved-device-id')).dy,
+      tester.getTopLeft(deviceId).dy,
       tester.getTopLeft(find.text('Device ID:')).dy,
     );
     expect(

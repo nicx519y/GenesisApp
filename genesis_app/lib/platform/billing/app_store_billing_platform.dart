@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 
 import 'billing_models.dart';
 import 'google_play_billing_platform.dart';
@@ -27,6 +29,38 @@ class AppStoreBillingPlatform implements BillingPlatform {
   Future<bool> isAvailable() async {
     if (defaultTargetPlatform != TargetPlatform.iOS) return false;
     return _inAppPurchase.isAvailable();
+  }
+
+  @override
+  Future<List<BillingPurchase>> queryRecoverablePurchases() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      return const <BillingPurchase>[];
+    }
+    try {
+      final transactions = await SK2Transaction.unfinishedTransactions();
+      return transactions
+          .map(
+            (transaction) => BillingPurchase(
+              provider: BillingProvider.appStore,
+              productId: transaction.productId,
+              purchaseToken: transaction.id,
+              transactionId: transaction.id,
+              originalTransactionId: transaction.originalId,
+              originalJson:
+                  transaction.receiptData ??
+                  transaction.jsonRepresentation ??
+                  '',
+              purchaseTime: transaction.purchaseDate,
+              status: BillingPurchaseStatus.purchased,
+              obfuscatedAccountId: transaction.appAccountToken,
+              errorCode: transaction.error?.code.toString(),
+              errorMessage: transaction.error?.userInfo.toString(),
+            ),
+          )
+          .toList(growable: false);
+    } on Object catch (error) {
+      throw BillingPlatformException('query_purchases_failed', '$error');
+    }
   }
 
   @override
@@ -127,6 +161,9 @@ BillingPurchase _toBillingPurchase(PurchaseDetails purchase) {
     originalJson: purchase.verificationData.localVerificationData,
     purchaseTime: purchase.transactionDate ?? '',
     status: status,
+    obfuscatedAccountId: purchase is SK2PurchaseDetails
+        ? purchase.appAccountToken
+        : null,
     errorCode: purchase.error?.code,
     errorMessage: purchase.error?.message,
   );

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_controller.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_message_type.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transport.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
@@ -25,10 +26,39 @@ void main() {
 
     expect(parse({'message_type': ' IMAGE '}).messageType, 'image');
     expect(parse(const {}).messageType, 'text');
+    expect(parse({'sender_id': 'nar_pic'}).messageType, 'image');
+    expect(
+      parse({'sender_id': 'nar_pic', 'message_type': null}).messageType,
+      'text',
+    );
+    expect(
+      parse({'sender_id': 'nar_pic', 'message_type': '   '}).messageType,
+      'text',
+    );
     expect(parse({'message_type': '   '}).messageType, 'text');
     expect(
       parse({'message_type': ' Future_Format '}).messageType,
       'future_format',
+    );
+  });
+
+  test('chatroom render policy requires image and nar_pic', () {
+    ChatroomMessageRenderKind resolve(Object? type, Object? senderId) {
+      return resolveChatroomMessageRenderKind(
+        messageType: type,
+        senderId: senderId,
+      );
+    }
+
+    expect(resolve(null, 'nar_pic'), ChatroomMessageRenderKind.text);
+    expect(resolve('text', 'nar_pic'), ChatroomMessageRenderKind.text);
+    expect(resolve(' IMAGE ', ' NAR_PIC '), ChatroomMessageRenderKind.image);
+    expect(resolve('image', 'nar'), ChatroomMessageRenderKind.hidden);
+    expect(resolve('image', 'char-1'), ChatroomMessageRenderKind.hidden);
+    expect(resolve('video', 'nar_pic'), ChatroomMessageRenderKind.hidden);
+    expect(
+      resolve('future_format', 'char-1'),
+      ChatroomMessageRenderKind.hidden,
     );
   });
 

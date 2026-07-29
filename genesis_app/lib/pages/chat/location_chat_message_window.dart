@@ -147,6 +147,13 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     for (final message in next) {
       if (previousKeys.contains(_messageDedupKey(message))) continue;
       if (_isMineMessage(message)) continue;
+      if (resolveChatroomMessageRenderKind(
+            messageType: message.messageType,
+            senderId: message.senderId,
+          ) ==
+          ChatroomMessageRenderKind.hidden) {
+        continue;
+      }
       count += 1;
     }
     return count;
@@ -338,11 +345,8 @@ Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
 }
 
 bool _senderIdIsNarrator(String senderId) {
-  return senderId.trim().toLowerCase() == 'nar';
-}
-
-bool _senderIdIsNarratorPicture(String senderId) {
-  return senderId.trim().toLowerCase() == 'nar_pic';
+  final normalized = senderId.trim().toLowerCase();
+  return normalized == 'nar' || normalized == chatroomNarratorPictureSenderId;
 }
 
 @visibleForTesting

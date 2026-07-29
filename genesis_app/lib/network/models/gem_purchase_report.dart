@@ -48,6 +48,7 @@ class GemPurchaseReport {
     required this.status,
     this.grantedGems = 0,
     this.transactionId = '',
+    this.reason = '',
   });
 
   factory GemPurchaseReport.fromJson(Map<String, dynamic> json) {
@@ -62,10 +63,12 @@ class GemPurchaseReport {
       status: status,
       grantedGems: asInt(json['granted_gems']),
       transactionId: asString(json['transaction_id']).trim(),
+      reason: asString(json['reason']).trim(),
     );
   }
 
   final GemPurchaseReportStatus status;
   final int grantedGems;
   final String transactionId;
+  final String reason;
 }

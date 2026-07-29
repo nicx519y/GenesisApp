@@ -554,6 +554,11 @@ void main() {
 
     expect(billing.purchasedProducts, hasLength(1));
     expect(billing.purchasedProducts.single.productId, 'gem_pack_500');
+    expect(billing.storeRecoveryCount, 1);
+    expect(
+      billing.recoveredProductCatalog?.map((product) => product.productId),
+      _products().map((product) => product.productId),
+    );
     expect(billing.purchaseSources, [BillingPurchaseSource.buyGemsPage]);
     expect(billing.purchaseTrackIds, hasLength(1));
     final showEvent = telemetry.events.singleWhere(
@@ -598,6 +603,75 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.text('OK'));
     await tester.pump();
+  });
+
+  testWidgets('store recovery starts only after products load succeeds', (
+    tester,
+  ) async {
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    final billing = _FakeBillingService();
+    final productsCompleter = Completer<List<GemProduct>>();
+    addTearDown(walletStore.dispose);
+    addTearDown(billing.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          billingService: billing,
+          productsLoader: (_) => productsCompleter.future,
+          tasksLoader: (_) async => _taskGroups(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(billing.storeRecoveryCount, 0);
+
+    productsCompleter.complete(_products());
+    await tester.pumpAndSettle();
+
+    expect(billing.storeRecoveryCount, 1);
+    expect(
+      billing.recoveredProductCatalog?.map((product) => product.productId),
+      _products().map((product) => product.productId),
+    );
+  });
+
+  testWidgets('store recovery failure does not prevent a new purchase', (
+    tester,
+  ) async {
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    final billing = _FakeBillingService()..storeRecoveryResult = false;
+    addTearDown(walletStore.dispose);
+    addTearDown(billing.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          billingService: billing,
+          productsLoader: (_) async => _products(),
+          tasksLoader: (_) async => _taskGroups(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+    );
+    await tester.pump();
+
+    expect(billing.storeRecoveryCount, 1);
+    expect(billing.purchasedProducts, hasLength(1));
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
   });
 
   testWidgets('other gem products ignore taps during a purchase', (
@@ -1581,6 +1655,9 @@ class _FakeBillingService implements BillingService {
   final List<String> purchaseTrackIds = <String>[];
   final List<BillingRecoverySource> recoverSources = <BillingRecoverySource>[];
   Completer<void>? purchaseCompleter;
+  bool storeRecoveryResult = true;
+  int storeRecoveryCount = 0;
+  List<GemProduct>? recoveredProductCatalog;
 
   @override
   Stream<BillingUiEvent> get events => _events.stream;
@@ -1608,6 +1685,13 @@ class _FakeBillingService implements BillingService {
   @override
   Future<void> recover(BillingRecoverySource source) async {
     recoverSources.add(source);
+  }
+
+  @override
+  Future<bool> recoverStorePurchases({List<GemProduct>? productCatalog}) async {
+    storeRecoveryCount += 1;
+    recoveredProductCatalog = productCatalog;
+    return storeRecoveryResult;
   }
 
   @override

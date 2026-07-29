@@ -20,6 +20,7 @@ import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/gems/memory_model_entry_button.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
+import '../../network/chatroom/chatroom_message_type.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
