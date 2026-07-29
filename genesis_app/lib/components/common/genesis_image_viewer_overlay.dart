@@ -152,12 +152,12 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     final logicalHeight = size != null && size.height.isFinite
         ? size.height
         : null;
-    return selectGenesisImageUrl(
+    return _selectViewerImageUrl(
       source,
       logicalWidth: logicalWidth,
       logicalHeight: logicalHeight,
       devicePixelRatio: mediaQuery?.devicePixelRatio ?? 1,
-    ).trim();
+    );
   }
 
   void _handlePointerUp(PointerUpEvent event) {
@@ -454,7 +454,7 @@ class _ImageByUrl extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final imageUrl = selectGenesisImageUrl(
+        final imageUrl = _selectViewerImageUrl(
           url,
           logicalWidth: constraints.maxWidth.isFinite
               ? constraints.maxWidth
@@ -485,4 +485,25 @@ class _ImageByUrl extends StatelessWidget {
       },
     );
   }
+}
+
+String _selectViewerImageUrl(
+  String source, {
+  required double? logicalWidth,
+  required double? logicalHeight,
+  required double devicePixelRatio,
+}) {
+  final selected = selectGenesisImageUrl(
+    source,
+    logicalWidth: logicalWidth,
+    logicalHeight: logicalHeight,
+    devicePixelRatio: devicePixelRatio,
+  ).trim();
+  final candidate = selected.isNotEmpty ? selected : source.trim();
+  final resized = resizeGenesisImageUrl(
+    candidate,
+    logicalWidth: logicalWidth,
+    devicePixelRatio: devicePixelRatio,
+  );
+  return resized.isNotEmpty ? resized : candidate;
 }

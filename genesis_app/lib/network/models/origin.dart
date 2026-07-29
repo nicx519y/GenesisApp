@@ -618,6 +618,33 @@ class OriginCharacter {
 }
 
 @immutable
+class OriginMyLaunchPresetCharacter {
+  const OriginMyLaunchPresetCharacter({
+    required this.charId,
+    required this.type,
+    required this.name,
+    required this.identity,
+    required this.brief,
+    required this.goal,
+    required this.avatar,
+    required this.avatarResource,
+    required this.initialLocationId,
+    required this.lastLaunchedAt,
+  });
+
+  final String charId;
+  final String type;
+  final String name;
+  final String identity;
+  final String brief;
+  final String goal;
+  final String avatar;
+  final GenesisImageResource avatarResource;
+  final String initialLocationId;
+  final int lastLaunchedAt;
+}
+
+@immutable
 class OriginLocation {
   const OriginLocation({
     required this.id,

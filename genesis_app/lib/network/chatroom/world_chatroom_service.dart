@@ -2677,6 +2677,7 @@ class WorldChatroomMessage {
   factory WorldChatroomMessage.fromNarratorMessage(
     ChatroomNarratorMessage message,
   ) {
+    final senderType = message.senderType.trim().toLowerCase();
     return WorldChatroomMessage(
       globalMessageId: message.globalMessageId,
       messageId: message.messageId,
@@ -2686,7 +2687,8 @@ class WorldChatroomMessage {
       conversationRoundId: message.conversationRoundId,
       roundOrder: message.roundOrder,
       locationId: message.locationId,
-      senderType: _senderIdIsNarrator(message.senderId)
+      senderType:
+          senderType == 'narrator' && _senderIdIsNarrator(message.senderId)
           ? 'narrator'
           : 'character',
       userId: message.userId,
@@ -2796,5 +2798,5 @@ int _safeLocationMessageId(int Function() read) {
 }
 
 bool _senderIdIsNarrator(String senderId) {
-  return senderId.trim().toLowerCase() == 'nar';
+  return const {'nar', 'nar_pic'}.contains(senderId.trim().toLowerCase());
 }

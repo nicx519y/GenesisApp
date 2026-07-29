@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../components/common/genesis_image_viewer_overlay.dart';
 import '../../../components/common/genesis_timestamp_text.dart';
 import '../../../components/ai_content_disclaimer.dart';
 import '../../../icons/custom_icon_assets.dart';
@@ -12,9 +14,11 @@ import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/components/genesis_list_image.dart';
 import '../../../ui/components/genesis_safe_area.dart';
+import '../../../ui/components/genesis_static_network_image.dart';
 import '../../../ui/tokens/genesis_colors.dart';
 import '../../../ui/tokens/genesis_typography.dart';
 import '../../../ui/text/genesis_text_input_formatters.dart';
+import '../../../utils/genesis_image_resource.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_ui_style_config.dart';
@@ -756,6 +760,7 @@ class ChatMessageList extends StatelessWidget {
         return ChatMessageRow(
           key: ValueKey(current.localId),
           message: current,
+          imageViewerMessages: messages,
           style: style,
           onMessageLongPressStart: onMessageLongPressStart,
           onFailedMessageTap: onFailedMessageTap,
@@ -939,6 +944,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
     return ChatMessageRow(
       key: ValueKey(current.localId),
       message: current,
+      imageViewerMessages: messages,
       style: style,
       onMessageLongPressStart: onMessageLongPressStart,
       onFailedMessageTap: onFailedMessageTap,
@@ -1080,6 +1086,7 @@ class ChatMessageRow extends StatelessWidget {
     super.key,
     required this.message,
     required this.showDateDivider,
+    this.imageViewerMessages = const <ChatMessageVm>[],
     this.onAvatarTap,
     this.onMessageLongPressStart,
     this.onFailedMessageTap,
@@ -1088,6 +1095,7 @@ class ChatMessageRow extends StatelessWidget {
 
   final ChatMessageVm message;
   final bool showDateDivider;
+  final List<ChatMessageVm> imageViewerMessages;
   final VoidCallback? onAvatarTap;
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ChatMessageTap? onFailedMessageTap;
@@ -1099,6 +1107,7 @@ class ChatMessageRow extends StatelessWidget {
     if (message.isImage) {
       return ChatImageMessage(
         message: message,
+        imageViewerMessages: imageViewerMessages,
         style: style,
         onLongPressStart: onMessageLongPressStart == null
             ? null
@@ -1315,17 +1324,20 @@ class ChatImageMessage extends StatelessWidget {
     super.key,
     required this.message,
     required this.style,
+    this.imageViewerMessages = const <ChatMessageVm>[],
     this.onLongPressStart,
   });
 
-  static const double imageSize = 200;
+  static const double maxImageExtent = 250;
 
   final ChatMessageVm message;
   final ChatUiStyleConfig style;
+  final List<ChatMessageVm> imageViewerMessages;
   final GestureLongPressStartCallback? onLongPressStart;
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = _thumbnailImageUrl(context);
     return Padding(
       padding: EdgeInsets.only(
         left: style.avatarSideSpacerWidth,
@@ -1334,23 +1346,234 @@ class ChatImageMessage extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _rawImageUrl(message).isEmpty
+              ? null
+              : () => _showImageViewer(context),
           onLongPressStart: onLongPressStart,
-          child: GenesisListImage(
+          child: ChatThumbnailImage(
             key: ValueKey<String>('chat-image-message-${message.localId}'),
-            imageUrl: message.imageUrl.trim().isNotEmpty
-                ? message.imageUrl
-                : message.text,
-            width: imageSize,
-            height: imageSize,
-            fit: BoxFit.contain,
-            borderRadius: BorderRadius.circular(
-              style.systemMessageBorderRadius,
-            ),
+            imageUrl: imageUrl,
+            maxExtent: maxImageExtent,
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
       ),
     );
   }
+
+  String _thumbnailImageUrl(BuildContext context) {
+    final source = _rawImageUrl(message);
+    if (source.isEmpty) return '';
+    final devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+    final selected = selectGenesisImageUrl(
+      source,
+      logicalWidth: maxImageExtent,
+      logicalHeight: maxImageExtent,
+      devicePixelRatio: devicePixelRatio,
+    ).trim();
+    final candidate = selected.isNotEmpty ? selected : source;
+    final resized = resizeGenesisImageUrl(
+      candidate,
+      logicalWidth: maxImageExtent,
+      devicePixelRatio: devicePixelRatio,
+    );
+    return resized.isNotEmpty ? resized : candidate;
+  }
+
+  void _showImageViewer(BuildContext context) {
+    final sourceMessages = imageViewerMessages.isEmpty
+        ? <ChatMessageVm>[message]
+        : imageViewerMessages;
+    final indexedMessages =
+        <({int index, ChatMessageVm message})>[
+          for (var index = 0; index < sourceMessages.length; index += 1)
+            if (sourceMessages[index].isImage &&
+                _rawImageUrl(sourceMessages[index]).isNotEmpty)
+              (index: index, message: sourceMessages[index]),
+        ]..sort((left, right) {
+          final byTime = left.message.createdAt.compareTo(
+            right.message.createdAt,
+          );
+          return byTime != 0 ? byTime : left.index.compareTo(right.index);
+        });
+    if (indexedMessages.isEmpty) return;
+
+    final initialIndex = indexedMessages.indexWhere(
+      (entry) => entry.message.localId == message.localId,
+    );
+    showGenesisImageViewer(
+      context,
+      imageUrls: [
+        for (final entry in indexedMessages) _rawImageUrl(entry.message),
+      ],
+      initialIndex: initialIndex < 0 ? 0 : initialIndex,
+    );
+  }
+}
+
+class ChatThumbnailImage extends StatefulWidget {
+  const ChatThumbnailImage({
+    super.key,
+    required this.imageUrl,
+    this.maxExtent = ChatImageMessage.maxImageExtent,
+    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+  });
+
+  final String imageUrl;
+  final double maxExtent;
+  final BorderRadiusGeometry borderRadius;
+
+  @override
+  State<ChatThumbnailImage> createState() => _ChatThumbnailImageState();
+}
+
+class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
+  ImageProvider<Object>? _provider;
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageStreamListener;
+  Size? _intrinsicSize;
+  bool _failed = false;
+  int _resolveGeneration = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolveImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatThumbnailImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _intrinsicSize = null;
+      _failed = false;
+      _resolveImage();
+    }
+  }
+
+  @override
+  void dispose() {
+    _detachImageStream();
+    super.dispose();
+  }
+
+  void _resolveImage() {
+    _detachImageStream();
+    final source = widget.imageUrl.trim();
+    if (source.isEmpty) {
+      _provider = null;
+      _failed = true;
+      return;
+    }
+
+    final ImageProvider<Object> provider = source.startsWith('assets/')
+        ? AssetImage(source)
+        : GenesisStaticNetworkImageProvider(imageUrl: source);
+    final generation = ++_resolveGeneration;
+    _provider = provider;
+    final stream = provider.resolve(createLocalImageConfiguration(context));
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (imageInfo, synchronousCall) {
+        if (generation != _resolveGeneration) return;
+        final nextSize = Size(
+          imageInfo.image.width.toDouble(),
+          imageInfo.image.height.toDouble(),
+        );
+        if (synchronousCall) {
+          _intrinsicSize = nextSize;
+          _failed = false;
+          return;
+        }
+        if (!mounted) return;
+        setState(() {
+          _intrinsicSize = nextSize;
+          _failed = false;
+        });
+      },
+      onError: (error, stackTrace) {
+        if (generation != _resolveGeneration || !mounted) return;
+        setState(() => _failed = true);
+      },
+    );
+    _imageStream = stream;
+    _imageStreamListener = listener;
+    stream.addListener(listener);
+  }
+
+  void _detachImageStream() {
+    final stream = _imageStream;
+    final listener = _imageStreamListener;
+    if (stream != null && listener != null) {
+      stream.removeListener(listener);
+    }
+    _imageStream = null;
+    _imageStreamListener = null;
+    _resolveGeneration += 1;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = _provider;
+    final intrinsicSize = _intrinsicSize;
+    if (_failed || provider == null || intrinsicSize == null) {
+      return _buildPlaceholder();
+    }
+
+    final displaySize = _fitWithinMaxExtent(
+      intrinsicSize,
+      maxExtent: widget.maxExtent,
+    );
+    return ClipRRect(
+      borderRadius: widget.borderRadius,
+      child: SizedBox(
+        width: displaySize.width,
+        height: displaySize.height,
+        child: Image(
+          image: provider,
+          width: displaySize.width,
+          height: displaySize.height,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: widget.maxExtent,
+        maxHeight: widget.maxExtent,
+      ),
+      child: ClipRRect(
+        borderRadius: widget.borderRadius,
+        child: Image.asset(genesisDefaultListImageAsset, fit: BoxFit.contain),
+      ),
+    );
+  }
+}
+
+Size _fitWithinMaxExtent(Size source, {required double maxExtent}) {
+  if (source.width <= 0 ||
+      source.height <= 0 ||
+      !source.width.isFinite ||
+      !source.height.isFinite ||
+      !maxExtent.isFinite ||
+      maxExtent <= 0) {
+    return Size.zero;
+  }
+  final scale = math.min(
+    1,
+    math.min(maxExtent / source.width, maxExtent / source.height),
+  );
+  return Size(source.width * scale, source.height * scale);
+}
+
+String _rawImageUrl(ChatMessageVm message) {
+  final imageUrl = message.imageUrl.trim();
+  return imageUrl.isNotEmpty ? imageUrl : message.text.trim();
 }
 
 double _normalBubbleMaxWidth(BuildContext context, ChatUiStyleConfig style) {

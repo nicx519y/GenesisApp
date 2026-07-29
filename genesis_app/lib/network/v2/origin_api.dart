@@ -3,6 +3,19 @@ import 'v2_api_resource.dart';
 class OriginV2Api extends V2ApiResource {
   const OriginV2Api(super.client);
 
+  /// GET /api/v2/origin/foredit
+  ///
+  /// Returns the owned Origin's complete detail using the same nested
+  /// `info/stats/init_location_group/characters/locations/ticks` shape as
+  /// GET /api/v1/origin/detail.
+  Future<Map<String, dynamic>> forEdit({required String originId}) {
+    final resolvedOriginId = originId.trim();
+    if (resolvedOriginId.isEmpty) {
+      throw ArgumentError.value(originId, 'originId', 'must not be empty');
+    }
+    return getMap('origin/foredit', {'origin_id': resolvedOriginId});
+  }
+
   /// POST /api/v2/origin/create
   ///
   /// Uses the automatic 2.5D map generation flow. The server ignores

@@ -1215,6 +1215,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         identityState: resolvedIdentityState,
       );
       final text = _locationChatMessageDisplayText(message);
+      final senderType = _messageSenderType(message);
+      final imageUrl = senderType == 'image' ? text.trim() : '';
       final currentTime = _messageCurrentTime(message);
       final createdAt = message.createdAt ?? DateTime.now();
       if (existing != null) {
@@ -1232,6 +1234,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             existing.isMe != isMe ||
             existing.isPlayerControlledRole != isPlayerControlledRole ||
             existing.avatarUrl != avatarUrl ||
+            existing.imageUrl != imageUrl ||
             existing.text != text ||
             existing.currentTime != currentTime ||
             existing.status != status ||
@@ -1247,6 +1250,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         existing.isMe = isMe;
         existing.isPlayerControlledRole = isPlayerControlledRole;
         existing.avatarUrl = avatarUrl;
+        existing.imageUrl = imageUrl;
         existing.text = text;
         existing.currentTime = currentTime;
         existing.status = status;
@@ -1266,11 +1270,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           senderName: senderName,
           isPlayerControlledRole: isPlayerControlledRole,
           avatarUrl: avatarUrl,
+          imageUrl: imageUrl,
           text: text,
           currentTime: currentTime,
           isMe: isMe,
           status: status,
-          senderType: _messageSenderType(message),
+          senderType: senderType,
           createdAt: createdAt,
         );
         usedLocalIds.add(nextMessage.localId);
@@ -1517,6 +1522,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _messageSenderType(WorldChatroomMessage message) {
     final senderType = message.senderType.trim().toLowerCase();
     if (senderType == 'narrator') {
+      if (_senderIdIsNarratorPicture(message.senderId)) return 'image';
       return _senderIdIsNarrator(message.senderId) ? 'narrator' : 'character';
     }
     if (senderType == 'tick') return 'tick';
@@ -3238,6 +3244,10 @@ Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
 
 bool _senderIdIsNarrator(String senderId) {
   return senderId.trim().toLowerCase() == 'nar';
+}
+
+bool _senderIdIsNarratorPicture(String senderId) {
+  return senderId.trim().toLowerCase() == 'nar_pic';
 }
 
 @visibleForTesting

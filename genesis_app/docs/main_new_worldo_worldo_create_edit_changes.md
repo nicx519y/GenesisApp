@@ -420,7 +420,7 @@ L3 1.1.1: Location Name is required.
 
 #### 4.2.5 Edit 旧数据兼容
 
-Edit Locations 同样启用树模式。`/api/v1/origin/foredit` 返回的数据会按 `level` 和 `location_pid` 尽量重建 L1/L2/L3：
+Edit Locations 同样启用树模式。`/api/v2/origin/foredit` 顶层 `locations` 返回的数据会按 `level` 和 `location_pid` 尽量重建 L1/L2/L3：
 
 - 完整父子关系按原结构恢复。
 - 缺少父层级的 L2 会挂到一个空白 L1 下。
@@ -737,12 +737,13 @@ image               -> char_id: "nar_pic"
 
 ### 5.2 Edit Opening 回填
 
-Edit 仍以 `/api/v1/origin/foredit` 作为主编辑数据源：
+Edit 以 `/api/v2/origin/foredit` 返回的完整嵌套 `OriginDetail` 作为唯一编辑数据源：
 
-- 优先解析完整的 `init_location_group`。
-- 若 Foredit 没有返回完整 Opening，则回退读取 `/api/v1/origin/detail` 的 tick 1 `location_groups[].initial_dialogue`。
+- 优先解析顶层完整的 `init_location_group`。
+- 若顶层 group 不完整，则兼容读取同一响应 `ticks` 中 tick 1 的 `location_groups[].initial_dialogue`，不再追加请求 `/api/v1/origin/detail`。
 - `nar` 反向映射为 narrator，`nar_pic` 映射为 image；读取端仍兼容旧值 `image`，其他 `char_id` 映射为 character。
-- 两个数据源都无法恢复完整 Opening 时，保持 `openingSaved = false` 并阻止 Publish，不把缺失数据解释为主动清空。
+- 同一响应内两个位置都无法恢复完整 Opening 时，保持 `openingSaved = false` 并阻止 Publish，不把缺失数据解释为主动清空。
+- V2 foredit 未提供旧平级 `setting/events`，也未在 `Character` 中提供旧 `bio/description`；Edit 仅在响应实际带回或用户明确修改这些值时提交对应字段，普通编辑不会用空值覆盖服务端数据。
 
 ### 5.3 Location 树与 V2 生成语义
 

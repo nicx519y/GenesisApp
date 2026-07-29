@@ -1076,6 +1076,10 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                     ),
                                     name: label.name,
                                     avatars: label.avatars,
+                                    onLabelTap: widget.onTileAction == null
+                                        ? null
+                                        : () =>
+                                              _handleOverlayTileTap(label.tile),
                                     onAvatarTap: widget.onTileAction == null
                                         ? null
                                         : () =>
@@ -1388,12 +1392,14 @@ class _TilemapLocationBubble extends StatelessWidget {
     super.key,
     required this.name,
     required this.avatars,
+    required this.onLabelTap,
     required this.onAvatarTap,
     required this.anchor,
   });
 
   final String name;
   final List<UserAvatar> avatars;
+  final VoidCallback? onLabelTap;
   final VoidCallback? onAvatarTap;
   final Offset anchor;
 
@@ -1409,7 +1415,9 @@ class _TilemapLocationBubble extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IgnorePointer(
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onLabelTap,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

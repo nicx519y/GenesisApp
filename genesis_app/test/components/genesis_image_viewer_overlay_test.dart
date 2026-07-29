@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 const _firstImage = 'assets/images/map_default/root_default.webp';
 const _secondImage = 'assets/images/map_default/l1_default.webp';
@@ -182,6 +183,50 @@ void main() {
 
     expect(preloadedAssetNames, [_secondImage]);
   });
+
+  testWidgets(
+    'viewer display and precache share the full-screen compressed URL',
+    (tester) async {
+      const first =
+          'https://cdn.example.com/first.png?old_query=true#old_fragment';
+      final preloadedUrls = <String>[];
+      debugGenesisImageViewerPrecacheImage = (imageProvider, context) async {
+        if (imageProvider is NetworkImage) {
+          preloadedUrls.add(imageProvider.url);
+        }
+      };
+      addTearDown(() => debugGenesisImageViewerPrecacheImage = null);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.devicePixelRatio = 2;
+
+      await _pumpViewerHost(tester, const [first, first]);
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      const expectedSuffix =
+          '?x-oss-process=image/resize,w_2160,image/format,webp';
+      final displayedUrls = tester
+          .widgetList<GenesisStaticNetworkImage>(
+            find.byType(GenesisStaticNetworkImage),
+          )
+          .map((image) => image.imageUrl)
+          .toList(growable: false);
+      expect(
+        displayedUrls,
+        everyElement(
+          allOf(
+            endsWith(expectedSuffix),
+            isNot(contains('old_query')),
+            isNot(contains('old_fragment')),
+          ),
+        ),
+      );
+      expect(preloadedUrls, <String>[
+        'https://cdn.example.com/first.png$expectedSuffix',
+      ]);
+      expect(displayedUrls, contains(preloadedUrls.first));
+    },
+  );
 
   testWidgets('image zoom resets after paging away and back', (tester) async {
     await _pumpViewerHost(tester, const [_firstImage, _secondImage]);

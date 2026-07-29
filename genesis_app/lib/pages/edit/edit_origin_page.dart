@@ -42,6 +42,10 @@ class _EditOriginPageState extends State<EditOriginPage> {
   int _reloadSignal = 0;
   late final VoidCallback _removePublishOutcomeListener;
   List<String> _generationWaitLines = const <String>[];
+  bool _forEditIncludesSetting = false;
+  bool _forEditIncludesEvents = false;
+  Set<String> _forEditCharacterIds = const <String>{};
+  Set<String> _forEditCharacterIdsWithBio = const <String>{};
 
   @override
   void initState() {
@@ -77,24 +81,37 @@ class _EditOriginPageState extends State<EditOriginPage> {
 
     try {
       final api = AppServicesScope.read(context).api;
-      final editData = await api.v1.origin.forEdit(originId: originId);
-      var initialDraft = originDraftFromV1Detail(editData);
-      if (!initialDraft.openingSaved) {
-        try {
-          final detail = await api.v1.origin.detail(originId: originId);
-          initialDraft = restoreOriginDraftOpeningFromV1Detail(
-            initialDraft,
-            detail,
-          );
-        } catch (_) {
-          initialDraft = initialDraft.copyWith(
-            opening: const OpeningDraft(),
-            openingSaved: false,
-          );
-        }
-      }
+      final editData = await api.v2.origin.forEdit(originId: originId);
+      final editInfo = editData['info'] is Map
+          ? asJsonMap(editData['info'])
+          : editData;
+      final editCharacters = editData['characters'] is List
+          ? asJsonList(
+              editData['characters'],
+            ).whereType<Map>().map(asJsonMap).toList(growable: false)
+          : const <Map<String, dynamic>>[];
+      final initialDraft = originDraftFromV2ForEdit(editData);
       if (!mounted) return;
       setState(() {
+        _forEditIncludesSetting =
+            editInfo.containsKey('setting') ||
+            editInfo.containsKey('world_setting');
+        _forEditIncludesEvents =
+            editInfo.containsKey('events') ||
+            editData.containsKey('events') ||
+            editData.containsKey('event_list');
+        _forEditCharacterIds = editCharacters
+            .map((item) => asString(item['char_id']).trim())
+            .where((item) => item.isNotEmpty)
+            .toSet();
+        _forEditCharacterIdsWithBio = editCharacters
+            .where(
+              (item) =>
+                  item.containsKey('bio') || item.containsKey('description'),
+            )
+            .map((item) => asString(item['char_id']).trim())
+            .where((item) => item.isNotEmpty)
+            .toSet();
         _repository = MemoryOriginDraftRepository(initialDraft: initialDraft);
         _updateNotesController.clear();
         _submitStatus = OriginDraftSubmitStatus.idle;
@@ -243,6 +260,24 @@ class _EditOriginPageState extends State<EditOriginPage> {
     if (repository is MemoryOriginDraftRepository) {
       payload['deleted_char_ids'] = repository.deletedCharacterIds(draft);
       payload['deleted_location_ids'] = repository.deletedLocationIds(draft);
+      if (!_forEditIncludesSetting && !repository.worldLogicChanged(draft)) {
+        payload.remove('world_setting');
+      }
+      if (!_forEditIncludesEvents && !repository.storyEventsChanged(draft)) {
+        payload.remove('event_list');
+      }
+      final characters = payload['character_list'];
+      if (characters is List) {
+        for (final item in characters.whereType<Map>()) {
+          final character = asJsonMap(item);
+          final charId = asString(character['char_id']).trim();
+          if (_forEditCharacterIds.contains(charId) &&
+              !_forEditCharacterIdsWithBio.contains(charId) &&
+              asString(character['description']).trim().isEmpty) {
+            item.remove('description');
+          }
+        }
+      }
     }
     payload['update_notes'] = normalizeGenesisUgcTextForSubmission(
       _updateNotesController.text,

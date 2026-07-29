@@ -86,7 +86,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (apiPath.startsWith('v2/')) {
-      return _handleV2(method, apiPath.substring('v2/'.length), body);
+      return _handleV2(method, apiPath.substring('v2/'.length), query, body);
     }
 
     if (apiPath.startsWith('v1/')) {
@@ -317,8 +317,23 @@ class LocalMockGenesisTransport implements HttpTransport {
   Future<TransportResponse> _handleV2(
     String method,
     String path,
+    Map<String, String> query,
     Map<String, dynamic> body,
   ) async {
+    if (method == 'GET' && path == 'origin/foredit') {
+      final originId = (query['origin_id'] ?? '').trim();
+      if (originId.isEmpty) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      if (!_state.v1OriginExists(originId)) {
+        return _v1BusinessError(20101, 'ErrorOriginNotExist');
+      }
+      if (!_state.canEditV1Origin(originId)) {
+        return _v1BusinessError(10011, 'ErrorUserNotAccess');
+      }
+      return _v1Ok(_state.v2OriginForEdit(originId));
+    }
+
     if (method == 'POST' && path == 'origin/create') {
       return _v1Ok(_state.createV2Origin(body));
     }
@@ -445,6 +460,17 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1OriginHotTags());
     }
 
+    if (method == 'GET' && path == 'origin/my_launch_preset_characters') {
+      final originId = (query['origin_id'] ?? '').trim();
+      if (originId.isEmpty) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      if (!_state.canViewV1OriginDetail(originId)) {
+        return _v1BusinessError(20101, 'ErrorOriginNotExist');
+      }
+      return _v1Ok(_state.v1OriginMyLaunchPresetCharacters(originId));
+    }
+
     if (method == 'GET' && path == 'origin/detail') {
       final originId = (query['origin_id'] ?? query['oid'] ?? '').trim();
       if (originId.isEmpty) {
@@ -471,10 +497,6 @@ class LocalMockGenesisTransport implements HttpTransport {
       );
     }
 
-    if (method == 'GET' && path == 'origin/foredit') {
-      return _v1Ok(_state.v1OriginForEdit(query['origin_id'] ?? query['oid']));
-    }
-
     if (method == 'POST' && path == 'origin/create') {
       return _v1Ok(_state.createV1Origin(body));
     }
@@ -487,6 +509,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok({
         'world_id': _state.launchV1World(
           '${body['origin_id'] ?? body['oid'] ?? ''}',
+          presetCharacterId: '${body['preset_character_id'] ?? ''}',
         ),
       });
     }
@@ -977,6 +1000,8 @@ class _MockState {
   final List<Map<String, dynamic>> _v1Worlds = _expandMockV1Worlds()
       .map((item) => _deepCopyMap(item))
       .toList(growable: true);
+  final Map<String, Map<String, int>> _v1PresetLaunchHistoryByOrigin =
+      <String, Map<String, int>>{};
   final Map<String, List<Map<String, dynamic>>> _v1TicksByWorld =
       <String, List<Map<String, dynamic>>>{};
   final List<Map<String, dynamic>> _v1WorldApplies = <Map<String, dynamic>>[];
@@ -1991,6 +2016,45 @@ class _MockState {
     };
   }
 
+  Map<String, dynamic> v1OriginMyLaunchPresetCharacters(String originId) {
+    final origin = _findV1Origin(originId);
+    final history =
+        _v1PresetLaunchHistoryByOrigin[originId] ?? const <String, int>{};
+    final items =
+        _originEditCharacters(origin)
+            .where((character) {
+              final type = '${character['type'] ?? 'ai'}'.trim().toLowerCase();
+              final charId =
+                  '${character['character_id'] ?? character['char_id'] ?? ''}'
+                      .trim();
+              return type == 'ai' && history.containsKey(charId);
+            })
+            .map((character) {
+              final payload = _contractCharacter(character);
+              final charId = '${payload['char_id'] ?? ''}'.trim();
+              return <String, dynamic>{
+                'char_id': charId,
+                'type': 'ai',
+                'name': payload['name'],
+                'identity': payload['identity'],
+                'brief': payload['brief'],
+                'goal': payload['goal'],
+                'avatar': payload['avatar'],
+                'initial_location_id': payload['initial_location_id'],
+                'last_launched_at': history[charId] ?? 0,
+              };
+            })
+            .toList(growable: false)
+          ..sort((a, b) {
+            final launchedCompare = asInt(
+              b['last_launched_at'],
+            ).compareTo(asInt(a['last_launched_at']));
+            if (launchedCompare != 0) return launchedCompare;
+            return '${a['char_id']}'.compareTo('${b['char_id']}');
+          });
+    return {'list': items};
+  }
+
   List<Map<String, dynamic>> _filterV1Origins(Map<String, String> query) {
     final scene = (query['scene'] ?? '').trim();
     var origins = _v1Origins;
@@ -2043,6 +2107,22 @@ class _MockState {
     return _authenticated && ownerUid == '${_v1User['uid'] ?? ''}'.trim();
   }
 
+  bool v1OriginExists(String originId) {
+    return _v1Origins.any(
+      (item) => '${item['oid'] ?? ''}'.trim() == originId.trim(),
+    );
+  }
+
+  bool canEditV1Origin(String originId) {
+    for (final origin in _v1Origins) {
+      if ('${origin['oid'] ?? ''}'.trim() != originId.trim()) continue;
+      final ownerUid = '${origin['owner_uid'] ?? origin['created_uid'] ?? ''}'
+          .trim();
+      return ownerUid == '${_v1User['uid'] ?? ''}'.trim();
+    }
+    return false;
+  }
+
   Map<String, dynamic> v1OriginDetail(String? oid) {
     final origin = _findV1Origin(oid);
     return _originDetailPayload(origin);
@@ -2081,38 +2161,32 @@ class _MockState {
     return _v1TilemapDefinition(locationId);
   }
 
-  Map<String, dynamic> v1OriginForEdit(String? originId) {
-    final origin = _findV1Origin(originId);
-    final item = _v1OriginContractItem(origin);
-    final info = item['info'] as Map<String, dynamic>;
-    return {
-      'origin_id': info['origin_id'],
-      'origin_name': info['origin_name'],
-      'origin_version': info['origin_version'],
-      'definition_version': info['definition_version'],
-      'brief': info['brief'],
-      'setting': info['setting'],
-      'events': info['events'],
-      'tags': info['tags'],
-      'metric': info['metric'],
-      'started_at': info['started_at'],
-      'tick_duration_time': '${info['tick_duration_days'] ?? 1} days',
-      'cover': info['cover'],
-      'map_url': info['map_url'],
-      'tile_types': origin['tile_types'] is Map
-          ? _deepCopyMap(_mapFromObject(origin['tile_types']))
-          : const <String, Object?>{},
-      'characters': _originEditCharacters(
-        origin,
-      ).map(_contractCharacterForEdit).toList(),
-      'locations': _originEditLocations(
-        origin,
-      ).map(_contractLocationForEdit).toList(),
-      if (origin['init_location_group'] is Map)
-        'init_location_group': _deepCopyMap(
-          _mapFromObject(origin['init_location_group']),
-        ),
+  Map<String, dynamic> v2OriginForEdit(String originId) {
+    final detail = v1OriginContractDetail(originId);
+    final info = _mapFromObject(detail['info']);
+    detail['info'] = <String, dynamic>{
+      for (final key in const <String>[
+        'origin_id',
+        'origin_name',
+        'origin_version',
+        'origin_version_time',
+        'definition_version',
+        'language',
+        'current_time',
+        'owner_uid',
+        'owner_name',
+        'owner_user',
+        'brief',
+        'tags',
+        'metric',
+        'created_at',
+        'cover',
+        'map_url',
+        'status',
+      ])
+        if (info.containsKey(key)) key: info[key],
     };
+    return detail;
   }
 
   Map<String, dynamic> createV1Origin(Map<String, dynamic> body) {
@@ -2305,8 +2379,15 @@ class _MockState {
     };
   }
 
-  String launchV1World(String oid) {
+  String launchV1World(String oid, {String? presetCharacterId}) {
     if (oid.isNotEmpty) _v1World['oid'] = oid;
+    final charId = (presetCharacterId ?? '').trim();
+    if (oid.isNotEmpty && charId.isNotEmpty) {
+      _v1PresetLaunchHistoryByOrigin.putIfAbsent(
+        oid,
+        () => <String, int>{},
+      )[charId] = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    }
     return '${_v1World['wid']}';
   }
 
@@ -3985,22 +4066,6 @@ class _MockState {
     };
   }
 
-  Map<String, dynamic> _contractCharacterForEdit(
-    Map<String, dynamic> character,
-  ) {
-    return {
-      'char_id': character['character_id'] ?? character['char_id'],
-      'name': character['name'],
-      'identity': character['identity'],
-      'personality': character['tagline'] ?? character['personality'],
-      'bio': character['description'] ?? character['bio'],
-      'goal': character['goal'],
-      'avatar': _mockImageObject(character['avatar']),
-      'initial_location_id':
-          character['initial_location_id'] ?? character['location_id'] ?? '',
-    };
-  }
-
   Map<String, dynamic> _contractLocation(Map<String, dynamic> location) {
     return {
       'location_id': location['location_id'],
@@ -4041,23 +4106,6 @@ class _MockState {
           },
         ],
       },
-    };
-  }
-
-  Map<String, dynamic> _contractLocationForEdit(Map<String, dynamic> location) {
-    return {
-      'location_id': location['location_id'],
-      'level': location['level'] ?? 1,
-      'location_pid': location['location_pid'] ?? '',
-      'location_name': location['location_name'] ?? location['name'],
-      'location_description':
-          location['location_description'] ?? location['description'],
-      'location_summary':
-          location['location_summary'] ?? location['description'] ?? '',
-      'image': _mockImageObject(location['image']),
-      'x_percent': location['x_percent'],
-      'y_percent': location['y_percent'],
-      'map_url': location['map_url'] ?? location['image'],
     };
   }
 

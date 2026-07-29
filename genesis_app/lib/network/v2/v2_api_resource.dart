@@ -7,6 +7,20 @@ abstract class V2ApiResource {
 
   final ApiClient client;
 
+  Future<Map<String, dynamic>> getMap(
+    String path, [
+    Map<String, Object?>? query,
+    Map<String, String>? headers,
+  ]) async {
+    final json = await client.get<Object?>(
+      'v2/$path',
+      query: query,
+      headers: headers,
+    );
+    final data = handleV1ResponseErrNo(json);
+    return data == null ? <String, dynamic>{} : asJsonMap(data);
+  }
+
   Future<Map<String, dynamic>> postMap(
     String path, [
     Object? body,

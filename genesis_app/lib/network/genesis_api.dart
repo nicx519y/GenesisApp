@@ -557,6 +557,15 @@ class GenesisApi {
     return detail;
   }
 
+  Future<List<OriginMyLaunchPresetCharacter>> getMyLaunchPresetCharacters(
+    String originId,
+  ) async {
+    final items = await v1.origin.myLaunchPresetCharacters(originId: originId);
+    return items
+        .map(_originMyLaunchPresetCharacterFromV1)
+        .toList(growable: false);
+  }
+
   Future<PagedResponse<OriginSummary>> getMyLaunchedOrigins({
     String? uid,
     String scene = 'mine',
@@ -1101,7 +1110,9 @@ class GenesisApi {
         payload['definition_version'],
       ),
       brief: asString(payload['world_view']),
-      setting: asString(payload['world_setting']),
+      setting: payload.containsKey('world_setting')
+          ? asString(payload['world_setting'])
+          : null,
       events: payload['event_list'] is List ? events : null,
       tags: _createOriginStringList(payload['tags']),
       metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
@@ -1329,7 +1340,11 @@ List<Map<String, dynamic>> _createOriginCharacters(
               fallback: asString(item['brief']),
             ),
           ),
-          'bio': asString(item['bio'], fallback: asString(item['description'])),
+          if (item.containsKey('bio') || item.containsKey('description'))
+            'bio': asString(
+              item['bio'],
+              fallback: asString(item['description']),
+            ),
           'goal': asString(item['goal']),
           'avatar': _createOriginImageInput(item['avatar']) ?? '',
           'initial_location_id': asString(
@@ -2156,6 +2171,24 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
     delta: asInt(raw['delta']),
     createdAt: _apiDateTime(raw['created_at']),
     updatedAt: _apiDateTime(raw['updated_at']),
+  );
+}
+
+OriginMyLaunchPresetCharacter _originMyLaunchPresetCharacterFromV1(
+  Map<String, dynamic> raw,
+) {
+  final avatarResource = _resolveImageAssetResource(raw['avatar']);
+  return OriginMyLaunchPresetCharacter(
+    charId: asString(raw['char_id']),
+    type: asString(raw['type'], fallback: 'ai'),
+    name: asString(raw['name']),
+    identity: asString(raw['identity']),
+    brief: asString(raw['brief']),
+    goal: asString(raw['goal']),
+    avatar: avatarResource.displayUrl,
+    avatarResource: avatarResource,
+    initialLocationId: asString(raw['initial_location_id']),
+    lastLaunchedAt: asInt(raw['last_launched_at']),
   );
 }
 

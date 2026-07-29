@@ -31,7 +31,7 @@ void main() {
   });
 
   testWidgets(
-    'edit restores Opening from V1 detail and publishes the full group to V2',
+    'edit loads V2 foredit and publishes its Opening without clearing absent fields',
     (tester) async {
       final transport = _EditOriginTransport();
       final services = await _editTestServices(transport);
@@ -42,11 +42,12 @@ void main() {
           child: const MaterialApp(home: EditOriginPage(originId: 'o_edit_v2')),
         ),
       );
-      await _waitForRequest(tester, transport, '/api/v1/origin/detail');
+      await _waitForRequest(tester, transport, '/api/v2/origin/foredit');
       await tester.pumpAndSettle();
 
-      expect(transport.requestsFor('/api/v1/origin/foredit'), hasLength(1));
-      expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(1));
+      expect(transport.requestsFor('/api/v2/origin/foredit'), hasLength(1));
+      expect(transport.requestsFor('/api/v1/origin/foredit'), isEmpty);
+      expect(transport.requestsFor('/api/v1/origin/detail'), isEmpty);
       expect(find.text('Archive'), findsOneWidget);
       expect(
         find.text('Character dialogue*1, Narrator*1, Image*1'),
@@ -86,6 +87,9 @@ void main() {
       expect(body['update_notes'], 'Keep the restored Opening.');
       expect(body['deleted_char_ids'], isEmpty);
       expect(body['deleted_location_ids'], isEmpty);
+      expect(body, isNot(contains('setting')));
+      expect(body, isNot(contains('events')));
+      expect((body['characters'] as List).single, isNot(contains('bio')));
       expect(body['init_location_group'], {
         'location_id': 'loc_archive',
         'initial_dialogue': [
@@ -165,25 +169,38 @@ class _EditOriginTransport implements HttpTransport {
     requests.add(request);
     Object data = const <String, Object?>{};
     if (request.method == 'GET' &&
-        request.uri.path == '/api/v1/origin/foredit') {
+        request.uri.path == '/api/v2/origin/foredit') {
       data = {
-        'origin_id': 'o_edit_v2',
-        'origin_name': 'Editable Origin',
-        'origin_version': '2',
-        'brief': 'A public brief.',
-        'setting': 'Hidden rules.',
-        'events': const <String>[],
-        'metric': const <String, Object?>{},
-        'started_at': 'Day 1',
-        'tick_duration_time': '1 day',
-        'cover': 'assets/images/map_default/root_default.webp',
+        'info': {
+          'origin_id': 'o_edit_v2',
+          'origin_name': 'Editable Origin',
+          'origin_version': '2',
+          'definition_version': 2,
+          'brief': 'A public brief.',
+          'metric': const <String, Object?>{},
+          'cover': const <String, Object?>{
+            'sm_url': 'assets/images/map_default/root_default.webp',
+            'xl_url': 'assets/images/map_default/root_default.webp',
+            'object_key': '',
+          },
+        },
+        'stats': const <String, Object?>{},
+        'init_location_group': const <String, Object?>{
+          'location_id': 'loc_archive',
+          'initial_dialogue': [
+            {'char_id': 'nar', 'content': 'The archive opens.'},
+            {'char_id': 'char_mira', 'content': 'Welcome.'},
+            {'char_id': 'nar_pic', 'content': 'opening.webp'},
+          ],
+        },
         'characters': [
           {
             'char_id': 'char_mira',
             'name': 'Mira',
             'identity': 'Archivist',
-            'personality': 'Patient',
+            'brief': 'Patient',
             'initial_location_id': 'loc_archive',
+            'location_id': 'loc_archive',
           },
         ],
         'locations': [
@@ -194,33 +211,7 @@ class _EditOriginTransport implements HttpTransport {
             'location_description': 'A quiet tower.',
           },
         ],
-      };
-    } else if (request.method == 'GET' &&
-        request.uri.path == '/api/v1/origin/detail') {
-      data = {
-        'info': const {
-          'origin_id': 'o_edit_v2',
-          'origin_name': 'Editable Origin',
-          'status': 10,
-        },
-        'ticks': [
-          {
-            'tick_no': 1,
-            'status': 10,
-            'tick_result': {
-              'location_groups': [
-                {
-                  'location_id': 'loc_archive',
-                  'initial_dialogue': [
-                    {'char_id': 'nar', 'content': 'The archive opens.'},
-                    {'char_id': 'char_mira', 'content': 'Welcome.'},
-                    {'char_id': 'nar_pic', 'content': 'opening.webp'},
-                  ],
-                },
-              ],
-            },
-          },
-        ],
+        'ticks': const <Object?>[],
       };
     } else if (request.method == 'POST' &&
         request.uri.path == '/api/v2/origin/update') {
