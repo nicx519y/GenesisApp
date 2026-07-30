@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/firebase_performance_monitoring.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/tilemap_definition.dart';
 import '../world_map_avatar_logic.dart';
@@ -20,11 +21,14 @@ import 'tilemap_settings_button_visibility.dart';
 import 'tilemap_settings_store.dart';
 
 part 'tilemap_settings_panel.dart';
+part 'tilemap_loading_overlay.dart';
 part 'tilemap_fog_editor.dart';
 part 'tilemap_image_flow_editor.dart';
 part 'tilemap_controls_feedback.dart';
 
 enum _TilemapSource { origin, world }
+
+typedef TilemapTileImageLoader = Future<void> Function(String assetUrl);
 
 class Tilemap extends StatefulWidget {
   const Tilemap.origin({
@@ -41,6 +45,7 @@ class Tilemap extends StatefulWidget {
     this.onDrillIntoLocation,
     this.onMapTap,
     this.onPointTap,
+    this.tileImageLoader,
   }) : _source = _TilemapSource.origin,
        _entityId = originId;
 
@@ -58,6 +63,7 @@ class Tilemap extends StatefulWidget {
     this.onDrillIntoLocation,
     this.onMapTap,
     this.onPointTap,
+    this.tileImageLoader,
   }) : _source = _TilemapSource.world,
        _entityId = worldId;
 
@@ -74,6 +80,7 @@ class Tilemap extends StatefulWidget {
   final VoidCallback? onDrillIntoLocation;
   final VoidCallback? onMapTap;
   final FutureOr<void> Function(WorldPoint point)? onPointTap;
+  final TilemapTileImageLoader? tileImageLoader;
 
   @override
   State<Tilemap> createState() => _TilemapState();
@@ -81,6 +88,7 @@ class Tilemap extends StatefulWidget {
 
 class _TilemapState extends State<Tilemap> {
   static const Duration _settingsSaveDelay = Duration(milliseconds: 250);
+  static const String _loadPerformanceTraceName = 'tilemap_load';
 
   GenesisApi? _api;
   final TilemapSettingsStore _settingsStore = const TilemapSettingsStore();
@@ -95,7 +103,15 @@ class _TilemapState extends State<Tilemap> {
   final List<String> _locationTrail = <String>[];
   int _cacheGeneration = 0;
   int _rendererRevision = 0;
+  int _tileImageLoadGeneration = 0;
+  String? _tileImageLoadKey;
+  String? _desiredTileImageLoadKey;
+  String? _scheduledTileImageLoadKey;
+  String? _revealedMapId;
+  int _loadedTileImageCount = 0;
+  int _totalTileImageCount = 0;
   TilemapVisualMode _visualMode = tilemapDefaultVisualMode;
+  TilemapLoadingStyle _loadingStyle = tilemapDefaultLoadingStyle;
   List<TilemapFogControlPoint> _fogControlPoints =
       tilemapDefaultFogControlPoints;
   bool _blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles;
@@ -155,6 +171,7 @@ class _TilemapState extends State<Tilemap> {
   @override
   void dispose() {
     _cacheGeneration += 1;
+    _tileImageLoadGeneration += 1;
     tilemapSettingsButtonVisibility.listenable.removeListener(
       _handleSettingsButtonVisibilityChanged,
     );
@@ -170,6 +187,7 @@ class _TilemapState extends State<Tilemap> {
   TilemapRenderSettings get _currentSettings {
     return TilemapRenderSettings(
       visualMode: _visualMode,
+      loadingStyle: _loadingStyle,
       fogControlPoints: _fogControlPoints,
       blendFogWithShadowTiles: _blendFogWithShadowTiles,
       showShadowZeroBorders: _showShadowZeroBorders,
@@ -189,6 +207,7 @@ class _TilemapState extends State<Tilemap> {
     if (!mounted) return;
     setState(() {
       _visualMode = settings.visualMode;
+      _loadingStyle = settings.loadingStyle;
       _fogControlPoints = settings.fogControlPoints;
       _blendFogWithShadowTiles = settings.blendFogWithShadowTiles;
       _showShadowZeroBorders = settings.showShadowZeroBorders;
@@ -289,7 +308,17 @@ class _TilemapState extends State<Tilemap> {
     if (!mounted) return;
     final defaults = TilemapRenderSettings.defaults();
     setState(() {
+      final config = _currentConfig;
+      if (_loadingStyle != TilemapLoadingStyle.disabled &&
+          config != null &&
+          _revealedMapId != config.id) {
+        _invalidateTileImageLoad();
+      } else if (_loadingStyle == TilemapLoadingStyle.disabled &&
+          config != null) {
+        _revealedMapId = config.id;
+      }
       _visualMode = defaults.visualMode;
+      _loadingStyle = defaults.loadingStyle;
       _fogControlPoints = defaults.fogControlPoints;
       _blendFogWithShadowTiles = defaults.blendFogWithShadowTiles;
       _showShadowZeroBorders = defaults.showShadowZeroBorders;
@@ -348,11 +377,31 @@ class _TilemapState extends State<Tilemap> {
     required String locationId,
     required bool reportFailure,
   }) async {
+    final trace = await FirebasePerformanceMonitoring.startTrace(
+      _loadPerformanceTraceName,
+      attributes: <String, String>{'source': widget._source.name},
+    );
     try {
-      return _TilemapLoadResult.success(
-        await _load(api, locationId: locationId),
+      final config = await _load(api, locationId: locationId);
+      unawaited(
+        FirebasePerformanceMonitoring.stopTrace(
+          trace,
+          attributes: const <String, String>{'result': 'success'},
+          metrics: <String, int>{
+            'tile_count': config.tiles.length,
+            'map_width': config.width,
+            'map_height': config.height,
+          },
+        ),
       );
+      return _TilemapLoadResult.success(config);
     } catch (error) {
+      unawaited(
+        FirebasePerformanceMonitoring.stopTrace(
+          trace,
+          attributes: const <String, String>{'result': 'failure'},
+        ),
+      );
       if (kDebugMode && reportFailure) {
         debugPrint('[Tilemap] load failed: $error');
       }
@@ -392,6 +441,7 @@ class _TilemapState extends State<Tilemap> {
 
   void _resetMapCache() {
     _cacheGeneration += 1;
+    _invalidateTileImageLoad();
     _mapRequests.clear();
     _mapResults.clear();
     _currentConfig = null;
@@ -510,6 +560,7 @@ class _TilemapState extends State<Tilemap> {
       setState(() {
         _imageError = null;
         _rendererRevision += 1;
+        _invalidateTileImageLoad();
       });
       return;
     }
@@ -523,6 +574,22 @@ class _TilemapState extends State<Tilemap> {
   void _setVisualMode(TilemapVisualMode visualMode) {
     if (_visualMode == visualMode) return;
     setState(() => _visualMode = visualMode);
+    _scheduleSettingsSave();
+  }
+
+  void _setLoadingStyle(TilemapLoadingStyle loadingStyle) {
+    if (_loadingStyle == loadingStyle) return;
+    setState(() {
+      final config = _currentConfig;
+      if (loadingStyle == TilemapLoadingStyle.disabled) {
+        _invalidateTileImageLoad();
+        if (config != null) _revealedMapId = config.id;
+      } else if (_loadingStyle == TilemapLoadingStyle.disabled &&
+          config != null) {
+        _revealedMapId = config.id;
+      }
+      _loadingStyle = loadingStyle;
+    });
     _scheduleSettingsSave();
   }
 
@@ -601,7 +668,15 @@ class _TilemapState extends State<Tilemap> {
         .clamp(tilemapInitialScaleMin, tilemapInitialScaleMax)
         .toDouble();
     if (_initialScale == resolved) return;
-    setState(() => _initialScale = resolved);
+    setState(() {
+      _initialScale = resolved;
+      final config = _currentConfig;
+      if (config != null &&
+          _revealedMapId != config.id &&
+          _loadingStyle != TilemapLoadingStyle.disabled) {
+        _invalidateTileImageLoad();
+      }
+    });
     _scheduleSettingsSave();
   }
 
@@ -645,6 +720,152 @@ class _TilemapState extends State<Tilemap> {
         '${widget._source.name}:$entityId:${_currentLocationId.trim()}';
   }
 
+  void _invalidateTileImageLoad() {
+    _tileImageLoadGeneration += 1;
+    _tileImageLoadKey = null;
+    _desiredTileImageLoadKey = null;
+    _scheduledTileImageLoadKey = null;
+    _revealedMapId = null;
+    _loadedTileImageCount = 0;
+    _totalTileImageCount = 0;
+  }
+
+  String _tileImageLoadKeyFor(TilemapConfig config, TilemapImageLoadPlan plan) {
+    return '${config.id}|${plan.tileCountByAsset.keys.join('\u0000')}';
+  }
+
+  void _scheduleTileImageLoad({
+    required TilemapConfig config,
+    required TilemapImageLoadPlan plan,
+    required String loadKey,
+  }) {
+    _desiredTileImageLoadKey = loadKey;
+    if (_tileImageLoadKey == loadKey || _scheduledTileImageLoadKey == loadKey) {
+      return;
+    }
+    _scheduledTileImageLoadKey = loadKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isCurrentMapId(config.id)) return;
+      if (_scheduledTileImageLoadKey != loadKey) return;
+      _scheduledTileImageLoadKey = null;
+      unawaited(_loadTileImages(config: config, plan: plan, loadKey: loadKey));
+    });
+  }
+
+  Future<void> _loadTileImages({
+    required TilemapConfig config,
+    required TilemapImageLoadPlan plan,
+    required String loadKey,
+  }) async {
+    final generation = ++_tileImageLoadGeneration;
+    setState(() {
+      _tileImageLoadKey = loadKey;
+      _loadedTileImageCount = 0;
+      _totalTileImageCount = plan.totalTileCount;
+    });
+
+    var failed = false;
+    await Future.wait<void>([
+      for (final entry in plan.tileCountByAsset.entries)
+        () async {
+          try {
+            await _loadTileImage(entry.key);
+          } catch (error) {
+            if (!mounted ||
+                generation != _tileImageLoadGeneration ||
+                _tileImageLoadKey != loadKey ||
+                _desiredTileImageLoadKey != loadKey ||
+                !_isCurrentMapId(config.id)) {
+              return;
+            }
+            failed = true;
+            _handleImageError(config.id, error);
+            return;
+          }
+          if (!mounted ||
+              generation != _tileImageLoadGeneration ||
+              _tileImageLoadKey != loadKey ||
+              _desiredTileImageLoadKey != loadKey ||
+              !_isCurrentMapId(config.id)) {
+            return;
+          }
+          setState(() {
+            _loadedTileImageCount = math.min(
+              _totalTileImageCount,
+              _loadedTileImageCount + entry.value,
+            );
+          });
+        }(),
+    ]);
+
+    if (!mounted ||
+        failed ||
+        generation != _tileImageLoadGeneration ||
+        _tileImageLoadKey != loadKey ||
+        _desiredTileImageLoadKey != loadKey ||
+        !_isCurrentMapId(config.id)) {
+      return;
+    }
+    setState(() {
+      _loadedTileImageCount = _totalTileImageCount;
+      _revealedMapId = config.id;
+    });
+  }
+
+  Future<void> _loadTileImage(String assetUrl) async {
+    final customLoader = widget.tileImageLoader;
+    if (customLoader != null) {
+      await customLoader(assetUrl);
+      return;
+    }
+
+    Object? precacheError;
+    StackTrace? precacheStackTrace;
+    await precacheImage(
+      NetworkImage(assetUrl),
+      context,
+      onError: (error, stackTrace) {
+        precacheError = error;
+        precacheStackTrace = stackTrace;
+      },
+    );
+    final error = precacheError;
+    if (error != null) {
+      Error.throwWithStackTrace(
+        error,
+        precacheStackTrace ?? StackTrace.current,
+      );
+    }
+  }
+
+  Widget _buildRenderer(TilemapConfig config) {
+    return TilemapRenderer(
+      key: ValueKey<String>('tilemap-renderer-${config.id}-$_rendererRevision'),
+      config: config,
+      onTileAction: _handleTileAction,
+      locationNameForTile: _locationNameForTile,
+      locationAvatarsForTile: _locationAvatarsForTile,
+      messageBubbles: widget.messageBubbles,
+      messageBubblePlaybackPaused: widget.messageBubblePlaybackPaused,
+      onMapTap: widget.onMapTap,
+      onImageError: widget.tileImageLoader == null
+          ? (error) => _handleImageError(config.id, error)
+          : null,
+      visualMode: _visualMode,
+      fogControlPoints: _fogControlPoints,
+      blendFogWithShadowTiles: _blendFogWithShadowTiles,
+      showShadowZeroBorders: _showShadowZeroBorders,
+      showLocationImageFlow: _showLocationImageFlow,
+      locationImageFlowAngleDegrees: _locationImageFlowAngleDegrees,
+      locationImageFlowGradientPoints: _locationImageFlowGradientPoints,
+      locationImageFlowOpacity: _locationImageFlowOpacity,
+      locationImageFlowDurationSeconds: _locationImageFlowDurationSeconds,
+      locationImageFlowBlendMode: _locationImageFlowBlendMode,
+      initialScale: _initialScale,
+      dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     late final Widget map;
@@ -657,37 +878,50 @@ class _TilemapState extends State<Tilemap> {
       map = _TilemapError(visualMode: _visualMode, onRetry: _retry);
     } else {
       final config = _currentConfig;
-      map = config == null
-          ? ColoredBox(
-              key: const ValueKey<String>('tilemap-loading-background'),
-              color: tilemapVisualStyleFor(_visualMode).backgroundColor,
-            )
-          : TilemapRenderer(
-              key: ValueKey<String>(
-                'tilemap-renderer-${config.id}-$_rendererRevision',
-              ),
-              config: config,
-              onTileAction: _handleTileAction,
-              locationNameForTile: _locationNameForTile,
-              locationAvatarsForTile: _locationAvatarsForTile,
-              messageBubbles: widget.messageBubbles,
-              messageBubblePlaybackPaused: widget.messageBubblePlaybackPaused,
-              onMapTap: widget.onMapTap,
-              onImageError: (error) => _handleImageError(config.id, error),
-              visualMode: _visualMode,
-              fogControlPoints: _fogControlPoints,
-              blendFogWithShadowTiles: _blendFogWithShadowTiles,
-              showShadowZeroBorders: _showShadowZeroBorders,
-              showLocationImageFlow: _showLocationImageFlow,
-              locationImageFlowAngleDegrees: _locationImageFlowAngleDegrees,
-              locationImageFlowGradientPoints: _locationImageFlowGradientPoints,
-              locationImageFlowOpacity: _locationImageFlowOpacity,
-              locationImageFlowDurationSeconds:
-                  _locationImageFlowDurationSeconds,
-              locationImageFlowBlendMode: _locationImageFlowBlendMode,
-              initialScale: _initialScale,
-              dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
-            );
+      if (config == null) {
+        map = _loadingStyle == TilemapLoadingStyle.disabled
+            ? ColoredBox(
+                key: const ValueKey<String>('tilemap-loading-background'),
+                color: tilemapVisualStyleFor(_visualMode).backgroundColor,
+              )
+            : _TilemapLoadingOverlay(
+                style: _loadingStyle,
+                progress: 0,
+                visualMode: _visualMode,
+                backgroundKey: const ValueKey<String>(
+                  'tilemap-loading-background',
+                ),
+              );
+      } else if (_loadingStyle == TilemapLoadingStyle.disabled ||
+          _revealedMapId == config.id) {
+        map = _buildRenderer(config);
+      } else {
+        final displayTilePixelSize =
+            tilemapBaseTileExtent *
+            _initialScale *
+            MediaQuery.devicePixelRatioOf(context);
+        final imageLoadPlan = TilemapImageLoadPlan.forConfig(
+          config: config,
+          displayTilePixelSize: displayTilePixelSize,
+        );
+        final imageLoadKey = _tileImageLoadKeyFor(config, imageLoadPlan);
+        _scheduleTileImageLoad(
+          config: config,
+          plan: imageLoadPlan,
+          loadKey: imageLoadKey,
+        );
+        map = _TilemapLoadingOverlay(
+          style: _loadingStyle,
+          progress: _tileImageLoadKey == imageLoadKey
+              ? tilemapImageLoadProgress(
+                  loadedTileCount: _loadedTileImageCount,
+                  totalTileCount: _totalTileImageCount,
+                )
+              : 0,
+          visualMode: _visualMode,
+          backgroundKey: const ValueKey<String>('tilemap-loading-background'),
+        );
+      }
     }
     final settingsButtonTop =
         widget.visualModeToggleTop ?? MediaQuery.paddingOf(context).top + 6;
@@ -727,6 +961,7 @@ class _TilemapState extends State<Tilemap> {
               constraints: BoxConstraints(maxHeight: settingsPanelMaxHeight),
               child: _TilemapSettingsPanel(
                 visualMode: _visualMode,
+                loadingStyle: _loadingStyle,
                 fogControlPoints: _fogControlPoints,
                 blendFogWithShadowTiles: _blendFogWithShadowTiles,
                 showShadowZeroBorders: _showShadowZeroBorders,
@@ -741,6 +976,7 @@ class _TilemapState extends State<Tilemap> {
                 initialScale: _initialScale,
                 dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
                 onVisualModeChanged: _setVisualMode,
+                onLoadingStyleChanged: _setLoadingStyle,
                 onFogControlPointsChanged: _setFogControlPoints,
                 onBlendFogWithShadowTilesChanged: _setBlendFogWithShadowTiles,
                 onShowShadowZeroBordersChanged: _setShowShadowZeroBorders,

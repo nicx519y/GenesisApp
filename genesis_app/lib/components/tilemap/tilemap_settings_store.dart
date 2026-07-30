@@ -5,9 +5,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'tilemap_renderer.dart';
 
+enum TilemapLoadingStyle {
+  disabled,
+  tileAssembly,
+  worldPortal,
+  progressiveReveal,
+  coordinatePulse,
+}
+
+const TilemapLoadingStyle tilemapDefaultLoadingStyle =
+    TilemapLoadingStyle.progressiveReveal;
+
 class TilemapRenderSettings {
   const TilemapRenderSettings({
     required this.visualMode,
+    required this.loadingStyle,
     required this.fogControlPoints,
     required this.blendFogWithShadowTiles,
     required this.showShadowZeroBorders,
@@ -24,6 +36,7 @@ class TilemapRenderSettings {
   factory TilemapRenderSettings.defaults() {
     return const TilemapRenderSettings(
       visualMode: tilemapDefaultVisualMode,
+      loadingStyle: tilemapDefaultLoadingStyle,
       fogControlPoints: tilemapDefaultFogControlPoints,
       blendFogWithShadowTiles: tilemapDefaultBlendFogWithShadowTiles,
       showShadowZeroBorders: tilemapDefaultShowShadowZeroBorders,
@@ -50,6 +63,8 @@ class TilemapRenderSettings {
     };
     return TilemapRenderSettings(
       visualMode: visualMode,
+      loadingStyle:
+          _readLoadingStyle(json['loading_style']) ?? defaults.loadingStyle,
       fogControlPoints:
           _readFogControlPoints(json['fog_control_points']) ??
           defaults.fogControlPoints,
@@ -107,6 +122,7 @@ class TilemapRenderSettings {
   }
 
   final TilemapVisualMode visualMode;
+  final TilemapLoadingStyle loadingStyle;
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
   final bool showShadowZeroBorders;
@@ -128,6 +144,7 @@ class TilemapRenderSettings {
     return {
       'schema_version': 2,
       'visual_mode': visualMode.name,
+      'loading_style': loadingStyle.name,
       'fog_control_points': [
         for (final point in fogControlPoints)
           {'position': point.position, 'opacity': point.opacity},
@@ -157,6 +174,14 @@ class TilemapRenderSettings {
     final resolved = value.toDouble();
     if (!resolved.isFinite || resolved < min || resolved > max) return null;
     return resolved;
+  }
+
+  static TilemapLoadingStyle? _readLoadingStyle(Object? value) {
+    if (value is! String) return null;
+    for (final style in TilemapLoadingStyle.values) {
+      if (style.name == value) return style;
+    }
+    return null;
   }
 
   static TilemapLocationImageFlowBlendMode? _readLocationImageFlowBlendMode(

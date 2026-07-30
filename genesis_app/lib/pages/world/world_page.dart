@@ -354,6 +354,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           locationNodes: listLocationNodes,
           visualModeToggleTop: topPadding + 6,
           visualModeToggleRight: worldMapBackButtonLeft,
+          onMapTap: _recordWorldTilemapClick,
         ),
       );
       return WorldKeepAlivePage(child: map);
