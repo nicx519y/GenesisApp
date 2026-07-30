@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/pages/create/create_form_widgets.dart';
@@ -55,6 +57,7 @@ void main() {
       text: 'assets/images/default_list_image.png',
     );
     var changedCount = 0;
+    Uint8List? previewBytes = Uint8List.fromList(<int>[1, 2, 3]);
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(
@@ -63,6 +66,7 @@ void main() {
           body: CreateUploadBox(
             controller: controller,
             label: 'AVATAR\n(Optional)',
+            onPreviewBytesChanged: (bytes) => previewBytes = bytes,
             onChanged: () => changedCount += 1,
           ),
         ),
@@ -87,6 +91,7 @@ void main() {
     await tester.pump();
 
     expect(controller.text, isEmpty);
+    expect(previewBytes, isNull);
     expect(changedCount, 1);
     expect(find.byType(CreateFormDeleteButton), findsNothing);
     expect(find.text('AVATAR\n(Optional)'), findsOneWidget);

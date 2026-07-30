@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 class WorldMapLocationNode {
@@ -28,6 +30,7 @@ class WorldPoint {
     this.sceneId = '',
     this.pointId = '',
     this.iconUrl = '',
+    this.iconBytes,
     this.mapImageUrl = '',
     this.description = '',
     this.locationDescription = '',
@@ -43,6 +46,7 @@ class WorldPoint {
   final String sceneId;
   final String pointId;
   final String iconUrl;
+  final Uint8List? iconBytes;
   final String mapImageUrl;
   final String description;
   final String locationDescription;

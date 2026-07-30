@@ -59,6 +59,10 @@ class _LocationCard extends StatelessWidget {
           children: [
             CreateUploadBox(
               controller: form.imageUrl,
+              initialPreviewBytes: form.previewImageBytes,
+              onPreviewBytesChanged: (bytes) {
+                form.previewImageBytes = bytes;
+              },
               label: 'IMAGE\n(Optional)',
               width: 96,
               height: 144,
@@ -621,6 +625,7 @@ class _LocationForm {
     required this.name,
     required this.description,
     required this.selectedCharacterIds,
+    this.previewImageBytes,
   });
 
   factory _LocationForm.empty({required String locationId}) {
@@ -675,6 +680,7 @@ class _LocationForm {
       name: TextEditingController(text: source.name.text),
       description: TextEditingController(text: source.description.text),
       selectedCharacterIds: source.selectedCharacterIds.toList(growable: true),
+      previewImageBytes: source.previewImageBytes,
     );
   }
 
@@ -686,12 +692,14 @@ class _LocationForm {
   final TextEditingController description;
   final FocusNode nameFocusNode = FocusNode();
   List<String> selectedCharacterIds;
+  Uint8List? previewImageBytes;
 
   void applyValuesFrom(_LocationForm source) {
     imageUrl.text = source.imageUrl.text;
     name.text = source.name.text;
     description.text = source.description.text;
     selectedCharacterIds = source.selectedCharacterIds.toList(growable: true);
+    previewImageBytes = source.previewImageBytes;
   }
 
   void dispose() {
@@ -715,5 +723,6 @@ class _LocationForm {
     name.clear();
     description.clear();
     selectedCharacterIds = <String>[];
+    previewImageBytes = null;
   }
 }

@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../icons/custom_icon_assets.dart';
 import '../ui/components/recent_chat_marker.dart';
 import '../ui/components/genesis_list_image.dart';
+import '../ui/tokens/genesis_image_radii.dart';
 import '../utils/genesis_image_resource.dart';
 import 'world_details_shell.dart';
 import 'world_point.dart';
@@ -769,6 +770,23 @@ class _LocationCoverImage extends StatelessWidget {
         final logicalHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : 64.0;
+        final localBytes = point.iconBytes;
+        if (localBytes != null && localBytes.isNotEmpty) {
+          final cacheWidth =
+              (logicalWidth * MediaQuery.devicePixelRatioOf(context)).round();
+          return ClipRRect(
+            borderRadius: GenesisImageRadii.content,
+            child: Image.memory(
+              localBytes,
+              key: ValueKey<String>('world-location-memory-image-${point.id}'),
+              width: logicalWidth,
+              height: logicalHeight,
+              fit: BoxFit.cover,
+              cacheWidth: cacheWidth,
+              gaplessPlayback: true,
+            ),
+          );
+        }
         final rawUrl = point.iconUrl.trim();
         final resizedUrl = resizeGenesisImageUrl(
           rawUrl,
