@@ -164,6 +164,38 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
     remove();
   }
 
+  Future<bool> _confirmOpeningLocationDeletion({
+    required String locationId,
+    required String name,
+  }) async {
+    if (locationId.trim() != _openingLocationId) return true;
+    final displayName = name.trim().isEmpty ? 'location' : name.trim();
+    final confirmed = await showGenesisActionBox<bool>(
+      context: context,
+      title: 'Delete "$displayName"',
+      titleContent: const Text(
+        'This is the Opening location. Deleting it will also clear the Opening.',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Color(0xFF666666),
+          fontSize: 13,
+          height: 1.3,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+      titleHeight: 120,
+      actions: const [
+        GenesisActionBoxAction<bool>(
+          label: 'Delete',
+          value: true,
+          color: Color(0xFFFF2442),
+        ),
+      ],
+      cancelLabel: 'Cancel',
+    );
+    return confirmed == true;
+  }
+
   void _removeLocationBranchFromEditor({
     required bool hasChildren,
     required int level,
@@ -516,9 +548,19 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                                     ),
                                     size: GenesisPrimaryButton.defaultHeight,
                                     iconSize: 20,
-                                    onPressed: () => Navigator.of(
-                                      context,
-                                    ).pop(_L3EditorSheetAction.delete),
+                                    onPressed: () async {
+                                      final shouldDelete =
+                                          await _confirmOpeningLocationDeletion(
+                                            locationId: target.form.locationId,
+                                            name: draftForm.name.text,
+                                          );
+                                      if (!context.mounted || !shouldDelete) {
+                                        return;
+                                      }
+                                      Navigator.of(
+                                        context,
+                                      ).pop(_L3EditorSheetAction.delete);
+                                    },
                                     enabled: deleteEnabled,
                                     onDisabledPressed: () => _showError(
                                       _l2NeedsL3Message(target.parent),

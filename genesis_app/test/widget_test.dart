@@ -12571,6 +12571,112 @@ void main() {
     },
   );
 
+  testWidgets(
+    'deleting the Opening L3 warns and clears Opening when locations save',
+    (WidgetTester tester) async {
+      final repository = MemoryOriginDraftRepository(
+        initialDraft: const CreateOriginDraft(
+          basics: BasicsDraft(),
+          characters: <CharacterDraft>[],
+          locations: <LocationDraft>[
+            LocationDraft(locationId: 'region', level: 1, name: 'Downtown'),
+            LocationDraft(
+              locationId: 'building',
+              parentLocationId: 'region',
+              level: 2,
+              name: 'Station',
+            ),
+            LocationDraft(
+              locationId: 'opening_room',
+              parentLocationId: 'building',
+              level: 3,
+              name: 'Opening Room',
+            ),
+            LocationDraft(
+              locationId: 'other_room',
+              parentLocationId: 'building',
+              level: 3,
+              name: 'Other Room',
+            ),
+          ],
+          storyEvents: <StoryEventDraft>[],
+          opening: OpeningDraft(
+            locationId: 'opening_room',
+            locationName: 'Opening Room',
+            dialogue: <OpeningDialogueDraft>[
+              OpeningDialogueDraft(
+                type: OpeningDialogueDraft.narratorType,
+                content: 'The story begins.',
+              ),
+            ],
+          ),
+          basicsSaved: false,
+          charactersSaved: false,
+          locationsSaved: true,
+          storyEventsSaved: false,
+          openingSaved: true,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OriginLocationsEditorPage(
+            repository: repository,
+            useLocationTree: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final sheet = await _openL3LocationEditorSheet(
+        tester,
+        locationName: 'Opening Room',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('locations-l3-editor-delete')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete "Opening Room"'), findsOneWidget);
+      final subtitle = tester.widget<Text>(
+        find.text(
+          'This is the Opening location. '
+          'Deleting it will also clear the Opening.',
+        ),
+      );
+      expect(subtitle.textAlign, TextAlign.center);
+      expect(subtitle.maxLines, isNull);
+      expect(subtitle.overflow, isNull);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(sheet, findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('locations-l3-editor-delete')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(sheet, findsNothing);
+      expect(find.text('Opening Room'), findsNothing);
+      final beforeSave = await repository.loadDraft();
+      expect(beforeSave.openingSaved, isTrue);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      final saved = await repository.loadDraft();
+      expect(
+        saved.locations.map((location) => location.locationId),
+        orderedEquals(<String>['region', 'building', 'other_room']),
+      );
+      expect(saved.openingSaved, isFalse);
+      expect(saved.opening.locationId, isEmpty);
+      expect(saved.opening.dialogue, isEmpty);
+    },
+  );
+
   testWidgets('adding an L3 at the room limit explains how to add another', (
     WidgetTester tester,
   ) async {

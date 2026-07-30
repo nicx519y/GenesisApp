@@ -46,6 +46,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   final List<_LocationForm> _forms = <_LocationForm>[];
   final List<_L1LocationForm> _treeForms = <_L1LocationForm>[];
   String _uid = 'anonymous';
+  String _openingLocationId = '';
   List<CharacterDraft> _finalCharacters = const <CharacterDraft>[];
   bool _isSaving = false;
   _LocationsEditorMode _mode = _LocationsEditorMode.edit;
@@ -74,6 +75,9 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     final uidFuture = readCreateOriginUid(context);
     final draft = await widget.repository.loadDraft();
     _finalCharacters = await widget.repository.loadSavedCharacters();
+    _openingLocationId = draft.openingSaved
+        ? draft.opening.locationId.trim()
+        : '';
     _uid = await uidFuture;
     final source = draft.locations.isEmpty
         ? const <LocationDraft>[LocationDraft()]
@@ -150,11 +154,22 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     final locations = _snapshotLocations()
         .where(_locationDraftHasContent)
         .toList(growable: false);
+    final openingLocationId = draft.opening.locationId.trim();
+    final shouldClearOpening =
+        draft.openingSaved &&
+        openingLocationId.isNotEmpty &&
+        !locations.any(
+          (location) =>
+              (location.level == 0 || location.level == 3) &&
+              location.locationId.trim() == openingLocationId,
+        );
 
     await widget.repository.saveFinalDraft(
       draft.copyWith(
         locations: locations,
         locationsSaved: locations.isNotEmpty,
+        opening: shouldClearOpening ? const OpeningDraft() : draft.opening,
+        openingSaved: shouldClearOpening ? false : draft.openingSaved,
       ),
     );
 
