@@ -377,6 +377,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       action: 'launch_sheet',
       object1: origin.oid,
     );
+    String? launchedWorldId;
     final selection = await showOriginRoleLaunchSheet(
       context: context,
       characters: origin.characters,
@@ -385,15 +386,23 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
       initialLaunchedPresetRoles: launchedPresetRoles,
+      onLaunch: (roleSelection) async {
+        GenesisTelemetry.collectLog(
+          actionType: 'event',
+          action: 'worldo_launch_sheet',
+          object1: origin.oid,
+        );
+        launchedWorldId = await _launchOrigin(
+          origin,
+          roleSelection,
+          enterWorldOnSuccess: false,
+        );
+        return launchedWorldId != null;
+      },
       systemUiOverlayStyle: _baseStatusBarStyle,
     );
-    if (!mounted || selection == null) return;
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'worldo_launch_sheet',
-      object1: origin.oid,
-    );
-    await _launchOrigin(origin, selection);
+    if (!mounted || selection == null || launchedWorldId == null) return;
+    _enterLaunchedWorld(launchedWorldId!);
   }
 
   void _enterLaunchedWorld(String worldId, {String initialLocationId = ''}) {
@@ -476,22 +485,23 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     }
   }
 
-  Future<void> _launchOrigin(
+  Future<String?> _launchOrigin(
     OriginDetail origin,
     OriginRoleLaunchSelection roleSelection, {
     String initialLocationId = '',
+    bool enterWorldOnSuccess = true,
   }) async {
-    if (_launching) return;
+    if (_launching) return null;
     setState(() => _launching = true);
     final launchedWorldId = await startOriginLaunch(
       context: context,
       origin: origin,
       roleSelection: roleSelection,
     );
-    if (!mounted) return;
+    if (!mounted) return null;
     if (launchedWorldId == null) {
       setState(() => _launching = false);
-      return;
+      return null;
     }
     setState(() {
       _launching = false;
@@ -499,7 +509,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _launchedPresetRolesPreparationFuture = null;
       _launchedPresetRolesCacheKey = '';
     });
-    _enterLaunchedWorld(launchedWorldId, initialLocationId: initialLocationId);
+    if (enterWorldOnSuccess) {
+      _enterLaunchedWorld(
+        launchedWorldId,
+        initialLocationId: initialLocationId,
+      );
+    }
+    return launchedWorldId;
   }
 
   Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
