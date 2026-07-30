@@ -167,6 +167,36 @@ void main() {
       greaterThan(tester.getTopLeft(find.text('Alpha World')).dx),
     );
   });
+
+  testWidgets('hides only last progress section when summary is empty', (
+    WidgetTester tester,
+  ) async {
+    final item = WorldListItem.fromJson(const <String, dynamic>{
+      'wid': 'w_empty_progress',
+      'name': 'Quiet World',
+      'cover': '',
+      'updated_at': '2020-01-02T00:00:00Z',
+      'last_tick': {
+        'tick_no': 3,
+        'current_time': 'Day 3, 08:00',
+        'created_at': '2999-01-01T00:00:00Z',
+        'narrator': '   ',
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(width: 390, child: WorldItemCard(item: item)),
+        ),
+      ),
+    );
+
+    expect(find.text('Quiet World'), findsOneWidget);
+    expect(find.text('Last Progress'), findsNothing);
+    expect(find.text('Tick 3 · Day 3, 08:00'), findsNothing);
+    expect(find.byIcon(MyFlutterApp.lastProgress), findsNothing);
+  });
 }
 
 double _horizontalGap(WidgetTester tester, Finder left, Finder right) {

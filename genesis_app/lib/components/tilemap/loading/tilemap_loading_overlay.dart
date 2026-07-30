@@ -49,7 +49,9 @@ class _TilemapLoadingOverlayState extends State<TilemapLoadingOverlay>
 
   void _syncMotion() {
     final shouldAnimate =
-        !_animationsDisabled && widget.style != TilemapLoadingStyle.disabled;
+        !_animationsDisabled &&
+        widget.style != TilemapLoadingStyle.disabled &&
+        widget.style != TilemapLoadingStyle.minimalProgress;
     if (shouldAnimate) {
       if (!_motion.isAnimating) _motion.repeat();
     } else {
@@ -85,6 +87,61 @@ class _TilemapLoadingOverlayState extends State<TilemapLoadingOverlay>
           child: KeyedSubtree(
             key: ValueKey<String>('tilemap-loading-style-${widget.style.name}'),
             child: const SizedBox.shrink(),
+          ),
+        ),
+      );
+    }
+
+    if (widget.style == TilemapLoadingStyle.minimalProgress) {
+      return ColoredBox(
+        key: widget.backgroundKey,
+        color: Colors.black,
+        child: SizedBox.expand(
+          key: const ValueKey<String>('tilemap-loading-overlay'),
+          child: KeyedSubtree(
+            key: ValueKey<String>('tilemap-loading-style-${widget.style.name}'),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Center(
+                  child: SizedBox(
+                    width: math.min(280, constraints.maxWidth * 0.64),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Semantics(
+                          label: 'Loading map',
+                          value: '${(progress * 100).round()}%',
+                          child: LinearProgressIndicator(
+                            key: const ValueKey<String>(
+                              'tilemap-loading-progress',
+                            ),
+                            value: progress,
+                            minHeight: 3,
+                            backgroundColor: const Color(0xFF292929),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF2F9663),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 9),
+                        Text(
+                          '${(progress * 100).round()}%',
+                          key: const ValueKey<String>(
+                            'tilemap-loading-percent',
+                          ),
+                          style: const TextStyle(
+                            color: Color(0xFF2F9663),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       );
@@ -405,6 +462,7 @@ class _TilemapLoadingAtmospherePainter extends CustomPainter {
       case TilemapLoadingStyle.coordinatePulse:
         _paintTopography(canvas, size, center);
         _paintParticles(canvas, size, count: 24);
+      case TilemapLoadingStyle.minimalProgress:
       case TilemapLoadingStyle.disabled:
         break;
     }
@@ -747,6 +805,7 @@ class _TilemapLoadingMotifPainter extends CustomPainter {
         _paintProgressiveReveal(canvas, size);
       case TilemapLoadingStyle.coordinatePulse:
         _paintCoordinatePulse(canvas, size);
+      case TilemapLoadingStyle.minimalProgress:
       case TilemapLoadingStyle.disabled:
         break;
     }

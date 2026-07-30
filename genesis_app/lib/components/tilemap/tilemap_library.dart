@@ -1219,7 +1219,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
         children.add(
           _buildLiveRendererSurface(
             residentConfig,
-            interactive: liveReady && residentConfig.id == config.id,
+            interactive: residentConfig.id == displayMapId,
             foreground: true,
             reportViewportReady: !_prerenderController.isReady(
               residentConfig.id,

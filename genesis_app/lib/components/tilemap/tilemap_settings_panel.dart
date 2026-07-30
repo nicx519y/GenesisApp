@@ -454,6 +454,7 @@ class _TilemapLoadingStyleEditor extends StatelessWidget {
       TilemapLoadingStyle.worldPortal => 'B · World portal',
       TilemapLoadingStyle.progressiveReveal => 'C · Progressive reveal',
       TilemapLoadingStyle.coordinatePulse => 'D · Coordinate pulse',
+      TilemapLoadingStyle.minimalProgress => 'E · Minimal progress',
     };
   }
 

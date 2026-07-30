@@ -11,10 +11,11 @@ enum TilemapLoadingStyle {
   worldPortal,
   progressiveReveal,
   coordinatePulse,
+  minimalProgress,
 }
 
 const TilemapLoadingStyle tilemapDefaultLoadingStyle =
-    TilemapLoadingStyle.progressiveReveal;
+    TilemapLoadingStyle.minimalProgress;
 
 class TilemapRenderSettings {
   const TilemapRenderSettings({

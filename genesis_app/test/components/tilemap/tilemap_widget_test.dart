@@ -185,7 +185,7 @@ void main() {
     },
   );
 
-  testWidgets('Tilemap offers Off and all four persisted loading styles', (
+  testWidgets('Tilemap offers Off and all five persisted loading styles', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -206,7 +206,7 @@ void main() {
 
     expect(
       find.byKey(
-        const ValueKey<String>('tilemap-loading-style-progressiveReveal'),
+        const ValueKey<String>('tilemap-loading-style-minimalProgress'),
       ),
       findsOneWidget,
     );
@@ -238,6 +238,7 @@ void main() {
       TilemapLoadingStyle.worldPortal,
       TilemapLoadingStyle.progressiveReveal,
       TilemapLoadingStyle.coordinatePulse,
+      TilemapLoadingStyle.minimalProgress,
     ]) {
       await select(style);
       expect(
@@ -258,7 +259,7 @@ void main() {
 
     // Turning the first-entry screen off completes this Tilemap session's
     // one-time gate. Re-enabling a style must not make it appear again.
-    await select(TilemapLoadingStyle.coordinatePulse);
+    await select(TilemapLoadingStyle.minimalProgress);
     expect(
       find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
       findsNothing,
@@ -270,8 +271,67 @@ void main() {
     await tester.pump();
     expect(
       (await const TilemapSettingsStore().load()).loadingStyle,
-      TilemapLoadingStyle.coordinatePulse,
+      TilemapLoadingStyle.minimalProgress,
     );
+  });
+
+  testWidgets('Tilemap minimal loading style shows muted progress on black', (
+    tester,
+  ) async {
+    final settings = TilemapRenderSettings.defaults().toJson()
+      ..['loading_style'] = TilemapLoadingStyle.minimalProgress.name;
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      TilemapSettingsButtonVisibilityController.storageKey: true,
+      TilemapSettingsStore.storageKey: jsonEncode(settings),
+    });
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(_DelayedTilemapTransport()),
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Tilemap.origin(
+              originId: 'o_1',
+              tileImageLoader: _completeTileImageLoad,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final overlay = find.byKey(
+      const ValueKey<String>('tilemap-loading-overlay'),
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-loading-style-minimalProgress'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<ColoredBox>(
+            find.byKey(const ValueKey<String>('tilemap-loading-background')),
+          )
+          .color,
+      Colors.black,
+    );
+    final progressBar = find.descendant(
+      of: overlay,
+      matching: find.byType(LinearProgressIndicator),
+    );
+    expect(progressBar, findsOneWidget);
+    final progressIndicator = tester.widget<LinearProgressIndicator>(
+      progressBar,
+    );
+    expect(progressIndicator.valueColor?.value, const Color(0xFF2F9663));
+    final percentText = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('tilemap-loading-percent')),
+    );
+    expect(percentText.style?.color, const Color(0xFF2F9663));
+    expect(percentText.data, '0%');
   });
 
   testWidgets(
@@ -369,7 +429,12 @@ void main() {
 
     expect(pendingLoads, hasLength(2));
     expect(_liveTilemapRendererFinder(), findsNothing);
-    expect(find.text('BUILDING THE WORLD'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-loading-style-minimalProgress'),
+      ),
+      findsOneWidget,
+    );
     expect(
       tester
           .widget<LinearProgressIndicator>(
@@ -417,6 +482,57 @@ void main() {
     );
     expect(find.byKey(const ValueKey<String>('tilemap-grid')), findsOneWidget);
   });
+
+  testWidgets(
+    'Tilemap enables foreground interaction before viewport readiness',
+    (tester) async {
+      final pendingLoad = Completer<void>();
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(
+            _TilemapTransport(data: _locationTilemapData('leaf')),
+          ),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Tilemap.origin(
+                originId: 'o_1',
+                tileImageLoader: (_) => pendingLoad.future,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(_liveTilemapRendererFinder(), findsNothing);
+
+      pendingLoad.complete();
+      await tester.pump();
+      await tester.pump();
+
+      final foregroundRenderer = _liveTilemapRendererFinder();
+      expect(foregroundRenderer, findsOneWidget);
+      final interactionGate = find.ancestor(
+        of: foregroundRenderer,
+        matching: find.byType(IgnorePointer),
+      );
+      expect(interactionGate, findsWidgets);
+      expect(
+        interactionGate
+            .evaluate()
+            .map((element) => element.widget)
+            .whereType<IgnorePointer>()
+            .every((gate) => !gate.ignoring),
+        isTrue,
+      );
+      expect(
+        tester.widget<TilemapRenderer>(foregroundRenderer).onTileAction,
+        isNotNull,
+      );
+    },
+  );
 
   testWidgets(
     'Tilemap ignores stale image failure after the load plan changes',
@@ -608,11 +724,7 @@ void main() {
               find.byKey(const ValueKey<String>('tilemap-loading-background')),
             )
             .color,
-        Color.lerp(
-          tilemapVisualStyleFor(TilemapVisualMode.dark).backgroundColor,
-          const Color(0xFF08090E),
-          0.85,
-        ),
+        Colors.black,
       );
       final settingsButton = find.byKey(
         const ValueKey<String>('tilemap-settings-button'),
@@ -647,7 +759,7 @@ void main() {
               const ValueKey<String>('tilemap-settings-loading-style'),
             ),
           );
-      expect(loadingStyleDropdown.value, TilemapLoadingStyle.progressiveReveal);
+      expect(loadingStyleDropdown.value, TilemapLoadingStyle.minimalProgress);
       loadingStyleDropdown.onChanged!(TilemapLoadingStyle.tileAssembly);
       final initialScaleSlider = tester.widget<Slider>(
         find.byKey(const ValueKey<String>('tilemap-settings-initial-scale')),

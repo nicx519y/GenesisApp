@@ -117,6 +117,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   List<WorldSummaryLatestItem> _copyWorldProgressSummaries =
       const <WorldSummaryLatestItem>[];
   Future<List<OriginMyLaunchPresetCharacter>>? _launchedPresetRolesFuture;
+  Future<List<OriginMyLaunchPresetCharacter>>?
+  _launchedPresetRolesPreparationFuture;
+  String _launchedPresetRolesCacheKey = '';
   bool _launching = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
@@ -138,6 +141,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     super.didChangeDependencies();
     _future ??= _loadOriginDetail();
     _copyWorldProgressFuture ??= _loadCopyWorldProgress();
+    unawaited(_ensureLaunchedPresetRolesLoaded());
   }
 
   @override
@@ -145,6 +149,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.oid != widget.oid) {
       _launchedPresetRolesFuture = null;
+      _launchedPresetRolesPreparationFuture = null;
+      _launchedPresetRolesCacheKey = '';
       _future = _loadOriginDetail();
       _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
       _copyWorldProgressFuture = _loadCopyWorldProgress();
@@ -160,8 +166,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     super.reassemble();
     setState(() {
       _launchedPresetRolesFuture = null;
+      _launchedPresetRolesPreparationFuture = null;
+      _launchedPresetRolesCacheKey = '';
       _future = _loadOriginDetail();
     });
+    unawaited(_ensureLaunchedPresetRolesLoaded());
   }
 
   @override
@@ -358,6 +367,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     OriginDetail origin, {
     bool initialCustomTab = false,
   }) async {
+    final launchedPresetRoles = await _ensureLaunchedPresetRolesLoaded();
+    if (!mounted) return;
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: 'launch_sheet',
@@ -367,11 +378,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       context: context,
       characters: origin.characters,
       initialCustomTab: initialCustomTab,
-      initialLaunchedTab: !initialCustomTab,
+      initialLaunchedTab: !initialCustomTab && launchedPresetRoles.isNotEmpty,
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
-      launchedPresetRolesLoader: () =>
-          _launchedPresetRolesFuture ??= _loadLaunchedPresetRoles(origin),
+      initialLaunchedPresetRoles: launchedPresetRoles,
     );
     if (!mounted || selection == null) return;
     GenesisTelemetry.collectLog(
@@ -379,13 +389,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       action: 'worldo_launch_sheet',
       object1: origin.oid,
     );
-    await _launchOrigin(
-      origin,
-      selection,
-      initialLocationId: selection.initialLocationId?.trim().isNotEmpty == true
-          ? selection.initialLocationId!.trim()
-          : _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
-    );
+    await _launchOrigin(origin, selection);
   }
 
   void _enterLaunchedWorld(String worldId, {String initialLocationId = ''}) {
@@ -400,13 +404,70 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
   }
 
-  Future<List<OriginMyLaunchPresetCharacter>> _loadLaunchedPresetRoles(
-    OriginDetail origin,
-  ) async {
+  Future<List<OriginMyLaunchPresetCharacter>>
+  _ensureLaunchedPresetRolesLoaded() {
+    final preparation = _launchedPresetRolesPreparationFuture;
+    if (preparation != null) return preparation;
+    final nextPreparation = _prepareLaunchedPresetRoles();
+    _launchedPresetRolesPreparationFuture = nextPreparation;
+    nextPreparation.whenComplete(() {
+      if (identical(_launchedPresetRolesPreparationFuture, nextPreparation)) {
+        _launchedPresetRolesPreparationFuture = null;
+      }
+    });
+    return nextPreparation;
+  }
+
+  Future<List<OriginMyLaunchPresetCharacter>>
+  _prepareLaunchedPresetRoles() async {
+    final originId = widget.oid.trim();
+    if (originId.isEmpty) return const <OriginMyLaunchPresetCharacter>[];
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (uid.isEmpty) return const <OriginMyLaunchPresetCharacter>[];
-    return services.api.getMyLaunchPresetCharacters(origin.oid);
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    if (!mounted ||
+        widget.oid.trim() != originId ||
+        uid.isEmpty ||
+        uid.startsWith('guest_') ||
+        authToken.isEmpty) {
+      return const <OriginMyLaunchPresetCharacter>[];
+    }
+
+    final cacheKey = '$originId::$uid';
+    final cachedFuture = _launchedPresetRolesFuture;
+    if (_launchedPresetRolesCacheKey == cacheKey && cachedFuture != null) {
+      return cachedFuture;
+    }
+
+    final request = _requestLaunchedPresetRoles(
+      originId: originId,
+      cacheKey: cacheKey,
+    );
+    _launchedPresetRolesCacheKey = cacheKey;
+    _launchedPresetRolesFuture = request;
+    return request;
+  }
+
+  Future<List<OriginMyLaunchPresetCharacter>> _requestLaunchedPresetRoles({
+    required String originId,
+    required String cacheKey,
+  }) async {
+    try {
+      return await AppServicesScope.read(
+        context,
+      ).api.getMyLaunchPresetCharacters(originId);
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[OriginWorldPage] launched preset roles preload failed: '
+        '$error\n$stackTrace',
+      );
+      if (_launchedPresetRolesCacheKey == cacheKey) {
+        _launchedPresetRolesCacheKey = '';
+        _launchedPresetRolesFuture = null;
+      }
+      return const <OriginMyLaunchPresetCharacter>[];
+    }
   }
 
   Future<void> _launchOrigin(
@@ -429,6 +490,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     setState(() {
       _launching = false;
       _launchedPresetRolesFuture = null;
+      _launchedPresetRolesPreparationFuture = null;
+      _launchedPresetRolesCacheKey = '';
     });
     _enterLaunchedWorld(launchedWorldId, initialLocationId: initialLocationId);
   }
