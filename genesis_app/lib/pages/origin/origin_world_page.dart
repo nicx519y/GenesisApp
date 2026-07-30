@@ -754,6 +754,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             ),
             locationId: initialTilemapLocationId,
             locationNodes: listLocationNodes,
+            preferredFocusLocationId:
+                origin.initLocationGroup?.locationId.trim() ?? '',
             showVisualModeToggle: !_showIntroPage,
             visualModeToggleTop: topPadding + 8,
             visualModeToggleRight: 12,

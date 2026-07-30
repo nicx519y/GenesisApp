@@ -31,12 +31,47 @@ enum _TilemapSource { origin, world }
 
 typedef TilemapTileImageLoader = Future<void> Function(String assetUrl);
 
+String resolveTilemapPreferredVisibleLocationId({
+  required String preferredLocationId,
+  required Iterable<String> visibleLocationIds,
+  required List<WorldMapLocationNode> locationNodes,
+}) {
+  final preferredId = preferredLocationId.trim();
+  if (preferredId.isEmpty) return '';
+  final visibleIds = visibleLocationIds
+      .map((locationId) => locationId.trim())
+      .where((locationId) => locationId.isNotEmpty)
+      .toSet();
+  if (visibleIds.contains(preferredId)) return preferredId;
+
+  String? resolvedId;
+  bool visit(WorldMapLocationNode node) {
+    var containsPreferred = node.id.trim() == preferredId;
+    for (final child in node.children) {
+      containsPreferred = visit(child) || containsPreferred;
+    }
+    final nodeId = node.id.trim();
+    if (containsPreferred &&
+        resolvedId == null &&
+        visibleIds.contains(nodeId)) {
+      resolvedId = nodeId;
+    }
+    return containsPreferred;
+  }
+
+  for (final node in locationNodes) {
+    if (visit(node)) break;
+  }
+  return resolvedId ?? '';
+}
+
 class Tilemap extends StatefulWidget {
   const Tilemap.origin({
     super.key,
     required String originId,
     this.locationId = 'root',
     this.locationNodes = const <WorldMapLocationNode>[],
+    this.preferredFocusLocationId = '',
     this.drillExitTop = 68,
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
@@ -57,6 +92,7 @@ class Tilemap extends StatefulWidget {
     required String worldId,
     this.locationId = 'root',
     this.locationNodes = const <WorldMapLocationNode>[],
+    this.preferredFocusLocationId = '',
     this.drillExitTop = 68,
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
@@ -76,6 +112,7 @@ class Tilemap extends StatefulWidget {
   final String _entityId;
   final String locationId;
   final List<WorldMapLocationNode> locationNodes;
+  final String preferredFocusLocationId;
   final double drillExitTop;
   final bool showVisualModeToggle;
   final double? visualModeToggleTop;
@@ -680,6 +717,16 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     );
   }
 
+  String _preferredVisibleFocusLocationId(TilemapConfig config) {
+    return resolveTilemapPreferredVisibleLocationId(
+      preferredLocationId: widget.preferredFocusLocationId,
+      visibleLocationIds: config.tiles
+          .map((tile) => tile.locationId?.trim() ?? '')
+          .where((locationId) => locationId.isNotEmpty),
+      locationNodes: widget.locationNodes,
+    );
+  }
+
   void _exitLocation() {
     if (_locationTrail.isEmpty) return;
     widget.onDrillIntoLocation?.call();
@@ -901,6 +948,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       onTileAction: interactive ? _handleTileAction : null,
       locationNameForTile: _locationNameForTile,
       locationAvatarsForTile: _locationAvatarsForTile,
+      preferredFocusLocationId: _preferredVisibleFocusLocationId(config),
       messageBubbles: includeLiveContent
           ? widget.messageBubbles
           : const <WorldMapMessageBubble>[],
@@ -1123,6 +1171,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _cacheGeneration,
       renderSettings,
       Object.hashAll(widget.locationNodes.map(_locationNodeEnvironmentHash)),
+      widget.preferredFocusLocationId,
       Object.hashAll(widget.messageBubbles.map(_messageBubbleEnvironmentHash)),
       widget.messageBubblePlaybackPaused,
       locale,

@@ -29,6 +29,7 @@ class WorldMapTilemapOptions {
     this.implementationKey,
     this.locationId = 'root',
     this.locationNodes,
+    this.preferredFocusLocationId = '',
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
@@ -43,6 +44,7 @@ class WorldMapTilemapOptions {
   /// Full, uncollapsed tree used to resolve map_json tile location IDs.
   /// Falls back to [WorldMapCommonConfig.locationNodes] when omitted.
   final List<WorldMapLocationNode>? locationNodes;
+  final String preferredFocusLocationId;
   final bool showVisualModeToggle;
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
@@ -98,6 +100,7 @@ class WorldMap extends StatelessWidget {
         originId: _entityId,
         locationId: tilemap.locationId,
         locationNodes: tilemap.locationNodes ?? common.locationNodes,
+        preferredFocusLocationId: tilemap.preferredFocusLocationId,
         drillExitTop: common.drillExitTop,
         showVisualModeToggle: tilemap.showVisualModeToggle,
         visualModeToggleTop: tilemap.visualModeToggleTop,
@@ -116,6 +119,7 @@ class WorldMap extends StatelessWidget {
         worldId: _entityId,
         locationId: tilemap.locationId,
         locationNodes: tilemap.locationNodes ?? common.locationNodes,
+        preferredFocusLocationId: tilemap.preferredFocusLocationId,
         drillExitTop: common.drillExitTop,
         showVisualModeToggle: tilemap.showVisualModeToggle,
         visualModeToggleTop: tilemap.visualModeToggleTop,

@@ -220,11 +220,17 @@ double tilemapResolvedInitialScale(double initialScale) {
 TilemapCell? tilemapInitialFocusLocationTile({
   required Iterable<TilemapCell> tiles,
   TilemapLocationAvatarsResolver? locationAvatarsForTile,
+  String preferredLocationId = '',
 }) {
+  final resolvedPreferredLocationId = preferredLocationId.trim();
   TilemapCell? selectedTile;
   var selectedAvatarCount = -1;
   for (final tile in tiles) {
     if (!tile.isLocationTile) continue;
+    if (resolvedPreferredLocationId.isNotEmpty &&
+        tile.locationId?.trim() == resolvedPreferredLocationId) {
+      return tile;
+    }
     final avatarCount = locationAvatarsForTile?.call(tile).length ?? 0;
     if (avatarCount <= selectedAvatarCount) continue;
     selectedTile = tile;

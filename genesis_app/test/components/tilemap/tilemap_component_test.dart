@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_location_avatars.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
@@ -721,6 +722,63 @@ void main() {
     );
 
     expect(selected?.locationId, 'most');
+  });
+
+  test('opening location focus takes priority over avatar count', () {
+    const tiles = [
+      TilemapCell(x: 0, y: 0, type: 'a', locationId: 'opening'),
+      TilemapCell(x: 1, y: 0, type: 'a', locationId: 'most'),
+    ];
+    const avatar = UserAvatar('AA', id: 'a', name: 'Ada');
+
+    final selected = tilemapInitialFocusLocationTile(
+      tiles: tiles,
+      preferredLocationId: 'opening',
+      locationAvatarsForTile: (tile) =>
+          tile.locationId == 'most' ? const [avatar, avatar] : const [],
+    );
+
+    expect(selected?.locationId, 'opening');
+  });
+
+  test('opening focus resolves to its visible ancestor on the current map', () {
+    final locationNodes = [
+      _locationNode(
+        'l1',
+        children: [
+          _locationNode(
+            'l2',
+            children: [_locationNode('opening'), _locationNode('other_l3')],
+          ),
+        ],
+      ),
+      _locationNode('other_l1'),
+    ];
+
+    expect(
+      resolveTilemapPreferredVisibleLocationId(
+        preferredLocationId: 'opening',
+        visibleLocationIds: const ['l1', 'other_l1'],
+        locationNodes: locationNodes,
+      ),
+      'l1',
+    );
+    expect(
+      resolveTilemapPreferredVisibleLocationId(
+        preferredLocationId: 'opening',
+        visibleLocationIds: const ['l2'],
+        locationNodes: locationNodes,
+      ),
+      'l2',
+    );
+    expect(
+      resolveTilemapPreferredVisibleLocationId(
+        preferredLocationId: 'opening',
+        visibleLocationIds: const ['opening', 'other_l3'],
+        locationNodes: locationNodes,
+      ),
+      'opening',
+    );
   });
 
   test('initial focus falls back to the first location when all are empty', () {
@@ -1501,3 +1559,20 @@ const _tileTypes = <String, String>{
   'a': 'https://cdn.example.com/tile/a.png',
   'b': 'https://cdn.example.com/tile/b.png',
 };
+
+WorldMapLocationNode _locationNode(
+  String id, {
+  List<WorldMapLocationNode> children = const [],
+}) {
+  return WorldMapLocationNode(
+    id: id,
+    point: WorldPoint(
+      id: id,
+      name: id,
+      type: WorldPointType.portal,
+      position: Offset.zero,
+      users: const [],
+    ),
+    children: children,
+  );
+}
