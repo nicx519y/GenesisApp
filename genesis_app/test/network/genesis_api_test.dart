@@ -1444,6 +1444,9 @@ void main() {
                   },
                   'initial_location_id': 'loc_1_1_1',
                   'last_launched_at': 1785292800,
+                  'world_id': 'w_history_1',
+                  'tick_no': 7,
+                  'current_time': 'Day 3',
                 },
               ],
             },
@@ -1490,6 +1493,9 @@ void main() {
       expect(character.avatarResource.objectKey, 'uploads/alice_800.webp');
       expect(character.initialLocationId, 'loc_1_1_1');
       expect(character.lastLaunchedAt, 1785292800);
+      expect(character.worldId, 'w_history_1');
+      expect(character.tickCount, 7);
+      expect(character.currentTime, 'Day 3');
     },
   );
 

@@ -630,6 +630,9 @@ class OriginMyLaunchPresetCharacter {
     required this.avatarResource,
     required this.initialLocationId,
     required this.lastLaunchedAt,
+    this.worldId = '',
+    this.tickCount = 0,
+    this.currentTime = '',
   });
 
   final String charId;
@@ -642,6 +645,9 @@ class OriginMyLaunchPresetCharacter {
   final GenesisImageResource avatarResource;
   final String initialLocationId;
   final int lastLaunchedAt;
+  final String worldId;
+  final int tickCount;
+  final String currentTime;
 }
 
 @immutable

@@ -119,7 +119,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<List<OriginMyLaunchPresetCharacter>>? _launchedPresetRolesFuture;
   Future<List<OriginMyLaunchPresetCharacter>>?
   _launchedPresetRolesPreparationFuture;
+  List<OriginMyLaunchPresetCharacter>? _launchedPresetRolesData;
   String _launchedPresetRolesCacheKey = '';
+  String _launchedPresetRolesPreloadScheduledForOriginId = '';
   bool _launching = false;
   bool _preserveStatusBarDuringWorldHandoff = false;
   bool _showIntroPage = false;
@@ -142,7 +144,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     super.didChangeDependencies();
     _future ??= _loadOriginDetail();
     _copyWorldProgressFuture ??= _loadCopyWorldProgress();
-    unawaited(_ensureLaunchedPresetRolesLoaded());
   }
 
   @override
@@ -151,7 +152,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (oldWidget.oid != widget.oid) {
       _launchedPresetRolesFuture = null;
       _launchedPresetRolesPreparationFuture = null;
+      _launchedPresetRolesData = null;
       _launchedPresetRolesCacheKey = '';
+      _launchedPresetRolesPreloadScheduledForOriginId = '';
       _future = _loadOriginDetail();
       _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
       _copyWorldProgressFuture = _loadCopyWorldProgress();
@@ -168,10 +171,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     setState(() {
       _launchedPresetRolesFuture = null;
       _launchedPresetRolesPreparationFuture = null;
+      _launchedPresetRolesData = null;
       _launchedPresetRolesCacheKey = '';
+      _launchedPresetRolesPreloadScheduledForOriginId = '';
       _future = _loadOriginDetail();
     });
-    unawaited(_ensureLaunchedPresetRolesLoaded());
   }
 
   @override
@@ -188,6 +192,19 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final origin = await api.getOrigin(widget.oid);
     _precacheRoleCardAvatarImages(origin);
     return origin;
+  }
+
+  void _scheduleLaunchedPresetRolesPreload() {
+    final originId = widget.oid.trim();
+    if (originId.isEmpty ||
+        _launchedPresetRolesPreloadScheduledForOriginId == originId) {
+      return;
+    }
+    _launchedPresetRolesPreloadScheduledForOriginId = originId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.oid.trim() != originId) return;
+      unawaited(_ensureLaunchedPresetRolesLoaded());
+    });
   }
 
   Future<void> _loadCopyWorldProgress() async {
@@ -370,39 +387,48 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     OriginDetail origin, {
     bool initialCustomTab = false,
   }) async {
-    final launchedPresetRoles = await _ensureLaunchedPresetRolesLoaded();
-    if (!mounted) return;
+    final launchedPresetRoles = _launchedPresetRolesData;
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: 'launch_sheet',
       object1: origin.oid,
     );
-    String? launchedWorldId;
-    final selection = await showOriginRoleLaunchSheet(
+    await showOriginRoleLaunchSheet(
       context: context,
       characters: origin.characters,
       initialCustomTab: initialCustomTab,
-      initialLaunchedTab: !initialCustomTab && launchedPresetRoles.isNotEmpty,
+      initialLaunchedTab:
+          !initialCustomTab && launchedPresetRoles?.isNotEmpty == true,
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
       initialLaunchedPresetRoles: launchedPresetRoles,
+      launchedPresetRolesLoader: launchedPresetRoles == null
+          ? _ensureLaunchedPresetRolesLoaded
+          : null,
       onLaunch: (roleSelection) async {
+        final existingWorldId = roleSelection.existingWorldId?.trim() ?? '';
+        if (existingWorldId.isNotEmpty) {
+          _enterLaunchedWorld(existingWorldId);
+          return OriginRoleLaunchHandlerResult.navigationHandled;
+        }
         GenesisTelemetry.collectLog(
           actionType: 'event',
           action: 'worldo_launch_sheet',
           object1: origin.oid,
         );
-        launchedWorldId = await _launchOrigin(
+        final launchedWorldId = await _launchOrigin(
           origin,
           roleSelection,
           enterWorldOnSuccess: false,
         );
-        return launchedWorldId != null;
+        if (!mounted || launchedWorldId == null) {
+          return OriginRoleLaunchHandlerResult.failed;
+        }
+        _enterLaunchedWorld(launchedWorldId);
+        return OriginRoleLaunchHandlerResult.navigationHandled;
       },
       systemUiOverlayStyle: _baseStatusBarStyle,
     );
-    if (!mounted || selection == null || launchedWorldId == null) return;
-    _enterLaunchedWorld(launchedWorldId!);
   }
 
   void _enterLaunchedWorld(String worldId, {String initialLocationId = ''}) {
@@ -469,9 +495,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     required String cacheKey,
   }) async {
     try {
-      return await AppServicesScope.read(
+      final roles = await AppServicesScope.read(
         context,
       ).api.getMyLaunchPresetCharacters(originId);
+      if (mounted && _launchedPresetRolesCacheKey == cacheKey) {
+        _launchedPresetRolesData = roles;
+      }
+      return roles;
     } catch (error, stackTrace) {
       debugPrint(
         '[OriginWorldPage] launched preset roles preload failed: '
@@ -480,6 +510,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       if (_launchedPresetRolesCacheKey == cacheKey) {
         _launchedPresetRolesCacheKey = '';
         _launchedPresetRolesFuture = null;
+        _launchedPresetRolesData = null;
       }
       return const <OriginMyLaunchPresetCharacter>[];
     }
@@ -507,6 +538,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _launching = false;
       _launchedPresetRolesFuture = null;
       _launchedPresetRolesPreparationFuture = null;
+      _launchedPresetRolesData = null;
       _launchedPresetRolesCacheKey = '';
     });
     if (enterWorldOnSuccess) {
@@ -651,6 +683,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         if (origin == null) {
           return const Scaffold(body: Center(child: Text('No data')));
         }
+        _scheduleLaunchedPresetRolesPreload();
 
         final processedLocationTree = origin.processedLocationTree;
         final initialTilemapLocationId = processedLocationTree

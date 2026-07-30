@@ -192,6 +192,9 @@ OriginMyLaunchPresetCharacter _originMyLaunchPresetCharacterFromV1(
     avatarResource: avatarResource,
     initialLocationId: asString(raw['initial_location_id']),
     lastLaunchedAt: asInt(raw['last_launched_at']),
+    worldId: asString(raw['world_id']),
+    tickCount: asInt(raw['tick_no']),
+    currentTime: asString(raw['current_time']),
   );
 }
 
