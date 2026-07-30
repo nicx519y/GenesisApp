@@ -4,7 +4,7 @@ import 'package:genesis_flutter_android/pages/world/world_map_bubble_candidates.
 
 void main() {
   test(
-    'selects AI character messages from latest current-tick conversation',
+    'selects colocated AI messages from latest current-tick conversation',
     () {
       final candidates = worldMapBubbleCandidatesFor(
         currentTickNo: 7,
@@ -87,17 +87,14 @@ void main() {
       expect(candidates.map((candidate) => candidate.content), [
         'from loc b',
         'latest one',
-        'same conversation',
       ]);
       expect(candidates.map((candidate) => candidate.characterId), [
         'char_b',
         'char_a',
-        'char_b',
       ]);
       expect(candidates.map((candidate) => candidate.characterLocationId), [
         'loc_b',
         'loc_a',
-        'loc_b',
       ]);
     },
   );
@@ -217,6 +214,40 @@ void main() {
       expect(candidates, isEmpty);
     },
   );
+
+  test('selects tick zero messages while the world is at tick zero', () {
+    final candidates = worldMapBubbleCandidatesFor(
+      currentTickNo: 0,
+      characterPositions: const [
+        {
+          'location_id': 'loc_a',
+          'character': {
+            'char_id': 'ai_char',
+            'name': 'AI',
+            'type': 'ai',
+            'player_uid': '',
+          },
+        },
+      ],
+      messagesByLocation: {
+        'loc_a': [
+          _message(
+            id: 1,
+            tickNo: 0,
+            round: '1',
+            order: 1,
+            locationId: 'loc_a',
+            senderId: 'ai_char',
+            content: 'Opening message',
+          ),
+        ],
+      },
+    );
+
+    expect(candidates.map((candidate) => candidate.content), [
+      'Opening message',
+    ]);
+  });
 
   test('removes italic markdown content from bubble content', () {
     final candidates = worldMapBubbleCandidatesFor(

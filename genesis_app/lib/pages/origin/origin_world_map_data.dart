@@ -184,9 +184,7 @@ Map<String, List<UserAvatar>> _originAvatarsByLocation(
   }
 
   for (final c in characters) {
-    final locationId = c.currentLocationId > 0
-        ? c.currentLocationId
-        : c.initialLocationId;
+    final locationId = _originCharacterMapLocationId(c);
     if (locationId <= 0) continue;
     final avatar = UserAvatar(
       _initials(c.name),
@@ -207,6 +205,20 @@ Map<String, List<UserAvatar>> _originAvatarsByLocation(
 String _originCharacterMapAvatarId(OriginCharacter character) {
   if (character.id > 0) return '${character.id}';
   return character.characterId.trim();
+}
+
+int _originCharacterMapLocationId(OriginCharacter character) {
+  return character.currentLocationId > 0
+      ? character.currentLocationId
+      : character.initialLocationId;
+}
+
+bool _originCharacterIsAtLocation(
+  OriginCharacter character,
+  OriginLocation location,
+) {
+  final characterLocationId = _originCharacterMapLocationId(character);
+  return characterLocationId > 0 && characterLocationId == location.id;
 }
 
 List<WorldMapMessageBubble> _originMapMessageBubbles(OriginDetail origin) {
@@ -240,6 +252,7 @@ List<WorldMapMessageBubble> originMapMessageBubblesForTesting(
       }
       final character = charactersByCharId[normalizedCharId];
       if (character == null) continue;
+      if (!_originCharacterIsAtLocation(character, location)) continue;
       final content = worldMapBubbleDisplayContent(line.content);
       if (content.isEmpty) continue;
       final avatarId = _originCharacterMapAvatarId(character);

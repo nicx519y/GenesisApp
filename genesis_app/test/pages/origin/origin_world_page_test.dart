@@ -395,6 +395,47 @@ void main() {
     expect(bubbles.single.content, 'Open before sunrise.');
   });
 
+  test(
+    'origin map bubbles ignore dialogue when character is at another location',
+    () {
+      final origin = _originDetail(
+        characters: [
+          OriginCharacter(
+            id: 7,
+            characterId: 'char_1',
+            originId: 1,
+            name: 'Casey',
+            avatar: '',
+            tags: '',
+            currentLocationId: 13,
+            initialLocationId: 13,
+            createdAt: null,
+            updatedAt: null,
+          ),
+        ],
+        locations: [
+          OriginLocation.fromJson(const {
+            'id': 12,
+            'origin_id': 1,
+            'location_id': 'loc_1',
+            'location_name': 'Town Square',
+            'dialogue': [
+              {'char_id': 'char_1', 'content': 'I am somewhere else.'},
+            ],
+          }),
+          OriginLocation.fromJson(const {
+            'id': 13,
+            'origin_id': 1,
+            'location_id': 'loc_2',
+            'location_name': 'Harbor',
+          }),
+        ],
+      );
+
+      expect(originMapMessageBubblesForTesting(origin), isEmpty);
+    },
+  );
+
   test('origin character tagline reads brief directly', () {
     final character = OriginCharacter.fromJson(const {
       'character_id': 'char_1',

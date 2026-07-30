@@ -21,7 +21,7 @@ List<WorldMapBubbleCandidate> worldMapBubbleCandidatesFor({
   required List<Map<String, dynamic>> characterPositions,
   required Map<String, List<WorldChatroomMessage>> messagesByLocation,
 }) {
-  if (currentTickNo <= 0 || characterPositions.isEmpty) {
+  if (characterPositions.isEmpty) {
     return const <WorldMapBubbleCandidate>[];
   }
 
@@ -48,6 +48,7 @@ List<WorldMapBubbleCandidate> worldMapBubbleCandidatesFor({
       if (message.conversationRoundId != latestRoundId) continue;
       final characterLocationId = aiCharacterLocationById[message.senderId];
       if (characterLocationId == null) continue;
+      if (characterLocationId != locationId) continue;
       if (!_isBubbleMessageSenderType(message.senderType)) continue;
       if (message.streaming) continue;
       final content = worldMapBubbleDisplayContent(message.content);
