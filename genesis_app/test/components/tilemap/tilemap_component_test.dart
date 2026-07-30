@@ -947,7 +947,7 @@ void main() {
     );
     expect(labelRect.top, greaterThan(tileRect.center.dy));
     expect(locationDotRect.center.dx, closeTo(tileRect.center.dx, 0.01));
-    expect(locationDotRect.top - bubbleBodyRect.bottom, closeTo(12, 0.01));
+    expect(locationDotRect.top - bubbleBodyRect.bottom, closeTo(6, 0.01));
     await tester.tap(find.text('High School'));
     await tester.pump();
     expect(tappedTile?.locationId, 'loc_1');
