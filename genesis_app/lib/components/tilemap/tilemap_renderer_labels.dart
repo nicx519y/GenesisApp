@@ -17,7 +17,7 @@ const double _tilemapLocationLabelHorizontalPadding = 3;
 const double _tilemapLocationLabelVerticalPadding = 4;
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
   color: Colors.white,
-  fontSize: 10,
+  fontSize: 12,
   height: 1.2,
   leadingDistribution: TextLeadingDistribution.even,
   fontWeight: FontWeight.w600,
