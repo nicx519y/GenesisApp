@@ -652,7 +652,7 @@ void main() {
       final initialScaleSlider = tester.widget<Slider>(
         find.byKey(const ValueKey<String>('tilemap-settings-initial-scale')),
       );
-      expect(initialScaleSlider.value, 16);
+      expect(initialScaleSlider.value, 12);
       expect(initialScaleSlider.min, 5);
       expect(initialScaleSlider.max, 30);
       expect(initialScaleSlider.divisions, 25);

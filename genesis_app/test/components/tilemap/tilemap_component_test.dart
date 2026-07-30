@@ -685,7 +685,7 @@ void main() {
       mapSize: const Size(200, 100),
       contentBounds: contentBounds,
     );
-    expect(tilemapTransformScale(transform), 16);
+    expect(tilemapTransformScale(transform), 12);
     expect(
       MatrixUtils.transformPoint(transform, contentBounds.center),
       viewportSize.center(Offset.zero) + const Offset(0, 20),
@@ -697,7 +697,7 @@ void main() {
     expect(tilemapResolvedInitialScale(1), tilemapInitialScaleMin);
     expect(tilemapResolvedInitialScale(40), tilemapInitialScaleMax);
     expect(tilemapResolvedInitialScale(double.nan), tilemapDefaultInitialScale);
-    expect(tilemapDefaultInitialScale, 16);
+    expect(tilemapDefaultInitialScale, 12);
     expect(tilemapInitialScaleMin, 5);
     expect(tilemapInitialScaleMax, 30);
   });
