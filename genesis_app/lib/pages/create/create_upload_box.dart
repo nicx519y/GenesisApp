@@ -14,6 +14,7 @@ class CreateUploadBox extends StatefulWidget {
     this.maxOutputSize,
     this.uploadOriginalImage = false,
     this.preserveImageAspectRatio = false,
+    this.useMessageImageSizing = false,
     this.previewAlignment = Alignment.center,
     this.showRemoveLinkWhenFilled = true,
     this.emptyLabelFontWeight = FontWeight.w600,
@@ -35,6 +36,7 @@ class CreateUploadBox extends StatefulWidget {
   final Size? maxOutputSize;
   final bool uploadOriginalImage;
   final bool preserveImageAspectRatio;
+  final bool useMessageImageSizing;
   final Alignment previewAlignment;
   final bool showRemoveLinkWhenFilled;
   final FontWeight emptyLabelFontWeight;
@@ -49,14 +51,17 @@ class CreateUploadBox extends StatefulWidget {
 class _CreateUploadBoxState extends State<CreateUploadBox> {
   Uint8List? _previewBytes;
   double? _imageAspectRatio;
+  Size? _imageLogicalSize;
   bool _isUploading = false;
   bool _isUploadProcessing = false;
   double _uploadProgress = 0;
+  int _imageSizeGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_handleControllerChanged);
+    unawaited(_resolveControllerImageSize());
   }
 
   @override
@@ -67,9 +72,17 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       widget.controller.addListener(_handleControllerChanged);
       _previewBytes = null;
       _imageAspectRatio = null;
+      _imageLogicalSize = null;
       _isUploading = false;
       _isUploadProcessing = false;
       _uploadProgress = 0;
+      unawaited(_resolveControllerImageSize());
+    } else if (!oldWidget.useMessageImageSizing &&
+        widget.useMessageImageSizing) {
+      unawaited(_resolveControllerImageSize());
+    } else if (oldWidget.useMessageImageSizing &&
+        !widget.useMessageImageSizing) {
+      _imageLogicalSize = null;
     }
   }
 
@@ -85,25 +98,37 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       setState(() {
         _previewBytes = null;
         _imageAspectRatio = null;
+        _imageLogicalSize = null;
         _isUploadProcessing = false;
         _uploadProgress = 0;
       });
+      unawaited(_resolveControllerImageSize());
       return;
     }
     setState(() {});
+    unawaited(_resolveControllerImageSize());
   }
 
   @override
   Widget build(BuildContext context) {
     final imageUrl = widget.controller.text.trim();
     final hasImage = _previewBytes != null || imageUrl.isNotEmpty;
+    final messageDisplaySize =
+        hasImage && widget.useMessageImageSizing && _imageLogicalSize != null
+        ? fitGenesisMessageImageSize(
+            sourceSize: _imageLogicalSize!,
+            maxWidth: widget.width,
+          )
+        : null;
+    final previewWidth = messageDisplaySize?.width ?? widget.width;
     final previewHeight =
-        hasImage &&
-            widget.preserveImageAspectRatio &&
-            _imageAspectRatio != null &&
-            _imageAspectRatio! > 0
-        ? widget.width / _imageAspectRatio!
-        : widget.height;
+        messageDisplaySize?.height ??
+        (hasImage &&
+                widget.preserveImageAspectRatio &&
+                _imageAspectRatio != null &&
+                _imageAspectRatio! > 0
+            ? widget.width / _imageAspectRatio!
+            : widget.height);
     final uploadBox = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _isUploading
@@ -121,7 +146,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
               strokeWidth: 1.2,
             ),
             child: Container(
-              width: widget.width,
+              width: previewWidth,
               height: previewHeight,
               alignment: Alignment.center,
               decoration: BoxDecoration(
@@ -144,6 +169,8 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                       isProcessing: _isUploadProcessing,
                       progress: _uploadProgress,
                       alignment: widget.previewAlignment,
+                      useMessageImageSizing: widget.useMessageImageSizing,
+                      displaySize: messageDisplaySize,
                     ),
             ),
           ),
@@ -176,6 +203,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     setState(() {
       _previewBytes = null;
       _imageAspectRatio = null;
+      _imageLogicalSize = null;
       _isUploading = false;
       _isUploadProcessing = false;
       _uploadProgress = 0;
@@ -238,13 +266,18 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     DiscussPickedImage image,
   ) async {
     final previousUrl = widget.controller.text;
-    final aspectRatio = widget.preserveImageAspectRatio
-        ? await _decodeImageAspectRatio(image.bytes)
+    final imageSize =
+        widget.preserveImageAspectRatio || widget.useMessageImageSizing
+        ? await _decodeImageSize(image.bytes)
         : null;
+    final aspectRatio = imageSize == null
+        ? null
+        : imageSize.width / imageSize.height;
     if (!context.mounted) return;
     setState(() {
       _previewBytes = image.bytes;
       _imageAspectRatio = aspectRatio;
+      _imageLogicalSize = imageSize;
       _isUploading = true;
       _isUploadProcessing = true;
       _uploadProgress = 0;
@@ -280,6 +313,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         _uploadProgress = 0;
         _previewBytes = null;
         _imageAspectRatio = null;
+        _imageLogicalSize = null;
       });
       widget.controller.text = previousUrl;
       widget.onChanged();
@@ -287,14 +321,14 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     }
   }
 
-  Future<double?> _decodeImageAspectRatio(Uint8List bytes) async {
+  Future<Size?> _decodeImageSize(Uint8List bytes) async {
     final codec = await ui.instantiateImageCodec(bytes);
     try {
       final frame = await codec.getNextFrame();
       final image = frame.image;
       try {
         if (image.width <= 0 || image.height <= 0) return null;
-        return image.width / image.height;
+        return Size(image.width.toDouble(), image.height.toDouble());
       } finally {
         image.dispose();
       }
@@ -345,6 +379,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         _uploadProgress = 0;
         _previewBytes = null;
         _imageAspectRatio = null;
+        _imageLogicalSize = null;
       });
       widget.controller.text = previousUrl;
       widget.onChanged();
@@ -358,5 +393,31 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     final withoutExtension = normalized.replaceFirst(RegExp(r'\.[^.]+$'), '');
     final base = withoutExtension.trim().isEmpty ? 'crop' : withoutExtension;
     return '$base.png';
+  }
+
+  Future<void> _resolveControllerImageSize() async {
+    final generation = ++_imageSizeGeneration;
+    if (!widget.useMessageImageSizing || _previewBytes != null) return;
+    final source = widget.controller.text.trim();
+    if (source.isEmpty) {
+      if (mounted && _imageLogicalSize != null) {
+        setState(() {
+          _imageLogicalSize = null;
+          _imageAspectRatio = null;
+        });
+      }
+      return;
+    }
+    final size = await resolveGenesisMessageImageSourceSize(source);
+    if (!mounted ||
+        generation != _imageSizeGeneration ||
+        source != widget.controller.text.trim()) {
+      return;
+    }
+    if (size == null) return;
+    setState(() {
+      _imageLogicalSize = size;
+      _imageAspectRatio = size.width / size.height;
+    });
   }
 }

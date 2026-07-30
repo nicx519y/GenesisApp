@@ -112,6 +112,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
   bool _billingPurchaseDialogDismissing = false;
+  bool _storeRecoveryStarted = false;
 
   @override
   void initState() {

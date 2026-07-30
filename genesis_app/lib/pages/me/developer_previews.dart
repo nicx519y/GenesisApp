@@ -166,7 +166,7 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {
     final deviceId = _infoValue(diagnostics?.deviceId);
     if (diagnostics?.hasAndroidBreakdown != true) {
-      return _DeveloperInfoRow(title: 'Device ID', content: deviceId);
+      return _DeveloperInfoSingleLineRow(title: 'Device ID', content: deviceId);
     }
 
     return Column(
@@ -183,6 +183,37 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
         ),
         const SizedBox(height: _DeveloperPageContentState._itemGap),
         _DeveloperInfoSingleLineRow(title: 'Device ID', content: deviceId),
+      ],
+    );
+  }
+
+  Future<_DeveloperAccountIdentity> _loadAccountIdentity() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final cachedUserInfo = await services.sessionStore.readUserInfo();
+    return _DeveloperAccountIdentity(
+      uid: uid,
+      uuid: '${cachedUserInfo?['uuid'] ?? ''}'.trim(),
+    );
+  }
+
+  Widget _buildAccountIdentityRows(
+    AsyncSnapshot<_DeveloperAccountIdentity> snapshot,
+  ) {
+    final identity = snapshot.data;
+    final loading = snapshot.connectionState != ConnectionState.done;
+    final uuid = identity?.uuid ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _DeveloperInfoSingleLineRow(
+          title: 'UID',
+          content: loading ? 'Loading...' : _infoValue(identity?.uid),
+        ),
+        if (!loading && uuid.isNotEmpty) ...[
+          const SizedBox(height: _DeveloperPageContentState._itemGap),
+          _DeveloperInfoSingleLineRow(title: 'UUID', content: uuid),
+        ],
       ],
     );
   }

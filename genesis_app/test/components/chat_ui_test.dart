@@ -5,8 +5,10 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/components/gems/memory_model_entry_button.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
+import 'package:genesis_flutter_android/utils/genesis_message_image.dart';
 
 void main() {
   List<ChatMessageVm> chatMessages(int start, int end) {
@@ -1946,19 +1948,33 @@ void main() {
     expect(find.text('assets/images/default_list_image.png'), findsNothing);
   });
 
-  testWidgets('chat image thumbnail uses physical width OSS tier', (
+  testWidgets('chat image thumbnail uses its layout width and OSS tier', (
     WidgetTester tester,
   ) async {
-    const source = 'https://cdn.example.com/chat.png?old=true#fragment';
+    const source = 'https://cdn-001.worldo.ai/chat/chat.png?old=true#fragment';
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(() {
+      debugGenesisMessageImageInfoLoader = null;
+      clearGenesisMessageImageSizeCache();
+    });
+    debugGenesisMessageImageInfoLoader = (_) async => {
+      'ImageWidth': {'value': '1600'},
+      'ImageHeight': {'value': '800'},
+    };
 
     for (final expectation in const <(double, int)>[
-      (1, 360),
-      (2, 720),
-      (3, 1080),
-      (4, 1080),
+      (1, 1080),
+      (2, 2160),
+      (3, 2880),
+      (4, 4320),
     ]) {
+      clearGenesisMessageImageSizeCache();
       tester.view.devicePixelRatio = expectation.$1;
+      tester.view.physicalSize = Size(
+        800 * expectation.$1,
+        600 * expectation.$1,
+      );
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -1979,39 +1995,99 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump();
 
       final image = tester.widget<ChatThumbnailImage>(
         find.byType(ChatThumbnailImage),
       );
+      expect(image.maxWidth, 750);
+      final provider = tester
+          .widgetList<Image>(
+            find.descendant(
+              of: find.byType(ChatThumbnailImage),
+              matching: find.byType(Image),
+            ),
+          )
+          .map((image) => image.image)
+          .whereType<GenesisStaticNetworkImageProvider>()
+          .single;
       expect(
-        image.imageUrl,
-        'https://cdn.example.com/chat.png'
-        '?x-oss-process=image/resize,w_${expectation.$2},image/format,webp',
+        provider.imageUrl,
+        'https://cdn-001.worldo.ai/chat/chat.png'
+        '?x-oss-process=image/resize,m_lfit,'
+        'w_${expectation.$2},h_${expectation.$2 * 2}/format,webp',
       );
-      expect(image.maxExtent, ChatImageMessage.maxImageExtent);
       expect(image.borderRadius, BorderRadius.circular(8));
     }
   });
 
-  testWidgets('chat image keeps its ratio within 250 logical pixels', (
+  testWidgets('location chat image width matches narrator message width', (
+    WidgetTester tester,
+  ) async {
+    final style = kLocationChatStyle;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: Padding(
+              padding: style.messageListPadding,
+              child: ChatMessageRow(
+                message: ChatMessageVm(
+                  localId: 'location-image-width',
+                  senderId: 'nar_pic',
+                  senderName: 'Narrator',
+                  senderType: 'image',
+                  imageUrl: 'assets/images/my_worlds_empty_worldo_launch.jpg',
+                  text: 'assets/images/my_worlds_empty_worldo_launch.jpg',
+                  isMe: false,
+                  status: 'sent',
+                ),
+                showDateDivider: false,
+                style: style,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<ChatThumbnailImage>(
+      find.byType(ChatThumbnailImage),
+    );
+    final narratorContentWidth =
+        400 -
+        style.messageListPadding.horizontal -
+        style.systemMessageMargin.horizontal;
+    expect(image.maxWidth, closeTo(narratorContentWidth, 0.01));
+  });
+
+  testWidgets('chat image keeps its ratio within the available layout width', (
     WidgetTester tester,
   ) async {
     Future<Size> pumpImage(String localId, String imageUrl) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: ChatMessageRow(
-              message: ChatMessageVm(
-                localId: localId,
-                senderId: 'nar_pic',
-                senderName: 'Narrator',
-                senderType: 'image',
-                imageUrl: imageUrl,
-                text: imageUrl,
-                isMe: false,
-                status: 'sent',
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 300,
+                child: ChatMessageRow(
+                  message: ChatMessageVm(
+                    localId: localId,
+                    senderId: 'nar_pic',
+                    senderName: 'Narrator',
+                    senderType: 'image',
+                    imageUrl: imageUrl,
+                    text: imageUrl,
+                    isMe: false,
+                    status: 'sent',
+                  ),
+                  showDateDivider: false,
+                ),
               ),
-              showDateDivider: false,
             ),
           ),
         ),
@@ -2039,8 +2115,8 @@ void main() {
       'portrait',
       'assets/images/map_default/root_default.webp',
     );
-    expect(portrait.width, closeTo(250 * 1024 / 1536, 0.01));
-    expect(portrait.height, closeTo(250, 0.01));
+    expect(portrait.width, closeTo(250, 0.01));
+    expect(portrait.height, closeTo(250 * 1536 / 1024, 0.01));
 
     final small = await pumpImage(
       'small',

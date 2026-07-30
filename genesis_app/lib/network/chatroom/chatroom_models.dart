@@ -454,6 +454,7 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
 
   factory ChatroomNarratorMessage.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
+    final senderId = asString(payload['sender_id']);
     return ChatroomNarratorMessage(
       sessionId: asString(payload['session_id']),
       worldId: _worldId(payload),
@@ -468,10 +469,14 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
       conversationRoundId: asString(payload['conversation_round_id']),
       roundOrder: 0,
       senderType: asString(payload['sender_type'], fallback: 'narrator'),
-      senderId: asString(payload['sender_id']),
+      senderId: senderId,
       senderName: asString(payload['sender_name'], fallback: 'Narrator'),
       content: asString(payload['content']),
-      messageType: normalizeChatroomMessageType(payload['message_type']),
+      messageType: resolveIncomingChatroomMessageType(
+        hasMessageTypeField: payload.containsKey('message_type'),
+        rawMessageType: payload['message_type'],
+        senderId: senderId,
+      ),
       currentTime: _currentTime(payload),
       broadcast: asBool(payload['broadcast']),
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),

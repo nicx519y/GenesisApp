@@ -49,6 +49,8 @@ class _Preview extends StatelessWidget {
     required this.isProcessing,
     required this.progress,
     required this.alignment,
+    required this.useMessageImageSizing,
+    required this.displaySize,
   });
 
   final String imageUrl;
@@ -57,6 +59,8 @@ class _Preview extends StatelessWidget {
   final bool isProcessing;
   final double progress;
   final Alignment alignment;
+  final bool useMessageImageSizing;
+  final Size? displaySize;
 
   @override
   Widget build(BuildContext context) {
@@ -64,22 +68,31 @@ class _Preview extends StatelessWidget {
     final bytes = imageBytes;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final selectedUrl = selectGenesisImageUrl(
-          url,
-          logicalWidth: constraints.maxWidth.isFinite
-              ? constraints.maxWidth
-              : null,
-          logicalHeight: constraints.maxHeight.isFinite
-              ? constraints.maxHeight
-              : null,
-          devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-        );
+        final devicePixelRatio =
+            MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+        final selectedUrl = useMessageImageSizing && displaySize != null
+            ? resizeGenesisMessageImageUrl(
+                url,
+                displaySize: displaySize!,
+                devicePixelRatio: devicePixelRatio,
+              )
+            : selectGenesisImageUrl(
+                url,
+                logicalWidth: constraints.maxWidth.isFinite
+                    ? constraints.maxWidth
+                    : null,
+                logicalHeight: constraints.maxHeight.isFinite
+                    ? constraints.maxHeight
+                    : null,
+                devicePixelRatio: devicePixelRatio,
+              );
+        final imageFit = useMessageImageSizing ? BoxFit.contain : BoxFit.cover;
         final Widget image = bytes != null
             ? Image.memory(
                 bytes,
                 width: double.infinity,
                 height: double.infinity,
-                fit: BoxFit.cover,
+                fit: imageFit,
                 alignment: alignment,
               )
             : selectedUrl.isEmpty
@@ -89,7 +102,7 @@ class _Preview extends StatelessWidget {
                 selectedUrl,
                 width: double.infinity,
                 height: double.infinity,
-                fit: BoxFit.cover,
+                fit: imageFit,
                 alignment: alignment,
                 errorBuilder: (_, error, ___) {
                   return const _PreviewErrorIcon();
@@ -99,7 +112,7 @@ class _Preview extends StatelessWidget {
                 imageUrl: selectedUrl,
                 width: double.infinity,
                 height: double.infinity,
-                fit: BoxFit.cover,
+                fit: imageFit,
                 alignment: alignment,
                 onImageLoaded: () {
                   debugPrint(

@@ -581,6 +581,8 @@ void main() {
 
     expect(websocketMessage.senderType, 'narrator');
     expect(httpMessage.senderType, 'narrator');
+    expect(websocketMessage.messageType, 'image');
+    expect(httpMessage.messageType, 'image');
     expect(find.byType(ChatImageMessage), findsNWidgets(2));
     expect(find.byType(ChatMessageBubble), findsNothing);
     final imageMessages = tester.widgetList<ChatImageMessage>(
@@ -596,6 +598,97 @@ void main() {
     );
     expect(find.text(imageUrl), findsNothing);
   });
+
+  testWidgets(
+    'location chat only renders nar_pic images and hides unknown types',
+    (tester) async {
+      const visibleImage = 'assets/images/default_list_image.png';
+      final acceptedImage = WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromJson({
+          'global_message_id': 1,
+          'message_id': 1,
+          'location_msg_id': 1,
+          'location_id': 'location-current',
+          'conversation_round_id': 1,
+          'sender_type': 'narrator',
+          'sender_id': 'nar_pic',
+          'sender_name': 'Narrator',
+          'content': visibleImage,
+          'message_type': 'image',
+        }),
+      );
+      final blockedImage = WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromJson({
+          'global_message_id': 2,
+          'message_id': 2,
+          'location_msg_id': 2,
+          'location_id': 'location-current',
+          'conversation_round_id': 2,
+          'sender_type': 'narrator',
+          'sender_id': 'nar',
+          'sender_name': 'Narrator',
+          'content': 'https://cdn.example.com/blocked.png',
+          'message_type': 'image',
+        }),
+      );
+      final unknown = WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromJson({
+          'global_message_id': 3,
+          'message_id': 3,
+          'location_msg_id': 3,
+          'location_id': 'location-current',
+          'conversation_round_id': 3,
+          'sender_type': 'narrator',
+          'sender_id': 'nar_pic',
+          'sender_name': 'Narrator',
+          'content': 'https://cdn.example.com/future.bin',
+          'message_type': 'future_format',
+        }),
+      );
+      final explicitText = WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromJson({
+          'global_message_id': 4,
+          'message_id': 4,
+          'location_msg_id': 4,
+          'location_id': 'location-current',
+          'conversation_round_id': 4,
+          'sender_type': 'narrator',
+          'sender_id': 'nar_pic',
+          'sender_name': 'Narrator',
+          'content': 'Visible narrator text',
+          'message_type': 'text',
+        }),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            active: false,
+            openingPreviewMessages: [
+              acceptedImage,
+              blockedImage,
+              unknown,
+              explicitText,
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(acceptedImage.messageType, 'image');
+      expect(blockedImage.messageType, 'image');
+      expect(unknown.messageType, 'future_format');
+      expect(explicitText.messageType, 'text');
+      expect(find.byType(ChatImageMessage), findsOneWidget);
+      expect(find.text('Visible narrator text'), findsOneWidget);
+      expect(find.text('https://cdn.example.com/blocked.png'), findsNothing);
+      expect(find.text('https://cdn.example.com/future.bin'), findsNothing);
+      expect(find.byType(ChatAvatar), findsNothing);
+      expect(find.text('Narrator'), findsNothing);
+    },
+  );
 
   testWidgets('location chat updates when cached selected model arrives', (
     tester,
@@ -682,6 +775,7 @@ void main() {
   test('matched character avatar resolves its image resource object', () {
     const xlUrl = 'https://example.test/character_800_600.webp';
     const smUrl = 'https://example.test/character_400_300.webp';
+    const entityUrl = 'https://example.test/entity.webp';
     const characters = <Map<String, dynamic>>[
       {
         'char_id': 'char-role',
@@ -697,8 +791,50 @@ void main() {
       resolveLocationChatMessageAvatarForTesting(
         senderId: 'char-role',
         characters: characters,
+        entitiesById: const {
+          'CHAR-ROLE': WorldChatroomEntity(
+            id: 'char-role',
+            name: 'Entity Role',
+            avatarUrl: entityUrl,
+            type: WorldChatroomEntityType.character,
+            locationId: 'loc-1',
+          ),
+        },
       ),
       xlUrl,
+    );
+    expect(
+      resolveLocationChatMessageAvatarForTesting(
+        senderId: 'entity-role',
+        characters: const <Map<String, dynamic>>[],
+        entitiesById: const {
+          'ENTITY-ROLE': WorldChatroomEntity(
+            id: 'entity-role',
+            name: 'Entity Role',
+            avatarUrl: entityUrl,
+            type: WorldChatroomEntityType.character,
+            locationId: 'loc-1',
+          ),
+        },
+      ),
+      entityUrl,
+    );
+    expect(
+      resolveLocationChatMessageAvatarForTesting(
+        userId: 'user-role',
+        senderId: 'unknown-sender',
+        characters: const <Map<String, dynamic>>[],
+        entitiesById: const {
+          'user-role': WorldChatroomEntity(
+            id: 'user-role',
+            name: 'User Role',
+            avatarUrl: entityUrl,
+            type: WorldChatroomEntityType.player,
+            locationId: 'loc-1',
+          ),
+        },
+      ),
+      entityUrl,
     );
     expect(
       resolveLocationChatMessageAvatarForTesting(
@@ -707,6 +843,46 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  testWidgets('inactive opening preview uses entity avatar', (tester) async {
+    const avatarAsset = 'assets/images/default_list_image.png';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'origin-preview',
+          locationId: 'loc-1',
+          active: false,
+          openingPreviewMessages: [
+            WorldChatroomMessage(
+              messageId: 0,
+              conversationRoundId: 'opening-preview-0',
+              roundOrder: 0,
+              locationId: 'loc-1',
+              senderType: 'character',
+              senderId: 'char-role',
+              senderName: 'Preview Role',
+              content: 'Opening line.',
+              createdAt: null,
+            ),
+          ],
+          openingPreviewEntities: [
+            WorldChatroomEntity(
+              id: 'CHAR-ROLE',
+              name: 'Preview Role',
+              avatarUrl: avatarAsset,
+              type: WorldChatroomEntityType.character,
+              locationId: 'loc-1',
+              isAi: true,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final avatar = tester.widget<ChatAvatar>(find.byType(ChatAvatar));
+    expect(avatar.imageUrl, avatarAsset);
   });
 
   test('name list uses AI role names instead of real user names', () {

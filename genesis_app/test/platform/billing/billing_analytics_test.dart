@@ -254,4 +254,51 @@ void main() {
       );
     },
   );
+
+  test('launch failure collect projection appends error code', () async {
+    final sink = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(sink);
+
+    const GenesisBillingAnalytics().track(
+      'purchase_failed',
+      properties: <String, Object?>{
+        'attempt_id': 'attempt-1',
+        'product_id': 'gem_pack_1000',
+        'reason': 'launch_failed',
+        'error_code': 'storekit_duplicate_product_object',
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(sink.events.single.collectPayload, {
+      'action_type': 'pay_event',
+      'action': 'purchase_failed',
+      'object1': 'gem_pack_1000',
+      'object2': 'attempt-1',
+      'object3': 'launch_failed[storekit_duplicate_product_object]',
+    });
+  });
+
+  for (final reason in <String>['report_failed', 'report_rejected']) {
+    test('$reason collect projection appends server reason', () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'purchase_failed',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_1000',
+          'reason': reason,
+          'error_code': 'account mismatch',
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        sink.events.single.collectPayload?['object3'],
+        '$reason[account_mismatch]',
+      );
+    });
+  }
 }

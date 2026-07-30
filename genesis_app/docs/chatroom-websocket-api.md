@@ -261,7 +261,7 @@ Flutter 解析时只接受本文档列出的顶层字段与 `payload` 结构，�
 
 ### 5.5 `nar_new_message`
 
-旁白或角色旁白式消息。`payload` 使用 `UserMessagePayload`，不再使用系统通知 payload。`payload.message_type` 表示内容类型：`text` 为文本，`image` 为图片且 `content` 保存图片 URL；字段缺失或为空时按 `text` 处理。
+旁白或角色旁白式消息。`payload` 使用 `UserMessagePayload`，不再使用系统通知 payload。`payload.message_type` 表示内容类型：`text` 为文本，`image` 为图片且 `content` 保存图片 URL。字段缺失时，旧 `sender_id=nar_pic` 消息兼容为 `image`，其他发送方按 `text`；字段存在但为 `null` 或空字符串时按 `text`。
 
 ```json
 {
@@ -282,7 +282,7 @@ Flutter 解析时只接受本文档列出的顶层字段与 `payload` 结构，�
 }
 ```
 
-该增量只增加 `payload.message_type`，不改变事件名、顶层消息 ID 字段或已有 envelope。Flutter 读取时去除首尾空白并转为小写；未知非空类型保留，但按文本内容处理。
+该增量只增加 `payload.message_type`，不改变事件名、顶层消息 ID 字段或已有 envelope。Flutter 读取时去除首尾空白并转为小写。只有 `message_type=image` 且 `sender_id=nar_pic` 的消息渲染图片；`image` 但发送方不是 `nar_pic`、以及其他未知非空类型，均保留在消息模型和缓存中但不渲染。
 
 ### 5.6 LLM 流式消息
 
@@ -414,7 +414,7 @@ Query：
 - `since`: integer，起始消息 ID，`0` 表示获取最新
 - `limit`: integer，默认 `20`，最大 `100`
 
-响应消息字段按当前 HTTP 文档的 `MessageDTO`：`global_message_id` 全局递增，`message_id` world 级别递增，`location_message_id` location 级别递增；`sender_type` 取值为 `user`、`character`、`narrator`、`npc` 或 `tick`；`message_type` 取值为 `text` 或 `image`，缺失/空值按 `text`，图片 URL 保存在 `content`；`created_at` 格式为 `2006-01-02 15:04:05`。图片消息说明是字段增量，不替换本节现有 envelope、ID 命名、`newest_message_id` 或时间字段。
+响应消息字段按当前 HTTP 文档的 `MessageDTO`：`global_message_id` 全局递增，`message_id` world 级别递增，`location_message_id` location 级别递增；`sender_type` 取值为 `user`、`character`、`narrator`、`npc` 或 `tick`；`message_type` 取值为 `text` 或 `image`，图片 URL 保存在 `content`。字段缺失时，旧 `sender_id=nar_pic` 消息兼容为 `image`，其他发送方按 `text`；字段存在但为空时按 `text`。只有 `image + nar_pic` 渲染图片，其他图片发送方和未知类型只存储、不渲染。`created_at` 格式为 `2006-01-02 15:04:05`。图片消息说明是字段增量，不替换本节现有 envelope、ID 命名、`newest_message_id` 或时间字段。
 
 响应：
 

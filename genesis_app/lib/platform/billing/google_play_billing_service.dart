@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import '../../network/api_exception.dart';
 import '../../network/models/gem_product.dart';
@@ -63,6 +64,7 @@ class GooglePlayBillingService implements BillingService {
   StreamSubscription<List<BillingPurchase>>? _purchaseSubscription;
   Future<void>? _startFuture;
   Future<void>? _recoverFuture;
+  Future<bool>? _storeRecoveryFuture;
   var _sessionGeneration = 0;
   var _lastRecoveredSessionGeneration = -1;
   String? _cachedBillingAccountId;
@@ -267,7 +269,12 @@ class GooglePlayBillingService implements BillingService {
         attemptId,
         _purchaseFailureMessage(error),
       );
-      _trackFlowResult(activeProduct, attemptId, 'launch_failed');
+      _trackFlowResult(
+        activeProduct,
+        attemptId,
+        'launch_failed',
+        errorCode: _purchaseLaunchErrorCode(error),
+      );
     }
   }
 
@@ -299,6 +306,21 @@ class GooglePlayBillingService implements BillingService {
       await tracked;
       return;
     }
+  }
+
+  @override
+  Future<bool> recoverStorePurchases({List<GemProduct>? productCatalog}) {
+    final inFlight = _storeRecoveryFuture;
+    if (inFlight != null) return inFlight;
+    late final Future<bool> tracked;
+    tracked = _recoverStorePurchases(productCatalog: productCatalog)
+        .whenComplete(() {
+          if (identical(_storeRecoveryFuture, tracked)) {
+            _storeRecoveryFuture = null;
+          }
+        });
+    _storeRecoveryFuture = tracked;
+    return tracked;
   }
 
   @override

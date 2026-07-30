@@ -359,6 +359,11 @@ class _FakeBillingService implements BillingService {
   Future<void> recover(BillingRecoverySource source) async {}
 
   @override
+  Future<bool> recoverStorePurchases({
+    List<GemProduct>? productCatalog,
+  }) async => true;
+
+  @override
   void resetForSession() {}
 
   @override

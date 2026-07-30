@@ -46,7 +46,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.locationImageFlowOpacity,
     required this.locationImageFlowDurationSeconds,
     required this.locationImageFlowBlendMode,
-    required this.initialScaleFactor,
+    required this.initialScale,
     required this.dragBoundaryPaddingTiles,
     required this.onVisualModeChanged,
     required this.onFogControlPointsChanged,
@@ -58,7 +58,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.onLocationImageFlowOpacityChanged,
     required this.onLocationImageFlowDurationSecondsChanged,
     required this.onLocationImageFlowBlendModeChanged,
-    required this.onInitialScaleFactorChanged,
+    required this.onInitialScaleChanged,
     required this.onDragBoundaryPaddingTilesChanged,
     required this.onCopySettings,
     required this.onResetSettings,
@@ -76,7 +76,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final double locationImageFlowOpacity;
   final double locationImageFlowDurationSeconds;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
-  final double initialScaleFactor;
+  final double initialScale;
   final double dragBoundaryPaddingTiles;
   final ValueChanged<TilemapVisualMode> onVisualModeChanged;
   final ValueChanged<List<TilemapFogControlPoint>> onFogControlPointsChanged;
@@ -90,7 +90,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final ValueChanged<double> onLocationImageFlowDurationSecondsChanged;
   final ValueChanged<TilemapLocationImageFlowBlendMode>
   onLocationImageFlowBlendModeChanged;
-  final ValueChanged<double> onInitialScaleFactorChanged;
+  final ValueChanged<double> onInitialScaleChanged;
   final ValueChanged<double> onDragBoundaryPaddingTilesChanged;
   final VoidCallback onCopySettings;
   final VoidCallback onResetSettings;
@@ -199,7 +199,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Initial zoom adjustment',
+              'Initial zoom',
               style: TextStyle(
                 color: foregroundColor,
                 fontSize: 12,
@@ -207,21 +207,23 @@ class _TilemapSettingsPanel extends StatelessWidget {
               ),
             ),
             Text(
-              'Applied after fitting the shadow == 0 tile bounds.',
+              'The fixed zoom level used when the map opens.',
               style: TextStyle(color: secondaryColor, fontSize: 10),
             ),
             _TilemapSettingsSlider(
               label: 'Scale',
-              value: initialScaleFactor,
-              min: tilemapInitialScaleFactorMin,
-              max: tilemapInitialScaleFactorMax,
-              valueLabel: '${initialScaleFactor.toStringAsFixed(2)}×',
+              value: initialScale,
+              min: tilemapInitialScaleMin,
+              max: tilemapInitialScaleMax,
+              divisions: (tilemapInitialScaleMax - tilemapInitialScaleMin)
+                  .round(),
+              valueLabel: '${initialScale.round()}×',
               sliderKey: const ValueKey<String>(
                 'tilemap-settings-initial-scale',
               ),
               foregroundColor: foregroundColor,
               secondaryColor: secondaryColor,
-              onChanged: onInitialScaleFactorChanged,
+              onChanged: onInitialScaleChanged,
             ),
             const SizedBox(height: 6),
             Text(

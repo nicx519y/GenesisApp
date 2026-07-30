@@ -343,6 +343,11 @@ class _FakeBillingService implements BillingService {
   }
 
   @override
+  Future<bool> recoverStorePurchases({
+    List<GemProduct>? productCatalog,
+  }) async => true;
+
+  @override
   void resetForSession() {}
 
   @override
@@ -5337,7 +5342,41 @@ void main() {
   });
 
   testWidgets(
-    'origin Tilemap navigation only reserves a visible settings button',
+    'origin detail version 2 selects first multiple-children Tilemap location',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originLocations: const [
+          {'location_id': 'top', 'location_pid': ''},
+          {'location_id': 'branch_a', 'location_pid': 'top'},
+          {'location_id': 'leaf_a1', 'location_pid': 'branch_a'},
+          {'location_id': 'leaf_a2', 'location_pid': 'branch_a'},
+          {'location_id': 'branch_b', 'location_pid': 'top'},
+          {'location_id': 'leaf_b1', 'location_pid': 'branch_b'},
+          {'location_id': 'leaf_b2', 'location_pid': 'branch_b'},
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final requests = transport.requestsFor('/api/v1/origin/map');
+      expect(requests, hasLength(1));
+      expect(requests.single.uri.queryParameters, {
+        'origin_id': 'o_test_1',
+        'location_id': 'top',
+      });
+    },
+  );
+
+  testWidgets(
+    'origin Tilemap navigation always reserves settings button space',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
       await tester.pumpWidget(
@@ -5361,7 +5400,7 @@ void main() {
       expect(settingsButton, findsNothing);
       expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 12),
+        moreOrLessEquals(viewportWidth - 60),
       );
 
       await tilemapSettingsButtonVisibility.setVisible(true);
@@ -5379,7 +5418,7 @@ void main() {
       expect(settingsButton, findsNothing);
       expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 12),
+        moreOrLessEquals(viewportWidth - 60),
       );
     },
   );
@@ -14995,6 +15034,10 @@ void main() {
     final services = await _testServices(
       deviceIdService: const _FakeDeviceIdDiagnosticsService(),
       gemWallet: gemWallet,
+      initialUserInfo: const {
+        'uid': 'u_mock',
+        'uuid': '00000000-1111-2222-3333-444444444444',
+      },
     );
     expect(services.deviceId, isA<DeviceIdDiagnosticsService>());
 
@@ -15010,6 +15053,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('UID:'), findsOneWidget);
+    expect(find.text('u_mock'), findsOneWidget);
+    expect(find.text('UUID:'), findsOneWidget);
+    expect(find.text('00000000-1111-2222-3333-444444444444'), findsOneWidget);
     expect(find.text('My Balance:'), findsOneWidget);
     expect(find.text('20,925'), findsOneWidget);
     expect(find.text('ANDROID_ID:'), findsOneWidget);
@@ -15024,7 +15071,14 @@ void main() {
       tester.getTopLeft(find.text('AAID:')).dy,
     );
     expect(find.text('Device ID:'), findsOneWidget);
-    expect(find.text('resolved-device-id'), findsOneWidget);
+    final deviceId = find.text('resolved-device-id');
+    expect(deviceId, findsOneWidget);
+    expect(tester.widget<Text>(deviceId).softWrap, isFalse);
+    expect(tester.widget<Text>(deviceId).maxLines, 1);
+    expect(
+      find.ancestor(of: deviceId, matching: find.byType(FittedBox)),
+      findsOneWidget,
+    );
     expect(find.text('0.2.2/2022'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('android-id')).dy,
@@ -15035,7 +15089,7 @@ void main() {
       lessThan(tester.getTopLeft(find.text('ANDROID_ID:')).dy),
     );
     expect(
-      tester.getTopLeft(find.text('resolved-device-id')).dy,
+      tester.getTopLeft(deviceId).dy,
       tester.getTopLeft(find.text('Device ID:')).dy,
     );
     expect(
@@ -16938,7 +16992,7 @@ void main() {
     },
   );
 
-  testWidgets('world detail version 2 uses root Tilemap endpoint', (
+  testWidgets('world detail version 2 uses last leaf parent for Tilemap', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
@@ -16958,7 +17012,7 @@ void main() {
     expect(requests, hasLength(1));
     expect(requests.single.uri.queryParameters, {
       'world_id': 'w_test_1',
-      'location_id': 'root',
+      'location_id': 'l_w_test_1',
     });
   });
 

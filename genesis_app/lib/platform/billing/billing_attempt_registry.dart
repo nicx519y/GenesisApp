@@ -28,6 +28,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     BillingPurchase purchase, {
     required BillingRecoverySource source,
     required String fallbackAttemptId,
+    List<GemProduct>? productCatalog,
   }) async {
     String accountId;
     try {
@@ -37,7 +38,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     }
     if (accountId.isEmpty) return null;
     try {
-      final products = await _loadProductCatalog();
+      final products = productCatalog ?? await _loadProductCatalog();
       final product = products.cast<GemProduct?>().firstWhere(
         (candidate) =>
             candidate != null &&
@@ -188,6 +189,8 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     BillingPendingPurchase record, {
     BillingPurchase? purchase,
     required BillingRecoverySource source,
+    bool allowAnyAccount = false,
+    bool silent = false,
   }) async {
     String accountId;
     try {
@@ -195,27 +198,14 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     } catch (_) {
       return;
     }
-    if (accountId.isEmpty || accountId != record.billingAccountId) return;
+    if (accountId.isEmpty ||
+        (!allowAnyAccount && accountId != record.billingAccountId)) {
+      return;
+    }
 
     late final GemPurchaseReport report;
     try {
-      report = await _reportPurchase(
-        GemPurchaseReportRequest(
-          provider: record.provider.apiValue,
-          productId: record.productId,
-          storeProductId: record.storeProductId,
-          transactionId: record.transactionId,
-          purchaseToken: record.provider == BillingProvider.googlePlay
-              ? record.purchaseToken
-              : null,
-          requestId: record.attemptId,
-          payload: <String, Object?>{
-            'purchase_time': record.purchaseTime,
-            if (record.provider == BillingProvider.googlePlay)
-              'original_json': record.originalJson,
-          },
-        ),
-      );
+      report = await _sendPurchaseReport(record, purchase: purchase);
     } catch (error) {
       final isTimeout =
           error is ApiException && error.kind == ApiExceptionKind.timeout;
@@ -237,7 +227,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       try {
         await _pendingPurchaseStore.upsert(next);
       } catch (_) {}
-      if (shouldTrackTimeout) {
+      if (shouldTrackTimeout && !silent) {
         _trackTimeoutById(
           attemptId: record.attemptId,
           productId: record.productId,
@@ -245,7 +235,16 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
           timeoutType: 'report',
         );
       }
-      _emitDeferred(record.productId, record.attemptId);
+      if (!silent) {
+        _trackFailedById(
+          attemptId: record.attemptId,
+          productId: record.productId,
+          storeProductId: record.storeProductId,
+          reason: 'report_failed',
+          errorCode: _reportFailureReason(error),
+        );
+      }
+      if (!silent) _emitDeferred(record.productId, record.attemptId);
       _setBusy(record.productId, false);
       return;
     }
@@ -254,10 +253,146 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
 
     if (report.status == GemPurchaseReportStatus.completed) {
       if (!await _deletePurchaseRecord(record)) {
-        await _handleLocalOrderMutationFailure(record);
+        await _handleLocalOrderMutationFailure(record, silent: silent);
         return;
       }
       _finishPurchaseAttempt(record, purchase);
+      if (!silent) {
+        _track(
+          'purchase_success',
+          attemptId: record.attemptId,
+          productId: record.productId,
+          storeProductId: record.storeProductId,
+          data: <String, Object?>{
+            'transaction_id': serverTransactionId.isNotEmpty
+                ? serverTransactionId
+                : record.transactionId,
+          },
+        );
+        _events.add(
+          BillingUiEvent(
+            kind: BillingUiEventKind.success,
+            productId: record.productId,
+            attemptId: record.attemptId,
+            message: 'Purchase successful!',
+            grantedGems: report.grantedGems,
+          ),
+        );
+      }
+      _refreshWalletInBackground();
+    } else if (report.status == GemPurchaseReportStatus.accepted) {
+      final accepted = record.copyWith(
+        status: BillingPendingPurchaseStatus.accepted,
+        transactionId: serverTransactionId.isNotEmpty
+            ? serverTransactionId
+            : null,
+        updatedAt: DateTime.now(),
+      );
+      try {
+        await _pendingPurchaseStore.upsert(accepted);
+      } catch (_) {
+        await _handleLocalOrderMutationFailure(record, silent: silent);
+        return;
+      }
+      _finishPurchaseAttempt(record, purchase);
+      if (!silent && record.status != BillingPendingPurchaseStatus.accepted) {
+        _events.add(
+          BillingUiEvent(
+            kind: BillingUiEventKind.accepted,
+            productId: record.productId,
+            attemptId: record.attemptId,
+            message:
+                'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
+          ),
+        );
+      }
+    } else {
+      if (!await _deletePurchaseRecord(record)) {
+        await _handleLocalOrderMutationFailure(record, silent: silent);
+        return;
+      }
+      _finishPurchaseAttempt(record, purchase);
+      if (!silent) {
+        _emitFailure(
+          record.productId,
+          record.attemptId,
+          'Purchase was refunded.',
+        );
+      }
+    }
+    if (!silent) {
+      _trackFlowResultById(
+        attemptId: record.attemptId,
+        productId: record.productId,
+        storeProductId: record.storeProductId,
+        status: report.status.name,
+        source: source,
+        errorCode: report.status == GemPurchaseReportStatus.rejected
+            ? report.reason
+            : null,
+      );
+    }
+
+    if (report.status != GemPurchaseReportStatus.accepted) {
+      _completedPurchaseKeys.add(record.key);
+    }
+  }
+
+  Future<GemPurchaseReport> _sendPurchaseReport(
+    BillingPendingPurchase record, {
+    BillingPurchase? purchase,
+  }) {
+    return _reportPurchase(
+      GemPurchaseReportRequest(
+        provider: record.provider.apiValue,
+        productId: record.productId,
+        storeProductId: record.storeProductId,
+        transactionId: record.transactionId,
+        originalTransactionId:
+            purchase?.originalTransactionId.trim().isNotEmpty == true
+            ? purchase!.originalTransactionId
+            : null,
+        purchaseToken: record.provider == BillingProvider.googlePlay
+            ? record.purchaseToken
+            : null,
+        requestId: record.attemptId,
+        payload: <String, Object?>{
+          'purchase_time': record.purchaseTime,
+          if (record.provider == BillingProvider.googlePlay)
+            'original_json': record.originalJson,
+        },
+      ),
+    );
+  }
+
+  Future<void> _processTransientStoreRecovery(
+    BillingPendingPurchase record, {
+    required BillingPurchase purchase,
+    required bool handleResult,
+  }) async {
+    late final GemPurchaseReport report;
+    try {
+      report = await _sendPurchaseReport(record, purchase: purchase);
+    } catch (error) {
+      debugPrint('[Billing] transient store recovery report failed: $error');
+      if (handleResult) {
+        _trackFailedById(
+          attemptId: record.attemptId,
+          productId: record.productId,
+          storeProductId: record.storeProductId,
+          reason: 'report_failed',
+          errorCode: _reportFailureReason(error),
+        );
+        _emitDeferred(record.productId, record.attemptId);
+        _setBusy(record.productId, false);
+      }
+      return;
+    }
+
+    if (!handleResult) return;
+
+    final serverTransactionId = report.transactionId.trim();
+    if (report.status == GemPurchaseReportStatus.completed) {
       _track(
         'purchase_success',
         attemptId: record.attemptId,
@@ -280,51 +415,33 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       );
       _refreshWalletInBackground();
     } else if (report.status == GemPurchaseReportStatus.accepted) {
-      final accepted = record.copyWith(
-        status: BillingPendingPurchaseStatus.accepted,
-        transactionId: serverTransactionId.isNotEmpty
-            ? serverTransactionId
-            : null,
-        updatedAt: DateTime.now(),
+      _events.add(
+        BillingUiEvent(
+          kind: BillingUiEventKind.accepted,
+          productId: record.productId,
+          attemptId: record.attemptId,
+          message:
+              'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
+        ),
       );
-      try {
-        await _pendingPurchaseStore.upsert(accepted);
-      } catch (_) {
-        await _handleLocalOrderMutationFailure(record);
-        return;
-      }
-      _finishPurchaseAttempt(record, purchase);
-      if (record.status != BillingPendingPurchaseStatus.accepted) {
-        _events.add(
-          BillingUiEvent(
-            kind: BillingUiEventKind.accepted,
-            productId: record.productId,
-            attemptId: record.attemptId,
-            message:
-                'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
-          ),
-        );
-      }
     } else {
-      if (!await _deletePurchaseRecord(record)) {
-        await _handleLocalOrderMutationFailure(record);
-        return;
-      }
-      _finishPurchaseAttempt(record, purchase);
       _emitFailure(
         record.productId,
         record.attemptId,
         'Purchase was refunded.',
       );
     }
+    _setBusy(record.productId, false);
     _trackFlowResultById(
       attemptId: record.attemptId,
       productId: record.productId,
       storeProductId: record.storeProductId,
       status: report.status.name,
-      source: source,
+      source: BillingRecoverySource.foreground,
+      errorCode: report.status == GemPurchaseReportStatus.rejected
+          ? report.reason
+          : null,
     );
-
     if (report.status != GemPurchaseReportStatus.accepted) {
       _completedPurchaseKeys.add(record.key);
     }
@@ -343,8 +460,9 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
   }
 
   Future<void> _handleLocalOrderMutationFailure(
-    BillingPendingPurchase record,
-  ) async {
+    BillingPendingPurchase record, {
+    bool silent = false,
+  }) async {
     final next = record.copyWith(
       retryCount: record.retryCount + 1,
       updatedAt: DateTime.now(),
@@ -352,7 +470,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     try {
       await _pendingPurchaseStore.upsert(next);
     } catch (_) {}
-    _emitDeferred(record.productId, record.attemptId);
+    if (!silent) _emitDeferred(record.productId, record.attemptId);
     _setBusy(record.productId, false);
   }
 
@@ -455,19 +573,39 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     String billingAccountId, {
     BillingPendingPurchase? persistedRecord,
   }) {
-    if (purchase.provider != BillingProvider.googlePlay) return true;
     final currentAccountId = billingAccountId.trim();
     if (currentAccountId.isEmpty) return false;
+    final purchaseAccountId = purchase.obfuscatedAccountId?.trim() ?? '';
+    if (purchaseAccountId.isNotEmpty) {
+      return _sameBillingAccount(purchaseAccountId, currentAccountId);
+    }
+    if (purchase.provider == BillingProvider.appStore) return true;
     if (persistedRecord != null &&
         persistedRecord.billingAccountId != currentAccountId) {
       return false;
     }
-    final purchaseAccountId = purchase.obfuscatedAccountId?.trim() ?? '';
-    if (purchaseAccountId.isNotEmpty) {
-      return purchaseAccountId == currentAccountId;
-    }
     return attempt?.billingAccountId == currentAccountId ||
         persistedRecord?.billingAccountId == currentAccountId;
+  }
+
+  bool _storePurchaseBelongsToCurrentAccount(
+    BillingPurchase purchase,
+    String billingAccountId, {
+    BillingPendingPurchase? persistedRecord,
+  }) {
+    final currentAccountId = billingAccountId.trim();
+    if (currentAccountId.isEmpty) return false;
+    final platformAccountId = purchase.obfuscatedAccountId?.trim() ?? '';
+    if (platformAccountId.isNotEmpty) {
+      return _sameBillingAccount(platformAccountId, currentAccountId);
+    }
+    final persistedAccountId = persistedRecord?.billingAccountId.trim() ?? '';
+    return persistedAccountId.isNotEmpty &&
+        _sameBillingAccount(persistedAccountId, currentAccountId);
+  }
+
+  bool _sameBillingAccount(String first, String second) {
+    return first.trim().toLowerCase() == second.trim().toLowerCase();
   }
 
   void _clearActiveAttempt(

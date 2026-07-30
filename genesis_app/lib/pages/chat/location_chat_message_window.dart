@@ -147,6 +147,13 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     for (final message in next) {
       if (previousKeys.contains(_messageDedupKey(message))) continue;
       if (_isMineMessage(message)) continue;
+      if (resolveChatroomMessageRenderKind(
+            messageType: message.messageType,
+            senderId: message.senderId,
+          ) ==
+          ChatroomMessageRenderKind.hidden) {
+        continue;
+      }
       count += 1;
     }
     return count;
@@ -218,12 +225,36 @@ String resolveLocationChatMessageSenderNameForTesting({
 
 @visibleForTesting
 String resolveLocationChatMessageAvatarForTesting({
+  String userId = '',
   required String senderId,
   required Iterable<Map<String, dynamic>> characters,
+  Map<String, WorldChatroomEntity> entitiesById =
+      const <String, WorldChatroomEntity>{},
 }) {
   final character = _locationChatCharacterForSenderId(characters, senderId);
-  if (character == null) return '';
-  return _firstMapImageUrl(character, const ['avatar']);
+  final characterAvatar = character == null
+      ? ''
+      : _firstMapImageUrl(character, const ['avatar']);
+  return firstNonEmpty([
+    characterAvatar,
+    _locationChatEntityAvatarForIdentity(entitiesById, userId),
+    _locationChatEntityAvatarForIdentity(entitiesById, senderId),
+  ]);
+}
+
+String _locationChatEntityAvatarForIdentity(
+  Map<String, WorldChatroomEntity> entitiesById,
+  String identity,
+) {
+  final identityKey = _chatroomIdentityKey(identity);
+  if (identityKey.isEmpty) return '';
+  for (final entry in entitiesById.entries) {
+    if (_chatroomIdentityKey(entry.key) == identityKey ||
+        _chatroomIdentityKey(entry.value.id) == identityKey) {
+      return entry.value.avatarUrl.trim();
+    }
+  }
+  return '';
 }
 
 Map<String, dynamic>? _locationChatCharacterForSenderId(
@@ -314,11 +345,8 @@ Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
 }
 
 bool _senderIdIsNarrator(String senderId) {
-  return senderId.trim().toLowerCase() == 'nar';
-}
-
-bool _senderIdIsNarratorPicture(String senderId) {
-  return senderId.trim().toLowerCase() == 'nar_pic';
+  final normalized = senderId.trim().toLowerCase();
+  return normalized == 'nar' || normalized == chatroomNarratorPictureSenderId;
 }
 
 @visibleForTesting

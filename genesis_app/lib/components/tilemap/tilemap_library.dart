@@ -110,7 +110,7 @@ class _TilemapState extends State<Tilemap> {
       tilemapDefaultLocationImageFlowDurationSeconds;
   TilemapLocationImageFlowBlendMode _locationImageFlowBlendMode =
       tilemapDefaultLocationImageFlowBlendMode;
-  double _initialScaleFactor = tilemapDefaultInitialScaleFactor;
+  double _initialScale = tilemapDefaultInitialScale;
   double _dragBoundaryPaddingTiles = tilemapDefaultDragBoundaryPaddingTiles;
   bool _showSettings = false;
   bool _settingsReady = false;
@@ -179,7 +179,7 @@ class _TilemapState extends State<Tilemap> {
       locationImageFlowOpacity: _locationImageFlowOpacity,
       locationImageFlowDurationSeconds: _locationImageFlowDurationSeconds,
       locationImageFlowBlendMode: _locationImageFlowBlendMode,
-      initialScaleFactor: _initialScaleFactor,
+      initialScale: _initialScale,
       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
     );
   }
@@ -200,7 +200,7 @@ class _TilemapState extends State<Tilemap> {
       _locationImageFlowDurationSeconds =
           settings.locationImageFlowDurationSeconds;
       _locationImageFlowBlendMode = settings.locationImageFlowBlendMode;
-      _initialScaleFactor = settings.initialScaleFactor;
+      _initialScale = settings.initialScale;
       _dragBoundaryPaddingTiles = settings.dragBoundaryPaddingTiles;
       _settingsReady = true;
     });
@@ -301,7 +301,7 @@ class _TilemapState extends State<Tilemap> {
       _locationImageFlowDurationSeconds =
           defaults.locationImageFlowDurationSeconds;
       _locationImageFlowBlendMode = defaults.locationImageFlowBlendMode;
-      _initialScaleFactor = defaults.initialScaleFactor;
+      _initialScale = defaults.initialScale;
       _dragBoundaryPaddingTiles = defaults.dragBoundaryPaddingTiles;
     });
     ScaffoldMessenger.maybeOf(context)
@@ -595,12 +595,13 @@ class _TilemapState extends State<Tilemap> {
     _scheduleSettingsSave();
   }
 
-  void _setInitialScaleFactor(double value) {
+  void _setInitialScale(double value) {
     final resolved = value
-        .clamp(tilemapInitialScaleFactorMin, tilemapInitialScaleFactorMax)
+        .roundToDouble()
+        .clamp(tilemapInitialScaleMin, tilemapInitialScaleMax)
         .toDouble();
-    if (_initialScaleFactor == resolved) return;
-    setState(() => _initialScaleFactor = resolved);
+    if (_initialScale == resolved) return;
+    setState(() => _initialScale = resolved);
     _scheduleSettingsSave();
   }
 
@@ -684,7 +685,7 @@ class _TilemapState extends State<Tilemap> {
               locationImageFlowDurationSeconds:
                   _locationImageFlowDurationSeconds,
               locationImageFlowBlendMode: _locationImageFlowBlendMode,
-              initialScaleFactor: _initialScaleFactor,
+              initialScale: _initialScale,
               dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
             );
     }
@@ -737,7 +738,7 @@ class _TilemapState extends State<Tilemap> {
                 locationImageFlowDurationSeconds:
                     _locationImageFlowDurationSeconds,
                 locationImageFlowBlendMode: _locationImageFlowBlendMode,
-                initialScaleFactor: _initialScaleFactor,
+                initialScale: _initialScale,
                 dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
                 onVisualModeChanged: _setVisualMode,
                 onFogControlPointsChanged: _setFogControlPoints,
@@ -753,7 +754,7 @@ class _TilemapState extends State<Tilemap> {
                     _setLocationImageFlowDurationSeconds,
                 onLocationImageFlowBlendModeChanged:
                     _setLocationImageFlowBlendMode,
-                onInitialScaleFactorChanged: _setInitialScaleFactor,
+                onInitialScaleChanged: _setInitialScale,
                 onDragBoundaryPaddingTilesChanged: _setDragBoundaryPaddingTiles,
                 onCopySettings: _copySettingsToClipboard,
                 onResetSettings: _resetSettings,

@@ -193,6 +193,11 @@ class _DeveloperPreviewBillingService implements BillingService {
   Future<void> recover(BillingRecoverySource source) async {}
 
   @override
+  Future<bool> recoverStorePurchases({
+    List<GemProduct>? productCatalog,
+  }) async => true;
+
+  @override
   void resetForSession() {}
 
   @override
@@ -201,6 +206,13 @@ class _DeveloperPreviewBillingService implements BillingService {
     _state.dispose();
     _events.close();
   }
+}
+
+class _DeveloperAccountIdentity {
+  const _DeveloperAccountIdentity({required this.uid, required this.uuid});
+
+  final String uid;
+  final String uuid;
 }
 
 class _DeveloperSectionTitle extends StatelessWidget {

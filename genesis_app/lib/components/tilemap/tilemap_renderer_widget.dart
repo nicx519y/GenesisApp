@@ -24,7 +24,7 @@ class TilemapRenderer extends StatefulWidget {
     this.locationImageFlowDurationSeconds =
         tilemapDefaultLocationImageFlowDurationSeconds,
     this.locationImageFlowBlendMode = tilemapDefaultLocationImageFlowBlendMode,
-    this.initialScaleFactor = tilemapDefaultInitialScaleFactor,
+    this.initialScale = tilemapDefaultInitialScale,
     this.dragBoundaryPaddingTiles = tilemapDefaultDragBoundaryPaddingTiles,
   });
 
@@ -47,7 +47,7 @@ class TilemapRenderer extends StatefulWidget {
   final double locationImageFlowOpacity;
   final double locationImageFlowDurationSeconds;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
-  final double initialScaleFactor;
+  final double initialScale;
   final double dragBoundaryPaddingTiles;
 
   @override
@@ -65,7 +65,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
   Size? _lastViewportSize;
   Size? _lastMapSize;
   Rect? _lastContentBounds;
-  double? _lastInitialScaleFactor;
+  double? _lastInitialScale;
+  Offset? _lastInitialFocus;
   Rect? _lastDragBoundary;
   TilemapConfig? _renderIndexConfig;
   double? _renderIndexMapWidth;
@@ -197,6 +198,13 @@ class _TilemapRendererState extends State<TilemapRenderer>
           final contentBounds = projection.imageBoundsForTiles(
             tilemapInitialContentTiles(widget.config.tiles),
           );
+          final initialFocusTile = tilemapInitialFocusLocationTile(
+            tiles: widget.config.tiles,
+            locationAvatarsForTile: widget.locationAvatarsForTile,
+          );
+          final initialFocus = initialFocusTile == null
+              ? null
+              : projection.centerForTile(initialFocusTile);
           final dragBoundary = tilemapDragBoundaryForShadowTiles(
             projection: projection,
             tiles: widget.config.tiles,
@@ -206,7 +214,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
             viewportSize: viewportSize,
             mapSize: mapSize,
             contentBounds: contentBounds,
-            initialScaleFactor: widget.initialScaleFactor,
+            initialFocus: initialFocus,
+            initialScale: widget.initialScale,
             dragBoundary: dragBoundary,
           );
           return SizedBox(
@@ -732,21 +741,24 @@ class _TilemapRendererState extends State<TilemapRenderer>
     required Size viewportSize,
     required Size mapSize,
     required Rect contentBounds,
-    required double initialScaleFactor,
+    required Offset? initialFocus,
+    required double initialScale,
     required Rect? dragBoundary,
   }) {
     final dragBoundaryChanged = _lastDragBoundary != dragBoundary;
     if (_lastViewportSize == viewportSize &&
         _lastMapSize == mapSize &&
         _lastContentBounds == contentBounds &&
-        _lastInitialScaleFactor == initialScaleFactor &&
+        _lastInitialFocus == initialFocus &&
+        _lastInitialScale == initialScale &&
         !dragBoundaryChanged) {
       return;
     }
     _lastViewportSize = viewportSize;
     _lastMapSize = mapSize;
     _lastContentBounds = contentBounds;
-    _lastInitialScaleFactor = initialScaleFactor;
+    _lastInitialFocus = initialFocus;
+    _lastInitialScale = initialScale;
     _lastDragBoundary = dragBoundary;
     if (_hasUserTransformedMap) {
       if (dragBoundaryChanged) {
@@ -762,7 +774,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
       viewportSize: viewportSize,
       mapSize: mapSize,
       contentBounds: contentBounds,
-      initialScaleFactor: initialScaleFactor,
+      focus: initialFocus,
+      initialScale: initialScale,
     );
     _transformationController.value = tilemapConstrainTransformToBoundary(
       transform: initialTransform,

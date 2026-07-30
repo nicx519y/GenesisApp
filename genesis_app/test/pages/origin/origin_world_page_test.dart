@@ -1,7 +1,10 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 
@@ -253,6 +256,81 @@ void main() {
     expect(entities.single.avatarUrl, 'https://example.com/sam.png');
     expect(entities.single.isAi, isTrue);
   });
+
+  testWidgets(
+    'origin opening preview passes character avatar to location chat',
+    (tester) async {
+      const avatarAsset = 'assets/images/default_list_image.png';
+      final messages = originLocationOpeningPreviewMessagesForTesting(
+        [
+          {
+            'tick_no': 1,
+            'tick_result': {
+              'location_groups': [
+                {
+                  'location_id': 'loc_1',
+                  'initial_dialogue': [
+                    {
+                      'char_id': 'nar',
+                      'char_name': 'Narrator',
+                      'content': 'The location wakes.',
+                    },
+                    {
+                      'char_id': 'nar_pic',
+                      'char_name': 'Narrator',
+                      'content': avatarAsset,
+                    },
+                    {
+                      'char_id': 'char_1',
+                      'char_name': 'Sam',
+                      'content': 'Opening line.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+        const ['loc_1'],
+      );
+      final entities = originLocationOpeningPreviewEntitiesForTesting(
+        [
+          OriginCharacter(
+            id: 7,
+            characterId: 'char_1',
+            originId: 1,
+            name: 'Sam',
+            avatar: avatarAsset,
+            tags: '',
+            currentLocationId: 0,
+            initialLocationId: 0,
+            createdAt: null,
+            updatedAt: null,
+          ),
+        ],
+        messages,
+        'loc_1',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'origin-preview',
+            locationId: 'loc_1',
+            active: false,
+            openingPreviewMessages: messages,
+            openingPreviewEntities: entities,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final avatar = tester.widget<ChatAvatar>(find.byType(ChatAvatar));
+      expect(avatar.imageUrl, avatarAsset);
+      expect(find.byType(ChatAvatar), findsOneWidget);
+      expect(find.byType(ChatImageMessage), findsOneWidget);
+    },
+  );
 
   test('origin location parses dialogue lines', () {
     final location = OriginLocation.fromJson(const {

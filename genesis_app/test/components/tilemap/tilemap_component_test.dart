@@ -624,7 +624,7 @@ void main() {
     );
   });
 
-  test('drag boundary uses shadow-one tile bounds plus five tile padding', () {
+  test('drag boundary uses shadow-one tile bounds plus two tile padding', () {
     const projection = TilemapProjection(
       mapWidth: 64,
       mapHeight: 32,
@@ -639,7 +639,7 @@ void main() {
 
     expect(
       tilemapDragBoundaryForShadowTiles(projection: projection, tiles: tiles),
-      const Rect.fromLTRB(-64, -72, 120, 100),
+      const Rect.fromLTRB(-16, -24, 72, 52),
     );
     expect(
       tilemapDragBoundaryForShadowTiles(
@@ -676,7 +676,7 @@ void main() {
     },
   );
 
-  test('initial transform fits visible tile width inside screen margins', () {
+  test('initial transform uses a fixed default scale', () {
     const viewportSize = Size(320, 640);
     const contentBounds = Rect.fromLTWH(40, 20, 48, 48);
     final transform = tilemapInitialTransform(
@@ -684,50 +684,73 @@ void main() {
       mapSize: const Size(200, 100),
       contentBounds: contentBounds,
     );
-    final transformedTopLeft = MatrixUtils.transformPoint(
-      transform,
-      contentBounds.topLeft,
-    );
-    final transformedBottomRight = MatrixUtils.transformPoint(
-      transform,
-      contentBounds.bottomRight,
-    );
-
-    expect(tilemapTransformScale(transform), 6);
-    expect(transformedTopLeft.dx, tilemapInitialHorizontalMargin);
-    expect(
-      transformedBottomRight.dx,
-      viewportSize.width - tilemapInitialHorizontalMargin,
-    );
+    expect(tilemapTransformScale(transform), 20);
     expect(
       MatrixUtils.transformPoint(transform, contentBounds.center),
       viewportSize.center(Offset.zero) + const Offset(0, 20),
     );
   });
 
-  test('initial scale follows content width within configured limits', () {
-    expect(
-      tilemapInitialScaleForContentWidth(viewportWidth: 360, contentWidth: 64),
-      5.125,
+  test('initial scale clamps the configured fixed zoom level', () {
+    expect(tilemapResolvedInitialScale(12), 12);
+    expect(tilemapResolvedInitialScale(1), tilemapInitialScaleMin);
+    expect(tilemapResolvedInitialScale(40), tilemapInitialScaleMax);
+    expect(tilemapResolvedInitialScale(double.nan), tilemapDefaultInitialScale);
+    expect(tilemapDefaultInitialScale, 20);
+    expect(tilemapInitialScaleMin, 5);
+    expect(tilemapInitialScaleMax, 30);
+  });
+
+  test('initial focus uses the first location with the most avatars', () {
+    const tiles = [
+      TilemapCell(x: 0, y: 0, type: 'a'),
+      TilemapCell(x: 1, y: 0, type: 'a', locationId: 'first'),
+      TilemapCell(x: 2, y: 0, type: 'a', locationId: 'most'),
+      TilemapCell(x: 3, y: 0, type: 'a', locationId: 'tied'),
+    ];
+    const avatar = UserAvatar('AA', id: 'a', name: 'Ada');
+
+    final selected = tilemapInitialFocusLocationTile(
+      tiles: tiles,
+      locationAvatarsForTile: (tile) => switch (tile.locationId) {
+        'first' => const [avatar],
+        'most' || 'tied' => const [avatar, avatar],
+        _ => const [],
+      },
     );
+
+    expect(selected?.locationId, 'most');
+  });
+
+  test('initial focus falls back to the first location when all are empty', () {
+    const tiles = [
+      TilemapCell(x: 0, y: 0, type: 'a'),
+      TilemapCell(x: 1, y: 0, type: 'a', locationId: 'first'),
+      TilemapCell(x: 2, y: 0, type: 'a', locationId: 'second'),
+    ];
+
     expect(
-      tilemapInitialScaleForContentWidth(viewportWidth: 360, contentWidth: 128),
-      tilemapMinScale,
+      tilemapInitialFocusLocationTile(
+        tiles: tiles,
+        locationAvatarsForTile: (_) => const [],
+      )?.locationId,
+      'first',
     );
+  });
+
+  test('initial transform centers the selected location exactly', () {
+    const viewportSize = Size(320, 640);
+    const focus = Offset(72, 36);
+    final transform = tilemapInitialTransform(
+      viewportSize: viewportSize,
+      mapSize: const Size(200, 100),
+      focus: focus,
+    );
+
     expect(
-      tilemapInitialScaleForContentWidth(viewportWidth: 360, contentWidth: 8),
-      tilemapMaxScale,
+      MatrixUtils.transformPoint(transform, focus),
+      viewportSize.center(Offset.zero),
     );
-    expect(
-      tilemapInitialScaleForContentWidth(
-        viewportWidth: 360,
-        contentWidth: 64,
-        initialScaleFactor: 1.2,
-      ),
-      closeTo(6.15, 0.0001),
-    );
-    expect(tilemapInitialScaleFactorMin, 0.5);
-    expect(tilemapInitialScaleFactorMax, 2);
   });
 
   test('gesture scale clamps directly at limits without elastic overflow', () {
@@ -1279,6 +1302,9 @@ void main() {
             child: TilemapRenderer(
               config: config,
               locationNameForTile: (tile) => tile.locationId,
+              locationAvatarsForTile: (tile) => tile.locationId == 'center'
+                  ? const [UserAvatar('AA', id: 'a', name: 'Ada')]
+                  : const [],
             ),
           ),
         ),

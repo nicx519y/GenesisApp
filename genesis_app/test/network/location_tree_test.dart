@@ -465,4 +465,124 @@ void main() {
     ]);
     expect(processed.initialMapRenderRoots.map((node) => node.id), ['a', 'a1']);
   });
+
+  test('initial Tilemap location uses first node with multiple children', () {
+    final tree = buildLocationTree(
+      [
+        {'location_id': 'top', 'location_pid': ''},
+        {'location_id': 'branch_a', 'location_pid': 'top'},
+        {'location_id': 'leaf_a1', 'location_pid': 'branch_a'},
+        {'location_id': 'leaf_a2', 'location_pid': 'branch_a'},
+        {'location_id': 'branch_b', 'location_pid': 'top'},
+        {'location_id': 'leaf_b1', 'location_pid': 'branch_b'},
+        {'location_id': 'leaf_b2', 'location_pid': 'branch_b'},
+      ],
+      idOf: (location) => '${location['location_id']}',
+      parentIdOf: (location) => '${location['location_pid']}',
+    );
+    final processed = processLocationTree(
+      withSyntheticRoot(
+        tree,
+        id: '__synthetic__',
+        value: const <String, String>{},
+      ),
+    );
+
+    expect(
+      processed.initialTilemapLocationId(syntheticRootId: '__synthetic__'),
+      'top',
+    );
+  });
+
+  test('initial Tilemap location includes the synthetic root', () {
+    final tree = buildLocationTree(
+      [
+        {'location_id': 'top_a', 'location_pid': ''},
+        {'location_id': 'leaf_a', 'location_pid': 'top_a'},
+        {'location_id': 'top_b', 'location_pid': ''},
+        {'location_id': 'leaf_b', 'location_pid': 'top_b'},
+      ],
+      idOf: (location) => '${location['location_id']}',
+      parentIdOf: (location) => '${location['location_pid']}',
+    );
+    final processed = processLocationTree(
+      withSyntheticRoot(
+        tree,
+        id: '__synthetic__',
+        value: const <String, String>{},
+      ),
+    );
+
+    expect(
+      processed.initialTilemapLocationId(syntheticRootId: '__synthetic__'),
+      'root',
+    );
+  });
+
+  test('initial Tilemap location falls back to the last leaf parent', () {
+    final tree = buildLocationTree(
+      [
+        {'location_id': 'top', 'location_pid': ''},
+        {'location_id': 'branch', 'location_pid': 'top'},
+        {'location_id': 'leaf', 'location_pid': 'branch'},
+      ],
+      idOf: (location) => '${location['location_id']}',
+      parentIdOf: (location) => '${location['location_pid']}',
+    );
+    final processed = processLocationTree(
+      withSyntheticRoot(
+        tree,
+        id: '__synthetic__',
+        value: const <String, String>{},
+      ),
+    );
+
+    expect(
+      processed.initialTilemapLocationId(syntheticRootId: '__synthetic__'),
+      'branch',
+    );
+  });
+
+  test('initial Tilemap location falls back to root for empty tree', () {
+    final processed = processLocationTree<Map<String, String>>(
+      const <LocationTreeNode<Map<String, String>>>[],
+    );
+
+    expect(
+      processed.initialTilemapLocationId(syntheticRootId: '__synthetic__'),
+      'root',
+    );
+  });
+
+  test(
+    'initial Tilemap location falls back to root without business parent',
+    () {
+      final singleLeafTree = buildLocationTree(
+        [
+          {'location_id': 'only_leaf', 'location_pid': ''},
+        ],
+        idOf: (location) => '${location['location_id']}',
+        parentIdOf: (location) => '${location['location_pid']}',
+      );
+      final rawProcessed = processLocationTree(singleLeafTree);
+      final syntheticProcessed = processLocationTree(
+        withSyntheticRoot(
+          singleLeafTree,
+          id: '__synthetic__',
+          value: const <String, String>{},
+        ),
+      );
+
+      expect(
+        rawProcessed.initialTilemapLocationId(syntheticRootId: '__synthetic__'),
+        'root',
+      );
+      expect(
+        syntheticProcessed.initialTilemapLocationId(
+          syntheticRootId: '__synthetic__',
+        ),
+        'root',
+      );
+    },
+  );
 }

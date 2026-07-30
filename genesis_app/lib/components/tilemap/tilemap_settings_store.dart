@@ -17,7 +17,7 @@ class TilemapRenderSettings {
     required this.locationImageFlowOpacity,
     required this.locationImageFlowDurationSeconds,
     required this.locationImageFlowBlendMode,
-    required this.initialScaleFactor,
+    required this.initialScale,
     required this.dragBoundaryPaddingTiles,
   });
 
@@ -36,7 +36,7 @@ class TilemapRenderSettings {
       locationImageFlowDurationSeconds:
           tilemapDefaultLocationImageFlowDurationSeconds,
       locationImageFlowBlendMode: tilemapDefaultLocationImageFlowBlendMode,
-      initialScaleFactor: tilemapDefaultInitialScaleFactor,
+      initialScale: tilemapDefaultInitialScale,
       dragBoundaryPaddingTiles: tilemapDefaultDragBoundaryPaddingTiles,
     );
   }
@@ -89,9 +89,13 @@ class TilemapRenderSettings {
             json['location_image_flow_blend_mode'],
           ) ??
           defaults.locationImageFlowBlendMode,
-      initialScaleFactor:
-          _readInitialScaleFactor(json['initial_scale_factor']) ??
-          defaults.initialScaleFactor,
+      initialScale:
+          _readDouble(
+            json['initial_scale'],
+            min: tilemapInitialScaleMin,
+            max: tilemapInitialScaleMax,
+          ) ??
+          defaults.initialScale,
       dragBoundaryPaddingTiles:
           _readDouble(
             json['drag_boundary_padding_tiles'],
@@ -113,7 +117,7 @@ class TilemapRenderSettings {
   final double locationImageFlowOpacity;
   final double locationImageFlowDurationSeconds;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
-  final double initialScaleFactor;
+  final double initialScale;
   final double dragBoundaryPaddingTiles;
 
   String toSerializedJson() {
@@ -122,7 +126,7 @@ class TilemapRenderSettings {
 
   Map<String, dynamic> toJson() {
     return {
-      'schema_version': 1,
+      'schema_version': 2,
       'visual_mode': visualMode.name,
       'fog_control_points': [
         for (final point in fogControlPoints)
@@ -139,20 +143,9 @@ class TilemapRenderSettings {
       'location_image_flow_opacity': locationImageFlowOpacity,
       'location_image_flow_duration_seconds': locationImageFlowDurationSeconds,
       'location_image_flow_blend_mode': locationImageFlowBlendMode.name,
-      'initial_scale_factor': initialScaleFactor,
+      'initial_scale': initialScale,
       'drag_boundary_padding_tiles': dragBoundaryPaddingTiles,
     };
-  }
-
-  static double? _readInitialScaleFactor(Object? value) {
-    if (value is! num) return null;
-    final resolved = value.toDouble();
-    if (!resolved.isFinite ||
-        resolved < tilemapInitialScaleFactorMin ||
-        resolved > tilemapInitialScaleFactorMax) {
-      return null;
-    }
-    return resolved;
   }
 
   static double? _readDouble(

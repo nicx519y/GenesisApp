@@ -86,6 +86,15 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     return 'unknown';
   }
 
+  String? _purchaseLaunchErrorCode(Object error) {
+    final code = switch (error) {
+      PlatformException(:final code) => code,
+      BillingPlatformException(:final code) => code,
+      _ => '',
+    }.trim();
+    return code.isEmpty ? null : code;
+  }
+
   String _productQueryFailureMessage(String? errorCode) {
     final code = errorCode?.trim() ?? '';
     if (code.isNotEmpty) return 'Purchase failed ($code).';
@@ -193,7 +202,10 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         reason: failedReason,
         errorCode:
             failedReason == 'purchase_callback_error' ||
-                failedReason == 'query_failed'
+                failedReason == 'query_failed' ||
+                failedReason == 'launch_failed' ||
+                failedReason == 'report_failed' ||
+                failedReason == 'report_rejected'
             ? errorCode
             : null,
       );
@@ -278,5 +290,18 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       'unsupported_product_type' => 'unsupported_product_type',
       _ => null,
     };
+  }
+
+  String _reportFailureReason(Object error) {
+    if (error is ApiException) {
+      final code = error.code;
+      if (code != null) return '$code';
+      final transportKind = error.transportErrorKind;
+      if (transportKind != null) return transportKind.name;
+      if (error.kind != ApiExceptionKind.unknown) return error.kind.name;
+      final message = error.message.trim();
+      if (message.isNotEmpty) return message;
+    }
+    return error.runtimeType.toString();
   }
 }
