@@ -29,6 +29,25 @@ class FirebasePerformanceMonitoring {
   }
 
   static Future<void> _enable() async {
+    if (!kReleaseMode) {
+      try {
+        await FirebasePerformance.instance.setPerformanceCollectionEnabled(
+          false,
+        );
+        _ready = false;
+        debugPrint(
+          '[Telemetry][FirebasePerformance] collection disabled '
+          'for non-release build',
+        );
+      } catch (e, st) {
+        _ready = false;
+        _initialization = null;
+        debugPrint('[Telemetry][FirebasePerformance] disable failed: $e');
+        debugPrint('[Telemetry][FirebasePerformance] stacktrace:\n$st');
+      }
+      return;
+    }
+
     try {
       await FirebasePerformance.instance.setPerformanceCollectionEnabled(true);
       _ready = true;
