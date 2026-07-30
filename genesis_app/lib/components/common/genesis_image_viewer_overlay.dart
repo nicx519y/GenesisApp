@@ -339,7 +339,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
 
 ImageProvider<Object> _viewerImageProvider(String url) {
   if (url.startsWith('assets/')) return AssetImage(url);
-  return NetworkImage(url);
+  return GenesisStaticNetworkImageProvider(imageUrl: url);
 }
 
 class _ViewerPageSlot extends StatelessWidget {

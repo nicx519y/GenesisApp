@@ -97,7 +97,7 @@ extension _WorldPageDetailSync on _WorldPageState {
       if (resolvedUrl.isEmpty) continue;
       final ImageProvider provider = resolvedUrl.startsWith('assets/')
           ? AssetImage(resolvedUrl)
-          : NetworkImage(resolvedUrl);
+          : GenesisStaticNetworkImageProvider(imageUrl: resolvedUrl);
       unawaited(
         precacheImage(
           provider,

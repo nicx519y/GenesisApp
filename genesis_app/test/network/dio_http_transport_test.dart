@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
@@ -10,6 +12,90 @@ import 'package:genesis_flutter_android/network/io_http_transport.dart';
 import 'package:genesis_flutter_android/network/multipart_body.dart';
 
 void main() {
+  test('routes HTTPS to HTTP/2 adapter and plain HTTP to IO adapter', () async {
+    final httpsAdapter = _RecordingAdapter(protocolVersion: '2.0');
+    final otherAdapter = _RecordingAdapter(protocolVersion: '1.1');
+    final adapter = SchemeRoutingHttpClientAdapter(
+      httpsAdapter: httpsAdapter,
+      otherAdapter: otherAdapter,
+    );
+
+    final httpsResponse = await adapter.fetch(
+      RequestOptions(path: 'https://api.worldo.ai/api/v1/health'),
+      null,
+      null,
+    );
+    final httpResponse = await adapter.fetch(
+      RequestOptions(path: 'http://127.0.0.1:8080/health'),
+      null,
+      null,
+    );
+
+    expect(httpsAdapter.requestedUris, [
+      Uri.parse('https://api.worldo.ai/api/v1/health'),
+    ]);
+    expect(otherAdapter.requestedUris, [
+      Uri.parse('http://127.0.0.1:8080/health'),
+    ]);
+    expect(httpsResponse.extra[HttpClientAdapter.extraKeyHttpVersion], '2.0');
+    expect(httpResponse.extra[HttpClientAdapter.extraKeyHttpVersion], '1.1');
+
+    adapter.close(force: true);
+    expect(httpsAdapter.forceClosed, true);
+    expect(otherAdapter.forceClosed, true);
+  });
+
+  test('rejects an HTTPS response that did not negotiate HTTP/2', () async {
+    final dio = Dio()
+      ..httpClientAdapter = _RecordingAdapter(protocolVersion: '1.1');
+    final transport = DioHttpTransport(
+      dio: dio,
+      performanceMetricUrlFilter: (_) => false,
+    );
+
+    await expectLater(
+      transport.send(
+        TransportRequest(
+          method: 'GET',
+          uri: Uri.parse('https://api.worldo.ai/api/v1/health'),
+          headers: const {},
+          bodyBytes: null,
+          timeoutMs: 5000,
+        ),
+      ),
+      throwsA(
+        isA<DioException>().having(
+          (error) => error.message,
+          'message',
+          contains('negotiated protocol was 1.1'),
+        ),
+      ),
+    );
+  });
+
+  test('records negotiated HTTP/2 on HTTPS responses', () async {
+    final dio = Dio()
+      ..httpClientAdapter = _RecordingAdapter(protocolVersion: '2.0');
+    final transport = DioHttpTransport(
+      dio: dio,
+      performanceMetricUrlFilter: (_) => false,
+    );
+
+    final response = await transport.send(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('https://api.worldo.ai/api/v1/health'),
+        headers: const {},
+        bodyBytes: null,
+        timeoutMs: 5000,
+      ),
+    );
+
+    expect(response.statusCode, 200);
+    expect(response.body, 'ok');
+    expect(response.httpProtocolVersion, '2.0');
+  });
+
   test('sends request and maps response without throwing on status', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
@@ -227,6 +313,35 @@ void main() {
     expect(response.body, 'ok');
     expect(metrics, isEmpty);
   });
+}
+
+class _RecordingAdapter implements HttpClientAdapter {
+  _RecordingAdapter({required this.protocolVersion});
+
+  final String protocolVersion;
+  final List<Uri> requestedUris = <Uri>[];
+  bool forceClosed = false;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requestedUris.add(options.uri);
+    return ResponseBody.fromString(
+      'ok',
+      200,
+      headers: const <String, List<String>>{
+        'content-type': <String>['text/plain'],
+      },
+    )..extra[HttpClientAdapter.extraKeyHttpVersion] = protocolVersion;
+  }
+
+  @override
+  void close({bool force = false}) {
+    forceClosed = force;
+  }
 }
 
 class _FakePerformanceMetric implements HttpRequestPerformanceMetric {

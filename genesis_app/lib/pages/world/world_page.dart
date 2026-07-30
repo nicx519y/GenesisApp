@@ -30,6 +30,7 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';

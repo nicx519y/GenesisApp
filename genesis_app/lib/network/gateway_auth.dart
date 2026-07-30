@@ -10,8 +10,8 @@ import '../platform/device/device_id_service.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 import 'app_request_headers.dart';
+import 'dio_http_transport.dart';
 import 'http_transport.dart';
-import 'io_http_transport.dart';
 import 'json_utils.dart';
 import 'v1/v1_api_resource.dart';
 
@@ -381,7 +381,7 @@ class GatewayAuthCoordinator {
              namespace: gatewayRegistrationNamespace(gatewayBaseUrl),
            ),
        _gatewayBaseUri = Uri.parse(gatewayBaseUrl),
-       _transport = transport ?? IoHttpTransport(),
+       _transport = transport ?? DioHttpTransport(),
        _client = ApiClient(
          baseUrl: gatewayBaseUrl,
          defaultHeaders: const {

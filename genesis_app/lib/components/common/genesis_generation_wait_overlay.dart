@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -343,8 +344,8 @@ class _LaunchWaitAvatar extends StatelessWidget {
         errorBuilder: (context, error, stackTrace) => fallback,
       );
     } else {
-      image = Image.network(
-        resolvedUrl,
+      image = Image(
+        image: GenesisStaticNetworkImageProvider(imageUrl: resolvedUrl),
         width: size,
         height: size,
         fit: BoxFit.cover,

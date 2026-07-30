@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/dio_http_transport.dart';
-import 'package:genesis_flutter_android/network/io_http_transport.dart';
 import 'package:genesis_flutter_android/network/network_runtime_factory.dart';
 import 'package:genesis_flutter_android/network/websocket_transport.dart';
 
@@ -24,28 +23,24 @@ void main() {
     );
   });
 
-  test(
-    'io engine only creates explicit transport when a proxy is configured',
-    () {
-      expect(
-        factory.buildHttpTransport(
-          debugProxy: '',
-          useMock: false,
-          httpEngine: 'io',
-        ),
-        isNull,
-      );
-
-      expect(
-        factory.buildHttpTransport(
-          debugProxy: '127.0.0.1:9090',
-          useMock: false,
-          httpEngine: 'io',
-        ),
-        isA<IoHttpTransport>(),
-      );
-    },
-  );
+  test('legacy io engine name still resolves to HTTP/2 Dio transport', () {
+    expect(
+      factory.buildHttpTransport(
+        debugProxy: '',
+        useMock: false,
+        httpEngine: 'io',
+      ),
+      isA<DioHttpTransport>(),
+    );
+    expect(
+      factory.buildHttpTransport(
+        debugProxy: '127.0.0.1:9090',
+        useMock: false,
+        httpEngine: 'io',
+      ),
+      isA<DioHttpTransport>(),
+    );
+  });
 
   test('dio engine creates Dio transport with or without proxy', () {
     expect(
@@ -61,6 +56,25 @@ void main() {
         debugProxy: '127.0.0.1:9090',
         useMock: false,
         httpEngine: 'DIO',
+      ),
+      isA<DioHttpTransport>(),
+    );
+  });
+
+  test('http2 engine creates Dio HTTP/2 transport with or without proxy', () {
+    expect(
+      factory.buildHttpTransport(
+        debugProxy: '',
+        useMock: false,
+        httpEngine: 'http2',
+      ),
+      isA<DioHttpTransport>(),
+    );
+    expect(
+      factory.buildHttpTransport(
+        debugProxy: '127.0.0.1:9090',
+        useMock: false,
+        httpEngine: 'HTTP2',
       ),
       isA<DioHttpTransport>(),
     );

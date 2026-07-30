@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
+import '../../network/genesis_http2_cache_manager.dart';
 import '../../network/models/world.dart';
 import '../../pages/world/world_navigation.dart';
 import '../../platform/app/app_metadata_service.dart';

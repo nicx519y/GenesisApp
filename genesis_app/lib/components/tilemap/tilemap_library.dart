@@ -12,6 +12,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/firebase_performance_monitoring.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/tilemap_definition.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
 import '../world_map_location_action.dart';
@@ -904,7 +905,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     Object? precacheError;
     StackTrace? precacheStackTrace;
     await precacheImage(
-      NetworkImage(assetUrl),
+      GenesisStaticNetworkImageProvider(imageUrl: assetUrl),
       context,
       onError: (error, stackTrace) {
         precacheError = error;

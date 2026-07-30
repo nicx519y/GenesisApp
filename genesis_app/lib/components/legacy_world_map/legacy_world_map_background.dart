@@ -160,11 +160,15 @@ class LegacyWorldMapBackgroundDeckState
   }
 
   ImageProvider _mapImageProvider(String url) {
-    return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
+    return url.startsWith('assets/')
+        ? AssetImage(url)
+        : GenesisStaticNetworkImageProvider(imageUrl: url);
   }
 
   ImageProvider _avatarImageProvider(String url) {
-    return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
+    return url.startsWith('assets/')
+        ? AssetImage(url)
+        : GenesisStaticNetworkImageProvider(imageUrl: url);
   }
 
   @override

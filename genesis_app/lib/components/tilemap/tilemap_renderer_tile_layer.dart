@@ -37,8 +37,8 @@ class _ProjectedTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = Image.network(
-      asset,
+    final image = Image(
+      image: GenesisStaticNetworkImageProvider(imageUrl: asset),
       fit: BoxFit.contain,
       gaplessPlayback: true,
       filterQuality: FilterQuality.none,

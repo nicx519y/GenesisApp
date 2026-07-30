@@ -46,7 +46,7 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
     try {
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
-      await CachedNetworkImageProvider.defaultCacheManager.emptyCache();
+      await GenesisHttp2CacheManager().emptyCache();
       if (!mounted) return;
       showGenesisToast(context, 'Image cache cleared');
     } catch (error) {

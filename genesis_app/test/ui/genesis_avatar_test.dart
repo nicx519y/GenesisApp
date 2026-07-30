@@ -163,7 +163,7 @@ void main() {
     expect(find.text('TL'), findsNothing);
     expect(find.byType(GenesisAvatar), findsNothing);
     final image = tester.widget<Image>(find.byType(Image));
-    expect(image.image, isA<NetworkImage>());
+    expect(image.image, isA<GenesisStaticNetworkImageProvider>());
     expect(image.gaplessPlayback, isTrue);
     expect(image.errorBuilder, isNotNull);
   });
