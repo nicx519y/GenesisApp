@@ -36,8 +36,11 @@ void main() {
   setUp(() {
     FirebasePerformanceMonitoring.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
+    final loadingSettings = TilemapRenderSettings.defaults().toJson()
+      ..['loading_style'] = TilemapLoadingStyle.minimalProgress.name;
     SharedPreferences.setMockInitialValues(<String, Object>{
       TilemapSettingsButtonVisibilityController.storageKey: true,
+      TilemapSettingsStore.storageKey: jsonEncode(loadingSettings),
     });
   });
 
@@ -184,6 +187,49 @@ void main() {
       );
     },
   );
+
+  testWidgets('Tilemap defaults the Loading screen setting to Off', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      TilemapSettingsButtonVisibilityController.storageKey: true,
+    });
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(_DelayedTilemapTransport()),
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Tilemap.origin(
+              originId: 'o_1',
+              tileImageLoader: _completeTileImageLoad,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('tilemap-settings-button')),
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<DropdownButton<TilemapLoadingStyle>>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-loading-style'),
+            ),
+          )
+          .value,
+      TilemapLoadingStyle.disabled,
+    );
+  });
 
   testWidgets('Tilemap offers Off and all five persisted loading styles', (
     tester,
@@ -606,10 +652,11 @@ void main() {
   );
 
   testWidgets(
-    'Tilemap reset invalidates an in-flight image load at the old scale',
+    'Tilemap reset to Off invalidates an in-flight loading-screen image',
     (tester) async {
       final cachedSettings = TilemapRenderSettings.defaults().toJson()
-        ..['initial_scale'] = 5.0;
+        ..['initial_scale'] = 5.0
+        ..['loading_style'] = TilemapLoadingStyle.minimalProgress.name;
       SharedPreferences.setMockInitialValues(<String, Object>{
         TilemapSettingsButtonVisibilityController.storageKey: true,
         TilemapSettingsStore.storageKey: jsonEncode(cachedSettings),
@@ -652,23 +699,18 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      final defaultScaleLoad = pendingLoads.entries.singleWhere(
-        (entry) => entry.key.contains('resize,w_1024'),
+      expect(pendingLoads, hasLength(1));
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+        findsNothing,
       );
+      expect(_liveTilemapRendererFinder(), findsOneWidget);
+
       oldScaleLoad.value.complete();
       await tester.pump();
       await tester.pump();
 
-      expect(
-        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
-        findsOneWidget,
-      );
-      expect(_liveTilemapRendererFinder(), findsNothing);
-
-      defaultScaleLoad.value.complete();
-      await tester.pump();
-      await tester.pump();
-
+      expect(find.byKey(const ValueKey<String>('tilemap-error')), findsNothing);
       expect(
         find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
         findsNothing,
@@ -1345,6 +1387,9 @@ void main() {
   testWidgets('Tilemap copies all current settings as serialized JSON', (
     tester,
   ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      TilemapSettingsButtonVisibilityController.storageKey: true,
+    });
     final copiedValues = <String>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {

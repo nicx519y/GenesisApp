@@ -238,7 +238,9 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   }
 
   Future<void> _loadCachedSettings() async {
-    final settings = await _settingsStore.load();
+    final settings = (await _settingsStore.load()).resolveForRuntime(
+      releaseMode: kReleaseMode,
+    );
     if (!mounted) return;
     if (settings.loadingStyle == TilemapLoadingStyle.disabled) {
       _loadingCoordinator.completeInitialEntryWithoutOverlay();

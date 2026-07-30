@@ -15,7 +15,7 @@ enum TilemapLoadingStyle {
 }
 
 const TilemapLoadingStyle tilemapDefaultLoadingStyle =
-    TilemapLoadingStyle.minimalProgress;
+    TilemapLoadingStyle.disabled;
 
 class TilemapRenderSettings {
   const TilemapRenderSettings({
@@ -136,6 +136,25 @@ class TilemapRenderSettings {
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
   final double initialScale;
   final double dragBoundaryPaddingTiles;
+
+  TilemapRenderSettings resolveForRuntime({required bool releaseMode}) {
+    if (!releaseMode) return this;
+    return TilemapRenderSettings(
+      visualMode: visualMode,
+      loadingStyle: TilemapLoadingStyle.disabled,
+      fogControlPoints: fogControlPoints,
+      blendFogWithShadowTiles: blendFogWithShadowTiles,
+      showShadowZeroBorders: showShadowZeroBorders,
+      showLocationImageFlow: showLocationImageFlow,
+      locationImageFlowAngleDegrees: locationImageFlowAngleDegrees,
+      locationImageFlowGradientPoints: locationImageFlowGradientPoints,
+      locationImageFlowOpacity: locationImageFlowOpacity,
+      locationImageFlowDurationSeconds: locationImageFlowDurationSeconds,
+      locationImageFlowBlendMode: locationImageFlowBlendMode,
+      initialScale: tilemapDefaultInitialScale,
+      dragBoundaryPaddingTiles: dragBoundaryPaddingTiles,
+    );
+  }
 
   String toSerializedJson() {
     return const JsonEncoder.withIndent('  ').convert(toJson());

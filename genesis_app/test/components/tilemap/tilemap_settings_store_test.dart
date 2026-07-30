@@ -34,7 +34,8 @@ void main() {
     final settings = await const TilemapSettingsStore().load();
 
     expect(settings.visualMode, tilemapDefaultVisualMode);
-    expect(settings.loadingStyle, tilemapDefaultLoadingStyle);
+    expect(tilemapDefaultLoadingStyle, TilemapLoadingStyle.disabled);
+    expect(settings.loadingStyle, TilemapLoadingStyle.disabled);
     expect(settings.fogControlPoints, tilemapDefaultFogControlPoints);
     expect(
       settings.blendFogWithShadowTiles,
@@ -73,7 +74,7 @@ void main() {
     expect(TilemapRenderSettings.defaults().toJson(), {
       'schema_version': 2,
       'visual_mode': 'dark',
-      'loading_style': 'minimalProgress',
+      'loading_style': 'disabled',
       'fog_control_points': [
         {'position': 0.0, 'opacity': 0.3011579949238584},
         {'position': 0.1972931338028169, 'opacity': 0.6031091370558366},
@@ -95,7 +96,7 @@ void main() {
       'location_image_flow_opacity': 0.49,
       'location_image_flow_duration_seconds': 7.5,
       'location_image_flow_blend_mode': 'plus',
-      'initial_scale': 16.0,
+      'initial_scale': 12.0,
       'drag_boundary_padding_tiles': 2.0,
     });
   });
@@ -186,6 +187,41 @@ void main() {
     expect(serialized['initial_scale'], 24);
     expect(serialized['drag_boundary_padding_tiles'], 8);
   });
+
+  test(
+    'release runtime fixes loading screen to Off and initial zoom to 12x',
+    () {
+      const cachedSettings = TilemapRenderSettings(
+        visualMode: TilemapVisualMode.light,
+        loadingStyle: TilemapLoadingStyle.worldPortal,
+        fogControlPoints: tilemapDefaultFogControlPoints,
+        blendFogWithShadowTiles: false,
+        showShadowZeroBorders: true,
+        showLocationImageFlow: false,
+        locationImageFlowAngleDegrees: 120,
+        locationImageFlowGradientPoints:
+            tilemapDefaultLocationImageFlowGradientPoints,
+        locationImageFlowOpacity: 0.65,
+        locationImageFlowDurationSeconds: 4.5,
+        locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
+        initialScale: 24,
+        dragBoundaryPaddingTiles: 8,
+      );
+
+      final releaseSettings = cachedSettings.resolveForRuntime(
+        releaseMode: true,
+      );
+      final debugSettings = cachedSettings.resolveForRuntime(
+        releaseMode: false,
+      );
+
+      expect(releaseSettings.loadingStyle, TilemapLoadingStyle.disabled);
+      expect(releaseSettings.initialScale, 12);
+      expect(releaseSettings.visualMode, cachedSettings.visualMode);
+      expect(releaseSettings.dragBoundaryPaddingTiles, 8);
+      expect(debugSettings, same(cachedSettings));
+    },
+  );
 
   test('falls back only invalid cached fields', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
