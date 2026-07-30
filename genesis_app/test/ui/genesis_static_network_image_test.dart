@@ -99,6 +99,55 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('decodes a cached image near its target display size', (
+    tester,
+  ) async {
+    const imageUrl = 'https://cache.test/target-sized-frame.png';
+    final fileSystem = MemoryFileSystem();
+    final asset = await rootBundle.load('assets/images/default_list_image.png');
+    final imageFile = fileSystem.file('/target-sized-frame.png');
+    await imageFile.writeAsBytes(asset.buffer.asUint8List());
+    final cacheManager = _MemoryCacheManager(imageFile);
+    final provider = GenesisStaticNetworkImageProvider(
+      imageUrl: imageUrl,
+      cacheManager: cacheManager,
+      cacheWidth: 8,
+      cacheHeight: 8,
+      fit: BoxFit.contain,
+    );
+    await provider.evict();
+    addTearDown(provider.evict);
+
+    ImageInfo? imageInfo;
+    await tester.runAsync(() async {
+      imageInfo = await _resolveImage(provider);
+    });
+
+    final decoded = imageInfo;
+    expect(decoded, isNotNull);
+    expect(decoded!.image.width, lessThanOrEqualTo(8));
+    expect(decoded.image.height, lessThanOrEqualTo(8));
+    decoded.dispose();
+  });
+}
+
+Future<ImageInfo> _resolveImage(ImageProvider provider) {
+  final completer = Completer<ImageInfo>();
+  final stream = provider.resolve(ImageConfiguration.empty);
+  late final ImageStreamListener listener;
+  listener = ImageStreamListener(
+    (image, synchronousCall) {
+      if (!completer.isCompleted) completer.complete(image.clone());
+      stream.removeListener(listener);
+    },
+    onError: (Object error, StackTrace? stackTrace) {
+      if (!completer.isCompleted) completer.completeError(error, stackTrace);
+      stream.removeListener(listener);
+    },
+  );
+  stream.addListener(listener);
+  return completer.future;
 }
 
 class _MemoryCacheManager implements BaseCacheManager {
