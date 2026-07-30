@@ -6217,6 +6217,10 @@ void main() {
       findsNothing,
     );
     expect(
+      find.byKey(const ValueKey<String>('origin-role-preset-tab')),
+      findsOneWidget,
+    );
+    expect(
       tester.getSize(find.byKey(const ValueKey('origin-role-cancel'))).height,
       35,
     );
@@ -6316,7 +6320,7 @@ void main() {
 
       expect(
         transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
-        isEmpty,
+        hasLength(1),
       );
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
 
@@ -6348,6 +6352,15 @@ void main() {
       expect(launchBody['origin_id'], 'o_test_1');
       expect(launchBody['preset_character_id'], 'char_history_1');
       expect(launchBody.containsKey('custom_role'), isFalse);
+
+      await tester.tap(find.text('Enter'));
+      await tester.pumpAndSettle();
+      final launchedWorldPage = tester.widget<WorldPage>(
+        find.byType(WorldPage),
+      );
+      expect(launchedWorldPage.wid, 'w_launched_from_origin');
+      expect(launchedWorldPage.initialLocationId, isEmpty);
+      expect(find.byType(LocationChatPanel), findsNothing);
     },
   );
 

@@ -233,24 +233,26 @@ class WorldItemCard extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        _ProgressHeader(timestamp: item.lastProgressAt),
-        if (item.progressTickTimeLabel.isNotEmpty) ...[
+        if (item.progressSummary.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _ProgressHeader(timestamp: item.lastProgressAt),
+          if (item.progressTickTimeLabel.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _ProgressTickTime(label: item.progressTickTimeLabel),
+          ],
           const SizedBox(height: 8),
-          _ProgressTickTime(label: item.progressTickTimeLabel),
-        ],
-        const SizedBox(height: 8),
-        Text(
-          item.progressSummary,
-          maxLines: 10,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 13,
-            height: 1.4,
-            fontWeight: FontWeight.w400,
+          Text(
+            item.progressSummary,
+            maxLines: 10,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF111111),
+              fontSize: 13,
+              height: 1.4,
+              fontWeight: FontWeight.w400,
+            ),
           ),
-        ),
+        ],
         _CurrentUserStatusPreview(item: item),
         if (showPreviewImages) _WorldPreviewImages(item: item),
       ],

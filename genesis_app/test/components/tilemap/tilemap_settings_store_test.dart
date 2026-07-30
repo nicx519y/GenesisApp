@@ -73,7 +73,7 @@ void main() {
     expect(TilemapRenderSettings.defaults().toJson(), {
       'schema_version': 2,
       'visual_mode': 'dark',
-      'loading_style': 'progressiveReveal',
+      'loading_style': 'minimalProgress',
       'fog_control_points': [
         {'position': 0.0, 'opacity': 0.3011579949238584},
         {'position': 0.1972931338028169, 'opacity': 0.6031091370558366},
