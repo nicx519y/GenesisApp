@@ -19,11 +19,6 @@ Future<String?> startOriginLaunch({
   try {
     final services = AppServicesScope.of(context);
     final api = services.api;
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'worldo_launch_submit_start',
-      object1: origin.oid,
-    );
     final result = await api.v1.origin.launch(
       oid: origin.oid,
       presetCharacterId: roleSelection.presetCharacterId,

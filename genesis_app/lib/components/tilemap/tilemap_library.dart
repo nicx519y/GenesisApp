@@ -86,7 +86,7 @@ class Tilemap extends StatefulWidget {
   State<Tilemap> createState() => _TilemapState();
 }
 
-class _TilemapState extends State<Tilemap> {
+class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   static const Duration _settingsSaveDelay = Duration(milliseconds: 250);
   static const String _loadPerformanceTraceName = 'tilemap_load';
 
@@ -102,8 +102,20 @@ class _TilemapState extends State<Tilemap> {
   late String _currentLocationId;
   final List<String> _locationTrail = <String>[];
   int _cacheGeneration = 0;
-  int _rendererRevision = 0;
+  final Map<String, int> _rendererRevisionByMapId = <String, int>{};
   late final TilemapLoadingCoordinator _loadingCoordinator;
+  late final TilemapPrerenderController _prerenderController;
+  final Map<String, GlobalKey> _liveRendererBoundaryKeys =
+      <String, GlobalKey>{};
+  final Map<String, VoidCallback> _liveViewportReadyCallbacks =
+      <String, VoidCallback>{};
+  int _prerenderEnvironmentGeneration = 0;
+  TilemapConfig? _transitionFromConfig;
+  String? _liveViewportReadyMapId;
+  bool _hasRevealedInitialMap = false;
+  String? _configuredPrerenderEnvironmentKey;
+  Size? _configuredPrerenderViewportSize;
+  double? _configuredPrerenderDevicePixelRatio;
   TilemapVisualMode _visualMode = tilemapDefaultVisualMode;
   TilemapLoadingStyle _loadingStyle = tilemapDefaultLoadingStyle;
   List<TilemapFogControlPoint> _fogControlPoints =
@@ -130,9 +142,14 @@ class _TilemapState extends State<Tilemap> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentLocationId = widget.locationId.trim();
     _loadingCoordinator = TilemapLoadingCoordinator(
       onChanged: _handleLoadingCoordinatorChanged,
+      onSilentMapReady: _handleSilentMapReady,
+    );
+    _prerenderController = TilemapPrerenderController(
+      onChanged: _handlePrerenderControllerChanged,
     );
     tilemapSettingsButtonVisibility.listenable.addListener(
       _handleSettingsButtonVisibilityChanged,
@@ -159,6 +176,7 @@ class _TilemapState extends State<Tilemap> {
         oldWidget._entityId != widget._entityId;
     final initialLocationChanged = oldWidget.locationId != widget.locationId;
     if (!entityChanged && !initialLocationChanged) return;
+    if (!entityChanged) _beginMapTransition();
     _currentLocationId = widget.locationId.trim();
     _locationTrail.clear();
     if (entityChanged) {
@@ -173,6 +191,8 @@ class _TilemapState extends State<Tilemap> {
   void dispose() {
     _cacheGeneration += 1;
     _loadingCoordinator.dispose();
+    _prerenderController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     tilemapSettingsButtonVisibility.listenable.removeListener(
       _handleSettingsButtonVisibilityChanged,
     );
@@ -183,6 +203,11 @@ class _TilemapState extends State<Tilemap> {
       unawaited(_persistSettings(_currentSettings));
     }
     super.dispose();
+  }
+
+  @override
+  void didHaveMemoryPressure() {
+    _prerenderController.handleMemoryPressure();
   }
 
   TilemapRenderSettings get _currentSettings {
@@ -232,6 +257,16 @@ class _TilemapState extends State<Tilemap> {
   void _handleLoadingCoordinatorChanged() {
     if (!mounted) return;
     setState(() {});
+  }
+
+  void _handlePrerenderControllerChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _handleSilentMapReady(TilemapConfig config) {
+    if (!mounted) return;
+    _prerenderController.rememberConfig(config);
   }
 
   void _handleSettingsButtonVisibilityChanged() {
@@ -442,6 +477,7 @@ class _TilemapState extends State<Tilemap> {
   void _resetMapCache() {
     _cacheGeneration += 1;
     _loadingCoordinator.resetSession();
+    _prerenderController.resetSession();
     if (_settingsReady && _loadingStyle == TilemapLoadingStyle.disabled) {
       _loadingCoordinator.completeInitialEntryWithoutOverlay();
     }
@@ -450,7 +486,16 @@ class _TilemapState extends State<Tilemap> {
     _currentConfig = null;
     _mapError = null;
     _imageError = null;
-    _rendererRevision = 0;
+    _rendererRevisionByMapId.clear();
+    _transitionFromConfig = null;
+    _liveViewportReadyMapId = null;
+    _hasRevealedInitialMap = false;
+    _configuredPrerenderEnvironmentKey = null;
+    _configuredPrerenderViewportSize = null;
+    _configuredPrerenderDevicePixelRatio = null;
+    _liveRendererBoundaryKeys.clear();
+    _liveViewportReadyCallbacks.clear();
+    _prerenderEnvironmentGeneration += 1;
   }
 
   Future<TilemapConfig?> _preloadMap(String locationId) async {
@@ -483,6 +528,10 @@ class _TilemapState extends State<Tilemap> {
       _imageError = null;
       _mapError = cached?.error;
       _currentConfig = cached?.config;
+      if (_currentConfig?.id == _transitionFromConfig?.id) {
+        _liveViewportReadyMapId = _currentConfig?.id;
+        _transitionFromConfig = null;
+      }
     }
 
     if (rebuild) {
@@ -490,7 +539,11 @@ class _TilemapState extends State<Tilemap> {
     } else {
       applyPendingOrCached();
     }
-    if (cached != null) return;
+    if (cached != null) {
+      final config = cached.config;
+      if (config != null) _activateConfig(config);
+      return;
+    }
 
     final generation = _cacheGeneration;
     unawaited(
@@ -503,9 +556,28 @@ class _TilemapState extends State<Tilemap> {
         setState(() {
           _mapError = result.error;
           _currentConfig = result.config;
+          if (_currentConfig?.id == _transitionFromConfig?.id) {
+            _liveViewportReadyMapId = _currentConfig?.id;
+            _transitionFromConfig = null;
+          }
         });
+        final config = result.config;
+        if (config != null) _activateConfig(config);
       }),
     );
+  }
+
+  void _activateConfig(TilemapConfig config) {
+    _prerenderController.activateMap(config.id);
+    _prerenderController.rememberConfig(config);
+  }
+
+  void _beginMapTransition() {
+    final outgoing = _currentConfig;
+    if (outgoing != null && _liveViewportReadyMapId == outgoing.id) {
+      _transitionFromConfig = outgoing;
+    }
+    _liveViewportReadyMapId = null;
   }
 
   TilemapConfig _configFromDefinition(
@@ -550,6 +622,7 @@ class _TilemapState extends State<Tilemap> {
     final drillTarget = action.drillTarget;
     if (drillTarget == null) return;
     widget.onDrillIntoLocation?.call();
+    _beginMapTransition();
     _locationTrail.add(_currentLocationId);
     _currentLocationId = drillTarget.id.trim();
     _loadCurrentLocation(rebuild: true);
@@ -574,13 +647,14 @@ class _TilemapState extends State<Tilemap> {
   void _exitLocation() {
     if (_locationTrail.isEmpty) return;
     widget.onDrillIntoLocation?.call();
+    _beginMapTransition();
     _currentLocationId = _locationTrail.removeLast();
     _loadCurrentLocation(rebuild: true);
   }
 
   void _retry() {
     if (_loadingCoordinator.initialLoadError != null) {
-      _rendererRevision += 1;
+      _bumpCurrentRendererRevision();
       _loadingCoordinator.retryInitialTileLoad();
       return;
     }
@@ -588,7 +662,7 @@ class _TilemapState extends State<Tilemap> {
     if (_imageError != null) {
       setState(() {
         _imageError = null;
-        _rendererRevision += 1;
+        _bumpCurrentRendererRevision();
       });
       return;
     }
@@ -775,19 +849,34 @@ class _TilemapState extends State<Tilemap> {
     );
   }
 
-  Widget _buildRenderer(TilemapConfig config) {
+  Widget _buildRenderer(
+    TilemapConfig config, {
+    required Key rendererKey,
+    required bool interactive,
+    required VoidCallback? onViewportReady,
+    bool includeLiveContent = true,
+    ValueChanged<Object>? backgroundImageError,
+  }) {
     return TilemapRenderer(
-      key: ValueKey<String>('tilemap-renderer-${config.id}-$_rendererRevision'),
+      key: rendererKey,
       config: config,
-      onTileAction: _handleTileAction,
+      onTileAction: interactive ? _handleTileAction : null,
       locationNameForTile: _locationNameForTile,
       locationAvatarsForTile: _locationAvatarsForTile,
-      messageBubbles: widget.messageBubbles,
-      messageBubblePlaybackPaused: widget.messageBubblePlaybackPaused,
-      onMapTap: widget.onMapTap,
-      onImageError: widget.tileImageLoader == null
-          ? (error) => _handleImageError(config.id, error)
-          : null,
+      messageBubbles: includeLiveContent
+          ? widget.messageBubbles
+          : const <WorldMapMessageBubble>[],
+      messageBubblePlaybackPaused:
+          !includeLiveContent || widget.messageBubblePlaybackPaused,
+      onMapTap: interactive ? widget.onMapTap : null,
+      onImageError:
+          backgroundImageError ??
+          ((interactive || onViewportReady != null) &&
+                  widget.tileImageLoader == null
+              ? (error) => _handleImageError(config.id, error)
+              : null),
+      onViewportReady: onViewportReady,
+      waitForVisibleTileImageFrames: widget.tileImageLoader == null,
       visualMode: _visualMode,
       fogControlPoints: _fogControlPoints,
       blendFogWithShadowTiles: _blendFogWithShadowTiles,
@@ -803,69 +892,309 @@ class _TilemapState extends State<Tilemap> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    late final Widget map;
+  int _rendererRevisionFor(TilemapConfig config) {
+    return _rendererRevisionByMapId[config.id] ?? 0;
+  }
+
+  void _bumpCurrentRendererRevision() {
+    final mapId = _currentConfig?.id;
+    if (mapId != null) {
+      _rendererRevisionByMapId[mapId] =
+          (_rendererRevisionByMapId[mapId] ?? 0) + 1;
+    }
+    _liveViewportReadyMapId = null;
+  }
+
+  GlobalKey _liveBoundaryKeyFor(TilemapConfig config) {
+    final key = '${config.id}|${_rendererRevisionFor(config)}';
+    return _liveRendererBoundaryKeys.putIfAbsent(
+      key,
+      () => GlobalKey(debugLabel: 'tilemap-live-${config.id}'),
+    );
+  }
+
+  VoidCallback _liveReadyCallbackFor(TilemapConfig config) {
+    final environmentGeneration = _prerenderEnvironmentGeneration;
+    final key =
+        '${config.id}|${_rendererRevisionFor(config)}|$environmentGeneration';
+    return _liveViewportReadyCallbacks.putIfAbsent(
+      key,
+      () =>
+          () => _handleLiveViewportReady(config.id, environmentGeneration),
+    );
+  }
+
+  Widget _buildLiveRendererSurface(
+    TilemapConfig config, {
+    required bool interactive,
+    required bool reportViewportReady,
+  }) {
+    final revision = _rendererRevisionFor(config);
+    final surfaceKey = 'tilemap-live-surface-${config.id}-$revision';
+    return KeyedSubtree(
+      key: ValueKey<String>(surfaceKey),
+      child: IgnorePointer(
+        ignoring: !interactive,
+        child: RepaintBoundary(
+          key: _liveBoundaryKeyFor(config),
+          child: _buildRenderer(
+            config,
+            rendererKey: ValueKey<String>(
+              'tilemap-live-renderer-${config.id}-$revision',
+            ),
+            interactive: interactive,
+            onViewportReady: reportViewportReady
+                ? _liveReadyCallbackFor(config)
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildPrerenderCandidate() {
+    final config = _prerenderController.candidateConfig;
+    if (config == null ||
+        config.id == _currentConfig?.id ||
+        config.id == _transitionFromConfig?.id) {
+      return null;
+    }
+    final boundaryKey = _prerenderController.candidateBoundaryKey;
+    final revision = _rendererRevisionFor(config);
+    return KeyedSubtree(
+      key: ValueKey<String>('tilemap-prerender-surface-${config.id}-$revision'),
+      child: TilemapPrerenderSurface(
+        boundaryKey: boundaryKey,
+        child: _buildRenderer(
+          config,
+          rendererKey: ValueKey<String>(
+            'tilemap-prerender-renderer-${config.id}-$revision',
+          ),
+          interactive: false,
+          includeLiveContent: false,
+          onViewportReady: () {
+            unawaited(
+              _prerenderController.captureCandidate(
+                expectedMapId: config.id,
+                expectedBoundaryKey: boundaryKey,
+              ),
+            );
+          },
+          backgroundImageError: (_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _prerenderController.rejectCandidate(
+                mapId: config.id,
+                boundaryKey: boundaryKey,
+              );
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  void _handleLiveViewportReady(String mapId, int environmentGeneration) {
+    final config = _currentConfig;
+    if (!mounted ||
+        environmentGeneration != _prerenderEnvironmentGeneration ||
+        config == null ||
+        config.id != mapId ||
+        _liveViewportReadyMapId == mapId) {
+      return;
+    }
+
+    final boundaryKey = _liveBoundaryKeyFor(config);
+    setState(() {
+      _liveViewportReadyMapId = mapId;
+      _hasRevealedInitialMap = true;
+      _transitionFromConfig = null;
+    });
+    unawaited(
+      _prerenderController.captureActive(
+        mapId: mapId,
+        boundaryKey: boundaryKey,
+      ),
+    );
+  }
+
+  String _prerenderEnvironmentKey(BuildContext context) {
+    final locale = Localizations.maybeLocaleOf(context);
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final renderSettings = _currentSettings.toJson()..remove('loading_style');
+    return <Object?>[
+      widget._source.name,
+      widget._entityId,
+      _cacheGeneration,
+      renderSettings,
+      identityHashCode(widget.locationNodes),
+      widget.locationNodes.length,
+      identityHashCode(widget.messageBubbles),
+      widget.messageBubbles.length,
+      widget.messageBubblePlaybackPaused,
+      locale,
+      textScale,
+    ].join('|');
+  }
+
+  void _syncPrerenderEnvironment({
+    required String environmentKey,
+    required Size viewportSize,
+    required double devicePixelRatio,
+  }) {
+    final changed =
+        _configuredPrerenderEnvironmentKey != null &&
+        (_configuredPrerenderEnvironmentKey != environmentKey ||
+            _configuredPrerenderViewportSize != viewportSize ||
+            _configuredPrerenderDevicePixelRatio != devicePixelRatio);
+    _configuredPrerenderEnvironmentKey = environmentKey;
+    _configuredPrerenderViewportSize = viewportSize;
+    _configuredPrerenderDevicePixelRatio = devicePixelRatio;
+    if (!changed) return;
+
+    _prerenderEnvironmentGeneration += 1;
+    _liveViewportReadyCallbacks.clear();
+    _liveViewportReadyMapId = null;
+    _transitionFromConfig = null;
+  }
+
+  Widget _buildTransitionCover({
+    required TilemapConfig? config,
+    required bool showInitialLoading,
+  }) {
+    final outgoing = _transitionFromConfig;
+    final targetFrame = _prerenderController.frameFor(config?.id);
+    if (targetFrame != null && config != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          if (outgoing != null && outgoing.id != config.id)
+            _buildLiveRendererSurface(
+              outgoing,
+              interactive: false,
+              reportViewportReady: false,
+            ),
+          IgnorePointer(
+            key: ValueKey<String>('tilemap-prerender-frame-${config.id}'),
+            child: TilemapPrerenderFrameView(frame: targetFrame),
+          ),
+        ],
+      );
+    }
+
+    if (outgoing != null && outgoing.id != config?.id) {
+      return _buildLiveRendererSurface(
+        outgoing,
+        interactive: false,
+        reportViewportReady: false,
+      );
+    }
+
+    if (showInitialLoading) {
+      return TilemapLoadingOverlay(
+        style: _loadingStyle,
+        progress: _loadingCoordinator.initialProgress,
+        visualMode: _visualMode,
+        backgroundKey: const ValueKey<String>('tilemap-loading-background'),
+      );
+    }
+    return ColoredBox(
+      key: ValueKey<String>(
+        _hasRevealedInitialMap
+            ? 'tilemap-transition-background'
+            : 'tilemap-loading-background',
+      ),
+      color: tilemapVisualStyleFor(_visualMode).backgroundColor,
+    );
+  }
+
+  Widget _buildMapViewport(BuildContext context, Size viewportSize) {
     if (!_settingsReady) {
-      map = ColoredBox(
+      return ColoredBox(
         key: const ValueKey<String>('tilemap-settings-loading-background'),
         color: tilemapVisualStyleFor(_visualMode).backgroundColor,
       );
-    } else if (_imageError != null ||
+    }
+    if (_imageError != null ||
         _mapError != null ||
         _loadingCoordinator.initialLoadError != null) {
-      map = _TilemapError(visualMode: _visualMode, onRetry: _retry);
-    } else {
-      final config = _currentConfig;
-      final showInitialLoading =
-          !_loadingCoordinator.initialEntryCompleted &&
-          _loadingStyle != TilemapLoadingStyle.disabled;
-      if (config == null) {
-        map = showInitialLoading
-            ? TilemapLoadingOverlay(
-                style: _loadingStyle,
-                progress: 0,
-                visualMode: _visualMode,
-                backgroundKey: const ValueKey<String>(
-                  'tilemap-loading-background',
-                ),
-              )
-            : ColoredBox(
-                key: const ValueKey<String>('tilemap-loading-background'),
-                color: tilemapVisualStyleFor(_visualMode).backgroundColor,
-              );
-      } else if (showInitialLoading) {
-        final displayTilePixelSize =
-            tilemapBaseTileExtent *
-            _initialScale *
-            MediaQuery.devicePixelRatioOf(context);
-        final imageLoadPlan = TilemapImageLoadPlan.forConfig(
-          config: config,
-          displayTilePixelSize: displayTilePixelSize,
-        );
-        _loadingCoordinator.ensureInitialMapReady(
-          config: config,
-          plan: imageLoadPlan,
-          loadImage: _loadTileImage,
-        );
-        map = TilemapLoadingOverlay(
-          style: _loadingStyle,
-          progress: _loadingCoordinator.initialProgress,
-          visualMode: _visualMode,
-          backgroundKey: const ValueKey<String>('tilemap-loading-background'),
-        );
-      } else {
-        final displayTilePixelSize =
-            tilemapBaseTileExtent *
-            _initialScale *
-            MediaQuery.devicePixelRatioOf(context);
-        _scheduleSilentDrillDownPreload(
-          config,
-          displayTilePixelSize: displayTilePixelSize,
-        );
-        map = _buildRenderer(config);
-      }
+      return _TilemapError(visualMode: _visualMode, onRetry: _retry);
     }
+
+    final config = _currentConfig;
+    final showInitialLoading =
+        !_loadingCoordinator.initialEntryCompleted &&
+        _loadingStyle != TilemapLoadingStyle.disabled;
+    final environmentKey = _prerenderEnvironmentKey(context);
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    _syncPrerenderEnvironment(
+      environmentKey: environmentKey,
+      viewportSize: viewportSize,
+      devicePixelRatio: devicePixelRatio,
+    );
+    final activeMapId = config?.id ?? _transitionFromConfig?.id;
+    _prerenderController.configure(
+      environmentKey: environmentKey,
+      viewportSize: viewportSize,
+      devicePixelRatio: devicePixelRatio,
+      activeMapId: activeMapId,
+    );
+
+    if (config != null && showInitialLoading) {
+      final displayTilePixelSize =
+          tilemapBaseTileExtent *
+          _initialScale *
+          MediaQuery.devicePixelRatioOf(context);
+      _loadingCoordinator.ensureInitialMapReady(
+        config: config,
+        plan: TilemapImageLoadPlan.forConfig(
+          config: config,
+          displayTilePixelSize: displayTilePixelSize,
+        ),
+        loadImage: _loadTileImage,
+      );
+    }
+
+    final liveReady = config != null && _liveViewportReadyMapId == config.id;
+    final children = <Widget>[];
+    final candidate = _buildPrerenderCandidate();
+    if (candidate != null) children.add(candidate);
+    if (config != null && !showInitialLoading) {
+      children.add(
+        _buildLiveRendererSurface(
+          config,
+          interactive: liveReady,
+          reportViewportReady: !liveReady,
+        ),
+      );
+    }
+    if (config == null || showInitialLoading || !liveReady) {
+      children.add(
+        _buildTransitionCover(
+          config: config,
+          showInitialLoading:
+              !_hasRevealedInitialMap &&
+              !_loadingCoordinator.initialEntrySkipped &&
+              _loadingStyle != TilemapLoadingStyle.disabled,
+        ),
+      );
+    }
+
+    if (liveReady) {
+      final displayTilePixelSize =
+          tilemapBaseTileExtent *
+          _initialScale *
+          MediaQuery.devicePixelRatioOf(context);
+      _scheduleSilentDrillDownPreload(
+        config,
+        displayTilePixelSize: displayTilePixelSize,
+      );
+    }
+    return Stack(fit: StackFit.expand, children: children);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settingsButtonTop =
         widget.visualModeToggleTop ?? MediaQuery.paddingOf(context).top + 6;
     final settingsPanelMaxHeight =
@@ -877,80 +1206,97 @@ class _TilemapState extends State<Tilemap> {
         tilemapSettingsButtonVisibility.value &&
         _settingsReady;
     final showSettings = showSettingsButton && _showSettings;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        map,
-        if (_locationTrail.isNotEmpty)
-          Positioned(
-            left: 12,
-            top: widget.drillExitTop,
-            child: _TilemapExitLocationButton(onPressed: _exitLocation),
-          ),
-        if (showSettings)
-          Positioned.fill(
-            child: GestureDetector(
-              key: const ValueKey<String>('tilemap-settings-dismiss'),
-              behavior: HitTestBehavior.opaque,
-              onTap: _closeSettings,
-            ),
-          ),
-        if (showSettings)
-          Positioned(
-            left: 0,
-            right: 0,
-            top: settingsButtonTop + 46,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: settingsPanelMaxHeight),
-              child: _TilemapSettingsPanel(
-                visualMode: _visualMode,
-                loadingStyle: _loadingStyle,
-                fogControlPoints: _fogControlPoints,
-                blendFogWithShadowTiles: _blendFogWithShadowTiles,
-                showShadowZeroBorders: _showShadowZeroBorders,
-                showLocationImageFlow: _showLocationImageFlow,
-                locationImageFlowAngleDegrees: _locationImageFlowAngleDegrees,
-                locationImageFlowGradientPoints:
-                    _locationImageFlowGradientPoints,
-                locationImageFlowOpacity: _locationImageFlowOpacity,
-                locationImageFlowDurationSeconds:
-                    _locationImageFlowDurationSeconds,
-                locationImageFlowBlendMode: _locationImageFlowBlendMode,
-                initialScale: _initialScale,
-                dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
-                onVisualModeChanged: _setVisualMode,
-                onLoadingStyleChanged: _setLoadingStyle,
-                onFogControlPointsChanged: _setFogControlPoints,
-                onBlendFogWithShadowTilesChanged: _setBlendFogWithShadowTiles,
-                onShowShadowZeroBordersChanged: _setShowShadowZeroBorders,
-                onShowLocationImageFlowChanged: _setShowLocationImageFlow,
-                onLocationImageFlowAngleDegreesChanged:
-                    _setLocationImageFlowAngleDegrees,
-                onLocationImageFlowGradientPointsChanged:
-                    _setLocationImageFlowGradientPoints,
-                onLocationImageFlowOpacityChanged: _setLocationImageFlowOpacity,
-                onLocationImageFlowDurationSecondsChanged:
-                    _setLocationImageFlowDurationSeconds,
-                onLocationImageFlowBlendModeChanged:
-                    _setLocationImageFlowBlendMode,
-                onInitialScaleChanged: _setInitialScale,
-                onDragBoundaryPaddingTilesChanged: _setDragBoundaryPaddingTiles,
-                onCopySettings: _copySettingsToClipboard,
-                onResetSettings: _resetSettings,
-                onClose: _closeSettings,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaSize = MediaQuery.sizeOf(context);
+        final viewportSize = Size(
+          constraints.hasBoundedWidth ? constraints.maxWidth : mediaSize.width,
+          constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : mediaSize.height,
+        );
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildMapViewport(context, viewportSize),
+            if (_locationTrail.isNotEmpty)
+              Positioned(
+                left: 12,
+                top: widget.drillExitTop,
+                child: _TilemapExitLocationButton(onPressed: _exitLocation),
               ),
-            ),
-          ),
-        if (showSettingsButton)
-          Positioned(
-            right: widget.visualModeToggleRight,
-            top: settingsButtonTop,
-            child: _TilemapSettingsButton(
-              isOpen: showSettings,
-              onPressed: _toggleSettings,
-            ),
-          ),
-      ],
+            if (showSettings)
+              Positioned.fill(
+                child: GestureDetector(
+                  key: const ValueKey<String>('tilemap-settings-dismiss'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _closeSettings,
+                ),
+              ),
+            if (showSettings)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: settingsButtonTop + 46,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: settingsPanelMaxHeight,
+                  ),
+                  child: _TilemapSettingsPanel(
+                    visualMode: _visualMode,
+                    loadingStyle: _loadingStyle,
+                    fogControlPoints: _fogControlPoints,
+                    blendFogWithShadowTiles: _blendFogWithShadowTiles,
+                    showShadowZeroBorders: _showShadowZeroBorders,
+                    showLocationImageFlow: _showLocationImageFlow,
+                    locationImageFlowAngleDegrees:
+                        _locationImageFlowAngleDegrees,
+                    locationImageFlowGradientPoints:
+                        _locationImageFlowGradientPoints,
+                    locationImageFlowOpacity: _locationImageFlowOpacity,
+                    locationImageFlowDurationSeconds:
+                        _locationImageFlowDurationSeconds,
+                    locationImageFlowBlendMode: _locationImageFlowBlendMode,
+                    initialScale: _initialScale,
+                    dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
+                    onVisualModeChanged: _setVisualMode,
+                    onLoadingStyleChanged: _setLoadingStyle,
+                    onFogControlPointsChanged: _setFogControlPoints,
+                    onBlendFogWithShadowTilesChanged:
+                        _setBlendFogWithShadowTiles,
+                    onShowShadowZeroBordersChanged: _setShowShadowZeroBorders,
+                    onShowLocationImageFlowChanged: _setShowLocationImageFlow,
+                    onLocationImageFlowAngleDegreesChanged:
+                        _setLocationImageFlowAngleDegrees,
+                    onLocationImageFlowGradientPointsChanged:
+                        _setLocationImageFlowGradientPoints,
+                    onLocationImageFlowOpacityChanged:
+                        _setLocationImageFlowOpacity,
+                    onLocationImageFlowDurationSecondsChanged:
+                        _setLocationImageFlowDurationSeconds,
+                    onLocationImageFlowBlendModeChanged:
+                        _setLocationImageFlowBlendMode,
+                    onInitialScaleChanged: _setInitialScale,
+                    onDragBoundaryPaddingTilesChanged:
+                        _setDragBoundaryPaddingTiles,
+                    onCopySettings: _copySettingsToClipboard,
+                    onResetSettings: _resetSettings,
+                    onClose: _closeSettings,
+                  ),
+                ),
+              ),
+            if (showSettingsButton)
+              Positioned(
+                right: widget.visualModeToggleRight,
+                top: settingsButtonTop,
+                child: _TilemapSettingsButton(
+                  isOpen: showSettings,
+                  onPressed: _toggleSettings,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -11,6 +11,8 @@ class TilemapRenderer extends StatefulWidget {
     this.messageBubblePlaybackPaused = false,
     this.onMapTap,
     this.onImageError,
+    this.onViewportReady,
+    this.waitForVisibleTileImageFrames = true,
     this.visualMode = tilemapDefaultVisualMode,
     this.fogControlPoints = tilemapDefaultFogControlPoints,
     this.blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles,
@@ -36,6 +38,8 @@ class TilemapRenderer extends StatefulWidget {
   final bool messageBubblePlaybackPaused;
   final VoidCallback? onMapTap;
   final ValueChanged<Object>? onImageError;
+  final VoidCallback? onViewportReady;
+  final bool waitForVisibleTileImageFrames;
   final TilemapVisualMode visualMode;
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
@@ -87,6 +91,18 @@ class _TilemapRendererState extends State<TilemapRenderer>
   bool _hasUserTransformedMap = false;
   bool _isRunningTileAction = false;
   String? _highlightedTileKey;
+  Set<String>? _initialViewportTileKeys;
+  final Set<String> _initialViewportFramedTileKeys = <String>{};
+  final List<VoidCallback> _notifiedViewportReadyCallbacks = <VoidCallback>[];
+  bool _viewportReadyCallbackScheduled = false;
+  bool _isViewportReady = false;
+  int _viewportReadyGeneration = 0;
+  bool _hasViewportReadinessEnvironment = false;
+  Size? _viewportReadinessSize;
+  double? _viewportReadinessDevicePixelRatio;
+  double? _viewportReadinessInitialScale;
+  Offset? _viewportReadinessInitialFocus;
+  Rect? _viewportReadinessDragBoundary;
 
   @override
   void initState() {
@@ -117,6 +133,12 @@ class _TilemapRendererState extends State<TilemapRenderer>
   @override
   void didUpdateWidget(covariant TilemapRenderer oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.config, widget.config)) {
+      _resetViewportReadiness();
+    } else if (!identical(oldWidget.onViewportReady, widget.onViewportReady) &&
+        _isViewportReady) {
+      _scheduleViewportReadyCallback();
+    }
     if (oldWidget.showLocationImageFlow != widget.showLocationImageFlow) {
       _syncLocationImageFlowAnimation();
     }
@@ -210,6 +232,13 @@ class _TilemapRendererState extends State<TilemapRenderer>
             tiles: widget.config.tiles,
             paddingTiles: widget.dragBoundaryPaddingTiles,
           );
+          _syncViewportReadinessEnvironment(
+            viewportSize: viewportSize,
+            devicePixelRatio: devicePixelRatio,
+            initialScale: widget.initialScale,
+            initialFocus: initialFocus,
+            dragBoundary: dragBoundary,
+          );
           _syncInitialTransform(
             viewportSize: viewportSize,
             mapSize: mapSize,
@@ -268,6 +297,10 @@ class _TilemapRendererState extends State<TilemapRenderer>
                           );
                           final records = _resolveRetainedRecords(
                             renderIndex: renderIndex,
+                            visibleSceneBounds: visibleSceneBounds,
+                          );
+                          _captureInitialViewportTiles(
+                            records: records,
                             visibleSceneBounds: visibleSceneBounds,
                           );
                           final tiles = _retainedTiles;
@@ -467,6 +500,10 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                                       : null,
                                                   onImageError:
                                                       widget.onImageError,
+                                                  onImageFrame: () =>
+                                                      _handleTileImageFrame(
+                                                        record.tile.cellKey,
+                                                      ),
                                                 ),
                                               if (highlightedTile != null)
                                                 _ProjectedTileHighlight(
@@ -634,6 +671,108 @@ class _TilemapRendererState extends State<TilemapRenderer>
     _fogRenderTiles = null;
     _fogField = null;
     return index;
+  }
+
+  void _resetViewportReadiness() {
+    _viewportReadyGeneration += 1;
+    _initialViewportTileKeys = null;
+    _initialViewportFramedTileKeys.clear();
+    _notifiedViewportReadyCallbacks.clear();
+    _viewportReadyCallbackScheduled = false;
+    _isViewportReady = false;
+  }
+
+  void _syncViewportReadinessEnvironment({
+    required Size viewportSize,
+    required double devicePixelRatio,
+    required double initialScale,
+    required Offset? initialFocus,
+    required Rect? dragBoundary,
+  }) {
+    final environmentChanged =
+        _hasViewportReadinessEnvironment &&
+        (_viewportReadinessSize != viewportSize ||
+            _viewportReadinessDevicePixelRatio != devicePixelRatio ||
+            _viewportReadinessInitialScale != initialScale ||
+            _viewportReadinessInitialFocus != initialFocus ||
+            _viewportReadinessDragBoundary != dragBoundary);
+    _hasViewportReadinessEnvironment = true;
+    _viewportReadinessSize = viewportSize;
+    _viewportReadinessDevicePixelRatio = devicePixelRatio;
+    _viewportReadinessInitialScale = initialScale;
+    _viewportReadinessInitialFocus = initialFocus;
+    _viewportReadinessDragBoundary = dragBoundary;
+    if (environmentChanged) _resetViewportReadiness();
+  }
+
+  void _captureInitialViewportTiles({
+    required List<_TilemapRenderRecord> records,
+    required Rect visibleSceneBounds,
+  }) {
+    if (_initialViewportTileKeys != null) {
+      if (!widget.waitForVisibleTileImageFrames) {
+        _scheduleViewportReadyCallback();
+      }
+      return;
+    }
+
+    _initialViewportTileKeys = <String>{
+      for (final record in records)
+        if (_rectsOverlapWithVisibleArea(
+          record.imageBounds,
+          visibleSceneBounds,
+        ))
+          record.tile.cellKey,
+    };
+    if (!widget.waitForVisibleTileImageFrames ||
+        _initialViewportTileKeys!.isEmpty) {
+      _scheduleViewportReadyCallback();
+    }
+  }
+
+  bool _rectsOverlapWithVisibleArea(Rect first, Rect second) {
+    final intersection = first.intersect(second);
+    return intersection.width > 0 && intersection.height > 0;
+  }
+
+  void _handleTileImageFrame(String tileKey) {
+    if (_isViewportReady || !widget.waitForVisibleTileImageFrames) {
+      return;
+    }
+    final initialTileKeys = _initialViewportTileKeys;
+    if (initialTileKeys == null || !initialTileKeys.contains(tileKey)) return;
+    if (!_initialViewportFramedTileKeys.add(tileKey)) return;
+    if (_initialViewportFramedTileKeys.containsAll(initialTileKeys)) {
+      _scheduleViewportReadyCallback();
+    }
+  }
+
+  void _scheduleViewportReadyCallback() {
+    if (_viewportReadyCallbackScheduled) return;
+    _viewportReadyCallbackScheduled = true;
+    final generation = _viewportReadyGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _viewportReadyGeneration) return;
+      _viewportReadyCallbackScheduled = false;
+      final initialTileKeys = _initialViewportTileKeys;
+      if (initialTileKeys == null) return;
+      if (!_isViewportReady &&
+          widget.waitForVisibleTileImageFrames &&
+          initialTileKeys.isNotEmpty &&
+          !_initialViewportFramedTileKeys.containsAll(initialTileKeys)) {
+        return;
+      }
+      _isViewportReady = true;
+      final callback = widget.onViewportReady;
+      if (callback == null ||
+          _notifiedViewportReadyCallbacks.any(
+            (notifiedCallback) => identical(notifiedCallback, callback),
+          )) {
+        return;
+      }
+      _notifiedViewportReadyCallbacks.add(callback);
+      callback();
+    });
   }
 
   List<_TilemapRenderRecord> _resolveRetainedRecords({

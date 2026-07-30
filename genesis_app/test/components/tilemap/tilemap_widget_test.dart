@@ -18,6 +18,15 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+Finder _liveTilemapRendererFinder() {
+  return find.byWidgetPredicate((widget) {
+    if (widget is! TilemapRenderer) return false;
+    final key = widget.key;
+    return key is ValueKey<String> &&
+        key.value.startsWith('tilemap-live-renderer-');
+  }, description: 'live TilemapRenderer');
+}
+
 void main() {
   setUp(() {
     FirebasePerformanceMonitoring.resetForTesting();
@@ -262,7 +271,7 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
         findsNothing,
       );
-      expect(find.byType(TilemapRenderer), findsOneWidget);
+      expect(_liveTilemapRendererFinder(), findsOneWidget);
     },
   );
 
@@ -295,7 +304,8 @@ void main() {
     await tester.pump();
 
     expect(pendingLoads, hasLength(2));
-    expect(find.byType(TilemapRenderer), findsNothing);
+    expect(_liveTilemapRendererFinder(), findsNothing);
+    expect(find.text('BUILDING THE WORLD'), findsOneWidget);
     expect(
       tester
           .widget<LinearProgressIndicator>(
@@ -328,7 +338,7 @@ void main() {
           .data,
       '67%',
     );
-    expect(find.byType(TilemapRenderer), findsNothing);
+    expect(_liveTilemapRendererFinder(), findsNothing);
 
     pendingLoads.entries
         .singleWhere((entry) => entry.key.contains('/b.png?'))
@@ -473,7 +483,7 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
         findsOneWidget,
       );
-      expect(find.byType(TilemapRenderer), findsNothing);
+      expect(_liveTilemapRendererFinder(), findsNothing);
 
       defaultScaleLoad.value.complete();
       await tester.pump();
@@ -483,7 +493,7 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
         findsNothing,
       );
-      expect(find.byType(TilemapRenderer), findsOneWidget);
+      expect(_liveTilemapRendererFinder(), findsOneWidget);
     },
   );
 
@@ -749,9 +759,10 @@ void main() {
       transport.complete(_locationTilemapData('leaf', shadow: 1));
       await tester.pump();
       await tester.pump();
+      await tester.pump();
 
       final renderer = tester.widget<TilemapRenderer>(
-        find.byType(TilemapRenderer),
+        _liveTilemapRendererFinder(),
       );
       expect(renderer.visualMode, TilemapVisualMode.light);
       expect(renderer.fogControlPoints[1].opacity, 0.4);
@@ -802,7 +813,7 @@ void main() {
       );
       expect(
         tester
-            .widget<TilemapRenderer>(find.byType(TilemapRenderer))
+            .widget<TilemapRenderer>(_liveTilemapRendererFinder())
             .config
             .tiles
             .single
@@ -819,6 +830,141 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
     },
   );
+
+  testWidgets('Tilemap gates a resized viewport until its next paint', (
+    tester,
+  ) async {
+    final viewportSize = ValueNotifier<Size>(const Size(320, 480));
+    addTearDown(viewportSize.dispose);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(
+          _TilemapTransport(data: _locationTilemapData('leaf')),
+        ),
+        child: MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: ValueListenableBuilder<Size>(
+                valueListenable: viewportSize,
+                builder: (context, size, _) {
+                  return SizedBox(
+                    width: size.width,
+                    height: size.height,
+                    child: const Tilemap.origin(
+                      key: ValueKey<String>('resized-tilemap'),
+                      originId: 'o_1',
+                      tileImageLoader: _completeTileImageLoad,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-transition-background')),
+      findsNothing,
+    );
+
+    viewportSize.value = const Size(640, 480);
+    await tester.pump();
+
+    expect(_liveTilemapRendererFinder(), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-transition-background')),
+      findsOneWidget,
+    );
+
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-transition-background')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('Tilemap renders again after returning from location chat', (
+    tester,
+  ) async {
+    final locationChatOpen = ValueNotifier<bool>(false);
+    addTearDown(locationChatOpen.dispose);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(
+          _TilemapTransport(data: _locationTilemapData('leaf')),
+        ),
+        child: MaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<bool>(
+              valueListenable: locationChatOpen,
+              builder: (context, chatOpen, _) {
+                return Tilemap.origin(
+                  key: const ValueKey<String>('location-chat-tilemap'),
+                  originId: 'o_1',
+                  messageBubbles: chatOpen
+                      ? const <WorldMapMessageBubble>[]
+                      : const <WorldMapMessageBubble>[
+                          WorldMapMessageBubble(
+                            characterId: 'char-a',
+                            content: 'Visible before opening chat.',
+                          ),
+                        ],
+                  messageBubblePlaybackPaused: chatOpen,
+                  tileImageLoader: _completeTileImageLoad,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-transition-background')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey<String>('tilemap-grid')), findsOneWidget);
+
+    locationChatOpen.value = true;
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-transition-background')),
+      findsOneWidget,
+    );
+
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-transition-background')),
+      findsNothing,
+    );
+
+    locationChatOpen.value = false;
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-transition-background')),
+      findsOneWidget,
+    );
+
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-transition-background')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey<String>('tilemap-grid')), findsOneWidget);
+  });
 
   testWidgets('Tilemap restores cached settings before creating its renderer', (
     tester,
@@ -884,7 +1030,7 @@ void main() {
     await tester.pump();
 
     final renderer = tester.widget<TilemapRenderer>(
-      find.byType(TilemapRenderer),
+      _liveTilemapRendererFinder(),
     );
     expect(renderer.visualMode, TilemapVisualMode.light);
     expect(renderer.fogControlPoints, cachedSettings.fogControlPoints);
@@ -1249,7 +1395,7 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
         findsOneWidget,
       );
-      expect(find.byType(TilemapRenderer), findsNothing);
+      expect(_liveTilemapRendererFinder(), findsNothing);
       pendingImages.entries
           .singleWhere((entry) => entry.key.contains('/root.png?'))
           .value
@@ -1280,10 +1426,11 @@ void main() {
       );
 
       final rootRenderer = tester.widget<TilemapRenderer>(
-        find.byType(TilemapRenderer),
+        _liveTilemapRendererFinder(),
       );
       expect(rootRenderer.config.id, 'world:w_1:root');
       await rootRenderer.onTileAction!(rootRenderer.config.tiles.first);
+      await tester.pump();
       await tester.pump();
 
       expect(
@@ -1291,7 +1438,7 @@ void main() {
         findsNothing,
       );
       expect(
-        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
         'world:w_1:branch_a',
       );
       expect(
@@ -1303,13 +1450,14 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-exit-location')),
       );
       await tester.pump();
+      await tester.pump();
 
       expect(
         find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
         findsNothing,
       );
       expect(
-        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
         'world:w_1:root',
       );
       expect(transport.requestCount('root'), 1);
@@ -1361,7 +1509,7 @@ void main() {
 
       expect(transport.requestCount('branch'), 1);
       final rootRenderer = tester.widget<TilemapRenderer>(
-        find.byType(TilemapRenderer),
+        _liveTilemapRendererFinder(),
       );
       await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
       await tester.pump();
@@ -1371,10 +1519,14 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
         findsNothing,
       );
-      expect(find.byType(TilemapRenderer), findsNothing);
+      expect(_liveTilemapRendererFinder(), findsOneWidget);
+      expect(
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
+        'world:w_1:root',
+      );
       expect(
         find.byKey(const ValueKey<String>('tilemap-loading-background')),
-        findsOneWidget,
+        findsNothing,
       );
 
       await tester.tap(
@@ -1382,7 +1534,7 @@ void main() {
       );
       await tester.pump();
       expect(
-        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
         'world:w_1:root',
       );
 
@@ -1392,9 +1544,10 @@ void main() {
       await tester.pump();
       await tester.pump();
       await tester.pump();
+      await tester.pump();
 
       expect(
-        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
         'world:w_1:root',
       );
       expect(
@@ -1403,16 +1556,17 @@ void main() {
       );
 
       final cachedRootRenderer = tester.widget<TilemapRenderer>(
-        find.byType(TilemapRenderer),
+        _liveTilemapRendererFinder(),
       );
       await cachedRootRenderer.onTileAction!(
         cachedRootRenderer.config.tiles.single,
       );
       await tester.pump();
+      await tester.pump();
 
       expect(transport.requestCount('branch'), 1);
       expect(
-        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
         'world:w_1:branch',
       );
       expect(
@@ -1464,10 +1618,10 @@ void main() {
 
     expect(transport.requestCount('branch'), 1);
     expect(find.byKey(const ValueKey<String>('tilemap-error')), findsNothing);
-    expect(find.byType(TilemapRenderer), findsOneWidget);
+    expect(_liveTilemapRendererFinder(), findsOneWidget);
 
     final rootRenderer = tester.widget<TilemapRenderer>(
-      find.byType(TilemapRenderer),
+      _liveTilemapRendererFinder(),
     );
     await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
     await tester.pump();
@@ -1475,7 +1629,7 @@ void main() {
 
     expect(transport.requestCount('branch'), 2);
     expect(
-      tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+      tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
       'origin:o_1:branch',
     );
     expect(find.byKey(const ValueKey<String>('tilemap-error')), findsNothing);
@@ -1524,14 +1678,15 @@ void main() {
 
     expect(find.byKey(const ValueKey<String>('tilemap-error')), findsNothing);
     expect(
-      tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+      tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
       'world:w_1:root',
     );
 
     final rootRenderer = tester.widget<TilemapRenderer>(
-      find.byType(TilemapRenderer),
+      _liveTilemapRendererFinder(),
     );
     await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+    await tester.pump();
     await tester.pump();
 
     expect(find.byKey(const ValueKey<String>('tilemap-error')), findsNothing);
@@ -1540,7 +1695,7 @@ void main() {
       findsNothing,
     );
     expect(
-      tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+      tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
       'world:w_1:branch',
     );
   });
@@ -1620,6 +1775,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pump();
 
     expect(find.text('leaf'), findsOneWidget);
     final avatarFinder = find.byKey(
@@ -1661,6 +1817,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pump();
 
     await tester.tap(find.text('leaf'));
     await tester.pump();
@@ -1699,9 +1856,10 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pump();
 
     final renderer = tester.widget<TilemapRenderer>(
-      find.byType(TilemapRenderer),
+      _liveTilemapRendererFinder(),
     );
     await renderer.onTileAction!(renderer.config.tiles.single);
 
@@ -1746,6 +1904,7 @@ void main() {
         ),
       ),
     );
+    await tester.pump();
     await tester.pump();
     await tester.pump();
 

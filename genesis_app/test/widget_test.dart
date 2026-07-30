@@ -5832,6 +5832,9 @@ void main() {
   testWidgets('Origin detail launch bar launches a world', (
     WidgetTester tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(360, 780);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -6237,6 +6240,11 @@ void main() {
     expect(launchBody['origin_id'], 'o_test_1');
     expect(launchBody.containsKey('oid'), isFalse);
     expect(launchBody['preset_character_id'], 'c_o_test_1');
+    final launchActions = telemetry.events.map((event) => event.name).toList();
+    expect(launchActions, contains('worldo_launch_sheet'));
+    expect(launchActions, isNot(contains('worldo_launch_opening')));
+    expect(launchActions, isNot(contains('worldo_launch_submit_start')));
+    expect(launchActions, contains('worldo_launch_submit_success'));
     expect(
       _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
       findsOneWidget,
@@ -6392,6 +6400,9 @@ void main() {
   testWidgets(
     'Origin preset role direct launch keeps initial dialogue location',
     (WidgetTester tester) async {
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      addTearDown(GenesisTelemetry.resetForTesting);
       final chatroom = _FakeChatroomClient();
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'approved',
@@ -6441,6 +6452,13 @@ void main() {
       tester.widget<InkWell>(directLaunch).onTap!();
       await tester.pumpAndSettle();
 
+      final launchActions = telemetry.events
+          .map((event) => event.name)
+          .toList();
+      expect(launchActions, contains('worldo_launch_opening'));
+      expect(launchActions, isNot(contains('worldo_launch_sheet')));
+      expect(launchActions, isNot(contains('worldo_launch_submit_start')));
+      expect(launchActions, contains('worldo_launch_submit_success'));
       expect(
         _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
         findsOneWidget,

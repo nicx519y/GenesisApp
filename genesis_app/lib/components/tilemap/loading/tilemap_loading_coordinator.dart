@@ -17,15 +17,19 @@ typedef TilemapPreloadImage = Future<void> Function(String assetUrl);
 /// is revealed, [initialEntryCompleted] remains true while the user drills down
 /// or returns through that Tilemap's location trail.
 class TilemapLoadingCoordinator {
-  TilemapLoadingCoordinator({required VoidCallback onChanged})
-    : _onChanged = onChanged;
+  TilemapLoadingCoordinator({
+    required VoidCallback onChanged,
+    this.onSilentMapReady,
+  }) : _onChanged = onChanged;
 
   final VoidCallback _onChanged;
+  final ValueChanged<TilemapConfig>? onSilentMapReady;
 
   bool _disposed = false;
   int _sessionGeneration = 0;
   int _initialLoadGeneration = 0;
   bool _initialEntryCompleted = false;
+  bool _initialEntrySkipped = false;
   String? _desiredInitialLoadKey;
   String? _scheduledInitialLoadKey;
   String? _activeInitialLoadKey;
@@ -37,6 +41,7 @@ class TilemapLoadingCoordinator {
   final Set<String> _scheduledSilentLoadKeys = <String>{};
 
   bool get initialEntryCompleted => _initialEntryCompleted;
+  bool get initialEntrySkipped => _initialEntrySkipped;
   Object? get initialLoadError => _initialLoadError;
 
   double get initialProgress => tilemapImageLoadProgress(
@@ -45,9 +50,10 @@ class TilemapLoadingCoordinator {
   );
 
   void completeInitialEntryWithoutOverlay() {
-    if (_disposed || _initialEntryCompleted) return;
+    if (_disposed || _initialEntrySkipped) return;
     _initialLoadGeneration += 1;
     _initialEntryCompleted = true;
+    _initialEntrySkipped = true;
     _initialLoadError = null;
     _clearInitialLoadState();
   }
@@ -80,6 +86,7 @@ class TilemapLoadingCoordinator {
     _sessionGeneration += 1;
     _initialLoadGeneration += 1;
     _initialEntryCompleted = false;
+    _initialEntrySkipped = false;
     _initialLoadError = null;
     _clearInitialLoadState();
     _imageRequests.clear();
@@ -162,7 +169,6 @@ class TilemapLoadingCoordinator {
         unawaited(
           _preloadLocation(
             locationId: locationId,
-            silentLoadKey: silentLoadKey,
             displayTilePixelSize: displayTilePixelSize,
             loadMap: loadMap,
             loadImage: loadImage,
@@ -238,19 +244,18 @@ class TilemapLoadingCoordinator {
 
     _loadedInitialTileCount = _totalInitialTileCount;
     _initialEntryCompleted = true;
+    _initialEntrySkipped = false;
     _activeInitialLoadKey = null;
     _notifyChanged();
   }
 
   Future<void> _preloadLocation({
     required String locationId,
-    required String silentLoadKey,
     required double displayTilePixelSize,
     required TilemapSilentMapLoader loadMap,
     required TilemapPreloadImage loadImage,
     required int sessionGeneration,
   }) async {
-    var succeeded = false;
     try {
       final config = await loadMap(locationId);
       if (config == null || !_isSessionCurrent(sessionGeneration)) return;
@@ -263,14 +268,12 @@ class TilemapLoadingCoordinator {
         for (final assetUrl in plan.tileCountByAsset.keys)
           _loadImageOnce(assetUrl, loadImage),
       ]);
-      succeeded = _isSessionCurrent(sessionGeneration);
+      if (_isSessionCurrent(sessionGeneration)) {
+        onSilentMapReady?.call(config);
+      }
     } catch (_) {
       // Silent preloading is an optimization. Interactive navigation remains
       // responsible for presenting any real map or image failure.
-    } finally {
-      if (!succeeded && _isSessionCurrent(sessionGeneration)) {
-        _scheduledSilentLoadKeys.remove(silentLoadKey);
-      }
     }
   }
 

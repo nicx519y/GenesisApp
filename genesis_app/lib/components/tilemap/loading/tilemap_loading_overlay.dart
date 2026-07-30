@@ -198,7 +198,7 @@ class _TilemapLoadingStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final percent = (progress * 100).round();
     return Semantics(
-      label: '正在构建世界',
+      label: 'Building the world',
       value: '$percent%',
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -209,7 +209,7 @@ class _TilemapLoadingStatus extends StatelessWidget {
           ),
           SizedBox(height: compact ? 6 : 10),
           Text(
-            '正在构建世界',
+            'BUILDING THE WORLD',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: palette.foreground,

@@ -416,6 +416,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       object1: origin.oid,
       object2: characterId,
     );
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_launch_opening',
+      object1: origin.oid,
+    );
     await _launchOrigin(
       origin,
       OriginRoleLaunchSelection.preset(characterId),
@@ -443,6 +448,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           _launchedPresetRolesFuture ??= _loadLaunchedPresetRoles(origin),
     );
     if (!mounted || selection == null) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_launch_sheet',
+      object1: origin.oid,
+    );
     await _launchOrigin(
       origin,
       selection,

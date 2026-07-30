@@ -17,6 +17,7 @@ class _ProjectedTile extends StatelessWidget {
     this.locationImageFlowBlendMode = tilemapDefaultLocationImageFlowBlendMode,
     this.fogField,
     this.onImageError,
+    this.onImageFrame,
   });
 
   final TilemapCell tile;
@@ -32,6 +33,7 @@ class _ProjectedTile extends StatelessWidget {
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
   final TilemapFogField? fogField;
   final ValueChanged<Object>? onImageError;
+  final VoidCallback? onImageFrame;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +43,10 @@ class _ProjectedTile extends StatelessWidget {
       gaplessPlayback: true,
       filterQuality: FilterQuality.none,
       semanticLabel: '${tile.type} ${tile.x},${tile.y}',
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (frame != null) onImageFrame?.call();
+        return child;
+      },
       errorBuilder: (context, error, stackTrace) {
         onImageError?.call(error);
         return const SizedBox.shrink();
