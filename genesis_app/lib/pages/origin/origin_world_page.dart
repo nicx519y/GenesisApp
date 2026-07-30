@@ -121,6 +121,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   _launchedPresetRolesPreparationFuture;
   String _launchedPresetRolesCacheKey = '';
   bool _launching = false;
+  bool _preserveStatusBarDuringWorldHandoff = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
   _OriginLocationChatDescriptor? _activeChatLocation;
@@ -175,7 +176,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   @override
   void dispose() {
-    GenesisSystemUiChrome.applyDefault();
+    if (!_preserveStatusBarDuringWorldHandoff) {
+      GenesisSystemUiChrome.applyDefault();
+    }
     _tabController.dispose();
     super.dispose();
   }
@@ -394,6 +397,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   void _enterLaunchedWorld(String worldId, {String initialLocationId = ''}) {
     final navigator = Navigator.of(context);
+    _preserveStatusBarDuringWorldHandoff = true;
+    SystemChrome.setSystemUIOverlayStyle(_transparentStatusBarStyle);
     openWorldFromMyWorldsRoot(
       navigator,
       arguments: {

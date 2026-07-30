@@ -11,11 +11,13 @@ void main() {
   ) async {
     worldDeletionEvents.value = null;
     final navigatorKey = GlobalKey<NavigatorState>();
+    final navigatorObserver = _RecordingNavigatorObserver();
     var homeBuildCount = 0;
 
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: navigatorKey,
+        navigatorObservers: [navigatorObserver],
         onGenerateRoute: (settings) {
           if (settings.name == RouteNames.home) {
             return MaterialPageRoute<void>(
@@ -65,6 +67,13 @@ void main() {
     );
 
     await tester.tap(find.text('Open world'));
+    await tester.idle();
+    expect(
+      navigatorObserver.pushedRouteNames.sublist(
+        navigatorObserver.pushedRouteNames.length - 2,
+      ),
+      [RouteNames.home, RouteNames.world],
+    );
     await tester.pumpAndSettle();
     expect(find.text('Delete world'), findsOneWidget);
     expect(homeBuildCount, 1);
@@ -76,4 +85,14 @@ void main() {
     expect(homeBuildCount, 1);
     worldDeletionEvents.value = null;
   });
+}
+
+class _RecordingNavigatorObserver extends NavigatorObserver {
+  final List<String?> pushedRouteNames = <String?>[];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushedRouteNames.add(route.settings.name);
+    super.didPush(route, previousRoute);
+  }
 }
