@@ -188,6 +188,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   double _devicePixelRatio = 1;
   bool _ownsService = false;
   bool _joinedLocation = false;
+  bool _joiningLocation = false;
   bool _sending = false;
   bool _handlingUnauthorizedFailure = false;
   bool _awaitingAiResponse = false;

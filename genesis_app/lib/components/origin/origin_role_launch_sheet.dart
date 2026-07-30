@@ -80,6 +80,7 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
   required BuildContext context,
   required List<OriginCharacter> characters,
   bool initialCustomTab = false,
+  bool initialLaunchedTab = false,
   OriginRoleProfileLoader? onFillFromProfile,
   OriginRoleAvatarResolver? resolveAvatarUrl,
   OriginLaunchedPresetRolesLoader? launchedPresetRolesLoader,
@@ -103,6 +104,7 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
               body: OriginRoleLaunchSheet(
                 characters: characters,
                 initialCustomTab: initialCustomTab,
+                initialLaunchedTab: initialLaunchedTab,
                 onFillFromProfile: onFillFromProfile,
                 resolveAvatarUrl: resolveAvatarUrl,
                 launchedPresetRolesLoader: launchedPresetRolesLoader,
@@ -121,6 +123,7 @@ class OriginRoleLaunchSheet extends StatefulWidget {
     super.key,
     required this.characters,
     this.initialCustomTab = false,
+    this.initialLaunchedTab = false,
     this.onFillFromProfile,
     this.resolveAvatarUrl,
     this.launchedPresetRolesLoader,
@@ -129,6 +132,7 @@ class OriginRoleLaunchSheet extends StatefulWidget {
 
   final List<OriginCharacter> characters;
   final bool initialCustomTab;
+  final bool initialLaunchedTab;
   final OriginRoleProfileLoader? onFillFromProfile;
   final OriginRoleAvatarResolver? resolveAvatarUrl;
   final OriginLaunchedPresetRolesLoader? launchedPresetRolesLoader;
@@ -153,7 +157,11 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialCustomTab) _tabIndex = 1;
+    if (widget.initialCustomTab) {
+      _tabIndex = 1;
+    } else if (widget.initialLaunchedTab) {
+      _tabIndex = 2;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);

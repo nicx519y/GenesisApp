@@ -98,6 +98,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       <String, Future<void>>{};
   String _activeChatLocationId = '';
   late String _pendingInitialLocationId;
+  late bool _initialLocationChatEntry;
+  late bool _locationChatTransitionsEnabled;
+  bool _tilemapDisplayReady = false;
+  Object? _tilemapDisplayError;
+  bool _coverTilemapAfterInitialChat = false;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _worldTickInProgress = false;
@@ -156,21 +161,99 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     setState(callback);
   }
 
+  Widget _buildWorldLocationChatHost() {
+    return WorldLocationChatRouterHost(
+      worldId: widget.wid,
+      chatroom: _worldChatroom,
+      cache: _locationChatPageCache,
+      onBack: _closeCachedLocationChat,
+      animateTransitions: _locationChatTransitionsEnabled,
+      isMessageQueueInitializationCovered: (locationId) {
+        final resolvedLocationId = locationId.trim();
+        return _preloadedLocationMessageIds.contains(resolvedLocationId) ||
+            _preloadingLocationMessageFutures.containsKey(resolvedLocationId);
+      },
+      onPanelReady: (locationId) {
+        final becameReady = _locationChatPageCache.markReady(locationId);
+        _recordWorldLocationChatDebug(
+          action: 'panelReady',
+          locationId: locationId,
+        );
+        if (mounted && becameReady) setState(() {});
+      },
+    );
+  }
+
+  Widget _buildInitialLocationChatPage() {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        unawaited(Navigator.of(context).maybePop());
+      },
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: _handleWorldMainSwipePointerDown,
+        onPointerUp: _handleWorldMainSwipePointerUp,
+        onPointerCancel: _handleWorldMainSwipePointerCancel,
+        child: Stack(
+          children: [
+            const Positioned.fill(
+              child: ColoredBox(color: kWorldMapLoadingBackgroundColor),
+            ),
+            Positioned.fill(
+              key: const ValueKey<String>('world-location-chat-host-layer'),
+              child: _buildWorldLocationChatHost(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _pendingInitialLocationId = widget.initialLocationId.trim();
+    _initialLocationChatEntry = _pendingInitialLocationId.isNotEmpty;
+    _locationChatTransitionsEnabled = !_initialLocationChatEntry;
     _mainTabController = TabController(length: worldMainPageCount, vsync: this);
     _mainTabController.addListener(_handleWorldMainTabChanged);
     _worldBottomSheetSelection.addListener(
       _handleWorldBottomSheetSelectionChanged,
     );
     _syncWorldStatusBarForMainTab();
+    if (_initialLocationChatEntry) {
+      final descriptor = WorldLocationChatPanelDescriptor(
+        locationId: _pendingInitialLocationId,
+        locationName: 'Location',
+        backgroundImageUrl: '',
+        backgroundPreviewImageUrl: '',
+        isLeafLocation: true,
+        localMessageLocationIds: <String>[_pendingInitialLocationId],
+        recentChatLocationPathIds: <String>[_pendingInitialLocationId],
+      );
+      _locationChatDescriptors = <String, WorldLocationChatPanelDescriptor>{
+        descriptor.locationId: descriptor,
+      };
+      _locationChatPageCache.syncDescriptors(_locationChatDescriptors);
+      _locationChatPageCache.activate(descriptor);
+      _locationChatPageCache.markReady(descriptor.locationId);
+      _activeChatLocationId = descriptor.locationId;
+      _startWorldChatroom();
+      WorldDetailsStatusBarOverride.setStyle(
+        kChatDarkHeaderSystemUiOverlayStyle,
+      );
+    }
     final initialWorld = widget.initialWorldDetail;
     if (initialWorld != null) {
       _world = initialWorld;
+      if (initialWorld.definitionVersion != 2) {
+        _tilemapDisplayReady = true;
+      }
       _sectionsWorldNotifier.value = initialWorld;
       _syncLocationChatDescriptors(initialWorld);
+      _worldChatroom?.applyWorldSnapshot(initialWorld);
       _syncWorldChatroomForRelationStatus(initialWorld.relationStatus);
       _maybeOpenInitialLocationChat();
       _maybeShowTick1WaitDialog();
@@ -236,6 +319,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final topPadding = GenesisSafeAreaInsets.top(context);
     final world = _world;
     if (world == null) {
+      if (_initialLocationChatEntry) {
+        return _buildInitialLocationChatPage();
+      }
       if (_initialLoadError != null) {
         return Scaffold(
           body: Center(
@@ -309,6 +395,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final recentMapLocationIds = _recentChatLocationPathIds;
     final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
+      final preparingInitialTilemap =
+          _initialLocationChatEntry && _activeChatLocationId.isNotEmpty;
       final Widget map = WorldMap.world(
         definitionVersion: world.definitionVersion,
         worldId: widget.wid,
@@ -317,10 +405,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           drillExitTop:
               topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
           messageBubbles:
-              _activeChatLocationId.isEmpty && _mapBubbleMessagesReady
+              (_activeChatLocationId.isEmpty || preparingInitialTilemap) &&
+                  _mapBubbleMessagesReady
               ? _mapMessageBubbles
               : const <WorldMapMessageBubble>[],
-          messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty,
+          messageBubblePlaybackPaused:
+              _activeChatLocationId.isNotEmpty && !preparingInitialTilemap,
           onDrillIntoLocation: _showMapTab,
           onMapTap: _recordWorldMapClick,
           onPointTap: _openChatForPoint,
@@ -354,9 +444,26 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           locationNodes: listLocationNodes,
           visualModeToggleTop: topPadding + 6,
           visualModeToggleRight: worldMapBackButtonLeft,
+          onMapTap: _recordWorldTilemapClick,
+          onDisplayReadinessChanged: _handleTilemapDisplayReadinessChanged,
+          onDisplayError: _handleTilemapDisplayError,
         ),
       );
-      return WorldKeepAlivePage(child: map);
+      return WorldKeepAlivePage(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            map,
+            if (_coverTilemapAfterInitialChat &&
+                !_tilemapDisplayReady &&
+                _tilemapDisplayError == null)
+              const ColoredBox(
+                key: ValueKey<String>('world-initial-tilemap-static-cover'),
+                color: kWorldMapLoadingBackgroundColor,
+              ),
+          ],
+        ),
+      );
     }
 
     final canShowWorldTickProgress =
@@ -433,31 +540,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               ),
             ),
             Positioned.fill(
-              child: WorldLocationChatRouterHost(
-                worldId: widget.wid,
-                chatroom: _worldChatroom,
-                cache: _locationChatPageCache,
-                onBack: _closeCachedLocationChat,
-                isMessageQueueInitializationCovered: (locationId) {
-                  final resolvedLocationId = locationId.trim();
-                  return _preloadedLocationMessageIds.contains(
-                        resolvedLocationId,
-                      ) ||
-                      _preloadingLocationMessageFutures.containsKey(
-                        resolvedLocationId,
-                      );
-                },
-                onPanelReady: (locationId) {
-                  final becameReady = _locationChatPageCache.markReady(
-                    locationId,
-                  );
-                  _recordWorldLocationChatDebug(
-                    action: 'panelReady',
-                    locationId: locationId,
-                  );
-                  if (mounted && becameReady) setState(() {});
-                },
-              ),
+              key: const ValueKey<String>('world-location-chat-host-layer'),
+              child: _buildWorldLocationChatHost(),
             ),
             if (canShowWorldTickProgress &&
                 _worldTickInProgress &&

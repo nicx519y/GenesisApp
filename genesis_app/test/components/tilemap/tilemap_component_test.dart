@@ -685,7 +685,7 @@ void main() {
       mapSize: const Size(200, 100),
       contentBounds: contentBounds,
     );
-    expect(tilemapTransformScale(transform), 20);
+    expect(tilemapTransformScale(transform), 16);
     expect(
       MatrixUtils.transformPoint(transform, contentBounds.center),
       viewportSize.center(Offset.zero) + const Offset(0, 20),
@@ -697,7 +697,7 @@ void main() {
     expect(tilemapResolvedInitialScale(1), tilemapInitialScaleMin);
     expect(tilemapResolvedInitialScale(40), tilemapInitialScaleMax);
     expect(tilemapResolvedInitialScale(double.nan), tilemapDefaultInitialScale);
-    expect(tilemapDefaultInitialScale, 20);
+    expect(tilemapDefaultInitialScale, 16);
     expect(tilemapInitialScaleMin, 5);
     expect(tilemapInitialScaleMax, 30);
   });
@@ -848,6 +848,53 @@ void main() {
       '?x-oss-process=image/resize,w_512,image/format,webp',
     );
   });
+
+  test(
+    'tile image load plan de-duplicates requests and weights tile progress',
+    () {
+      final config = TilemapConfig.fromTiles(
+        id: 'weighted-loading',
+        width: 3,
+        height: 1,
+        tileTypes: const {
+          'a': 'https://cdn.example.com/tile/a.png',
+          'b': 'https://cdn.example.com/tile/b.webp',
+        },
+        tiles: const [
+          TilemapCell(x: 0, y: 0, type: 'a'),
+          TilemapCell(x: 1, y: 0, type: 'a'),
+          TilemapCell(x: 2, y: 0, type: 'b'),
+        ],
+      );
+
+      final plan = TilemapImageLoadPlan.forConfig(
+        config: config,
+        displayTilePixelSize: 200,
+      );
+
+      expect(plan.totalTileCount, 3);
+      expect(plan.tileCountByAsset, {
+        'https://cdn.example.com/tile/a.png'
+                '?x-oss-process=image/resize,w_256,image/format,webp':
+            2,
+        'https://cdn.example.com/tile/b.webp'
+                '?x-oss-process=image/resize,w_256,image/format,webp':
+            1,
+      });
+      expect(
+        tilemapImageLoadProgress(loadedTileCount: 2, totalTileCount: 3),
+        closeTo(2 / 3, 0.0001),
+      );
+      expect(
+        tilemapImageLoadProgress(loadedTileCount: 4, totalTileCount: 3),
+        1,
+      );
+      expect(
+        tilemapImageLoadProgress(loadedTileCount: 0, totalTileCount: 0),
+        0,
+      );
+    },
+  );
 
   testWidgets('renderer highlights and dispatches only location tiles', (
     tester,

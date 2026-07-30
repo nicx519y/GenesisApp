@@ -283,6 +283,14 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
   }
 
+  void _recordWorldoTilemapClick(OriginDetail origin) {
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_tilemap_click',
+      object1: origin.oid,
+    );
+  }
+
   void _closeLocationChat() {
     if (_activeChatLocation == null) return;
     setState(() => _activeChatLocation = null);
@@ -333,6 +341,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       object1: origin.oid,
       object2: characterId,
     );
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_launch_opening',
+      object1: origin.oid,
+    );
     await _launchOrigin(
       origin,
       OriginRoleLaunchSelection.preset(characterId),
@@ -354,12 +367,18 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       context: context,
       characters: origin.characters,
       initialCustomTab: initialCustomTab,
+      initialLaunchedTab: !initialCustomTab,
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
       launchedPresetRolesLoader: () =>
           _launchedPresetRolesFuture ??= _loadLaunchedPresetRoles(origin),
     );
     if (!mounted || selection == null) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_launch_sheet',
+      object1: origin.oid,
+    );
     await _launchOrigin(
       origin,
       selection,
@@ -675,6 +694,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             showVisualModeToggle: !_showIntroPage,
             visualModeToggleTop: topPadding + 8,
             visualModeToggleRight: 12,
+            onMapTap: () => _recordWorldoTilemapClick(origin),
           ),
         );
 

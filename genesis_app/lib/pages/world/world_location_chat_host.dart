@@ -206,6 +206,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
     required this.onBack,
     required this.onPanelReady,
     required this.isMessageQueueInitializationCovered,
+    this.animateTransitions = true,
   });
 
   final String worldId;
@@ -214,6 +215,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
   final VoidCallback onBack;
   final ValueChanged<String> onPanelReady;
   final bool Function(String locationId) isMessageQueueInitializationCovered;
+  final bool animateTransitions;
 
   @override
   State<WorldLocationChatRouterHost> createState() =>
@@ -261,6 +263,26 @@ class WorldLocationChatRouterHostState
         activeDescriptor != null &&
         !widget.cache.isReady(activeLocationId);
     final active = activeLocationId.isNotEmpty;
+    final content = Stack(
+      children: [
+        for (final descriptor
+            in cachedIds
+                .map(widget.cache.descriptorFor)
+                .whereType<WorldLocationChatPanelDescriptor>())
+          _buildCachedPage(
+            descriptor,
+            displayLocationId: displayLocationId,
+            activeLocationId: activeLocationId,
+          ),
+        if (showSkeleton)
+          Positioned.fill(
+            child: WorldLocationChatLoadingPage(
+              title: activeDescriptor.locationName,
+              onBack: widget.onBack,
+            ),
+          ),
+      ],
+    );
 
     return IgnorePointer(
       ignoring: !active,
@@ -270,26 +292,8 @@ class WorldLocationChatRouterHostState
           active: active,
           maintainChildOnDismiss: true,
           onDismissed: _handleDismissed,
-          child: Stack(
-            children: [
-              for (final descriptor
-                  in cachedIds
-                      .map(widget.cache.descriptorFor)
-                      .whereType<WorldLocationChatPanelDescriptor>())
-                _buildCachedPage(
-                  descriptor,
-                  displayLocationId: displayLocationId,
-                  activeLocationId: activeLocationId,
-                ),
-              if (showSkeleton)
-                Positioned.fill(
-                  child: _LocationChatPanelSkeleton(
-                    title: activeDescriptor.locationName,
-                    onBack: widget.onBack,
-                  ),
-                ),
-            ],
-          ),
+          animate: widget.animateTransitions,
+          child: content,
         ),
       ),
     );
@@ -407,8 +411,12 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   }
 }
 
-class _LocationChatPanelSkeleton extends StatelessWidget {
-  const _LocationChatPanelSkeleton({required this.title, required this.onBack});
+class WorldLocationChatLoadingPage extends StatelessWidget {
+  const WorldLocationChatLoadingPage({
+    super.key,
+    required this.title,
+    required this.onBack,
+  });
 
   final String title;
   final VoidCallback onBack;
