@@ -494,6 +494,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.originLocations,
     this.originTicks,
     this.myLaunchPresetCharacters,
+    this.myLaunchPresetCharactersCompleter,
     this.worldMapUrl = '',
     this.worldCharacters,
     this.worldLocations,
@@ -531,6 +532,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? originLocations;
   final List<Map<String, Object?>>? originTicks;
   final List<Map<String, Object?>>? myLaunchPresetCharacters;
+  final Completer<TransportResponse>? myLaunchPresetCharactersCompleter;
   final String worldMapUrl;
   final List<Map<String, Object?>>? worldCharacters;
   final List<Map<String, Object?>>? worldLocations;
@@ -573,6 +575,8 @@ class _RecordingV1ListTransport implements HttpTransport {
       });
     }
     if (request.uri.path.endsWith('/origin/my_launch_preset_characters')) {
+      final pendingResponse = myLaunchPresetCharactersCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
       return _jsonResponse({
         'err_no': 0,
         'err_msg': 'succ',
@@ -5668,6 +5672,10 @@ void main() {
     await tester.pump();
 
     expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsNothing);
+    expect(
+      transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
+      isEmpty,
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -6282,6 +6290,53 @@ void main() {
   });
 
   testWidgets(
+    'Origin launch sheet opens while launched worlds preload is pending',
+    (WidgetTester tester) async {
+      final launchedWorldsCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+        myLaunchPresetCharactersCompleter: launchedWorldsCompleter,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+          ),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
+        hasLength(1),
+      );
+      await tester.tap(find.text('Launch'));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('origin-role-sheet')), findsOneWidget);
+      expect(
+        transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
+        hasLength(1),
+      );
+
+      launchedWorldsCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {'list': <Map<String, Object?>>[]},
+        }),
+      );
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
     'Origin launched role tab uses my launch preset characters endpoint',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(
@@ -6301,6 +6356,9 @@ void main() {
             },
             'initial_location_id': 'loc_history_1',
             'last_launched_at': 1785292800,
+            'world_id': 'w_history_1',
+            'tick_no': 7,
+            'current_time': 'Day 3',
           },
         ],
       );
@@ -6339,27 +6397,25 @@ void main() {
 
       expect(find.text('Launched'), findsOneWidget);
       expect(find.text('History Mira'), findsOneWidget);
-      expect(find.text('Navigator'), findsOneWidget);
+      expect(find.text('w_history_1'), findsOneWidget);
+      expect(find.text('Tick 7 · Day 3'), findsOneWidget);
+      expect(
+        find.widgetWithText(GenesisPrimaryButton, 'Enter'),
+        findsOneWidget,
+      );
 
       await tester.tap(
-        find.byKey(const ValueKey('origin-role-launched-char_history_1')),
+        find.byKey(const ValueKey('origin-role-launched-w_history_1')),
       );
       await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
       await tester.pumpAndSettle();
 
       final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-      expect(launchRequests, hasLength(1));
-      final launchBody = transport.decodedBody(launchRequests.single);
-      expect(launchBody['origin_id'], 'o_test_1');
-      expect(launchBody['preset_character_id'], 'char_history_1');
-      expect(launchBody.containsKey('custom_role'), isFalse);
-
-      await tester.tap(find.text('Enter'));
-      await tester.pumpAndSettle();
+      expect(launchRequests, isEmpty);
       final launchedWorldPage = tester.widget<WorldPage>(
         find.byType(WorldPage),
       );
-      expect(launchedWorldPage.wid, 'w_launched_from_origin');
+      expect(launchedWorldPage.wid, 'w_history_1');
       expect(launchedWorldPage.initialLocationId, isEmpty);
       expect(find.byType(LocationChatPanel), findsNothing);
     },
@@ -7295,6 +7351,9 @@ void main() {
                         avatarResource: GenesisImageResource(),
                         initialLocationId: 'loc_launched_1',
                         lastLaunchedAt: 1785292800,
+                        worldId: 'w_launched_1',
+                        tickCount: 7,
+                        currentTime: 'Day 3',
                       ),
                     ],
                   );
@@ -7311,20 +7370,20 @@ void main() {
 
       expect(find.text('Launched'), findsOneWidget);
       expect(find.text('Mira'), findsOneWidget);
-      expect(find.text('Navigator'), findsOneWidget);
+      expect(find.text('w_launched_1'), findsOneWidget);
+      expect(find.text('Tick 7 · Day 3'), findsOneWidget);
       expect(
-        find.widgetWithText(GenesisPrimaryButton, 'Launch'),
+        find.widgetWithText(GenesisPrimaryButton, 'Enter'),
         findsOneWidget,
       );
 
       await tester.tap(
-        find.byKey(const ValueKey('origin-role-launched-char_launched_1')),
+        find.byKey(const ValueKey('origin-role-launched-w_launched_1')),
       );
       await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
       await tester.pumpAndSettle();
 
-      expect(result?.presetCharacterId, 'char_launched_1');
-      expect(result?.initialLocationId, 'loc_launched_1');
+      expect(result?.existingWorldId, 'w_launched_1');
     },
   );
 

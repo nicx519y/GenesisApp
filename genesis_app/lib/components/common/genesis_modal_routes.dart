@@ -27,11 +27,12 @@ class GenesisSystemUiChrome {
   static Future<T> runWithModalChrome<T>(
     Color color,
     Future<T> Function() action, {
+    SystemUiOverlayStyle? modalOverrideStyle,
     SystemUiOverlayStyle? restoreOverrideStyle,
   }) async {
     final previousStyle = _currentStyle;
     _styleStack.add(previousStyle);
-    _apply(_modalStyle(color));
+    _apply(modalOverrideStyle ?? _modalStyle(color));
     try {
       return await action();
     } finally {

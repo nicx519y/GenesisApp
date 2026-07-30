@@ -2042,6 +2042,11 @@ class _MockState {
                 'avatar': payload['avatar'],
                 'initial_location_id': payload['initial_location_id'],
                 'last_launched_at': history[charId] ?? 0,
+                'world_id': _v1World['wid'],
+                'tick_no': asInt(_v1World['tick_cnt']),
+                'current_time':
+                    _v1World['current_time'] ??
+                    'Day ${_v1World['tick_cnt'] ?? 0}',
               };
             })
             .toList(growable: false)

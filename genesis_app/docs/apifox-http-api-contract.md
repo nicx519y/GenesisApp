@@ -847,6 +847,9 @@ Query：
 - `avatar*`: `ImageResource`
 - `initial_location_id*`: string，当前 origin 角色的初始地点 id
 - `last_launched_at*`: integer，最近一次使用该角色 launch 的 Unix 秒
+- `world_id*`: string，最近一次使用该角色 launch 的 World 业务 id
+- `tick_no*`: integer，该 World 当前 Tick 数
+- `current_time*`: string，该 World 当前时间
 
 错误码：
 
