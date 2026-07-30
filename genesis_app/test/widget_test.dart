@@ -1074,6 +1074,7 @@ class _RecordingV1ListTransport implements HttpTransport {
               'tick_no': 1,
               'created_at': 1777680000,
               'tick_result': {
+                'current_time': 'Day 1, 16:30',
                 'narrator': 'Origin launch tick narrator.',
                 'paragraphs': [
                   {
@@ -6721,6 +6722,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Info.'));
+    await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 500), const Offset(0, -420));
     await tester.pumpAndSettle();
     for (var i = 0; i < 5; i++) {
@@ -6730,6 +6733,7 @@ void main() {
     }
 
     expect(find.text('Launch Preview'), findsOneWidget);
+    expect(find.text('Tick 1 · Day 1, 16:30'), findsOneWidget);
     expect(find.text('Global'), findsOneWidget);
     expect(find.text('Origin launch tick narrator.'), findsOneWidget);
     expect(find.text('Detail Location'), findsWidgets);
