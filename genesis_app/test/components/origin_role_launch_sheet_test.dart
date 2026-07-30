@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
@@ -45,5 +46,46 @@ void main() {
 
     expect(find.text('No launched role'), findsOneWidget);
     expect(find.byKey(const ValueKey('origin-role-preset-tab')), findsNothing);
+  });
+
+  testWidgets('route keeps the requested transparent status bar style', (
+    WidgetTester tester,
+  ) async {
+    const style = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => unawaited(
+                showOriginRoleLaunchSheet(
+                  context: context,
+                  characters: const <OriginCharacter>[],
+                  systemUiOverlayStyle: style,
+                ),
+              ),
+              child: const Text('Show setup'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Show setup'));
+    await tester.pump();
+
+    expect(
+      tester
+          .widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+            find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+          )
+          .any((region) => region.value == style),
+      isTrue,
+    );
   });
 }

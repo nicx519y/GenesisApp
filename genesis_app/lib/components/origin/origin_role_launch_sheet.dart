@@ -85,9 +85,11 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
   OriginRoleAvatarResolver? resolveAvatarUrl,
   OriginLaunchedPresetRolesLoader? launchedPresetRolesLoader,
   List<OriginMyLaunchPresetCharacter>? initialLaunchedPresetRoles,
+  SystemUiOverlayStyle systemUiOverlayStyle =
+      kGenesisDefaultSystemUiOverlayStyle,
 }) {
   return WorldDetailsStatusBarOverride.runWithStyle(
-    kGenesisDefaultSystemUiOverlayStyle,
+    systemUiOverlayStyle,
     () => GenesisSystemUiChrome.runWithModalChrome(
       Colors.white,
       () => Navigator.of(context, rootNavigator: true).push(
@@ -98,22 +100,27 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
           transitionDuration: Duration.zero,
           reverseTransitionDuration: Duration.zero,
           pageBuilder: (context, animation, secondaryAnimation) {
-            return Scaffold(
-              backgroundColor: Colors.transparent,
-              resizeToAvoidBottomInset: true,
-              body: OriginRoleLaunchSheet(
-                characters: characters,
-                initialCustomTab: initialCustomTab,
-                initialLaunchedTab: initialLaunchedTab,
-                onFillFromProfile: onFillFromProfile,
-                resolveAvatarUrl: resolveAvatarUrl,
-                launchedPresetRolesLoader: launchedPresetRolesLoader,
-                initialLaunchedPresetRoles: initialLaunchedPresetRoles,
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: systemUiOverlayStyle,
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                resizeToAvoidBottomInset: true,
+                body: OriginRoleLaunchSheet(
+                  characters: characters,
+                  initialCustomTab: initialCustomTab,
+                  initialLaunchedTab: initialLaunchedTab,
+                  onFillFromProfile: onFillFromProfile,
+                  resolveAvatarUrl: resolveAvatarUrl,
+                  launchedPresetRolesLoader: launchedPresetRolesLoader,
+                  initialLaunchedPresetRoles: initialLaunchedPresetRoles,
+                ),
               ),
             );
           },
         ),
       ),
+      modalOverrideStyle: systemUiOverlayStyle,
+      restoreOverrideStyle: systemUiOverlayStyle,
     ),
   );
 }
@@ -162,10 +169,6 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
     } else if (widget.initialLaunchedTab) {
       _tabIndex = 2;
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
-    });
     _customForm.addListener(_handleTextChanged);
     final initialLaunchedPresetRoles = widget.initialLaunchedPresetRoles;
     if (initialLaunchedPresetRoles != null) {

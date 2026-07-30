@@ -385,6 +385,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
       initialLaunchedPresetRoles: launchedPresetRoles,
+      systemUiOverlayStyle: _baseStatusBarStyle,
     );
     if (!mounted || selection == null) return;
     GenesisTelemetry.collectLog(
