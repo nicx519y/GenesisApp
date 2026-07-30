@@ -59,7 +59,7 @@ class _WorldPointMarkerGeometry {
   final double pointCenterY;
 }
 
-const double _worldPointLabelLineHeight = 12;
+const double _worldPointLabelLineHeight = 14.4;
 const double _worldPointLabelHorizontalPadding = 6;
 const double _worldPointLabelVerticalPadding = 8;
 const double _worldPointWideLabelRuneWidth = 14;
@@ -592,7 +592,7 @@ class _PointLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = color ?? Colors.black;
     final style = TextStyle(
-      fontSize: 10,
+      fontSize: 12,
       height: 1.2,
       leadingDistribution: TextLeadingDistribution.even,
       fontWeight: FontWeight.w600,

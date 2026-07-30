@@ -18,7 +18,7 @@ void openWorldFromMyWorldsRoot(
       arguments: const {'home_tab': 'my_world'},
     ),
   );
-  WidgetsBinding.instance.addPostFrameCallback((_) {
+  scheduleMicrotask(() {
     if (!navigator.mounted) return;
     unawaited(_openWorldAndRefreshAfterDelete(navigator, worldArguments));
   });
