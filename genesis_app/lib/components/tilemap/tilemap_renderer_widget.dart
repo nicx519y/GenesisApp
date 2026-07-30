@@ -734,6 +734,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
 
   void _handleOverlayTileTap(TilemapCell tile) {
     if (_isRunningTileAction) return;
+    widget.onMapTap?.call();
     unawaited(_runTileAction(tile));
   }
 

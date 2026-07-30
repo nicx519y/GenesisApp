@@ -85,6 +85,14 @@ extension _WorldPageLocationChat on _WorldPageState {
     );
   }
 
+  void _recordWorldTilemapClick() {
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'world_tilemap_click',
+      object1: widget.wid,
+    );
+  }
+
   Future<void> _updateUserPositionForLocation(String locationId) async {
     try {
       await AppServicesScope.of(

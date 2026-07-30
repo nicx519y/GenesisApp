@@ -37,6 +37,7 @@ class _TilemapSettingsButton extends StatelessWidget {
 class _TilemapSettingsPanel extends StatelessWidget {
   const _TilemapSettingsPanel({
     required this.visualMode,
+    required this.loadingStyle,
     required this.fogControlPoints,
     required this.blendFogWithShadowTiles,
     required this.showShadowZeroBorders,
@@ -49,6 +50,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.initialScale,
     required this.dragBoundaryPaddingTiles,
     required this.onVisualModeChanged,
+    required this.onLoadingStyleChanged,
     required this.onFogControlPointsChanged,
     required this.onBlendFogWithShadowTilesChanged,
     required this.onShowShadowZeroBordersChanged,
@@ -66,6 +68,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
   });
 
   final TilemapVisualMode visualMode;
+  final TilemapLoadingStyle loadingStyle;
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
   final bool showShadowZeroBorders;
@@ -79,6 +82,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final double initialScale;
   final double dragBoundaryPaddingTiles;
   final ValueChanged<TilemapVisualMode> onVisualModeChanged;
+  final ValueChanged<TilemapLoadingStyle> onLoadingStyleChanged;
   final ValueChanged<List<TilemapFogControlPoint>> onFogControlPointsChanged;
   final ValueChanged<bool> onBlendFogWithShadowTilesChanged;
   final ValueChanged<bool> onShowShadowZeroBordersChanged;
@@ -196,6 +200,25 @@ class _TilemapSettingsPanel extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Loading screen',
+              style: TextStyle(
+                color: foregroundColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              'Shown only on the first Tilemap entry.',
+              style: TextStyle(color: secondaryColor, fontSize: 10),
+            ),
+            const SizedBox(height: 5),
+            _TilemapLoadingStyleEditor(
+              value: loadingStyle,
+              foregroundColor: foregroundColor,
+              onChanged: onLoadingStyleChanged,
             ),
             const SizedBox(height: 10),
             Text(
@@ -407,6 +430,60 @@ class _TilemapSettingsPanel extends StatelessWidget {
                 onChanged: onFogControlPointsChanged,
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TilemapLoadingStyleEditor extends StatelessWidget {
+  const _TilemapLoadingStyleEditor({
+    required this.value,
+    required this.foregroundColor,
+    required this.onChanged,
+  });
+
+  final TilemapLoadingStyle value;
+  final Color foregroundColor;
+  final ValueChanged<TilemapLoadingStyle> onChanged;
+
+  String _labelFor(TilemapLoadingStyle style) {
+    return switch (style) {
+      TilemapLoadingStyle.disabled => 'Off',
+      TilemapLoadingStyle.tileAssembly => 'A · Tile assembly',
+      TilemapLoadingStyle.worldPortal => 'B · World portal',
+      TilemapLoadingStyle.progressiveReveal => 'C · Progressive reveal',
+      TilemapLoadingStyle.coordinatePulse => 'D · Coordinate pulse',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: foregroundColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<TilemapLoadingStyle>(
+            key: const ValueKey<String>('tilemap-settings-loading-style'),
+            value: value,
+            isExpanded: true,
+            dropdownColor: foregroundColor.computeLuminance() > 0.5
+                ? const Color(0xFF35352F)
+                : Colors.white,
+            iconEnabledColor: foregroundColor,
+            style: TextStyle(color: foregroundColor, fontSize: 12),
+            items: [
+              for (final style in TilemapLoadingStyle.values)
+                DropdownMenuItem(value: style, child: Text(_labelFor(style))),
+            ],
+            onChanged: (style) {
+              if (style != null) onChanged(style);
+            },
+          ),
         ),
       ),
     );

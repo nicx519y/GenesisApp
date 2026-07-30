@@ -16,6 +16,7 @@ import 'tilemap_model.dart';
 export 'tilemap_fog.dart';
 
 part 'tilemap_renderer_projection.dart';
+part 'tilemap_renderer_image_loading.dart';
 part 'tilemap_renderer_index.dart';
 part 'tilemap_renderer_widget.dart';
 part 'tilemap_renderer_labels.dart';
@@ -29,7 +30,7 @@ const double tilemapMinScale = 5;
 const double tilemapMaxScale = 30;
 const double tilemapInitialScaleMin = tilemapMinScale;
 const double tilemapInitialScaleMax = tilemapMaxScale;
-const double tilemapDefaultInitialScale = 20;
+const double tilemapDefaultInitialScale = 16;
 const double tilemapDragBoundaryPaddingTilesMin = 0;
 const double tilemapDragBoundaryPaddingTilesMax = 20;
 const double tilemapDefaultDragBoundaryPaddingTiles = 2;

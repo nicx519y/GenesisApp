@@ -358,6 +358,14 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
   }
 
+  void _recordWorldoTilemapClick(OriginDetail origin) {
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_tilemap_click',
+      object1: origin.oid,
+    );
+  }
+
   void _closeLocationChat() {
     if (_activeChatLocation == null) return;
     setState(() => _activeChatLocation = null);
@@ -771,6 +779,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             showVisualModeToggle: !_showIntroPage,
             visualModeToggleTop: topPadding + 8,
             visualModeToggleRight: 12,
+            onMapTap: () => _recordWorldoTilemapClick(origin),
           ),
         );
 

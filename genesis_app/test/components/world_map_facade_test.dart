@@ -35,7 +35,8 @@ void main() {
   });
 
   test('Origin v2 uses Tilemap and forwards Tilemap options', () {
-    var mapTapCount = 0;
+    var legacyMapTapCount = 0;
+    var tilemapMapTapCount = 0;
     const tilemapLocationNode = WorldMapLocationNode(
       id: 'loc_1',
       point: WorldPoint(
@@ -54,15 +55,16 @@ void main() {
         messageBubbles: const [
           WorldMapMessageBubble(characterId: 'char_1', content: 'Hello'),
         ],
-        onMapTap: () => mapTapCount += 1,
+        onMapTap: () => legacyMapTapCount += 1,
       ),
       legacy: legacy,
-      tilemap: const WorldMapTilemapOptions(
+      tilemap: WorldMapTilemapOptions(
         locationId: 'root',
         locationNodes: <WorldMapLocationNode>[tilemapLocationNode],
         showVisualModeToggle: false,
         visualModeToggleTop: 17,
         visualModeToggleRight: 12,
+        onMapTap: () => tilemapMapTapCount += 1,
       ),
     );
 
@@ -80,7 +82,8 @@ void main() {
     expect(tilemap.messageBubbles.single.content, 'Hello');
     expect(tilemap.messageBubblePlaybackPaused, isFalse);
     tilemap.onMapTap?.call();
-    expect(mapTapCount, 1);
+    expect(tilemapMapTapCount, 1);
+    expect(legacyMapTapCount, 0);
   });
 
   test(

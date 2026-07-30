@@ -34,6 +34,7 @@ void main() {
     final settings = await const TilemapSettingsStore().load();
 
     expect(settings.visualMode, tilemapDefaultVisualMode);
+    expect(settings.loadingStyle, tilemapDefaultLoadingStyle);
     expect(settings.fogControlPoints, tilemapDefaultFogControlPoints);
     expect(
       settings.blendFogWithShadowTiles,
@@ -72,6 +73,7 @@ void main() {
     expect(TilemapRenderSettings.defaults().toJson(), {
       'schema_version': 2,
       'visual_mode': 'dark',
+      'loading_style': 'progressiveReveal',
       'fog_control_points': [
         {'position': 0.0, 'opacity': 0.3011579949238584},
         {'position': 0.1972931338028169, 'opacity': 0.6031091370558366},
@@ -93,7 +95,7 @@ void main() {
       'location_image_flow_opacity': 0.49,
       'location_image_flow_duration_seconds': 7.5,
       'location_image_flow_blend_mode': 'plus',
-      'initial_scale': 20.0,
+      'initial_scale': 16.0,
       'drag_boundary_padding_tiles': 2.0,
     });
   });
@@ -123,6 +125,7 @@ void main() {
     ];
     const settings = TilemapRenderSettings(
       visualMode: TilemapVisualMode.light,
+      loadingStyle: TilemapLoadingStyle.coordinatePulse,
       fogControlPoints: [
         TilemapFogControlPoint(position: 0, opacity: 0.1),
         TilemapFogControlPoint(position: 0.2, opacity: 0.3),
@@ -147,6 +150,7 @@ void main() {
     final restored = await store.load();
 
     expect(restored.visualMode, TilemapVisualMode.light);
+    expect(restored.loadingStyle, TilemapLoadingStyle.coordinatePulse);
     expect(restored.fogControlPoints, settings.fogControlPoints);
     expect(restored.blendFogWithShadowTiles, true);
     expect(restored.showShadowZeroBorders, false);
@@ -165,6 +169,7 @@ void main() {
     final serialized = jsonDecode(settings.toSerializedJson());
     expect(serialized['schema_version'], 2);
     expect(serialized['visual_mode'], 'light');
+    expect(serialized['loading_style'], 'coordinatePulse');
     expect(serialized['fog_control_points'], hasLength(5));
     expect(serialized['blend_fog_with_shadow_tiles'], true);
     expect(serialized['show_shadow_zero_borders'], false);
@@ -186,6 +191,7 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{
       TilemapSettingsStore.storageKey: jsonEncode({
         'visual_mode': 'light',
+        'loading_style': 'invalid',
         'fog_control_points': [
           {'position': 0.5, 'opacity': 2},
         ],
@@ -207,6 +213,7 @@ void main() {
     final settings = await const TilemapSettingsStore().load();
 
     expect(settings.visualMode, TilemapVisualMode.light);
+    expect(settings.loadingStyle, tilemapDefaultLoadingStyle);
     expect(settings.fogControlPoints, tilemapDefaultFogControlPoints);
     expect(settings.blendFogWithShadowTiles, true);
     expect(settings.showShadowZeroBorders, false);
@@ -257,6 +264,7 @@ void main() {
 
       final settings = await const TilemapSettingsStore().load();
 
+      expect(settings.loadingStyle, tilemapDefaultLoadingStyle);
       expect(settings.showLocationImageFlow, true);
       expect(
         settings.locationImageFlowAngleDegrees,
@@ -290,6 +298,7 @@ void main() {
     const store = TilemapSettingsStore();
     const settings = TilemapRenderSettings(
       visualMode: TilemapVisualMode.light,
+      loadingStyle: TilemapLoadingStyle.disabled,
       fogControlPoints: tilemapDefaultFogControlPoints,
       blendFogWithShadowTiles: false,
       showShadowZeroBorders: true,
