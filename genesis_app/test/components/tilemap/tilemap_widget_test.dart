@@ -16,6 +16,7 @@ import 'package:genesis_flutter_android/components/world_map_contract.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Finder _liveTilemapRendererFinder() {
@@ -34,6 +35,10 @@ Finder _tilemapRendererForMap(String mapId) {
 
 void main() {
   setUp(() {
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    debugGenesisStaticNetworkImageCompleter = (_) =>
+        _PendingImageStreamCompleter();
     FirebasePerformanceMonitoring.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
     final loadingSettings = TilemapRenderSettings.defaults().toJson()
@@ -44,7 +49,10 @@ void main() {
     });
   });
 
-  tearDown(FirebasePerformanceMonitoring.resetForTesting);
+  tearDown(() {
+    debugGenesisStaticNetworkImageCompleter = null;
+    FirebasePerformanceMonitoring.resetForTesting();
+  });
 
   testWidgets('Tilemap reports current display readiness and load errors', (
     tester,
@@ -1543,6 +1551,7 @@ void main() {
   });
 
   testWidgets('Tilemap image retry keeps the cached map json', (tester) async {
+    debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
     final transport = _TilemapTransport(data: _locationTilemapData('leaf'));
     final services = _servicesWithTransport(transport);
 
@@ -1569,6 +1578,7 @@ void main() {
   testWidgets(
     'Tilemap promotes the same mounted warm renderer and reuses it on back',
     (tester) async {
+      debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
       final transport = _LocationTilemapTransport({
         'root': _locationTilemapData('branch', assetName: 'root'),
         'branch': _locationTilemapData('leaf_a', assetName: 'branch'),
@@ -2440,6 +2450,14 @@ void main() {
     expect(openedPoint?.id, 'leaf');
     expect(mapTapCount, 1);
   });
+}
+
+class _PendingImageStreamCompleter extends ImageStreamCompleter {}
+
+ImageStreamCompleter _failedImageCompleter() {
+  return OneFrameImageStreamCompleter(
+    Future<ImageInfo>.error(StateError('test image load failure')),
+  );
 }
 
 Map<String, dynamic> _locationTilemapData(

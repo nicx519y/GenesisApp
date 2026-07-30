@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
+import 'package:genesis_flutter_android/network/genesis_http2_cache_manager.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 
 import '../../app/agent_control/agent_control_status.dart';

@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../network/api_client.dart';
-import '../../network/io_http_transport.dart';
+import '../../network/dio_http_transport.dart';
 import '../../network/json_utils.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../create/create_origin_draft_store.dart';
@@ -60,7 +60,7 @@ Future<CreateOriginDraft> _uploadGeneratedImages(
     () => ApiClient(
       baseUrl: 'https://localhost.invalid/',
       defaultHeaders: const <String, String>{'accept': 'image/*'},
-      transport: IoHttpTransport(proxy: debugProxy),
+      transport: DioHttpTransport(proxy: debugProxy),
       timeoutMs: 120000,
       retryPolicy: ApiRetryPolicy.safe,
     ),

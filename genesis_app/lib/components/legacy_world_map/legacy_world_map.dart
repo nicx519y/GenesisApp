@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../ui/components/genesis_static_network_image.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
 import '../world_map_location_action.dart';
@@ -783,7 +784,7 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
 
     final ImageProvider imageProvider = url.startsWith('assets/')
         ? AssetImage(url)
-        : NetworkImage(url);
+        : GenesisStaticNetworkImageProvider(imageUrl: url);
     final stream = imageProvider.resolve(
       createLocalImageConfiguration(context),
     );

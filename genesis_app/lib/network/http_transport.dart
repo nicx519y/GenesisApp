@@ -72,6 +72,7 @@ class TransportResponse {
     required this.body,
     this.bodyBytes = const <int>[],
     this.responsePayloadSizeBytes,
+    this.httpProtocolVersion,
   });
 
   final int statusCode;
@@ -79,4 +80,5 @@ class TransportResponse {
   final String body;
   final List<int> bodyBytes;
   final int? responsePayloadSizeBytes;
+  final String? httpProtocolVersion;
 }

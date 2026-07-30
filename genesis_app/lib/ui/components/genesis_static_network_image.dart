@@ -5,6 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+import '../../network/genesis_http2_cache_manager.dart';
+
+@visibleForTesting
+ImageStreamCompleter? Function(GenesisStaticNetworkImageProvider key)?
+debugGenesisStaticNetworkImageCompleter;
+
 class GenesisStaticNetworkImage extends StatefulWidget {
   const GenesisStaticNetworkImage({
     super.key,
@@ -111,7 +117,7 @@ class GenesisStaticNetworkImageProvider
     this.cacheHeight,
     this.fit,
   }) : imageUrl = imageUrl.trim(),
-       cacheManager = cacheManager ?? DefaultCacheManager();
+       cacheManager = cacheManager ?? GenesisHttp2CacheManager();
 
   final String imageUrl;
   final BaseCacheManager cacheManager;
@@ -131,6 +137,8 @@ class GenesisStaticNetworkImageProvider
     GenesisStaticNetworkImageProvider key,
     ImageDecoderCallback decode,
   ) {
+    final debugCompleter = debugGenesisStaticNetworkImageCompleter?.call(key);
+    if (debugCompleter != null) return debugCompleter;
     return _GenesisOneFrameImageStreamCompleter(
       _loadFirstFrame(key, decode),
       informationCollector: () => <DiagnosticsNode>[

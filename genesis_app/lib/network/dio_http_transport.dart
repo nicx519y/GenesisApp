@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
+import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 
 import '../app/telemetry/firebase_performance_monitoring.dart';
 import 'http_transport.dart';
@@ -64,6 +65,18 @@ class DioHttpTransport implements HttpTransport {
         for (final entry in response.headers.map.entries)
           entry.key: entry.value.join(','),
       };
+      final httpProtocolVersion = response
+          .extra[HttpClientAdapter.extraKeyHttpVersion]
+          ?.toString();
+      if (request.uri.scheme.toLowerCase() == 'https' &&
+          httpProtocolVersion != '2.0') {
+        throw DioException.connectionError(
+          requestOptions: response.requestOptions,
+          reason:
+              'HTTPS requires HTTP/2, but the negotiated protocol was '
+              '${httpProtocolVersion ?? 'unknown'}.',
+        );
+      }
       final bodyBytes = _responseBodyBytes(response.data);
       final transportResponse = TransportResponse(
         statusCode: response.statusCode ?? 0,
@@ -72,6 +85,7 @@ class DioHttpTransport implements HttpTransport {
         bodyBytes: bodyBytes,
         responsePayloadSizeBytes:
             responsePayloadSizeFromHeaders(headers) ?? bodyBytes.length,
+        httpProtocolVersion: httpProtocolVersion,
       );
       recordPerformanceMetricResponse(metric, transportResponse);
       return transportResponse;
@@ -118,10 +132,69 @@ Object? _requestBodyData(List<int>? bodyBytes) {
 
 Dio _createDio(String? proxy) {
   final dio = Dio();
-  dio.httpClientAdapter = IOHttpClientAdapter(
+  final httpAdapter = IOHttpClientAdapter(
     createHttpClient: () => createProxyAwareHttpClient(proxy),
   );
+  final proxyUri = _proxyUri(proxy);
+  final httpsAdapter = Http2Adapter(
+    ConnectionManager(
+      onClientCreate: (_, setting) {
+        setting.proxy = proxyUri;
+        if (proxyUri != null &&
+            !const bool.fromEnvironment('dart.vm.product')) {
+          setting.onBadCertificate = (_) => true;
+        }
+      },
+    ),
+    fallbackAdapter: httpAdapter,
+    onNotSupported: (options, requestStream, cancelFuture, error) {
+      throw DioException.connectionError(
+        requestOptions: options,
+        reason: 'HTTPS endpoint does not support the required HTTP/2 protocol.',
+        error: error,
+      );
+    },
+  );
+  dio.httpClientAdapter = SchemeRoutingHttpClientAdapter(
+    httpsAdapter: httpsAdapter,
+    otherAdapter: httpAdapter,
+  );
   return dio;
+}
+
+class SchemeRoutingHttpClientAdapter implements HttpClientAdapter {
+  SchemeRoutingHttpClientAdapter({
+    required HttpClientAdapter httpsAdapter,
+    required HttpClientAdapter otherAdapter,
+  }) : _httpsAdapter = httpsAdapter,
+       _otherAdapter = otherAdapter;
+
+  final HttpClientAdapter _httpsAdapter;
+  final HttpClientAdapter _otherAdapter;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    final adapter = options.uri.scheme.toLowerCase() == 'https'
+        ? _httpsAdapter
+        : _otherAdapter;
+    return adapter.fetch(options, requestStream, cancelFuture);
+  }
+
+  @override
+  void close({bool force = false}) {
+    _httpsAdapter.close(force: force);
+    _otherAdapter.close(force: force);
+  }
+}
+
+Uri? _proxyUri(String? proxy) {
+  final raw = proxy?.trim();
+  if (raw == null || raw.isEmpty) return null;
+  return Uri.parse(raw.contains('://') ? raw : 'http://$raw');
 }
 
 List<int> _responseBodyBytes(Object? data) {

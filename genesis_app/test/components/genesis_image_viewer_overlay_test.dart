@@ -191,8 +191,8 @@ void main() {
           'https://cdn.example.com/first.png?old_query=true#old_fragment';
       final preloadedUrls = <String>[];
       debugGenesisImageViewerPrecacheImage = (imageProvider, context) async {
-        if (imageProvider is NetworkImage) {
-          preloadedUrls.add(imageProvider.url);
+        if (imageProvider is GenesisStaticNetworkImageProvider) {
+          preloadedUrls.add(imageProvider.imageUrl);
         }
       };
       addTearDown(() => debugGenesisImageViewerPrecacheImage = null);

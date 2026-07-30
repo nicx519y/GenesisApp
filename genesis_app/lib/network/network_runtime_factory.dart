@@ -1,11 +1,10 @@
 import 'dio_http_transport.dart';
 import 'http_transport.dart';
-import 'io_http_transport.dart';
 import 'websocket_transport.dart';
 
 const kGenesisHttpEngine = String.fromEnvironment(
   'GENESIS_HTTP_ENGINE',
-  defaultValue: 'dio',
+  defaultValue: 'http2',
 );
 
 class NetworkRuntimeFactory {
@@ -19,11 +18,11 @@ class NetworkRuntimeFactory {
     if (useMock) return null;
     final proxy = _normalizedProxy(debugProxy);
     switch (httpEngine.trim().toLowerCase()) {
+      case 'http2':
       case 'dio':
-        return DioHttpTransport(proxy: proxy);
       case 'io':
       default:
-        return proxy == null ? null : IoHttpTransport(proxy: proxy);
+        return DioHttpTransport(proxy: proxy);
     }
   }
 

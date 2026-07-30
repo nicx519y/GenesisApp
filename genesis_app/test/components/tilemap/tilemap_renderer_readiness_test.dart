@@ -5,8 +5,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+
+final Map<String, Future<ui.Image>> _primedImages =
+    <String, Future<ui.Image>>{};
 
 void main() {
+  setUp(() {
+    _primedImages.clear();
+    debugGenesisStaticNetworkImageCompleter = (key) {
+      final image = _primedImages[key.imageUrl];
+      if (image == null) return null;
+      return OneFrameImageStreamCompleter(
+        image.then((value) => ImageInfo(image: value)),
+      );
+    };
+  });
+
+  tearDown(() {
+    debugGenesisStaticNetworkImageCompleter = null;
+    _primedImages.clear();
+  });
+
   testWidgets(
     'viewport readiness waits only for images intersecting the initial viewport',
     (tester) async {
@@ -14,18 +34,14 @@ void main() {
       final retainedImage = await _createImage(tester, Colors.blue);
       final visibleFrame = Completer<ui.Image>();
       final retainedFrame = Completer<ui.Image>();
-      final visibleProvider = _primeNetworkImage(
+      _primeNetworkImage(
         'https://readiness.test/visible.png',
         visibleFrame.future,
       );
-      final retainedProvider = _primeNetworkImage(
+      _primeNetworkImage(
         'https://readiness.test/retained.png',
         retainedFrame.future,
       );
-      addTearDown(() async {
-        await visibleProvider.evict();
-        await retainedProvider.evict();
-      });
       final config = TilemapConfig.fromTiles(
         id: 'viewport-readiness',
         width: 100,
@@ -37,7 +53,7 @@ void main() {
         tiles: const [
           TilemapCell(x: 50, y: 50, type: 'visible'),
           TilemapCell(x: 0, y: 0, type: 'retained', shadow: 1),
-          TilemapCell(x: 53, y: 53, type: 'retained', shadow: 1),
+          TilemapCell(x: 54, y: 54, type: 'retained', shadow: 1),
           TilemapCell(x: 99, y: 99, type: 'retained', shadow: 1),
         ],
       );
@@ -51,10 +67,12 @@ void main() {
       );
 
       expect(find.byKey(const ValueKey<String>('tile-50-50')), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('tile-53-53')), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('tile-54-54')), findsOneWidget);
       expect(readyCount, 0);
 
       visibleFrame.complete(visibleImage);
+      await tester.pump();
+      await tester.pump();
       await tester.pump();
       await tester.pump();
 
@@ -288,15 +306,13 @@ Widget _rendererHarness({
   );
 }
 
-NetworkImage _primeNetworkImage(String baseUrl, Future<ui.Image> imageFuture) {
+GenesisStaticNetworkImageProvider _primeNetworkImage(
+  String baseUrl,
+  Future<ui.Image> imageFuture,
+) {
   final resolvedUrl = resolveTilemapAssetForDisplaySize(baseUrl, 256);
-  final provider = NetworkImage(resolvedUrl);
-  PaintingBinding.instance.imageCache.putIfAbsent(
-    provider,
-    () => OneFrameImageStreamCompleter(
-      imageFuture.then((image) => ImageInfo(image: image)),
-    ),
-  );
+  final provider = GenesisStaticNetworkImageProvider(imageUrl: resolvedUrl);
+  _primedImages[resolvedUrl] = imageFuture;
   return provider;
 }
 

@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../ui/components/genesis_static_network_image.dart';
 import '../legacy_world_map/legacy_world_map_gesture.dart';
 import '../world_map_contract.dart';
 import '../world_point.dart';

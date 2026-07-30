@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
@@ -23,6 +22,7 @@ import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
 import '../../components/world_top_overlay_bar.dart';
+import '../../network/genesis_http2_cache_manager.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
@@ -227,7 +227,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   Future<void> _precacheOriginAvatarFile(String url) async {
     try {
-      await DefaultCacheManager().getSingleFile(url);
+      await GenesisHttp2CacheManager().getSingleFile(url);
     } catch (error) {
       debugPrint('[OriginWorldPage] avatar precache failed url="$url": $error');
     }
