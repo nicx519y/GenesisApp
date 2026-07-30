@@ -85,8 +85,7 @@ extension _WorldPageDetailSync on _WorldPageState {
 
   void _precacheProgressWaitAvatarImages(WorldDetail world) {
     if (!mounted) return;
-    final mediaQuery = MediaQuery.maybeOf(context);
-    final devicePixelRatio = mediaQuery?.devicePixelRatio ?? 1;
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     for (final avatar in _progressWaitAvatarsFromWorld(world)) {
       final resolvedUrl = selectGenesisImageUrl(
         avatar.url,

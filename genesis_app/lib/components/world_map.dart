@@ -16,6 +16,7 @@ export 'legacy_world_map/legacy_world_map_marker.dart'
     show
         worldMapAvatarBorderColorForTesting,
         worldMapInitialZoomFocusForTesting;
+export 'tilemap/tilemap.dart' show TilemapRestorationController;
 export 'world_location_list.dart';
 export 'world_map_avatar_logic.dart';
 export 'world_map_contract.dart';
@@ -33,6 +34,7 @@ class WorldMapTilemapOptions {
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
+    this.restorationController,
     this.onMapTap,
     this.onDisplayReadinessChanged,
     this.onDisplayError,
@@ -48,6 +50,7 @@ class WorldMapTilemapOptions {
   final bool showVisualModeToggle;
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
+  final TilemapRestorationController? restorationController;
   final VoidCallback? onMapTap;
   final ValueChanged<bool>? onDisplayReadinessChanged;
   final ValueChanged<Object>? onDisplayError;
@@ -111,6 +114,7 @@ class WorldMap extends StatelessWidget {
         onDrillIntoLocation: common.onDrillIntoLocation,
         onMapTap: tilemap.onMapTap ?? common.onMapTap,
         onPointTap: common.onPointTap,
+        restorationController: tilemap.restorationController,
         onDisplayReadinessChanged: tilemap.onDisplayReadinessChanged,
         onDisplayError: tilemap.onDisplayError,
       ),
@@ -129,6 +133,7 @@ class WorldMap extends StatelessWidget {
         onDrillIntoLocation: common.onDrillIntoLocation,
         onMapTap: tilemap.onMapTap ?? common.onMapTap,
         onPointTap: common.onPointTap,
+        restorationController: tilemap.restorationController,
         onDisplayReadinessChanged: tilemap.onDisplayReadinessChanged,
         onDisplayError: tilemap.onDisplayError,
       ),

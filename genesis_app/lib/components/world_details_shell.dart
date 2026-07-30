@@ -381,10 +381,7 @@ class WorldDetailsPanel extends StatelessWidget {
 }
 
 double _bottomSafeAreaOf(BuildContext context) {
-  final mediaQuery = MediaQuery.of(context);
-  final paddingBottom = mediaQuery.padding.bottom;
-  final viewPaddingBottom = mediaQuery.viewPadding.bottom;
-  return paddingBottom > viewPaddingBottom ? paddingBottom : viewPaddingBottom;
+  return GenesisSafeAreaInsets.bottom(context);
 }
 
 class WorldDetailsPanelScrollControllerScope extends InheritedWidget {

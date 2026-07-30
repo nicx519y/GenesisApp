@@ -4,6 +4,8 @@ class TilemapRenderer extends StatefulWidget {
   const TilemapRenderer({
     super.key,
     required this.config,
+    this.initialTransform,
+    this.onTransformChanged,
     this.onTileAction,
     this.locationNameForTile,
     this.locationAvatarsForTile,
@@ -33,6 +35,8 @@ class TilemapRenderer extends StatefulWidget {
   });
 
   final TilemapConfig config;
+  final Matrix4? initialTransform;
+  final ValueChanged<Matrix4>? onTransformChanged;
   final TilemapTileActionHandler? onTileAction;
   final TilemapLocationNameResolver? locationNameForTile;
   final TilemapLocationAvatarsResolver? locationAvatarsForTile;
@@ -108,7 +112,10 @@ class _TilemapRendererState extends State<TilemapRenderer>
   @override
   void initState() {
     super.initState();
-    _transformationController = TransformationController();
+    _transformationController = TransformationController(
+      widget.initialTransform?.clone(),
+    )..addListener(_handleTransformChanged);
+    _hasUserTransformedMap = widget.initialTransform != null;
     _locationImageFlowController = AnimationController(
       vsync: this,
       duration: tilemapLocationImageFlowDurationForSeconds(
@@ -179,9 +186,16 @@ class _TilemapRendererState extends State<TilemapRenderer>
 
   @override
   void dispose() {
+    _handleTransformChanged();
     _locationImageFlowController.dispose();
-    _transformationController.dispose();
+    _transformationController
+      ..removeListener(_handleTransformChanged)
+      ..dispose();
     super.dispose();
+  }
+
+  void _handleTransformChanged() {
+    widget.onTransformChanged?.call(_transformationController.value.clone());
   }
 
   @override

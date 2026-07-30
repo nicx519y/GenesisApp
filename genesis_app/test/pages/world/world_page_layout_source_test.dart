@@ -35,6 +35,9 @@ void main() {
           })
           .join('\n');
   final worldHeaderSource = File('lib/pages/world/world_header.dart');
+  final worldDetailsShellSource = File(
+    'lib/components/world_details_shell.dart',
+  ).readAsStringSync();
   final worldMapSource = File(
     'lib/components/legacy_world_map/legacy_world_map_background.dart',
   );
@@ -346,7 +349,7 @@ void main() {
       source,
       matches(
         RegExp(
-          r'messageBubbles:\s+\(_activeChatLocationId\.isEmpty \|\| '
+          r'messageBubbles:\s+\(_activeChatLocationId\.isEmpty \|\|\s+'
           r'preparingInitialTilemap\)',
         ),
       ),
@@ -356,15 +359,78 @@ void main() {
     expect(
       source,
       matches(
-        RegExp(
-          r'messageBubblePlaybackPaused:\s+'
-          r'_activeChatLocationId\.isNotEmpty && !preparingInitialTilemap',
-        ),
+        RegExp(r'messageBubblePlaybackPaused:\s+mapPausedForLocationChat'),
       ),
     );
+    expect(
+      source,
+      contains(
+        'final mapPausedForLocationChat =\n'
+        '          _activeChatLocationId.isNotEmpty && '
+        '!preparingInitialTilemap;',
+      ),
+    );
+    expect(
+      source,
+      contains(
+        'final destroyTilemapForLocationChat =\n'
+        '          world.definitionVersion == 2 && '
+        'mapPausedForLocationChat;',
+      ),
+    );
+    expect(
+      source,
+      contains(
+        'destroyTilemapForLocationChat\n'
+        '          ? const ColoredBox(',
+      ),
+    );
+    expect(source, contains("'world-tilemap-destroyed-for-location-chat'"));
+    expect(
+      source,
+      contains(
+        'final _tilemapRestorationController = '
+        'TilemapRestorationController();',
+      ),
+    );
+    expect(
+      source,
+      contains('restorationController: _tilemapRestorationController,'),
+    );
+    expect(source, isNot(contains('TickerMode(')));
     expect(source, isNot(contains('messageBubbleIndex:')));
     expect(source, isNot(contains('messageBubbleVisible:')));
     expect(source, isNot(contains('WorldMapBubbleCoordinator')));
+  });
+
+  test('world keyboard metrics do not rebuild the covered map', () {
+    final headerSource = worldHeaderSource.readAsStringSync();
+    final bottomSafeArea = headerSource.substring(
+      headerSource.indexOf('double worldBottomSafeAreaOf'),
+      headerSource.indexOf('IconData? worldCounterIcon'),
+    );
+    final detailsBottomSafeArea = worldDetailsShellSource.substring(
+      worldDetailsShellSource.indexOf('double _bottomSafeAreaOf'),
+      worldDetailsShellSource.indexOf(
+        'class WorldDetailsPanelScrollControllerScope',
+      ),
+    );
+
+    expect(
+      worldPageDetailSyncSource,
+      contains('MediaQuery.devicePixelRatioOf(context)'),
+    );
+    expect(
+      worldPageDetailSyncSource,
+      isNot(contains('MediaQuery.maybeOf(context)')),
+    );
+    expect(bottomSafeArea, contains('GenesisSafeAreaInsets.bottom(context)'));
+    expect(bottomSafeArea, isNot(contains('MediaQuery.of(context)')));
+    expect(
+      detailsBottomSafeArea,
+      contains('GenesisSafeAreaInsets.bottom(context)'),
+    );
+    expect(detailsBottomSafeArea, isNot(contains('MediaQuery.of(context)')));
   });
 
   test('image precaches handle failures with onError', () {

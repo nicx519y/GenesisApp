@@ -8,6 +8,7 @@ import '../../components/world_details_shell.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -439,10 +440,7 @@ String worldOwnerDisplayName(WorldDetail world) {
 }
 
 double worldBottomSafeAreaOf(BuildContext context) {
-  final mediaQuery = MediaQuery.of(context);
-  final paddingBottom = mediaQuery.padding.bottom;
-  final viewPaddingBottom = mediaQuery.viewPadding.bottom;
-  return paddingBottom > viewPaddingBottom ? paddingBottom : viewPaddingBottom;
+  return GenesisSafeAreaInsets.bottom(context);
 }
 
 IconData? worldCounterIcon(String key) {

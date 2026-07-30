@@ -1183,84 +1183,125 @@ void main() {
     );
   });
 
-  testWidgets('Tilemap renders again after returning from location chat', (
-    tester,
-  ) async {
-    final locationChatOpen = ValueNotifier<bool>(false);
-    addTearDown(locationChatOpen.dispose);
+  testWidgets(
+    'Tilemap restores drilled state after returning from location chat',
+    (tester) async {
+      final locationChatOpen = ValueNotifier<bool>(false);
+      final restorationController = TilemapRestorationController();
+      final transport = _LocationTilemapTransport({
+        'root': _locationTilemapData('branch', assetName: 'root'),
+        'branch': _locationTilemapData('leaf_a', assetName: 'branch'),
+      });
+      final branch = _locationNode(
+        'branch',
+        children: [_locationNode('leaf_a'), _locationNode('leaf_b')],
+      );
+      addTearDown(locationChatOpen.dispose);
 
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: _servicesWithTransport(
-          _TilemapTransport(data: _locationTilemapData('leaf')),
-        ),
-        child: MaterialApp(
-          home: Scaffold(
-            body: ValueListenableBuilder<bool>(
-              valueListenable: locationChatOpen,
-              builder: (context, chatOpen, _) {
-                return Tilemap.origin(
-                  key: const ValueKey<String>('location-chat-tilemap'),
-                  originId: 'o_1',
-                  messageBubbles: chatOpen
-                      ? const <WorldMapMessageBubble>[]
-                      : const <WorldMapMessageBubble>[
-                          WorldMapMessageBubble(
-                            characterId: 'char-a',
-                            content: 'Visible before opening chat.',
-                          ),
-                        ],
-                  messageBubblePlaybackPaused: chatOpen,
-                  tileImageLoader: _completeTileImageLoad,
-                );
-              },
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: MaterialApp(
+            home: Scaffold(
+              body: ValueListenableBuilder<bool>(
+                valueListenable: locationChatOpen,
+                builder: (context, chatOpen, _) {
+                  if (chatOpen) {
+                    return const ColoredBox(
+                      key: ValueKey<String>('location-chat-map-placeholder'),
+                      color: Colors.black,
+                    );
+                  }
+                  return Tilemap.world(
+                    key: const ValueKey<String>('location-chat-tilemap'),
+                    worldId: 'w_1',
+                    locationNodes: [branch],
+                    restorationController: restorationController,
+                    messageBubbles: const <WorldMapMessageBubble>[
+                      WorldMapMessageBubble(
+                        characterId: 'char-a',
+                        content: 'Visible before opening chat.',
+                      ),
+                    ],
+                    tileImageLoader: _completeTileImageLoad,
+                  );
+                },
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    await tester.pump();
+      );
+      for (var frame = 0; frame < 7; frame += 1) {
+        await tester.pump();
+      }
 
-    expect(
-      find.byKey(const ValueKey<String>('tilemap-transition-background')),
-      findsNothing,
-    );
-    expect(find.byKey(const ValueKey<String>('tilemap-grid')), findsOneWidget);
-    final rendererState = tester.state(_liveTilemapRendererFinder());
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-transition-background')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey<String>('tilemap-grid')), findsWidgets);
+      final rootRenderer = tester.widget<TilemapRenderer>(
+        _liveTilemapRendererFinder(),
+      );
+      await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+      await tester.pump();
 
-    locationChatOpen.value = true;
-    await tester.pump();
+      expect(
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
+        'world:w_1:branch',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+        findsOneWidget,
+      );
+      final rendererState = tester.state(_liveTilemapRendererFinder());
 
-    expect(
-      find.byKey(const ValueKey<String>('tilemap-transition-background')),
-      findsNothing,
-    );
-    expect(tester.state(_liveTilemapRendererFinder()), same(rendererState));
+      locationChatOpen.value = true;
+      await tester.pump();
 
-    await tester.pump();
-    expect(
-      find.byKey(const ValueKey<String>('tilemap-transition-background')),
-      findsNothing,
-    );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-transition-background')),
+        findsNothing,
+      );
+      expect(_liveTilemapRendererFinder(), findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('location-chat-map-placeholder')),
+        findsOneWidget,
+      );
 
-    locationChatOpen.value = false;
-    await tester.pump();
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-transition-background')),
+        findsNothing,
+      );
 
-    expect(
-      find.byKey(const ValueKey<String>('tilemap-transition-background')),
-      findsNothing,
-    );
-    expect(tester.state(_liveTilemapRendererFinder()), same(rendererState));
+      locationChatOpen.value = false;
+      for (var frame = 0; frame < 7; frame += 1) {
+        await tester.pump();
+      }
 
-    await tester.pump();
-    expect(
-      find.byKey(const ValueKey<String>('tilemap-transition-background')),
-      findsNothing,
-    );
-    expect(find.byKey(const ValueKey<String>('tilemap-grid')), findsOneWidget);
-  });
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-transition-background')),
+        findsNothing,
+      );
+      expect(
+        tester.state(_liveTilemapRendererFinder()),
+        isNot(same(rendererState)),
+      );
+      expect(
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
+        'world:w_1:branch',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-grid')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('Tilemap restores cached settings before creating its renderer', (
     tester,

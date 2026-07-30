@@ -30,6 +30,62 @@ String _readLocationChatImplementationSource() {
 }
 
 void main() {
+  test('location chat avoids broad MediaQuery and per-metric bottom jumps', () {
+    final pageSource = File(
+      'lib/pages/chat/location_chat_page.dart',
+    ).readAsStringSync();
+    final messageListSource = File(
+      'lib/components/chat/shared/chat_ui_message_lists.dart',
+    ).readAsStringSync();
+
+    expect(pageSource, contains('MediaQuery.devicePixelRatioOf(context)'));
+    expect(
+      pageSource,
+      isNot(contains('MediaQuery.maybeOf(context)?.devicePixelRatio')),
+    );
+    expect(pageSource, isNot(contains('with WidgetsBindingObserver')));
+    expect(
+      pageSource,
+      isNot(contains('WidgetsBinding.instance.addObserver(this)')),
+    );
+    expect(pageSource, isNot(contains('void didChangeMetrics()')));
+    expect(
+      messageListSource,
+      contains('class ChatBottomAnchoringScrollPhysics'),
+    );
+    expect(messageListSource, contains('return newPosition.maxScrollExtent;'));
+  });
+
+  test('chat scroll physics keeps a bottom-aligned viewport anchored', () {
+    const physics = ChatBottomAnchoringScrollPhysics();
+    final oldPosition = FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: 500,
+      pixels: 500,
+      viewportDimension: 600,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+    final newPosition = FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: 800,
+      pixels: 500,
+      viewportDimension: 300,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+
+    expect(
+      physics.adjustPositionForNewDimensions(
+        oldPosition: oldPosition,
+        newPosition: newPosition,
+        isScrolling: false,
+        velocity: 0,
+      ),
+      newPosition.maxScrollExtent,
+    );
+  });
+
   test('location chat panel hides the inactive more button by default', () {
     const panel = LocationChatPanel(worldId: 'world-1', locationId: 'loc-1');
 

@@ -164,8 +164,7 @@ class LocationChatPanel extends StatefulWidget {
   State<LocationChatPanel> createState() => _LocationChatPanelState();
 }
 
-class _LocationChatPanelState extends State<LocationChatPanel>
-    with WidgetsBindingObserver {
+class _LocationChatPanelState extends State<LocationChatPanel> {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final _composerFocusNode = FocusNode();
@@ -242,7 +241,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
     );
-    WidgetsBinding.instance.addObserver(this);
     _composerFocusNode.addListener(_handleComposerFocusChanged);
     _textController.addListener(_handleDraftTextChanged);
     _scrollController.addListener(_handleMessageListScroll);
@@ -255,7 +253,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   void dispose() {
     _selectedModelLoadGeneration++;
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
-    WidgetsBinding.instance.removeObserver(this);
     _recordPanelDebug(action: 'dispose', activeOverride: false);
     final service = _service;
     if (_ownsService && service != null) {
@@ -335,8 +332,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       userInfoRevision.addListener(_handleCachedUserInfoChanged);
     }
     final previousDevicePixelRatio = _devicePixelRatio;
-    _devicePixelRatio =
-        MediaQuery.maybeOf(context)?.devicePixelRatio ?? _devicePixelRatio;
+    _devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     if ((previousDevicePixelRatio - _devicePixelRatio).abs() > 0.01 &&
         !widget.active &&
         widget.openingPreviewMessages.isNotEmpty) {
@@ -347,21 +343,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         'changed=$changedMessages',
       );
     }
-  }
-
-  @override
-  void didChangeMetrics() {
-    if (_composerFocusBottomPinActive) {
-      _scheduleComposerFocusBottomPin();
-      return;
-    }
-    _keepBottomAfterLayoutIfNeeded();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // WorldChatroomService owns reconnect behavior; this page only joins/leaves
-    // the current location.
   }
 
   @override

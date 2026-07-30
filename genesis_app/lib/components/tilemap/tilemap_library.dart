@@ -32,6 +32,67 @@ enum _TilemapSource { origin, world }
 
 typedef TilemapTileImageLoader = Future<void> Function(String assetUrl);
 
+class TilemapRestorationController {
+  String _scopeKey = '';
+  String _initialLocationId = '';
+  String _currentLocationId = '';
+  final List<String> _locationTrail = <String>[];
+  final Map<String, Matrix4> _viewportTransforms = <String, Matrix4>{};
+
+  void clear() {
+    _scopeKey = '';
+    _initialLocationId = '';
+    _currentLocationId = '';
+    _locationTrail.clear();
+    _viewportTransforms.clear();
+  }
+
+  void _ensureScope({
+    required String scopeKey,
+    required String initialLocationId,
+  }) {
+    if (_scopeKey == scopeKey && _initialLocationId == initialLocationId) {
+      return;
+    }
+    clear();
+    _scopeKey = scopeKey;
+    _initialLocationId = initialLocationId;
+    _currentLocationId = initialLocationId;
+  }
+
+  void _saveNavigation({
+    required String scopeKey,
+    required String initialLocationId,
+    required String currentLocationId,
+    required List<String> locationTrail,
+  }) {
+    _ensureScope(scopeKey: scopeKey, initialLocationId: initialLocationId);
+    _currentLocationId = currentLocationId;
+    _locationTrail
+      ..clear()
+      ..addAll(locationTrail);
+  }
+
+  Matrix4? _viewportTransform({
+    required String scopeKey,
+    required String initialLocationId,
+    required String mapId,
+  }) {
+    _ensureScope(scopeKey: scopeKey, initialLocationId: initialLocationId);
+    return _viewportTransforms[mapId]?.clone();
+  }
+
+  void _saveViewportTransform({
+    required String scopeKey,
+    required String initialLocationId,
+    required String mapId,
+    required Matrix4 transform,
+  }) {
+    _ensureScope(scopeKey: scopeKey, initialLocationId: initialLocationId);
+    _viewportTransforms[mapId] = transform.clone();
+  }
+}
+
 String resolveTilemapPreferredVisibleLocationId({
   required String preferredLocationId,
   required Iterable<String> visibleLocationIds,
@@ -83,6 +144,7 @@ class Tilemap extends StatefulWidget {
     this.onMapTap,
     this.onPointTap,
     this.tileImageLoader,
+    this.restorationController,
     this.onDisplayReadinessChanged,
     this.onDisplayError,
   }) : _source = _TilemapSource.origin,
@@ -104,6 +166,7 @@ class Tilemap extends StatefulWidget {
     this.onMapTap,
     this.onPointTap,
     this.tileImageLoader,
+    this.restorationController,
     this.onDisplayReadinessChanged,
     this.onDisplayError,
   }) : _source = _TilemapSource.world,
@@ -124,6 +187,7 @@ class Tilemap extends StatefulWidget {
   final VoidCallback? onMapTap;
   final FutureOr<void> Function(WorldPoint point)? onPointTap;
   final TilemapTileImageLoader? tileImageLoader;
+  final TilemapRestorationController? restorationController;
   final ValueChanged<bool>? onDisplayReadinessChanged;
   final ValueChanged<Object>? onDisplayError;
 
@@ -186,7 +250,17 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _currentLocationId = widget.locationId.trim();
+    final initialLocationId = widget.locationId.trim();
+    final restorationController = widget.restorationController;
+    restorationController?._ensureScope(
+      scopeKey: _restorationScopeKey,
+      initialLocationId: initialLocationId,
+    );
+    _currentLocationId =
+        restorationController?._currentLocationId ?? initialLocationId;
+    _locationTrail.addAll(
+      restorationController?._locationTrail ?? const <String>[],
+    );
     _loadingCoordinator = TilemapLoadingCoordinator(
       onChanged: _handleLoadingCoordinatorChanged,
       onSilentMapReady: _handleSilentMapReady,
@@ -226,6 +300,11 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     if (!entityChanged && !initialLocationChanged) return;
     _currentLocationId = widget.locationId.trim();
     _locationTrail.clear();
+    widget.restorationController?._ensureScope(
+      scopeKey: _restorationScopeKey,
+      initialLocationId: _currentLocationId,
+    );
+    _saveRestorationNavigation();
     if (entityChanged) {
       _resetMapCache();
     } else {
@@ -236,6 +315,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _saveRestorationNavigation();
     _cacheGeneration += 1;
     _loadingCoordinator.dispose();
     _prerenderController.dispose();
@@ -699,6 +779,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     widget.onDrillIntoLocation?.call();
     _locationTrail.add(_currentLocationId);
     _currentLocationId = drillTarget.id.trim();
+    _saveRestorationNavigation();
     _loadCurrentLocation(rebuild: true);
   }
 
@@ -732,7 +813,20 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     if (_locationTrail.isEmpty) return;
     widget.onDrillIntoLocation?.call();
     _currentLocationId = _locationTrail.removeLast();
+    _saveRestorationNavigation();
     _loadCurrentLocation(rebuild: true);
+  }
+
+  String get _restorationScopeKey =>
+      '${widget._source.name}:${widget._entityId.trim()}';
+
+  void _saveRestorationNavigation() {
+    widget.restorationController?._saveNavigation(
+      scopeKey: _restorationScopeKey,
+      initialLocationId: widget.locationId.trim(),
+      currentLocationId: _currentLocationId,
+      locationTrail: _locationTrail,
+    );
   }
 
   void _retry() {
@@ -963,6 +1057,21 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     return TilemapRenderer(
       key: rendererKey,
       config: config,
+      initialTransform: widget.restorationController?._viewportTransform(
+        scopeKey: _restorationScopeKey,
+        initialLocationId: widget.locationId.trim(),
+        mapId: config.id,
+      ),
+      onTransformChanged: widget.restorationController == null
+          ? null
+          : (transform) {
+              widget.restorationController?._saveViewportTransform(
+                scopeKey: _restorationScopeKey,
+                initialLocationId: widget.locationId.trim(),
+                mapId: config.id,
+                transform: transform,
+              );
+            },
       onTileAction: interactive ? _handleTileAction : null,
       locationNameForTile: _locationNameForTile,
       locationAvatarsForTile: _locationAvatarsForTile,

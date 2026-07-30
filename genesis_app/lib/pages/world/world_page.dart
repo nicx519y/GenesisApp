@@ -94,6 +94,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =
       <String, WorldLocationChatPanelDescriptor>{};
   final _locationChatPageCache = WorldLocationChatPageCache();
+  final _tilemapRestorationController = TilemapRestorationController();
   final Set<String> _preloadedLocationMessageIds = <String>{};
   final Map<String, Future<void>> _preloadingLocationMessageFutures =
       <String, Future<void>>{};
@@ -398,58 +399,75 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
       final preparingInitialTilemap =
           _initialLocationChatEntry && _activeChatLocationId.isNotEmpty;
-      final Widget map = WorldMap.world(
-        definitionVersion: world.definitionVersion,
-        worldId: widget.wid,
-        common: WorldMapCommonConfig(
-          locationNodes: locationNodes,
-          drillExitTop:
-              topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
-          messageBubbles:
-              (_activeChatLocationId.isEmpty || preparingInitialTilemap) &&
-                  _mapBubbleMessagesReady
-              ? _mapMessageBubbles
-              : const <WorldMapMessageBubble>[],
-          messageBubblePlaybackPaused:
-              _activeChatLocationId.isNotEmpty && !preparingInitialTilemap,
-          onDrillIntoLocation: _showMapTab,
-          onMapTap: _recordWorldMapClick,
-          onPointTap: _openChatForPoint,
-        ),
-        legacy: LegacyWorldMapConfig(
-          implementationKey: PageStorageKey<String>('world-map-tab-$tabIndex'),
-          points: points,
-          listPoints: listPoints,
-          listLocationNodes: listLocationNodes,
-          mapImageUrl: rootMapImageUrl,
-          dimmed: pointMode,
-          showPointsList: pointMode,
-          recentChatLocationIds: _recentChatLocationIds,
-          recentChatMapLocationIds: recentMapLocationIds,
-          initialZoomScale: pointMode ? 1 : 1.2,
-          pointsListOuterScrollHandoff: false,
-          overlayTop:
-              topPadding +
-              8 +
-              (pointMode ? worldMapTabsHeight + 8 : worldMapContentTopOffset),
-          drillExitMaxWidth: worldSecondaryMapControlWidth,
-          onHorizontalPanStateChanged: tabIndex == 0
-              ? _handleWorldMapHorizontalPanStateChanged
-              : null,
-        ),
-        tilemap: WorldMapTilemapOptions(
-          implementationKey: PageStorageKey<String>(
-            'world-tilemap-${widget.wid}',
-          ),
-          locationId: initialTilemapLocationId,
-          locationNodes: listLocationNodes,
-          visualModeToggleTop: topPadding + 6,
-          visualModeToggleRight: worldMapBackButtonLeft,
-          onMapTap: _recordWorldTilemapClick,
-          onDisplayReadinessChanged: _handleTilemapDisplayReadinessChanged,
-          onDisplayError: _handleTilemapDisplayError,
-        ),
-      );
+      final mapPausedForLocationChat =
+          _activeChatLocationId.isNotEmpty && !preparingInitialTilemap;
+      final destroyTilemapForLocationChat =
+          world.definitionVersion == 2 && mapPausedForLocationChat;
+      final Widget map = destroyTilemapForLocationChat
+          ? const ColoredBox(
+              key: ValueKey<String>(
+                'world-tilemap-destroyed-for-location-chat',
+              ),
+              color: kWorldMapLoadingBackgroundColor,
+            )
+          : WorldMap.world(
+              definitionVersion: world.definitionVersion,
+              worldId: widget.wid,
+              common: WorldMapCommonConfig(
+                locationNodes: locationNodes,
+                drillExitTop:
+                    topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
+                messageBubbles:
+                    (_activeChatLocationId.isEmpty ||
+                            preparingInitialTilemap) &&
+                        _mapBubbleMessagesReady
+                    ? _mapMessageBubbles
+                    : const <WorldMapMessageBubble>[],
+                messageBubblePlaybackPaused: mapPausedForLocationChat,
+                onDrillIntoLocation: _showMapTab,
+                onMapTap: _recordWorldMapClick,
+                onPointTap: _openChatForPoint,
+              ),
+              legacy: LegacyWorldMapConfig(
+                implementationKey: PageStorageKey<String>(
+                  'world-map-tab-$tabIndex',
+                ),
+                points: points,
+                listPoints: listPoints,
+                listLocationNodes: listLocationNodes,
+                mapImageUrl: rootMapImageUrl,
+                dimmed: pointMode,
+                showPointsList: pointMode,
+                recentChatLocationIds: _recentChatLocationIds,
+                recentChatMapLocationIds: recentMapLocationIds,
+                initialZoomScale: pointMode ? 1 : 1.2,
+                pointsListOuterScrollHandoff: false,
+                overlayTop:
+                    topPadding +
+                    8 +
+                    (pointMode
+                        ? worldMapTabsHeight + 8
+                        : worldMapContentTopOffset),
+                drillExitMaxWidth: worldSecondaryMapControlWidth,
+                onHorizontalPanStateChanged: tabIndex == 0
+                    ? _handleWorldMapHorizontalPanStateChanged
+                    : null,
+              ),
+              tilemap: WorldMapTilemapOptions(
+                implementationKey: PageStorageKey<String>(
+                  'world-tilemap-${widget.wid}',
+                ),
+                locationId: initialTilemapLocationId,
+                locationNodes: listLocationNodes,
+                visualModeToggleTop: topPadding + 6,
+                visualModeToggleRight: worldMapBackButtonLeft,
+                restorationController: _tilemapRestorationController,
+                onMapTap: _recordWorldTilemapClick,
+                onDisplayReadinessChanged:
+                    _handleTilemapDisplayReadinessChanged,
+                onDisplayError: _handleTilemapDisplayError,
+              ),
+            );
       return WorldKeepAlivePage(
         child: Stack(
           fit: StackFit.expand,
