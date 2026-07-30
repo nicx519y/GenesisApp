@@ -31,9 +31,16 @@ extension _WorldPageDetailSync on _WorldPageState {
       world.relationStatus,
     );
     final shouldStartTracking = world.isProgressing && canTrackWorldProgress;
+    final previousDefinitionVersion = _world?.definitionVersion;
+    final tilemapImplementationChanged =
+        previousDefinitionVersion != world.definitionVersion;
     _precacheProgressWaitAvatarImages(world);
     _setWorldPageState(() {
       _world = world;
+      if (tilemapImplementationChanged) {
+        _tilemapDisplayReady = world.definitionVersion != 2;
+        _tilemapDisplayError = null;
+      }
       _sectionsWorldNotifier.value = world;
       if (clearInitialLoadError) _initialLoadError = null;
       _syncLocationChatDescriptors(world);
@@ -41,6 +48,7 @@ extension _WorldPageDetailSync on _WorldPageState {
         _buildMapBubbleCandidates(_worldChatroom?.state, world),
       );
     });
+    _worldChatroom?.applyWorldSnapshot(world);
     _syncWorldChatroomForRelationStatus(world.relationStatus);
     _maybeOpenInitialLocationChat();
     if (shouldStartTracking) {

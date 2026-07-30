@@ -137,7 +137,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       _startHydrateLocalMessages(provided, services);
       unawaited(_syncLocalIdentity(services));
       _attachService(provided);
-      if (widget.isLeafLocation && !_joinedLocation) {
+      if (widget.isLeafLocation &&
+          !_joinedLocation &&
+          provided.state.connected) {
         unawaited(_joinLocation(provided));
       }
       return;
@@ -146,7 +148,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     if (_service != null) {
       final service = _service!;
       _attachService(service);
-      if (widget.isLeafLocation && !_joinedLocation) {
+      if (widget.isLeafLocation &&
+          !_joinedLocation &&
+          service.state.connected) {
         unawaited(_joinLocation(service));
       }
       return;
@@ -170,6 +174,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _awaitingAiResponseRoundId = '';
     final wasJoinedLocation = _joinedLocation;
     _joinedLocation = false;
+    _joiningLocation = false;
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
     await _balanceAlertSubscription?.cancel();
@@ -244,6 +249,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   Future<void> _joinLocation(WorldChatroomService service) async {
+    if (_joiningLocation || _joinedLocation) return;
+    _joiningLocation = true;
     try {
       if (_mySenderId.isEmpty || _mySenderName.isEmpty) {
         final senderId = firstNonEmpty([_mySenderId, 'local-user']);
@@ -262,6 +269,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         _messages.add(ChatMessageVm.system('Join failed: $e'));
       });
       _scrollToBottom();
+    } finally {
+      _joiningLocation = false;
     }
   }
 
@@ -499,6 +508,16 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     if (!mounted) return;
     final service = _service;
     if (service != null) _syncSenderIdentity(service);
+    if (widget.active &&
+        widget.isLeafLocation &&
+        service != null &&
+        state.connected &&
+        !state.joining &&
+        state.joinedLocationId != widget.locationId &&
+        !_joinedLocation &&
+        !_joiningLocation) {
+      unawaited(_joinLocation(service));
+    }
     final wasAtBottom = _isAtBottom();
     final previousSource =
         _chatroomState.messagesByLocation[widget.locationId] ??

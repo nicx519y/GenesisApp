@@ -341,15 +341,26 @@ void main() {
     final source = worldPageImplementationSource;
 
     expect(source, contains('worldMapBubbleCandidatesFor('));
+    expect(source, contains('final preparingInitialTilemap ='));
     expect(
       source,
-      matches(RegExp(r'messageBubbles:\s+_activeChatLocationId\.isEmpty')),
+      matches(
+        RegExp(
+          r'messageBubbles:\s+\(_activeChatLocationId\.isEmpty \|\| '
+          r'preparingInitialTilemap\)',
+        ),
+      ),
     );
     expect(source, contains('_mapBubbleMessagesReady'));
     expect(source, contains('_mapMessageBubbles'));
     expect(
       source,
-      contains('messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty'),
+      matches(
+        RegExp(
+          r'messageBubblePlaybackPaused:\s+'
+          r'_activeChatLocationId\.isNotEmpty && !preparingInitialTilemap',
+        ),
+      ),
     );
     expect(source, isNot(contains('messageBubbleIndex:')));
     expect(source, isNot(contains('messageBubbleVisible:')));

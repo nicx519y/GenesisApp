@@ -19,12 +19,17 @@ import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Finder _liveTilemapRendererFinder() {
-  return find.byWidgetPredicate((widget) {
-    if (widget is! TilemapRenderer) return false;
-    final key = widget.key;
-    return key is ValueKey<String> &&
-        key.value.startsWith('tilemap-live-renderer-');
-  }, description: 'live TilemapRenderer');
+  return find.byWidgetPredicate(
+    (widget) => widget is TilemapRenderer && widget.isForeground,
+    description: 'foreground TilemapRenderer',
+  );
+}
+
+Finder _tilemapRendererForMap(String mapId) {
+  return find.byWidgetPredicate(
+    (widget) => widget is TilemapRenderer && widget.config.id == mapId,
+    description: 'TilemapRenderer for $mapId',
+  );
 }
 
 void main() {
@@ -37,6 +42,65 @@ void main() {
   });
 
   tearDown(FirebasePerformanceMonitoring.resetForTesting);
+
+  testWidgets('Tilemap reports current display readiness and load errors', (
+    tester,
+  ) async {
+    final transport = _DelayedTilemapTransport();
+    final services = _servicesWithTransport(transport);
+    final readiness = <bool>[];
+    final errors = <Object>[];
+    Widget buildTilemap(String bubbleContent) {
+      return AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Tilemap.world(
+              key: const ValueKey<String>('readiness-tilemap'),
+              worldId: 'w_1',
+              messageBubbles: [
+                WorldMapMessageBubble(
+                  characterId: 'char_1',
+                  content: bubbleContent,
+                ),
+              ],
+              tileImageLoader: _completeTileImageLoad,
+              onDisplayReadinessChanged: readiness.add,
+              onDisplayError: errors.add,
+            ),
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildTilemap('stable bubble'));
+    await tester.pump();
+
+    expect(readiness, contains(false));
+    expect(errors, isEmpty);
+
+    transport.complete(_locationTilemapData('leaf'));
+    for (var frame = 0; frame < 8; frame += 1) {
+      await tester.pump();
+    }
+
+    expect(readiness.last, isTrue);
+    expect(errors, isEmpty);
+
+    final stableCallbackCount = readiness.length;
+    await tester.pumpWidget(buildTilemap('stable bubble'));
+    await tester.pump();
+    expect(readiness, hasLength(stableCallbackCount));
+
+    await tester.pumpWidget(buildTilemap('updated bubble'));
+    await tester.pump();
+    expect(readiness.skip(stableCallbackCount), contains(false));
+
+    for (var frame = 0; frame < 4; frame += 1) {
+      await tester.pump();
+    }
+    expect(readiness.last, isTrue);
+  });
 
   testWidgets('Tilemap records Firebase load performance', (tester) async {
     final transport = _DelayedTilemapTransport();
@@ -831,7 +895,7 @@ void main() {
     },
   );
 
-  testWidgets('Tilemap gates a resized viewport until its next paint', (
+  testWidgets('Tilemap keeps the mounted renderer while viewport is resized', (
     tester,
   ) async {
     final viewportSize = ValueNotifier<Size>(const Size(320, 480));
@@ -872,14 +936,16 @@ void main() {
       find.byKey(const ValueKey<String>('tilemap-transition-background')),
       findsNothing,
     );
+    final rendererState = tester.state(_liveTilemapRendererFinder());
 
     viewportSize.value = const Size(640, 480);
     await tester.pump();
 
     expect(_liveTilemapRendererFinder(), findsOneWidget);
+    expect(tester.state(_liveTilemapRendererFinder()), same(rendererState));
     expect(
       find.byKey(const ValueKey<String>('tilemap-transition-background')),
-      findsOneWidget,
+      findsNothing,
     );
 
     await tester.pump();
@@ -935,14 +1001,16 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(const ValueKey<String>('tilemap-grid')), findsOneWidget);
+    final rendererState = tester.state(_liveTilemapRendererFinder());
 
     locationChatOpen.value = true;
     await tester.pump();
 
     expect(
       find.byKey(const ValueKey<String>('tilemap-transition-background')),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(tester.state(_liveTilemapRendererFinder()), same(rendererState));
 
     await tester.pump();
     expect(
@@ -955,8 +1023,9 @@ void main() {
 
     expect(
       find.byKey(const ValueKey<String>('tilemap-transition-background')),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(tester.state(_liveTilemapRendererFinder()), same(rendererState));
 
     await tester.pump();
     expect(
@@ -1341,6 +1410,267 @@ void main() {
   });
 
   testWidgets(
+    'Tilemap promotes the same mounted warm renderer and reuses it on back',
+    (tester) async {
+      final transport = _LocationTilemapTransport({
+        'root': _locationTilemapData('branch', assetName: 'root'),
+        'branch': _locationTilemapData('leaf_a', assetName: 'branch'),
+      });
+      final branch = _locationNode(
+        'branch',
+        children: [_locationNode('leaf_a'), _locationNode('leaf_b')],
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Tilemap.world(
+                worldId: 'w_1',
+                locationNodes: [branch],
+                tileImageLoader: _completeTileImageLoad,
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var frame = 0; frame < 7; frame += 1) {
+        await tester.pump();
+      }
+
+      final rootFinder = _tilemapRendererForMap('world:w_1:root');
+      final branchFinder = _tilemapRendererForMap('world:w_1:branch');
+      expect(rootFinder, findsOneWidget);
+      expect(branchFinder, findsOneWidget);
+      final rootState = tester.state(rootFinder);
+      final branchState = tester.state(branchFinder);
+      expect(tester.widget<TilemapRenderer>(branchFinder).onTileAction, isNull);
+
+      final rootRenderer = tester.widget<TilemapRenderer>(
+        _liveTilemapRendererFinder(),
+      );
+      await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+      await tester.pump();
+
+      expect(
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
+        'world:w_1:branch',
+      );
+      expect(tester.state(branchFinder), same(branchState));
+      expect(find.byType(RawImage), findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-transition-background')),
+        findsNothing,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+      );
+      await tester.pump();
+
+      expect(
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
+        'world:w_1:root',
+      );
+      expect(tester.state(rootFinder), same(rootState));
+      expect(tester.state(branchFinder), same(branchState));
+    },
+  );
+
+  testWidgets('Tilemap keeps one parent and two child warm renderers', (
+    tester,
+  ) async {
+    final transport = _LocationTilemapTransport({
+      'root': _locationTilemapData('branch', assetName: 'root'),
+      'branch': _tilemapData(
+        tileLocationIds: const ['child_a', 'child_b'],
+        assetName: 'branch',
+      ),
+      'child_a': _locationTilemapData('leaf_a', assetName: 'child_a'),
+      'child_b': _locationTilemapData('leaf_b', assetName: 'child_b'),
+    });
+    final branch = _locationNode(
+      'branch',
+      children: [
+        _locationNode(
+          'child_a',
+          children: [_locationNode('leaf_a'), _locationNode('leaf_a_2')],
+        ),
+        _locationNode(
+          'child_b',
+          children: [_locationNode('leaf_b'), _locationNode('leaf_b_2')],
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: MaterialApp(
+          home: Scaffold(
+            body: Tilemap.world(
+              worldId: 'w_1',
+              locationNodes: [branch],
+              tileImageLoader: _completeTileImageLoad,
+            ),
+          ),
+        ),
+      ),
+    );
+    for (var frame = 0; frame < 8; frame += 1) {
+      await tester.pump();
+    }
+
+    final rootRenderer = tester.widget<TilemapRenderer>(
+      _liveTilemapRendererFinder(),
+    );
+    await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+    for (var frame = 0; frame < 10; frame += 1) {
+      await tester.pump();
+    }
+
+    expect(find.byType(TilemapRenderer), findsNWidgets(4));
+    expect(_tilemapRendererForMap('world:w_1:root'), findsOneWidget);
+    expect(_tilemapRendererForMap('world:w_1:branch'), findsOneWidget);
+    expect(_tilemapRendererForMap('world:w_1:child_a'), findsOneWidget);
+    expect(_tilemapRendererForMap('world:w_1:child_b'), findsOneWidget);
+  });
+
+  testWidgets('Tilemap map-result LRU stays bounded at eight locations', (
+    tester,
+  ) async {
+    final locationIds = List<String>.generate(10, (index) => 'location_$index');
+    final transport = _LocationTilemapTransport({
+      for (final locationId in locationIds)
+        locationId: _locationTilemapData(
+          'leaf_$locationId',
+          assetName: locationId,
+        ),
+    });
+    final currentLocation = ValueNotifier<String>(locationIds.first);
+    addTearDown(currentLocation.dispose);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: MaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<String>(
+              valueListenable: currentLocation,
+              builder: (context, locationId, _) {
+                return Tilemap.world(
+                  key: const ValueKey<String>('bounded-map-results'),
+                  worldId: 'w_1',
+                  locationId: locationId,
+                  tileImageLoader: _completeTileImageLoad,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    for (final locationId in locationIds.skip(1)) {
+      currentLocation.value = locationId;
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+    }
+
+    expect(transport.requestCount(locationIds.first), 1);
+    currentLocation.value = locationIds.first;
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.requestCount(locationIds.first), 2);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+    'Tilemap keeps only the parent after drilling into an uncached target',
+    (tester) async {
+      final transport = _LocationTilemapTransport({
+        'root': _tilemapData(
+          tileLocationIds: const ['branch_a', 'branch_b', 'branch_c'],
+          assetName: 'root',
+        ),
+        'branch_a': _locationTilemapData('leaf_a', assetName: 'branch_a'),
+        'branch_b': _locationTilemapData('leaf_b', assetName: 'branch_b'),
+        'branch_c': _locationTilemapData('leaf_c', assetName: 'branch_c'),
+      });
+      final locationNodes = [
+        for (final branchId in const ['branch_a', 'branch_b', 'branch_c'])
+          _locationNode(
+            branchId,
+            children: [
+              _locationNode('leaf_${branchId}_a'),
+              _locationNode('leaf_${branchId}_b'),
+            ],
+          ),
+      ];
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Tilemap.world(
+                worldId: 'w_1',
+                locationNodes: locationNodes,
+                tileImageLoader: _completeTileImageLoad,
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var frame = 0; frame < 9; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(find.byType(TilemapRenderer), findsNWidgets(3));
+      expect(transport.requestCount('branch_c'), 0);
+      final rootFinder = _tilemapRendererForMap('world:w_1:root');
+      final rootState = tester.state(rootFinder);
+      final rootRenderer = tester.widget<TilemapRenderer>(
+        _liveTilemapRendererFinder(),
+      );
+
+      await rootRenderer.onTileAction!(rootRenderer.config.tiles.last);
+      await tester.pump();
+      expect(
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
+        'world:w_1:branch_c',
+      );
+      expect(
+        tester
+            .widget<TilemapRenderer>(_liveTilemapRendererFinder())
+            .onTileAction,
+        isNotNull,
+      );
+      for (var frame = 0; frame < 3; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(transport.requestCount('branch_c'), 1);
+      expect(find.byType(TilemapRenderer), findsNWidgets(2));
+      expect(
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
+        'world:w_1:branch_c',
+      );
+      expect(tester.state(rootFinder), same(rootState));
+    },
+  );
+
+  testWidgets(
     'Tilemap silently preloads drillable maps and never reloads on drill/back',
     (tester) async {
       final transport = _LocationTilemapTransport({
@@ -1408,7 +1738,7 @@ void main() {
         transport.requests
             .map((request) => request.uri.queryParameters['location_id'])
             .toSet(),
-        {'root', 'branch_a', 'branch_b'},
+        {'root', 'branch_a'},
       );
       expect(
         transport.requests.every(
@@ -1419,6 +1749,24 @@ void main() {
       expect(
         pendingImages.keys.any((url) => url.contains('/branch_a.png?')),
         isTrue,
+      );
+      expect(
+        pendingImages.keys.any((url) => url.contains('/branch_b.png?')),
+        isFalse,
+      );
+      pendingImages.entries
+          .singleWhere((entry) => entry.key.contains('/branch_a.png?'))
+          .value
+          .complete();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        transport.requests
+            .map((request) => request.uri.queryParameters['location_id'])
+            .toSet(),
+        {'root', 'branch_a', 'branch_b'},
       );
       expect(
         pendingImages.keys.any((url) => url.contains('/branch_b.png?')),
@@ -1519,14 +1867,23 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
         findsNothing,
       );
-      expect(_liveTilemapRendererFinder(), findsOneWidget);
+      expect(_liveTilemapRendererFinder(), findsNothing);
       expect(
-        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
-        'world:w_1:root',
+        tester
+            .widget<TilemapRenderer>(_tilemapRendererForMap('world:w_1:root'))
+            .isForeground,
+        isFalse,
       );
       expect(
-        find.byKey(const ValueKey<String>('tilemap-loading-background')),
-        findsNothing,
+        tester
+            .widget<TilemapRenderer>(_tilemapRendererForMap('world:w_1:root'))
+            .onTileAction,
+        isNull,
+        reason: 'the previous map is retained only as a non-interactive parent',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-transition-background')),
+        findsOneWidget,
       );
 
       await tester.tap(

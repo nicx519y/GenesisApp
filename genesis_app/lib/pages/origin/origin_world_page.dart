@@ -442,6 +442,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       context: context,
       characters: origin.characters,
       initialCustomTab: initialCustomTab,
+      initialLaunchedTab: !initialCustomTab,
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
       launchedPresetRolesLoader: () =>

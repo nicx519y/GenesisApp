@@ -33,6 +33,8 @@ class WorldMapTilemapOptions {
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.onMapTap,
+    this.onDisplayReadinessChanged,
+    this.onDisplayError,
   });
 
   final Key? implementationKey;
@@ -45,6 +47,8 @@ class WorldMapTilemapOptions {
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
   final VoidCallback? onMapTap;
+  final ValueChanged<bool>? onDisplayReadinessChanged;
+  final ValueChanged<Object>? onDisplayError;
 }
 
 enum _WorldMapSource { origin, world }
@@ -104,6 +108,8 @@ class WorldMap extends StatelessWidget {
         onDrillIntoLocation: common.onDrillIntoLocation,
         onMapTap: tilemap.onMapTap ?? common.onMapTap,
         onPointTap: common.onPointTap,
+        onDisplayReadinessChanged: tilemap.onDisplayReadinessChanged,
+        onDisplayError: tilemap.onDisplayError,
       ),
       _WorldMapSource.world => Tilemap.world(
         key: tilemap.implementationKey,
@@ -119,6 +125,8 @@ class WorldMap extends StatelessWidget {
         onDrillIntoLocation: common.onDrillIntoLocation,
         onMapTap: tilemap.onMapTap ?? common.onMapTap,
         onPointTap: common.onPointTap,
+        onDisplayReadinessChanged: tilemap.onDisplayReadinessChanged,
+        onDisplayError: tilemap.onDisplayError,
       ),
     };
 

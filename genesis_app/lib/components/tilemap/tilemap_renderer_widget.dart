@@ -13,6 +13,7 @@ class TilemapRenderer extends StatefulWidget {
     this.onImageError,
     this.onViewportReady,
     this.waitForVisibleTileImageFrames = true,
+    this.isForeground = true,
     this.visualMode = tilemapDefaultVisualMode,
     this.fogControlPoints = tilemapDefaultFogControlPoints,
     this.blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles,
@@ -40,6 +41,7 @@ class TilemapRenderer extends StatefulWidget {
   final ValueChanged<Object>? onImageError;
   final VoidCallback? onViewportReady;
   final bool waitForVisibleTileImageFrames;
+  final bool isForeground;
   final TilemapVisualMode visualMode;
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;

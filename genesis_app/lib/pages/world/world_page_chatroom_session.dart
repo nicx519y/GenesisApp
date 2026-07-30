@@ -231,6 +231,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
     if (shouldSyncRelationStatus) {
       _syncWorldChatroomForRelationStatus(world!.relationStatus);
     }
+    _maybeOpenInitialLocationChat();
     if (tickStartedFromPush) {
       _setWorldTickInProgress(true);
       _startWorldTickTracking();
@@ -345,6 +346,8 @@ extension _WorldPageChatroomSession on _WorldPageState {
     if (_worldChatroom == null) {
       if (!shouldConnectWorldChatroom(world.relationStatus)) {
         _pendingInitialLocationId = '';
+        _initialLocationChatEntry = false;
+        _locationChatTransitionsEnabled = true;
       }
       return;
     }
@@ -356,8 +359,23 @@ extension _WorldPageChatroomSession on _WorldPageState {
                   item.localMessageLocationIds.contains(initialLocationId),
             )
             .firstOrNull;
+    if (descriptor == null) {
+      _pendingInitialLocationId = '';
+      _initialLocationChatEntry = false;
+      _locationChatTransitionsEnabled = true;
+      return;
+    }
+    if (_initialLocationChatEntry) {
+      _pendingInitialLocationId = '';
+      _setWorldPageState(() {
+        _locationChatDescriptors[descriptor.locationId] = descriptor;
+        _locationChatPageCache.activate(descriptor);
+        _locationChatPageCache.markReady(descriptor.locationId);
+        _activeChatLocationId = descriptor.locationId;
+      });
+      return;
+    }
     _pendingInitialLocationId = '';
-    if (descriptor == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _activeChatLocationId.isNotEmpty) return;
       unawaited(_showCachedLocationChat(descriptor));
@@ -398,6 +416,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       if (!mounted || !identical(_worldChatroom, service)) return;
       await service.connect(worldId: widget.wid, identity: identity);
       if (!mounted || !identical(_worldChatroom, service)) return;
+      _maybeOpenInitialLocationChat();
       _scheduleLocationChatPrecache();
     } catch (_) {
       // The service emits failures and keeps reconnecting while desired.

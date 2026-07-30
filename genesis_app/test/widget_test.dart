@@ -95,6 +95,7 @@ import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
+import 'package:genesis_flutter_android/pages/world/world_location_chat_host.dart';
 import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
@@ -480,6 +481,8 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.discussTotalAll = 25,
     this.originDetailCompleter,
     this.worldDetailCompleter,
+    this.worldMapCompleter,
+    this.chatroomMessagesCompleter,
     this.userInfoCompleter,
     this.originListCompleter,
     this.worldListCompleter,
@@ -515,6 +518,8 @@ class _RecordingV1ListTransport implements HttpTransport {
   final int discussTotalAll;
   final Completer<TransportResponse>? originDetailCompleter;
   final Completer<TransportResponse>? worldDetailCompleter;
+  final Completer<TransportResponse>? worldMapCompleter;
+  final Completer<TransportResponse>? chatroomMessagesCompleter;
   final Completer<TransportResponse>? userInfoCompleter;
   final Completer<TransportResponse>? originListCompleter;
   final Completer<TransportResponse>? worldListCompleter;
@@ -546,8 +551,12 @@ class _RecordingV1ListTransport implements HttpTransport {
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
-    if (request.uri.path.endsWith('/origin/map') ||
-        request.uri.path.endsWith('/world/map')) {
+    if (request.uri.path.endsWith('/world/map')) {
+      final pendingResponse = worldMapCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
+      return _jsonResponse({});
+    }
+    if (request.uri.path.endsWith('/origin/map')) {
       return _jsonResponse({});
     }
     if (request.uri.path.endsWith('/origin/detail')) {
@@ -717,6 +726,8 @@ class _RecordingV1ListTransport implements HttpTransport {
     }
     if (request.method == 'GET' &&
         request.uri.path.endsWith('/aitown-chat/api/messages')) {
+      final pendingResponse = chatroomMessagesCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
       final locationId = request.uri.queryParameters['location_id'] ?? '';
       final since = int.tryParse(request.uri.queryParameters['since'] ?? '');
       final messages =
@@ -6403,11 +6414,25 @@ void main() {
       final telemetry = _CapturingTelemetrySink();
       GenesisTelemetry.setSinkForTesting(telemetry);
       addTearDown(GenesisTelemetry.resetForTesting);
-      final chatroom = _FakeChatroomClient();
+      final connectCompleter = Completer<void>();
+      final messagesCompleter = Completer<TransportResponse>();
+      final chatroom = _FakeChatroomClient(connectCompleter: connectCompleter);
       final transport = _RecordingV1ListTransport(
-        worldRelationStatus: 'approved',
+        worldRelationStatus: 'joined',
+        worldLocations: const [
+          {
+            'location_id': 'l_o_test_1',
+            'location_name': 'Opening Location',
+            'location_summary': 'The opening location.',
+            'image': '',
+            'map_url': '',
+            'x_percent': 50,
+            'y_percent': 50,
+          },
+        ],
         worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
         worldDetailTickCountsByRequest: const [0],
+        chatroomMessagesCompleter: messagesCompleter,
         originTicks: const [
           {
             'tick_no': 1,
@@ -6465,13 +6490,74 @@ void main() {
       );
       expect(find.byType(WorldPage), findsNothing);
       await tester.tap(find.text('Enter'));
-      await tester.pumpAndSettle();
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
       final launchedWorldPage = tester.widget<WorldPage>(
         find.byType(WorldPage),
       );
       expect(launchedWorldPage.wid, 'w_launched_from_origin');
       expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
       expect(launchedWorldPage.waitForTick1, isFalse);
+      expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+      expect(find.byType(LocationChatPanel), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('location-chat-message-list')),
+        findsOneWidget,
+      );
+      expect(chatroom.connectCount, 1);
+      expect(chatroom.session.joinCount, 0);
+      final composerFinder = find.byType(ChatComposer);
+      final composer = tester.widget<ChatComposer>(composerFinder);
+      composer.controller.text = 'send after connected';
+      await tester.pump();
+      expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isFalse);
+      expect(find.text('message loaded after entering chat'), findsNothing);
+
+      connectCompleter.complete();
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(chatroom.session.joinCount, 1);
+      expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isTrue);
+      expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+
+      messagesCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'messages': const <Object?>[
+              {
+                'global_message_id': 101,
+                'message_id': 101,
+                'location_msg_id': 101,
+                'location_id': 'l_o_test_1',
+                'conversation_round_id': 101,
+                'sender_type': 'user',
+                'sender_id': 'u_opening_peer',
+                'sender_name': 'Opening Peer',
+                'user_id': 'u_opening_peer',
+                'content': 'message loaded after entering chat',
+                'created_at': '2026-07-30T08:00:00Z',
+              },
+            ],
+            'has_more': false,
+            'newest_message_id': 101,
+          },
+        }),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+      expect(find.byType(LocationChatPanel), findsOneWidget);
+      expect(_visibleText('Opening Location (1)'), findsOneWidget);
+      expect(find.text('message loaded after entering chat'), findsOneWidget);
+      expect(chatroom.connectCount, 1);
+      expect(chatroom.session.joinCount, 1);
+      expect(transport.requestsFor('/api/v1/world/detail'), hasLength(1));
+      expect(transport.requestsFor('/aitown-chat/api/messages'), hasLength(1));
     },
   );
 
@@ -17240,6 +17326,282 @@ void main() {
   });
 
   testWidgets(
+    'initial location chat opens empty while world and Tilemap prepare',
+    (WidgetTester tester) async {
+      final worldDetailCompleter = Completer<TransportResponse>();
+      final worldMapCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldDefinitionVersion: 2,
+        worldDetailCompleter: worldDetailCompleter,
+        worldMapCompleter: worldMapCompleter,
+      );
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(
+            home: WorldPage(
+              wid: 'w_test_1',
+              initialLocationId: 'l_w_test_1_child',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+      expect(find.byType(LocationChatPanel), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('location-chat-message-list')),
+        findsOneWidget,
+      );
+      expect(find.byType(Tilemap), findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('world-map-loading-background')),
+        findsNothing,
+      );
+
+      worldDetailCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._worldDetail('w_test_1'),
+        }),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(find.textContaining('Child Location ('), findsOneWidget);
+      expect(find.byType(Tilemap), findsOneWidget);
+      expect(chatroom.connectCount, 1);
+      expect(chatroom.session.joinCount, 1);
+      expect(transport.requestsFor('/api/v1/world/detail'), hasLength(1));
+      expect(transport.requestsFor('/api/v1/world/map'), hasLength(1));
+
+      tester
+          .widget<WorldLocationChatRouterHost>(
+            find.byType(WorldLocationChatRouterHost),
+          )
+          .onBack();
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('world-initial-tilemap-static-cover'),
+        ),
+        findsOneWidget,
+      );
+      expect(_visibleText('Child Location (1)'), findsNothing);
+
+      tester.widget<Tilemap>(find.byType(Tilemap)).onDisplayReadinessChanged!(
+        true,
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('world-initial-tilemap-static-cover'),
+        ),
+        findsNothing,
+      );
+      expect(find.byType(WorldMap), findsOneWidget);
+
+      worldMapCompleter.complete(transport._jsonResponse({}));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'initial location chat stays visible while connection and messages load',
+    (WidgetTester tester) async {
+      final connectCompleter = Completer<void>();
+      final messagesCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldDefinitionVersion: 2,
+        chatroomMessagesCompleter: messagesCompleter,
+      );
+      final chatroom = _FakeChatroomClient(connectCompleter: connectCompleter);
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(
+            home: WorldPage(
+              wid: 'w_test_1',
+              initialLocationId: 'l_w_test_1_child',
+            ),
+          ),
+        ),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(chatroom.connectCount, 1);
+      expect(chatroom.session.joinCount, 0);
+      expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+      expect(find.byType(LocationChatPanel), findsOneWidget);
+      expect(find.textContaining('Child Location ('), findsOneWidget);
+      expect(find.byType(Tilemap), findsOneWidget);
+
+      connectCompleter.complete();
+      for (var frame = 0; frame < 4; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(chatroom.session.joinCount, 1);
+      expect(transport.requestsFor('/aitown-chat/api/messages'), hasLength(1));
+      expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+      expect(find.byType(LocationChatPanel), findsOneWidget);
+
+      messagesCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'messages': const <Object?>[],
+            'has_more': false,
+            'newest_message_id': 0,
+          },
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.joinCount, 1);
+      expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+      expect(_visibleText('Child Location (1)'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'initial location chat removes its static map cover when Tilemap fails',
+    (WidgetTester tester) async {
+      final worldMapCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldDefinitionVersion: 2,
+        worldMapCompleter: worldMapCompleter,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: _FakeChatroomClient(),
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(
+            home: WorldPage(
+              wid: 'w_test_1',
+              initialLocationId: 'l_w_test_1_child',
+            ),
+          ),
+        ),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      tester
+          .widget<WorldLocationChatRouterHost>(
+            find.byType(WorldLocationChatRouterHost),
+          )
+          .onBack();
+      await tester.pump();
+      expect(
+        find.byKey(
+          const ValueKey<String>('world-initial-tilemap-static-cover'),
+        ),
+        findsOneWidget,
+      );
+
+      worldMapCompleter.complete(transport._jsonResponse({}));
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('world-initial-tilemap-static-cover'),
+        ),
+        findsNothing,
+      );
+      expect(find.text('Retry'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'ordinary world map location chat keeps its existing transition flow',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+      );
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialHost = tester.widget<WorldLocationChatRouterHost>(
+        find.byType(WorldLocationChatRouterHost),
+      );
+      expect(initialHost.animateTransitions, isTrue);
+      final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      final childPoint =
+          worldMap.common.locationNodes.single.children.single.point;
+
+      await worldMap.common.onPointTap!(childPoint);
+      await tester.pumpAndSettle();
+
+      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(chatroom.session.joinCount, 1);
+      expect(
+        tester
+            .widget<WorldLocationChatRouterHost>(
+              find.byType(WorldLocationChatRouterHost),
+            )
+            .animateTransitions,
+        isTrue,
+      );
+
+      tester
+          .widget<WorldLocationChatRouterHost>(
+            find.byType(WorldLocationChatRouterHost),
+          )
+          .onBack();
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.leaveCount, 1);
+      expect(_visibleText('Child Location (1)'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'world location chat opens inline and reuses cached panel state',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(
@@ -17264,17 +17626,14 @@ void main() {
       );
       await tester.pumpAndSettle();
       final initialPushCount = observer.pushCount;
-      Future<void> tapLocationListItem(String label) async {
-        final row = find.ancestor(
-          of: find.text(label).last,
-          matching: find.byType(InkWell),
-        );
-        await tester.tap(row.last);
+      Future<void> openChildLocationChat() async {
+        final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+        final childPoint =
+            worldMap.common.locationNodes.single.children.single.point;
+        await worldMap.common.onPointTap!(childPoint);
       }
 
-      await tester.tap(find.text('Location (2)'));
-      await tester.pumpAndSettle();
-      await tapLocationListItem('Child Location');
+      await openChildLocationChat();
       await tester.pump();
       await tester.pumpAndSettle();
 
@@ -17307,15 +17666,13 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.text('Location (2)'));
-      await tester.pumpAndSettle();
-      await tapLocationListItem('Child Location');
+      await openChildLocationChat();
       await tester.pump();
       await tester.pumpAndSettle();
 
       expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
       expect(chatroom.session.joinCount, 2);
-      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(find.textContaining('Child Location ('), findsOneWidget);
       expect(find.text('cached draft'), findsOneWidget);
     },
   );
@@ -17888,17 +18245,14 @@ void main() {
       expect(chatroom.connectCount, 1);
       expect(connectCompleter.isCompleted, false);
 
-      await tester.tap(find.text('Location (2)'));
-      await tester.pumpAndSettle();
-      final childRow = find.ancestor(
-        of: find.text('Child Location').last,
-        matching: find.byType(InkWell),
-      );
-      await tester.tap(childRow.last);
+      final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      final childPoint =
+          worldMap.common.locationNodes.single.children.single.point;
+      await worldMap.common.onPointTap!(childPoint);
       await tester.pump();
       await tester.pump();
 
-      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(find.textContaining('Child Location ('), findsOneWidget);
       expect(find.text('cached local location message'), findsOneWidget);
       expect(chatroom.session.joinCount, 0);
 

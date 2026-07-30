@@ -223,18 +223,35 @@ extension _WorldPageLocationChat on _WorldPageState {
   void _closeCachedLocationChat() {
     final locationId = _activeChatLocationId;
     if (locationId.isEmpty) return;
+    final closingInitialLocationChat = _initialLocationChatEntry;
     FocusManager.instance.primaryFocus?.unfocus();
     unawaited(_leaveCachedLocationChat(locationId));
     _setWorldPageState(() {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
+      if (closingInitialLocationChat) {
+        _initialLocationChatEntry = false;
+        _coverTilemapAfterInitialChat =
+            _world?.definitionVersion == 2 &&
+            !_tilemapDisplayReady &&
+            _tilemapDisplayError == null;
+      }
     });
+    if (closingInitialLocationChat) {
+      _scheduleLocationChatPrecache();
+    }
     _recordWorldLocationChatDebug(
       action: 'close',
       locationId: locationId,
       details: {'cachedPanelCount': _locationChatPageCache.cachedPanelCount},
     );
     _syncWorldStatusBarForMainTab();
+    if (closingInitialLocationChat) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _locationChatTransitionsEnabled) return;
+        _setWorldPageState(() => _locationChatTransitionsEnabled = true);
+      });
+    }
   }
 
   void _handleWorldPopBlocked() {
@@ -409,6 +426,11 @@ extension _WorldPageLocationChat on _WorldPageState {
     final chatroom = _worldChatroom;
     if (chatroom == null || chatroom.identity == null) return;
     final pendingDescriptors = descriptors
+        .where(
+          (descriptor) =>
+              !_initialLocationChatEntry ||
+              descriptor.locationId != _activeChatLocationId,
+        )
         .where(
           (descriptor) =>
               !_preloadedLocationMessageIds.contains(descriptor.locationId) &&

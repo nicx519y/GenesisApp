@@ -1,510 +1,438 @@
 import 'dart:collection';
-import 'dart:math' as math;
-import 'dart:ui' as ui;
 
-import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../tilemap_model.dart';
 
-const int tilemapPrerenderMaxCachedFrames = 3;
-const int tilemapPrerenderMaxKnownConfigs = 24;
-const int tilemapPrerenderMaxCacheBytes = 16 * 1024 * 1024;
-const int tilemapPrerenderMaxFrameBytes = 6 * 1024 * 1024;
-const double tilemapPrerenderMaxPixelRatio = 2;
+const int tilemapPrerenderMaxWarmInstances = 3;
+const int tilemapPrerenderMaxResidentInstances =
+    tilemapPrerenderMaxWarmInstances + 1;
+const int tilemapPrerenderMaxKnownConfigs = 8;
+const int tilemapPrerenderMaxPendingTargets = 3;
 
-class TilemapPrerenderFrame {
-  const TilemapPrerenderFrame({
-    required this.image,
-    required this.logicalSize,
-    required this.environmentKey,
-  });
-
-  final ui.Image image;
-  final Size logicalSize;
-  final String environmentKey;
-
-  int get estimatedByteSize => image.width * image.height * 4;
-}
-
-/// Serializes viewport-only offscreen renders and keeps a small LRU of frames.
+/// Keeps a bounded pool of mounted, viewport-sized Tilemap renderer instances.
 ///
-/// The controller never rasterizes an entire map. Its boundary is constrained
-/// to the real Tilemap viewport, while the renderer inside that boundary keeps
-/// using the normal retained-scene tile culling.
+/// The controller stores no raster snapshots. A resident map is rendered by a
+/// stable widget subtree in the Tilemap's real viewport, so promoting a warm
+/// map only changes paint order and interaction state.
 class TilemapPrerenderController {
   TilemapPrerenderController({
     required VoidCallback onChanged,
-    this.maxCachedFrames = tilemapPrerenderMaxCachedFrames,
-    this.maxCacheBytes = tilemapPrerenderMaxCacheBytes,
-    this.maxFrameBytes = tilemapPrerenderMaxFrameBytes,
-  }) : assert(maxCachedFrames > 0),
-       assert(maxCacheBytes > 0),
-       assert(maxFrameBytes > 0),
-       assert(maxFrameBytes <= maxCacheBytes),
+    this.maxWarmInstances = tilemapPrerenderMaxWarmInstances,
+    this.maxKnownConfigs = tilemapPrerenderMaxKnownConfigs,
+    this.maxPendingTargets = tilemapPrerenderMaxPendingTargets,
+  }) : assert(maxWarmInstances > 0),
+       assert(maxKnownConfigs >= maxWarmInstances + 1),
+       assert(maxPendingTargets > 0),
        _onChanged = onChanged;
 
   final VoidCallback _onChanged;
-  final int maxCachedFrames;
-  final int maxCacheBytes;
-  final int maxFrameBytes;
+  final int maxWarmInstances;
+  final int maxKnownConfigs;
+  final int maxPendingTargets;
 
   final LinkedHashMap<String, TilemapConfig> _knownConfigs =
       LinkedHashMap<String, TilemapConfig>();
+  final LinkedHashSet<String> _residentMapIds = LinkedHashSet<String>();
+  final Set<String> _readyMapIds = <String>{};
+  final Set<String> _failedMapIds = <String>{};
   final ListQueue<String> _pendingMapIds = ListQueue<String>();
   final Set<String> _pendingMapIdSet = <String>{};
-  final Set<String> _failedMapIds = <String>{};
-  final Map<String, int> _candidateCaptureFailures = <String, int>{};
-  final Set<String> _activeCaptureKeys = <String>{};
-  final LinkedHashMap<String, TilemapPrerenderFrame> _frames =
-      LinkedHashMap<String, TilemapPrerenderFrame>();
+  final List<String> _preferredMapIds = <String>[];
+  final Set<String> _protectedMapIds = <String>{};
 
   String _environmentKey = '';
-  Size _viewportSize = Size.zero;
-  double _devicePixelRatio = 1;
   String? _activeMapId;
-  String? _candidateMapId;
-  GlobalKey _candidateBoundaryKey = GlobalKey(
-    debugLabel: 'tilemap-prerender-empty',
-  );
-  int _generation = 0;
-  bool _capturingCandidate = false;
+  String? _warmingMapId;
   bool _disposed = false;
-  Future<void> _captureSerial = Future<void>.value();
 
-  TilemapConfig? get candidateConfig {
-    final mapId = _candidateMapId;
-    return mapId == null ? null : _knownConfigs[mapId];
-  }
+  int get maxResidentInstances => maxWarmInstances + 1;
 
-  GlobalKey get candidateBoundaryKey => _candidateBoundaryKey;
+  int get residentInstanceCount => _residentMapIds.length;
 
-  int get cachedFrameCount => _frames.length;
+  int get readyInstanceCount => _readyMapIds.length;
 
-  int get estimatedCacheBytes => _frames.values.fold<int>(
-    0,
-    (total, frame) => total + frame.estimatedByteSize,
+  String? get activeMapId => _activeMapId;
+
+  String? get warmingMapId => _warmingMapId;
+
+  List<String> get residentMapIds => List<String>.unmodifiable(_residentMapIds);
+
+  List<String> get pendingMapIds => List<String>.unmodifiable(_pendingMapIds);
+
+  List<TilemapConfig> get residentConfigs => List<TilemapConfig>.unmodifiable(
+    _residentMapIds.map((mapId) => _knownConfigs[mapId]).whereType(),
   );
+
+  bool isResident(String? mapId) =>
+      mapId != null && _residentMapIds.contains(mapId);
+
+  bool isReady(String? mapId) =>
+      mapId != null &&
+      _residentMapIds.contains(mapId) &&
+      _readyMapIds.contains(mapId);
 
   void resetSession() {
     if (_disposed) return;
-    _generation += 1;
     _environmentKey = '';
-    _viewportSize = Size.zero;
-    _devicePixelRatio = 1;
     _activeMapId = null;
-    _candidateMapId = null;
+    _warmingMapId = null;
     _knownConfigs.clear();
+    _residentMapIds.clear();
+    _readyMapIds.clear();
+    _failedMapIds.clear();
     _pendingMapIds.clear();
     _pendingMapIdSet.clear();
-    _failedMapIds.clear();
-    _candidateCaptureFailures.clear();
-    _activeCaptureKeys.clear();
-    _clearFrames();
-  }
-
-  void clearInactiveFrames() {
-    if (_disposed) return;
-    final inactiveMapIds = _frames.keys
-        .where((mapId) => mapId != _activeMapId)
-        .toList(growable: false);
-    for (final mapId in inactiveMapIds) {
-      final frame = _frames.remove(mapId);
-      if (frame != null) _disposeFrameAfterPaint(frame);
-    }
-    if (inactiveMapIds.isNotEmpty) _notifyChanged();
-  }
-
-  void handleMemoryPressure() {
-    if (_disposed) return;
-    final hadBackgroundWork =
-        _candidateMapId != null ||
-        _capturingCandidate ||
-        _pendingMapIds.isNotEmpty;
-    if (hadBackgroundWork) _generation += 1;
-    _candidateMapId = null;
-    _pendingMapIds.clear();
-    _pendingMapIdSet.clear();
-    _failedMapIds.clear();
-    _candidateCaptureFailures.clear();
-    _knownConfigs.removeWhere((mapId, _) => mapId != _activeMapId);
-
-    final inactiveMapIds = _frames.keys
-        .where((mapId) => mapId != _activeMapId)
-        .toList(growable: false);
-    for (final mapId in inactiveMapIds) {
-      final frame = _frames.remove(mapId);
-      if (frame != null) _disposeFrameAfterPaint(frame);
-    }
-    if (hadBackgroundWork || inactiveMapIds.isNotEmpty) _notifyChanged();
+    _preferredMapIds.clear();
+    _protectedMapIds.clear();
   }
 
   void configure({
     required String environmentKey,
-    required Size viewportSize,
-    required double devicePixelRatio,
     required String? activeMapId,
+    Iterable<String> protectedMapIds = const <String>[],
+    Iterable<String> preferredMapIds = const <String>[],
   }) {
     if (_disposed) return;
 
-    final environmentChanged =
-        _environmentKey != environmentKey ||
-        _viewportSize != viewportSize ||
-        _devicePixelRatio != devicePixelRatio;
-    final previousActiveMapId = _activeMapId;
     _activeMapId = activeMapId;
+    _protectedMapIds
+      ..clear()
+      ..addAll(
+        protectedMapIds.where(
+          (mapId) => mapId.isNotEmpty && mapId != activeMapId,
+        ),
+      );
+    _preferredMapIds
+      ..clear()
+      ..addAll(
+        preferredMapIds.where(
+          (mapId) => mapId.isNotEmpty && mapId != activeMapId,
+        ),
+      );
+
+    final environmentChanged = _environmentKey != environmentKey;
+    _environmentKey = environmentKey;
     if (environmentChanged) {
-      _generation += 1;
-      _environmentKey = environmentKey;
-      _viewportSize = viewportSize;
-      _devicePixelRatio = devicePixelRatio;
-      _candidateMapId = null;
-      _pendingMapIds.clear();
-      _pendingMapIdSet.clear();
+      _readyMapIds.clear();
       _failedMapIds.clear();
-      _candidateCaptureFailures.clear();
-      _clearFrames();
-      for (final mapId in _knownConfigs.keys) {
-        _enqueueMapId(mapId);
-      }
-    } else if (previousActiveMapId != activeMapId) {
-      _enqueueMapId(previousActiveMapId);
+      _warmingMapId = null;
+      _clearPending();
+      _residentMapIds.removeWhere(
+        (mapId) => mapId != _activeMapId && !_protectedMapIds.contains(mapId),
+      );
     }
 
-    if (_candidateMapId == activeMapId) {
-      _candidateMapId = null;
-      _generation += 1;
-    }
-    if (activeMapId != null) {
-      if (_pendingMapIdSet.remove(activeMapId)) {
-        _pendingMapIds.remove(activeMapId);
-      }
-      _touchFrame(activeMapId);
-    }
-    _selectNextCandidate();
+    _retainDesiredResidents();
+    _ensureRequiredResidents();
+    _pruneResidentsToBudget();
+    _selectNextWarmingMap();
   }
 
   void rememberConfig(TilemapConfig config) {
     if (_disposed) return;
-    final previous = _knownConfigs[config.id];
-    if (previous != null && !identical(previous, config)) {
-      final staleFrame = _frames.remove(config.id);
-      if (staleFrame != null) _disposeFrameAfterPaint(staleFrame);
-      _failedMapIds.remove(config.id);
-      _candidateCaptureFailures.remove(config.id);
-      if (_pendingMapIdSet.remove(config.id)) {
-        _pendingMapIds.remove(config.id);
-      }
-      if (_candidateMapId == config.id) {
-        _candidateMapId = null;
-        _generation += 1;
-      }
-    }
-    _knownConfigs.remove(config.id);
+    final previous = _knownConfigs.remove(config.id);
     _knownConfigs[config.id] = config;
+    if (previous != null && !identical(previous, config)) {
+      _readyMapIds.remove(config.id);
+      _failedMapIds.remove(config.id);
+      if (_residentMapIds.contains(config.id)) {
+        _warmingMapId ??= config.id;
+      }
+    }
     _pruneKnownConfigs();
-    _enqueueMapId(config.id);
-    final hadCandidate = _candidateMapId != null;
-    _selectNextCandidate();
-    if (!hadCandidate && _candidateMapId != null) _notifyChanged();
-  }
-
-  void activateMap(String mapId) {
-    if (_disposed) return;
-    final previousActiveMapId = _activeMapId;
-    _activeMapId = mapId;
-    _enqueueMapId(previousActiveMapId);
-    if (_pendingMapIdSet.remove(mapId)) {
-      _pendingMapIds.remove(mapId);
-    }
-    _touchFrame(mapId);
-    if (_candidateMapId == mapId) {
-      _candidateMapId = null;
-      _generation += 1;
-    }
-    _selectNextCandidate();
-  }
-
-  TilemapPrerenderFrame? frameFor(String? mapId) {
-    if (_disposed || mapId == null) return null;
-    final frame = _frames.remove(mapId);
-    if (frame == null) return null;
-    if (frame.environmentKey != _environmentKey) {
-      _disposeFrameAfterPaint(frame);
-      return null;
-    }
-    _frames[mapId] = frame;
-    return frame;
-  }
-
-  void rejectCandidate({
-    required String mapId,
-    required GlobalKey boundaryKey,
-  }) {
-    if (_disposed || _capturingCandidate) return;
-    if (_candidateMapId != mapId ||
-        !identical(_candidateBoundaryKey, boundaryKey)) {
-      return;
-    }
-    _candidateMapId = null;
-    _failedMapIds.add(mapId);
-    _selectNextCandidate();
+    _refillPending();
+    _selectNextWarmingMap();
     _notifyChanged();
   }
 
-  Future<void> captureCandidate({
-    String? expectedMapId,
-    GlobalKey? expectedBoundaryKey,
-  }) async {
-    if (_disposed || _capturingCandidate) return;
-    final mapId = _candidateMapId;
-    if (mapId == null || mapId == _activeMapId) return;
-    if ((expectedMapId != null && expectedMapId != mapId) ||
-        (expectedBoundaryKey != null &&
-            !identical(expectedBoundaryKey, _candidateBoundaryKey))) {
+  /// Makes [config] the desired foreground map while preserving any outgoing
+  /// map IDs supplied in [protectedMapIds].
+  ///
+  /// Returns true when the exact mounted instance is already ready and can be
+  /// promoted in the same state update.
+  bool activateMap(
+    TilemapConfig config, {
+    Iterable<String> protectedMapIds = const <String>[],
+    Iterable<String> preferredMapIds = const <String>[],
+  }) {
+    if (_disposed) return false;
+
+    final previous = _knownConfigs.remove(config.id);
+    _knownConfigs[config.id] = config;
+    if (previous != null && !identical(previous, config)) {
+      _readyMapIds.remove(config.id);
+      _failedMapIds.remove(config.id);
+    }
+
+    _activeMapId = config.id;
+    _protectedMapIds
+      ..clear()
+      ..addAll(
+        protectedMapIds.where(
+          (mapId) => mapId.isNotEmpty && mapId != config.id,
+        ),
+      );
+    _preferredMapIds
+      ..clear()
+      ..addAll(
+        preferredMapIds.where(
+          (mapId) => mapId.isNotEmpty && mapId != config.id,
+        ),
+      );
+
+    _retainDesiredResidents();
+    final previousWarmingMapId = _warmingMapId;
+    if (previousWarmingMapId != null &&
+        previousWarmingMapId != config.id &&
+        !_readyMapIds.contains(previousWarmingMapId) &&
+        !_protectedMapIds.contains(previousWarmingMapId)) {
+      _residentMapIds.remove(previousWarmingMapId);
+      _enqueueMapId(previousWarmingMapId);
+      _warmingMapId = null;
+    }
+
+    _ensureResident(config.id, required: true);
+    for (final mapId in _protectedMapIds) {
+      _ensureResident(mapId, required: true);
+    }
+    _touchResident(config.id);
+    _pruneResidentsToBudget();
+
+    if (!_readyMapIds.contains(config.id)) {
+      _warmingMapId = config.id;
+    } else {
+      _selectNextWarmingMap();
+    }
+    _pruneKnownConfigs();
+    return isReady(config.id);
+  }
+
+  bool markReady(String mapId) {
+    if (_disposed || !_residentMapIds.contains(mapId)) return false;
+    final changed = _readyMapIds.add(mapId);
+    _failedMapIds.remove(mapId);
+    _touchResident(mapId);
+    if (_warmingMapId == mapId) {
+      _warmingMapId = null;
+    }
+    _selectNextWarmingMap();
+    if (changed) _notifyChanged();
+    return changed;
+  }
+
+  void invalidateMap(String mapId) {
+    if (_disposed) return;
+    final wasReady = _readyMapIds.remove(mapId);
+    _failedMapIds.remove(mapId);
+    if (_residentMapIds.contains(mapId)) {
+      if (mapId == _activeMapId || _protectedMapIds.contains(mapId)) {
+        _warmingMapId = mapId;
+      } else {
+        _residentMapIds.remove(mapId);
+        _enqueueMapId(mapId);
+      }
+    }
+    _selectNextWarmingMap();
+    if (wasReady) _notifyChanged();
+  }
+
+  void rejectMap(String mapId) {
+    if (_disposed) return;
+    _failedMapIds.add(mapId);
+    _readyMapIds.remove(mapId);
+    if (_warmingMapId == mapId) _warmingMapId = null;
+    if (mapId != _activeMapId && !_protectedMapIds.contains(mapId)) {
+      _residentMapIds.remove(mapId);
+    }
+    if (_pendingMapIdSet.remove(mapId)) {
+      _pendingMapIds.remove(mapId);
+    }
+    _selectNextWarmingMap();
+    _notifyChanged();
+  }
+
+  void handleMemoryPressure() {
+    if (_disposed) return;
+    final retainedMapIds = <String>{
+      if (_activeMapId case final mapId?) mapId,
+      ..._protectedMapIds,
+    };
+    final changed =
+        _residentMapIds.any((mapId) => !retainedMapIds.contains(mapId)) ||
+        _pendingMapIds.isNotEmpty;
+    _residentMapIds.removeWhere((mapId) => !retainedMapIds.contains(mapId));
+    _readyMapIds.removeWhere((mapId) => !_residentMapIds.contains(mapId));
+    _knownConfigs.removeWhere((mapId, _) => !retainedMapIds.contains(mapId));
+    _failedMapIds.clear();
+    _clearPending();
+    if (_warmingMapId != null && !_residentMapIds.contains(_warmingMapId)) {
+      _warmingMapId = null;
+    }
+    if (changed) _notifyChanged();
+  }
+
+  void _ensureRequiredResidents() {
+    final activeMapId = _activeMapId;
+    if (activeMapId != null) {
+      _ensureResident(activeMapId, required: true);
+      if (!_readyMapIds.contains(activeMapId)) {
+        _warmingMapId = activeMapId;
+      }
+    }
+    for (final mapId in _protectedMapIds) {
+      _ensureResident(mapId, required: true);
+    }
+  }
+
+  void _ensureResident(String mapId, {required bool required}) {
+    if (!_knownConfigs.containsKey(mapId)) return;
+    if (_residentMapIds.contains(mapId)) {
+      if (required) _touchResident(mapId);
+      return;
+    }
+    if (required && _residentMapIds.length >= maxResidentInstances) {
+      _evictOneResident(
+        excluding: <String>{
+          mapId,
+          if (_activeMapId case final activeMapId?) activeMapId,
+          ..._protectedMapIds,
+        },
+      );
+    }
+    if (_residentMapIds.length < maxResidentInstances) {
+      _residentMapIds.add(mapId);
+      if (_pendingMapIdSet.remove(mapId)) {
+        _pendingMapIds.remove(mapId);
+      }
+    }
+  }
+
+  void _selectNextWarmingMap() {
+    if (_disposed || _warmingMapId != null) return;
+
+    final activeMapId = _activeMapId;
+    if (activeMapId != null &&
+        _residentMapIds.contains(activeMapId) &&
+        !_readyMapIds.contains(activeMapId) &&
+        !_failedMapIds.contains(activeMapId)) {
+      _warmingMapId = activeMapId;
       return;
     }
 
-    _capturingCandidate = true;
-    final generation = _generation;
-    final boundaryKey = _candidateBoundaryKey;
-    await _serializeCapture(() async {
-      final frame = await _captureBoundary(
-        boundaryKey: boundaryKey,
-        generation: generation,
-      );
-      if (_disposed ||
-          generation != _generation ||
-          mapId != _candidateMapId ||
-          mapId == _activeMapId) {
-        frame?.image.dispose();
-        _capturingCandidate = false;
-        _selectNextCandidate();
-        _notifyChanged();
-        return;
-      }
-
-      _capturingCandidate = false;
-      _candidateMapId = null;
-      if (frame == null) {
-        final failures = (_candidateCaptureFailures[mapId] ?? 0) + 1;
-        _candidateCaptureFailures[mapId] = failures;
-        if (failures >= 2) {
-          _failedMapIds.add(mapId);
-        } else {
-          _enqueueMapId(mapId);
-        }
-      } else {
-        _candidateCaptureFailures.remove(mapId);
-        _storeFrame(mapId, frame);
-      }
-      _selectNextCandidate();
-      _notifyChanged();
-    });
-  }
-
-  Future<void> captureActive({
-    required String mapId,
-    required GlobalKey boundaryKey,
-  }) async {
-    if (_disposed || _frames.containsKey(mapId)) return;
-    final generation = _generation;
-    final captureKey = '$generation|$mapId';
-    if (!_activeCaptureKeys.add(captureKey)) return;
-    await _serializeCapture(() async {
-      try {
-        if (_disposed ||
-            generation != _generation ||
-            _frames.containsKey(mapId)) {
-          return;
-        }
-        final frame = await _captureBoundary(
-          boundaryKey: boundaryKey,
-          generation: generation,
-        );
-        if (_disposed ||
-            generation != _generation ||
-            mapId != _activeMapId ||
-            frame == null) {
-          frame?.image.dispose();
-          return;
-        }
-        _storeFrame(mapId, frame);
-        _notifyChanged();
-      } finally {
-        _activeCaptureKeys.remove(captureKey);
-      }
-    });
-  }
-
-  Future<void> _serializeCapture(Future<void> Function() operation) {
-    final queued = _captureSerial.then<void>((_) async {
-      try {
-        await operation();
-      } catch (_) {
-        // A failed optimization must not break subsequent captures.
-      }
-    });
-    _captureSerial = queued;
-    return queued;
-  }
-
-  Future<TilemapPrerenderFrame?> _captureBoundary({
-    required GlobalKey boundaryKey,
-    required int generation,
-  }) async {
-    if (_viewportSize.isEmpty ||
-        !_viewportSize.width.isFinite ||
-        !_viewportSize.height.isFinite) {
-      return null;
-    }
-
-    for (var attempt = 0; attempt < 2; attempt += 1) {
-      await _waitForPaint();
-      if (_disposed || generation != _generation) return null;
-      final boundary =
-          boundaryKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
-      if (boundary == null ||
-          !boundary.attached ||
-          !boundary.hasSize ||
-          !_matchesViewportSize(boundary.size)) {
+    _refillPending();
+    while (_pendingMapIds.isNotEmpty &&
+        _residentMapIds.length < maxResidentInstances) {
+      final mapId = _pendingMapIds.removeFirst();
+      _pendingMapIdSet.remove(mapId);
+      if (!_knownConfigs.containsKey(mapId) ||
+          _residentMapIds.contains(mapId) ||
+          _failedMapIds.contains(mapId)) {
         continue;
       }
-
-      try {
-        final image = await boundary.toImage(
-          pixelRatio: _snapshotPixelRatio(boundary.size),
-        );
-        if (image.width * image.height * 4 > maxFrameBytes) {
-          image.dispose();
-          return null;
-        }
-        return TilemapPrerenderFrame(
-          image: image,
-          logicalSize: boundary.size,
-          environmentKey: _environmentKey,
-        );
-      } catch (_) {
-        // The boundary can still be between paint and compositing. Retry once
-        // on a fresh frame without consulting debug-only render flags.
-      }
+      _residentMapIds.add(mapId);
+      _warmingMapId = mapId;
+      return;
     }
-    return null;
   }
 
-  bool _matchesViewportSize(Size size) {
-    return (size.width - _viewportSize.width).abs() <= 0.01 &&
-        (size.height - _viewportSize.height).abs() <= 0.01;
+  void _refillPending() {
+    if (_disposed || _pendingMapIds.length >= maxPendingTargets) return;
+    for (final mapId in _preferredMapIds) {
+      if (_pendingMapIds.length >= maxPendingTargets) return;
+      _enqueueMapId(mapId);
+    }
   }
 
-  Future<void> _waitForPaint() async {
-    WidgetsBinding.instance.scheduleFrame();
-    await WidgetsBinding.instance.endOfFrame;
+  void _retainDesiredResidents() {
+    final desiredMapIds = <String>{
+      if (_activeMapId case final mapId?) mapId,
+      ..._protectedMapIds,
+      ..._preferredMapIds,
+    };
+    for (final mapId in _residentMapIds.toList(growable: false)) {
+      if (desiredMapIds.contains(mapId)) continue;
+      _residentMapIds.remove(mapId);
+      _readyMapIds.remove(mapId);
+      if (_warmingMapId == mapId) _warmingMapId = null;
+    }
+    for (final mapId in _pendingMapIds.toList(growable: false)) {
+      if (_preferredMapIds.contains(mapId)) continue;
+      _pendingMapIds.remove(mapId);
+      _pendingMapIdSet.remove(mapId);
+    }
   }
 
-  double _snapshotPixelRatio(Size logicalSize) {
-    final logicalPixels = logicalSize.width * logicalSize.height;
-    if (logicalPixels <= 0 || !logicalPixels.isFinite) return 1;
-    final byteLimitedRatio = math.sqrt(maxFrameBytes / (logicalPixels * 4));
-    return math
-        .min(
-          _devicePixelRatio,
-          math.min(tilemapPrerenderMaxPixelRatio, byteLimitedRatio),
-        )
-        .clamp(0.1, tilemapPrerenderMaxPixelRatio)
-        .toDouble();
-  }
-
-  void _enqueueMapId(String? mapId) {
-    if (mapId == null ||
-        mapId == _activeMapId ||
-        mapId == _candidateMapId ||
-        _frames.containsKey(mapId) ||
-        _failedMapIds.contains(mapId) ||
+  void _enqueueMapId(String mapId) {
+    if (mapId == _activeMapId ||
+        _protectedMapIds.contains(mapId) ||
         !_knownConfigs.containsKey(mapId) ||
+        _residentMapIds.contains(mapId) ||
+        _failedMapIds.contains(mapId) ||
         !_pendingMapIdSet.add(mapId)) {
+      return;
+    }
+    if (_pendingMapIds.length >= maxPendingTargets) {
+      _pendingMapIdSet.remove(mapId);
       return;
     }
     _pendingMapIds.addLast(mapId);
   }
 
-  void _selectNextCandidate() {
-    if (_candidateMapId != null || _capturingCandidate || _disposed) return;
-    while (_pendingMapIds.isNotEmpty) {
-      final mapId = _pendingMapIds.removeFirst();
-      _pendingMapIdSet.remove(mapId);
-      if (mapId == _activeMapId ||
-          _frames.containsKey(mapId) ||
-          _failedMapIds.contains(mapId) ||
-          !_knownConfigs.containsKey(mapId)) {
-        continue;
+  void _pruneResidentsToBudget() {
+    while (_residentMapIds.length > maxResidentInstances) {
+      if (!_evictOneResident(
+        excluding: <String>{
+          if (_activeMapId case final activeMapId?) activeMapId,
+          ..._protectedMapIds,
+        },
+      )) {
+        return;
       }
-      _candidateMapId = mapId;
-      _candidateBoundaryKey = GlobalKey(debugLabel: 'tilemap-prerender-$mapId');
-      return;
+    }
+    _readyMapIds.removeWhere((mapId) => !_residentMapIds.contains(mapId));
+  }
+
+  bool _evictOneResident({required Set<String> excluding}) {
+    for (final mapId in _residentMapIds.toList(growable: false)) {
+      if (excluding.contains(mapId)) continue;
+      _residentMapIds.remove(mapId);
+      _readyMapIds.remove(mapId);
+      if (_warmingMapId == mapId) _warmingMapId = null;
+      return true;
+    }
+    return false;
+  }
+
+  void _touchResident(String mapId) {
+    if (_residentMapIds.remove(mapId)) {
+      _residentMapIds.add(mapId);
     }
   }
 
   void _pruneKnownConfigs() {
-    while (_knownConfigs.length > tilemapPrerenderMaxKnownConfigs) {
-      String? oldestRemovableMapId;
-      for (final mapId in _knownConfigs.keys) {
-        if (mapId != _activeMapId && mapId != _candidateMapId) {
-          oldestRemovableMapId = mapId;
-          break;
-        }
-      }
-      if (oldestRemovableMapId == null) return;
-      _knownConfigs.remove(oldestRemovableMapId);
-      if (_pendingMapIdSet.remove(oldestRemovableMapId)) {
-        _pendingMapIds.remove(oldestRemovableMapId);
-      }
-      _failedMapIds.remove(oldestRemovableMapId);
-      _candidateCaptureFailures.remove(oldestRemovableMapId);
-    }
-  }
-
-  void _storeFrame(String mapId, TilemapPrerenderFrame frame) {
-    final previous = _frames.remove(mapId);
-    if (previous != null) _disposeFrameAfterPaint(previous);
-    _frames[mapId] = frame;
-    _evictFramesToBudget();
-  }
-
-  void _touchFrame(String mapId) {
-    final frame = _frames.remove(mapId);
-    if (frame != null) _frames[mapId] = frame;
-  }
-
-  void _evictFramesToBudget() {
-    while (_frames.length > maxCachedFrames ||
-        estimatedCacheBytes > maxCacheBytes) {
+    while (_knownConfigs.length > maxKnownConfigs) {
       String? evictionMapId;
-      for (final mapId in _frames.keys) {
-        if (mapId != _activeMapId) {
+      for (final mapId in _knownConfigs.keys) {
+        if (!_residentMapIds.contains(mapId) &&
+            mapId != _activeMapId &&
+            !_protectedMapIds.contains(mapId)) {
           evictionMapId = mapId;
           break;
         }
       }
       if (evictionMapId == null) return;
-      final evicted = _frames.remove(evictionMapId);
-      if (evicted != null) _disposeFrameAfterPaint(evicted);
+      _knownConfigs.remove(evictionMapId);
+      _failedMapIds.remove(evictionMapId);
+      if (_pendingMapIdSet.remove(evictionMapId)) {
+        _pendingMapIds.remove(evictionMapId);
+      }
     }
   }
 
-  void _clearFrames() {
-    final frames = _frames.values.toList(growable: false);
-    _frames.clear();
-    for (final frame in frames) {
-      _disposeFrameAfterPaint(frame);
-    }
-  }
-
-  void _disposeFrameAfterPaint(TilemapPrerenderFrame frame) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      frame.image.dispose();
-    });
+  void _clearPending() {
+    _pendingMapIds.clear();
+    _pendingMapIdSet.clear();
   }
 
   void _notifyChanged() {
@@ -514,28 +442,28 @@ class TilemapPrerenderController {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _generation += 1;
-    for (final frame in _frames.values) {
-      frame.image.dispose();
-    }
-    _frames.clear();
     _knownConfigs.clear();
-    _pendingMapIds.clear();
-    _pendingMapIdSet.clear();
+    _residentMapIds.clear();
+    _readyMapIds.clear();
     _failedMapIds.clear();
-    _candidateCaptureFailures.clear();
-    _activeCaptureKeys.clear();
+    _clearPending();
+    _preferredMapIds.clear();
+    _protectedMapIds.clear();
   }
 }
 
+/// A viewport-sized real renderer surface.
+///
+/// Inactive surfaces remain paintable underneath the opaque foreground map,
+/// but cannot receive input, expose semantics, or advance tickers.
 class TilemapPrerenderSurface extends StatelessWidget {
   const TilemapPrerenderSurface({
     super.key,
-    required this.boundaryKey,
+    required this.interactive,
     required this.child,
   });
 
-  final GlobalKey boundaryKey;
+  final bool interactive;
   final Widget child;
 
   @override
@@ -543,30 +471,15 @@ class TilemapPrerenderSurface extends StatelessWidget {
     return SizedBox.expand(
       child: ClipRect(
         child: IgnorePointer(
+          ignoring: !interactive,
           child: ExcludeSemantics(
+            excluding: !interactive,
             child: TickerMode(
-              enabled: false,
-              child: RepaintBoundary(key: boundaryKey, child: child),
+              enabled: interactive,
+              child: RepaintBoundary(child: child),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class TilemapPrerenderFrameView extends StatelessWidget {
-  const TilemapPrerenderFrameView({super.key, required this.frame});
-
-  final TilemapPrerenderFrame frame;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: RawImage(
-        image: frame.image,
-        fit: BoxFit.fill,
-        filterQuality: FilterQuality.low,
       ),
     );
   }

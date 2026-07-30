@@ -1,6 +1,26 @@
 part of 'world_page.dart';
 
 extension _WorldPageLayout on _WorldPageState {
+  void _handleTilemapDisplayReadinessChanged(bool ready) {
+    if (!mounted || _tilemapDisplayReady == ready) return;
+    _setWorldPageState(() {
+      _tilemapDisplayReady = ready;
+      if (ready) {
+        _tilemapDisplayError = null;
+        _coverTilemapAfterInitialChat = false;
+      }
+    });
+  }
+
+  void _handleTilemapDisplayError(Object error) {
+    if (!mounted) return;
+    _setWorldPageState(() {
+      _tilemapDisplayReady = false;
+      _tilemapDisplayError = error;
+      _coverTilemapAfterInitialChat = false;
+    });
+  }
+
   Widget _buildInitialLoadingScaffold(double topPadding) {
     final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     return WorldDetailsPageScaffold(

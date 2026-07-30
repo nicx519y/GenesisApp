@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/widgets.dart';
 
@@ -10,6 +11,9 @@ import '../tilemap_renderer.dart';
 typedef TilemapSilentMapLoader =
     Future<TilemapConfig?> Function(String locationId);
 typedef TilemapPreloadImage = Future<void> Function(String assetUrl);
+
+const int tilemapSilentPreloadMaxPendingTargets = 2;
+const int tilemapSilentPreloadMaxRememberedKeys = 16;
 
 /// Owns the one-time foreground loading gate and one-level-ahead tile preload.
 ///
@@ -38,7 +42,14 @@ class TilemapLoadingCoordinator {
   Object? _initialLoadError;
 
   final Map<String, Future<void>> _imageRequests = <String, Future<void>>{};
+  final ListQueue<_TilemapSilentLoadTask> _silentLoadQueue =
+      ListQueue<_TilemapSilentLoadTask>();
   final Set<String> _scheduledSilentLoadKeys = <String>{};
+  final LinkedHashSet<String> _completedSilentLoadKeys =
+      LinkedHashSet<String>();
+  String? _silentPlanKey;
+  int _silentPlanGeneration = 0;
+  bool _runningSilentLoad = false;
 
   bool get initialEntryCompleted => _initialEntryCompleted;
   bool get initialEntrySkipped => _initialEntrySkipped;
@@ -90,7 +101,11 @@ class TilemapLoadingCoordinator {
     _initialLoadError = null;
     _clearInitialLoadState();
     _imageRequests.clear();
+    _silentLoadQueue.clear();
     _scheduledSilentLoadKeys.clear();
+    _completedSilentLoadKeys.clear();
+    _silentPlanKey = null;
+    _silentPlanGeneration += 1;
   }
 
   void ensureInitialMapReady({
@@ -157,26 +172,42 @@ class TilemapLoadingCoordinator {
     );
     if (targetIds.isEmpty) return;
 
-    final sessionGeneration = _sessionGeneration;
-    for (final locationId in targetIds) {
-      final silentLoadKey =
-          '${currentConfig.id}|$locationId|'
-          '${displayTilePixelSize.toStringAsFixed(3)}';
-      if (!_scheduledSilentLoadKeys.add(silentLoadKey)) continue;
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!_isSessionCurrent(sessionGeneration)) return;
-        unawaited(
-          _preloadLocation(
-            locationId: locationId,
-            displayTilePixelSize: displayTilePixelSize,
-            loadMap: loadMap,
-            loadImage: loadImage,
-            sessionGeneration: sessionGeneration,
-          ),
-        );
-      });
+    final planKey =
+        '${currentConfig.id}|${displayTilePixelSize.toStringAsFixed(3)}';
+    if (_silentPlanKey != planKey) {
+      _silentPlanKey = planKey;
+      _silentPlanGeneration += 1;
+      for (final task in _silentLoadQueue) {
+        _scheduledSilentLoadKeys.remove(task.loadKey);
+      }
+      _silentLoadQueue.clear();
     }
+
+    final sessionGeneration = _sessionGeneration;
+    final planGeneration = _silentPlanGeneration;
+    for (final locationId in targetIds.take(
+      tilemapSilentPreloadMaxPendingTargets,
+    )) {
+      final silentLoadKey = '$planKey|$locationId';
+      if (_completedSilentLoadKeys.contains(silentLoadKey) ||
+          !_scheduledSilentLoadKeys.add(silentLoadKey)) {
+        continue;
+      }
+      _silentLoadQueue.addLast(
+        _TilemapSilentLoadTask(
+          loadKey: silentLoadKey,
+          locationId: locationId,
+          displayTilePixelSize: displayTilePixelSize,
+          loadMap: loadMap,
+          loadImage: loadImage,
+          sessionGeneration: sessionGeneration,
+          planGeneration: planGeneration,
+        ),
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_drainSilentLoadQueue());
+    });
   }
 
   Future<void> _loadInitialMapTiles({
@@ -255,10 +286,17 @@ class TilemapLoadingCoordinator {
     required TilemapSilentMapLoader loadMap,
     required TilemapPreloadImage loadImage,
     required int sessionGeneration,
+    required int planGeneration,
   }) async {
     try {
       final config = await loadMap(locationId);
-      if (config == null || !_isSessionCurrent(sessionGeneration)) return;
+      if (config == null ||
+          !_isSilentPlanCurrent(
+            sessionGeneration: sessionGeneration,
+            planGeneration: planGeneration,
+          )) {
+        return;
+      }
 
       final plan = TilemapImageLoadPlan.forConfig(
         config: config,
@@ -268,7 +306,10 @@ class TilemapLoadingCoordinator {
         for (final assetUrl in plan.tileCountByAsset.keys)
           _loadImageOnce(assetUrl, loadImage),
       ]);
-      if (_isSessionCurrent(sessionGeneration)) {
+      if (_isSilentPlanCurrent(
+        sessionGeneration: sessionGeneration,
+        planGeneration: planGeneration,
+      )) {
         onSilentMapReady?.call(config);
       }
     } catch (_) {
@@ -277,22 +318,46 @@ class TilemapLoadingCoordinator {
     }
   }
 
+  Future<void> _drainSilentLoadQueue() async {
+    if (_disposed || _runningSilentLoad) return;
+    _runningSilentLoad = true;
+    try {
+      while (!_disposed && _silentLoadQueue.isNotEmpty) {
+        final task = _silentLoadQueue.removeFirst();
+        if (!_isSilentPlanCurrent(
+          sessionGeneration: task.sessionGeneration,
+          planGeneration: task.planGeneration,
+        )) {
+          _scheduledSilentLoadKeys.remove(task.loadKey);
+          continue;
+        }
+        await _preloadLocation(
+          locationId: task.locationId,
+          displayTilePixelSize: task.displayTilePixelSize,
+          loadMap: task.loadMap,
+          loadImage: task.loadImage,
+          sessionGeneration: task.sessionGeneration,
+          planGeneration: task.planGeneration,
+        );
+        _scheduledSilentLoadKeys.remove(task.loadKey);
+        _rememberCompletedSilentLoadKey(task.loadKey);
+      }
+    } finally {
+      _runningSilentLoad = false;
+    }
+  }
+
   Future<void> _loadImageOnce(String assetUrl, TilemapPreloadImage loadImage) {
     final existing = _imageRequests[assetUrl];
     if (existing != null) return existing;
 
-    final completer = Completer<void>();
-    final request = completer.future;
+    late Future<void> request;
+    request = Future<void>.sync(() => loadImage(assetUrl)).whenComplete(() {
+      if (identical(_imageRequests[assetUrl], request)) {
+        _imageRequests.remove(assetUrl);
+      }
+    });
     _imageRequests[assetUrl] = request;
-    Future<void>.sync(() => loadImage(assetUrl)).then(
-      completer.complete,
-      onError: (Object error, StackTrace stackTrace) {
-        if (identical(_imageRequests[assetUrl], request)) {
-          _imageRequests.remove(assetUrl);
-        }
-        completer.completeError(error, stackTrace);
-      },
-    );
     return request;
   }
 
@@ -328,6 +393,23 @@ class TilemapLoadingCoordinator {
     return !_disposed && generation == _sessionGeneration;
   }
 
+  bool _isSilentPlanCurrent({
+    required int sessionGeneration,
+    required int planGeneration,
+  }) {
+    return _isSessionCurrent(sessionGeneration) &&
+        planGeneration == _silentPlanGeneration;
+  }
+
+  void _rememberCompletedSilentLoadKey(String loadKey) {
+    _completedSilentLoadKeys.remove(loadKey);
+    _completedSilentLoadKeys.add(loadKey);
+    while (_completedSilentLoadKeys.length >
+        tilemapSilentPreloadMaxRememberedKeys) {
+      _completedSilentLoadKeys.remove(_completedSilentLoadKeys.first);
+    }
+  }
+
   String _imageLoadKey(TilemapConfig config, TilemapImageLoadPlan plan) {
     return '${config.id}|${plan.tileCountByAsset.keys.join('\u0000')}';
   }
@@ -349,9 +431,32 @@ class TilemapLoadingCoordinator {
     _disposed = true;
     _sessionGeneration += 1;
     _initialLoadGeneration += 1;
+    _silentPlanGeneration += 1;
     _imageRequests.clear();
+    _silentLoadQueue.clear();
     _scheduledSilentLoadKeys.clear();
+    _completedSilentLoadKeys.clear();
   }
+}
+
+class _TilemapSilentLoadTask {
+  const _TilemapSilentLoadTask({
+    required this.loadKey,
+    required this.locationId,
+    required this.displayTilePixelSize,
+    required this.loadMap,
+    required this.loadImage,
+    required this.sessionGeneration,
+    required this.planGeneration,
+  });
+
+  final String loadKey;
+  final String locationId;
+  final double displayTilePixelSize;
+  final TilemapSilentMapLoader loadMap;
+  final TilemapPreloadImage loadImage;
+  final int sessionGeneration;
+  final int planGeneration;
 }
 
 Set<String> tilemapDrillTargetLocationIds({
