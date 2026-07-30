@@ -954,7 +954,7 @@ void main() {
     },
   );
 
-  testWidgets('renderer highlights and dispatches only location tiles', (
+  testWidgets('renderer dispatches only location tiles without tap highlight', (
     tester,
   ) async {
     TilemapCell? tappedTile;
@@ -1059,9 +1059,8 @@ void main() {
     expect(tappedTile?.locationId, 'loc_1');
     expect(
       find.byKey(const ValueKey<String>('tile-highlight-0-0')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(tilemapLocationHighlightColor, const Color(0xFFFFD54F));
   });
 
   testWidgets('renderer reuses legacy zoom control in the bottom-right', (

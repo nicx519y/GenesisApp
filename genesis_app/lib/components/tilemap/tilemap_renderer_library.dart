@@ -136,6 +136,5 @@ TilemapVisualStyle tilemapVisualStyleFor(TilemapVisualMode mode) {
   };
 }
 
-const Color tilemapLocationHighlightColor = Color(0xFFFFD54F);
 const Color tilemapShadowZeroBorderColor = Color(0xFFFFFF00);
 const double tilemapShadowZeroBorderWidth = 2;
