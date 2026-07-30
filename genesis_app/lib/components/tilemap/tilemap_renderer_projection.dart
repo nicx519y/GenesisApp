@@ -329,7 +329,7 @@ Offset tilemapLocationBubbleSceneAnchor(
   TilemapProjection projection,
   TilemapCell tile,
 ) {
-  return projection.centerForTile(tile) + Offset(0, projection.tileExtent / 8);
+  return projection.centerForTile(tile) - Offset(0, projection.tileExtent / 8);
 }
 
 double tilemapLocationImageFlowPhase(TilemapCell tile) {

@@ -10,6 +10,7 @@ import '../world_point.dart';
 
 const double tilemapLocationAvatarSize = 42;
 const double tilemapLocationAvatarSpacing = 4;
+const double tilemapLocationLabelToAvatarSpacing = 6;
 const int tilemapLocationAvatarColumnCount = 3;
 const double tilemapLocationAvatarGroupWidth =
     tilemapLocationAvatarSize * tilemapLocationAvatarColumnCount +

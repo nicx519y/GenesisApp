@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_location_avatars.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
@@ -489,12 +490,12 @@ void main() {
     expect(
       MatrixUtils.transformPoint(normalTransform, anchor).dy -
           MatrixUtils.transformPoint(normalTransform, center).dy,
-      16,
+      -16,
     );
     expect(
       MatrixUtils.transformPoint(minimumTransform, anchor).dy -
           MatrixUtils.transformPoint(minimumTransform, center).dy,
-      8,
+      -8,
     );
   });
 
@@ -903,15 +904,10 @@ void main() {
       find.byKey(const ValueKey<String>('tile-location-pointer-High School')),
       findsNothing,
     );
-    final locationDot = find.byKey(
-      const ValueKey<String>('tile-location-dot-High School'),
+    expect(
+      find.byKey(const ValueKey<String>('tile-location-dot-High School')),
+      findsNothing,
     );
-    expect(locationDot, findsOneWidget);
-    expect(tester.getSize(locationDot), const Size.square(8));
-    final locationDotDecoration =
-        tester.widget<DecoratedBox>(locationDot).decoration as BoxDecoration;
-    expect(locationDotDecoration.shape, BoxShape.circle);
-    expect(locationDotDecoration.color, const Color(0xFF008D68));
     final bubbleBody = tester.widget<Container>(
       find.byKey(
         const ValueKey<String>('tile-location-bubble-body-High School'),
@@ -941,19 +937,12 @@ void main() {
         const ValueKey<String>('tile-location-bubble-body-High School'),
       ),
     );
-    final locationDotRect = tester.getRect(locationDot);
-    final labelRect = tester.getRect(
-      find.byKey(const ValueKey<String>('tile-location-label-0-0')),
+    expect(
+      bubbleBodyRect.bottom,
+      closeTo(tileRect.center.dy + tileRect.height / 8, 0.01),
     );
-    expect(labelRect.top, greaterThan(tileRect.center.dy));
-    expect(locationDotRect.center.dx, closeTo(tileRect.center.dx, 0.01));
-    expect(locationDotRect.top - bubbleBodyRect.bottom, closeTo(6, 0.01));
+    expect(bubbleBodyRect.center.dx, closeTo(tileRect.center.dx, 0.01));
     await tester.tap(find.text('High School'));
-    await tester.pump();
-    expect(tappedTile?.locationId, 'loc_1');
-
-    tappedTile = null;
-    await tester.tap(locationDot);
     await tester.pump();
     expect(tappedTile?.locationId, 'loc_1');
 
@@ -1433,7 +1422,10 @@ void main() {
           ),
       ];
 
-      expect(avatarRects.first.top, greaterThan(bubbleRect.bottom));
+      expect(
+        avatarRects.first.top - bubbleRect.bottom,
+        closeTo(tilemapLocationLabelToAvatarSpacing, 0.01),
+      );
       expect(avatarRects[0].top, avatarRects[1].top);
       expect(avatarRects[1].top, avatarRects[2].top);
       expect(avatarRects[3].top, greaterThan(avatarRects[0].bottom));

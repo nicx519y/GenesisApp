@@ -15,10 +15,6 @@ class _TilemapLocationLabelData {
 const double _tilemapLocationLabelMaxWidth = 141;
 const double _tilemapLocationLabelHorizontalPadding = 3;
 const double _tilemapLocationLabelVerticalPadding = 4;
-const double _tilemapLocationLabelToDotSpacing = 6;
-const double _tilemapLocationDotSize = 8;
-const double _tilemapLocationDotToAvatarSpacing = 6;
-const Color _tilemapLocationDotColor = Color(0xFF008D68);
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
   color: Colors.white,
   fontSize: 10,
@@ -154,12 +150,7 @@ class _TilemapLocationBubble extends StatelessWidget {
       child: FractionalTranslation(
         translation: const Offset(-0.5, 0),
         child: Transform.translate(
-          offset: Offset(
-            0,
-            -_tilemapLocationLabelHeight(context, name) -
-                _tilemapLocationLabelToDotSpacing -
-                _tilemapLocationDotSize / 2,
-          ),
+          offset: Offset(0, -_tilemapLocationLabelHeight(context, name)),
           child: Semantics(
             label: name,
             child: Column(
@@ -196,23 +187,8 @@ class _TilemapLocationBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: _tilemapLocationLabelToDotSpacing),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onLabelTap,
-                  child: DecoratedBox(
-                    key: ValueKey<String>('tile-location-dot-$name'),
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _tilemapLocationDotColor,
-                    ),
-                    child: const SizedBox.square(
-                      dimension: _tilemapLocationDotSize,
-                    ),
-                  ),
-                ),
                 if (avatars.isNotEmpty) ...[
-                  const SizedBox(height: _tilemapLocationDotToAvatarSpacing),
+                  const SizedBox(height: tilemapLocationLabelToAvatarSpacing),
                   TilemapLocationAvatars(
                     avatars: avatars,
                     onAvatarTap: onAvatarTap,
