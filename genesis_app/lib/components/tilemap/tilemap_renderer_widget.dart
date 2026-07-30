@@ -65,9 +65,7 @@ class TilemapRenderer extends StatefulWidget {
 class _TilemapRendererState extends State<TilemapRenderer>
     with TickerProviderStateMixin {
   late final TransformationController _transformationController;
-  late final AnimationController _highlightController;
   late final AnimationController _locationImageFlowController;
-  late final Animation<double> _highlightOpacity;
   Matrix4 _gestureStartTransform = Matrix4.identity();
   Offset _gestureStartFocalPoint = Offset.zero;
   Size? _lastViewportSize;
@@ -94,7 +92,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
   bool _locationImageFlowSyncScheduled = false;
   bool _hasUserTransformedMap = false;
   bool _isRunningTileAction = false;
-  String? _highlightedTileKey;
   Set<String>? _initialViewportTileKeys;
   final Set<String> _initialViewportFramedTileKeys = <String>{};
   final List<VoidCallback> _notifiedViewportReadyCallbacks = <VoidCallback>[];
@@ -112,20 +109,12 @@ class _TilemapRendererState extends State<TilemapRenderer>
   void initState() {
     super.initState();
     _transformationController = TransformationController();
-    _highlightController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
     _locationImageFlowController = AnimationController(
       vsync: this,
       duration: tilemapLocationImageFlowDurationForSeconds(
         widget.locationImageFlowDurationSeconds,
       ),
     );
-    _highlightOpacity = CurvedAnimation(
-      parent: _highlightController,
-      curve: Curves.easeOutCubic,
-    ).drive(Tween<double>(begin: 0.48, end: 0));
   }
 
   @override
@@ -191,7 +180,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
   @override
   void dispose() {
     _locationImageFlowController.dispose();
-    _highlightController.dispose();
     _transformationController.dispose();
     super.dispose();
   }
@@ -346,13 +334,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
                             showLocationImageFlow &&
                                 locationImageFlowTileKeys.isNotEmpty,
                           );
-                          return AnimatedBuilder(
-                            animation: _highlightController,
-                            builder: (context, _) {
-                              final highlightedTile = _highlightedTile(
-                                tiles,
-                                _highlightOpacity.value,
-                              );
+                          return Builder(
+                            builder: (context) {
                               final visibleCharacterIds = <String>{
                                 for (final label in locationLabels)
                                   for (final avatar in label.avatars)
@@ -509,16 +492,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                                       _handleTileImageFrame(
                                                         record.tile.cellKey,
                                                       ),
-                                                ),
-                                              if (highlightedTile != null)
-                                                _ProjectedTileHighlight(
-                                                  key: ValueKey<String>(
-                                                    'tile-highlight-${highlightedTile.x}-${highlightedTile.y}',
-                                                  ),
-                                                  tile: highlightedTile,
-                                                  projection: projection,
-                                                  opacity:
-                                                      _highlightOpacity.value,
                                                 ),
                                             ],
                                           ),
@@ -832,15 +805,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
     return field;
   }
 
-  TilemapCell? _highlightedTile(List<TilemapCell> sortedTiles, double opacity) {
-    final highlightedTileKey = _highlightedTileKey;
-    if (highlightedTileKey == null || opacity <= 0.001) return null;
-    for (final tile in sortedTiles) {
-      if (tile.cellKey == highlightedTileKey) return tile;
-    }
-    return null;
-  }
-
   Future<void> _handleTap(
     Offset localPosition,
     TilemapProjection projection,
@@ -856,10 +820,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
       final tile = record.tile;
       if (!tile.isLocationTile) continue;
       if (!projection.containsPointInTile(tile, scenePosition)) continue;
-      setState(() {
-        _highlightedTileKey = tile.cellKey;
-      });
-      _highlightController.forward(from: 0);
       await _runTileAction(tile);
       return;
     }

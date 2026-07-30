@@ -259,6 +259,7 @@ Map<String, dynamic>? _originPreviewTick(OriginDetail origin) {
   return <String, dynamic>{
     'created_at': tick['created_at'] ?? origin.updatedAt,
     'tick_result': <String, dynamic>{
+      'current_time': _mapString(result, const ['current_time']),
       'narrator': narrator,
       'paragraphs': paragraphs,
     },
