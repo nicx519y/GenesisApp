@@ -286,6 +286,13 @@ class _FakePerformanceMetric implements HttpRequestPerformanceMetric {
   @override
   int? responsePayloadSize;
 
+  final Map<String, String> attributes = <String, String>{};
+
+  @override
+  void putAttribute(String name, String value) {
+    attributes[name] = value;
+  }
+
   @override
   Future<void> start() async {
     started = true;

@@ -10,7 +10,7 @@ import '../platform/device/device_id_service.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 import 'app_request_headers.dart';
-import 'dio_http_transport.dart';
+import 'genesis_http_transport_pool.dart';
 import 'http_transport.dart';
 import 'json_utils.dart';
 import 'v1/v1_api_resource.dart';
@@ -381,16 +381,17 @@ class GatewayAuthCoordinator {
              namespace: gatewayRegistrationNamespace(gatewayBaseUrl),
            ),
        _gatewayBaseUri = Uri.parse(gatewayBaseUrl),
-       _transport = transport ?? DioHttpTransport(),
-       _client = ApiClient(
-         baseUrl: gatewayBaseUrl,
-         defaultHeaders: const {
-           'content-type': 'application/json',
-           'accept': 'application/json',
-         },
-         responseProcessor: ApiClient.defaultResponseProcessor,
-         transport: transport,
-       );
+       _transport = transport ?? GenesisHttpTransportRegistry.current {
+    _client = ApiClient(
+      baseUrl: gatewayBaseUrl,
+      defaultHeaders: const {
+        'content-type': 'application/json',
+        'accept': 'application/json',
+      },
+      responseProcessor: ApiClient.defaultResponseProcessor,
+      transport: _transport,
+    );
+  }
 
   final RequestHeaderProvider _appHeaderProvider;
   final GatewayIdentityProvider? _identityProvider;
@@ -399,7 +400,7 @@ class GatewayAuthCoordinator {
   final GatewayRegistrationStore _registrationStore;
   final Uri _gatewayBaseUri;
   final HttpTransport _transport;
-  final ApiClient _client;
+  late final ApiClient _client;
   int? _serverTimeOffsetMs;
   Future<void>? _prepareFuture;
   Future<void>? _registrationRecoveryFuture;

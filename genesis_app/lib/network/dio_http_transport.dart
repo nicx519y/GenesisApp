@@ -82,6 +82,9 @@ class DioHttpTransport implements HttpTransport {
         );
       }
       final bodyBytes = _responseBodyBytes(response.data);
+      final normalizedProtocol = normalizeHttpProtocolVersion(
+        httpProtocolVersion,
+      );
       final transportResponse = TransportResponse(
         statusCode: response.statusCode ?? 0,
         headers: headers,
@@ -89,8 +92,9 @@ class DioHttpTransport implements HttpTransport {
         bodyBytes: bodyBytes,
         responsePayloadSizeBytes:
             responsePayloadSizeFromHeaders(headers) ?? bodyBytes.length,
-        httpProtocolVersion: httpProtocolVersion,
+        httpProtocolVersion: normalizedProtocol,
       );
+      recordPerformanceMetricProtocol(metric, normalizedProtocol);
       recordPerformanceMetricResponse(metric, transportResponse);
       await devToolsProfile?.completeResponse(transportResponse);
       return transportResponse;

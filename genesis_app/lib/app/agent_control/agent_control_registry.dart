@@ -7,7 +7,7 @@ import 'package:flutter/widgets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
-import '../../network/genesis_http2_cache_manager.dart';
+import '../../network/genesis_http_cache_manager.dart';
 import '../../network/models/world.dart';
 import '../../pages/world/world_navigation.dart';
 import '../../platform/app/app_metadata_service.dart';

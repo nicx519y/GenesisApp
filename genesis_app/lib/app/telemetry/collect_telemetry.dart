@@ -4,7 +4,7 @@ import 'dart:math';
 
 import 'package:sqflite/sqflite.dart';
 
-import '../../network/dio_http_transport.dart';
+import '../../network/genesis_http_transport_pool.dart';
 import '../../network/http_transport.dart';
 
 const Duration defaultCollectUploadInterval = Duration(seconds: 5);
@@ -281,7 +281,11 @@ class SdkCollectTelemetryClient implements CollectTelemetryClient {
     String? debugProxy,
     this.timeoutMs = 5000,
   }) : _endpoint = Uri.parse(endpoint),
-       _transport = transport ?? DioHttpTransport(proxy: debugProxy);
+       _transport =
+           transport ??
+           ((debugProxy?.trim().isNotEmpty ?? false)
+               ? GenesisHttpTransportRegistry.configure(debugProxy: debugProxy)
+               : GenesisHttpTransportRegistry.current);
 
   final Uri _endpoint;
   final HttpTransport _transport;

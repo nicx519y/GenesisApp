@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import '../app/telemetry/genesis_telemetry.dart';
 import 'api_exception.dart';
-import 'dio_http_transport.dart';
+import 'genesis_http_transport_pool.dart';
 import 'http_transport.dart';
 import 'multipart_body.dart';
 
@@ -98,7 +98,7 @@ class ApiClient {
        _responseProcessor = responseProcessor ?? defaultResponseProcessor,
        _requestHeaderProvider = requestHeaderProvider,
        _requestInterceptor = requestInterceptor,
-       _transport = transport ?? DioHttpTransport(),
+       _transport = transport ?? GenesisHttpTransportRegistry.current,
        _timeoutMs = timeoutMs,
        _retryPolicy = retryPolicy;
 

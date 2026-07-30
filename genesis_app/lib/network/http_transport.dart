@@ -82,3 +82,29 @@ class TransportResponse {
   final int? responsePayloadSizeBytes;
   final String? httpProtocolVersion;
 }
+
+String? normalizeHttpProtocolVersion(String? value) {
+  final normalized = value?.trim().toLowerCase();
+  if (normalized == null || normalized.isEmpty || normalized == 'unknown') {
+    return null;
+  }
+  if (normalized == 'h3' ||
+      normalized.startsWith('h3-') ||
+      normalized.startsWith('http/3') ||
+      normalized.contains('quic')) {
+    return 'h3';
+  }
+  if (normalized == 'h2' ||
+      normalized == '2' ||
+      normalized == '2.0' ||
+      normalized.startsWith('http/2') ||
+      normalized.contains('spdy')) {
+    return 'h2';
+  }
+  if (normalized == 'http/1.1' ||
+      normalized == 'http1.1' ||
+      normalized == '1.1') {
+    return 'http/1.1';
+  }
+  return normalized;
+}

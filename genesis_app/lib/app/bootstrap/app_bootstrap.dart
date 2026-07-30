@@ -7,7 +7,9 @@ import '../config/app_config.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/firebase_crash_reporting.dart';
 import '../telemetry/firebase_performance_monitoring.dart';
-import '../../network/genesis_http2_cache_manager.dart';
+import '../../network/genesis_http_cache_manager.dart';
+import '../../network/genesis_http_transport_pool.dart';
+import '../../network/network_runtime_factory.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
@@ -22,6 +24,11 @@ class AppBootstrap {
     AppConfig config = const AppConfig(),
   }) {
     WidgetsFlutterBinding.ensureInitialized();
+    final httpTransport = GenesisHttpTransportRegistry.configure(
+      httpEngine: kGenesisHttpEngine,
+      debugProxy: config.debugProxy,
+    );
+    GenesisHttpCacheManager.configureTransport(httpTransport);
     unawaited(_warmUpStaticImageConnections());
     final services = ServiceRegistry.build(config: config);
     final billing = services.billing;
@@ -31,9 +38,9 @@ class AppBootstrap {
 
   static Future<void> _warmUpStaticImageConnections() async {
     try {
-      await GenesisHttp2CacheManager().warmUpConnections();
+      await GenesisHttpCacheManager().warmUpConnections();
     } catch (e, st) {
-      debugPrint('[Network][Image] HTTP/2 connection warm-up failed: $e');
+      debugPrint('[Network][Image] connection warm-up failed: $e');
       debugPrint('[Network][Image] stacktrace:\n$st');
     }
   }

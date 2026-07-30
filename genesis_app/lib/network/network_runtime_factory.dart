@@ -1,10 +1,10 @@
-import 'dio_http_transport.dart';
+import 'genesis_http_transport_pool.dart';
 import 'http_transport.dart';
 import 'websocket_transport.dart';
 
 const kGenesisHttpEngine = String.fromEnvironment(
   'GENESIS_HTTP_ENGINE',
-  defaultValue: 'http2',
+  defaultValue: 'http3',
 );
 
 class NetworkRuntimeFactory {
@@ -18,11 +18,25 @@ class NetworkRuntimeFactory {
     if (useMock) return null;
     final proxy = _normalizedProxy(debugProxy);
     switch (httpEngine.trim().toLowerCase()) {
+      case 'http3':
+      case 'quic':
+      case 'auto':
+        return GenesisHttpTransportRegistry.configure(
+          httpEngine: httpEngine,
+          debugProxy: proxy,
+        );
       case 'http2':
       case 'dio':
       case 'io':
+        return GenesisHttpTransportRegistry.configure(
+          httpEngine: 'http2',
+          debugProxy: proxy,
+        );
       default:
-        return DioHttpTransport(proxy: proxy);
+        return GenesisHttpTransportRegistry.configure(
+          httpEngine: 'http3',
+          debugProxy: proxy,
+        );
     }
   }
 

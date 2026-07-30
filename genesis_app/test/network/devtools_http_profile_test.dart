@@ -15,7 +15,7 @@ void main() {
     HttpClientRequestProfile.profilingEnabled = previousProfilingState;
   });
 
-  test('records HTTP/2 request and response for DevTools Network', () async {
+  test('records transport-neutral request and response for DevTools', () async {
     late HttpClientRequestProfile capturedProfile;
     final request = TransportRequest(
       method: 'POST',
@@ -53,7 +53,7 @@ void main() {
         body: 'done',
         bodyBytes: [100, 111, 110, 101],
         responsePayloadSizeBytes: 4,
-        httpProtocolVersion: '2.0',
+        httpProtocolVersion: 'h2',
       ),
     );
 
@@ -73,8 +73,8 @@ void main() {
     expect(capturedProfile.responseData.bodyBytes, [100, 111, 110, 101]);
     expect(capturedProfile.responseData.endTime, isNotNull);
     expect(capturedProfile.connectionInfo, {
-      'transport': 'dio_http2_adapter',
-      'httpVersion': '2.0',
+      'transport': 'dio',
+      'httpVersion': 'h2',
     });
   });
 

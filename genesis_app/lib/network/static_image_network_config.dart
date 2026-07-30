@@ -1,5 +1,13 @@
 const String genesisStaticImageCdnHost = 'cdn-001.worldo.ai';
 
+const Set<String> genesisHttp3CapableHosts = <String>{
+  genesisStaticImageCdnHost,
+  'api.worldo.ai',
+  'dev.hushie.ai',
+  'collect.worldo.ai',
+  'af.hushie.ai',
+};
+
 final Uri genesisStaticImageCdnWarmUpUri = Uri.https(
   genesisStaticImageCdnHost,
   '/robots.txt',

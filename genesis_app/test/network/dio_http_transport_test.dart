@@ -93,7 +93,7 @@ void main() {
 
     expect(response.statusCode, 200);
     expect(response.body, 'ok');
-    expect(response.httpProtocolVersion, '2.0');
+    expect(response.httpProtocolVersion, 'h2');
   });
 
   test('records each Tilemap image as a Firebase HTTP metric', () async {
@@ -132,6 +132,7 @@ void main() {
     expect(metric.stopped, true);
     expect(metric.httpResponseCode, 200);
     expect(metric.responsePayloadSize, 2);
+    expect(metric.attributes, const <String, String>{'network_protocol': 'h2'});
   });
 
   test('sends request and maps response without throwing on status', () async {
@@ -402,6 +403,13 @@ class _FakePerformanceMetric implements HttpRequestPerformanceMetric {
 
   @override
   int? responsePayloadSize;
+
+  final Map<String, String> attributes = <String, String>{};
+
+  @override
+  void putAttribute(String name, String value) {
+    attributes[name] = value;
+  }
 
   @override
   Future<void> start() async {

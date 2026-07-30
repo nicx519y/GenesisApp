@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
-import '../../network/genesis_http2_cache_manager.dart';
+import '../../network/genesis_http_cache_manager.dart';
 
 @visibleForTesting
 ImageStreamCompleter? Function(GenesisStaticNetworkImageProvider key)?
@@ -117,7 +117,7 @@ class GenesisStaticNetworkImageProvider
     this.cacheHeight,
     this.fit,
   }) : imageUrl = imageUrl.trim(),
-       cacheManager = cacheManager ?? GenesisHttp2CacheManager();
+       cacheManager = cacheManager ?? GenesisHttpCacheManager();
 
   final String imageUrl;
   final BaseCacheManager cacheManager;

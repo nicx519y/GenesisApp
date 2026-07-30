@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
-import '../network/genesis_http2_cache_manager.dart';
+import '../network/genesis_http_cache_manager.dart';
 
 const List<int> genesisMessageImageWidthTiers = <int>[
   45,
@@ -178,7 +178,7 @@ Future<ui.Size?> _resolveRemoteMessageImageSourceSize(String source) async {
   try {
     final override = debugGenesisMessageImageOriginalSizeLoader;
     if (override != null) return override(source);
-    final file = await GenesisHttp2CacheManager()
+    final file = await GenesisHttpCacheManager()
         .getSingleFile(source)
         .timeout(const Duration(seconds: 10));
     final bytes = await file.readAsBytes();
@@ -203,7 +203,7 @@ Future<ui.Size?> _resolveRemoteMessageImageSourceSize(String source) async {
 Future<Object?> _loadMessageImageInfo(String infoUrl) async {
   final override = debugGenesisMessageImageInfoLoader;
   if (override != null) return override(infoUrl);
-  final file = await GenesisHttp2CacheManager()
+  final file = await GenesisHttpCacheManager()
       .getSingleFile(infoUrl)
       .timeout(const Duration(seconds: 5));
   return jsonDecode(await file.readAsString());

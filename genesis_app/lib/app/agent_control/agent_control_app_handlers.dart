@@ -225,7 +225,7 @@ Future<Map<String, Object?>> _clearCache(
   if (target == 'all' || target == 'image') {
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
-    await GenesisHttp2CacheManager().emptyCache();
+    await GenesisHttpCacheManager().emptyCache();
   }
   if (target == 'all' || target == 'directMessage') {
     await context.services.directMessageConversations.clearCache();

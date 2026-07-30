@@ -31,9 +31,9 @@ Future<void> main() async {
   );
 
   void runGenesisApp() {
+    final services = AppBootstrap.createInitialServices(config: appConfig);
     GenesisTelemetry.prepareCollect(appConfig);
     AppStartupCoordinator.recordStartupFirstReport();
-    final services = AppBootstrap.createInitialServices(config: appConfig);
     final initialIndexFuture = _resolveInitialBottomTab(services);
     AppStartupCoordinator.configure(startedAt: appStartedAt);
     GenesisSystemUiChrome.applyDefault();

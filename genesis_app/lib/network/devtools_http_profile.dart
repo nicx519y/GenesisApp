@@ -48,7 +48,7 @@ class DevToolsHttpProfile {
       _profile.addEvent(
         HttpProfileRequestEvent(
           timestamp: DateTime.now(),
-          name: 'HTTP/2 request dispatched',
+          name: 'HTTP request dispatched',
         ),
       );
     } catch (_) {
@@ -79,7 +79,7 @@ class DevToolsHttpProfile {
       }
       final protocol = response.httpProtocolVersion;
       _profile.connectionInfo = <String, dynamic>{
-        'transport': 'dio_http2_adapter',
+        'transport': 'dio',
         if (protocol != null) 'httpVersion': protocol,
       };
       _profile.addEvent(

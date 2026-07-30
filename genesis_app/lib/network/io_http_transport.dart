@@ -19,6 +19,7 @@ abstract class HttpRequestPerformanceMetric {
   set responseContentType(String? value);
   set responsePayloadSize(int? value);
 
+  void putAttribute(String name, String value);
   Future<void> start();
   Future<void> stop();
 }
@@ -176,6 +177,11 @@ class _FirebaseHttpRequestPerformanceMetric
   }
 
   @override
+  void putAttribute(String name, String value) {
+    _metric.putAttribute(name, value);
+  }
+
+  @override
   Future<void> start() {
     return _metric.start();
   }
@@ -286,6 +292,18 @@ void recordPerformanceMetricResponse(
         (response.bodyBytes.isEmpty
             ? utf8.encode(response.body).length
             : response.bodyBytes.length);
+  } catch (_) {}
+}
+
+void recordPerformanceMetricProtocol(
+  HttpRequestPerformanceMetric? metric,
+  String? protocol,
+) {
+  if (metric == null) return;
+  final normalized = normalizeHttpProtocolVersion(protocol);
+  if (normalized != 'h3' && normalized != 'h2') return;
+  try {
+    metric.putAttribute('network_protocol', normalized!);
   } catch (_) {}
 }
 
