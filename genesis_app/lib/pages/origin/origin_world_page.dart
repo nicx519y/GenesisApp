@@ -11,7 +11,6 @@ import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/shared/location_chat_overlay_transition.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
-import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -65,7 +64,6 @@ part 'origin_world_characters.dart';
 part 'origin_world_copy_progress.dart';
 part 'origin_world_location_chat.dart';
 part 'origin_world_map_data.dart';
-part 'origin_world_launch_wait.dart';
 
 class OriginWorldPage extends StatefulWidget {
   const OriginWorldPage({super.key, required this.oid, required this.originId});
@@ -113,8 +111,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   static const double _mapLoadingCollapsedHeightOffset = 100;
   static const double _mapLoadedCollapsedHeightOffset = 60;
   static const double _mapDefaultExposedChildSize = 0.31;
-  static const double _launchWaitAvatarSize = 88;
-
   late final TabController _tabController;
   Future<OriginDetail>? _future;
   Future<void>? _copyWorldProgressFuture;
@@ -124,8 +120,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   bool _launching = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
-  List<GenesisGenerationWaitAvatar> _launchWaitAvatars =
-      const <GenesisGenerationWaitAvatar>[];
   _OriginLocationChatDescriptor? _activeChatLocation;
 
   SystemUiOverlayStyle get _baseStatusBarStyle => _showIntroPage
@@ -180,7 +174,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<OriginDetail> _loadOriginDetail() async {
     final api = AppServicesScope.read(context).api;
     final origin = await api.getOrigin(widget.oid);
-    _cacheLaunchWaitAvatars(origin);
+    _precacheRoleCardAvatarImages(origin);
     return origin;
   }
 
@@ -197,50 +191,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       debugPrint(
         '[OriginWorldPage] copy world progress preload failed: $error',
       );
-    }
-  }
-
-  void _cacheLaunchWaitAvatars(OriginDetail origin) {
-    final avatars = _launchWaitAvatarsFromOrigin(origin);
-    _precacheRoleCardAvatarImages(origin);
-    _precacheLaunchWaitAvatarImages(avatars);
-    if (_sameWaitAvatars(_launchWaitAvatars, avatars)) return;
-    if (!mounted) {
-      _launchWaitAvatars = avatars;
-      return;
-    }
-    setState(() => _launchWaitAvatars = avatars);
-  }
-
-  List<GenesisGenerationWaitAvatar> _launchWaitAvatarsFromOrigin(
-    OriginDetail origin,
-  ) {
-    return origin.characters
-        .map((character) {
-          return GenesisGenerationWaitAvatar(
-            name: character.name.trim(),
-            url: _resolveAssetUrl(character.avatar).trim(),
-          );
-        })
-        .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
-        .toList(growable: false);
-  }
-
-  void _precacheLaunchWaitAvatarImages(
-    List<GenesisGenerationWaitAvatar> avatars,
-  ) {
-    final mediaQuery = MediaQuery.maybeOf(context);
-    final devicePixelRatio = mediaQuery?.devicePixelRatio ?? 1;
-    for (final avatar in avatars) {
-      final resolvedUrl = selectGenesisImageUrl(
-        avatar.url,
-        logicalWidth: _launchWaitAvatarSize,
-        logicalHeight: _launchWaitAvatarSize,
-        devicePixelRatio: devicePixelRatio,
-      ).trim();
-      if (resolvedUrl.isEmpty) continue;
-      if (resolvedUrl.startsWith('assets/')) continue;
-      unawaited(_precacheOriginAvatarFile(resolvedUrl));
     }
   }
 
@@ -271,36 +221,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     }
   }
 
-  bool _sameWaitAvatars(
-    List<GenesisGenerationWaitAvatar> a,
-    List<GenesisGenerationWaitAvatar> b,
-  ) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].name != b[i].name || a[i].url != b[i].url) return false;
-    }
-    return true;
-  }
-
   void _refreshOriginDetail() {
     setState(() {
       _future = _loadOriginDetail();
       _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
       _copyWorldProgressFuture = _loadCopyWorldProgress();
-    });
-  }
-
-  void _handleLaunchWaitBack() {
-    if (_activeChatLocation != null) {
-      setState(() => _activeChatLocation = null);
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final navigator = Navigator.of(context);
-        if (navigator.canPop()) navigator.pop();
-      });
     });
   }
 
@@ -471,11 +396,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     String initialLocationId = '',
   }) async {
     if (_launching) return;
-    final avatars = _launchWaitAvatarsFromOrigin(origin);
-    setState(() {
-      _launchWaitAvatars = avatars;
-      _launching = true;
-    });
+    setState(() => _launching = true);
     final launchedWorldId = await startOriginLaunch(
       context: context,
       origin: origin,
@@ -490,11 +411,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _launching = false;
       _launchedPresetRolesFuture = null;
     });
-    final shouldEnter = await showOriginLaunchSuccessPrompt(
-      context: context,
-      worldId: launchedWorldId,
-    );
-    if (!mounted || !shouldEnter) return;
     _enterLaunchedWorld(launchedWorldId, initialLocationId: initialLocationId);
   }
 
@@ -575,19 +491,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   Widget build(BuildContext context) {
     final topPadding = GenesisSafeAreaInsets.top(context);
-    final content = _buildPageContent(context, topPadding);
-    return Stack(
-      children: [
-        content,
-        if (_launching)
-          Positioned.fill(
-            child: _OriginPendingLaunchWaitOverlay(
-              avatars: _launchWaitAvatars,
-              onBackPressed: _handleLaunchWaitBack,
-            ),
-          ),
-      ],
-    );
+    return _buildPageContent(context, topPadding);
   }
 
   Widget _buildPageContent(BuildContext context, double topPadding) {
