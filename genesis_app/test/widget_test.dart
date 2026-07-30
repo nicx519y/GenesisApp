@@ -1074,6 +1074,7 @@ class _RecordingV1ListTransport implements HttpTransport {
               'tick_no': 1,
               'created_at': 1777680000,
               'tick_result': {
+                'current_time': 'Day 1, 16:30',
                 'narrator': 'Origin launch tick narrator.',
                 'paragraphs': [
                   {
@@ -6721,6 +6722,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Info.'));
+    await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 500), const Offset(0, -420));
     await tester.pumpAndSettle();
     for (var i = 0; i < 5; i++) {
@@ -6730,6 +6733,7 @@ void main() {
     }
 
     expect(find.text('Launch Preview'), findsOneWidget);
+    expect(find.text('Tick 1 · Day 1, 16:30'), findsOneWidget);
     expect(find.text('Global'), findsOneWidget);
     expect(find.text('Origin launch tick narrator.'), findsOneWidget);
     expect(find.text('Detail Location'), findsWidgets);
@@ -13262,6 +13266,43 @@ void main() {
     expect(find.text('Central Station'), findsOneWidget);
     expect(find.widgetWithText(GenesisPrimaryButton, 'Save'), findsOneWidget);
   });
+
+  testWidgets(
+    'location tree reuses local upload bytes after the L3 sheet saves',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+      await tester.pumpAndSettle();
+      await _completeInitialLocationTree(tester);
+
+      final sheet = await _openL3LocationEditorSheet(
+        tester,
+        locationName: 'L3 Location',
+      );
+      final upload = tester.widget<CreateUploadBox>(
+        find.descendant(of: sheet, matching: find.byType(CreateUploadBox)),
+      );
+      final previewBytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'
+        'YAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+      );
+      upload.onPreviewBytesChanged?.call(previewBytes);
+      upload.controller.text = 'https://cdn.example.com/new-location.png';
+      upload.onChanged();
+      await tester.pump();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('locations-l3-editor-save')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('world-location-memory-image-Loc_1_1_1'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('Chinese location names keep the prefix vertically centered', (
     WidgetTester tester,

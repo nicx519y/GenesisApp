@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_location_list.dart';
@@ -78,6 +80,50 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('location cover prefers local preview bytes over network URL', (
+    tester,
+  ) async {
+    final previewBytes = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'
+      'YAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(devicePixelRatio: 2),
+          child: Scaffold(
+            body: WorldLocationList(
+              points: <WorldPoint>[
+                WorldPoint(
+                  id: 'location-local-preview',
+                  name: 'Local Preview',
+                  type: WorldPointType.castle,
+                  position: Offset.zero,
+                  users: const <UserAvatar>[],
+                  iconUrl: 'https://cdn.example.com/location.png',
+                  iconBytes: previewBytes,
+                ),
+              ],
+              enableOuterScrollHandoff: false,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final memoryImage = find.byKey(
+      const ValueKey<String>(
+        'world-location-memory-image-location-local-preview',
+      ),
+    );
+    expect(memoryImage, findsOneWidget);
+    final image = tester.widget<Image>(memoryImage);
+    expect(image.image, isA<ResizeImage>());
+    expect((image.image as ResizeImage).width, 128);
+    expect(find.byType(GenesisStaticNetworkImage), findsNothing);
   });
 
   testWidgets('location cover maps backend defaults to local assets', (

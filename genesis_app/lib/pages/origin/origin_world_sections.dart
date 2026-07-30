@@ -105,6 +105,7 @@ class _LaunchPreviewSection extends StatelessWidget {
     final tickResult = previewTick['tick_result'] is Map
         ? (previewTick['tick_result'] as Map).cast<String, dynamic>()
         : const <String, dynamic>{};
+    final currentTime = _mapString(tickResult, const ['current_time']);
     final globalBody = _mapString(tickResult, const ['narrator']);
     final metricUnit = _mapString(origin.metric, const ['unit']);
 
@@ -122,9 +123,7 @@ class _LaunchPreviewSection extends StatelessWidget {
           tickNumber: 1,
           fallbackBody: globalBody,
           locationsById: _originLocationsById(origin.allLocations),
-          dateLabel: origin.startTime.trim().isEmpty
-              ? 'Day 1, 18:00'
-              : formatGenesisTimestamp(origin.startTime),
+          dateLabel: currentTime,
           timeAgoLabel: '',
           stackedContent: true,
           contentLabelStyle: _originTickContentLabelStyle,

@@ -6,6 +6,8 @@ class CreateUploadBox extends StatefulWidget {
     required this.controller,
     required this.label,
     required this.onChanged,
+    this.initialPreviewBytes,
+    this.onPreviewBytesChanged,
     this.width = 132,
     this.height = 176,
     this.iconSize = 38,
@@ -26,6 +28,8 @@ class CreateUploadBox extends StatefulWidget {
   final TextEditingController controller;
   final String label;
   final VoidCallback onChanged;
+  final Uint8List? initialPreviewBytes;
+  final ValueChanged<Uint8List?>? onPreviewBytesChanged;
   final double width;
   final double height;
   final double iconSize;
@@ -60,6 +64,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   @override
   void initState() {
     super.initState();
+    _previewBytes = widget.initialPreviewBytes;
     widget.controller.addListener(_handleControllerChanged);
     unawaited(_resolveControllerImageSize());
   }
@@ -70,19 +75,26 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_handleControllerChanged);
       widget.controller.addListener(_handleControllerChanged);
-      _previewBytes = null;
+      _previewBytes = widget.initialPreviewBytes;
       _imageAspectRatio = null;
       _imageLogicalSize = null;
       _isUploading = false;
       _isUploadProcessing = false;
       _uploadProgress = 0;
       unawaited(_resolveControllerImageSize());
-    } else if (!oldWidget.useMessageImageSizing &&
-        widget.useMessageImageSizing) {
-      unawaited(_resolveControllerImageSize());
-    } else if (oldWidget.useMessageImageSizing &&
-        !widget.useMessageImageSizing) {
-      _imageLogicalSize = null;
+    } else {
+      if (!identical(
+        oldWidget.initialPreviewBytes,
+        widget.initialPreviewBytes,
+      )) {
+        _previewBytes = widget.initialPreviewBytes;
+      }
+      if (!oldWidget.useMessageImageSizing && widget.useMessageImageSizing) {
+        unawaited(_resolveControllerImageSize());
+      } else if (oldWidget.useMessageImageSizing &&
+          !widget.useMessageImageSizing) {
+        _imageLogicalSize = null;
+      }
     }
   }
 
@@ -208,6 +220,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       _isUploadProcessing = false;
       _uploadProgress = 0;
     });
+    widget.onPreviewBytesChanged?.call(null);
     widget.controller.clear();
     widget.onChanged();
   }
@@ -304,6 +317,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       setState(() {
         _isUploading = false;
       });
+      widget.onPreviewBytesChanged?.call(image.bytes);
       widget.onChanged();
     } catch (_) {
       if (!mounted) return;
@@ -370,6 +384,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       setState(() {
         _isUploading = false;
       });
+      widget.onPreviewBytesChanged?.call(crop.bytes);
       widget.onChanged();
     } catch (_) {
       if (!mounted) return;
