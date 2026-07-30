@@ -145,6 +145,13 @@ void main() {
     final dropdownFinder = find.byKey(
       const ValueKey<String>('tilemap-settings-loading-style'),
     );
+    expect(
+      tester
+          .widget<DropdownButton<TilemapLoadingStyle>>(dropdownFinder)
+          .items
+          ?.map((item) => item.value),
+      TilemapLoadingStyle.values,
+    );
 
     Future<void> select(TilemapLoadingStyle style) async {
       tester
@@ -152,16 +159,6 @@ void main() {
           .onChanged!(style);
       await tester.pump();
     }
-
-    await select(TilemapLoadingStyle.disabled);
-    expect(
-      find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('tilemap-loading-background')),
-      findsOneWidget,
-    );
 
     for (final style in <TilemapLoadingStyle>[
       TilemapLoadingStyle.tileAssembly,
@@ -176,6 +173,24 @@ void main() {
       );
     }
 
+    await select(TilemapLoadingStyle.disabled);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-loading-background')),
+      findsOneWidget,
+    );
+
+    // Turning the first-entry screen off completes this Tilemap session's
+    // one-time gate. Re-enabling a style must not make it appear again.
+    await select(TilemapLoadingStyle.coordinatePulse);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+      findsNothing,
+    );
+
     await tester.tap(
       find.byKey(const ValueKey<String>('tilemap-settings-close')),
     );
@@ -186,42 +201,70 @@ void main() {
     );
   });
 
-  testWidgets('Tilemap Off skips tile image preloading', (tester) async {
-    final disabledSettings = TilemapRenderSettings.defaults().toJson()
-      ..['loading_style'] = TilemapLoadingStyle.disabled.name;
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      TilemapSettingsButtonVisibilityController.storageKey: true,
-      TilemapSettingsStore.storageKey: jsonEncode(disabledSettings),
-    });
-    final loadedAssets = <String>[];
+  testWidgets(
+    'Tilemap Off skips the first-map gate but keeps silent child preload',
+    (tester) async {
+      final disabledSettings = TilemapRenderSettings.defaults().toJson()
+        ..['loading_style'] = TilemapLoadingStyle.disabled.name;
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        TilemapSettingsButtonVisibilityController.storageKey: true,
+        TilemapSettingsStore.storageKey: jsonEncode(disabledSettings),
+      });
+      final loadedAssets = <String>[];
+      final transport = _LocationTilemapTransport({
+        'root': _locationTilemapData('branch', assetName: 'root'),
+        'branch': _locationTilemapData('leaf_a', assetName: 'branch'),
+      });
 
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: _servicesWithTransport(
-          _TilemapTransport(data: _locationTilemapData('leaf')),
-        ),
-        child: MaterialApp(
-          home: Scaffold(
-            body: Tilemap.origin(
-              originId: 'o_1',
-              tileImageLoader: (assetUrl) async {
-                loadedAssets.add(assetUrl);
-              },
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Tilemap.origin(
+                originId: 'o_1',
+                locationNodes: [
+                  _locationNode(
+                    'branch',
+                    children: [
+                      _locationNode('leaf_a'),
+                      _locationNode('leaf_b'),
+                    ],
+                  ),
+                ],
+                tileImageLoader: (assetUrl) async {
+                  loadedAssets.add(assetUrl);
+                },
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
 
-    expect(loadedAssets, isEmpty);
-    expect(
-      find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
-      findsNothing,
-    );
-    expect(find.byType(TilemapRenderer), findsOneWidget);
-  });
+      expect(
+        loadedAssets.any((assetUrl) => assetUrl.contains('/root.png?')),
+        isFalse,
+      );
+      expect(
+        loadedAssets.any((assetUrl) => assetUrl.contains('/branch.png?')),
+        isTrue,
+      );
+      expect(
+        transport.requests
+            .map((request) => request.uri.queryParameters['location_id'])
+            .toSet(),
+        {'root', 'branch'},
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+        findsNothing,
+      );
+      expect(find.byType(TilemapRenderer), findsOneWidget);
+    },
+  );
 
   testWidgets('Tilemap progress weights loaded assets by their tile count', (
     tester,
@@ -1151,81 +1194,364 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('Tilemap loads drillable locations on demand and caches maps', (
+  testWidgets(
+    'Tilemap silently preloads drillable maps and never reloads on drill/back',
+    (tester) async {
+      final transport = _LocationTilemapTransport({
+        'root': _tilemapData(
+          tileLocationIds: const ['branch_a', 'branch_b', 'leaf'],
+          assetName: 'root',
+        ),
+        'branch_a': _locationTilemapData('leaf_a', assetName: 'branch_a'),
+        'branch_b': _locationTilemapData('leaf_b', assetName: 'branch_b'),
+      });
+      final services = _servicesWithTransport(transport);
+      final pendingImages = <String, Completer<void>>{};
+      Future<void> loadImage(String assetUrl) {
+        return pendingImages.putIfAbsent(assetUrl, Completer<void>.new).future;
+      }
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            theme: ThemeData(splashFactory: NoSplash.splashFactory),
+            home: Scaffold(
+              body: Tilemap.world(
+                worldId: 'w_1',
+                locationNodes: [
+                  _locationNode(
+                    'branch_a',
+                    children: [
+                      _locationNode('leaf_a'),
+                      _locationNode('leaf_a_2'),
+                    ],
+                  ),
+                  _locationNode(
+                    'branch_b',
+                    children: [
+                      _locationNode('leaf_b'),
+                      _locationNode('leaf_b_2'),
+                    ],
+                  ),
+                  _locationNode('leaf'),
+                ],
+                tileImageLoader: loadImage,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+        findsOneWidget,
+      );
+      expect(find.byType(TilemapRenderer), findsNothing);
+      pendingImages.entries
+          .singleWhere((entry) => entry.key.contains('/root.png?'))
+          .value
+          .complete();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        transport.requests
+            .map((request) => request.uri.queryParameters['location_id'])
+            .toSet(),
+        {'root', 'branch_a', 'branch_b'},
+      );
+      expect(
+        transport.requests.every(
+          (request) => request.uri.path == '/api/v1/world/map',
+        ),
+        isTrue,
+      );
+      expect(
+        pendingImages.keys.any((url) => url.contains('/branch_a.png?')),
+        isTrue,
+      );
+      expect(
+        pendingImages.keys.any((url) => url.contains('/branch_b.png?')),
+        isTrue,
+      );
+
+      final rootRenderer = tester.widget<TilemapRenderer>(
+        find.byType(TilemapRenderer),
+      );
+      expect(rootRenderer.config.id, 'world:w_1:root');
+      await rootRenderer.onTileAction!(rootRenderer.config.tiles.first);
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+        findsNothing,
+      );
+      expect(
+        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        'world:w_1:branch_a',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+        findsNothing,
+      );
+      expect(
+        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        'world:w_1:root',
+      );
+      expect(transport.requestCount('root'), 1);
+      expect(transport.requestCount('branch_a'), 1);
+      expect(transport.requestCount('branch_b'), 1);
+
+      for (final completer in pendingImages.values) {
+        if (!completer.isCompleted) completer.complete();
+      }
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'Tilemap reuses an in-flight silent request without reopening Loading',
+    (tester) async {
+      final branchResponse = Completer<Map<String, dynamic>>();
+      final transport = _ScriptedLocationTilemapTransport({
+        'root': [
+          Future<Map<String, dynamic>>.value(
+            _locationTilemapData('branch', assetName: 'root'),
+          ),
+        ],
+        'branch': [branchResponse.future],
+      });
+      final branch = _locationNode(
+        'branch',
+        children: [_locationNode('leaf_a'), _locationNode('leaf_b')],
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: MaterialApp(
+            theme: ThemeData(splashFactory: NoSplash.splashFactory),
+            home: Scaffold(
+              body: Tilemap.world(
+                worldId: 'w_1',
+                locationNodes: [branch],
+                tileImageLoader: _completeTileImageLoad,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(transport.requestCount('branch'), 1);
+      final rootRenderer = tester.widget<TilemapRenderer>(
+        find.byType(TilemapRenderer),
+      );
+      await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+      await tester.pump();
+
+      expect(transport.requestCount('branch'), 1);
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+        findsNothing,
+      );
+      expect(find.byType(TilemapRenderer), findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-background')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+      );
+      await tester.pump();
+      expect(
+        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        'world:w_1:root',
+      );
+
+      branchResponse.complete(
+        _locationTilemapData('leaf_a', assetName: 'branch'),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        'world:w_1:root',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+        findsNothing,
+      );
+
+      final cachedRootRenderer = tester.widget<TilemapRenderer>(
+        find.byType(TilemapRenderer),
+      );
+      await cachedRootRenderer.onTileAction!(
+        cachedRootRenderer.config.tiles.single,
+      );
+      await tester.pump();
+
+      expect(transport.requestCount('branch'), 1);
+      expect(
+        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+        'world:w_1:branch',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('Tilemap silent map failure does not poison interactive retry', (
     tester,
   ) async {
-    final transport = _TilemapTransport(data: _locationTilemapData('branch'));
-    final services = _servicesWithTransport(transport);
+    final transport = _ScriptedLocationTilemapTransport({
+      'root': [
+        Future<Map<String, dynamic>>.value(
+          _locationTilemapData('branch', assetName: 'root'),
+        ),
+      ],
+      'branch': [
+        Future<Map<String, dynamic>>.value(<String, dynamic>{}),
+        Future<Map<String, dynamic>>.value(
+          _locationTilemapData('leaf_a', assetName: 'branch'),
+        ),
+      ],
+    });
     final branch = _locationNode(
       'branch',
       children: [_locationNode('leaf_a'), _locationNode('leaf_b')],
     );
 
-    Widget buildSubject() {
-      return AppServicesScope(
-        services: services,
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
         child: MaterialApp(
-          theme: ThemeData(splashFactory: NoSplash.splashFactory),
           home: Scaffold(
-            body: Tilemap.world(
-              worldId: 'w_1',
+            body: Tilemap.origin(
+              originId: 'o_1',
               locationNodes: [branch],
               tileImageLoader: _completeTileImageLoad,
             ),
           ),
         ),
-      );
-    }
-
-    await tester.pumpWidget(buildSubject());
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
     await tester.pump();
     await tester.pump();
 
-    expect(transport.requests, hasLength(1));
-    final renderer = tester.widget<TilemapRenderer>(
+    expect(transport.requestCount('branch'), 1);
+    expect(find.byKey(const ValueKey<String>('tilemap-error')), findsNothing);
+    expect(find.byType(TilemapRenderer), findsOneWidget);
+
+    final rootRenderer = tester.widget<TilemapRenderer>(
       find.byType(TilemapRenderer),
     );
-    await tester.pump(const Duration(milliseconds: 50));
-    await tester.pumpWidget(buildSubject());
-    await tester.pump(const Duration(milliseconds: 49));
-    expect(transport.requests, hasLength(1));
-    await tester.pump(const Duration(milliseconds: 1));
-
-    expect(transport.requests, hasLength(1));
-    expect(
-      transport.requests
-          .map((request) => request.uri.queryParameters['location_id'])
-          .toSet(),
-      {'root'},
-    );
-    expect(
-      transport.requests.every(
-        (request) => request.uri.path == '/api/v1/world/map',
-      ),
-      isTrue,
-    );
-
-    await renderer.onTileAction!(renderer.config.tiles.single);
+    await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+    await tester.pump();
     await tester.pump();
 
-    expect(transport.requests, hasLength(2));
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(transport.requestCount('branch'), 2);
     expect(
-      find.byKey(const ValueKey<String>('tilemap-exit-location')),
-      findsOneWidget,
+      tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+      'origin:o_1:branch',
     );
-
-    await tester.tap(
-      find.byKey(const ValueKey<String>('tilemap-exit-location')),
+    expect(find.byKey(const ValueKey<String>('tilemap-error')), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+      findsNothing,
     );
-    await tester.pump();
-
-    expect(transport.requests, hasLength(2));
-    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('Tilemap does not preload origin location maps', (tester) async {
-    final transport = _TilemapTransport(data: _locationTilemapData('branch'));
+  testWidgets('Tilemap silent tile failure stays out of the foreground UI', (
+    tester,
+  ) async {
+    final transport = _LocationTilemapTransport({
+      'root': _locationTilemapData('branch', assetName: 'root'),
+      'branch': _locationTilemapData('leaf_a', assetName: 'branch'),
+    });
+    final branch = _locationNode(
+      'branch',
+      children: [_locationNode('leaf_a'), _locationNode('leaf_b')],
+    );
+
+    Future<void> loadImage(String assetUrl) async {
+      if (assetUrl.contains('/branch.png?')) {
+        throw StateError('silent branch image failed');
+      }
+    }
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: MaterialApp(
+          home: Scaffold(
+            body: Tilemap.world(
+              worldId: 'w_1',
+              locationNodes: [branch],
+              tileImageLoader: loadImage,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey<String>('tilemap-error')), findsNothing);
+    expect(
+      tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+      'world:w_1:root',
+    );
+
+    final rootRenderer = tester.widget<TilemapRenderer>(
+      find.byType(TilemapRenderer),
+    );
+    await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey<String>('tilemap-error')), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+      findsNothing,
+    );
+    expect(
+      tester.widget<TilemapRenderer>(find.byType(TilemapRenderer)).config.id,
+      'world:w_1:branch',
+    );
+  });
+
+  testWidgets('Tilemap also silently preloads origin drillable maps', (
+    tester,
+  ) async {
+    final transport = _LocationTilemapTransport({
+      'root': _locationTilemapData('branch', assetName: 'root'),
+      'branch': _locationTilemapData('leaf_a', assetName: 'branch'),
+    });
     final services = _servicesWithTransport(transport);
     final branch = _locationNode(
       'branch',
@@ -1248,9 +1574,9 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+    await tester.pump();
 
-    expect(transport.requests, hasLength(1));
     expect(
       transport.requests.every(
         (request) => request.uri.path == '/api/v1/origin/map',
@@ -1261,7 +1587,7 @@ void main() {
       transport.requests
           .map((request) => request.uri.queryParameters['location_id'])
           .toSet(),
-      {'root'},
+      {'root', 'branch'},
     );
   });
 
@@ -1443,20 +1769,37 @@ void main() {
   });
 }
 
-Map<String, dynamic> _locationTilemapData(String locationId, {int shadow = 0}) {
+Map<String, dynamic> _locationTilemapData(
+  String locationId, {
+  int shadow = 0,
+  String assetName = 'tile',
+}) {
+  return _tilemapData(
+    tileLocationIds: [locationId],
+    assetName: assetName,
+    shadow: shadow,
+  );
+}
+
+Map<String, dynamic> _tilemapData({
+  required List<String> tileLocationIds,
+  required String assetName,
+  int shadow = 0,
+}) {
   return {
-    'tile_types': {'tile': 'https://invalid.example.test/tile/tile.png'},
+    'tile_types': {'tile': 'https://invalid.example.test/tile/$assetName.png'},
     'map_json': {
-      'width': 1,
+      'width': tileLocationIds.length,
       'height': 1,
       'tiles': [
-        {
-          'x': 0,
-          'y': 0,
-          'type': 'tile',
-          'shadow': shadow,
-          'location_id': locationId,
-        },
+        for (var index = 0; index < tileLocationIds.length; index++)
+          {
+            'x': index,
+            'y': 0,
+            'type': 'tile',
+            'shadow': shadow,
+            'location_id': tileLocationIds[index],
+          },
       ],
     },
   };
@@ -1543,6 +1886,75 @@ class _TilemapTransport implements HttpTransport {
       statusCode: 200,
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data ?? {}}),
+    );
+  }
+}
+
+class _LocationTilemapTransport implements HttpTransport {
+  _LocationTilemapTransport(this.dataByLocation);
+
+  final Map<String, Map<String, dynamic>> dataByLocation;
+  final requests = <TransportRequest>[];
+
+  int requestCount(String locationId) {
+    return requests
+        .where(
+          (request) => request.uri.queryParameters['location_id'] == locationId,
+        )
+        .length;
+  }
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final locationId = request.uri.queryParameters['location_id'] ?? '';
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': dataByLocation[locationId] ?? <String, dynamic>{},
+      }),
+    );
+  }
+}
+
+class _ScriptedLocationTilemapTransport implements HttpTransport {
+  _ScriptedLocationTilemapTransport(this.responsesByLocation);
+
+  final Map<String, List<Future<Map<String, dynamic>>>> responsesByLocation;
+  final requests = <TransportRequest>[];
+  final Map<String, int> _nextResponseIndex = <String, int>{};
+
+  int requestCount(String locationId) {
+    return requests
+        .where(
+          (request) => request.uri.queryParameters['location_id'] == locationId,
+        )
+        .length;
+  }
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final locationId = request.uri.queryParameters['location_id'] ?? '';
+    final responseIndex = _nextResponseIndex.update(
+      locationId,
+      (index) => index + 1,
+      ifAbsent: () => 0,
+    );
+    final responses =
+        responsesByLocation[locationId] ??
+        const <Future<Map<String, dynamic>>>[];
+    if (responseIndex >= responses.length) {
+      throw StateError('No scripted Tilemap response for $locationId');
+    }
+    final data = await responses[responseIndex];
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
     );
   }
 }

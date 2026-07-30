@@ -211,7 +211,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
               ),
             ),
             Text(
-              'Shown while the required tile images are loading.',
+              'Shown only on the first Tilemap entry.',
               style: TextStyle(color: secondaryColor, fontSize: 10),
             ),
             const SizedBox(height: 5),

@@ -15,13 +15,13 @@ import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
 import '../world_map_location_action.dart';
 import '../world_point.dart';
+import 'loading/tilemap_loading.dart';
 import 'tilemap_model.dart';
 import 'tilemap_renderer.dart';
 import 'tilemap_settings_button_visibility.dart';
 import 'tilemap_settings_store.dart';
 
 part 'tilemap_settings_panel.dart';
-part 'tilemap_loading_overlay.dart';
 part 'tilemap_fog_editor.dart';
 part 'tilemap_image_flow_editor.dart';
 part 'tilemap_controls_feedback.dart';
@@ -103,13 +103,7 @@ class _TilemapState extends State<Tilemap> {
   final List<String> _locationTrail = <String>[];
   int _cacheGeneration = 0;
   int _rendererRevision = 0;
-  int _tileImageLoadGeneration = 0;
-  String? _tileImageLoadKey;
-  String? _desiredTileImageLoadKey;
-  String? _scheduledTileImageLoadKey;
-  String? _revealedMapId;
-  int _loadedTileImageCount = 0;
-  int _totalTileImageCount = 0;
+  late final TilemapLoadingCoordinator _loadingCoordinator;
   TilemapVisualMode _visualMode = tilemapDefaultVisualMode;
   TilemapLoadingStyle _loadingStyle = tilemapDefaultLoadingStyle;
   List<TilemapFogControlPoint> _fogControlPoints =
@@ -137,6 +131,9 @@ class _TilemapState extends State<Tilemap> {
   void initState() {
     super.initState();
     _currentLocationId = widget.locationId.trim();
+    _loadingCoordinator = TilemapLoadingCoordinator(
+      onChanged: _handleLoadingCoordinatorChanged,
+    );
     tilemapSettingsButtonVisibility.listenable.addListener(
       _handleSettingsButtonVisibilityChanged,
     );
@@ -164,14 +161,18 @@ class _TilemapState extends State<Tilemap> {
     if (!entityChanged && !initialLocationChanged) return;
     _currentLocationId = widget.locationId.trim();
     _locationTrail.clear();
-    if (entityChanged) _resetMapCache();
+    if (entityChanged) {
+      _resetMapCache();
+    } else {
+      _loadingCoordinator.retargetInitialEntry();
+    }
     _loadCurrentLocation(rebuild: false);
   }
 
   @override
   void dispose() {
     _cacheGeneration += 1;
-    _tileImageLoadGeneration += 1;
+    _loadingCoordinator.dispose();
     tilemapSettingsButtonVisibility.listenable.removeListener(
       _handleSettingsButtonVisibilityChanged,
     );
@@ -205,6 +206,9 @@ class _TilemapState extends State<Tilemap> {
   Future<void> _loadCachedSettings() async {
     final settings = await _settingsStore.load();
     if (!mounted) return;
+    if (settings.loadingStyle == TilemapLoadingStyle.disabled) {
+      _loadingCoordinator.completeInitialEntryWithoutOverlay();
+    }
     setState(() {
       _visualMode = settings.visualMode;
       _loadingStyle = settings.loadingStyle;
@@ -223,6 +227,11 @@ class _TilemapState extends State<Tilemap> {
       _dragBoundaryPaddingTiles = settings.dragBoundaryPaddingTiles;
       _settingsReady = true;
     });
+  }
+
+  void _handleLoadingCoordinatorChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   void _handleSettingsButtonVisibilityChanged() {
@@ -308,15 +317,6 @@ class _TilemapState extends State<Tilemap> {
     if (!mounted) return;
     final defaults = TilemapRenderSettings.defaults();
     setState(() {
-      final config = _currentConfig;
-      if (_loadingStyle != TilemapLoadingStyle.disabled &&
-          config != null &&
-          _revealedMapId != config.id) {
-        _invalidateTileImageLoad();
-      } else if (_loadingStyle == TilemapLoadingStyle.disabled &&
-          config != null) {
-        _revealedMapId = config.id;
-      }
       _visualMode = defaults.visualMode;
       _loadingStyle = defaults.loadingStyle;
       _fogControlPoints = defaults.fogControlPoints;
@@ -441,13 +441,36 @@ class _TilemapState extends State<Tilemap> {
 
   void _resetMapCache() {
     _cacheGeneration += 1;
-    _invalidateTileImageLoad();
+    _loadingCoordinator.resetSession();
+    if (_settingsReady && _loadingStyle == TilemapLoadingStyle.disabled) {
+      _loadingCoordinator.completeInitialEntryWithoutOverlay();
+    }
     _mapRequests.clear();
     _mapResults.clear();
     _currentConfig = null;
     _mapError = null;
     _imageError = null;
     _rendererRevision = 0;
+  }
+
+  Future<TilemapConfig?> _preloadMap(String locationId) async {
+    final api = _api;
+    if (api == null) return null;
+
+    final generation = _cacheGeneration;
+    final result = await _requestMap(api, locationId, reportFailure: false);
+    if (!mounted || generation != _cacheGeneration) return null;
+
+    final config = result.config;
+    if (config != null) return config;
+
+    // A silent optimization must not leave a negative cache entry that would
+    // prevent the user's later interactive navigation from retrying.
+    if (_currentLocationId.trim() != locationId &&
+        identical(_mapResults[locationId], result)) {
+      _mapResults.remove(locationId);
+    }
+    return null;
   }
 
   void _loadCurrentLocation({required bool rebuild}) {
@@ -556,11 +579,16 @@ class _TilemapState extends State<Tilemap> {
   }
 
   void _retry() {
+    if (_loadingCoordinator.initialLoadError != null) {
+      _rendererRevision += 1;
+      _loadingCoordinator.retryInitialTileLoad();
+      return;
+    }
+
     if (_imageError != null) {
       setState(() {
         _imageError = null;
         _rendererRevision += 1;
-        _invalidateTileImageLoad();
       });
       return;
     }
@@ -579,17 +607,10 @@ class _TilemapState extends State<Tilemap> {
 
   void _setLoadingStyle(TilemapLoadingStyle loadingStyle) {
     if (_loadingStyle == loadingStyle) return;
-    setState(() {
-      final config = _currentConfig;
-      if (loadingStyle == TilemapLoadingStyle.disabled) {
-        _invalidateTileImageLoad();
-        if (config != null) _revealedMapId = config.id;
-      } else if (_loadingStyle == TilemapLoadingStyle.disabled &&
-          config != null) {
-        _revealedMapId = config.id;
-      }
-      _loadingStyle = loadingStyle;
-    });
+    if (loadingStyle == TilemapLoadingStyle.disabled) {
+      _loadingCoordinator.completeInitialEntryWithoutOverlay();
+    }
+    setState(() => _loadingStyle = loadingStyle);
     _scheduleSettingsSave();
   }
 
@@ -670,12 +691,7 @@ class _TilemapState extends State<Tilemap> {
     if (_initialScale == resolved) return;
     setState(() {
       _initialScale = resolved;
-      final config = _currentConfig;
-      if (config != null &&
-          _revealedMapId != config.id &&
-          _loadingStyle != TilemapLoadingStyle.disabled) {
-        _invalidateTileImageLoad();
-      }
+      _loadingCoordinator.invalidateInitialTilePlan();
     });
     _scheduleSettingsSave();
   }
@@ -720,98 +736,6 @@ class _TilemapState extends State<Tilemap> {
         '${widget._source.name}:$entityId:${_currentLocationId.trim()}';
   }
 
-  void _invalidateTileImageLoad() {
-    _tileImageLoadGeneration += 1;
-    _tileImageLoadKey = null;
-    _desiredTileImageLoadKey = null;
-    _scheduledTileImageLoadKey = null;
-    _revealedMapId = null;
-    _loadedTileImageCount = 0;
-    _totalTileImageCount = 0;
-  }
-
-  String _tileImageLoadKeyFor(TilemapConfig config, TilemapImageLoadPlan plan) {
-    return '${config.id}|${plan.tileCountByAsset.keys.join('\u0000')}';
-  }
-
-  void _scheduleTileImageLoad({
-    required TilemapConfig config,
-    required TilemapImageLoadPlan plan,
-    required String loadKey,
-  }) {
-    _desiredTileImageLoadKey = loadKey;
-    if (_tileImageLoadKey == loadKey || _scheduledTileImageLoadKey == loadKey) {
-      return;
-    }
-    _scheduledTileImageLoadKey = loadKey;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_isCurrentMapId(config.id)) return;
-      if (_scheduledTileImageLoadKey != loadKey) return;
-      _scheduledTileImageLoadKey = null;
-      unawaited(_loadTileImages(config: config, plan: plan, loadKey: loadKey));
-    });
-  }
-
-  Future<void> _loadTileImages({
-    required TilemapConfig config,
-    required TilemapImageLoadPlan plan,
-    required String loadKey,
-  }) async {
-    final generation = ++_tileImageLoadGeneration;
-    setState(() {
-      _tileImageLoadKey = loadKey;
-      _loadedTileImageCount = 0;
-      _totalTileImageCount = plan.totalTileCount;
-    });
-
-    var failed = false;
-    await Future.wait<void>([
-      for (final entry in plan.tileCountByAsset.entries)
-        () async {
-          try {
-            await _loadTileImage(entry.key);
-          } catch (error) {
-            if (!mounted ||
-                generation != _tileImageLoadGeneration ||
-                _tileImageLoadKey != loadKey ||
-                _desiredTileImageLoadKey != loadKey ||
-                !_isCurrentMapId(config.id)) {
-              return;
-            }
-            failed = true;
-            _handleImageError(config.id, error);
-            return;
-          }
-          if (!mounted ||
-              generation != _tileImageLoadGeneration ||
-              _tileImageLoadKey != loadKey ||
-              _desiredTileImageLoadKey != loadKey ||
-              !_isCurrentMapId(config.id)) {
-            return;
-          }
-          setState(() {
-            _loadedTileImageCount = math.min(
-              _totalTileImageCount,
-              _loadedTileImageCount + entry.value,
-            );
-          });
-        }(),
-    ]);
-
-    if (!mounted ||
-        failed ||
-        generation != _tileImageLoadGeneration ||
-        _tileImageLoadKey != loadKey ||
-        _desiredTileImageLoadKey != loadKey ||
-        !_isCurrentMapId(config.id)) {
-      return;
-    }
-    setState(() {
-      _loadedTileImageCount = _totalTileImageCount;
-      _revealedMapId = config.id;
-    });
-  }
-
   Future<void> _loadTileImage(String assetUrl) async {
     final customLoader = widget.tileImageLoader;
     if (customLoader != null) {
@@ -836,6 +760,19 @@ class _TilemapState extends State<Tilemap> {
         precacheStackTrace ?? StackTrace.current,
       );
     }
+  }
+
+  void _scheduleSilentDrillDownPreload(
+    TilemapConfig config, {
+    required double displayTilePixelSize,
+  }) {
+    _loadingCoordinator.scheduleSilentDrillDownPreload(
+      currentConfig: config,
+      locationNodes: widget.locationNodes,
+      displayTilePixelSize: displayTilePixelSize,
+      loadMap: _preloadMap,
+      loadImage: _loadTileImage,
+    );
   }
 
   Widget _buildRenderer(TilemapConfig config) {
@@ -874,28 +811,30 @@ class _TilemapState extends State<Tilemap> {
         key: const ValueKey<String>('tilemap-settings-loading-background'),
         color: tilemapVisualStyleFor(_visualMode).backgroundColor,
       );
-    } else if (_imageError != null || _mapError != null) {
+    } else if (_imageError != null ||
+        _mapError != null ||
+        _loadingCoordinator.initialLoadError != null) {
       map = _TilemapError(visualMode: _visualMode, onRetry: _retry);
     } else {
       final config = _currentConfig;
+      final showInitialLoading =
+          !_loadingCoordinator.initialEntryCompleted &&
+          _loadingStyle != TilemapLoadingStyle.disabled;
       if (config == null) {
-        map = _loadingStyle == TilemapLoadingStyle.disabled
-            ? ColoredBox(
-                key: const ValueKey<String>('tilemap-loading-background'),
-                color: tilemapVisualStyleFor(_visualMode).backgroundColor,
-              )
-            : _TilemapLoadingOverlay(
+        map = showInitialLoading
+            ? TilemapLoadingOverlay(
                 style: _loadingStyle,
                 progress: 0,
                 visualMode: _visualMode,
                 backgroundKey: const ValueKey<String>(
                   'tilemap-loading-background',
                 ),
+              )
+            : ColoredBox(
+                key: const ValueKey<String>('tilemap-loading-background'),
+                color: tilemapVisualStyleFor(_visualMode).backgroundColor,
               );
-      } else if (_loadingStyle == TilemapLoadingStyle.disabled ||
-          _revealedMapId == config.id) {
-        map = _buildRenderer(config);
-      } else {
+      } else if (showInitialLoading) {
         final displayTilePixelSize =
             tilemapBaseTileExtent *
             _initialScale *
@@ -904,23 +843,27 @@ class _TilemapState extends State<Tilemap> {
           config: config,
           displayTilePixelSize: displayTilePixelSize,
         );
-        final imageLoadKey = _tileImageLoadKeyFor(config, imageLoadPlan);
-        _scheduleTileImageLoad(
+        _loadingCoordinator.ensureInitialMapReady(
           config: config,
           plan: imageLoadPlan,
-          loadKey: imageLoadKey,
+          loadImage: _loadTileImage,
         );
-        map = _TilemapLoadingOverlay(
+        map = TilemapLoadingOverlay(
           style: _loadingStyle,
-          progress: _tileImageLoadKey == imageLoadKey
-              ? tilemapImageLoadProgress(
-                  loadedTileCount: _loadedTileImageCount,
-                  totalTileCount: _totalTileImageCount,
-                )
-              : 0,
+          progress: _loadingCoordinator.initialProgress,
           visualMode: _visualMode,
           backgroundKey: const ValueKey<String>('tilemap-loading-background'),
         );
+      } else {
+        final displayTilePixelSize =
+            tilemapBaseTileExtent *
+            _initialScale *
+            MediaQuery.devicePixelRatioOf(context);
+        _scheduleSilentDrillDownPreload(
+          config,
+          displayTilePixelSize: displayTilePixelSize,
+        );
+        map = _buildRenderer(config);
       }
     }
     final settingsButtonTop =

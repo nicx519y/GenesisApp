@@ -1,7 +1,14 @@
-part of 'tilemap_library.dart';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
-class _TilemapLoadingOverlay extends StatefulWidget {
-  const _TilemapLoadingOverlay({
+import 'package:flutter/material.dart';
+
+import '../tilemap_renderer.dart';
+import '../tilemap_settings_store.dart';
+
+class TilemapLoadingOverlay extends StatefulWidget {
+  const TilemapLoadingOverlay({
+    super.key,
     required this.style,
     required this.progress,
     required this.visualMode,
@@ -14,10 +21,10 @@ class _TilemapLoadingOverlay extends StatefulWidget {
   final Key? backgroundKey;
 
   @override
-  State<_TilemapLoadingOverlay> createState() => _TilemapLoadingOverlayState();
+  State<TilemapLoadingOverlay> createState() => _TilemapLoadingOverlayState();
 }
 
-class _TilemapLoadingOverlayState extends State<_TilemapLoadingOverlay>
+class _TilemapLoadingOverlayState extends State<TilemapLoadingOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _motion = AnimationController(
     vsync: this,
@@ -35,7 +42,7 @@ class _TilemapLoadingOverlayState extends State<_TilemapLoadingOverlay>
   }
 
   @override
-  void didUpdateWidget(covariant _TilemapLoadingOverlay oldWidget) {
+  void didUpdateWidget(covariant TilemapLoadingOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.style != widget.style) _syncMotion();
   }
