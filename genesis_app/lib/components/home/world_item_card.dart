@@ -233,8 +233,9 @@ class WorldItemCard extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 8),
         if (item.progressSummary.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           _ProgressHeader(timestamp: item.lastProgressAt),
           if (item.progressTickTimeLabel.isNotEmpty) ...[
             const SizedBox(height: 8),

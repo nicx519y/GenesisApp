@@ -51,6 +51,10 @@ void main() {
     expect(find.text('2999-1-1'), findsOneWidget);
     expect(find.text('Tick 3 · Day 3, 08:00'), findsOneWidget);
     expect(find.text('The city chooses a new route.'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byIcon(MyFlutterApp.lastProgress)).dy,
+      tester.getRect(find.byType(GenesisListImage).first).bottom + 16,
+    );
 
     final thumbnails = tester.widgetList<GenesisListImage>(
       find.byType(GenesisListImage),
@@ -197,6 +201,47 @@ void main() {
     expect(find.text('Tick 3 · Day 3, 08:00'), findsNothing);
     expect(find.byIcon(MyFlutterApp.lastProgress), findsNothing);
   });
+
+  testWidgets(
+    'keeps character section 16px below summary when last progress is absent',
+    (WidgetTester tester) async {
+      final item = WorldListItem.fromJson(const <String, dynamic>{
+        'info': {
+          'world_id': 'w_empty_progress',
+          'world_name': 'Quiet World',
+          'cover': '',
+          'owner_uid': 'u_owner',
+          'owner_name': 'Owner',
+          'metric': {'label': 'Goal Progress', 'unit': '%', 'default': 42},
+        },
+        'last_tick': {'narrator': '   '},
+        'my_character': {
+          'char_id': 'c_self',
+          'player_uid': 'u_mock',
+          'player_username': 'Mock User',
+          'name': 'Self Hero',
+          'avatar': {'sm_url': '', 'xl_url': '', 'object_key': ''},
+        },
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(width: 390, child: WorldItemCard(item: item)),
+          ),
+        ),
+      );
+
+      final summaryBottom = tester
+          .getRect(find.byType(GenesisListImage).first)
+          .bottom;
+      final characterTop = tester
+          .getTopLeft(_richTextFinder('Self Hero (Me)'))
+          .dy;
+
+      expect(characterTop, summaryBottom + 18);
+    },
+  );
 }
 
 double _horizontalGap(WidgetTester tester, Finder left, Finder right) {
