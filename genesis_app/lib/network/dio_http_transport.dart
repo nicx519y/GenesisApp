@@ -6,6 +6,7 @@ import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 
 import '../app/telemetry/firebase_performance_monitoring.dart';
+import 'devtools_http_profile.dart';
 import 'http_transport.dart';
 import 'io_http_transport.dart';
 
@@ -13,14 +14,15 @@ class DioHttpTransport implements HttpTransport {
   DioHttpTransport({
     Dio? dio,
     String? proxy,
+    Duration http2IdleTimeout = const Duration(seconds: 15),
     HttpRequestPerformanceMetricFactory? performanceMetricFactory,
     HttpRequestPerformanceMetricUrlFilter? performanceMetricUrlFilter,
     HttpRequestPerformanceMetricReady? performanceMetricReady,
-  }) : _dio = dio ?? _createDio(proxy),
+  }) : _dio = dio ?? _createDio(proxy, http2IdleTimeout),
        _performanceMetricFactory =
            performanceMetricFactory ?? createFirebasePerformanceMetric,
        _performanceMetricUrlFilter =
-           performanceMetricUrlFilter ?? isBusinessPerformanceMetricUrl,
+           performanceMetricUrlFilter ?? isFirebasePerformanceMetricUrl,
        _performanceMetricReady =
            performanceMetricReady ??
            (() => FirebasePerformanceMonitoring.isReady);
@@ -34,6 +36,8 @@ class DioHttpTransport implements HttpTransport {
   Future<TransportResponse> send(TransportRequest request) async {
     request.cancellationToken?.throwIfCancelled();
     final metric = await _startPerformanceMetric(request);
+    final devToolsProfile = DevToolsHttpProfile.start(request);
+    await devToolsProfile?.completeRequest(request);
     final dioCancelToken = CancelToken();
     final removeCancelListener = request.cancellationToken?.addCancelListener(
       () {
@@ -88,11 +92,18 @@ class DioHttpTransport implements HttpTransport {
         httpProtocolVersion: httpProtocolVersion,
       );
       recordPerformanceMetricResponse(metric, transportResponse);
+      await devToolsProfile?.completeResponse(transportResponse);
       return transportResponse;
     } on DioException catch (error) {
       if (CancelToken.isCancel(error)) {
-        throw const NetworkRequestCancelledException();
+        const cancellationError = NetworkRequestCancelledException();
+        await devToolsProfile?.completeWithError(cancellationError);
+        throw cancellationError;
       }
+      await devToolsProfile?.completeWithError(error);
+      rethrow;
+    } catch (error) {
+      await devToolsProfile?.completeWithError(error);
       rethrow;
     } finally {
       removeCancelListener?.call();
@@ -130,7 +141,7 @@ Object? _requestBodyData(List<int>? bodyBytes) {
   return Uint8List.fromList(bodyBytes);
 }
 
-Dio _createDio(String? proxy) {
+Dio _createDio(String? proxy, Duration http2IdleTimeout) {
   final dio = Dio();
   final httpAdapter = IOHttpClientAdapter(
     createHttpClient: () => createProxyAwareHttpClient(proxy),
@@ -138,6 +149,7 @@ Dio _createDio(String? proxy) {
   final proxyUri = _proxyUri(proxy);
   final httpsAdapter = Http2Adapter(
     ConnectionManager(
+      idleTimeout: http2IdleTimeout,
       onClientCreate: (_, setting) {
         setting.proxy = proxyUri;
         if (proxyUri != null &&

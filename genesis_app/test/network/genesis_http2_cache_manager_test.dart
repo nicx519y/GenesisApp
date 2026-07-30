@@ -5,6 +5,74 @@ import 'package:genesis_flutter_android/network/genesis_http2_cache_manager.dart
 import 'package:genesis_flutter_android/network/http_transport.dart';
 
 void main() {
+  test('image transport pool warms every connection once per origin', () async {
+    const response = TransportResponse(
+      statusCode: 200,
+      headers: <String, String>{},
+      body: '',
+      httpProtocolVersion: '2.0',
+    );
+    final transports = List<_RecordingTransport>.generate(
+      genesisImageHttp2ConnectionCount,
+      (_) => _RecordingTransport(response),
+    );
+    final pool = GenesisImageHttp2TransportPool(transports: transports);
+    final warmUpUri = Uri.parse('https://cdn-001.worldo.ai/robots.txt');
+
+    await Future.wait<void>([pool.warmUp(warmUpUri), pool.warmUp(warmUpUri)]);
+
+    for (final transport in transports) {
+      expect(transport.requests, hasLength(1));
+      final request = transport.requests.single;
+      expect(request.method, 'HEAD');
+      expect(request.uri, warmUpUri);
+      expect(request.headers, const <String, String>{'accept': '*/*'});
+      expect(request.timeoutMs, 10000);
+    }
+  });
+
+  test(
+    'image transport pool distributes requests over three connections',
+    () async {
+      const response = TransportResponse(
+        statusCode: 200,
+        headers: <String, String>{},
+        body: '',
+        httpProtocolVersion: '2.0',
+      );
+      final transports = List<_RecordingTransport>.generate(
+        genesisImageHttp2ConnectionCount,
+        (_) => _RecordingTransport(response),
+      );
+      final pool = GenesisImageHttp2TransportPool(transports: transports);
+
+      await Future.wait([
+        for (var index = 0; index < 7; index += 1)
+          pool.send(
+            TransportRequest(
+              method: 'GET',
+              uri: Uri.parse('https://cdn.example.com/tile-$index.webp'),
+              headers: const <String, String>{},
+              bodyBytes: null,
+              timeoutMs: 1000,
+            ),
+          ),
+      ]);
+
+      expect(
+        transports.map(
+          (transport) =>
+              transport.requests.map((request) => request.uri.path).toList(),
+        ),
+        [
+          ['/tile-0.webp', '/tile-3.webp', '/tile-6.webp'],
+          ['/tile-1.webp', '/tile-4.webp'],
+          ['/tile-2.webp', '/tile-5.webp'],
+        ],
+      );
+    },
+  );
+
   test('image file service sends downloads through shared transport', () async {
     final transport = _RecordingTransport(
       TransportResponse(
@@ -24,6 +92,11 @@ void main() {
     final service = GenesisHttp2FileService(
       transport: transport,
       timeoutMs: 4321,
+    );
+    expect(
+      service.concurrentFetches,
+      genesisImageHttp2ConnectionCount *
+          genesisImageConcurrentFetchesPerConnection,
     );
     final beforeRequest = DateTime.now();
 

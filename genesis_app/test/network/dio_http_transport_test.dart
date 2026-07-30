@@ -96,6 +96,44 @@ void main() {
     expect(response.httpProtocolVersion, '2.0');
   });
 
+  test('records each Tilemap image as a Firebase HTTP metric', () async {
+    final dio = Dio()
+      ..httpClientAdapter = _RecordingAdapter(protocolVersion: '2.0');
+    final metrics = <_FakePerformanceMetric>[];
+    final transport = DioHttpTransport(
+      dio: dio,
+      performanceMetricReady: () => true,
+      performanceMetricFactory: (url, method) {
+        final metric = _FakePerformanceMetric(url: url, method: method);
+        metrics.add(metric);
+        return metric;
+      },
+    );
+
+    final response = await transport.send(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse(
+          'https://cdn-001.worldo.ai/predata/tiles/L2/tile.webp'
+          '?x-oss-process=image/resize,w_512,image/format,webp',
+        ),
+        headers: const <String, String>{},
+        bodyBytes: null,
+        timeoutMs: 5000,
+      ),
+    );
+
+    expect(response.statusCode, 200);
+    expect(metrics, hasLength(1));
+    final metric = metrics.single;
+    expect(metric.url, 'https://cdn-001.worldo.ai/predata/tiles/L2/tile.webp');
+    expect(metric.method, HttpMethod.Get);
+    expect(metric.started, true);
+    expect(metric.stopped, true);
+    expect(metric.httpResponseCode, 200);
+    expect(metric.responsePayloadSize, 2);
+  });
+
   test('sends request and maps response without throwing on status', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));

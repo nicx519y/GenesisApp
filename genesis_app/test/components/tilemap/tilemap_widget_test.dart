@@ -8,6 +8,7 @@ import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_performance_monitoring.dart';
+import 'package:genesis_flutter_android/components/tilemap/loading/tilemap_loading_coordinator.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
@@ -536,6 +537,70 @@ void main() {
     );
     expect(find.byKey(const ValueKey<String>('tilemap-grid')), findsOneWidget);
   });
+
+  testWidgets(
+    'Tilemap loads the current viewport before background tile assets',
+    (tester) async {
+      final pendingLoads = <String, Completer<void>>{};
+
+      Future<void> loadTileImage(String assetUrl) {
+        return pendingLoads.putIfAbsent(assetUrl, Completer<void>.new).future;
+      }
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(
+            _TilemapTransport(data: _visibleFirstTilemapData()),
+          ),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Tilemap.origin(
+                originId: 'o_1',
+                tileImageLoader: loadTileImage,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(pendingLoads, hasLength(1));
+      expect(pendingLoads.keys.single, contains('/a.png?'));
+      expect(_liveTilemapRendererFinder(), findsNothing);
+
+      pendingLoads.values.single.complete();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-loading-overlay')),
+        findsNothing,
+      );
+      expect(_liveTilemapRendererFinder(), findsOneWidget);
+      expect(pendingLoads, hasLength(4));
+      expect(
+        pendingLoads.keys.where((assetUrl) => !assetUrl.contains('/a.png?')),
+        hasLength(tilemapBackgroundImagePreloadConcurrency),
+      );
+
+      pendingLoads.entries
+          .singleWhere((entry) => entry.key.contains('/b.png?'))
+          .value
+          .complete();
+      await tester.pump();
+
+      expect(
+        pendingLoads.keys.where((assetUrl) => !assetUrl.contains('/a.png?')),
+        hasLength(4),
+      );
+      for (final completer in pendingLoads.values) {
+        if (!completer.isCompleted) completer.complete();
+      }
+      await tester.pump();
+    },
+  );
 
   testWidgets(
     'Tilemap enables foreground interaction before viewport readiness',
@@ -2511,6 +2576,30 @@ Map<String, dynamic> _weightedTilemapData() {
         {'x': 0, 'y': 0, 'type': 'a', 'shadow': 0},
         {'x': 1, 'y': 0, 'type': 'a', 'shadow': 0},
         {'x': 2, 'y': 0, 'type': 'b', 'shadow': 0},
+      ],
+    },
+  };
+}
+
+Map<String, dynamic> _visibleFirstTilemapData() {
+  return {
+    'tile_types': {
+      'a': 'https://invalid.example.test/tile/a.png',
+      'b': 'https://invalid.example.test/tile/b.png',
+      'c': 'https://invalid.example.test/tile/c.png',
+      'd': 'https://invalid.example.test/tile/d.png',
+      'e': 'https://invalid.example.test/tile/e.png',
+    },
+    'map_json': {
+      'width': 100,
+      'height': 100,
+      'tiles': [
+        {'x': 0, 'y': 0, 'type': 'a', 'shadow': 0, 'location_id': 'focus'},
+        {'x': 90, 'y': 90, 'type': 'a', 'shadow': 0},
+        {'x': 91, 'y': 91, 'type': 'b', 'shadow': 0},
+        {'x': 92, 'y': 92, 'type': 'c', 'shadow': 0},
+        {'x': 93, 'y': 93, 'type': 'd', 'shadow': 0},
+        {'x': 94, 'y': 94, 'type': 'e', 'shadow': 0},
       ],
     },
   };

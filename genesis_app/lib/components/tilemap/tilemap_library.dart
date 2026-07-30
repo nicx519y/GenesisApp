@@ -921,6 +921,23 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     }
   }
 
+  TilemapImageLoadPlan _imageLoadPlanForViewport({
+    required TilemapConfig config,
+    required Size viewportSize,
+    required double devicePixelRatio,
+  }) {
+    return TilemapImageLoadPlan.forConfig(
+      config: config,
+      displayTilePixelSize:
+          tilemapBaseTileExtent * _initialScale * devicePixelRatio,
+      viewportSize: viewportSize,
+      initialScale: _initialScale,
+      dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
+      locationAvatarsForTile: _locationAvatarsForTile,
+      preferredLocationId: _preferredVisibleFocusLocationId(config),
+    );
+  }
+
   void _scheduleSilentDrillDownPreload(
     TilemapConfig config, {
     required double displayTilePixelSize,
@@ -1071,6 +1088,20 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     final isCurrentTarget = _currentConfig?.id == mapId;
     if (isCurrentTarget) {
       _hasRevealedInitialMap = true;
+      final config = _currentConfig;
+      final viewportSize = _configuredPrerenderViewportSize;
+      final devicePixelRatio = _configuredPrerenderDevicePixelRatio;
+      if (config != null && viewportSize != null && devicePixelRatio != null) {
+        _loadingCoordinator.scheduleBackgroundTilePreload(
+          config: config,
+          plan: _imageLoadPlanForViewport(
+            config: config,
+            viewportSize: viewportSize,
+            devicePixelRatio: devicePixelRatio,
+          ),
+          loadImage: _loadTileImage,
+        );
+      }
     }
     _prerenderController.markReady(mapId);
     if (isCurrentTarget && _isCurrentDisplayReady) {
@@ -1232,15 +1263,12 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     );
 
     if (config != null && showInitialLoading) {
-      final displayTilePixelSize =
-          tilemapBaseTileExtent *
-          _initialScale *
-          MediaQuery.devicePixelRatioOf(context);
       _loadingCoordinator.ensureInitialMapReady(
         config: config,
-        plan: TilemapImageLoadPlan.forConfig(
+        plan: _imageLoadPlanForViewport(
           config: config,
-          displayTilePixelSize: displayTilePixelSize,
+          viewportSize: viewportSize,
+          devicePixelRatio: devicePixelRatio,
         ),
         loadImage: _loadTileImage,
       );

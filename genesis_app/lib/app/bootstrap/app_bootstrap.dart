@@ -7,6 +7,7 @@ import '../config/app_config.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/firebase_crash_reporting.dart';
 import '../telemetry/firebase_performance_monitoring.dart';
+import '../../network/genesis_http2_cache_manager.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
@@ -21,10 +22,20 @@ class AppBootstrap {
     AppConfig config = const AppConfig(),
   }) {
     WidgetsFlutterBinding.ensureInitialized();
+    unawaited(_warmUpStaticImageConnections());
     final services = ServiceRegistry.build(config: config);
     final billing = services.billing;
     if (billing != null) unawaited(billing.start());
     return services;
+  }
+
+  static Future<void> _warmUpStaticImageConnections() async {
+    try {
+      await GenesisHttp2CacheManager().warmUpConnections();
+    } catch (e, st) {
+      debugPrint('[Network][Image] HTTP/2 connection warm-up failed: $e');
+      debugPrint('[Network][Image] stacktrace:\n$st');
+    }
   }
 
   static Future<AppServices> initialize() async {

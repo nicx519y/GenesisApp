@@ -931,6 +931,7 @@ void main() {
       );
 
       expect(plan.totalTileCount, 3);
+      expect(plan.backgroundTileCountByAsset, isEmpty);
       expect(plan.tileCountByAsset, {
         'https://cdn.example.com/tile/a.png'
                 '?x-oss-process=image/resize,w_256,image/format,webp':
@@ -953,6 +954,43 @@ void main() {
       );
     },
   );
+
+  test('tile image load plan separates initial viewport from background', () {
+    final config = TilemapConfig.fromTiles(
+      id: 'visible-first-loading',
+      width: 100,
+      height: 100,
+      tileTypes: const {
+        'a': 'https://cdn.example.com/tile/a.png',
+        'b': 'https://cdn.example.com/tile/b.webp',
+      },
+      tiles: const [
+        TilemapCell(x: 0, y: 0, type: 'a', locationId: 'focus'),
+        TilemapCell(x: 90, y: 90, type: 'a'),
+        TilemapCell(x: 91, y: 91, type: 'b'),
+      ],
+    );
+
+    final plan = TilemapImageLoadPlan.forConfig(
+      config: config,
+      displayTilePixelSize: 200,
+      viewportSize: const Size(320, 480),
+      initialScale: 12,
+      preferredLocationId: 'focus',
+    );
+
+    expect(plan.totalTileCount, 1);
+    expect(plan.tileCountByAsset, {
+      'https://cdn.example.com/tile/a.png'
+              '?x-oss-process=image/resize,w_256,image/format,webp':
+          1,
+    });
+    expect(plan.backgroundTileCountByAsset, {
+      'https://cdn.example.com/tile/b.webp'
+              '?x-oss-process=image/resize,w_256,image/format,webp':
+          1,
+    });
+  });
 
   testWidgets('renderer dispatches only location tiles without tap highlight', (
     tester,

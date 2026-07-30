@@ -6,6 +6,7 @@ import 'package:firebase_performance/firebase_performance.dart';
 
 import '../app/telemetry/firebase_performance_monitoring.dart';
 import 'http_transport.dart';
+import 'static_image_network_config.dart';
 
 typedef HttpRequestPerformanceMetricFactory =
     HttpRequestPerformanceMetric? Function(String url, HttpMethod method);
@@ -33,7 +34,7 @@ class IoHttpTransport implements HttpTransport {
        _performanceMetricFactory =
            performanceMetricFactory ?? createFirebasePerformanceMetric,
        _performanceMetricUrlFilter =
-           performanceMetricUrlFilter ?? isBusinessPerformanceMetricUrl,
+           performanceMetricUrlFilter ?? isFirebasePerformanceMetricUrl,
        _performanceMetricReady =
            performanceMetricReady ??
            (() => FirebasePerformanceMonitoring.isReady);
@@ -266,6 +267,10 @@ bool isBusinessPerformanceMetricUrl(Uri uri) {
       return true;
   }
   return false;
+}
+
+bool isFirebasePerformanceMetricUrl(Uri uri) {
+  return isBusinessPerformanceMetricUrl(uri) || isGenesisTilemapImageUri(uri);
 }
 
 void recordPerformanceMetricResponse(

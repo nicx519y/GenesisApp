@@ -8,6 +8,30 @@ import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/io_http_transport.dart';
 
 void main() {
+  test('Firebase URL filter includes only business and Tilemap images', () {
+    expect(
+      isFirebasePerformanceMetricUrl(
+        Uri.parse(
+          'https://cdn-001.worldo.ai/predata/tiles/L2/tile.webp'
+          '?x-oss-process=image/resize,w_512',
+        ),
+      ),
+      true,
+    );
+    expect(
+      isFirebasePerformanceMetricUrl(
+        Uri.parse('https://cdn-001.worldo.ai/avatars/user.webp'),
+      ),
+      false,
+    );
+    expect(
+      isFirebasePerformanceMetricUrl(
+        Uri.parse('https://api.worldo.ai/api/v1/world/map'),
+      ),
+      true,
+    );
+  });
+
   test('records Firebase HTTP metric data for completed requests', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
