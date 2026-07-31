@@ -64,6 +64,7 @@ void main() {
         showVisualModeToggle: false,
         visualModeToggleTop: 17,
         visualModeToggleRight: 12,
+        recentChatLocationIds: const {'loc_1'},
         onMapTap: () => tilemapMapTapCount += 1,
       ),
     );
@@ -79,6 +80,7 @@ void main() {
     expect(tilemap.showVisualModeToggle, isFalse);
     expect(tilemap.visualModeToggleTop, 17);
     expect(tilemap.visualModeToggleRight, 12);
+    expect(tilemap.recentChatLocationIds, const {'loc_1'});
     expect(tilemap.messageBubbles.single.content, 'Hello');
     expect(tilemap.messageBubblePlaybackPaused, isFalse);
     tilemap.onMapTap?.call();
