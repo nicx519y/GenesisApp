@@ -33,9 +33,10 @@ class GenesisBottomNavigation extends StatelessWidget {
     required this.items,
     required this.currentIndex,
     required this.onTap,
-    this.height = 49,
+    this.height = defaultHeight,
   });
 
+  static const double defaultHeight = 49;
   static const double minBottomPadding = 4;
 
   final List<GenesisBottomNavigationItem> items;

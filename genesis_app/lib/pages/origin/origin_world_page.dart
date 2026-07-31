@@ -35,6 +35,7 @@ import '../../network/models/origin.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_bottom_navigation.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';

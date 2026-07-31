@@ -16,6 +16,7 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_bottom_navigation.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
@@ -5944,6 +5945,15 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
       findsOneWidget,
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
+          )
+          .height,
+      GenesisBottomNavigation.defaultHeight +
+          GenesisBottomNavigation.minBottomPadding,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-setup-custom-form')),
