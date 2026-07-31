@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -138,13 +139,20 @@ class GenesisStaticNetworkImageProvider
     ImageDecoderCallback decode,
   ) {
     final debugCompleter = debugGenesisStaticNetworkImageCompleter?.call(key);
-    if (debugCompleter != null) return debugCompleter;
-    return _GenesisOneFrameImageStreamCompleter(
-      _loadFirstFrame(key, decode),
-      informationCollector: () => <DiagnosticsNode>[
-        DiagnosticsProperty<String>('Image URL', key.imageUrl),
-      ],
-    );
+    final completer =
+        debugCompleter ??
+        _GenesisOneFrameImageStreamCompleter(
+          _loadFirstFrame(key, decode),
+          informationCollector: () => <DiagnosticsNode>[
+            DiagnosticsProperty<String>('Image URL', key.imageUrl),
+          ],
+        );
+    completer.addEphemeralErrorListener((_, _) {
+      scheduleMicrotask(() {
+        PaintingBinding.instance.imageCache.evict(key);
+      });
+    });
+    return completer;
   }
 
   Future<ImageInfo> _loadFirstFrame(

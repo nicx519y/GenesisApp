@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cronet_http/cronet_http.dart';
 import 'package:cupertino_http/cupertino_http.dart';
@@ -103,7 +104,9 @@ class PlatformHttp3Transport implements HttpTransport {
       final response = TransportResponse(
         statusCode: streamedResponse.statusCode,
         headers: Map<String, String>.from(streamedResponse.headers),
-        body: utf8.decode(bodyBytes, allowMalformed: true),
+        body: request.decodeResponseBody
+            ? utf8.decode(bodyBytes, allowMalformed: true)
+            : '',
         bodyBytes: bodyBytes,
         responsePayloadSizeBytes:
             responsePayloadSizeFromHeaders(streamedResponse.headers) ??
@@ -148,21 +151,21 @@ class PlatformHttp3Transport implements HttpTransport {
   }
 }
 
-Future<List<int>> _readResponseBytes(
+Future<Uint8List> _readResponseBytes(
   http.StreamedResponse response, {
   required Duration timeout,
   required NetworkProgressCallback? onReceiveProgress,
   required NetworkCancellationToken? cancellationToken,
 }) async {
-  final output = <int>[];
+  final output = BytesBuilder(copy: false);
   final totalBytes = nonNegativeContentLength(response.contentLength) ?? -1;
   await for (final chunk in response.stream.timeout(timeout)) {
     cancellationToken?.throwIfCancelled();
-    output.addAll(chunk);
+    output.add(chunk);
     onReceiveProgress?.call(output.length, totalBytes);
   }
   cancellationToken?.throwIfCancelled();
-  return output;
+  return output.takeBytes();
 }
 
 http.Client createPlatformHttp3Client() {

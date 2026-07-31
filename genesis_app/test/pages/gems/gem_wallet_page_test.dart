@@ -674,6 +674,34 @@ void main() {
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
   });
 
+  testWidgets('store recovery exception does not escape the page', (
+    tester,
+  ) async {
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    final billing = _FakeBillingService()
+      ..storeRecoveryError = StateError('store recovery failed');
+    addTearDown(walletStore.dispose);
+    addTearDown(billing.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          billingService: billing,
+          productsLoader: (_) async => _products(),
+          tasksLoader: (_) async => _taskGroups(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(billing.storeRecoveryCount, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('other gem products ignore taps during a purchase', (
     tester,
   ) async {
@@ -1656,6 +1684,7 @@ class _FakeBillingService implements BillingService {
   final List<BillingRecoverySource> recoverSources = <BillingRecoverySource>[];
   Completer<void>? purchaseCompleter;
   bool storeRecoveryResult = true;
+  Object? storeRecoveryError;
   int storeRecoveryCount = 0;
   List<GemProduct>? recoveredProductCatalog;
 
@@ -1691,6 +1720,8 @@ class _FakeBillingService implements BillingService {
   Future<bool> recoverStorePurchases({List<GemProduct>? productCatalog}) async {
     storeRecoveryCount += 1;
     recoveredProductCatalog = productCatalog;
+    final error = storeRecoveryError;
+    if (error != null) throw error;
     return storeRecoveryResult;
   }
 

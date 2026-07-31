@@ -431,6 +431,45 @@ void main() {
     },
   );
 
+  test('store recovery does not emit after the service is disposed', () async {
+    final reportStarted = Completer<void>();
+    final reportCompleter = Completer<GemPurchaseReport>();
+    service.dispose();
+    uiEvents.clear();
+    service = GooglePlayBillingService(
+      platform: platform,
+      pendingPurchaseStore: pendingStore,
+      loadBillingAccountId: () async => billingAccountId,
+      loadProductCatalog: () async => [_product],
+      reportPurchase: (request) {
+        reports.add(request);
+        reportStarted.complete();
+        return reportCompleter.future;
+      },
+      refreshWallet: () async => refreshCount += 1,
+      readUid: () async => currentUid,
+      analytics: analytics,
+    );
+    service.events.listen(uiEvents.add);
+    platform.recoverablePurchases = <BillingPurchase>[
+      _purchase(BillingPurchaseStatus.purchased),
+    ];
+
+    final recovery = service.recoverStorePurchases();
+    await reportStarted.future;
+    service.dispose();
+    reportCompleter.complete(
+      const GemPurchaseReport(
+        status: GemPurchaseReportStatus.completed,
+        grantedGems: 550,
+      ),
+    );
+
+    await expectLater(recovery, completion(isTrue));
+    await _settle();
+    expect(uiEvents, isEmpty);
+  });
+
   test(
     'store recovery report failure leaves a missing local order unpersisted',
     () async {

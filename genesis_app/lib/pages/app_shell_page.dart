@@ -512,20 +512,25 @@ class _AppShellPageState extends State<AppShellPage>
     BillingRecoverySource source, {
     bool onlyIfUidChanged = false,
   }) async {
-    if (!mounted) return;
-    final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (!mounted) return;
-    if (uid.isEmpty || uid.startsWith('guest_')) {
-      _lastBillingRecoveryUid = null;
-      return;
-    }
-    if (onlyIfUidChanged && uid == _lastBillingRecoveryUid) return;
-    await services.billing?.recover(source);
-    if (!mounted) return;
-    final currentUid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (mounted && currentUid == uid) {
-      _lastBillingRecoveryUid = uid;
+    try {
+      if (!mounted) return;
+      final services = AppServicesScope.read(context);
+      final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+      if (!mounted) return;
+      if (uid.isEmpty || uid.startsWith('guest_')) {
+        _lastBillingRecoveryUid = null;
+        return;
+      }
+      if (onlyIfUidChanged && uid == _lastBillingRecoveryUid) return;
+      await services.billing?.recover(source);
+      if (!mounted) return;
+      final currentUid = (await services.sessionStore.readUid())?.trim() ?? '';
+      if (mounted && currentUid == uid) {
+        _lastBillingRecoveryUid = uid;
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[Billing] background recovery failed ($source): $error');
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 

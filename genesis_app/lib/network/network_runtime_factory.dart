@@ -59,7 +59,6 @@ class NetworkRuntimeFactory {
   }
 
   String? _normalizedProxy(String value) {
-    final normalized = value.trim();
-    return normalized.isEmpty ? null : normalized;
+    return normalizeHttpProxyAddress(value);
   }
 }

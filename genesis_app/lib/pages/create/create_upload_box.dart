@@ -1,5 +1,10 @@
 part of 'create_form_library.dart';
 
+@visibleForTesting
+Size? createUploadImageSizeFromEncodedBytes(Uint8List bytes) {
+  return genesisMessageImageSizeFromEncodedBytes(bytes);
+}
+
 class CreateUploadBox extends StatefulWidget {
   const CreateUploadBox({
     super.key,
@@ -183,6 +188,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                       alignment: widget.previewAlignment,
                       useMessageImageSizing: widget.useMessageImageSizing,
                       displaySize: messageDisplaySize,
+                      downsampleMemoryImage: widget.uploadOriginalImage,
                     ),
             ),
           ),
@@ -281,7 +287,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     final previousUrl = widget.controller.text;
     final imageSize =
         widget.preserveImageAspectRatio || widget.useMessageImageSizing
-        ? await _decodeImageSize(image.bytes)
+        ? createUploadImageSizeFromEncodedBytes(image.bytes)
         : null;
     final aspectRatio = imageSize == null
         ? null
@@ -332,22 +338,6 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       widget.controller.text = previousUrl;
       widget.onChanged();
       _showMessage('Image upload failed.');
-    }
-  }
-
-  Future<Size?> _decodeImageSize(Uint8List bytes) async {
-    final codec = await ui.instantiateImageCodec(bytes);
-    try {
-      final frame = await codec.getNextFrame();
-      final image = frame.image;
-      try {
-        if (image.width <= 0 || image.height <= 0) return null;
-        return Size(image.width.toDouble(), image.height.toDouble());
-      } finally {
-        image.dispose();
-      }
-    } finally {
-      codec.dispose();
     }
   }
 

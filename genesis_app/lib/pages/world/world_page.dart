@@ -191,7 +191,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        unawaited(Navigator.of(context).maybePop());
+        _handleWorldPopBlocked();
       },
       child: Listener(
         behavior: HitTestBehavior.translucent,

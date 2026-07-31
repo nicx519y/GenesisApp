@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,26 @@ import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/io_http_transport.dart';
 
 void main() {
+  test('normalizes only valid HTTP proxy authorities', () {
+    expect(normalizeHttpProxyAddress('127.0.0.1:9090'), '127.0.0.1:9090');
+    expect(
+      normalizeHttpProxyAddress(' http://LOCALHOST:9090/ '),
+      'localhost:9090',
+    );
+    expect(normalizeHttpProxyAddress('http://[::1]:9090'), '[::1]:9090');
+    for (final invalid in <String>[
+      '',
+      '[',
+      '127.0.0.1:abc',
+      'https://127.0.0.1:9090',
+      '127.0.0.1:0',
+      '127.0.0.1:65536',
+      'http://127.0.0.1:9090/path',
+    ]) {
+      expect(normalizeHttpProxyAddress(invalid), isNull, reason: invalid);
+    }
+  });
+
   test('Firebase URL filter includes only business and Tilemap images', () {
     expect(
       isFirebasePerformanceMetricUrl(
@@ -209,6 +230,7 @@ void main() {
         headers: const {},
         bodyBytes: null,
         timeoutMs: 5000,
+        decodeResponseBody: false,
         onReceiveProgress: (receivedBytes, totalBytes) {
           progressEvents.add((
             receivedBytes: receivedBytes,
@@ -219,7 +241,9 @@ void main() {
     );
 
     expect(response.statusCode, 200);
+    expect(response.body, isEmpty);
     expect(response.bodyBytes, responseBody);
+    expect(response.bodyBytes, isA<Uint8List>());
     expect(progressEvents, isNotEmpty);
     expect(progressEvents.last.receivedBytes, responseBody.length);
     expect(progressEvents.last.totalBytes, responseBody.length);

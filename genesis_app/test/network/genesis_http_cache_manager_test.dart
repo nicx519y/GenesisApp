@@ -201,6 +201,7 @@ void main() {
     expect(request.uri, Uri.parse('https://cdn.example.com/image.webp'));
     expect(request.headers['if-none-match'], 'image-v0');
     expect(request.timeoutMs, 4321);
+    expect(request.decodeResponseBody, false);
     expect(await response.content.expand((chunk) => chunk).toList(), [
       ...utf8.encode('image'),
     ]);

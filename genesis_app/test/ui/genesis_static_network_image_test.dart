@@ -130,6 +130,50 @@ void main() {
     expect(decoded.image.height, lessThanOrEqualTo(8));
     decoded.dispose();
   });
+
+  testWidgets('evicts a failed stream so the same key can be retried', (
+    tester,
+  ) async {
+    const imageUrl = 'https://cache.test/retry-static-frame.png';
+    final fileSystem = MemoryFileSystem();
+    final asset = await rootBundle.load('assets/images/default_list_image.png');
+    final imageFile = fileSystem.file('/retry-static-frame.png');
+    await imageFile.writeAsBytes(asset.buffer.asUint8List());
+    final cacheManager = _FailOnceMemoryCacheManager(imageFile);
+    final provider = GenesisStaticNetworkImageProvider(
+      imageUrl: imageUrl,
+      cacheManager: cacheManager,
+    );
+    final imageCache = PaintingBinding.instance.imageCache;
+    await provider.evict();
+    addTearDown(provider.evict);
+
+    Object? firstError;
+    await tester.runAsync(() async {
+      try {
+        await _resolveImage(provider);
+      } catch (error) {
+        firstError = error;
+      }
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
+
+    expect(firstError, isA<StateError>());
+    final failedStatus = imageCache.statusForKey(provider);
+    expect(failedStatus.pending, false);
+    expect(failedStatus.live, false);
+    expect(failedStatus.untracked, true);
+
+    ImageInfo? imageInfo;
+    await tester.runAsync(() async {
+      imageInfo = await _resolveImage(provider);
+    });
+
+    expect(imageInfo, isNotNull);
+    expect(cacheManager.getSingleFileCalls, 2);
+    imageInfo!.dispose();
+  });
 }
 
 Future<ImageInfo> _resolveImage(ImageProvider provider) {
@@ -183,6 +227,29 @@ class _DelayedMemoryCacheManager implements BaseCacheManager {
     Map<String, String>? headers,
   }) async {
     await loadGate;
+    return file;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FailOnceMemoryCacheManager implements BaseCacheManager {
+  _FailOnceMemoryCacheManager(this.file);
+
+  final File file;
+  int getSingleFileCalls = 0;
+
+  @override
+  Future<File> getSingleFile(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+  }) async {
+    getSingleFileCalls += 1;
+    if (getSingleFileCalls == 1) {
+      throw StateError('first image request failed');
+    }
     return file;
   }
 

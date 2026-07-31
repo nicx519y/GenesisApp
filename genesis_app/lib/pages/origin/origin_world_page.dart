@@ -449,45 +449,56 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   _ensureLaunchedPresetRolesLoaded() {
     final preparation = _launchedPresetRolesPreparationFuture;
     if (preparation != null) return preparation;
-    final nextPreparation = _prepareLaunchedPresetRoles();
-    _launchedPresetRolesPreparationFuture = nextPreparation;
-    nextPreparation.whenComplete(() {
-      if (identical(_launchedPresetRolesPreparationFuture, nextPreparation)) {
+    late final Future<List<OriginMyLaunchPresetCharacter>> trackedPreparation;
+    trackedPreparation = _prepareLaunchedPresetRoles().whenComplete(() {
+      if (identical(
+        _launchedPresetRolesPreparationFuture,
+        trackedPreparation,
+      )) {
         _launchedPresetRolesPreparationFuture = null;
       }
     });
-    return nextPreparation;
+    _launchedPresetRolesPreparationFuture = trackedPreparation;
+    return trackedPreparation;
   }
 
   Future<List<OriginMyLaunchPresetCharacter>>
   _prepareLaunchedPresetRoles() async {
     final originId = widget.oid.trim();
     if (originId.isEmpty) return const <OriginMyLaunchPresetCharacter>[];
-    final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    if (!mounted ||
-        widget.oid.trim() != originId ||
-        uid.isEmpty ||
-        uid.startsWith('guest_') ||
-        authToken.isEmpty) {
+    try {
+      final services = AppServicesScope.read(context);
+      final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+      final authToken =
+          (await services.sessionStore.readAuthToken())?.trim() ?? '';
+      if (!mounted ||
+          widget.oid.trim() != originId ||
+          uid.isEmpty ||
+          uid.startsWith('guest_') ||
+          authToken.isEmpty) {
+        return const <OriginMyLaunchPresetCharacter>[];
+      }
+
+      final cacheKey = '$originId::$uid';
+      final cachedFuture = _launchedPresetRolesFuture;
+      if (_launchedPresetRolesCacheKey == cacheKey && cachedFuture != null) {
+        return cachedFuture;
+      }
+
+      final request = _requestLaunchedPresetRoles(
+        originId: originId,
+        cacheKey: cacheKey,
+      );
+      _launchedPresetRolesCacheKey = cacheKey;
+      _launchedPresetRolesFuture = request;
+      return request;
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[OriginWorldPage] launched preset roles preparation failed: '
+        '$error\n$stackTrace',
+      );
       return const <OriginMyLaunchPresetCharacter>[];
     }
-
-    final cacheKey = '$originId::$uid';
-    final cachedFuture = _launchedPresetRolesFuture;
-    if (_launchedPresetRolesCacheKey == cacheKey && cachedFuture != null) {
-      return cachedFuture;
-    }
-
-    final request = _requestLaunchedPresetRoles(
-      originId: originId,
-      cacheKey: cacheKey,
-    );
-    _launchedPresetRolesCacheKey = cacheKey;
-    _launchedPresetRolesFuture = request;
-    return request;
   }
 
   Future<List<OriginMyLaunchPresetCharacter>> _requestLaunchedPresetRoles({

@@ -51,6 +51,7 @@ class _Preview extends StatelessWidget {
     required this.alignment,
     required this.useMessageImageSizing,
     required this.displaySize,
+    required this.downsampleMemoryImage,
   });
 
   final String imageUrl;
@@ -61,6 +62,7 @@ class _Preview extends StatelessWidget {
   final Alignment alignment;
   final bool useMessageImageSizing;
   final Size? displaySize;
+  final bool downsampleMemoryImage;
 
   @override
   Widget build(BuildContext context) {
@@ -87,9 +89,27 @@ class _Preview extends StatelessWidget {
                 devicePixelRatio: devicePixelRatio,
               );
         final imageFit = useMessageImageSizing ? BoxFit.contain : BoxFit.cover;
-        final Widget image = bytes != null
-            ? Image.memory(
-                bytes,
+        final cacheWidth = downsampleMemoryImage
+            ? _previewDecodeDimension(constraints.maxWidth, devicePixelRatio)
+            : null;
+        final cacheHeight = downsampleMemoryImage
+            ? _previewDecodeDimension(constraints.maxHeight, devicePixelRatio)
+            : null;
+        final memoryImage = bytes == null ? null : MemoryImage(bytes);
+        final ImageProvider<Object>? memoryImageProvider = memoryImage == null
+            ? null
+            : downsampleMemoryImage &&
+                  (cacheWidth != null || cacheHeight != null)
+            ? ResizeImage(
+                memoryImage,
+                width: cacheWidth,
+                height: cacheHeight,
+                policy: ResizeImagePolicy.fit,
+              )
+            : memoryImage;
+        final Widget image = memoryImageProvider != null
+            ? Image(
+                image: memoryImageProvider,
                 width: double.infinity,
                 height: double.infinity,
                 fit: imageFit,
@@ -147,6 +167,18 @@ class _Preview extends StatelessWidget {
       },
     );
   }
+}
+
+int? _previewDecodeDimension(double logicalDimension, double devicePixelRatio) {
+  if (!logicalDimension.isFinite ||
+      logicalDimension <= 0 ||
+      !devicePixelRatio.isFinite ||
+      devicePixelRatio <= 0) {
+    return null;
+  }
+  final physicalDimension = logicalDimension * devicePixelRatio;
+  if (!physicalDimension.isFinite || physicalDimension <= 0) return null;
+  return physicalDimension.ceil().clamp(1, 0x7fffffff).toInt();
 }
 
 class _PreviewPlaceholder extends StatelessWidget {

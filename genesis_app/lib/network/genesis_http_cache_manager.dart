@@ -78,6 +78,7 @@ class GenesisHttpFileService extends FileService {
         headers: headers ?? const <String, String>{},
         bodyBytes: null,
         timeoutMs: timeoutMs,
+        decodeResponseBody: false,
       ),
     );
     return GenesisHttpFileServiceResponse(response);

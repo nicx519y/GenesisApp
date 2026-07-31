@@ -146,7 +146,7 @@ class GenesisHttpTransportRegistry {
     String? debugProxy,
   }) {
     final normalizedEngine = httpEngine.trim().toLowerCase();
-    final normalizedProxy = debugProxy?.trim() ?? '';
+    final normalizedProxy = normalizeHttpProxyAddress(debugProxy) ?? '';
     final configurationKey = '$normalizedEngine|$normalizedProxy';
     if (_transport != null && _configurationKey == configurationKey) {
       return _transport!;

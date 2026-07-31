@@ -17,7 +17,19 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     final service = _billingService;
     if (service == null) return;
     _storeRecoveryStarted = true;
-    unawaited(service.recoverStorePurchases(productCatalog: productCatalog));
+    unawaited(_recoverStorePurchases(service, productCatalog));
+  }
+
+  Future<void> _recoverStorePurchases(
+    BillingService service,
+    List<GemProduct> productCatalog,
+  ) async {
+    try {
+      await service.recoverStorePurchases(productCatalog: productCatalog);
+    } catch (error, stackTrace) {
+      debugPrint('[Billing] store recovery failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   Future<void> _purchaseProduct(GemProduct product) async {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_performance/firebase_performance.dart';
 
@@ -89,7 +90,9 @@ class IoHttpTransport implements HttpTransport {
         onReceiveProgress: request.onReceiveProgress,
         cancellationToken: request.cancellationToken,
       );
-      final body = utf8.decode(bodyBytes, allowMalformed: true);
+      final body = request.decodeResponseBody
+          ? utf8.decode(bodyBytes, allowMalformed: true)
+          : '';
 
       final response = TransportResponse(
         statusCode: httpResponse.statusCode,
@@ -133,21 +136,21 @@ class IoHttpTransport implements HttpTransport {
   }
 }
 
-Future<List<int>> _readResponseBytes(
+Future<Uint8List> _readResponseBytes(
   HttpClientResponse response, {
   required Duration timeout,
   required NetworkProgressCallback? onReceiveProgress,
   required NetworkCancellationToken? cancellationToken,
 }) async {
-  final out = <int>[];
+  final out = BytesBuilder(copy: false);
   final totalBytes = nonNegativeContentLength(response.contentLength) ?? -1;
   await for (final chunk in response.timeout(timeout)) {
     cancellationToken?.throwIfCancelled();
-    out.addAll(chunk);
+    out.add(chunk);
     onReceiveProgress?.call(out.length, totalBytes);
   }
   cancellationToken?.throwIfCancelled();
-  return out;
+  return out.takeBytes();
 }
 
 class _FirebaseHttpRequestPerformanceMetric
@@ -203,7 +206,7 @@ HttpRequestPerformanceMetric createFirebasePerformanceMetric(
 
 HttpClient createProxyAwareHttpClient(String? proxy) {
   final client = HttpClient();
-  final proxyAddress = _normalizeProxyAddress(proxy);
+  final proxyAddress = normalizeHttpProxyAddress(proxy);
   if (proxyAddress != null) {
     client.findProxy = (_) => 'PROXY $proxyAddress; DIRECT';
     if (!const bool.fromEnvironment('dart.vm.product')) {
@@ -211,16 +214,6 @@ HttpClient createProxyAwareHttpClient(String? proxy) {
     }
   }
   return client;
-}
-
-String? _normalizeProxyAddress(String? proxy) {
-  final raw = proxy?.trim();
-  if (raw == null || raw.isEmpty) return null;
-  final parsed = Uri.tryParse(raw.contains('://') ? raw : 'http://$raw');
-  if (parsed == null || parsed.host.trim().isEmpty || !parsed.hasPort) {
-    return raw;
-  }
-  return '${parsed.host}:${parsed.port}';
 }
 
 HttpMethod? firebaseHttpMethodFor(String method) {

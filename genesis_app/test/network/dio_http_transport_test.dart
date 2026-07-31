@@ -96,6 +96,30 @@ void main() {
     expect(response.httpProtocolVersion, 'h2');
   });
 
+  test('keeps explicit byte responses out of the UTF-8 body string', () async {
+    final dio = Dio()
+      ..httpClientAdapter = _RecordingAdapter(protocolVersion: '2.0');
+    final transport = DioHttpTransport(
+      dio: dio,
+      performanceMetricUrlFilter: (_) => false,
+    );
+
+    final response = await transport.send(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('https://api.worldo.ai/image.webp'),
+        headers: const {},
+        bodyBytes: null,
+        timeoutMs: 5000,
+        decodeResponseBody: false,
+      ),
+    );
+
+    expect(response.body, isEmpty);
+    expect(response.bodyBytes, Uint8List.fromList(<int>[111, 107]));
+    expect(response.bodyBytes, isA<Uint8List>());
+  });
+
   test('records each Tilemap image as a Firebase HTTP metric', () async {
     final dio = Dio()
       ..httpClientAdapter = _RecordingAdapter(protocolVersion: '2.0');

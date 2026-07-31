@@ -2,7 +2,7 @@ part of 'google_play_billing_service.dart';
 
 extension _GooglePlayBillingTracking on GooglePlayBillingService {
   void _emitFailure(String productId, String attemptId, String message) {
-    _events.add(
+    _emitUiEvent(
       BillingUiEvent(
         kind: BillingUiEventKind.failure,
         productId: productId,
@@ -14,7 +14,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
   }
 
   void _emitDeferred(String productId, String attemptId) {
-    _events.add(
+    _emitUiEvent(
       BillingUiEvent(
         kind: BillingUiEventKind.deferred,
         productId: productId,

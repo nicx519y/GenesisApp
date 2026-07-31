@@ -59,6 +59,59 @@ void main() {
     );
   });
 
+  test('invalid proxies degrade to the same direct configuration', () {
+    for (final invalidProxy in <String>[
+      '[',
+      '127.0.0.1:abc',
+      'https://127.0.0.1:9090',
+      '127.0.0.1:0',
+      '127.0.0.1:65536',
+    ]) {
+      GenesisHttpTransportRegistry.reset();
+      final invalid = factory.buildHttpTransport(
+        debugProxy: invalidProxy,
+        useMock: false,
+        httpEngine: 'http3',
+      );
+      final direct = factory.buildHttpTransport(
+        debugProxy: '',
+        useMock: false,
+        httpEngine: 'http3',
+      );
+      expect(identical(invalid, direct), true, reason: invalidProxy);
+
+      GenesisHttpTransportRegistry.reset();
+      final registryInvalid = GenesisHttpTransportRegistry.configure(
+        httpEngine: 'http3',
+        debugProxy: invalidProxy,
+      );
+      final registryDirect = GenesisHttpTransportRegistry.configure(
+        httpEngine: 'http3',
+        debugProxy: '',
+      );
+      expect(
+        identical(registryInvalid, registryDirect),
+        true,
+        reason: 'registry: $invalidProxy',
+      );
+    }
+  });
+
+  test('equivalent valid proxies share one canonical configuration', () {
+    final withScheme = factory.buildHttpTransport(
+      debugProxy: 'http://LOCALHOST:9090/',
+      useMock: false,
+      httpEngine: 'http2',
+    );
+    final withoutScheme = factory.buildHttpTransport(
+      debugProxy: 'localhost:9090',
+      useMock: false,
+      httpEngine: 'http2',
+    );
+
+    expect(identical(withScheme, withoutScheme), true);
+  });
+
   test('legacy io engine name still resolves to HTTP/2 Dio transport', () {
     final direct = factory.buildHttpTransport(
       debugProxy: '',

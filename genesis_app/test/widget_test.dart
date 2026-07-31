@@ -324,6 +324,7 @@ class _FakeBillingService implements BillingService {
   final StreamController<BillingUiEvent> _events =
       StreamController<BillingUiEvent>.broadcast();
   final List<BillingRecoverySource> recoverSources = <BillingRecoverySource>[];
+  Object? recoverError;
 
   @override
   Stream<BillingUiEvent> get events => _events.stream;
@@ -341,6 +342,8 @@ class _FakeBillingService implements BillingService {
   @override
   Future<void> recover(BillingRecoverySource source) async {
     recoverSources.add(source);
+    final error = recoverError;
+    if (error != null) throw error;
   }
 
   @override
@@ -2143,6 +2146,27 @@ void main() {
       ]);
     },
   );
+
+  testWidgets('AppShell contains background billing recovery failures', (
+    WidgetTester tester,
+  ) async {
+    final billing = _FakeBillingService()
+      ..recoverError = StateError('billing recovery failed');
+    final services = await _testServices(billingService: billing);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(billing.recoverSources, [BillingRecoverySource.appStart]);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('AppShell recovers once when the UID changes', (
     WidgetTester tester,
@@ -6335,6 +6359,34 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets('Origin launched roles preload ignores session read failures', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          sessionStoreOverride: _ThrowingAuthTokenSessionStore(),
+        ),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(OriginWorldPage), findsOneWidget);
+    expect(
+      transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
+      isEmpty,
+    );
+  });
 
   testWidgets(
     'Origin launched role tab uses my launch preset characters endpoint',
@@ -18435,6 +18487,60 @@ void main() {
     },
   );
 
+  testWidgets('system back closes initial location chat while world loads', (
+    WidgetTester tester,
+  ) async {
+    final worldDetailCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      worldDetailCompleter: worldDetailCompleter,
+    );
+    final observer = _RecordingNavigatorObserver();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: _FakeChatroomClient(),
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          navigatorObservers: [observer],
+          home: const WorldPage(
+            wid: 'w_test_1',
+            initialLocationId: 'l_w_test_1_child',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(LocationChatPanel), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(observer.popCount, 0);
+    expect(find.byType(WorldPage), findsOneWidget);
+    expect(find.byType(LocationChatPanel), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('world-map-loading-background')),
+      findsOneWidget,
+    );
+
+    worldDetailCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': transport._worldDetail('w_test_1'),
+      }),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
   testWidgets(
     'initial location chat stays visible while connection and messages load',
     (WidgetTester tester) async {
@@ -21432,5 +21538,12 @@ class _FakeChatroomSession implements ChatroomSession {
     await _errors.close();
     await _failures.close();
     await _streams.close();
+  }
+}
+
+class _ThrowingAuthTokenSessionStore extends MemoryUserSessionStore {
+  @override
+  Future<String?> readAuthToken() async {
+    throw StateError('auth token unavailable');
   }
 }

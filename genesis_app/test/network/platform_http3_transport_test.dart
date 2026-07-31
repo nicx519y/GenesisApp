@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,6 +59,7 @@ void main() {
     expect(response.statusCode, 206);
     expect(response.body, 'hello');
     expect(response.bodyBytes, utf8.encode('hello'));
+    expect(response.bodyBytes, isA<Uint8List>());
     expect(response.httpProtocolVersion, 'h3');
     expect(receiveProgress.last, (current: 5, total: 5));
     expect(metrics, hasLength(1));
@@ -68,6 +70,38 @@ void main() {
     expect(metrics.single.attributes, const <String, String>{
       'network_protocol': 'h3',
     });
+  });
+
+  test('keeps explicit byte responses out of the UTF-8 body string', () async {
+    final bytes = <int>[0, 255, 1, 2];
+    final transport = PlatformHttp3Transport(
+      client: _RecordingClient(
+        response: http.StreamedResponse(
+          Stream<List<int>>.fromIterable(<List<int>>[
+            bytes.sublist(0, 2),
+            bytes.sublist(2),
+          ]),
+          200,
+        ),
+      ),
+      protocolResolver: (_) => 'h3',
+      performanceMetricReady: () => false,
+    );
+
+    final response = await transport.send(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('https://cdn-001.worldo.ai/image.webp'),
+        headers: const <String, String>{},
+        bodyBytes: null,
+        timeoutMs: 5000,
+        decodeResponseBody: false,
+      ),
+    );
+
+    expect(response.body, isEmpty);
+    expect(response.bodyBytes, bytes);
+    expect(response.bodyBytes, isA<Uint8List>());
   });
 
   test('maps multipart body and reports upload completion once', () async {

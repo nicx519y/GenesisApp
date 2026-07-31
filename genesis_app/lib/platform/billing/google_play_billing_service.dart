@@ -77,6 +77,11 @@ class GooglePlayBillingService implements BillingService {
   @override
   Stream<BillingUiEvent> get events => _events.stream;
 
+  void _emitUiEvent(BillingUiEvent event) {
+    if (_disposed || _events.isClosed) return;
+    _events.add(event);
+  }
+
   @override
   Future<void> start() {
     final inFlight = _startFuture;
@@ -341,6 +346,7 @@ class GooglePlayBillingService implements BillingService {
 
   @override
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
     _purchaseSubscription?.cancel();
     for (final timeout in _attemptTimeouts.values) {

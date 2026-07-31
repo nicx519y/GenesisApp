@@ -304,6 +304,7 @@ class ApiClient {
       headers: mergedHeaders,
       bodyBytes: prepared.bodyBytes,
       timeoutMs: _timeoutMs,
+      decodeResponseBody: responseType != ApiResponseType.bytes,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
       cancellationToken: cancellationToken,
@@ -396,15 +397,25 @@ class ApiClient {
     final bodyBytes = transportResponse.bodyBytes.isEmpty
         ? utf8.encode(transportResponse.body)
         : transportResponse.bodyBytes;
+    final isSuccessfulStatus =
+        transportResponse.statusCode >= 200 &&
+        transportResponse.statusCode < 300;
+    final responseBody =
+        responseType == ApiResponseType.bytes &&
+            !isSuccessfulStatus &&
+            transportResponse.body.isEmpty &&
+            bodyBytes.isNotEmpty
+        ? utf8.decode(bodyBytes, allowMalformed: true)
+        : transportResponse.body;
     final decoded = _decodeResponseData(
       responseType: responseType,
-      body: transportResponse.body,
+      body: responseBody,
       bodyBytes: bodyBytes,
     );
     final apiResponse = ApiResponse(
       statusCode: transportResponse.statusCode,
       headers: transportResponse.headers,
-      body: transportResponse.body,
+      body: responseBody,
       bodyBytes: bodyBytes,
       data: decoded,
       uri: uri,

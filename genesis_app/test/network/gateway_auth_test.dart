@@ -142,6 +142,7 @@ void main() {
       },
       bodyBytes: utf8.encode('{"a":1}'),
       timeoutMs: 15000,
+      decodeResponseBody: false,
     );
 
     final signed = await const GatewayRequestSigner().sign(
@@ -163,6 +164,7 @@ void main() {
     expect(signed.headers['X-Key-ID'], 'key-1');
     expect(signed.headers['X-Signature-Alg'], gatewaySignatureAlgorithm);
     expect(signed.headers['X-Signature'], 'fake-signature');
+    expect(signed.decodeResponseBody, false);
     expect(signed.headers.containsKey('X-Verified-App-ID'), isFalse);
     expect(
       signed.headers['X-Body-SHA256'],
@@ -228,8 +230,10 @@ void main() {
         headers: const {},
         bodyBytes: null,
         timeoutMs: 15000,
+        decodeResponseBody: false,
       ),
       (request) async {
+        expect(request.decodeResponseBody, false);
         businessAttempts += 1;
         if (businessAttempts == 1) {
           return _json({

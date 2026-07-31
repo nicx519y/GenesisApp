@@ -50,6 +50,7 @@ class TransportRequest {
     required this.headers,
     required this.bodyBytes,
     required this.timeoutMs,
+    this.decodeResponseBody = true,
     this.onSendProgress,
     this.onReceiveProgress,
     this.cancellationToken,
@@ -60,6 +61,7 @@ class TransportRequest {
   final Map<String, String> headers;
   final List<int>? bodyBytes;
   final int timeoutMs;
+  final bool decodeResponseBody;
   final NetworkProgressCallback? onSendProgress;
   final NetworkProgressCallback? onReceiveProgress;
   final NetworkCancellationToken? cancellationToken;
@@ -107,4 +109,30 @@ String? normalizeHttpProtocolVersion(String? value) {
     return 'http/1.1';
   }
   return normalized;
+}
+
+String? normalizeHttpProxyAddress(String? value) {
+  final raw = value?.trim();
+  if (raw == null || raw.isEmpty) return null;
+
+  try {
+    final uri = Uri.tryParse(raw.contains('://') ? raw : 'http://$raw');
+    if (uri == null ||
+        uri.scheme.toLowerCase() != 'http' ||
+        uri.host.trim().isEmpty ||
+        !uri.hasPort ||
+        uri.userInfo.isNotEmpty ||
+        (uri.path.isNotEmpty && uri.path != '/') ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      return null;
+    }
+    final port = uri.port;
+    if (port < 1 || port > 65535) return null;
+    final host = uri.host.toLowerCase();
+    final authorityHost = host.contains(':') ? '[$host]' : host;
+    return '$authorityHost:$port';
+  } catch (_) {
+    return null;
+  }
 }

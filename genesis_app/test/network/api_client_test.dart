@@ -192,6 +192,7 @@ void main() {
     );
 
     expect(await client.getText('/text'), '{"ok":true}');
+    expect(transport.lastRequest!.decodeResponseBody, true);
 
     response = const TransportResponse(
       statusCode: 200,
@@ -201,6 +202,58 @@ void main() {
     );
 
     expect(await client.getBytes('/file'), <int>[0, 255, 1, 2]);
+    expect(transport.lastRequest!.decodeResponseBody, false);
+  });
+
+  test('keeps an error body for failed byte responses', () async {
+    final transport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 503,
+        headers: {'content-type': 'application/json'},
+        body: '',
+        bodyBytes: <int>[
+          123,
+          34,
+          101,
+          114,
+          114,
+          111,
+          114,
+          34,
+          58,
+          34,
+          117,
+          110,
+          97,
+          118,
+          97,
+          105,
+          108,
+          97,
+          98,
+          108,
+          101,
+          34,
+          125,
+        ],
+      ),
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    await expectLater(
+      client.getBytes('/file'),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.responseBody,
+          'responseBody',
+          '{"error":"unavailable"}',
+        ),
+      ),
+    );
+    expect(transport.lastRequest!.decodeResponseBody, false);
   });
 
   test('wires receive progress and cancellation token to transport', () async {

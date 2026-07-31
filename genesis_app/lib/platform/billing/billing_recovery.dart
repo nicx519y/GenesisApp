@@ -274,7 +274,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             storeProductId: purchase.productId,
           );
         }
-        _events.add(
+        _emitUiEvent(
           BillingUiEvent(
             kind: BillingUiEventKind.pending,
             productId: productId,
@@ -306,7 +306,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       case BillingPurchaseStatus.canceled:
         await _removePendingPurchase(purchase);
         _clearAttempt(purchase, attempt);
-        _events.add(
+        _emitUiEvent(
           BillingUiEvent(
             kind: BillingUiEventKind.failure,
             productId: productId,
@@ -366,7 +366,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     final processingKey = '${purchase.provider.name}:$token';
     if (_disposed || _completedPurchaseKeys.contains(processingKey)) return;
     if (!_beginExclusivePurchase(processingKey)) return;
-    _events.add(
+    _emitUiEvent(
       BillingUiEvent(
         kind: BillingUiEventKind.processing,
         productId: productId,

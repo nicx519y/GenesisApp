@@ -88,7 +88,9 @@ class DioHttpTransport implements HttpTransport {
       final transportResponse = TransportResponse(
         statusCode: response.statusCode ?? 0,
         headers: headers,
-        body: utf8.decode(bodyBytes, allowMalformed: true),
+        body: request.decodeResponseBody
+            ? utf8.decode(bodyBytes, allowMalformed: true)
+            : '',
         bodyBytes: bodyBytes,
         responsePayloadSizeBytes:
             responsePayloadSizeFromHeaders(headers) ?? bodyBytes.length,
@@ -146,11 +148,12 @@ Object? _requestBodyData(List<int>? bodyBytes) {
 }
 
 Dio _createDio(String? proxy, Duration http2IdleTimeout) {
+  final normalizedProxy = normalizeHttpProxyAddress(proxy);
   final dio = Dio();
   final httpAdapter = IOHttpClientAdapter(
-    createHttpClient: () => createProxyAwareHttpClient(proxy),
+    createHttpClient: () => createProxyAwareHttpClient(normalizedProxy),
   );
-  final proxyUri = _proxyUri(proxy);
+  final proxyUri = _proxyUri(normalizedProxy);
   final httpsAdapter = Http2Adapter(
     ConnectionManager(
       idleTimeout: http2IdleTimeout,
@@ -208,15 +211,15 @@ class SchemeRoutingHttpClientAdapter implements HttpClientAdapter {
 }
 
 Uri? _proxyUri(String? proxy) {
-  final raw = proxy?.trim();
-  if (raw == null || raw.isEmpty) return null;
-  return Uri.parse(raw.contains('://') ? raw : 'http://$raw');
+  if (proxy == null) return null;
+  return Uri.parse('http://$proxy');
 }
 
-List<int> _responseBodyBytes(Object? data) {
-  if (data == null) return const <int>[];
-  if (data is List<int>) return data;
-  if (data is String) return utf8.encode(data);
-  if (data is Iterable<int>) return data.toList(growable: false);
-  return utf8.encode(data.toString());
+Uint8List _responseBodyBytes(Object? data) {
+  if (data == null) return Uint8List(0);
+  if (data is Uint8List) return data;
+  if (data is List<int>) return Uint8List.fromList(data);
+  if (data is String) return Uint8List.fromList(utf8.encode(data));
+  if (data is Iterable<int>) return Uint8List.fromList(data.toList());
+  return Uint8List.fromList(utf8.encode(data.toString()));
 }

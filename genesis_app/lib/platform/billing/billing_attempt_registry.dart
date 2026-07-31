@@ -269,7 +269,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
                 : record.transactionId,
           },
         );
-        _events.add(
+        _emitUiEvent(
           BillingUiEvent(
             kind: BillingUiEventKind.success,
             productId: record.productId,
@@ -296,7 +296,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       }
       _finishPurchaseAttempt(record, purchase);
       if (!silent && record.status != BillingPendingPurchaseStatus.accepted) {
-        _events.add(
+        _emitUiEvent(
           BillingUiEvent(
             kind: BillingUiEventKind.accepted,
             productId: record.productId,
@@ -404,7 +404,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
               : record.transactionId,
         },
       );
-      _events.add(
+      _emitUiEvent(
         BillingUiEvent(
           kind: BillingUiEventKind.success,
           productId: record.productId,
@@ -415,7 +415,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       );
       _refreshWalletInBackground();
     } else if (report.status == GemPurchaseReportStatus.accepted) {
-      _events.add(
+      _emitUiEvent(
         BillingUiEvent(
           kind: BillingUiEventKind.accepted,
           productId: record.productId,

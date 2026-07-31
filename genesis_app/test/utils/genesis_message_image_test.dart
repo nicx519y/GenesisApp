@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -107,6 +108,116 @@ void main() {
     });
   });
 
+  group('encoded image dimensions', () {
+    test('reads a 48MP JPEG header without decoding pixels', () {
+      expect(
+        genesisMessageImageSizeFromEncodedBytes(
+          _jpegHeader(width: 8000, height: 6000),
+        ),
+        const Size(8000, 6000),
+      );
+    });
+
+    test('reads a 48MP PNG header without decoding pixels', () {
+      expect(
+        genesisMessageImageSizeFromEncodedBytes(
+          _pngHeader(width: 8000, height: 6000),
+        ),
+        const Size(8000, 6000),
+      );
+    });
+
+    test('swaps JPEG dimensions for EXIF orientation 6', () {
+      expect(
+        genesisMessageImageSizeFromEncodedBytes(
+          _jpegHeader(width: 8000, height: 6000, orientation: 6),
+        ),
+        const Size(6000, 8000),
+      );
+    });
+
+    test('reads WebP VP8X dimensions from its canvas header', () {
+      expect(
+        genesisMessageImageSizeFromEncodedBytes(
+          Uint8List.fromList(<int>[
+            0x52, 0x49, 0x46, 0x46, // RIFF
+            0x16, 0x00, 0x00, 0x00, // Remaining RIFF size
+            0x57, 0x45, 0x42, 0x50, // WEBP
+            0x56, 0x50, 0x38, 0x58, // VP8X
+            0x0a, 0x00, 0x00, 0x00, // Chunk size
+            0x00, 0x00, 0x00, 0x00, // Flags and reserved
+            0x3f, 0x1f, 0x00, // Canvas width minus one
+            0x6f, 0x17, 0x00, // Canvas height minus one
+          ]),
+        ),
+        const Size(8000, 6000),
+      );
+    });
+
+    test('reads GIF89a logical screen dimensions', () {
+      expect(
+        genesisMessageImageSizeFromEncodedBytes(
+          Uint8List.fromList(<int>[
+            0x47,
+            0x49,
+            0x46,
+            0x38,
+            0x39,
+            0x61,
+            0x40,
+            0x01,
+            0x80,
+            0x02,
+            0x00,
+            0x00,
+            0x00,
+          ]),
+        ),
+        const Size(320, 640),
+      );
+    });
+
+    test('rejects truncated and malformed headers', () {
+      expect(
+        genesisMessageImageSizeFromEncodedBytes(
+          Uint8List.fromList(<int>[
+            0xff,
+            0xd8,
+            0xff,
+            0xc0,
+            0x00,
+            0x11,
+            0x08,
+            0x17,
+            0x70,
+          ]),
+        ),
+        isNull,
+      );
+      expect(
+        genesisMessageImageSizeFromEncodedBytes(
+          Uint8List.fromList(<int>[
+            0x89,
+            0x50,
+            0x4e,
+            0x47,
+            0x0d,
+            0x0a,
+            0x1a,
+            0x0a,
+          ]),
+        ),
+        isNull,
+      );
+      expect(
+        genesisMessageImageSizeFromEncodedBytes(
+          Uint8List.fromList(<int>[0x00, 0x01, 0x02, 0x03]),
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('remote source dimensions', () {
     test(
       'reads dimensions embedded in the URL without a network call',
@@ -198,4 +309,104 @@ void main() {
       expect(originalCalls, 2);
     });
   });
+}
+
+Uint8List _jpegHeader({
+  required int width,
+  required int height,
+  int? orientation,
+}) {
+  final bytes = <int>[0xff, 0xd8];
+  if (orientation != null) {
+    final exif = <int>[
+      0x45, 0x78, 0x69, 0x66, 0x00, 0x00, // Exif\0\0
+      0x4d, 0x4d, 0x00, 0x2a, // Big-endian TIFF header
+      0x00, 0x00, 0x00, 0x08, // First IFD offset
+      0x00, 0x01, // Entry count
+      0x01, 0x12, // Orientation tag
+      0x00, 0x03, // SHORT
+      0x00, 0x00, 0x00, 0x01, // One value
+      0x00, orientation, 0x00, 0x00,
+    ];
+    bytes
+      ..addAll(<int>[0xff, 0xe1])
+      ..addAll(_uint16BigEndian(exif.length + 2))
+      ..addAll(exif);
+  }
+  bytes
+    ..addAll(<int>[0xff, 0xc0, 0x00, 0x11, 0x08])
+    ..addAll(_uint16BigEndian(height))
+    ..addAll(_uint16BigEndian(width))
+    ..addAll(<int>[
+      0x03,
+      0x01,
+      0x11,
+      0x00,
+      0x02,
+      0x11,
+      0x00,
+      0x03,
+      0x11,
+      0x00,
+      0xff,
+      0xda,
+      0x00,
+      0x0c,
+      0x03,
+      0x01,
+      0x00,
+      0x02,
+      0x00,
+      0x03,
+      0x00,
+      0x00,
+      0x3f,
+      0x00,
+    ]);
+  return Uint8List.fromList(bytes);
+}
+
+Uint8List _pngHeader({required int width, required int height}) {
+  return Uint8List.fromList(<int>[
+    0x89,
+    0x50,
+    0x4e,
+    0x47,
+    0x0d,
+    0x0a,
+    0x1a,
+    0x0a,
+    0x00,
+    0x00,
+    0x00,
+    0x0d,
+    0x49,
+    0x48,
+    0x44,
+    0x52,
+    ..._uint32BigEndian(width),
+    ..._uint32BigEndian(height),
+    0x08,
+    0x02,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+  ]);
+}
+
+List<int> _uint16BigEndian(int value) {
+  return <int>[(value >> 8) & 0xff, value & 0xff];
+}
+
+List<int> _uint32BigEndian(int value) {
+  return <int>[
+    (value >> 24) & 0xff,
+    (value >> 16) & 0xff,
+    (value >> 8) & 0xff,
+    value & 0xff,
+  ];
 }
