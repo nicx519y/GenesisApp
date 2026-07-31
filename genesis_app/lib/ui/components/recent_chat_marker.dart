@@ -5,6 +5,29 @@ import '../../icons/custom_icon_assets.dart';
 
 const Color kRecentChatMarkerColor = Color(0xFF338960);
 const Color kRecentChatMarkerBackgroundColor = Color(0xFFE8F5EF);
+const double kRecentChatMapBadgeSize = 16;
+const double kRecentChatMapIconSize = 10;
+
+class RecentChatMapBadge extends StatelessWidget {
+  const RecentChatMapBadge({super.key, this.badgeKey});
+
+  final Key? badgeKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: badgeKey,
+      decoration: const BoxDecoration(
+        color: kRecentChatMarkerBackgroundColor,
+        borderRadius: BorderRadius.all(Radius.circular(4)),
+      ),
+      child: const SizedBox.square(
+        dimension: kRecentChatMapBadgeSize,
+        child: Center(child: RecentChatIcon(size: kRecentChatMapIconSize)),
+      ),
+    );
+  }
+}
 
 class RecentChatTag extends StatelessWidget {
   const RecentChatTag({super.key, this.label = 'Last Message'});

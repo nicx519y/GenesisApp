@@ -66,10 +66,8 @@ const double _worldPointWideLabelRuneWidth = 14;
 const double _worldPointNarrowLabelRuneWidth = 6;
 const double _worldPointMaxLabelTextWidth = 135;
 const double _worldPointRecentIconGap = 3;
-const double _worldPointRecentIconBadgeSize = 16;
-const double _worldPointRecentIconSize = 10;
 const double _worldPointRecentIconExtraWidth =
-    _worldPointRecentIconGap + _worldPointRecentIconBadgeSize;
+    _worldPointRecentIconGap + kRecentChatMapBadgeSize;
 const double _worldPointMaxLabelBoxWidth =
     _worldPointMaxLabelTextWidth + _worldPointLabelHorizontalPadding;
 const double _worldPointDotSize = 8;
@@ -481,21 +479,9 @@ class _WorldPointMarker extends StatelessWidget {
                         width: _worldPointRecentIconExtraWidth,
                         child: Align(
                           alignment: Alignment.centerRight,
-                          child: DecoratedBox(
-                            key: ValueKey<String>('world-map-recent-chat-icon'),
-                            decoration: BoxDecoration(
-                              color: kRecentChatMarkerBackgroundColor,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(4),
-                              ),
-                            ),
-                            child: SizedBox.square(
-                              dimension: _worldPointRecentIconBadgeSize,
-                              child: Center(
-                                child: RecentChatIcon(
-                                  size: _worldPointRecentIconSize,
-                                ),
-                              ),
+                          child: RecentChatMapBadge(
+                            badgeKey: ValueKey<String>(
+                              'world-map-recent-chat-icon',
                             ),
                           ),
                         ),

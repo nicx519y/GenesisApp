@@ -9,6 +9,7 @@ class TilemapRenderer extends StatefulWidget {
     this.onTileAction,
     this.locationNameForTile,
     this.locationAvatarsForTile,
+    this.showRecentChatForTile,
     this.preferredFocusLocationId = '',
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
@@ -40,6 +41,7 @@ class TilemapRenderer extends StatefulWidget {
   final TilemapTileActionHandler? onTileAction;
   final TilemapLocationNameResolver? locationNameForTile;
   final TilemapLocationAvatarsResolver? locationAvatarsForTile;
+  final TilemapRecentChatResolver? showRecentChatForTile;
   final String preferredFocusLocationId;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
@@ -341,6 +343,14 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 avatars:
                                     widget.locationAvatarsForTile?.call(tile) ??
                                     const <UserAvatar>[],
+                                showRecentChat:
+                                    widget.showRecentChatForTile?.call(tile) ??
+                                    false,
+                                verticalOverflow:
+                                    _tilemapLocationLabelVerticalOverflow(
+                                      context,
+                                      name,
+                                    ),
                               ),
                             );
                           }
@@ -396,6 +406,9 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                           avatarIndex: activeBubbleAvatarIndex,
                                           avatarCount:
                                               activeBubbleLabel!.avatars.length,
+                                          locationLabelVerticalOverflow:
+                                              activeBubbleLabel
+                                                  .verticalOverflow,
                                         );
                                   return Stack(
                                     fit: StackFit.expand,
@@ -547,6 +560,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                           ),
                                           name: label.name,
                                           avatars: label.avatars,
+                                          showRecentChat: label.showRecentChat,
                                           onLabelTap:
                                               widget.onTileAction == null
                                               ? null

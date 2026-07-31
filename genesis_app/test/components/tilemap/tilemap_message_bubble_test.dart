@@ -23,6 +23,17 @@ void main() {
     expect(anchor.dy, 152);
   });
 
+  test('Tilemap bubble anchor includes wrapped location label overflow', () {
+    final anchor = tilemapMessageBubbleAvatarTopLeft(
+      locationBubbleAnchor: const Offset(200, 100),
+      avatarIndex: 0,
+      avatarCount: 1,
+      locationLabelVerticalOverflow: 14.4,
+    );
+
+    expect(anchor.dy, 120.4);
+  });
+
   testWidgets('Tilemap bubble playback shows a gap and loops', (tester) async {
     const bubble = WorldMapMessageBubble(
       characterId: 'char_1',

@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_location_avatars.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
+import 'package:genesis_flutter_android/components/world_map_contract.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 
@@ -1013,6 +1014,7 @@ void main() {
             config: config,
             onTileAction: (tile) async => tappedTile = tile,
             locationNameForTile: (_) => 'High School',
+            showRecentChatForTile: (_) => true,
           ),
         ),
       ),
@@ -1026,6 +1028,10 @@ void main() {
     expect(grid, findsOneWidget);
     expect(tester.getSize(grid), tester.getSize(gestureLayer));
     expect(find.text('High School'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-recent-chat-icon')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('tile-location-label-0-0')),
       findsOneWidget,
@@ -1068,7 +1074,7 @@ void main() {
     expect(locationName.textAlign, TextAlign.center);
     expect(locationName.softWrap, true);
     expect(locationName.style?.color, Colors.white);
-    expect(locationName.style?.fontSize, 10);
+    expect(locationName.style?.fontSize, 12);
     expect(locationName.style?.height, 1.2);
     expect(locationName.style?.fontWeight, FontWeight.w600);
 
@@ -1100,6 +1106,80 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'multi-line location name pushes avatars and message bubble down',
+    (tester) async {
+      final config = TilemapConfig.fromTiles(
+        id: 'wrapped_location_label',
+        width: 1,
+        height: 1,
+        tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+        tiles: const [TilemapCell(x: 0, y: 0, type: 'a', locationId: 'loc_1')],
+      );
+      const avatar = UserAvatar('AA', id: 'char_1', name: 'Ada');
+
+      Widget harness(String name) {
+        return MaterialApp(
+          home: SizedBox(
+            width: 320,
+            height: 480,
+            child: TilemapRenderer(
+              config: config,
+              locationNameForTile: (_) => name,
+              locationAvatarsForTile: (_) => const [avatar],
+              messageBubbles: const [
+                WorldMapMessageBubble(
+                  characterId: 'char_1',
+                  content: 'Hello from this location.',
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      const singleLineName = 'Cafe';
+      await tester.pumpWidget(harness(singleLineName));
+      await tester.pump();
+      final singleLabelRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>('tile-location-bubble-body-$singleLineName'),
+        ),
+      );
+      final singleAvatarRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tilemap-location-avatar-char_1')),
+      );
+      final singleMessageRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>('tilemap-character-message-bubble-body'),
+        ),
+      );
+
+      const wrappedName =
+          'A Very Long Location Name That Must Wrap Onto Another Line';
+      await tester.pumpWidget(harness(wrappedName));
+      await tester.pump();
+      final wrappedLabelRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>('tile-location-bubble-body-$wrappedName'),
+        ),
+      );
+      final wrappedAvatarRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tilemap-location-avatar-char_1')),
+      );
+      final wrappedMessageRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>('tilemap-character-message-bubble-body'),
+        ),
+      );
+
+      expect(wrappedLabelRect.height, greaterThan(singleLabelRect.height));
+      expect(wrappedLabelRect.top, closeTo(singleLabelRect.top, 0.01));
+      expect(wrappedAvatarRect.top, greaterThan(singleAvatarRect.top));
+      expect(wrappedMessageRect.top, greaterThan(singleMessageRect.top));
+    },
+  );
 
   testWidgets('renderer reuses legacy zoom control in the bottom-right', (
     tester,

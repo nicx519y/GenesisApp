@@ -5,16 +5,23 @@ class _TilemapLocationLabelData {
     required this.tile,
     required this.name,
     required this.avatars,
+    required this.showRecentChat,
+    required this.verticalOverflow,
   });
 
   final TilemapCell tile;
   final String name;
   final List<UserAvatar> avatars;
+  final bool showRecentChat;
+  final double verticalOverflow;
 }
 
 const double _tilemapLocationLabelMaxWidth = 141;
 const double _tilemapLocationLabelHorizontalPadding = 3;
 const double _tilemapLocationLabelVerticalPadding = 4;
+const double _tilemapLocationRecentChatGap = 3;
+const double _tilemapLocationRecentChatExtraWidth =
+    _tilemapLocationRecentChatGap + kRecentChatMapBadgeSize;
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
   color: Colors.white,
   fontSize: 12,
@@ -36,6 +43,27 @@ double _tilemapLocationLabelHeight(BuildContext context, String name) {
             _tilemapLocationLabelHorizontalPadding * 2,
       );
   return painter.height + _tilemapLocationLabelVerticalPadding * 2;
+}
+
+double _tilemapLocationSingleLineLabelHeight(BuildContext context) {
+  final painter = TextPainter(
+    text: const TextSpan(text: 'M', style: _tilemapLocationLabelTextStyle),
+    maxLines: 1,
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  return painter.height + _tilemapLocationLabelVerticalPadding * 2;
+}
+
+double _tilemapLocationLabelVerticalOverflow(
+  BuildContext context,
+  String name,
+) {
+  return math.max(
+    0,
+    _tilemapLocationLabelHeight(context, name) -
+        _tilemapLocationSingleLineLabelHeight(context),
+  );
 }
 
 class _TilemapInfiniteGridPainter extends CustomPainter {
@@ -131,6 +159,7 @@ class _TilemapLocationBubble extends StatelessWidget {
     super.key,
     required this.name,
     required this.avatars,
+    required this.showRecentChat,
     required this.onLabelTap,
     required this.onAvatarTap,
     required this.anchor,
@@ -138,6 +167,7 @@ class _TilemapLocationBubble extends StatelessWidget {
 
   final String name;
   final List<UserAvatar> avatars;
+  final bool showRecentChat;
   final VoidCallback? onLabelTap;
   final VoidCallback? onAvatarTap;
   final Offset anchor;
@@ -150,42 +180,66 @@ class _TilemapLocationBubble extends StatelessWidget {
       child: FractionalTranslation(
         translation: const Offset(-0.5, 0),
         child: Transform.translate(
-          offset: Offset(0, -_tilemapLocationLabelHeight(context, name)),
+          offset: Offset(0, -_tilemapLocationSingleLineLabelHeight(context)),
           child: Semantics(
             label: name,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onLabelTap,
-                  child: Container(
-                    key: ValueKey<String>('tile-location-bubble-body-$name'),
-                    constraints: const BoxConstraints(
-                      maxWidth: _tilemapLocationLabelMaxWidth,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: _tilemapLocationLabelHorizontalPadding,
-                      vertical: _tilemapLocationLabelVerticalPadding,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
-                          blurRadius: 6,
-                          offset: const Offset(0, 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (showRecentChat)
+                      const SizedBox(
+                        width: _tilemapLocationRecentChatExtraWidth,
+                      ),
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onLabelTap,
+                      child: Container(
+                        key: ValueKey<String>(
+                          'tile-location-bubble-body-$name',
                         ),
-                      ],
+                        constraints: const BoxConstraints(
+                          maxWidth: _tilemapLocationLabelMaxWidth,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: _tilemapLocationLabelHorizontalPadding,
+                          vertical: _tilemapLocationLabelVerticalPadding,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.18),
+                              blurRadius: 6,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          name,
+                          textAlign: TextAlign.center,
+                          softWrap: true,
+                          style: _tilemapLocationLabelTextStyle,
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      name,
-                      textAlign: TextAlign.center,
-                      softWrap: true,
-                      style: _tilemapLocationLabelTextStyle,
-                    ),
-                  ),
+                    if (showRecentChat)
+                      const SizedBox(
+                        width: _tilemapLocationRecentChatExtraWidth,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: RecentChatMapBadge(
+                            badgeKey: ValueKey<String>(
+                              'tilemap-recent-chat-icon',
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 if (avatars.isNotEmpty) ...[
                   const SizedBox(height: tilemapLocationLabelToAvatarSpacing),

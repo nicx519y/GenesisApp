@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/components/recent_chat_marker.dart';
 import '../legacy_world_map/legacy_world_map_gesture.dart';
 import '../world_map_contract.dart';
 import '../world_point.dart';
@@ -105,6 +106,7 @@ typedef TilemapTileActionHandler = Future<void> Function(TilemapCell tile);
 typedef TilemapLocationNameResolver = String? Function(TilemapCell tile);
 typedef TilemapLocationAvatarsResolver =
     List<UserAvatar> Function(TilemapCell tile);
+typedef TilemapRecentChatResolver = bool Function(TilemapCell tile);
 
 enum TilemapVisualMode { light, dark }
 
