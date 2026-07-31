@@ -7,6 +7,7 @@ import '../config/app_config.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/firebase_crash_reporting.dart';
 import '../telemetry/firebase_performance_monitoring.dart';
+import '../../network/devtools_http_profile.dart';
 import '../../network/genesis_http_cache_manager.dart';
 import '../../network/genesis_http_transport_pool.dart';
 import '../../network/network_runtime_factory.dart';
@@ -24,6 +25,7 @@ class AppBootstrap {
     AppConfig config = const AppConfig(),
   }) {
     WidgetsFlutterBinding.ensureInitialized();
+    enableGenesisDevToolsHttpProfiling();
     final httpTransport = GenesisHttpTransportRegistry.configure(
       httpEngine: kGenesisHttpEngine,
       debugProxy: config.debugProxy,

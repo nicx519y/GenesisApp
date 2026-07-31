@@ -140,7 +140,7 @@ class TilemapProjection {
     required double scale,
     required double devicePixelRatio,
   }) {
-    return tileExtent * scale * devicePixelRatio;
+    return tileExtent * scale * tilemapImageDevicePixelRatio(devicePixelRatio);
   }
 
   Rect imageBoundsForTiles(Iterable<TilemapCell> tiles) {
@@ -403,6 +403,10 @@ Rect tilemapRetainedSceneBounds(Rect visibleSceneBounds) {
   );
 }
 
+double tilemapImageDevicePixelRatio(double devicePixelRatio) {
+  return math.min(devicePixelRatio, tilemapMaxImageDevicePixelRatio);
+}
+
 String resolveTilemapAssetForDisplaySize(
   String baseUrl,
   double displayTilePixelSize,
@@ -419,7 +423,7 @@ String resolveTilemapAssetForDisplaySize(
       displayTilePixelSize.isFinite && displayTilePixelSize > 0
       ? displayTilePixelSize.ceil()
       : 128;
-  const availableSizes = <int>[128, 256, 512, 1024];
+  const availableSizes = <int>[128, 256, 512, 640, 1024];
   final resolvedSize = availableSizes.firstWhere(
     (size) => size >= requestedSize,
     orElse: () => availableSizes.last,

@@ -15,6 +15,14 @@ void main() {
     HttpClientRequestProfile.profilingEnabled = previousProfilingState;
   });
 
+  test('enables native HTTP profiling before bootstrap requests', () {
+    HttpClientRequestProfile.profilingEnabled = false;
+
+    enableGenesisDevToolsHttpProfiling();
+
+    expect(HttpClientRequestProfile.profilingEnabled, true);
+  });
+
   test('records transport-neutral request and response for DevTools', () async {
     late HttpClientRequestProfile capturedProfile;
     final request = TransportRequest(

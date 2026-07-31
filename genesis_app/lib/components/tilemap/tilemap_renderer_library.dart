@@ -32,6 +32,7 @@ const double tilemapMaxScale = 30;
 const double tilemapInitialScaleMin = tilemapMinScale;
 const double tilemapInitialScaleMax = tilemapMaxScale;
 const double tilemapDefaultInitialScale = 12;
+const double tilemapMaxImageDevicePixelRatio = 2;
 const double tilemapDragBoundaryPaddingTilesMin = 0;
 const double tilemapDragBoundaryPaddingTilesMax = 20;
 const double tilemapDefaultDragBoundaryPaddingTiles = 2;

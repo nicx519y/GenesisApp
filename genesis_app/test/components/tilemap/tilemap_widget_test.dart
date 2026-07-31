@@ -682,7 +682,7 @@ void main() {
       await tester.pump();
 
       final firstLoad = pendingLoads.entries.single;
-      expect(firstLoad.key, contains('resize,w_1024'));
+      expect(firstLoad.key, contains('resize,w_512'));
 
       await tester.tap(
         find.byKey(const ValueKey<String>('tilemap-settings-button')),

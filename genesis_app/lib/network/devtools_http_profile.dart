@@ -9,6 +9,11 @@ typedef GenesisHttpProfileFactory =
       required String requestUri,
     });
 
+void enableGenesisDevToolsHttpProfiling() {
+  if (const bool.fromEnvironment('dart.vm.product')) return;
+  HttpClientRequestProfile.profilingEnabled = true;
+}
+
 class DevToolsHttpProfile {
   DevToolsHttpProfile._(this._profile);
 

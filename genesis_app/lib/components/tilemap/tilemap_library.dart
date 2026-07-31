@@ -1023,7 +1023,9 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     return TilemapImageLoadPlan.forConfig(
       config: config,
       displayTilePixelSize:
-          tilemapBaseTileExtent * _initialScale * devicePixelRatio,
+          tilemapBaseTileExtent *
+          _initialScale *
+          tilemapImageDevicePixelRatio(devicePixelRatio),
       viewportSize: viewportSize,
       initialScale: _initialScale,
       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
@@ -1446,7 +1448,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       final displayTilePixelSize =
           tilemapBaseTileExtent *
           _initialScale *
-          MediaQuery.devicePixelRatioOf(context);
+          tilemapImageDevicePixelRatio(MediaQuery.devicePixelRatioOf(context));
       _scheduleSilentDrillDownPreload(
         config,
         displayTilePixelSize: displayTilePixelSize,

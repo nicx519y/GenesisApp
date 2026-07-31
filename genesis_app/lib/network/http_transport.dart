@@ -2,6 +2,10 @@ abstract class HttpTransport {
   Future<TransportResponse> send(TransportRequest request);
 }
 
+abstract interface class OriginWarmableHttpTransport {
+  Future<void> warmUp(Uri uri);
+}
+
 typedef NetworkProgressCallback = void Function(int sentBytes, int totalBytes);
 
 class NetworkCancellationToken {

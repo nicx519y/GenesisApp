@@ -453,6 +453,13 @@ void main() {
     );
   });
 
+  test('tile image pixel size caps device pixel ratio at two', () {
+    final projection = TilemapProjection.fixed(mapWidth: 1, mapHeight: 1);
+
+    expect(projection.tilePixelSize(scale: 12, devicePixelRatio: 1.5), 288);
+    expect(projection.tilePixelSize(scale: 12, devicePixelRatio: 3), 384);
+  });
+
   test('projection hit tests the tile diamond', () {
     const projection = TilemapProjection(
       mapWidth: 32,
@@ -861,6 +868,16 @@ void main() {
     );
     expect(
       resolveTilemapAssetForDisplaySize(baseUrl, 513),
+      'https://cdn.example.com/tile/a.png'
+      '?x-oss-process=image/resize,w_640,image/format,webp',
+    );
+    expect(
+      resolveTilemapAssetForDisplaySize(baseUrl, 576),
+      'https://cdn.example.com/tile/a.png'
+      '?x-oss-process=image/resize,w_640,image/format,webp',
+    );
+    expect(
+      resolveTilemapAssetForDisplaySize(baseUrl, 641),
       'https://cdn.example.com/tile/a.png'
       '?x-oss-process=image/resize,w_1024,image/format,webp',
     );
