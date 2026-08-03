@@ -187,4 +187,42 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('location rows are built lazily while scrolling', (tester) async {
+    final points = List<WorldPoint>.generate(
+      80,
+      (index) => WorldPoint(
+        id: 'location-$index',
+        name: 'Location $index',
+        type: WorldPointType.castle,
+        position: Offset.zero,
+        users: const <UserAvatar>[],
+      ),
+      growable: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 220,
+            child: WorldLocationList(
+              points: points,
+              enableOuterScrollHandoff: false,
+              lazyBuildRows: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Location 0'), findsOneWidget);
+    expect(find.text('Location 79'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('Location 79'),
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+    expect(find.text('Location 79'), findsOneWidget);
+  });
 }

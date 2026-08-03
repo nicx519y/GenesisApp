@@ -11,6 +11,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/world_map.dart';
+import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/tokens/genesis_radii.dart';
@@ -199,6 +200,12 @@ class WorldSingleSectionBottomSheetState
   var _contentDragDx = 0.0;
   var _contentDragDy = 0.0;
   VelocityTracker? _contentVelocityTracker;
+  WorldLocationListData? _cachedLocationListData;
+  ProcessedLocationTree<Map<String, dynamic>>? _cachedProcessedLocationTree;
+  List<Map<String, dynamic>>? _cachedLocations;
+  List<Map<String, dynamic>>? _cachedCharacterPositions;
+  List<Map<String, dynamic>>? _cachedUserPositions;
+  String _cachedLocationListCurrentUid = '';
 
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
@@ -445,30 +452,34 @@ class WorldSingleSectionBottomSheetState
   }
 
   Widget _buildStatusSectionPage() {
-    return WorldSectionListView(
+    final world = _currentWorld;
+    return WorldCharacterListView(
       storageKey: 'world-status-section-bottom-sheet',
-      child: WorldStatusSection(
-        world: _currentWorld,
-        currentUid: widget.currentUid,
-      ),
+      characters: world.characters,
+      currentUid: widget.currentUid,
+      emptyText: 'No character status yet.',
+      subtitleBuilder: (character) =>
+          worldMetricStatusText(world.metric, character),
+      subtitleColor: const Color(0xFF666666),
+      showCharacterDetails: false,
     );
   }
 
   Widget _buildCastSectionPage() {
-    return WorldSectionListView(
+    final world = _currentWorld;
+    return WorldCharacterListView(
       storageKey: 'world-cast-section-bottom-sheet',
-      child: WorldCharactersSection(
-        world: _currentWorld,
-        currentUid: widget.currentUid,
-      ),
+      characters: world.characters,
+      currentUid: widget.currentUid,
+      emptyText: 'No characters yet.',
+      subtitleBuilder: worldCharacterDescriptionText,
+      subtitleColor: const Color(0xFF666666),
+      showCharacterDetails: true,
     );
   }
 
   Widget _buildLocationsSectionPage() {
-    final locationData = worldLocationListDataFor(
-      _currentWorld,
-      currentUid: widget.currentUid,
-    );
+    final locationData = _locationListDataForCurrentWorld();
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
       child: WorldLocationList(
@@ -476,6 +487,7 @@ class WorldSingleSectionBottomSheetState
         locationNodes: locationData.locationNodes,
         recentChatLocationIds: widget.recentChatLocationIds,
         enableOuterScrollHandoff: false,
+        lazyBuildRows: true,
         padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
         onPointTap: (point) {
           final locationId = point.sceneId.trim().isNotEmpty
@@ -496,6 +508,30 @@ class WorldSingleSectionBottomSheetState
     );
   }
 
+  WorldLocationListData _locationListDataForCurrentWorld() {
+    final world = _currentWorld;
+    final cached = _cachedLocationListData;
+    if (cached != null &&
+        identical(_cachedProcessedLocationTree, world.processedLocationTree) &&
+        identical(_cachedLocations, world.locations) &&
+        identical(_cachedCharacterPositions, world.characterPositions) &&
+        identical(_cachedUserPositions, world.userPositions) &&
+        _cachedLocationListCurrentUid == widget.currentUid) {
+      return cached;
+    }
+    final locationData = worldLocationListDataFor(
+      world,
+      currentUid: widget.currentUid,
+    );
+    _cachedLocationListData = locationData;
+    _cachedProcessedLocationTree = world.processedLocationTree;
+    _cachedLocations = world.locations;
+    _cachedCharacterPositions = world.characterPositions;
+    _cachedUserPositions = world.userPositions;
+    _cachedLocationListCurrentUid = widget.currentUid;
+    return locationData;
+  }
+
   Widget _buildDetailSectionPage() {
     final latestDetailJoinNotice = worldLatestPlayerJoinNotice(
       _currentWorld.characters,
@@ -504,14 +540,12 @@ class WorldSingleSectionBottomSheetState
       latestDetailJoinNotice,
       widget.newUserJoinNoticesListenable.value,
     );
-    return WorldSectionListView(
+    return WorldDetailSectionListView(
       storageKey: 'world-detail-section-bottom-sheet',
-      child: WorldDetailSection(
-        world: _currentWorld,
-        currentUid: widget.currentUid,
-        newUserJoinNotice: newUserJoinNotice,
-        onDeleteWorld: widget.onDeleteWorld,
-      ),
+      world: _currentWorld,
+      currentUid: widget.currentUid,
+      newUserJoinNotice: newUserJoinNotice,
+      onDeleteWorld: widget.onDeleteWorld,
     );
   }
 

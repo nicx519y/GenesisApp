@@ -21,9 +21,11 @@ class TilemapPrerenderController {
     this.maxWarmInstances = tilemapPrerenderMaxWarmInstances,
     this.maxKnownConfigs = tilemapPrerenderMaxKnownConfigs,
     this.maxPendingTargets = tilemapPrerenderMaxPendingTargets,
+    bool warmupSuspended = false,
   }) : assert(maxWarmInstances > 0),
        assert(maxKnownConfigs >= maxWarmInstances + 1),
        assert(maxPendingTargets > 0),
+       _warmupSuspended = warmupSuspended,
        _onChanged = onChanged;
 
   final VoidCallback _onChanged;
@@ -44,6 +46,7 @@ class TilemapPrerenderController {
   String _environmentKey = '';
   String? _activeMapId;
   String? _warmingMapId;
+  bool _warmupSuspended;
   bool _disposed = false;
 
   int get maxResidentInstances => maxWarmInstances + 1;
@@ -55,6 +58,8 @@ class TilemapPrerenderController {
   String? get activeMapId => _activeMapId;
 
   String? get warmingMapId => _warmingMapId;
+
+  bool get warmupSuspended => _warmupSuspended;
 
   List<String> get residentMapIds => List<String>.unmodifiable(_residentMapIds);
 
@@ -71,6 +76,16 @@ class TilemapPrerenderController {
       mapId != null &&
       _residentMapIds.contains(mapId) &&
       _readyMapIds.contains(mapId);
+
+  /// Keeps existing warm residents mounted, but defers mounting the next
+  /// non-foreground renderer until warmup resumes.
+  void setWarmupSuspended(bool suspended) {
+    if (_disposed || _warmupSuspended == suspended) return;
+    _warmupSuspended = suspended;
+    if (!suspended) {
+      _selectNextWarmingMap();
+    }
+  }
 
   void resetSession() {
     if (_disposed) return;
@@ -320,6 +335,8 @@ class TilemapPrerenderController {
       return;
     }
 
+    if (_warmupSuspended) return;
+
     _refillPending();
     while (_pendingMapIds.isNotEmpty &&
         _residentMapIds.length < maxResidentInstances) {
@@ -454,29 +471,35 @@ class TilemapPrerenderController {
 
 /// A viewport-sized real renderer surface.
 ///
-/// Inactive surfaces remain paintable underneath the opaque foreground map,
-/// but cannot receive input, expose semantics, or advance tickers.
+/// Inactive surfaces cannot receive input, expose semantics, or advance
+/// tickers. They can also be kept offstage while retaining their renderer state
+/// when the owning page temporarily prioritizes another composited surface.
 class TilemapPrerenderSurface extends StatelessWidget {
   const TilemapPrerenderSurface({
     super.key,
     required this.interactive,
+    this.suspended = false,
     required this.child,
   });
 
   final bool interactive;
+  final bool suspended;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox.expand(
-      child: ClipRect(
-        child: IgnorePointer(
-          ignoring: !interactive,
-          child: ExcludeSemantics(
-            excluding: !interactive,
-            child: TickerMode(
-              enabled: interactive,
-              child: RepaintBoundary(child: child),
+      child: Offstage(
+        offstage: suspended && !interactive,
+        child: ClipRect(
+          child: IgnorePointer(
+            ignoring: !interactive,
+            child: ExcludeSemantics(
+              excluding: !interactive,
+              child: TickerMode(
+                enabled: interactive,
+                child: RepaintBoundary(child: child),
+              ),
             ),
           ),
         ),

@@ -333,18 +333,15 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ClipRect(
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: Transform.scale(
-                        scale: 1.2,
-                        child: _OriginSetupRoleImage(
-                          url: avatarUrl,
-                          name: character.name,
-                          width: cardWidth,
-                          height: buttonHeight,
-                          alignment: Alignment.bottomCenter,
-                        ),
+                  DecoratedBox(
+                    key: ValueKey<String>(
+                      'origin-setup-role-action-background-$stableId',
+                    ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFF505056), Color(0xFF343438)],
                       ),
                     ),
                   ),

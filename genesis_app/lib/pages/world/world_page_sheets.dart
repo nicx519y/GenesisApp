@@ -70,10 +70,12 @@ extension _WorldPageSheets on _WorldPageState {
           _setWorldPageState(() {
             _worldBottomSheetOpen = false;
             _worldBottomSheetContext = null;
+            _applyDeferredBottomSheetMapChatroomState();
           });
         } else {
           _worldBottomSheetOpen = false;
           _worldBottomSheetContext = null;
+          _deferredBottomSheetMapChatroomState = null;
         }
         final openEvents = _openEventsAfterCurrentBottomSheetClosed;
         final targetTickNumber =

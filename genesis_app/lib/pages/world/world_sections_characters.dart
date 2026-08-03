@@ -41,6 +41,54 @@ class WorldCharactersSection extends StatelessWidget {
   }
 }
 
+class WorldCharacterListView extends StatelessWidget {
+  const WorldCharacterListView({
+    required this.storageKey,
+    required this.characters,
+    required this.currentUid,
+    required this.emptyText,
+    required this.subtitleBuilder,
+    required this.subtitleColor,
+    required this.showCharacterDetails,
+  });
+
+  final String storageKey;
+  final List<Map<String, dynamic>> characters;
+  final String currentUid;
+  final String emptyText;
+  final String Function(Map<String, dynamic> character) subtitleBuilder;
+  final Color subtitleColor;
+  final bool showCharacterDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedCharacters = worldSortedCharacters(characters, currentUid);
+    final hasCharacterRole = sortedCharacters.any(worldIsCharacterRole);
+    return WorldSectionListView.builder(
+      storageKey: storageKey,
+      itemCount: math.max(sortedCharacters.length, 1),
+      itemBuilder: (context, index) {
+        if (sortedCharacters.isEmpty) {
+          return WorldEmptySection(text: emptyText);
+        }
+        final character = sortedCharacters[index];
+        return Padding(
+          padding: EdgeInsets.only(
+            top: index == 0 ? (hasCharacterRole ? 5 : 0) : 22,
+          ),
+          child: WorldCharacterRow(
+            character: character,
+            currentUid: currentUid,
+            subtitle: subtitleBuilder(character),
+            subtitleColor: subtitleColor,
+            showCharacterDetails: showCharacterDetails,
+          ),
+        );
+      },
+    );
+  }
+}
+
 class WorldCharacterList extends StatelessWidget {
   const WorldCharacterList({
     required this.characters,

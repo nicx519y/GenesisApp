@@ -26,7 +26,9 @@ class TilemapLoadingCoordinator {
   TilemapLoadingCoordinator({
     required VoidCallback onChanged,
     this.onSilentMapReady,
-  }) : _onChanged = onChanged;
+    bool backgroundWorkSuspended = false,
+  }) : _backgroundWorkSuspended = backgroundWorkSuspended,
+       _onChanged = onChanged;
 
   final VoidCallback _onChanged;
   final ValueChanged<TilemapConfig>? onSilentMapReady;
@@ -48,6 +50,7 @@ class TilemapLoadingCoordinator {
   final LinkedHashSet<String> _completedBackgroundLoadKeys =
       LinkedHashSet<String>();
   Future<void>? _activeBackgroundTilePreload;
+  _TilemapBackgroundLoadTask? _pendingBackgroundTilePreload;
   int _backgroundLoadGeneration = 0;
   final ListQueue<_TilemapSilentLoadTask> _silentLoadQueue =
       ListQueue<_TilemapSilentLoadTask>();
@@ -57,15 +60,40 @@ class TilemapLoadingCoordinator {
   String? _silentPlanKey;
   int _silentPlanGeneration = 0;
   bool _runningSilentLoad = false;
+  bool _backgroundWorkSuspended;
 
   bool get initialEntryCompleted => _initialEntryCompleted;
   bool get initialEntrySkipped => _initialEntrySkipped;
   Object? get initialLoadError => _initialLoadError;
+  bool get backgroundWorkSuspended => _backgroundWorkSuspended;
 
   double get initialProgress => tilemapImageLoadProgress(
     loadedTileCount: _loadedInitialTileCount,
     totalTileCount: _totalInitialTileCount,
   );
+
+  /// Defers new background image and silent child-map jobs. Foreground initial
+  /// loading is deliberately independent, and already running optimization
+  /// jobs are allowed to finish naturally.
+  void setBackgroundWorkSuspended(bool suspended) {
+    if (_disposed || _backgroundWorkSuspended == suspended) return;
+    _backgroundWorkSuspended = suspended;
+    if (suspended) return;
+
+    _scheduleBackgroundWorkResume();
+  }
+
+  void _scheduleBackgroundWorkResume() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_disposed || _backgroundWorkSuspended) return;
+      final pendingBackgroundTilePreload = _pendingBackgroundTilePreload;
+      _pendingBackgroundTilePreload = null;
+      if (pendingBackgroundTilePreload != null) {
+        _startBackgroundTilePreload(pendingBackgroundTilePreload);
+      }
+      unawaited(_drainSilentLoadQueue());
+    });
+  }
 
   void completeInitialEntryWithoutOverlay() {
     if (_disposed || _initialEntrySkipped) return;
@@ -111,6 +139,7 @@ class TilemapLoadingCoordinator {
     _scheduledBackgroundLoadKeys.clear();
     _completedBackgroundLoadKeys.clear();
     _activeBackgroundTilePreload = null;
+    _pendingBackgroundTilePreload = null;
     _backgroundLoadGeneration += 1;
     _silentLoadQueue.clear();
     _scheduledSilentLoadKeys.clear();
@@ -238,15 +267,39 @@ class TilemapLoadingCoordinator {
       return;
     }
 
+    final task = _TilemapBackgroundLoadTask(
+      loadKey: loadKey,
+      assetUrls: plan.backgroundTileCountByAsset.keys.toList(growable: false),
+      loadImage: loadImage,
+      sessionGeneration: _sessionGeneration,
+    );
+    if (_backgroundWorkSuspended) {
+      final previous = _pendingBackgroundTilePreload;
+      if (previous != null && previous.loadKey != loadKey) {
+        _scheduledBackgroundLoadKeys.remove(previous.loadKey);
+      }
+      _pendingBackgroundTilePreload = task;
+      return;
+    }
+
+    _startBackgroundTilePreload(task);
+  }
+
+  void _startBackgroundTilePreload(_TilemapBackgroundLoadTask task) {
+    if (_disposed || !_isSessionCurrent(task.sessionGeneration)) {
+      _scheduledBackgroundLoadKeys.remove(task.loadKey);
+      return;
+    }
+    if (_backgroundWorkSuspended) {
+      _pendingBackgroundTilePreload = task;
+      return;
+    }
     final backgroundLoadGeneration = ++_backgroundLoadGeneration;
     late Future<void> request;
     request =
         _loadBackgroundTiles(
-          assetUrls: plan.backgroundTileCountByAsset.keys,
-          loadImage: loadImage,
-          sessionGeneration: _sessionGeneration,
+          task: task,
           backgroundLoadGeneration: backgroundLoadGeneration,
-          loadKey: loadKey,
         ).whenComplete(() {
           if (identical(_activeBackgroundTilePreload, request)) {
             _activeBackgroundTilePreload = null;
@@ -349,104 +402,138 @@ class TilemapLoadingCoordinator {
     _notifyChanged();
   }
 
-  Future<void> _preloadLocation({
-    required String locationId,
-    required double displayTilePixelSize,
-    required TilemapSilentMapLoader loadMap,
-    required TilemapPreloadImage loadImage,
-    required int sessionGeneration,
-    required int planGeneration,
-  }) async {
+  Future<_TilemapSilentLoadTask?> _preloadLocation(
+    _TilemapSilentLoadTask task,
+  ) async {
     try {
-      final config = await loadMap(locationId);
+      final config = task.loadedConfig ?? await task.loadMap(task.locationId);
       if (config == null ||
           !_isSilentPlanCurrent(
-            sessionGeneration: sessionGeneration,
-            planGeneration: planGeneration,
+            sessionGeneration: task.sessionGeneration,
+            planGeneration: task.planGeneration,
           )) {
-        return;
+        return null;
       }
 
-      final plan = TilemapImageLoadPlan.forConfig(
-        config: config,
-        displayTilePixelSize: displayTilePixelSize,
+      final pendingAssetUrls =
+          task.pendingAssetUrls ??
+          TilemapImageLoadPlan.forConfig(
+            config: config,
+            displayTilePixelSize: task.displayTilePixelSize,
+          ).tileCountByAsset.keys.toList(growable: false);
+      if (_backgroundWorkSuspended) {
+        return task.continueWith(
+          loadedConfig: config,
+          pendingAssetUrls: pendingAssetUrls,
+        );
+      }
+
+      final batchResult = await _loadImagesWithConcurrency(
+        assetUrls: pendingAssetUrls,
+        loadImage: task.loadImage,
+        shouldContinue: () =>
+            _isSilentPlanCurrent(
+              sessionGeneration: task.sessionGeneration,
+              planGeneration: task.planGeneration,
+            ) &&
+            !_backgroundWorkSuspended,
       );
-      await _loadImagesWithConcurrency(
-        assetUrls: plan.tileCountByAsset.keys,
-        loadImage: loadImage,
-        shouldContinue: () => _isSilentPlanCurrent(
-          sessionGeneration: sessionGeneration,
-          planGeneration: planGeneration,
-        ),
+      final planStillCurrent = _isSilentPlanCurrent(
+        sessionGeneration: task.sessionGeneration,
+        planGeneration: task.planGeneration,
       );
-      if (_isSilentPlanCurrent(
-        sessionGeneration: sessionGeneration,
-        planGeneration: planGeneration,
-      )) {
+      if (!planStillCurrent) return null;
+      if (!batchResult.completed || _backgroundWorkSuspended) {
+        return task.continueWith(
+          loadedConfig: config,
+          pendingAssetUrls: batchResult.remainingAssetUrls,
+        );
+      }
+      if (planStillCurrent) {
         onSilentMapReady?.call(config);
       }
     } catch (_) {
       // Silent preloading is an optimization. Interactive navigation remains
       // responsible for presenting any real map or image failure.
     }
+    return null;
   }
 
   Future<void> _loadBackgroundTiles({
-    required Iterable<String> assetUrls,
-    required TilemapPreloadImage loadImage,
-    required int sessionGeneration,
+    required _TilemapBackgroundLoadTask task,
     required int backgroundLoadGeneration,
-    required String loadKey,
   }) async {
     var completed = false;
+    _TilemapBackgroundLoadTask? continuation;
     try {
-      await _loadImagesWithConcurrency(
-        assetUrls: assetUrls,
-        loadImage: loadImage,
+      final batchResult = await _loadImagesWithConcurrency(
+        assetUrls: task.assetUrls,
+        loadImage: task.loadImage,
         shouldContinue: () =>
-            _isSessionCurrent(sessionGeneration) &&
-            backgroundLoadGeneration == _backgroundLoadGeneration,
+            _isSessionCurrent(task.sessionGeneration) &&
+            backgroundLoadGeneration == _backgroundLoadGeneration &&
+            !_backgroundWorkSuspended,
       );
       completed =
-          _isSessionCurrent(sessionGeneration) &&
+          batchResult.completed &&
+          _isSessionCurrent(task.sessionGeneration) &&
           backgroundLoadGeneration == _backgroundLoadGeneration;
+      if (!completed &&
+          _isSessionCurrent(task.sessionGeneration) &&
+          backgroundLoadGeneration == _backgroundLoadGeneration) {
+        continuation = task.continueWith(batchResult.remainingAssetUrls);
+      }
     } catch (_) {
       // Background images are an optimization. A later viewport can retry the
       // same asset through the normal renderer request path.
     } finally {
-      if (_isSessionCurrent(sessionGeneration)) {
-        _scheduledBackgroundLoadKeys.remove(loadKey);
+      if (_isSessionCurrent(task.sessionGeneration)) {
+        final pendingContinuation = continuation;
+        if (pendingContinuation != null &&
+            (_pendingBackgroundTilePreload == null ||
+                _pendingBackgroundTilePreload?.loadKey == task.loadKey)) {
+          _pendingBackgroundTilePreload = pendingContinuation;
+          if (!_backgroundWorkSuspended) {
+            _scheduleBackgroundWorkResume();
+          }
+        } else {
+          _scheduledBackgroundLoadKeys.remove(task.loadKey);
+        }
         if (completed) {
-          _rememberCompletedBackgroundLoadKey(loadKey);
+          _rememberCompletedBackgroundLoadKey(task.loadKey);
         }
       }
     }
   }
 
   Future<void> _drainSilentLoadQueue() async {
-    if (_disposed || _runningSilentLoad) return;
+    if (_disposed || _backgroundWorkSuspended || _runningSilentLoad) return;
     _runningSilentLoad = true;
     try {
-      while (!_disposed && _silentLoadQueue.isNotEmpty) {
-        final task = _silentLoadQueue.removeFirst();
+      while (!_disposed &&
+          !_backgroundWorkSuspended &&
+          _silentLoadQueue.isNotEmpty) {
+        final task = _silentLoadQueue.first;
         if (!_isSilentPlanCurrent(
           sessionGeneration: task.sessionGeneration,
           planGeneration: task.planGeneration,
         )) {
+          _silentLoadQueue.removeFirst();
           _scheduledSilentLoadKeys.remove(task.loadKey);
           continue;
         }
-        while (_activeBackgroundTilePreload != null) {
+        while (!_backgroundWorkSuspended &&
+            _activeBackgroundTilePreload != null) {
           await _activeBackgroundTilePreload;
         }
-        await _preloadLocation(
-          locationId: task.locationId,
-          displayTilePixelSize: task.displayTilePixelSize,
-          loadMap: task.loadMap,
-          loadImage: task.loadImage,
-          sessionGeneration: task.sessionGeneration,
-          planGeneration: task.planGeneration,
-        );
+        if (_backgroundWorkSuspended) break;
+        _silentLoadQueue.removeFirst();
+        final continuation = await _preloadLocation(task);
+        if (continuation != null) {
+          _silentLoadQueue.addFirst(continuation);
+          if (_backgroundWorkSuspended) break;
+          continue;
+        }
         _scheduledSilentLoadKeys.remove(task.loadKey);
         _rememberCompletedSilentLoadKey(task.loadKey);
       }
@@ -455,7 +542,7 @@ class TilemapLoadingCoordinator {
     }
   }
 
-  Future<void> _loadImagesWithConcurrency({
+  Future<_TilemapImageBatchResult> _loadImagesWithConcurrency({
     required Iterable<String> assetUrls,
     required TilemapPreloadImage loadImage,
     required bool Function() shouldContinue,
@@ -478,6 +565,11 @@ class TilemapLoadingCoordinator {
     await Future.wait<void>([
       for (var index = 0; index < workerCount; index += 1) worker(),
     ]);
+    return _TilemapImageBatchResult(
+      remainingAssetUrls: pendingAssets
+          .skip(nextAssetIndex)
+          .toList(growable: false),
+    );
   }
 
   Future<void> _loadImageOnce(String assetUrl, TilemapPreloadImage loadImage) {
@@ -587,10 +679,42 @@ class TilemapLoadingCoordinator {
     _scheduledBackgroundLoadKeys.clear();
     _completedBackgroundLoadKeys.clear();
     _activeBackgroundTilePreload = null;
+    _pendingBackgroundTilePreload = null;
     _silentLoadQueue.clear();
     _scheduledSilentLoadKeys.clear();
     _completedSilentLoadKeys.clear();
   }
+}
+
+class _TilemapBackgroundLoadTask {
+  const _TilemapBackgroundLoadTask({
+    required this.loadKey,
+    required this.assetUrls,
+    required this.loadImage,
+    required this.sessionGeneration,
+  });
+
+  final String loadKey;
+  final List<String> assetUrls;
+  final TilemapPreloadImage loadImage;
+  final int sessionGeneration;
+
+  _TilemapBackgroundLoadTask continueWith(List<String> remainingAssetUrls) {
+    return _TilemapBackgroundLoadTask(
+      loadKey: loadKey,
+      assetUrls: remainingAssetUrls,
+      loadImage: loadImage,
+      sessionGeneration: sessionGeneration,
+    );
+  }
+}
+
+class _TilemapImageBatchResult {
+  const _TilemapImageBatchResult({required this.remainingAssetUrls});
+
+  final List<String> remainingAssetUrls;
+
+  bool get completed => remainingAssetUrls.isEmpty;
 }
 
 class _TilemapSilentLoadTask {
@@ -602,6 +726,8 @@ class _TilemapSilentLoadTask {
     required this.loadImage,
     required this.sessionGeneration,
     required this.planGeneration,
+    this.loadedConfig,
+    this.pendingAssetUrls,
   });
 
   final String loadKey;
@@ -611,6 +737,25 @@ class _TilemapSilentLoadTask {
   final TilemapPreloadImage loadImage;
   final int sessionGeneration;
   final int planGeneration;
+  final TilemapConfig? loadedConfig;
+  final List<String>? pendingAssetUrls;
+
+  _TilemapSilentLoadTask continueWith({
+    required TilemapConfig loadedConfig,
+    required List<String> pendingAssetUrls,
+  }) {
+    return _TilemapSilentLoadTask(
+      loadKey: loadKey,
+      locationId: locationId,
+      displayTilePixelSize: displayTilePixelSize,
+      loadMap: loadMap,
+      loadImage: loadImage,
+      sessionGeneration: sessionGeneration,
+      planGeneration: planGeneration,
+      loadedConfig: loadedConfig,
+      pendingAssetUrls: pendingAssetUrls,
+    );
+  }
 }
 
 Set<String> tilemapDrillTargetLocationIds({

@@ -3,7 +3,6 @@ part of 'origin_world_page.dart';
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
-    required this.baseStatusBarStyle,
     required this.minChildSize,
     required this.collapseRequest,
     required this.onRaisedChanged,
@@ -16,7 +15,6 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   static const double defaultInitialChildSize = 0.22;
 
   final OriginDetail origin;
-  final SystemUiOverlayStyle baseStatusBarStyle;
   final double minChildSize;
   final int collapseRequest;
   final ValueChanged<bool> onRaisedChanged;
@@ -40,7 +38,7 @@ class _OriginDetailDraggableSheetState
 
   late final DraggableScrollableController _sheetController;
   ScrollController? _sheetScrollController;
-  var _sheetExtent = 0.0;
+  late _OriginInitialDialoguePreview? _initialDialoguePreview;
   var _isFullyExpanded = false;
   var _isRaised = false;
 
@@ -66,32 +64,19 @@ class _OriginDetailDraggableSheetState
   void initState() {
     super.initState();
     _sheetController = DraggableScrollableController();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final initialExtent = _effectiveInitialChildSize;
-    if (_sheetExtent == 0.0 || _sheetExtent < initialExtent) {
-      _sheetExtent = initialExtent;
-    }
+    _initialDialoguePreview = _originFirstInitialDialoguePreview(widget.origin);
   }
 
   @override
   void didUpdateWidget(covariant _OriginDetailDraggableSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.minChildSize != widget.minChildSize) {
-      final maxChildSize = _expandedChildSize(context);
-      final nextExtent = _sheetExtent
-          .clamp(_minChildSize, maxChildSize)
-          .toDouble();
-      if (nextExtent != _sheetExtent) _sheetExtent = nextExtent;
-      _syncRaisedStateAfterBuild();
-    }
-    if (oldWidget.baseStatusBarStyle != widget.baseStatusBarStyle) {
-      SystemChrome.setSystemUIOverlayStyle(
-        _statusBarStyleForExtent(context, _sheetExtent),
+    if (!identical(oldWidget.origin, widget.origin)) {
+      _initialDialoguePreview = _originFirstInitialDialoguePreview(
+        widget.origin,
       );
+    }
+    if (oldWidget.minChildSize != widget.minChildSize) {
+      _syncRaisedStateAfterBuild();
     }
     if (oldWidget.collapseRequest != widget.collapseRequest) {
       _collapseToMinChildSize();
@@ -100,7 +85,6 @@ class _OriginDetailDraggableSheetState
 
   @override
   void dispose() {
-    SystemChrome.setSystemUIOverlayStyle(widget.baseStatusBarStyle);
     _sheetController.dispose();
     super.dispose();
   }
@@ -144,22 +128,15 @@ class _OriginDetailDraggableSheetState
       );
     }
     _isFullyExpanded = isFullyExpanded;
-    final extentChanged = (extent - _sheetExtent).abs() > _extentUpdateEpsilon;
-    if (!extentChanged) return false;
-    setState(() => _sheetExtent = extent);
-    SystemChrome.setSystemUIOverlayStyle(
-      _statusBarStyleForExtent(context, extent),
-    );
     return false;
   }
 
   void _syncRaisedStateAfterBuild() {
-    final isRaised = _sheetExtent > _minChildSize + _extentUpdateEpsilon;
-    if (isRaised == _isRaised) return;
-    _isRaised = isRaised;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _isRaised != isRaised) return;
-      widget.onRaisedChanged(isRaised);
+      if (!mounted || !_sheetController.isAttached) return;
+      _updateRaisedState(
+        _sheetController.size > _minChildSize + _extentUpdateEpsilon,
+      );
     });
   }
 
@@ -169,34 +146,6 @@ class _OriginDetailDraggableSheetState
     widget.onRaisedChanged(isRaised);
   }
 
-  double _statusBarAlphaForExtent(BuildContext context, double extent) {
-    final statusBarHeight = GenesisSafeAreaInsets.top(context);
-    if (statusBarHeight <= 0) {
-      return extent >= _expandedChildSize(context) ? 1.0 : 0.0;
-    }
-    final viewportHeight = MediaQuery.sizeOf(context).height;
-    final sheetHostHeight = viewportHeight;
-    final sheetTop = sheetHostHeight * (1.0 - extent);
-    return ((statusBarHeight - sheetTop) / statusBarHeight)
-        .clamp(0.0, 1.0)
-        .toDouble();
-  }
-
-  SystemUiOverlayStyle _statusBarStyleForExtent(
-    BuildContext context,
-    double extent,
-  ) {
-    final alpha = _statusBarAlphaForExtent(context, extent);
-    if (alpha <= 0.001) return widget.baseStatusBarStyle;
-    return widget.baseStatusBarStyle.copyWith(
-      statusBarColor: originWorldDetailSheetBackgroundColor.withValues(
-        alpha: alpha,
-      ),
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final minChildSize = _minChildSize;
@@ -204,76 +153,62 @@ class _OriginDetailDraggableSheetState
     final initialChildSize = _effectiveInitialChildSize
         .clamp(minChildSize, maxChildSize)
         .toDouble();
-    final topPadding =
-        GenesisSafeAreaInsets.top(context) *
-        _statusBarAlphaForExtent(context, _sheetExtent);
-    final initialDialoguePreview = _originFirstInitialDialoguePreview(
-      widget.origin,
-    );
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: _statusBarStyleForExtent(context, _sheetExtent),
-      child: NotificationListener<DraggableScrollableNotification>(
-        onNotification: _handleSheetNotification,
-        child: DraggableScrollableSheet(
-          controller: _sheetController,
-          initialChildSize: initialChildSize,
-          minChildSize: minChildSize,
-          maxChildSize: maxChildSize,
-          snap: true,
-          snapAnimationDuration: _snapAnimationDuration,
-          builder: (context, scrollController) {
-            _sheetScrollController = scrollController;
-            return DecoratedBox(
-              key: const ValueKey<String>('origin-detail-sheet-surface'),
-              decoration: BoxDecoration(
-                color: originWorldDetailSheetBackgroundColor,
-                borderRadius: GenesisRadii.sheet,
-              ),
-              child: ClipRRect(
-                borderRadius: GenesisRadii.sheet,
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(
-                    context,
-                  ).copyWith(overscroll: false),
-                  child: CustomScrollView(
-                    controller: scrollController,
-                    key: PageStorageKey<String>(
-                      'origin-detail-bottom-sheet-${widget.origin.oid}',
-                    ),
-                    physics: const ClampingScrollPhysics(),
-                    slivers: [
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: _OriginSheetHeaderDelegate(
-                          topPadding: topPadding,
-                        ),
-                      ),
-                      if (initialDialoguePreview != null)
-                        SliverToBoxAdapter(
-                          child: _OriginInitialDialogueSection(
-                            preview: initialDialoguePreview,
-                          ),
-                        ),
-                      SliverToBoxAdapter(
-                        child: _OriginSetupRoleSection(
-                          characters: widget.origin.characters,
-                          launching: widget.launching,
-                          onSelectRole: widget.onSelectRole,
-                          onCustomizeRole: widget.onCustomizeRole,
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: _OriginBottomLaunchBar.heightFor(context),
-                        ),
-                      ),
-                    ],
+    final initialDialoguePreview = _initialDialoguePreview;
+    return NotificationListener<DraggableScrollableNotification>(
+      onNotification: _handleSheetNotification,
+      child: DraggableScrollableSheet(
+        controller: _sheetController,
+        initialChildSize: initialChildSize,
+        minChildSize: minChildSize,
+        maxChildSize: maxChildSize,
+        snap: true,
+        snapAnimationDuration: _snapAnimationDuration,
+        builder: (context, scrollController) {
+          _sheetScrollController = scrollController;
+          return DecoratedBox(
+            key: const ValueKey<String>('origin-detail-sheet-surface'),
+            decoration: BoxDecoration(
+              color: originWorldDetailSheetBackgroundColor,
+              borderRadius: GenesisRadii.sheet,
+            ),
+            child: ClipRRect(
+              borderRadius: GenesisRadii.sheet,
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(overscroll: false),
+                child: CustomScrollView(
+                  controller: scrollController,
+                  key: PageStorageKey<String>(
+                    'origin-detail-bottom-sheet-${widget.origin.oid}',
                   ),
+                  physics: const ClampingScrollPhysics(),
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: const _OriginSheetHeaderDelegate(topPadding: 0),
+                    ),
+                    if (initialDialoguePreview != null)
+                      ..._originInitialDialogueSlivers(initialDialoguePreview),
+                    SliverToBoxAdapter(
+                      child: _OriginSetupRoleSection(
+                        characters: widget.origin.characters,
+                        launching: widget.launching,
+                        onSelectRole: widget.onSelectRole,
+                        onCustomizeRole: widget.onCustomizeRole,
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: _OriginBottomLaunchBar.heightFor(context),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

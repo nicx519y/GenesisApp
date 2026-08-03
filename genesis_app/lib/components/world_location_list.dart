@@ -20,6 +20,50 @@ typedef WorldLocationNodeHeaderBuilder =
 typedef WorldLocationNodeFooterBuilder =
     Widget? Function(BuildContext context, WorldPoint point, int level);
 
+enum _WorldLocationListRowKind { flatPoint, nodeHeader, nodeFooter }
+
+class _WorldLocationListRow {
+  const _WorldLocationListRow._({
+    required this.kind,
+    required this.point,
+    required this.level,
+    this.node,
+    this.showDivider = false,
+  });
+
+  const _WorldLocationListRow.flatPoint(
+    WorldPoint point, {
+    required bool showDivider,
+  }) : this._(
+         kind: _WorldLocationListRowKind.flatPoint,
+         point: point,
+         level: 0,
+         showDivider: showDivider,
+       );
+
+  _WorldLocationListRow.nodeHeader(WorldMapLocationNode node, int level)
+    : this._(
+        kind: _WorldLocationListRowKind.nodeHeader,
+        point: node.point,
+        node: node,
+        level: level,
+      );
+
+  _WorldLocationListRow.nodeFooter(WorldMapLocationNode node, int level)
+    : this._(
+        kind: _WorldLocationListRowKind.nodeFooter,
+        point: node.point,
+        node: node,
+        level: level,
+      );
+
+  final _WorldLocationListRowKind kind;
+  final WorldPoint point;
+  final WorldMapLocationNode? node;
+  final int level;
+  final bool showDivider;
+}
+
 class WorldLocationList extends StatefulWidget {
   const WorldLocationList({
     super.key,
@@ -27,6 +71,7 @@ class WorldLocationList extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.physics,
     this.enableOuterScrollHandoff = true,
+    this.lazyBuildRows = false,
     this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 12),
     this.recentChatLocationIds = const <String>{},
     this.onPointTap,
@@ -41,6 +86,7 @@ class WorldLocationList extends StatefulWidget {
   final List<WorldMapLocationNode> locationNodes;
   final ScrollPhysics? physics;
   final bool enableOuterScrollHandoff;
+  final bool lazyBuildRows;
   final EdgeInsetsGeometry padding;
   final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint>? onPointTap;
@@ -98,6 +144,14 @@ class _WorldLocationListState extends State<WorldLocationList> {
   @override
   Widget build(BuildContext context) {
     final outerController = _outerController;
+    final rows = widget.lazyBuildRows
+        ? (widget.locationNodes.isNotEmpty
+              ? _flattenNodeRows(widget.locationNodes)
+              : _flattenPointRows(widget.points))
+        : const <_WorldLocationListRow>[];
+    final headerOffset = widget.header == null ? 0 : 1;
+    final itemCount =
+        rows.length + headerOffset + (widget.footer == null ? 0 : 1);
     return Listener(
       onPointerDown: (event) {
         _pointerActive = true;
@@ -159,51 +213,69 @@ class _WorldLocationListState extends State<WorldLocationList> {
             velocity: notification.velocity,
           );
         },
-        child: ListView(
-          controller: _listController,
-          physics:
-              widget.physics ??
-              (_outerPageAtTop
-                  ? const AlwaysScrollableScrollPhysics(
-                      parent: ClampingScrollPhysics(),
-                    )
-                  : const NeverScrollableScrollPhysics()),
-          padding: widget.padding,
-          children: [
-            if (widget.header != null) widget.header!,
-            if (widget.locationNodes.isNotEmpty)
-              ..._buildNodeRows(widget.locationNodes)
-            else
-              ..._buildFlatPointRows(widget.points),
-            if (widget.footer != null) widget.footer!,
-          ],
-        ),
+        child: widget.lazyBuildRows
+            ? ListView.builder(
+                controller: _listController,
+                physics: _listPhysics,
+                padding: widget.padding,
+                itemCount: itemCount,
+                itemBuilder: (context, index) {
+                  if (widget.header != null && index == 0) {
+                    return widget.header!;
+                  }
+                  final rowIndex = index - headerOffset;
+                  if (rowIndex >= rows.length) return widget.footer!;
+                  return _buildRow(rows[rowIndex]);
+                },
+              )
+            : ListView(
+                controller: _listController,
+                physics: _listPhysics,
+                padding: widget.padding,
+                children: [
+                  if (widget.header != null) widget.header!,
+                  if (widget.locationNodes.isNotEmpty)
+                    ..._buildEagerNodeRows(widget.locationNodes)
+                  else
+                    ..._buildEagerFlatPointRows(widget.points),
+                  if (widget.footer != null) widget.footer!,
+                ],
+              ),
       ),
     );
   }
 
-  List<Widget> _buildFlatPointRows(List<WorldPoint> points) {
+  ScrollPhysics get _listPhysics {
+    return widget.physics ??
+        (_outerPageAtTop
+            ? const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
+              )
+            : const NeverScrollableScrollPhysics());
+  }
+
+  List<Widget> _buildEagerFlatPointRows(List<WorldPoint> points) {
     return [
-      for (var i = 0; i < points.length; i++) ...[
+      for (var index = 0; index < points.length; index++) ...[
         _PointListItem(
-          point: points[i],
-          level: points[i].depth,
+          point: points[index],
+          level: points[index].depth,
           showRecentChatIcon: _pointMatchesLocationIds(
-            points[i],
+            points[index],
             widget.recentChatLocationIds,
           ),
           onTap: widget.onPointTap,
         ),
-        if (i < points.length - 1) const Divider(height: 1),
+        if (index < points.length - 1) const Divider(height: 1),
       ],
     ];
   }
 
-  List<Widget> _buildNodeRows(List<WorldMapLocationNode> nodes) {
-    return _buildNodeRowsAtLevel(nodes, 0);
+  List<Widget> _buildEagerNodeRows(List<WorldMapLocationNode> nodes) {
+    return _buildEagerNodeRowsAtLevel(nodes, 0);
   }
 
-  List<Widget> _buildNodeRowsAtLevel(
+  List<Widget> _buildEagerNodeRowsAtLevel(
     List<WorldMapLocationNode> nodes,
     int level,
   ) {
@@ -212,10 +284,9 @@ class _WorldLocationListState extends State<WorldLocationList> {
       final hideSyntheticRootHeader =
           node.point.name.trim().isEmpty && node.children.isNotEmpty;
       if (hideSyntheticRootHeader) {
-        rows.addAll(_buildNodeRowsAtLevel(node.children, level));
+        rows.addAll(_buildEagerNodeRowsAtLevel(node.children, level));
         continue;
       }
-
       if (node.children.isEmpty && node.point.isLeafLocation) {
         final customHeader = widget.nodeHeaderBuilder?.call(
           context,
@@ -247,7 +318,6 @@ class _WorldLocationListState extends State<WorldLocationList> {
         );
         continue;
       }
-
       final customHeader = widget.nodeHeaderBuilder?.call(
         context,
         node.point,
@@ -265,7 +335,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
               onTap: widget.onNodeHeaderTap,
             ),
       );
-      rows.addAll(_buildNodeRowsAtLevel(node.children, level + 1));
+      rows.addAll(_buildEagerNodeRowsAtLevel(node.children, level + 1));
       final customFooter = widget.nodeFooterBuilder?.call(
         context,
         node.point,
@@ -274,6 +344,114 @@ class _WorldLocationListState extends State<WorldLocationList> {
       if (customFooter != null) rows.add(customFooter);
     }
     return rows;
+  }
+
+  List<_WorldLocationListRow> _flattenPointRows(List<WorldPoint> points) {
+    return List<_WorldLocationListRow>.generate(
+      points.length,
+      (index) => _WorldLocationListRow.flatPoint(
+        points[index],
+        showDivider: index < points.length - 1,
+      ),
+      growable: false,
+    );
+  }
+
+  List<_WorldLocationListRow> _flattenNodeRows(
+    List<WorldMapLocationNode> nodes,
+  ) {
+    final rows = <_WorldLocationListRow>[];
+    _appendNodeRows(rows, nodes, 0);
+    return rows;
+  }
+
+  void _appendNodeRows(
+    List<_WorldLocationListRow> rows,
+    List<WorldMapLocationNode> nodes,
+    int level,
+  ) {
+    for (final node in nodes) {
+      final hideSyntheticRootHeader =
+          node.point.name.trim().isEmpty && node.children.isNotEmpty;
+      if (hideSyntheticRootHeader) {
+        _appendNodeRows(rows, node.children, level);
+        continue;
+      }
+      rows.add(_WorldLocationListRow.nodeHeader(node, level));
+      if (node.children.isEmpty) continue;
+      _appendNodeRows(rows, node.children, level + 1);
+      if (widget.nodeFooterBuilder != null) {
+        rows.add(_WorldLocationListRow.nodeFooter(node, level));
+      }
+    }
+  }
+
+  Widget _buildRow(_WorldLocationListRow row) {
+    if (row.kind == _WorldLocationListRowKind.flatPoint) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PointListItem(
+            point: row.point,
+            level: row.point.depth,
+            showRecentChatIcon: _pointMatchesLocationIds(
+              row.point,
+              widget.recentChatLocationIds,
+            ),
+            onTap: widget.onPointTap,
+          ),
+          if (row.showDivider) const Divider(height: 1),
+        ],
+      );
+    }
+
+    final node = row.node!;
+    if (row.kind == _WorldLocationListRowKind.nodeFooter) {
+      return widget.nodeFooterBuilder?.call(context, row.point, row.level) ??
+          const SizedBox.shrink();
+    }
+
+    final customHeader = widget.nodeHeaderBuilder?.call(
+      context,
+      row.point,
+      row.level,
+    );
+    if (node.children.isEmpty && row.point.isLeafLocation) {
+      if (customHeader != null) {
+        final customFooter = widget.nodeFooterBuilder?.call(
+          context,
+          row.point,
+          row.level,
+        );
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [customHeader, if (customFooter != null) customFooter],
+        );
+      }
+      return _LocationCard(
+        point: row.point,
+        targetPoint: node.chatTargetPoint ?? row.point,
+        showRecentChatIcon: _nodeMatchesLocationIds(
+          node,
+          widget.recentChatLocationIds,
+        ),
+        level: row.level,
+        indent: row.level * 15.0,
+        onTap: widget.onPointTap,
+      );
+    }
+    return customHeader ??
+        _NodeHeader(
+          point: row.point,
+          level: row.level,
+          showRecentChatIcon: _nodeMatchesLocationIds(
+            node,
+            widget.recentChatLocationIds,
+          ),
+          onTap: widget.onNodeHeaderTap,
+        );
   }
 
   void _setOuterController(ScrollController? controller) {

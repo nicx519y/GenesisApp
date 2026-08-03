@@ -144,6 +144,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   int _worldTickLockPollingGeneration = 0;
   Timer? _worldTickLockPollingTimer;
   int _lastAppliedChatroomWorldProgressRevision = 0;
+  WorldChatroomState? _deferredBottomSheetMapChatroomState;
   List<WorldMapBubbleCandidate> _mapBubbleCandidates =
       const <WorldMapBubbleCandidate>[];
   int? _pendingProgressTickCount;

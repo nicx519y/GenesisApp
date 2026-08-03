@@ -91,6 +91,38 @@ void main() {
     expect(controller.residentMapIds.toSet(), residentBeforeActivation);
   });
 
+  test('suspended warmup keeps the foreground and defers new residents', () {
+    final controller = TilemapPrerenderController(
+      onChanged: () {},
+      warmupSuspended: true,
+    );
+    addTearDown(controller.dispose);
+
+    final active = _singleTileConfig('active');
+    const warmMapIds = <String>['first-warm', 'second-warm', 'third-warm'];
+    controller.activateMap(active, preferredMapIds: warmMapIds);
+    controller.configure(
+      environmentKey: 'environment',
+      activeMapId: active.id,
+      preferredMapIds: warmMapIds,
+    );
+    controller.markReady(active.id);
+    for (final mapId in warmMapIds) {
+      controller.rememberConfig(_singleTileConfig(mapId));
+    }
+
+    expect(controller.warmupSuspended, isTrue);
+    expect(controller.residentMapIds, <String>['active']);
+    expect(controller.pendingMapIds, warmMapIds);
+    expect(controller.warmingMapId, isNull);
+
+    controller.setWarmupSuspended(false);
+
+    expect(controller.residentMapIds, <String>['active', 'first-warm']);
+    expect(controller.warmingMapId, 'first-warm');
+    expect(controller.pendingMapIds, <String>['second-warm', 'third-warm']);
+  });
+
   test('navigation keeps only the requested parent and warm targets', () {
     final controller = TilemapPrerenderController(onChanged: () {});
     addTearDown(controller.dispose);
@@ -228,6 +260,47 @@ void main() {
     expect(find.byKey(const ValueKey<String>('tile-60-50')), findsNothing);
     expect(find.byKey(const ValueKey<String>('tile-99-99')), findsNothing);
     expect(find.byType(Image), findsNWidgets(2));
+  });
+
+  testWidgets('suspended warm surface is offstage and keeps its state', (
+    tester,
+  ) async {
+    final childKey = GlobalKey();
+
+    Widget buildSurface({required bool suspended}) {
+      return _surfaceHarness(
+        viewportSize: const Size(320, 480),
+        child: TilemapPrerenderSurface(
+          interactive: false,
+          suspended: suspended,
+          child: StatefulBuilder(
+            key: childKey,
+            builder: (context, setState) => const SizedBox.expand(),
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildSurface(suspended: true));
+
+    final stateBeforeResume = childKey.currentState;
+    expect(stateBeforeResume, isNotNull);
+    expect(
+      tester
+          .widgetList<Offstage>(find.byType(Offstage, skipOffstage: false))
+          .any((widget) => widget.offstage),
+      isTrue,
+    );
+
+    await tester.pumpWidget(buildSurface(suspended: false));
+
+    expect(childKey.currentState, same(stateBeforeResume));
+    expect(
+      tester
+          .widgetList<Offstage>(find.byType(Offstage, skipOffstage: false))
+          .every((widget) => !widget.offstage),
+      isTrue,
+    );
   });
 }
 

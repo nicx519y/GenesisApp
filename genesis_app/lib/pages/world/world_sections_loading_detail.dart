@@ -137,6 +137,7 @@ class WorldDetailSection extends StatelessWidget {
     required this.currentUid,
     this.newUserJoinNotice,
     this.onDeleteWorld,
+    this.showCharacters = true,
   });
 
   final WorldDetail world;
@@ -144,6 +145,7 @@ class WorldDetailSection extends StatelessWidget {
   final WorldNewUserJoinNotice? newUserJoinNotice;
   final Future<void> Function(BuildContext context, WorldDetail world)?
   onDeleteWorld;
+  final bool showCharacters;
 
   @override
   Widget build(BuildContext context) {
@@ -308,7 +310,8 @@ class WorldDetailSection extends StatelessWidget {
           title: 'Cast',
         ),
         const SizedBox(height: 8),
-        WorldCharactersSection(world: world, currentUid: currentUid),
+        if (showCharacters)
+          WorldCharactersSection(world: world, currentUid: currentUid),
       ],
     );
   }
@@ -327,6 +330,65 @@ class WorldDetailSection extends StatelessWidget {
     );
     if (!context.mounted) return;
     showGenesisToast(context, 'Link copied. Share it with your friends.');
+  }
+}
+
+class WorldDetailSectionListView extends StatelessWidget {
+  const WorldDetailSectionListView({
+    required this.storageKey,
+    required this.world,
+    required this.currentUid,
+    this.newUserJoinNotice,
+    this.onDeleteWorld,
+  });
+
+  final String storageKey;
+  final WorldDetail world;
+  final String currentUid;
+  final WorldNewUserJoinNotice? newUserJoinNotice;
+  final Future<void> Function(BuildContext context, WorldDetail world)?
+  onDeleteWorld;
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedCharacters = worldSortedCharacters(
+      world.characters,
+      currentUid,
+    );
+    final hasCharacterRole = sortedCharacters.any(worldIsCharacterRole);
+    final itemCount = 1 + math.max(sortedCharacters.length, 1).toInt();
+    return WorldSectionListView.builder(
+      storageKey: storageKey,
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return WorldDetailSection(
+            world: world,
+            currentUid: currentUid,
+            newUserJoinNotice: newUserJoinNotice,
+            onDeleteWorld: onDeleteWorld,
+            showCharacters: false,
+          );
+        }
+        if (sortedCharacters.isEmpty) {
+          return const WorldEmptySection(text: 'No characters yet.');
+        }
+        final characterIndex = index - 1;
+        final character = sortedCharacters[characterIndex];
+        return Padding(
+          padding: EdgeInsets.only(
+            top: characterIndex == 0 ? (hasCharacterRole ? 5 : 0) : 22,
+          ),
+          child: WorldCharacterRow(
+            character: character,
+            currentUid: currentUid,
+            subtitle: worldCharacterDescriptionText(character),
+            subtitleColor: const Color(0xFF666666),
+            showCharacterDetails: true,
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -588,19 +650,40 @@ class WorldDetailCoverImage extends StatelessWidget {
 }
 
 class WorldSectionListView extends StatelessWidget {
-  const WorldSectionListView({required this.storageKey, required this.child});
+  const WorldSectionListView({required this.storageKey, required this.child})
+    : itemCount = null,
+      itemBuilder = null;
+
+  const WorldSectionListView.builder({
+    required this.storageKey,
+    required this.itemCount,
+    required this.itemBuilder,
+  }) : child = null;
 
   final String storageKey;
-  final Widget child;
+  final Widget? child;
+  final int? itemCount;
+  final IndexedWidgetBuilder? itemBuilder;
 
   @override
   Widget build(BuildContext context) {
+    final itemBuilder = this.itemBuilder;
+    if (itemBuilder != null) {
+      return ListView.builder(
+        key: PageStorageKey<String>(storageKey),
+        primary: false,
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
+        itemCount: itemCount,
+        itemBuilder: itemBuilder,
+      );
+    }
     return ListView(
       key: PageStorageKey<String>(storageKey),
       primary: false,
       physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
-      children: [child],
+      children: [child!],
     );
   }
 }

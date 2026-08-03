@@ -285,9 +285,11 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     _loadingCoordinator = TilemapLoadingCoordinator(
       onChanged: _handleLoadingCoordinatorChanged,
       onSilentMapReady: _handleSilentMapReady,
+      backgroundWorkSuspended: widget.animationsPaused,
     );
     _prerenderController = TilemapPrerenderController(
       onChanged: _handlePrerenderControllerChanged,
+      warmupSuspended: widget.animationsPaused,
     );
     tilemapSettingsButtonVisibility.listenable.addListener(
       _handleSettingsButtonVisibilityChanged,
@@ -318,6 +320,10 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
         widget.onDisplayReadinessChanged) {
       _reportedDisplayReady = null;
       _reportDisplayReadiness(_isCurrentDisplayReady);
+    }
+    if (oldWidget.animationsPaused != widget.animationsPaused) {
+      _loadingCoordinator.setBackgroundWorkSuspended(widget.animationsPaused);
+      _prerenderController.setWarmupSuspended(widget.animationsPaused);
     }
     final entityChanged =
         oldWidget._source != widget._source ||
@@ -1294,6 +1300,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     return TilemapPrerenderSurface(
       key: ValueKey<String>('tilemap-renderer-surface-${config.id}-$revision'),
       interactive: interactive,
+      suspended: widget.animationsPaused,
       child: _buildRenderer(
         config,
         rendererKey: ValueKey<String>(

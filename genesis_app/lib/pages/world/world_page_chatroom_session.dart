@@ -25,6 +25,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
   }
 
   void _attachWorldChatroom(WorldChatroomService service) {
+    _deferredBottomSheetMapChatroomState = null;
     _worldChatroom = service;
     _worldChatroomSub = service.states.listen(_handleWorldChatroomState);
     _worldChatroomFailureSub = bindChatroomFailureToast(
@@ -200,34 +201,95 @@ extension _WorldPageChatroomSession on _WorldPageState {
         (socketCurrentTime.isNotEmpty || socketTickNo > 0) &&
         state.latestSocketCurrentTimeRevision >
             _lastAppliedChatroomWorldProgressRevision;
-    _setWorldPageState(() {
-      if (world != null && _shouldApplyChatroomWorldSnapshot(world)) {
+    final shouldApplyWorldSnapshot =
+        world != null && _shouldApplyChatroomWorldSnapshot(world);
+    final worldBeforeSocketProgress = currentWorld;
+    final socketProgressChangesWorld =
+        shouldApplySocketWorldProgress &&
+        worldBeforeSocketProgress != null &&
+        ((socketTickNo > 0 &&
+                socketTickNo != worldBeforeSocketProgress.tickCount) ||
+            (socketCurrentTime.isNotEmpty &&
+                socketCurrentTime != worldBeforeSocketProgress.currentTime));
+    if (shouldApplySocketWorldProgress) {
+      _lastAppliedChatroomWorldProgressRevision =
+          state.latestSocketCurrentTimeRevision;
+    }
+    final deferMapVisuals = _worldBottomSheetOpen;
+    List<WorldMapBubbleCandidate>? preparedMapBubbleCandidates;
+    ({String locationId, Set<String> pathIds})? preparedRecentSelection;
+    var hasPreparedRecentSelection = false;
+    var mapVisualsChanged = false;
+    if (deferMapVisuals) {
+      _deferredBottomSheetMapChatroomState = state;
+    } else if (!shouldApplyWorldSnapshot && !socketProgressChangesWorld) {
+      preparedMapBubbleCandidates = _buildMapBubbleCandidates(
+        state,
+        currentWorld,
+      );
+      preparedRecentSelection = _recentChatLocationSelectionForState(
+        state,
+        currentWorld,
+      );
+      hasPreparedRecentSelection = true;
+      mapVisualsChanged =
+          !_sameMapBubbleCandidates(
+            _mapBubbleCandidates,
+            preparedMapBubbleCandidates,
+          ) ||
+          !_sameRecentChatLocationSelection(preparedRecentSelection);
+    }
+    final shouldMutatePageState =
+        shouldApplyWorldSnapshot ||
+        socketProgressChangesWorld ||
+        mapVisualsChanged ||
+        newUserJoinNotice != null;
+    void applyState() {
+      var worldDetailChanged = false;
+      if (world != null && shouldApplyWorldSnapshot) {
         _world = world;
-        _sectionsWorldNotifier.value = world;
         _syncLocationChatDescriptors(world);
         shouldSyncRelationStatus = true;
+        worldDetailChanged = true;
       }
       final currentWorldDetail = _world;
-      if (shouldApplySocketWorldProgress && currentWorldDetail != null) {
+      if (socketProgressChangesWorld && currentWorldDetail != null) {
         _world = currentWorldDetail.copyWith(
           tickCount: socketTickNo > 0 ? socketTickNo : null,
           currentTime: socketCurrentTime.isEmpty ? null : socketCurrentTime,
         );
-        _sectionsWorldNotifier.value = _world;
-        _lastAppliedChatroomWorldProgressRevision =
-            state.latestSocketCurrentTimeRevision;
+        worldDetailChanged = true;
       }
-      _replaceMapBubbleCandidates(
-        _buildMapBubbleCandidates(state, currentWorld),
-      );
-      _applyRecentChatLocationSelection(state, _world ?? currentWorld);
+      if (worldDetailChanged) {
+        _sectionsWorldNotifier.value = _world;
+      }
+      if (!deferMapVisuals) {
+        if (preparedMapBubbleCandidates != null && hasPreparedRecentSelection) {
+          _replaceMapBubbleCandidates(preparedMapBubbleCandidates);
+          _applyRecentChatLocationSelectionValue(preparedRecentSelection);
+        } else {
+          final resolvedWorld = _world ?? currentWorld;
+          _replaceMapBubbleCandidates(
+            _buildMapBubbleCandidates(state, resolvedWorld),
+          );
+          _applyRecentChatLocationSelection(state, resolvedWorld);
+        }
+      }
       if (newUserJoinNotice != null) {
         _applyNewUserJoinNotice(
           newUserJoinNotice,
           state.latestNewUserJoinRevision,
         );
       }
-    });
+    }
+
+    if (shouldMutatePageState) {
+      if (deferMapVisuals) {
+        applyState();
+      } else {
+        _setWorldPageState(applyState);
+      }
+    }
     if (shouldSyncRelationStatus) {
       _syncWorldChatroomForRelationStatus(world!.relationStatus);
     }
@@ -241,15 +303,43 @@ extension _WorldPageChatroomSession on _WorldPageState {
     }
   }
 
-  void _applyRecentChatLocationSelection(
+  bool _applyRecentChatLocationSelection(
     WorldChatroomState state,
     WorldDetail? world,
   ) {
     final selection = _recentChatLocationSelectionForState(state, world);
+    return _applyRecentChatLocationSelectionValue(selection);
+  }
+
+  bool _applyRecentChatLocationSelectionValue(
+    ({String locationId, Set<String> pathIds})? selection,
+  ) {
+    if (_sameRecentChatLocationSelection(selection)) return false;
     _recentChatLocationIds = selection == null
         ? const <String>{}
         : Set<String>.unmodifiable([selection.locationId]);
     _recentChatLocationPathIds = selection?.pathIds ?? const <String>{};
+    return true;
+  }
+
+  bool _sameRecentChatLocationSelection(
+    ({String locationId, Set<String> pathIds})? selection,
+  ) {
+    final nextLocationIds = selection == null
+        ? const <String>{}
+        : <String>{selection.locationId};
+    final nextPathIds = selection?.pathIds ?? const <String>{};
+    return setEquals(_recentChatLocationIds, nextLocationIds) &&
+        setEquals(_recentChatLocationPathIds, nextPathIds);
+  }
+
+  void _applyDeferredBottomSheetMapChatroomState() {
+    final state = _deferredBottomSheetMapChatroomState;
+    _deferredBottomSheetMapChatroomState = null;
+    if (state == null) return;
+    final world = _world;
+    _replaceMapBubbleCandidates(_buildMapBubbleCandidates(state, world));
+    _applyRecentChatLocationSelection(state, world);
   }
 
   ({String locationId, Set<String> pathIds})?
@@ -392,6 +482,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
     _worldChatroomFailureSub = null;
     _worldChatroomBalanceSub = null;
     _worldChatroom = null;
+    _deferredBottomSheetMapChatroomState = null;
     _preloadedLocationMessageIds.clear();
     _preloadingLocationMessageFutures.clear();
     _mapBubbleMessagesReady = false;

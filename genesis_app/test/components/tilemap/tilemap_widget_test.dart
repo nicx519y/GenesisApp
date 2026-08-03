@@ -870,6 +870,100 @@ void main() {
   );
 
   testWidgets(
+    'animationsPaused keeps initial loading but defers background images',
+    (tester) async {
+      final animationsPaused = ValueNotifier<bool>(true);
+      addTearDown(animationsPaused.dispose);
+      final pendingLoads = <String, Completer<void>>{};
+
+      Future<void> loadTileImage(String assetUrl) {
+        return pendingLoads.putIfAbsent(assetUrl, Completer<void>.new).future;
+      }
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(
+            _TilemapTransport(data: _visibleFirstTilemapData()),
+          ),
+          child: MaterialApp(
+            home: Scaffold(
+              body: ValueListenableBuilder<bool>(
+                valueListenable: animationsPaused,
+                builder: (context, paused, _) {
+                  return Tilemap.origin(
+                    originId: 'o_1',
+                    animationsPaused: paused,
+                    tileImageLoader: loadTileImage,
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(pendingLoads, hasLength(1));
+      expect(pendingLoads.keys.single, contains('/a.png?'));
+      pendingLoads.values.single.complete();
+      for (var frame = 0; frame < 6; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(_liveTilemapRendererFinder(), findsOneWidget);
+      expect(
+        pendingLoads,
+        hasLength(1),
+        reason: 'background decode work must stay queued while the sheet is up',
+      );
+
+      animationsPaused.value = false;
+      for (var frame = 0; frame < 4; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(pendingLoads, hasLength(4));
+      expect(
+        pendingLoads.keys.where((assetUrl) => !assetUrl.contains('/a.png?')),
+        hasLength(tilemapBackgroundImagePreloadConcurrency),
+      );
+
+      animationsPaused.value = true;
+      await tester.pump();
+      pendingLoads.entries
+          .firstWhere((entry) => entry.key.contains('/b.png?'))
+          .value
+          .complete();
+      await tester.pump();
+      expect(
+        pendingLoads,
+        hasLength(4),
+        reason: 'workers must not claim another background asset after pause',
+      );
+      for (final completer in pendingLoads.values) {
+        if (!completer.isCompleted) completer.complete();
+      }
+      await tester.pump();
+      await tester.pump();
+      expect(pendingLoads, hasLength(4));
+
+      animationsPaused.value = false;
+      for (var frame = 0; frame < 4; frame += 1) {
+        await tester.pump();
+      }
+      expect(
+        pendingLoads.keys.where((assetUrl) => assetUrl.contains('/e.png?')),
+        hasLength(1),
+      );
+      for (final completer in pendingLoads.values) {
+        if (!completer.isCompleted) completer.complete();
+      }
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'Tilemap enables foreground interaction before viewport readiness',
     (tester) async {
       final pendingLoad = Completer<void>();
@@ -2029,6 +2123,129 @@ void main() {
       );
       expect(tester.state(rootFinder), same(rootState));
       expect(tester.state(branchFinder), same(branchState));
+    },
+  );
+
+  testWidgets(
+    'animationsPaused defers warm maps and offstages existing warm renderers',
+    (tester) async {
+      debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
+      final animationsPaused = ValueNotifier<bool>(true);
+      addTearDown(animationsPaused.dispose);
+      final branchResponse = Completer<Map<String, dynamic>>();
+      final transport = _ScriptedLocationTilemapTransport({
+        'root': [
+          Future<Map<String, dynamic>>.value(
+            _locationTilemapData('branch', assetName: 'root'),
+          ),
+        ],
+        'branch': [branchResponse.future],
+      });
+      final loadedAssets = <String>[];
+      final branch = _locationNode(
+        'branch',
+        children: [_locationNode('leaf_a'), _locationNode('leaf_b')],
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: MaterialApp(
+            home: Scaffold(
+              body: ValueListenableBuilder<bool>(
+                valueListenable: animationsPaused,
+                builder: (context, paused, _) {
+                  return Tilemap.world(
+                    worldId: 'w_1',
+                    locationNodes: [branch],
+                    animationsPaused: paused,
+                    tileImageLoader: (assetUrl) async {
+                      loadedAssets.add(assetUrl);
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(transport.requestCount('root'), 1);
+      expect(transport.requestCount('branch'), 0);
+      expect(_tilemapRendererForMap('world:w_1:root'), findsOneWidget);
+      expect(_tilemapRendererForMap('world:w_1:branch'), findsNothing);
+
+      animationsPaused.value = false;
+      for (
+        var frame = 0;
+        frame < 10 && transport.requestCount('branch') == 0;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(transport.requestCount('branch'), 1);
+      animationsPaused.value = true;
+      await tester.pump();
+      branchResponse.complete(
+        _locationTilemapData('leaf_a', assetName: 'branch'),
+      );
+      for (var frame = 0; frame < 4; frame += 1) {
+        await tester.pump();
+      }
+      expect(
+        loadedAssets.any((assetUrl) => assetUrl.contains('/branch.png?')),
+        isFalse,
+      );
+      expect(_tilemapRendererForMap('world:w_1:branch'), findsNothing);
+
+      animationsPaused.value = false;
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+      expect(
+        loadedAssets.any((assetUrl) => assetUrl.contains('/branch.png?')),
+        isTrue,
+      );
+      final visibleWarmRenderer = _tilemapRendererForMap('world:w_1:branch');
+      expect(visibleWarmRenderer, findsOneWidget);
+      final warmRendererState = tester.state(visibleWarmRenderer);
+
+      animationsPaused.value = true;
+      await tester.pump();
+
+      final offstageWarmRenderer = find.byWidgetPredicate(
+        (widget) =>
+            widget is TilemapRenderer && widget.config.id == 'world:w_1:branch',
+        description: 'offstage warm TilemapRenderer',
+        skipOffstage: false,
+      );
+      expect(offstageWarmRenderer, findsOneWidget);
+      expect(tester.state(offstageWarmRenderer), same(warmRendererState));
+      expect(_tilemapRendererForMap('world:w_1:branch'), findsNothing);
+      expect(
+        tester
+            .widgetList<Offstage>(
+              find.ancestor(
+                of: offstageWarmRenderer,
+                matching: find.byType(Offstage, skipOffstage: false),
+              ),
+            )
+            .any((widget) => widget.offstage),
+        isTrue,
+      );
+      expect(_tilemapRendererForMap('world:w_1:root'), findsOneWidget);
+
+      animationsPaused.value = false;
+      await tester.pump();
+
+      expect(
+        tester.state(_tilemapRendererForMap('world:w_1:branch')),
+        same(warmRendererState),
+      );
     },
   );
 

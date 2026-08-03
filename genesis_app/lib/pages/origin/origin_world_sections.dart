@@ -245,59 +245,66 @@ class _DiscussSection extends StatelessWidget {
   }
 }
 
-class _OriginInitialDialogueSection extends StatelessWidget {
-  const _OriginInitialDialogueSection({required this.preview});
-
-  final _OriginInitialDialoguePreview preview;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = kLocationChatStyle.copyWith(
-      headerTitleTextStyle: kLocationChatStyle.headerTitleTextStyle.copyWith(
-        color: const Color(0xFF111111),
-      ),
-      headerTitleIconColor: const Color(0xFF111111),
-      senderNameTextStyle: kLocationChatStyle.senderNameTextStyle.copyWith(
-        color: const Color(0xFF111111),
-      ),
-    );
-    return Padding(
-      padding: style.messageListPadding.copyWith(top: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.place_outlined,
-                size: style.headerTitleIconSize,
-                color: style.headerTitleIconColor,
-              ),
-              SizedBox(width: style.headerTitleIconGap),
-              Expanded(
-                child: Text(
-                  preview.locationName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.left,
-                  style: style.headerTitleTextStyle.copyWith(fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          for (final message in preview.messages)
-            ChatMessageRow(
-              key: ValueKey<String>(message.localId),
-              message: message,
-              showDateDivider: false,
-              style: style,
+List<Widget> _originInitialDialogueSlivers(
+  _OriginInitialDialoguePreview preview,
+) {
+  final style = kLocationChatStyle.copyWith(
+    headerTitleTextStyle: kLocationChatStyle.headerTitleTextStyle.copyWith(
+      color: const Color(0xFF111111),
+    ),
+    headerTitleIconColor: const Color(0xFF111111),
+    senderNameTextStyle: kLocationChatStyle.senderNameTextStyle.copyWith(
+      color: const Color(0xFF111111),
+    ),
+  );
+  final padding = style.messageListPadding;
+  return <Widget>[
+    SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(padding.left, 6, padding.right, 18),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.place_outlined,
+              size: style.headerTitleIconSize,
+              color: style.headerTitleIconColor,
             ),
-        ],
+            SizedBox(width: style.headerTitleIconGap),
+            Expanded(
+              child: Text(
+                preview.locationName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.left,
+                style: style.headerTitleTextStyle.copyWith(fontSize: 16),
+              ),
+            ),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+    SliverPadding(
+      padding: EdgeInsets.fromLTRB(
+        padding.left,
+        0,
+        padding.right,
+        padding.bottom,
+      ),
+      sliver: SliverList.builder(
+        itemCount: preview.messages.length,
+        itemBuilder: (context, index) {
+          final message = preview.messages[index];
+          return ChatMessageRow(
+            key: ValueKey<String>(message.localId),
+            message: message,
+            showDateDivider: false,
+            style: style,
+          );
+        },
+      ),
+    ),
+  ];
 }
 
 String _originRoleCardAvatarUrl(BuildContext context, String sourceUrl) {

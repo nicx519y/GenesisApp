@@ -203,6 +203,7 @@ void main() {
     expect(singleSectionSheet, contains('borderRadius: GenesisRadii.sheet'));
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
     expect(sectionListView, contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'));
+    expect(sectionListView, contains('ListView.builder('));
     expect(source, isNot(contains('EdgeInsets.fromLTRB(24, 14, 24, 32)')));
     expect(bottomTags, isNot(contains('TabBar(')));
     expect(source, contains('_openWorldBottomSheet('));
@@ -251,8 +252,14 @@ void main() {
     );
     expect(
       detailSection,
-      contains('const SizedBox(height: 8),\n        WorldCharactersSection'),
+      contains(
+        'if (showCharacters)\n'
+        '          WorldCharactersSection',
+      ),
     );
+    expect(sections, contains('class WorldDetailSectionListView'));
+    expect(sections, contains('WorldSectionListView.builder('));
+    expect(sections, contains('showCharacters: false'));
     expect(
       detailSection,
       contains('const SizedBox(height: 4),\n        GenesisPairedMetaRow'),
@@ -403,6 +410,33 @@ void main() {
     expect(source, isNot(contains('messageBubbleIndex:')));
     expect(source, isNot(contains('messageBubbleVisible:')));
     expect(source, isNot(contains('WorldMapBubbleCoordinator')));
+  });
+
+  test('world sheet coalesces background map chatroom updates', () {
+    final chatroom = File(
+      'lib/pages/world/world_page_chatroom_session.dart',
+    ).readAsStringSync();
+    final sheets = worldPageSheetsSource;
+
+    expect(chatroom, contains('_deferredBottomSheetMapChatroomState = state'));
+    expect(chatroom, contains('if (deferMapVisuals)'));
+    expect(chatroom, contains('_sameMapBubbleCandidates('));
+    expect(chatroom, contains('_sameRecentChatLocationSelection('));
+    expect(sheets, contains('_applyDeferredBottomSheetMapChatroomState();'));
+  });
+
+  test('world sheet caches location projection inputs', () {
+    final bottomSheet = worldBottomSheetSource.readAsStringSync();
+    final locationBuilder = bottomSheet.substring(
+      bottomSheet.indexOf(
+        'WorldLocationListData _locationListDataForCurrentWorld()',
+      ),
+      bottomSheet.indexOf('Widget _buildDetailSectionPage()'),
+    );
+
+    expect(locationBuilder, contains('identical(_cachedProcessedLocationTree'));
+    expect(locationBuilder, contains('identical(_cachedCharacterPositions'));
+    expect(locationBuilder, contains('worldLocationListDataFor('));
   });
 
   test('world keyboard metrics do not rebuild the covered map', () {

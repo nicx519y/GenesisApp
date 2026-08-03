@@ -144,8 +144,30 @@ extension _WorldPageDetailSync on _WorldPageState {
     );
   }
 
-  void _replaceMapBubbleCandidates(List<WorldMapBubbleCandidate> candidates) {
+  bool _replaceMapBubbleCandidates(List<WorldMapBubbleCandidate> candidates) {
+    if (_sameMapBubbleCandidates(_mapBubbleCandidates, candidates)) {
+      return false;
+    }
     _mapBubbleCandidates = candidates;
+    return true;
+  }
+
+  bool _sameMapBubbleCandidates(
+    List<WorldMapBubbleCandidate> current,
+    List<WorldMapBubbleCandidate> next,
+  ) {
+    if (identical(current, next)) return true;
+    if (current.length != next.length) return false;
+    for (var index = 0; index < current.length; index += 1) {
+      final currentItem = current[index];
+      final nextItem = next[index];
+      if (currentItem.characterId != nextItem.characterId ||
+          currentItem.characterLocationId != nextItem.characterLocationId ||
+          currentItem.content != nextItem.content) {
+        return false;
+      }
+    }
+    return true;
   }
 
   List<WorldMapMessageBubble> get _mapMessageBubbles {

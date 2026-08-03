@@ -5908,6 +5908,106 @@ void main() {
     expect(currentTilemap().animationsPaused, isFalse);
   });
 
+  testWidgets('origin detail sheet avoids live blur while scrolling', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final launchBar = find.byKey(
+      const ValueKey<String>('origin-bottom-launch-blur'),
+    );
+    expect(launchBar, findsOneWidget);
+    expect(
+      find.descendant(of: launchBar, matching: find.byType(BackdropFilter)),
+      findsNothing,
+    );
+
+    final roleActionBar = find.byKey(
+      const ValueKey<String>('origin-setup-role-action-bar-c_o_test_1'),
+    );
+    expect(roleActionBar, findsOneWidget);
+    expect(
+      find.descendant(of: roleActionBar, matching: find.byType(ImageFiltered)),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'origin-setup-role-action-background-c_o_test_1',
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('origin detail sheet lazily builds opening dialogue rows', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final dialogue = List<Map<String, Object?>>.generate(
+      80,
+      (index) => <String, Object?>{
+        'char_id': 'c_o_test_1',
+        'char_name': 'Detail Character',
+        'content': 'Opening line $index',
+      },
+      growable: false,
+    );
+    final transport = _RecordingV1ListTransport(
+      originTicks: <Map<String, Object?>>[
+        <String, Object?>{
+          'tick_no': 1,
+          'tick_result': <String, Object?>{
+            'current_time': 'Day 1, 16:30',
+            'location_groups': <Map<String, Object?>>[
+              <String, Object?>{
+                'location_id': 'l_o_test_1',
+                'initial_dialogue': dialogue,
+              },
+            ],
+          },
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    expect(
+      find.descendant(of: sheet, matching: find.byType(SliverList)),
+      findsOneWidget,
+    );
+    expect(
+      find
+          .descendant(of: sheet, matching: find.byType(ChatMessageRow))
+          .evaluate()
+          .length,
+      lessThan(81),
+    );
+    expect(find.text('Opening line 79'), findsNothing);
+  });
+
   testWidgets(
     'origin detail version 2 selects first multiple-children Tilemap location',
     (WidgetTester tester) async {
@@ -6097,7 +6197,7 @@ void main() {
     expect(discussRequests.last.uri.queryParameters['biz_id'], 'o_test_1');
   });
 
-  testWidgets('Origin detail status bar switches after map scrolls out', (
+  testWidgets('Origin detail sheet keeps the map status bar style', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -6126,14 +6226,16 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.light,
     );
+    final styleCallCountBeforeDrag = systemUiOverlayStyleCalls.length;
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
     await tester.pumpAndSettle();
 
     expect(
       _pageStatusBarStyle(tester).statusBarIconBrightness,
-      Brightness.dark,
+      Brightness.light,
     );
+    expect(systemUiOverlayStyleCalls, hasLength(styleCallCountBeforeDrag));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 720));
     await tester.pumpAndSettle();
@@ -6142,6 +6244,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.light,
     );
+    expect(systemUiOverlayStyleCalls, hasLength(styleCallCountBeforeDrag));
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
