@@ -351,12 +351,17 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   Future<void> _showLaunchRoleSheet(
     OriginDetail origin, {
+    bool initialCustomTab = false,
     String initialLocationId = '',
   }) async {
     if (_launching) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
-    await _openLaunchRoleSheet(origin, initialLocationId: initialLocationId);
+    await _openLaunchRoleSheet(
+      origin,
+      initialCustomTab: initialCustomTab,
+      initialLocationId: initialLocationId,
+    );
   }
 
   Future<void> _selectAndLaunchPresetRole(
@@ -866,7 +871,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                   onSelectRole: (character) =>
                       _selectAndLaunchPresetRole(origin, character),
                   onCustomizeRole: () =>
-                      _openLaunchRoleSheet(origin, initialCustomTab: true),
+                      _showLaunchRoleSheet(origin, initialCustomTab: true),
                 ),
             bottomOverlay: _OriginBottomLaunchBar(
               origin: origin,

@@ -6540,6 +6540,39 @@ void main() {
     expect(launchBody['custom_role'], containsPair('bio', 'Inline bio'));
   });
 
+  testWidgets('Origin custom card asks for login when signed out', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUid: null,
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final customCard = find.byKey(
+      const ValueKey<String>('origin-setup-role-custom-card'),
+    );
+    final customCardTapTarget = tester.widget<InkWell>(
+      find.descendant(of: customCard, matching: find.byType(InkWell)),
+    );
+    customCardTapTarget.onTap!();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
+    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+  });
+
   testWidgets(
     'Origin preset role direct launch keeps initial dialogue location',
     (WidgetTester tester) async {
