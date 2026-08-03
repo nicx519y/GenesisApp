@@ -15,6 +15,7 @@ import '../../network/models/tilemap_definition.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
+import '../world_map_exit_location_button.dart';
 import '../world_map_location_action.dart';
 import '../world_point.dart';
 import 'loading/tilemap_loading.dart';
@@ -135,6 +136,7 @@ class Tilemap extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.preferredFocusLocationId = '',
     this.drillExitTop = 68,
+    this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
@@ -158,6 +160,7 @@ class Tilemap extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.preferredFocusLocationId = '',
     this.drillExitTop = 68,
+    this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
@@ -180,6 +183,7 @@ class Tilemap extends StatefulWidget {
   final List<WorldMapLocationNode> locationNodes;
   final String preferredFocusLocationId;
   final double drillExitTop;
+  final double? drillExitMaxWidth;
   final bool showVisualModeToggle;
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
@@ -1476,6 +1480,12 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final exitLocationLabel =
+        findWorldMapLocationNode(
+          widget.locationNodes,
+          _currentLocationId,
+        )?.point.name ??
+        '';
     final settingsButtonTop =
         widget.visualModeToggleTop ?? MediaQuery.paddingOf(context).top + 6;
     final settingsPanelMaxHeight =
@@ -1504,7 +1514,14 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
               Positioned(
                 left: 12,
                 top: widget.drillExitTop,
-                child: _TilemapExitLocationButton(onPressed: _exitLocation),
+                child: WorldMapConstrainedMaxWidth(
+                  maxWidth: widget.drillExitMaxWidth,
+                  child: WorldMapExitLocationButton(
+                    key: const ValueKey<String>('tilemap-exit-location'),
+                    label: exitLocationLabel,
+                    onPressed: _exitLocation,
+                  ),
+                ),
               ),
             if (showSettings)
               Positioned.fill(

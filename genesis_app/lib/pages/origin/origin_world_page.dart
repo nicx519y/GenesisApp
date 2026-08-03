@@ -480,11 +480,19 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
   }
 
-  Future<void> _showLaunchRoleSheet(OriginDetail origin) async {
+  Future<void> _showLaunchRoleSheet(
+    OriginDetail origin, {
+    bool initialCustomTab = false,
+    String initialLocationId = '',
+  }) async {
     if (_launching) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
-    await _openLaunchRoleSheet(origin);
+    await _openLaunchRoleSheet(
+      origin,
+      initialCustomTab: initialCustomTab,
+      initialLocationId: initialLocationId,
+    );
   }
 
   Future<void> _selectAndLaunchPresetRole(
@@ -518,8 +526,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<void> _openLaunchRoleSheet(
     OriginDetail origin, {
     bool initialCustomTab = false,
+    String initialLocationId = '',
   }) async {
     final launchedPresetRoles = _launchedPresetRolesData;
+    final launchLocationId = initialLocationId.trim();
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: 'launch_sheet',
@@ -540,7 +550,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       onLaunch: (roleSelection) async {
         final existingWorldId = roleSelection.existingWorldId?.trim() ?? '';
         if (existingWorldId.isNotEmpty) {
-          _enterLaunchedWorld(existingWorldId);
+          _enterLaunchedWorld(
+            existingWorldId,
+            initialLocationId: launchLocationId,
+          );
           return OriginRoleLaunchHandlerResult.navigationHandled;
         }
         GenesisTelemetry.collectLog(
@@ -556,7 +569,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         if (!mounted || launchedWorldId == null) {
           return OriginRoleLaunchHandlerResult.failed;
         }
-        _enterLaunchedWorld(launchedWorldId);
+        _enterLaunchedWorld(
+          launchedWorldId,
+          initialLocationId: launchLocationId,
+        );
         return OriginRoleLaunchHandlerResult.navigationHandled;
       },
       systemUiOverlayStyle: _baseStatusBarStyle,
@@ -953,7 +969,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
               onSelectRole: (character) =>
                   _selectAndLaunchPresetRole(origin, character),
               onCustomizeRole: () =>
-                  _openLaunchRoleSheet(origin, initialCustomTab: true),
+                  _showLaunchRoleSheet(origin, initialCustomTab: true),
             ),
         bottomOverlay: _OriginBottomLaunchBar(
           origin: origin,

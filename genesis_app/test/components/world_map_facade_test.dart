@@ -6,7 +6,10 @@ import 'package:genesis_flutter_android/components/world_map.dart';
 
 void main() {
   const common = WorldMapCommonConfig();
-  const legacy = LegacyWorldMapConfig(points: <WorldPoint>[]);
+  const legacy = LegacyWorldMapConfig(
+    points: <WorldPoint>[],
+    drillExitMaxWidth: 204,
+  );
 
   test('Origin v1 and unknown versions use LegacyWorldMap', () {
     for (final version in <int?>[1, null, 3]) {
@@ -77,6 +80,7 @@ void main() {
     expect(tilemap.locationId, 'root');
     expect(tilemap.locationNodes, <WorldMapLocationNode>[tilemapLocationNode]);
     expect(tilemap.drillExitTop, 91);
+    expect(tilemap.drillExitMaxWidth, 204);
     expect(tilemap.showVisualModeToggle, isFalse);
     expect(tilemap.visualModeToggleTop, 17);
     expect(tilemap.visualModeToggleRight, 12);

@@ -1255,6 +1255,13 @@ void main() {
         find.byKey(const ValueKey<String>('tilemap-exit-location')),
         findsOneWidget,
       );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('tilemap-exit-location')),
+          matching: find.text('branch'),
+        ),
+        findsOneWidget,
+      );
       final rendererState = tester.state(_liveTilemapRendererFinder());
 
       locationChatOpen.value = true;
@@ -1295,6 +1302,13 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey<String>('tilemap-exit-location')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('tilemap-exit-location')),
+          matching: find.text('branch'),
+        ),
         findsOneWidget,
       );
       expect(
