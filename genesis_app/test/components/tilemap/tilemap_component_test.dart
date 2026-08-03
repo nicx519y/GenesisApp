@@ -1195,6 +1195,22 @@ void main() {
       expect(wrappedLabelRect.top, closeTo(singleLabelRect.top, 0.01));
       expect(wrappedAvatarRect.top, greaterThan(singleAvatarRect.top));
       expect(wrappedMessageRect.top, greaterThan(singleMessageRect.top));
+
+      const unevenWrappedName = 'WWWWWWWWWW iiiiiiiiii';
+      await tester.pumpWidget(harness(unevenWrappedName));
+      await tester.pump();
+      final unevenWrappedLabelRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>(
+            'tile-location-bubble-body-$unevenWrappedName',
+          ),
+        ),
+      );
+      expect(
+        unevenWrappedLabelRect.height,
+        greaterThan(singleLabelRect.height),
+      );
+      expect(unevenWrappedLabelRect.width, lessThan(141));
     },
   );
 

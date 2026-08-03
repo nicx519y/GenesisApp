@@ -45,6 +45,30 @@ double _tilemapLocationLabelHeight(BuildContext context, String name) {
   return painter.height + _tilemapLocationLabelVerticalPadding * 2;
 }
 
+double _tilemapLocationLabelWidth(BuildContext context, String name) {
+  final painter =
+      TextPainter(
+        text: TextSpan(text: name, style: _tilemapLocationLabelTextStyle),
+        textAlign: TextAlign.center,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(
+        maxWidth:
+            _tilemapLocationLabelMaxWidth -
+            _tilemapLocationLabelHorizontalPadding * 2,
+      );
+  final longestLine = painter.computeLineMetrics().fold<double>(
+    0,
+    (width, line) => math.max(width, line.width),
+  );
+  final paddedLongestLine =
+      longestLine.ceilToDouble() + _tilemapLocationLabelHorizontalPadding * 2;
+  return paddedLongestLine.clamp(
+    _tilemapLocationLabelHorizontalPadding * 2,
+    _tilemapLocationLabelMaxWidth,
+  );
+}
+
 double _tilemapLocationSingleLineLabelHeight(BuildContext context) {
   final painter = TextPainter(
     text: const TextSpan(text: 'M', style: _tilemapLocationLabelTextStyle),
@@ -201,6 +225,7 @@ class _TilemapLocationBubble extends StatelessWidget {
                         key: ValueKey<String>(
                           'tile-location-bubble-body-$name',
                         ),
+                        width: _tilemapLocationLabelWidth(context, name),
                         constraints: const BoxConstraints(
                           maxWidth: _tilemapLocationLabelMaxWidth,
                         ),
