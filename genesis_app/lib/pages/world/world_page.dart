@@ -19,6 +19,8 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
+import '../../components/tilemap/tilemap_renderer.dart';
+import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_tick1_wait_dialog.dart';
@@ -72,6 +74,8 @@ class WorldPage extends StatefulWidget {
   State<WorldPage> createState() => _WorldPageState();
 }
 
+enum _WorldPageRenderStage { framework, detailShell, content }
+
 class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   static const double _progressWaitAvatarSize = 88;
   static const String _progressWaitTitle = 'Progressing the World';
@@ -86,6 +90,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   late final TabController _mainTabController;
   WorldDetail? _world;
   Object? _initialLoadError;
+  _WorldPageRenderStage _renderStage = _WorldPageRenderStage.framework;
+  bool _contentMountScheduled = false;
   WorldChatroomService? _worldChatroom;
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
@@ -95,6 +101,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       <String, WorldLocationChatPanelDescriptor>{};
   final _locationChatPageCache = WorldLocationChatPageCache();
   final _tilemapRestorationController = TilemapRestorationController();
+  TilemapVisualMode _tilemapVisualMode = tilemapVisualModeController.value;
+  late final Future<void> _tilemapVisualModeLoad;
+  bool _tilemapVisualModeReady = false;
   final Set<String> _preloadedLocationMessageIds = <String>{};
   final Map<String, Future<void>> _preloadingLocationMessageFutures =
       <String, Future<void>>{};
@@ -186,7 +195,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildInitialLocationChatPage() {
+  Widget _buildInitialLocationChatPage({Widget? background}) {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -200,8 +209,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         onPointerCancel: _handleWorldMainSwipePointerCancel,
         child: Stack(
           children: [
-            const Positioned.fill(
-              child: ColoredBox(color: kWorldMapLoadingBackgroundColor),
+            Positioned.fill(
+              child:
+                  background ??
+                  ColoredBox(color: _tilemapLoadingBackgroundColor),
             ),
             Positioned.fill(
               key: const ValueKey<String>('world-location-chat-host-layer'),
@@ -213,9 +224,94 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
   }
 
+  Color get _tilemapLoadingBackgroundColor =>
+      tilemapVisualStyleFor(_tilemapVisualMode).backgroundColor;
+
+  Future<void> _loadTilemapVisualMode() async {
+    try {
+      await const TilemapSettingsStore().load().timeout(
+        const Duration(seconds: 2),
+      );
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[WorldPage] tilemap settings load failed: $error');
+      }
+    } finally {
+      _tilemapVisualModeReady = true;
+    }
+  }
+
+  void _handleTilemapVisualModeChanged() {
+    final visualMode = tilemapVisualModeController.value;
+    if (!mounted || _tilemapVisualMode == visualMode) return;
+    setState(() => _tilemapVisualMode = visualMode);
+  }
+
+  void _scheduleInitialWorldLoadAfterFrameworkFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final initialWorld = widget.initialWorldDetail;
+      if (initialWorld != null) {
+        _applyWorldDetail(initialWorld, clearInitialLoadError: true);
+        _maybeShowTick1WaitDialog();
+        return;
+      }
+      unawaited(
+        _fetchWorld(isInitial: true).then((_) {
+          if (mounted) _maybeShowTick1WaitDialog();
+        }),
+      );
+    });
+  }
+
+  void _scheduleContentMountAfterDetailShellFrame() {
+    if (_renderStage != _WorldPageRenderStage.detailShell ||
+        _contentMountScheduled) {
+      return;
+    }
+    _contentMountScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _world == null ||
+          _renderStage != _WorldPageRenderStage.detailShell) {
+        _contentMountScheduled = false;
+        return;
+      }
+      if (_world?.definitionVersion != 2 ||
+          _tilemapVisualModeReady ||
+          tilemapVisualModeController.isHydrated) {
+        _mountContentAfterDetailShell();
+        return;
+      }
+      unawaited(_mountContentAfterTilemapVisualModeLoad());
+    });
+  }
+
+  Future<void> _mountContentAfterTilemapVisualModeLoad() async {
+    if (_world?.definitionVersion == 2) {
+      await _tilemapVisualModeLoad;
+    }
+    _mountContentAfterDetailShell();
+  }
+
+  void _mountContentAfterDetailShell() {
+    if (!mounted ||
+        _world == null ||
+        _renderStage != _WorldPageRenderStage.detailShell) {
+      _contentMountScheduled = false;
+      return;
+    }
+    setState(() {
+      _contentMountScheduled = false;
+      _renderStage = _WorldPageRenderStage.content;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
+    _tilemapVisualModeLoad = _loadTilemapVisualMode();
     _pendingInitialLocationId = widget.initialLocationId.trim();
     _initialLocationChatEntry = _pendingInitialLocationId.isNotEmpty;
     _locationChatTransitionsEnabled = !_initialLocationChatEntry;
@@ -247,29 +343,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         kChatDarkHeaderSystemUiOverlayStyle,
       );
     }
-    final initialWorld = widget.initialWorldDetail;
-    if (initialWorld != null) {
-      _world = initialWorld;
-      if (initialWorld.definitionVersion != 2) {
-        _tilemapDisplayReady = true;
-      }
-      _sectionsWorldNotifier.value = initialWorld;
-      _syncLocationChatDescriptors(initialWorld);
-      _worldChatroom?.applyWorldSnapshot(initialWorld);
-      _syncWorldChatroomForRelationStatus(initialWorld.relationStatus);
-      _maybeOpenInitialLocationChat();
-      _maybeShowTick1WaitDialog();
-      if (initialWorld.isProgressing &&
-          shouldConnectWorldChatroom(initialWorld.relationStatus)) {
-        _startWorldTickTracking();
-      }
-    } else {
-      unawaited(
-        _fetchWorld(isInitial: true).then((_) {
-          if (mounted) _maybeShowTick1WaitDialog();
-        }),
-      );
-    }
+    _scheduleInitialWorldLoadAfterFrameworkFrame();
   }
 
   @override
@@ -290,6 +364,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void dispose() {
     _stopWorldTickLockPolling();
+    tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     _mainTabController.removeListener(_handleWorldMainTabChanged);
     _worldBottomSheetSelection.removeListener(
       _handleWorldBottomSheetSelectionChanged,
@@ -342,6 +417,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         );
       }
       return _buildInitialLoadingScaffold(topPadding);
+    }
+    if (_renderStage != _WorldPageRenderStage.content) {
+      _scheduleContentMountAfterDetailShellFrame();
+      final loadingScaffold = _buildInitialLoadingScaffold(
+        topPadding,
+        world: world,
+      );
+      if (_activeChatLocationId.isNotEmpty) {
+        return _buildInitialLocationChatPage(background: loadingScaffold);
+      }
+      return loadingScaffold;
     }
 
     final avatarsByLocation = worldAvatarsByLocationFromCharacterPositions(
@@ -404,11 +490,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       final destroyTilemapForLocationChat =
           world.definitionVersion == 2 && mapPausedForLocationChat;
       final Widget map = destroyTilemapForLocationChat
-          ? const ColoredBox(
-              key: ValueKey<String>(
+          ? ColoredBox(
+              key: const ValueKey<String>(
                 'world-tilemap-destroyed-for-location-chat',
               ),
-              color: kWorldMapLoadingBackgroundColor,
+              color: _tilemapLoadingBackgroundColor,
             )
           : WorldMap.world(
               definitionVersion: world.definitionVersion,
@@ -477,9 +563,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             if (_coverTilemapAfterInitialChat &&
                 !_tilemapDisplayReady &&
                 _tilemapDisplayError == null)
-              const ColoredBox(
-                key: ValueKey<String>('world-initial-tilemap-static-cover'),
-                color: kWorldMapLoadingBackgroundColor,
+              ColoredBox(
+                key: const ValueKey<String>(
+                  'world-initial-tilemap-static-cover',
+                ),
+                color: _tilemapLoadingBackgroundColor,
               ),
           ],
         ),
@@ -515,6 +603,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         child: Stack(
           children: [
             WorldDetailsPageScaffold(
+              backgroundColor: _tilemapLoadingBackgroundColor,
               panelTopGap: 50,
               panelCollapsedHeightOffset: 120,
               scrollPhysics: const NeverScrollableScrollPhysics(),
@@ -548,16 +637,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: collapsedPanelHeight - worldMainTabsHeight,
-              height: worldMainTabsHeight,
-              child: WorldBottomTags(
-                eventsUnread: _eventsUnread,
-                showDetailUnreadDot: _hasUnreadNewUserJoin,
-                onTap: _openWorldBottomSheet,
-              ),
+            _buildWorldBottomTagsOverlay(
+              collapsedPanelHeight: collapsedPanelHeight,
+              interactive: true,
             ),
             Positioned.fill(
               key: const ValueKey<String>('world-location-chat-host-layer'),

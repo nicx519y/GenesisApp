@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/origin/stat_item.dart';
-import '../../components/world_details_shell.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_primary_button.dart';
@@ -206,14 +205,14 @@ class WorldFeedContent extends StatelessWidget {
         SliverToBoxAdapter(
           child: WorldSectionSheetPullGesture(
             onPullUp: onPullUp,
-            child: Column(
-              children: [
-                WorldInfoHeader(
-                  world: world,
-                  worldActionRunning: worldActionRunning,
-                  onWorldAction: onWorldAction,
-                ),
-              ],
+            child: SizedBox(
+              key: const ValueKey<String>('world-panel-info-row'),
+              height: worldInfoHeaderHeight,
+              child: WorldInfoHeader(
+                world: world,
+                worldActionRunning: worldActionRunning,
+                onWorldAction: onWorldAction,
+              ),
             ),
           ),
         ),
@@ -422,12 +421,7 @@ class WorldInfoHeader extends StatelessWidget {
 
 double worldCollapsedPanelHeightFor(BuildContext context) {
   final bottomSafeArea = worldBottomSafeAreaOf(context);
-  final collapsedPanelHeight =
-      WorldDetailsPageScaffold.inlineContentTopPadding +
-      worldStatsTopSpacerHeight +
-      worldInfoHeaderHeight +
-      bottomSafeArea;
-  return collapsedPanelHeight;
+  return worldCollapsedPanelBaseHeight + bottomSafeArea;
 }
 
 String worldOwnerDisplayName(WorldDetail world) {

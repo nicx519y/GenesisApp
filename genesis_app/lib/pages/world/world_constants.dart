@@ -21,6 +21,10 @@ const double worldStatsTopSpacerHeight =
     WorldDetailsPageScaffold.inlineContentTopPadding +
     worldBottomTagToStatsGap;
 const double worldInfoHeaderHeight = 49;
+const double worldCollapsedPanelBaseHeight =
+    WorldDetailsPageScaffold.inlineContentTopPadding +
+    worldStatsTopSpacerHeight +
+    worldInfoHeaderHeight;
 const double worldInfoHeaderContentHeight = 35;
 const double worldTimePillTopGap = 12;
 const double worldTimePillHeight = 22;

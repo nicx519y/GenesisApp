@@ -21,6 +21,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_static_network_ima
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/recent_chat/recent_world_chat_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
@@ -39,7 +40,10 @@ import 'package:genesis_flutter_android/components/me/user_profile_content.dart'
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
 import 'package:genesis_flutter_android/components/me/signed_out_me_view.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
+import 'package:genesis_flutter_android/components/world_details_shell.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/components/world_map_location_action.dart';
 import 'package:genesis_flutter_android/components/world_top_overlay_bar.dart';
@@ -90,12 +94,15 @@ import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_feed_cache_store.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_world_layout.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
+import 'package:genesis_flutter_android/pages/world/world_constants.dart';
+import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_location_chat_host.dart';
 import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
@@ -122,6 +129,11 @@ Finder _richTextWithPlainText(String text) {
     (widget) => widget is RichText && widget.text.toPlainText() == text,
     description: 'RichText with plain text "$text"',
   );
+}
+
+bool _hasListenersForTest(ChangeNotifier notifier) {
+  // ignore: invalid_use_of_protected_member
+  return notifier.hasListeners;
 }
 
 void _expectRichTextSpanColor(
@@ -484,6 +496,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.originDiscussCount = 9,
     this.discussTotalAll = 25,
     this.originDetailCompleter,
+    this.originMapCompleter,
     this.worldDetailCompleter,
     this.worldMapCompleter,
     this.chatroomMessagesCompleter,
@@ -522,6 +535,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final int originDiscussCount;
   final int discussTotalAll;
   final Completer<TransportResponse>? originDetailCompleter;
+  final Completer<TransportResponse>? originMapCompleter;
   final Completer<TransportResponse>? worldDetailCompleter;
   final Completer<TransportResponse>? worldMapCompleter;
   final Completer<TransportResponse>? chatroomMessagesCompleter;
@@ -563,6 +577,8 @@ class _RecordingV1ListTransport implements HttpTransport {
       return _jsonResponse({});
     }
     if (request.uri.path.endsWith('/origin/map')) {
+      final pendingResponse = originMapCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
       return _jsonResponse({});
     }
     if (request.uri.path.endsWith('/origin/detail')) {
@@ -2101,6 +2117,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
     BlockedUserReviewReturn.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
@@ -4121,6 +4138,76 @@ void main() {
     expect(() => oldWalletState.addListener(listener), throwsFlutterError);
   });
 
+  testWidgets('Me page detaches lifecycle listeners when disposed', (
+    WidgetTester tester,
+  ) async {
+    final activation = ValueNotifier<int>(0);
+    final replacementActivation = ValueNotifier<int>(0);
+    addTearDown(activation.dispose);
+    addTearDown(replacementActivation.dispose);
+    addTearDown(() => recentWorldChatStore.listenable.value = null);
+    final services = await _testServices(
+      useMock: false,
+      transport: _RecordingV1ListTransport(),
+      initialUid: null,
+      initialAuthToken: null,
+    );
+
+    expect(_hasListenersForTest(activation), isFalse);
+    expect(_hasListenersForTest(services.sessionRevision), isFalse);
+    expect(_hasListenersForTest(recentWorldChatStore.listenable), isFalse);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: Scaffold(body: MePage(activationListenable: activation)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_hasListenersForTest(activation), isTrue);
+    expect(_hasListenersForTest(services.sessionRevision), isTrue);
+    expect(_hasListenersForTest(recentWorldChatStore.listenable), isTrue);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: Scaffold(
+            body: MePage(activationListenable: replacementActivation),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(_hasListenersForTest(activation), isFalse);
+    expect(_hasListenersForTest(replacementActivation), isTrue);
+    expect(_hasListenersForTest(services.sessionRevision), isTrue);
+    expect(_hasListenersForTest(recentWorldChatStore.listenable), isTrue);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pump();
+
+    expect(_hasListenersForTest(activation), isFalse);
+    expect(_hasListenersForTest(replacementActivation), isFalse);
+    expect(_hasListenersForTest(services.sessionRevision), isFalse);
+    expect(_hasListenersForTest(recentWorldChatStore.listenable), isFalse);
+
+    recentWorldChatStore.listenable.value = const RecentWorldChatRecord(
+      uid: 'u_listener',
+      worldId: 'world_listener',
+      locationId: 'location_listener',
+      locationPathIds: <String>['location_listener'],
+      updatedAt: 1,
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Me settings route does not dispose shared GemWallet service', (
     WidgetTester tester,
   ) async {
@@ -5347,6 +5434,412 @@ void main() {
     expect(find.widgetWithText(TextField, 'Write a post'), findsNothing);
     expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
     expect(find.text('View More >'), findsOneWidget);
+  });
+
+  testWidgets('origin route slides over its matching loading backdrop', (
+    WidgetTester tester,
+  ) async {
+    const viewportSize = Size(400, 800);
+    tester.view.physicalSize = viewportSize;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final originDetailCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      originDetailCompleter: originDetailCompleter,
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.android),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Navigator.of(context).pushNamed(
+                  RouteNames.originWorld,
+                  arguments: const <String, Object?>{'oid': 'o_test_1'},
+                ),
+                child: const Text('Open Origin'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open Origin'));
+    await tester.pump();
+    await tester.pump();
+
+    final mapBackground = find.byKey(
+      const ValueKey<String>('origin-map-loading-background'),
+    );
+    final transitionBackground = find.byKey(
+      const ValueKey<String>('origin-route-transition-background'),
+    );
+    final transitionMapBackground = find.byKey(
+      const ValueKey<String>('origin-route-transition-map-background'),
+    );
+    final transitionPanelBackground = find.byKey(
+      const ValueKey<String>('origin-route-transition-panel-background'),
+    );
+    expect(transitionBackground, findsOneWidget);
+    expect(transitionMapBackground, findsOneWidget);
+    expect(transitionPanelBackground, findsOneWidget);
+
+    final expectedMapBackground = tilemapVisualStyleFor(
+      tilemapDefaultVisualMode,
+    ).backgroundColor;
+    expect(
+      tester.widget<ColoredBox>(transitionBackground).color,
+      originWorldDetailSheetBackgroundColor,
+    );
+    expect(
+      tester.widget<ColoredBox>(transitionMapBackground).color,
+      expectedMapBackground,
+    );
+    expect(
+      tester.widget<ColoredBox>(transitionPanelBackground).color,
+      originWorldDetailSheetBackgroundColor,
+    );
+    final expectedMapHeight = originWorldMapHeightFor(
+      viewportHeight: viewportSize.height,
+      bottomSafeArea: 0,
+    );
+    expect(tester.getSize(transitionMapBackground).height, expectedMapHeight);
+
+    expect(mapBackground, findsOneWidget);
+    final originRoute = ModalRoute.of(
+      tester.element(find.byType(OriginWorldPage)),
+    )!;
+    final routeAnimation = originRoute.animation!;
+    expect(originRoute.transitionDuration, greaterThan(Duration.zero));
+    expect(routeAnimation.value, 0);
+
+    final restingMapLeft = tester.getRect(transitionMapBackground).left;
+    final initialMapRect = tester.getRect(mapBackground);
+    expect(initialMapRect.left, greaterThan(restingMapLeft));
+
+    await tester.pump(
+      Duration(
+        microseconds: originRoute.transitionDuration.inMicroseconds ~/ 2,
+      ),
+    );
+
+    expect(routeAnimation.value, greaterThan(0));
+    expect(routeAnimation.value, lessThan(1));
+    final midTransitionMapRect = tester.getRect(mapBackground);
+    expect(midTransitionMapRect.left, lessThan(initialMapRect.left));
+    expect(midTransitionMapRect.left, greaterThan(restingMapLeft));
+    expect(
+      tester.widget<ColoredBox>(mapBackground).color,
+      expectedMapBackground,
+    );
+
+    await tester.pump(originRoute.transitionDuration);
+
+    expect(routeAnimation.value, 1);
+    expect(transitionBackground, findsNothing);
+    expect(tester.getRect(mapBackground).left, closeTo(restingMapLeft, 0.01));
+
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+    expect(find.text('Open Origin'), findsOneWidget);
+    expect(find.byType(OriginWorldPage), findsNothing);
+
+    originDetailCompleter.complete(transport._jsonResponse({}));
+    await tester.pump();
+  });
+
+  testWidgets('origin page paints its loading shell before requesting detail', (
+    WidgetTester tester,
+  ) async {
+    final originDetailCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      originDetailCompleter: originDetailCompleter,
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+    var skeletonCountAtFirstPostFrame = -1;
+    var detailRequestCountAtFirstPostFrame = -1;
+    tester.binding.addPostFrameCallback((_) {
+      skeletonCountAtFirstPostFrame = find
+          .byKey(const ValueKey<String>('origin-map-loading-background'))
+          .evaluate()
+          .length;
+      detailRequestCountAtFirstPostFrame = transport
+          .requestsFor('/api/v1/origin/detail')
+          .length;
+    });
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+
+    expect(skeletonCountAtFirstPostFrame, 1);
+    expect(detailRequestCountAtFirstPostFrame, 0);
+    expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(1));
+    expect(find.byType(WorldMap), findsNothing);
+    expect(find.byType(Tilemap), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('origin-detail-loading-sheet')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-bottom-launch-loading')),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    originDetailCompleter.complete(transport._jsonResponse({}));
+    await tester.pump();
+  });
+
+  testWidgets('origin loading shell stays bounded on a short viewport', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 360);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final originDetailCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      originDetailCompleter: originDetailCompleter,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('origin-map-loading-background')),
+          )
+          .width,
+      400,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    originDetailCompleter.complete(transport._jsonResponse({}));
+    await tester.pump();
+  });
+
+  testWidgets(
+    'origin page presents a stable detail shell before heavy content',
+    (WidgetTester tester) async {
+      const viewportSize = Size(400, 800);
+      tester.view.physicalSize = viewportSize;
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 24);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      final originDetailCompleter = Completer<TransportResponse>();
+      final originMapCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originDetailCompleter: originDetailCompleter,
+        originMapCompleter: originMapCompleter,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+
+      final mapViewport = find.byKey(
+        const ValueKey<String>('origin-map-viewport'),
+      );
+      final loadingSheet = find.byKey(
+        const ValueKey<String>('origin-detail-loading-sheet'),
+      );
+      final loadingLaunchBar = find.byKey(
+        const ValueKey<String>('origin-bottom-launch-loading'),
+      );
+      final loadingMapRect = tester.getRect(mapViewport);
+      final loadingSheetRect = tester.getRect(loadingSheet);
+      final loadingLaunchBarRect = tester.getRect(loadingLaunchBar);
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey<String>('origin-loading-role-card')),
+        ),
+        const Size(288, 381),
+      );
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey<String>('origin-loading-launch-button')),
+        ),
+        const Size(140, 35),
+      );
+      expect(find.byType(WorldMap), findsNothing);
+      expect(find.byType(Tilemap), findsNothing);
+      expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
+      expect(
+        loadingMapRect.height,
+        originWorldMapHeightFor(
+          viewportHeight: viewportSize.height,
+          bottomSafeArea: 24,
+        ),
+      );
+
+      originDetailCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._originDetail('o_test_1'),
+        }),
+      );
+      await tester.pump();
+
+      expect(loadingSheet, findsOneWidget);
+      expect(find.byType(WorldMap), findsNothing);
+      expect(find.byType(Tilemap), findsNothing);
+      expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
+      expect(tester.getRect(mapViewport), loadingMapRect);
+      expect(tester.getRect(loadingSheet), loadingSheetRect);
+      expect(tester.getRect(loadingLaunchBar), loadingLaunchBarRect);
+
+      for (
+        var frame = 0;
+        frame < 3 && find.byType(Tilemap).evaluate().isEmpty;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(find.byType(WorldMap), findsOneWidget);
+      expect(find.byType(Tilemap), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+      expect(tester.getRect(mapViewport), loadingMapRect);
+      expect(
+        tester.getRect(
+          find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
+        ),
+        loadingSheetRect,
+      );
+      expect(
+        tester.getRect(
+          find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
+        ),
+        loadingLaunchBarRect,
+      );
+
+      originMapCompleter.complete(transport._jsonResponse({}));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets('origin loading shell follows the persisted Tilemap palette', (
+    WidgetTester tester,
+  ) async {
+    for (final visualMode in TilemapVisualMode.values) {
+      final cachedSettings = TilemapRenderSettings.defaults().toJson()
+        ..['visual_mode'] = visualMode.name
+        ..['loading_style'] = TilemapLoadingStyle.disabled.name;
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        TilemapSettingsStore.storageKey: jsonEncode(cachedSettings),
+      });
+      tilemapVisualModeController.resetForTesting();
+      final originDetailCompleter = Completer<TransportResponse>();
+      final originMapCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originDetailCompleter: originDetailCompleter,
+        originMapCompleter: originMapCompleter,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+      final expectedBackground = tilemapVisualStyleFor(
+        visualMode,
+      ).backgroundColor;
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final originLoadingBackground = find.byKey(
+        const ValueKey<String>('origin-map-loading-background'),
+      );
+      expect(
+        tester.widget<ColoredBox>(originLoadingBackground).color,
+        expectedBackground,
+        reason: '${visualMode.name} framework background',
+      );
+
+      originDetailCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._originDetail('o_test_1'),
+        }),
+      );
+      await tester.pump();
+
+      expect(
+        tester.widget<ColoredBox>(originLoadingBackground).color,
+        expectedBackground,
+        reason: '${visualMode.name} detail shell background',
+      );
+      expect(find.byType(Tilemap), findsNothing);
+
+      for (
+        var frame = 0;
+        frame < 3 && find.byType(Tilemap).evaluate().isEmpty;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(find.byType(Tilemap), findsOneWidget);
+      final tilemapSettingsBackground = find.byKey(
+        const ValueKey<String>('tilemap-settings-loading-background'),
+      );
+      expect(tilemapSettingsBackground, findsOneWidget);
+      expect(
+        tester.widget<ColoredBox>(tilemapSettingsBackground).color,
+        expectedBackground,
+        reason: '${visualMode.name} Tilemap handoff background',
+      );
+
+      originMapCompleter.complete(transport._jsonResponse({}));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
   });
 
   testWidgets('origin detail version 2 uses root Tilemap endpoint', (
@@ -15966,6 +16459,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('user info retry contains repeated transport failures', (
+    WidgetTester tester,
+  ) async {
+    final transport = _AlwaysFailingProfileTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const UserInfoPage(uid: 'u_retry_peer'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Load failed'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/user/info'), hasLength(2));
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Load failed'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/user/info'), hasLength(4));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('user info page shows skeleton while loading', (
     WidgetTester tester,
   ) async {
@@ -16359,6 +16877,39 @@ void main() {
       'target_uid': 'u_follower_01',
     });
     expect(find.text('Following'), findsOneWidget);
+  });
+
+  testWidgets('followers retry contains repeated transport failures', (
+    WidgetTester tester,
+  ) async {
+    final transport = _AlwaysFailingProfileTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: const MaterialApp(
+          home: FollowsPage(
+            uid: 'u_retry_peer',
+            initialIndex: 1,
+            initialTitle: 'Retry Peer',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Load failed'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/user/followers'), hasLength(2));
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Load failed'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/user/followers'), hasLength(4));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('follows page renders cached totals before list totals', (
@@ -17401,6 +17952,444 @@ void main() {
     });
   });
 
+  testWidgets('world route slides over its matching loading backdrop', (
+    WidgetTester tester,
+  ) async {
+    const viewportSize = Size(400, 800);
+    tester.view.physicalSize = viewportSize;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final worldDetailCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldDetailCompleter: worldDetailCompleter,
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.android),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => Navigator.of(context).pushNamed(
+                  RouteNames.world,
+                  arguments: const <String, Object?>{'wid': 'w_test_1'},
+                ),
+                child: const Text('Open World'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open World'));
+    await tester.pump();
+    await tester.pump();
+
+    final mapBackground = find.byKey(
+      const ValueKey<String>('world-map-loading-background'),
+    );
+    final transitionBackground = find.byKey(
+      const ValueKey<String>('world-route-transition-background'),
+    );
+    final transitionMapBackground = find.byKey(
+      const ValueKey<String>('world-route-transition-map-background'),
+    );
+    final transitionPanelBackground = find.byKey(
+      const ValueKey<String>('world-route-transition-panel-background'),
+    );
+    expect(transitionBackground, findsOneWidget);
+    expect(transitionMapBackground, findsOneWidget);
+    expect(transitionPanelBackground, findsOneWidget);
+
+    final expectedMapBackground = tilemapVisualStyleFor(
+      tilemapDefaultVisualMode,
+    ).backgroundColor;
+    expect(
+      tester.widget<ColoredBox>(transitionBackground).color,
+      expectedMapBackground,
+    );
+    expect(
+      tester.widget<ColoredBox>(transitionMapBackground).color,
+      expectedMapBackground,
+    );
+    expect(
+      (tester.widget<DecoratedBox>(transitionPanelBackground).decoration
+              as BoxDecoration)
+          .color,
+      Colors.white,
+    );
+    expect(
+      tester.getSize(transitionPanelBackground).height,
+      worldCollapsedPanelBaseHeight,
+    );
+
+    expect(mapBackground, findsOneWidget);
+    final worldRoute = ModalRoute.of(tester.element(find.byType(WorldPage)))!;
+    final routeAnimation = worldRoute.animation!;
+    expect(worldRoute.transitionDuration, greaterThan(Duration.zero));
+    expect(routeAnimation.value, 0);
+
+    final restingMapLeft = tester.getRect(transitionMapBackground).left;
+    final initialMapRect = tester.getRect(mapBackground);
+    expect(initialMapRect.left, greaterThan(restingMapLeft));
+
+    await tester.pump(
+      Duration(microseconds: worldRoute.transitionDuration.inMicroseconds ~/ 2),
+    );
+
+    expect(routeAnimation.value, greaterThan(0));
+    expect(routeAnimation.value, lessThan(1));
+    final midTransitionMapRect = tester.getRect(mapBackground);
+    expect(midTransitionMapRect.left, lessThan(initialMapRect.left));
+    expect(midTransitionMapRect.left, greaterThan(restingMapLeft));
+    expect(
+      tester.widget<ColoredBox>(mapBackground).color,
+      expectedMapBackground,
+    );
+
+    await tester.pump(worldRoute.transitionDuration);
+
+    expect(routeAnimation.value, 1);
+    expect(transitionBackground, findsNothing);
+    expect(tester.getRect(mapBackground).left, closeTo(restingMapLeft, 0.01));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    worldDetailCompleter.complete(transport._jsonResponse({}));
+    await tester.pump();
+  });
+
+  testWidgets('world page paints its loading shell before requesting detail', (
+    WidgetTester tester,
+  ) async {
+    final worldDetailCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldDetailCompleter: worldDetailCompleter,
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+    var skeletonCountAtFirstPostFrame = -1;
+    var detailRequestCountAtFirstPostFrame = -1;
+    tester.binding.addPostFrameCallback((_) {
+      skeletonCountAtFirstPostFrame = find
+          .byKey(const ValueKey<String>('world-map-loading-background'))
+          .evaluate()
+          .length;
+      detailRequestCountAtFirstPostFrame = transport
+          .requestsFor('/api/v1/world/detail')
+          .length;
+    });
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+
+    expect(skeletonCountAtFirstPostFrame, 1);
+    expect(detailRequestCountAtFirstPostFrame, 0);
+    expect(transport.requestsFor('/api/v1/world/detail'), hasLength(1));
+    final expectedMapBackground = tilemapVisualStyleFor(
+      tilemapDefaultVisualMode,
+    ).backgroundColor;
+    final mapBackground = find.byKey(
+      const ValueKey<String>('world-map-loading-background'),
+    );
+    expect(
+      tester.widget<ColoredBox>(mapBackground).color,
+      expectedMapBackground,
+    );
+    final pageScaffold = find.descendant(
+      of: find.byType(WorldDetailsPageScaffold),
+      matching: find.byType(Scaffold),
+    );
+    expect(
+      tester.widget<Scaffold>(pageScaffold).backgroundColor,
+      expectedMapBackground,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    worldDetailCompleter.complete(transport._jsonResponse({}));
+    await tester.pump();
+  });
+
+  testWidgets(
+    'world page presents detail shell before mounting heavy content',
+    (WidgetTester tester) async {
+      final worldDetailCompleter = Completer<TransportResponse>();
+      final worldMapCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'anonymous',
+        worldDefinitionVersion: 2,
+        worldDetailCompleter: worldDetailCompleter,
+        worldMapCompleter: worldMapCompleter,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+
+      expect(find.byType(WorldFeedContent), findsNothing);
+      expect(find.byType(WorldMap), findsNothing);
+      expect(find.byType(Tilemap), findsNothing);
+      expect(find.byType(WorldLocationChatRouterHost), findsNothing);
+      expect(transport.requestsFor('/api/v1/world/map'), isEmpty);
+
+      worldDetailCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._worldDetail('w_test_1'),
+        }),
+      );
+      await tester.pump();
+
+      expect(find.byType(WorldDetailsPageScaffold), findsOneWidget);
+      expect(find.byType(WorldMapIdentityPill), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('world-map-loading-background')),
+        findsOneWidget,
+      );
+      expect(find.byType(WorldFeedContent), findsNothing);
+      expect(find.byType(WorldMap), findsNothing);
+      expect(find.byType(Tilemap), findsNothing);
+      expect(find.byType(WorldLocationChatRouterHost), findsNothing);
+      expect(transport.requestsFor('/api/v1/world/map'), isEmpty);
+
+      await tester.pump();
+
+      expect(find.byType(WorldFeedContent), findsOneWidget);
+      expect(find.byType(WorldMap), findsOneWidget);
+      expect(find.byType(Tilemap), findsOneWidget);
+      expect(find.byType(WorldLocationChatRouterHost), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/world/map'), hasLength(1));
+
+      worldMapCompleter.complete(transport._jsonResponse({}));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets('world page stages an initial detail through its loading shell', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'anonymous',
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+    final initialWorld = await services.api.getWorld('w_test_1');
+    transport.requests.clear();
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: WorldPage(wid: 'w_test_1', initialWorldDetail: initialWorld),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey<String>('world-map-loading-background')),
+      findsOneWidget,
+    );
+    expect(find.byType(WorldMapIdentityPill), findsNothing);
+    expect(find.byType(WorldFeedContent), findsNothing);
+    expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
+    final panelInfoRow = find.byKey(
+      const ValueKey<String>('world-panel-info-row'),
+    );
+    final bottomTagsOverlay = find.byKey(
+      const ValueKey<String>('world-bottom-tags-overlay'),
+    );
+    final loadingInfoRect = tester.getRect(panelInfoRow);
+    final loadingBottomTagsRect = tester.getRect(bottomTagsOverlay);
+    expect(loadingInfoRect.height, worldInfoHeaderHeight);
+    expect(loadingBottomTagsRect.height, worldMainTabsHeight);
+    expect(tester.widget<IgnorePointer>(bottomTagsOverlay).ignoring, isTrue);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('world-loading-action')),
+      ),
+      const Size(140, worldInfoHeaderContentHeight),
+    );
+    expect(find.byType(WorldInfoHeader), findsNothing);
+
+    await tester.pump();
+
+    expect(find.byType(WorldMapIdentityPill), findsOneWidget);
+    expect(find.byType(WorldFeedContent), findsNothing);
+    expect(find.byType(WorldMap), findsNothing);
+
+    await tester.pump();
+
+    expect(find.byType(WorldFeedContent), findsOneWidget);
+    expect(find.byType(WorldMap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
+    expect(tester.getRect(panelInfoRow), loadingInfoRect);
+    expect(tester.getRect(bottomTagsOverlay), loadingBottomTagsRect);
+    expect(tester.widget<IgnorePointer>(bottomTagsOverlay).ignoring, isFalse);
+    expect(find.byType(WorldInfoHeader), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('world-loading-action')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('initial location chat defers its initial detail map', (
+    WidgetTester tester,
+  ) async {
+    final worldMapCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      worldDefinitionVersion: 2,
+      worldMapCompleter: worldMapCompleter,
+    );
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: _FakeChatroomClient(),
+    );
+    final initialWorld = await services.api.getWorld('w_test_1');
+    transport.requests.clear();
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: WorldPage(
+            wid: 'w_test_1',
+            initialWorldDetail: initialWorld,
+            initialLocationId: 'l_w_test_1_child',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(LocationChatPanel), findsOneWidget);
+    expect(find.byType(Tilemap), findsNothing);
+    expect(find.byType(WorldFeedContent), findsNothing);
+    expect(transport.requestsFor('/api/v1/world/map'), isEmpty);
+
+    await tester.pump();
+
+    expect(find.byType(LocationChatPanel), findsOneWidget);
+    expect(find.byType(Tilemap), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('world-map-loading-background')),
+      findsOneWidget,
+    );
+    expect(transport.requestsFor('/api/v1/world/map'), isEmpty);
+
+    await tester.pump();
+
+    expect(find.byType(LocationChatPanel), findsOneWidget);
+    expect(find.byType(Tilemap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/map'), hasLength(1));
+
+    worldMapCompleter.complete(transport._jsonResponse({}));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('world loading skeleton follows the persisted Tilemap palette', (
+    WidgetTester tester,
+  ) async {
+    for (final visualMode in TilemapVisualMode.values) {
+      final cachedSettings = TilemapRenderSettings.defaults().toJson()
+        ..['visual_mode'] = visualMode.name
+        ..['loading_style'] = TilemapLoadingStyle.disabled.name;
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        TilemapSettingsStore.storageKey: jsonEncode(cachedSettings),
+      });
+      tilemapVisualModeController.resetForTesting();
+      final worldDetailCompleter = Completer<TransportResponse>();
+      final worldMapCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'anonymous',
+        worldDefinitionVersion: 2,
+        worldDetailCompleter: worldDetailCompleter,
+        worldMapCompleter: worldMapCompleter,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+      final expectedBackground = tilemapVisualStyleFor(
+        visualMode,
+      ).backgroundColor;
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final worldLoadingBackground = find.byKey(
+        const ValueKey<String>('world-map-loading-background'),
+      );
+      expect(
+        tester.widget<ColoredBox>(worldLoadingBackground).color,
+        expectedBackground,
+        reason: '${visualMode.name} framework background',
+      );
+
+      worldDetailCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._worldDetail('w_test_1'),
+        }),
+      );
+      await tester.pump();
+
+      expect(
+        tester.widget<ColoredBox>(worldLoadingBackground).color,
+        expectedBackground,
+        reason: '${visualMode.name} detail shell background',
+      );
+      expect(find.byType(Tilemap), findsNothing);
+
+      for (
+        var frame = 0;
+        frame < 3 && find.byType(Tilemap).evaluate().isEmpty;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(find.byType(Tilemap), findsOneWidget);
+      final tilemapSettingsBackground = find.byKey(
+        const ValueKey<String>('tilemap-settings-loading-background'),
+      );
+      expect(tilemapSettingsBackground, findsOneWidget);
+      expect(
+        tester.widget<ColoredBox>(tilemapSettingsBackground).color,
+        expectedBackground,
+        reason: '${visualMode.name} Tilemap handoff background',
+      );
+
+      worldMapCompleter.complete(transport._jsonResponse({}));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+  });
+
   testWidgets('world detail version 1 keeps WorldMap without map request', (
     WidgetTester tester,
   ) async {
@@ -17503,6 +18492,7 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
 
       final buttonFinder = find.widgetWithText(FilledButton, 'Request');
       await tester.ensureVisible(buttonFinder);
@@ -21175,6 +22165,22 @@ class _RecordingProfileActionTransport implements HttpTransport {
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
     );
+  }
+}
+
+class _AlwaysFailingProfileTransport implements HttpTransport {
+  final List<TransportRequest> requests = <TransportRequest>[];
+
+  List<TransportRequest> requestsFor(String path) {
+    return requests
+        .where((request) => request.uri.path == path)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    throw Exception('connection closed');
   }
 }
 

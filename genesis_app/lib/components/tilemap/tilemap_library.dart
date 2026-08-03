@@ -226,7 +226,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   Size? _configuredPrerenderViewportSize;
   double? _configuredPrerenderDevicePixelRatio;
   bool? _reportedDisplayReady;
-  TilemapVisualMode _visualMode = tilemapDefaultVisualMode;
+  TilemapVisualMode _visualMode = tilemapVisualModeController.value;
   TilemapLoadingStyle _loadingStyle = tilemapDefaultLoadingStyle;
   List<TilemapFogControlPoint> _fogControlPoints =
       tilemapDefaultFogControlPoints;
@@ -505,6 +505,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _initialScale = defaults.initialScale;
       _dragBoundaryPaddingTiles = defaults.dragBoundaryPaddingTiles;
     });
+    tilemapVisualModeController.setVisualMode(defaults.visualMode);
     ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()
       ..showSnackBar(
@@ -867,6 +868,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   void _setVisualMode(TilemapVisualMode visualMode) {
     if (_visualMode == visualMode) return;
     setState(() => _visualMode = visualMode);
+    tilemapVisualModeController.setVisualMode(visualMode);
     _scheduleSettingsSave();
   }
 

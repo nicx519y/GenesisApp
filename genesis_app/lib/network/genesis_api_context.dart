@@ -49,6 +49,7 @@ abstract class _GenesisApiContext {
           requestHeaderProvider: _runtimeRequestHeaders,
           requestInterceptor: gatewayInterceptor,
           transport: resolvedTransport,
+          retryPolicy: ApiRetryPolicy.safe,
           responseProcessor: _processGenesisResponse,
         );
     final ungatedGatewayClient =

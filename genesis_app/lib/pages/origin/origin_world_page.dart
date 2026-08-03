@@ -20,6 +20,8 @@ import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
+import '../../components/tilemap/tilemap_renderer.dart';
+import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/world_map.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../network/genesis_http_cache_manager.dart';
@@ -56,6 +58,7 @@ import '../world/world_map_bubble_candidates.dart';
 import '../world/world_navigation.dart';
 import '../world/world_page_result.dart';
 import 'origin_launch_flow.dart';
+import 'origin_world_layout.dart';
 
 part 'origin_world_map_shell.dart';
 part 'origin_world_detail_sheet.dart';
@@ -94,6 +97,8 @@ const double originDetailSectionGapForTesting = 24;
 @visibleForTesting
 const double originDetailSectionTitleIconGapForTesting = 8;
 
+enum _OriginWorldPageRenderStage { framework, detailShell, content }
+
 class _OriginWorldPageState extends State<OriginWorldPage>
     with SingleTickerProviderStateMixin {
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
@@ -108,15 +113,16 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       );
-  static const double _mapPanelTopGap = 50;
-  static const double _mapLoadingCollapsedHeightOffset = 100;
-  static const double _mapLoadedCollapsedHeightOffset = 60;
-  static const double _mapDefaultExposedChildSize = 0.31;
   late final TabController _tabController;
-  Future<OriginDetail>? _future;
-  Future<void>? _copyWorldProgressFuture;
-  List<WorldSummaryLatestItem> _copyWorldProgressSummaries =
-      const <WorldSummaryLatestItem>[];
+  OriginDetail? _origin;
+  Object? _initialLoadError;
+  _OriginWorldPageRenderStage _renderStage =
+      _OriginWorldPageRenderStage.framework;
+  bool _contentMountScheduled = false;
+  int _originLoadGeneration = 0;
+  TilemapVisualMode _tilemapVisualMode = tilemapVisualModeController.value;
+  late final Future<void> _tilemapVisualModeLoad;
+  bool _tilemapVisualModeReady = false;
   Future<List<OriginMyLaunchPresetCharacter>>? _launchedPresetRolesFuture;
   Future<List<OriginMyLaunchPresetCharacter>>?
   _launchedPresetRolesPreparationFuture;
@@ -136,15 +142,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   void initState() {
     super.initState();
+    tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
+    _tilemapVisualModeLoad = _loadTilemapVisualMode();
     _tabController = TabController(length: 2, vsync: this);
     SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _future ??= _loadOriginDetail();
-    _copyWorldProgressFuture ??= _loadCopyWorldProgress();
+    _scheduleInitialOriginLoadAfterFrameworkFrame();
   }
 
   @override
@@ -156,13 +158,16 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _launchedPresetRolesData = null;
       _launchedPresetRolesCacheKey = '';
       _launchedPresetRolesPreloadScheduledForOriginId = '';
-      _future = _loadOriginDetail();
-      _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
-      _copyWorldProgressFuture = _loadCopyWorldProgress();
+      _originLoadGeneration += 1;
+      _origin = null;
+      _initialLoadError = null;
+      _renderStage = _OriginWorldPageRenderStage.framework;
+      _contentMountScheduled = false;
       _activeChatLocation = null;
       _showIntroPage = false;
       _tabController.index = 0;
       SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
+      _scheduleInitialOriginLoadAfterFrameworkFrame();
     }
   }
 
@@ -175,8 +180,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _launchedPresetRolesData = null;
       _launchedPresetRolesCacheKey = '';
       _launchedPresetRolesPreloadScheduledForOriginId = '';
-      _future = _loadOriginDetail();
     });
+    unawaited(_fetchOriginDetail());
   }
 
   @override
@@ -184,15 +189,161 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (!_preserveStatusBarDuringWorldHandoff) {
       GenesisSystemUiChrome.applyDefault();
     }
+    _originLoadGeneration += 1;
+    tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     _tabController.dispose();
     super.dispose();
   }
 
-  Future<OriginDetail> _loadOriginDetail() async {
-    final api = AppServicesScope.read(context).api;
-    final origin = await api.getOrigin(widget.oid);
-    _precacheRoleCardAvatarImages(origin);
-    return origin;
+  Color get _tilemapLoadingBackgroundColor =>
+      tilemapVisualStyleFor(_tilemapVisualMode).backgroundColor;
+
+  Future<void> _loadTilemapVisualMode() async {
+    if (tilemapVisualModeController.isHydrated) {
+      _tilemapVisualModeReady = true;
+      return;
+    }
+    try {
+      await const TilemapSettingsStore().load().timeout(
+        const Duration(seconds: 2),
+      );
+    } catch (error) {
+      debugPrint(
+        '[OriginWorldPage] tilemap settings load failed; using defaults: '
+        '$error',
+      );
+    } finally {
+      _tilemapVisualModeReady = true;
+    }
+  }
+
+  void _handleTilemapVisualModeChanged() {
+    final visualMode = tilemapVisualModeController.value;
+    if (!mounted || _tilemapVisualMode == visualMode) return;
+    setState(() => _tilemapVisualMode = visualMode);
+  }
+
+  void _scheduleInitialOriginLoadAfterFrameworkFrame() {
+    final scheduledGeneration = _originLoadGeneration;
+    final scheduledOriginId = widget.oid.trim();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _origin != null ||
+          scheduledGeneration != _originLoadGeneration ||
+          scheduledOriginId != widget.oid.trim()) {
+        return;
+      }
+      unawaited(_fetchOriginDetail(isInitial: true));
+    });
+  }
+
+  Future<void> _fetchOriginDetail({bool isInitial = false}) async {
+    final generation = ++_originLoadGeneration;
+    final requestedOriginId = widget.oid.trim();
+    try {
+      final origin = await AppServicesScope.read(
+        context,
+      ).api.getOrigin(requestedOriginId);
+      if (!mounted ||
+          generation != _originLoadGeneration ||
+          widget.oid.trim() != requestedOriginId) {
+        return;
+      }
+      final shouldStageInitialContent =
+          isInitial ||
+          _origin == null ||
+          _renderStage != _OriginWorldPageRenderStage.content;
+      setState(() {
+        _origin = origin;
+        _initialLoadError = null;
+        if (shouldStageInitialContent) {
+          _renderStage = _OriginWorldPageRenderStage.detailShell;
+          _contentMountScheduled = false;
+        }
+      });
+      if (!shouldStageInitialContent) {
+        _scheduleDeferredOriginPreloads(origin, generation);
+      }
+    } catch (error, stackTrace) {
+      if (!mounted ||
+          generation != _originLoadGeneration ||
+          widget.oid.trim() != requestedOriginId) {
+        return;
+      }
+      if (_origin == null) {
+        setState(() => _initialLoadError = error);
+      } else {
+        debugPrint(
+          '[OriginWorldPage] detail refresh failed: $error\n$stackTrace',
+        );
+        if (_renderStage == _OriginWorldPageRenderStage.detailShell) {
+          _mountContentAfterDetailShell(_origin!, generation);
+        }
+      }
+    }
+  }
+
+  void _scheduleContentMountAfterDetailShellFrame(OriginDetail origin) {
+    if (_renderStage != _OriginWorldPageRenderStage.detailShell ||
+        _contentMountScheduled) {
+      return;
+    }
+    final generation = _originLoadGeneration;
+    _contentMountScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          generation != _originLoadGeneration ||
+          !identical(_origin, origin) ||
+          _renderStage != _OriginWorldPageRenderStage.detailShell) {
+        _contentMountScheduled = false;
+        return;
+      }
+      if (origin.definitionVersion != 2 ||
+          _tilemapVisualModeReady ||
+          tilemapVisualModeController.isHydrated) {
+        _mountContentAfterDetailShell(origin, generation);
+        return;
+      }
+      unawaited(_mountContentAfterTilemapVisualModeLoad(origin, generation));
+    });
+  }
+
+  Future<void> _mountContentAfterTilemapVisualModeLoad(
+    OriginDetail origin,
+    int generation,
+  ) async {
+    if (origin.definitionVersion == 2) {
+      await _tilemapVisualModeLoad;
+    }
+    _mountContentAfterDetailShell(origin, generation);
+  }
+
+  void _mountContentAfterDetailShell(OriginDetail origin, int generation) {
+    if (!mounted ||
+        generation != _originLoadGeneration ||
+        !identical(_origin, origin) ||
+        _renderStage != _OriginWorldPageRenderStage.detailShell) {
+      _contentMountScheduled = false;
+      return;
+    }
+    setState(() {
+      _contentMountScheduled = false;
+      _renderStage = _OriginWorldPageRenderStage.content;
+    });
+    _scheduleDeferredOriginPreloads(origin, generation);
+  }
+
+  void _scheduleDeferredOriginPreloads(OriginDetail origin, int generation) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          generation != _originLoadGeneration ||
+          !identical(_origin, origin) ||
+          _renderStage != _OriginWorldPageRenderStage.content) {
+        return;
+      }
+      _precacheRoleCardAvatarImages(origin);
+      _scheduleLaunchedPresetRolesPreload();
+    });
   }
 
   void _scheduleLaunchedPresetRolesPreload() {
@@ -206,22 +357,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       if (!mounted || widget.oid.trim() != originId) return;
       unawaited(_ensureLaunchedPresetRolesLoaded());
     });
-  }
-
-  Future<void> _loadCopyWorldProgress() async {
-    final originId = widget.oid.trim();
-    if (originId.isEmpty) return;
-    try {
-      final summaries = await AppServicesScope.read(
-        context,
-      ).api.getLatestWorldSummaries(originId: originId);
-      if (!mounted || widget.oid.trim() != originId) return;
-      setState(() => _copyWorldProgressSummaries = summaries);
-    } catch (error) {
-      debugPrint(
-        '[OriginWorldPage] copy world progress preload failed: $error',
-      );
-    }
   }
 
   void _precacheRoleCardAvatarImages(OriginDetail origin) {
@@ -252,11 +387,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   void _refreshOriginDetail() {
-    setState(() {
-      _future = _loadOriginDetail();
-      _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
-      _copyWorldProgressFuture = _loadCopyWorldProgress();
-    });
+    unawaited(_fetchOriginDetail());
   }
 
   void _openChatForPoint(OriginDetail origin, WorldPoint point) {
@@ -639,234 +770,199 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   Widget build(BuildContext context) {
     final topPadding = GenesisSafeAreaInsets.top(context);
-    return _buildPageContent(context, topPadding);
+    return _buildPageContent(topPadding);
   }
 
-  Widget _buildPageContent(BuildContext context, double topPadding) {
-    return FutureBuilder<OriginDetail>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildMapOnlyScaffold(
-            topPadding: topPadding,
-            panelCollapsedHeightOffset: _mapLoadingCollapsedHeightOffset,
-            mapOverlay: _buildPersistentMapOverlay(topPadding),
-            map: WorldKeepAlivePage(
-              child: WorldMap.origin(
-                definitionVersion: null,
-                originId: widget.oid,
-                common: WorldMapCommonConfig(drillExitTop: topPadding + 68),
-                legacy: LegacyWorldMapConfig(
-                  implementationKey: PageStorageKey<String>(
-                    'origin-map-loading-${widget.oid}',
-                  ),
-                  points: const <WorldPoint>[],
-                  listPoints: const <WorldPoint>[],
-                  fallbackOnEmptyMapUrl: false,
-                  pointsListOuterScrollHandoff: false,
-                  overlayTop: topPadding + 8 + 48,
+  Widget _buildPageContent(double topPadding) {
+    final origin = _origin;
+    if (origin == null) {
+      if (_initialLoadError != null) {
+        return Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Load failed'),
+                const SizedBox(height: 10),
+                FilledButton(
+                  onPressed: () {
+                    setState(() => _initialLoadError = null);
+                    unawaited(_fetchOriginDetail(isInitial: true));
+                  },
+                  child: const Text('Retry'),
                 ),
-              ),
+              ],
             ),
-          );
-        }
+          ),
+        );
+      }
+      return _buildInitialLoadingScaffold(topPadding);
+    }
+    if (_renderStage != _OriginWorldPageRenderStage.content) {
+      _scheduleContentMountAfterDetailShellFrame(origin);
+      return _buildInitialLoadingScaffold(topPadding, origin: origin);
+    }
 
-        if (snapshot.hasError) {
-          return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Load failed'),
-                  const SizedBox(height: 10),
-                  FilledButton(
-                    onPressed: () => setState(() {
-                      _future = _loadOriginDetail();
-                    }),
-                    child: const Text('Retry'),
+    final processedLocationTree = origin.processedLocationTree;
+    final initialTilemapLocationId = processedLocationTree
+        .initialTilemapLocationId(
+          syntheticRootId: originSyntheticRootLocationId,
+        );
+    final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
+    final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
+    final renderLocationNodes = processedLocationTree.initialMapRenderRoots;
+    final allLocationNodes = processedLocationTree.flattened;
+    final avatarsByLocation = _originAvatarsByLocation(
+      origin.characters,
+      origin.allLocations,
+    );
+    final locationNodes = _originMapLocationNodes(
+      rootLocationNodes,
+      avatarsByLocation,
+      processedLocationTree,
+      markAsMapRoot:
+          rootLocationNodes.length == 1 &&
+          rootLocationNodes.single.children.isNotEmpty,
+    );
+    final listLocationNodes = _originMapLocationNodes(
+      processedLocationTree.mapRoots,
+      avatarsByLocation,
+      processedLocationTree,
+      markAsMapRoot: false,
+    );
+    final points = renderLocationNodes.isNotEmpty
+        ? _pointsFromLocations(
+            renderLocationNodes
+                .map((node) => node.value)
+                .toList(growable: false),
+            avatarsByLocation,
+            depths: renderLocationNodes
+                .map((node) => node.depth)
+                .toList(growable: false),
+            isLeafLocations: renderLocationNodes
+                .map((node) => node.children.isEmpty)
+                .toList(growable: false),
+            usersByIndex: renderLocationNodes
+                .map(
+                  (node) => processedLocationTree.aggregateValues<UserAvatar>(
+                    node.id,
+                    avatarsByLocation,
+                    idOf: worldMapAvatarStableId,
                   ),
-                ],
-              ),
-            ),
+                )
+                .toList(growable: false),
+          )
+        : _pointsFromLocations(
+            _rootOriginLocations(origin.allLocations),
+            avatarsByLocation,
           );
-        }
-
-        final origin = snapshot.data;
-        if (origin == null) {
-          return const Scaffold(body: Center(child: Text('No data')));
-        }
-        _scheduleLaunchedPresetRolesPreload();
-
-        final processedLocationTree = origin.processedLocationTree;
-        final initialTilemapLocationId = processedLocationTree
-            .initialTilemapLocationId(
-              syntheticRootId: originSyntheticRootLocationId,
-            );
-        final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
-        final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
-        final renderLocationNodes = processedLocationTree.initialMapRenderRoots;
-        final allLocationNodes = processedLocationTree.flattened;
-        final avatarsByLocation = _originAvatarsByLocation(
-          origin.characters,
-          origin.allLocations,
-        );
-        final locationNodes = _originMapLocationNodes(
-          rootLocationNodes,
-          avatarsByLocation,
-          processedLocationTree,
-          markAsMapRoot:
-              rootLocationNodes.length == 1 &&
-              rootLocationNodes.single.children.isNotEmpty,
-        );
-        final listLocationNodes = _originMapLocationNodes(
-          processedLocationTree.mapRoots,
-          avatarsByLocation,
-          processedLocationTree,
-          markAsMapRoot: false,
-        );
-        final points = renderLocationNodes.isNotEmpty
-            ? _pointsFromLocations(
-                renderLocationNodes
-                    .map((node) => node.value)
-                    .toList(growable: false),
-                avatarsByLocation,
-                depths: renderLocationNodes
-                    .map((node) => node.depth)
-                    .toList(growable: false),
-                isLeafLocations: renderLocationNodes
-                    .map((node) => node.children.isEmpty)
-                    .toList(growable: false),
-                usersByIndex: renderLocationNodes
-                    .map(
-                      (node) =>
-                          processedLocationTree.aggregateValues<UserAvatar>(
-                            node.id,
-                            avatarsByLocation,
-                            idOf: worldMapAvatarStableId,
-                          ),
-                    )
-                    .toList(growable: false),
+    final listPoints = allLocationNodes.isNotEmpty
+        ? _pointsFromLocations(
+            allLocationNodes.map((node) => node.value).toList(growable: false),
+            avatarsByLocation,
+            depths: allLocationNodes
+                .map((node) => node.depth)
+                .toList(growable: false),
+            isLeafLocations: allLocationNodes
+                .map((node) => node.children.isEmpty)
+                .toList(growable: false),
+            usersByIndex: allLocationNodes
+                .map(
+                  (node) => processedLocationTree.aggregateValues<UserAvatar>(
+                    node.id,
+                    avatarsByLocation,
+                    idOf: worldMapAvatarStableId,
+                  ),
+                )
+                .toList(growable: false),
+          )
+        : origin.allLocations.isNotEmpty
+        ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
+        : points;
+    final locationCount = listLocationNodes.isNotEmpty
+        ? _originLeafLocationNodeCount(listLocationNodes)
+        : listPoints.length;
+    final Widget map = WorldMap.origin(
+      definitionVersion: origin.definitionVersion,
+      originId: origin.oid,
+      common: WorldMapCommonConfig(
+        locationNodes: locationNodes,
+        drillExitTop: topPadding + 68,
+        messageBubbles: _activeChatLocation == null
+            ? _originMapMessageBubbles(origin)
+            : const <WorldMapMessageBubble>[],
+        messageBubblePlaybackPaused: _activeChatLocation != null,
+        onMapTap: () => _recordWorldoMapClick(origin),
+        onPointTap: (point) => _openChatForPoint(origin, point),
+      ),
+      legacy: LegacyWorldMapConfig(
+        implementationKey: PageStorageKey<String>('origin-map-${origin.oid}'),
+        points: points,
+        listPoints: listPoints,
+        listLocationNodes: listLocationNodes,
+        mapImageUrl: mapImageUrl,
+        dimmed: _showIntroPage,
+        showPointsList: _showIntroPage,
+        pointsListBuilder: _showIntroPage
+            ? (context) => _OriginIntroList(
+                origin: origin,
+                topPadding: topPadding + 8 + 48,
+                onOriginChanged: _refreshOriginDetail,
               )
-            : _pointsFromLocations(
-                _rootOriginLocations(origin.allLocations),
-                avatarsByLocation,
-              );
-        final listPoints = allLocationNodes.isNotEmpty
-            ? _pointsFromLocations(
-                allLocationNodes
-                    .map((node) => node.value)
-                    .toList(growable: false),
-                avatarsByLocation,
-                depths: allLocationNodes
-                    .map((node) => node.depth)
-                    .toList(growable: false),
-                isLeafLocations: allLocationNodes
-                    .map((node) => node.children.isEmpty)
-                    .toList(growable: false),
-                usersByIndex: allLocationNodes
-                    .map(
-                      (node) =>
-                          processedLocationTree.aggregateValues<UserAvatar>(
-                            node.id,
-                            avatarsByLocation,
-                            idOf: worldMapAvatarStableId,
-                          ),
-                    )
-                    .toList(growable: false),
-              )
-            : origin.allLocations.isNotEmpty
-            ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
-            : points;
-        final locationCount = listLocationNodes.isNotEmpty
-            ? _originLeafLocationNodeCount(listLocationNodes)
-            : listPoints.length;
-        final Widget map = WorldMap.origin(
-          definitionVersion: origin.definitionVersion,
-          originId: origin.oid,
-          common: WorldMapCommonConfig(
-            locationNodes: locationNodes,
-            drillExitTop: topPadding + 68,
-            messageBubbles: _activeChatLocation == null
-                ? _originMapMessageBubbles(origin)
-                : const <WorldMapMessageBubble>[],
-            messageBubblePlaybackPaused: _activeChatLocation != null,
-            onMapTap: () => _recordWorldoMapClick(origin),
-            onPointTap: (point) => _openChatForPoint(origin, point),
-          ),
-          legacy: LegacyWorldMapConfig(
-            implementationKey: PageStorageKey<String>(
-              'origin-map-${origin.oid}',
-            ),
-            points: points,
-            listPoints: listPoints,
-            listLocationNodes: listLocationNodes,
-            mapImageUrl: mapImageUrl,
-            dimmed: _showIntroPage,
-            showPointsList: _showIntroPage,
-            pointsListBuilder: _showIntroPage
-                ? (context) => _OriginIntroList(
-                    origin: origin,
-                    topPadding: topPadding + 8 + 48,
-                    onOriginChanged: _refreshOriginDetail,
-                  )
-                : null,
-            initialZoomScale: _showIntroPage ? 1 : 1.2,
-            enableAvatarScaleReboundHint: true,
-            pointsListOuterScrollHandoff: false,
-            overlayTop: topPadding + 8 + 48,
-          ),
-          tilemap: WorldMapTilemapOptions(
-            implementationKey: PageStorageKey<String>(
-              'origin-tilemap-${origin.oid}',
-            ),
-            locationId: initialTilemapLocationId,
-            locationNodes: listLocationNodes,
-            preferredFocusLocationId:
-                origin.initLocationGroup?.locationId.trim() ?? '',
-            showVisualModeToggle: !_showIntroPage,
-            visualModeToggleTop: topPadding + 8,
-            visualModeToggleRight: 12,
-            onMapTap: () => _recordWorldoTilemapClick(origin),
-          ),
-        );
+            : null,
+        initialZoomScale: _showIntroPage ? 1 : 1.2,
+        enableAvatarScaleReboundHint: true,
+        pointsListOuterScrollHandoff: false,
+        overlayTop: topPadding + 8 + 48,
+      ),
+      tilemap: WorldMapTilemapOptions(
+        implementationKey: PageStorageKey<String>(
+          'origin-tilemap-${origin.oid}',
+        ),
+        locationId: initialTilemapLocationId,
+        locationNodes: listLocationNodes,
+        preferredFocusLocationId:
+            origin.initLocationGroup?.locationId.trim() ?? '',
+        showVisualModeToggle: !_showIntroPage,
+        visualModeToggleTop: topPadding + 8,
+        visualModeToggleRight: 12,
+        onMapTap: () => _recordWorldoTilemapClick(origin),
+      ),
+    );
 
-        return PopScope(
-          canPop: _activeChatLocation == null,
-          onPopInvokedWithResult: (didPop, result) {
-            if (didPop) return;
-            _handleOriginPopBlocked();
-          },
-          child: _buildMapOnlyScaffold(
-            topPadding: topPadding,
-            panelCollapsedHeightOffset: _mapLoadedCollapsedHeightOffset,
-            mapOverlay: _buildPersistentMapOverlay(
-              topPadding,
-              locationCount: locationCount,
-            ),
-            bottomSheetOverlayBuilder: (minChildSize) =>
-                _OriginDetailDraggableSheet(
-                  origin: origin,
-                  copyWorldProgressSummaries: _copyWorldProgressSummaries,
-                  baseStatusBarStyle: _baseStatusBarStyle,
-                  minChildSize: minChildSize,
-                  collapseRequest: _detailSheetCollapseRequest,
-                  onOriginChanged: _refreshOriginDetail,
-                  launching: _launching,
-                  onSelectRole: (character) =>
-                      _selectAndLaunchPresetRole(origin, character),
-                  onCustomizeRole: () =>
-                      _openLaunchRoleSheet(origin, initialCustomTab: true),
-                ),
-            bottomOverlay: _OriginBottomLaunchBar(
-              origin: origin,
-              launching: _launching,
-              onLaunch: () => _showLaunchRoleSheet(origin),
-            ),
-            topOverlay: _buildLocationChatOverlay(origin),
-            map: WorldKeepAlivePage(child: map),
-          ),
-        );
+    return PopScope(
+      canPop: _activeChatLocation == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleOriginPopBlocked();
       },
+      child: _buildMapOnlyScaffold(
+        topPadding: topPadding,
+        mapOverlay: _buildPersistentMapOverlay(
+          topPadding,
+          locationCount: locationCount,
+        ),
+        bottomSheetOverlayBuilder: (minChildSize) =>
+            _OriginDetailDraggableSheet(
+              origin: origin,
+              baseStatusBarStyle: _baseStatusBarStyle,
+              minChildSize: minChildSize,
+              collapseRequest: _detailSheetCollapseRequest,
+              onOriginChanged: _refreshOriginDetail,
+              launching: _launching,
+              onSelectRole: (character) =>
+                  _selectAndLaunchPresetRole(origin, character),
+              onCustomizeRole: () =>
+                  _openLaunchRoleSheet(origin, initialCustomTab: true),
+            ),
+        bottomOverlay: _OriginBottomLaunchBar(
+          origin: origin,
+          launching: _launching,
+          onLaunch: () => _showLaunchRoleSheet(origin),
+        ),
+        topOverlay: _buildLocationChatOverlay(origin),
+        map: WorldKeepAlivePage(child: map),
+      ),
     );
   }
 }

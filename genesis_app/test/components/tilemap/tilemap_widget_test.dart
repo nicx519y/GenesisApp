@@ -41,6 +41,7 @@ void main() {
     debugGenesisStaticNetworkImageCompleter = (_) =>
         _PendingImageStreamCompleter();
     FirebasePerformanceMonitoring.resetForTesting();
+    tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
     final loadingSettings = TilemapRenderSettings.defaults().toJson()
       ..['loading_style'] = TilemapLoadingStyle.minimalProgress.name;

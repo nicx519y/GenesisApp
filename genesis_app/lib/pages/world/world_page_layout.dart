@@ -21,21 +21,56 @@ extension _WorldPageLayout on _WorldPageState {
     });
   }
 
-  Widget _buildInitialLoadingScaffold(double topPadding) {
+  Widget _buildInitialLoadingScaffold(double topPadding, {WorldDetail? world}) {
     final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
-    return WorldDetailsPageScaffold(
-      panelTopGap: 50,
-      panelCollapsedHeightOffset: 120,
-      scrollPhysics: const NeverScrollableScrollPhysics(),
-      persistentTopOverlay: _buildPersistentMapOverlay(topPadding),
-      map: ColoredBox(
-        key: const ValueKey<String>('world-map-loading-background'),
-        color: kWorldMapLoadingBackgroundColor,
+    return Stack(
+      children: [
+        WorldDetailsPageScaffold(
+          backgroundColor: _tilemapLoadingBackgroundColor,
+          panelTopGap: 50,
+          panelCollapsedHeightOffset: 120,
+          scrollPhysics: const NeverScrollableScrollPhysics(),
+          persistentTopOverlay: _buildPersistentMapOverlay(
+            topPadding,
+            world: world,
+            worldTime: world?.currentTime ?? '',
+            tickIndex: world?.tickCount ?? -1,
+          ),
+          map: ColoredBox(
+            key: const ValueKey<String>('world-map-loading-background'),
+            color: _tilemapLoadingBackgroundColor,
+          ),
+          fixedCollapsedPanelHeight: collapsedPanelHeight,
+          fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
+          contentBottomPaddingOverride: 0,
+          slivers: const [WorldDetailsLoadingContent()],
+        ),
+        _buildWorldBottomTagsOverlay(
+          collapsedPanelHeight: collapsedPanelHeight,
+          interactive: false,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWorldBottomTagsOverlay({
+    required double collapsedPanelHeight,
+    required bool interactive,
+  }) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: collapsedPanelHeight - worldMainTabsHeight,
+      height: worldMainTabsHeight,
+      child: IgnorePointer(
+        key: const ValueKey<String>('world-bottom-tags-overlay'),
+        ignoring: !interactive,
+        child: WorldBottomTags(
+          eventsUnread: _eventsUnread,
+          showDetailUnreadDot: _hasUnreadNewUserJoin,
+          onTap: _openWorldBottomSheet,
+        ),
       ),
-      fixedCollapsedPanelHeight: collapsedPanelHeight,
-      fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
-      contentBottomPaddingOverride: 0,
-      slivers: const [WorldDetailsLoadingContent()],
     );
   }
 

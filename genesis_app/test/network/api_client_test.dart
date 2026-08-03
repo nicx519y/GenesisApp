@@ -333,6 +333,26 @@ void main() {
     );
   });
 
+  test('transport errors expose redacted diagnostics', () async {
+    final transport = _FakeTransport(
+      handler: (_) => throw Exception('connection closed'),
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    try {
+      await client.get<Object?>('/user/info', query: {'uid': 'u_private'});
+      fail('Expected a transport ApiException.');
+    } on ApiException catch (error) {
+      expect(error.transportErrorKind, TransportErrorKind.connection);
+      expect(error.toString(), contains('(cause=_Exception)'));
+      expect(error.toString(), contains('(uri=https://example.com/user/info)'));
+      expect(error.toString(), isNot(contains('u_private')));
+    }
+  });
+
   test('safe retry policy retries GET transport timeouts', () async {
     var attempts = 0;
     final transport = _FakeTransport(

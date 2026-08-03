@@ -47,7 +47,21 @@ class ApiException implements Exception {
     final c = code == null ? '' : ' (code=$code)';
     final sc = statusCode == null ? '' : ' (statusCode=$statusCode)';
     final k = kind == ApiExceptionKind.unknown ? '' : ' (kind=${kind.name})';
-    final u = uri == null ? '' : ' (uri=$uri)';
-    return 'ApiException$message$c$sc$k$u';
+    final tk = transportErrorKind == null
+        ? ''
+        : ' (transportErrorKind=${transportErrorKind!.name})';
+    final cause = error == null ? '' : ' (cause=${error.runtimeType})';
+    final u = uri == null ? '' : ' (uri=${_diagnosticUri(uri!)})';
+    return 'ApiException$message$c$sc$k$tk$cause$u';
   }
+}
+
+String _diagnosticUri(Uri uri) {
+  if (!uri.hasAuthority) return Uri(path: uri.path).toString();
+  return Uri(
+    scheme: uri.scheme,
+    host: uri.host,
+    port: uri.hasPort ? uri.port : null,
+    path: uri.path,
+  ).toString();
 }

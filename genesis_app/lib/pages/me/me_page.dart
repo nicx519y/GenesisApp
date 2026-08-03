@@ -84,6 +84,11 @@ class _MePageState extends State<MePage> {
   bool _hasPendingActivationRefresh = false;
   int _selectedCollectionTabIndex = 0;
   ValueListenable<int>? _sessionRevisionListenable;
+  // Extension method tear-offs are not equal across reads, so listener
+  // registration and removal must reuse these stable callback objects.
+  late final VoidCallback _tabActivatedListener;
+  late final VoidCallback _recentChatChangedListener;
+  late final VoidCallback _sessionChangedListener;
   bool _isDisposed = false;
   String _recentChatUid = '';
   String _recentChatWorldId = '';
@@ -91,17 +96,20 @@ class _MePageState extends State<MePage> {
   @override
   void initState() {
     super.initState();
+    _tabActivatedListener = _handleTabActivated;
+    _recentChatChangedListener = _handleRecentChatChanged;
+    _sessionChangedListener = _handleSessionChanged;
     _future = _loadData();
-    widget.activationListenable?.addListener(_handleTabActivated);
-    recentWorldChatStore.listenable.addListener(_handleRecentChatChanged);
+    widget.activationListenable?.addListener(_tabActivatedListener);
+    recentWorldChatStore.listenable.addListener(_recentChatChangedListener);
   }
 
   @override
   void didUpdateWidget(covariant MePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.activationListenable != widget.activationListenable) {
-      oldWidget.activationListenable?.removeListener(_handleTabActivated);
-      widget.activationListenable?.addListener(_handleTabActivated);
+      oldWidget.activationListenable?.removeListener(_tabActivatedListener);
+      widget.activationListenable?.addListener(_tabActivatedListener);
     }
   }
 
@@ -110,9 +118,9 @@ class _MePageState extends State<MePage> {
     super.didChangeDependencies();
     final sessionRevision = AppServicesScope.of(context).sessionRevision;
     if (identical(_sessionRevisionListenable, sessionRevision)) return;
-    _sessionRevisionListenable?.removeListener(_handleSessionChanged);
+    _sessionRevisionListenable?.removeListener(_sessionChangedListener);
     _sessionRevisionListenable = sessionRevision;
-    sessionRevision.addListener(_handleSessionChanged);
+    sessionRevision.addListener(_sessionChangedListener);
     unawaited(_loadRecentChatMarker());
   }
 
@@ -120,9 +128,9 @@ class _MePageState extends State<MePage> {
   void dispose() {
     _isDisposed = true;
     _loadGeneration += 1;
-    _sessionRevisionListenable?.removeListener(_handleSessionChanged);
-    recentWorldChatStore.listenable.removeListener(_handleRecentChatChanged);
-    widget.activationListenable?.removeListener(_handleTabActivated);
+    _sessionRevisionListenable?.removeListener(_sessionChangedListener);
+    recentWorldChatStore.listenable.removeListener(_recentChatChangedListener);
+    widget.activationListenable?.removeListener(_tabActivatedListener);
     _isUpdatingProfile.dispose();
     _avatarUrl.dispose();
     _displayName.dispose();

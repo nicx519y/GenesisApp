@@ -5,7 +5,7 @@ import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
 void main() {
-  test('world route returns a typed delete result', () {
+  test('world route keeps its typed result', () {
     final route = AppRouter.onGenerateRoute(
       const RouteSettings(
         name: RouteNames.world,
@@ -14,6 +14,17 @@ void main() {
     );
 
     expect(route, isA<MaterialPageRoute<WorldPageResult>>());
+  });
+
+  test('origin world route keeps its void material result', () {
+    final route = AppRouter.onGenerateRoute(
+      const RouteSettings(
+        name: RouteNames.originWorld,
+        arguments: <String, Object?>{'oid': 'o_test'},
+      ),
+    );
+
+    expect(route, isA<MaterialPageRoute<void>>());
   });
 
   testWidgets('page not found route shows text without retry', (

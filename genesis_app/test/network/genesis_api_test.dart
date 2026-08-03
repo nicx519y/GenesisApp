@@ -129,6 +129,35 @@ void main() {
     );
   });
 
+  test('GenesisApi retries a retryable business GET once by default', () async {
+    var attempts = 0;
+    final transport = _FakeTransport(
+      handler: (_) {
+        attempts += 1;
+        if (attempts == 1) throw Exception('connection closed');
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_retry"},"relation":{}}}',
+        );
+      },
+    );
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const _TestPlatformConfig(),
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: MemoryUserSessionStore(),
+      appHeaderProvider: () async => const <String, String>{},
+    );
+
+    final result = await api.v1.user.info(uid: 'u_retry');
+
+    expect((result['user'] as Map)['uid'], 'u_retry');
+    expect(attempts, 2);
+  });
+
   test('AppConfig provides default version check app id and channel', () {
     expect(const AppConfig().appId, 'aitown');
     expect(const AppConfig().appChannel, 'default');

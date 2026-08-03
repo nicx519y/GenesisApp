@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,6 +17,29 @@ enum TilemapLoadingStyle {
 
 const TilemapLoadingStyle tilemapDefaultLoadingStyle =
     TilemapLoadingStyle.disabled;
+
+class TilemapVisualModeController extends ValueNotifier<TilemapVisualMode> {
+  TilemapVisualModeController() : super(tilemapDefaultVisualMode);
+
+  bool _isHydrated = false;
+
+  bool get isHydrated => _isHydrated;
+
+  void setVisualMode(TilemapVisualMode mode) {
+    _isHydrated = true;
+    if (value == mode) return;
+    value = mode;
+  }
+
+  @visibleForTesting
+  void resetForTesting() {
+    _isHydrated = false;
+    value = tilemapDefaultVisualMode;
+  }
+}
+
+final TilemapVisualModeController tilemapVisualModeController =
+    TilemapVisualModeController();
 
 class TilemapRenderSettings {
   const TilemapRenderSettings({
@@ -298,26 +322,27 @@ class TilemapSettingsStore {
   Future<TilemapRenderSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(storageKey);
-    if (raw == null || raw.trim().isEmpty) {
-      return TilemapRenderSettings.defaults();
-    }
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map<String, dynamic>) {
-        return TilemapRenderSettings.fromJson(decoded);
+    var settings = TilemapRenderSettings.defaults();
+    if (raw != null && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) {
+          settings = TilemapRenderSettings.fromJson(decoded);
+        } else if (decoded is Map) {
+          settings = TilemapRenderSettings.fromJson(
+            decoded.map((key, value) => MapEntry('$key', value)),
+          );
+        }
+      } catch (_) {
+        settings = TilemapRenderSettings.defaults();
       }
-      if (decoded is Map) {
-        return TilemapRenderSettings.fromJson(
-          decoded.map((key, value) => MapEntry('$key', value)),
-        );
-      }
-    } catch (_) {
-      return TilemapRenderSettings.defaults();
     }
-    return TilemapRenderSettings.defaults();
+    tilemapVisualModeController.setVisualMode(settings.visualMode);
+    return settings;
   }
 
   Future<void> save(TilemapRenderSettings settings) async {
+    tilemapVisualModeController.setVisualMode(settings.visualMode);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(storageKey, jsonEncode(settings.toJson()));
   }
@@ -325,5 +350,6 @@ class TilemapSettingsStore {
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(storageKey);
+    tilemapVisualModeController.setVisualMode(tilemapDefaultVisualMode);
   }
 }

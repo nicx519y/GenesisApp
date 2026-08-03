@@ -12,6 +12,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
   });
 
@@ -68,6 +69,23 @@ void main() {
       settings.dragBoundaryPaddingTiles,
       tilemapDefaultDragBoundaryPaddingTiles,
     );
+  });
+
+  test('publishes the persisted visual mode for loading surfaces', () async {
+    final cachedSettings = TilemapRenderSettings.defaults().toJson()
+      ..['visual_mode'] = TilemapVisualMode.light.name;
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      TilemapSettingsStore.storageKey: jsonEncode(cachedSettings),
+    });
+
+    final settings = await const TilemapSettingsStore().load();
+
+    expect(settings.visualMode, TilemapVisualMode.light);
+    expect(tilemapVisualModeController.value, TilemapVisualMode.light);
+
+    await const TilemapSettingsStore().clear();
+
+    expect(tilemapVisualModeController.value, tilemapDefaultVisualMode);
   });
 
   test('declares the tuned Tilemap rendering parameters as defaults', () {

@@ -1,11 +1,8 @@
 part of 'origin_world_page.dart';
 
-const Color _originDetailSheetBackgroundColor = Color(0xFFEDEDED);
-
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
-    required this.copyWorldProgressSummaries,
     required this.baseStatusBarStyle,
     required this.minChildSize,
     required this.collapseRequest,
@@ -18,7 +15,6 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   static const double defaultInitialChildSize = 0.22;
 
   final OriginDetail origin;
-  final List<WorldSummaryLatestItem> copyWorldProgressSummaries;
   final SystemUiOverlayStyle baseStatusBarStyle;
   final double minChildSize;
   final int collapseRequest;
@@ -160,7 +156,7 @@ class _OriginDetailDraggableSheetState
     final alpha = _statusBarAlphaForExtent(context, extent);
     if (alpha <= 0.001) return widget.baseStatusBarStyle;
     return widget.baseStatusBarStyle.copyWith(
-      statusBarColor: _originDetailSheetBackgroundColor.withValues(
+      statusBarColor: originWorldDetailSheetBackgroundColor.withValues(
         alpha: alpha,
       ),
       statusBarIconBrightness: Brightness.dark,
@@ -195,8 +191,9 @@ class _OriginDetailDraggableSheetState
           builder: (context, scrollController) {
             _sheetScrollController = scrollController;
             return DecoratedBox(
+              key: const ValueKey<String>('origin-detail-sheet-surface'),
               decoration: BoxDecoration(
-                color: _originDetailSheetBackgroundColor,
+                color: originWorldDetailSheetBackgroundColor,
                 borderRadius: GenesisRadii.sheet,
               ),
               child: ClipRRect(
@@ -387,7 +384,7 @@ class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return ColoredBox(
-      color: _originDetailSheetBackgroundColor,
+      color: originWorldDetailSheetBackgroundColor,
       child: Stack(
         children: [
           Positioned(

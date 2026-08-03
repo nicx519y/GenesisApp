@@ -11,6 +11,7 @@ import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/telemetry/genesis_telemetry.dart';
 import 'components/common/genesis_modal_routes.dart';
+import 'components/tilemap/tilemap_settings_store.dart';
 
 export 'app/genesis_app.dart';
 
@@ -22,6 +23,17 @@ Future<void> main() async {
       DeviceOrientation.portraitUp,
     ]),
   );
+  final tilemapSettingsLoad = () async {
+    try {
+      await const TilemapSettingsStore().load().timeout(
+        const Duration(seconds: 2),
+      );
+    } catch (error) {
+      debugPrint(
+        '[Startup] tilemap settings load failed; using defaults: $error',
+      );
+    }
+  }();
   final appConfig = await AppEndpointOverrideStore.loadConfig().timeout(
     const Duration(seconds: 2),
     onTimeout: () {
@@ -29,6 +41,7 @@ Future<void> main() async {
       return const AppConfig();
     },
   );
+  await tilemapSettingsLoad;
 
   void runGenesisApp() {
     final services = AppBootstrap.createInitialServices(config: appConfig);
