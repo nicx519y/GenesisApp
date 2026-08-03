@@ -6367,6 +6367,58 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('Origin detail sheet records each full expansion once', (
+    WidgetTester tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    List<GenesisTelemetryEvent> expansionEvents() => telemetry.events
+        .where(
+          (event) =>
+              event.category == 'collect.log' &&
+              event.name == 'worldo_detail_sheet',
+        )
+        .toList();
+
+    expect(expansionEvents(), isEmpty);
+    await tester.drag(sheet, const Offset(0, -700));
+    await tester.pumpAndSettle();
+    expect(expansionEvents(), hasLength(1));
+    expect(expansionEvents().single.data, containsPair('action_type', 'event'));
+    expect(expansionEvents().single.data, containsPair('object1', 'o_test_1'));
+
+    await tester.drag(sheet, const Offset(0, -100));
+    await tester.pumpAndSettle();
+    expect(expansionEvents(), hasLength(1));
+
+    await tester.drag(sheet, const Offset(0, 700));
+    await tester.pumpAndSettle();
+    await tester.drag(sheet, const Offset(0, -700));
+    await tester.pumpAndSettle();
+    expect(expansionEvents(), hasLength(2));
+  });
+
   testWidgets('Origin detail launch bar launches a world', (
     WidgetTester tester,
   ) async {

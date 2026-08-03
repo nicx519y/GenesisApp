@@ -39,6 +39,7 @@ class _OriginDetailDraggableSheetState
   late final DraggableScrollableController _sheetController;
   ScrollController? _sheetScrollController;
   var _sheetExtent = 0.0;
+  var _isFullyExpanded = false;
 
   double get _minChildSize => widget.minChildSize.clamp(0.08, 0.42).toDouble();
 
@@ -127,6 +128,16 @@ class _OriginDetailDraggableSheetState
     final extent = notification.extent
         .clamp(_minChildSize, maxChildSize)
         .toDouble();
+    final isFullyExpanded =
+        (maxChildSize - extent).abs() <= _extentUpdateEpsilon;
+    if (isFullyExpanded && !_isFullyExpanded) {
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'worldo_detail_sheet',
+        object1: widget.origin.oid,
+      );
+    }
+    _isFullyExpanded = isFullyExpanded;
     final extentChanged = (extent - _sheetExtent).abs() > _extentUpdateEpsilon;
     if (!extentChanged) return false;
     setState(() => _sheetExtent = extent);
