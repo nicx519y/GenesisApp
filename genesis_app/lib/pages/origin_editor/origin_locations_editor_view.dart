@@ -86,7 +86,7 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
           _buildTreeLocationNameField(
             key: ValueKey<String>('create-location-l1-name-$l1Index'),
             title: 'L1 Location',
-            displayId: 'Loc_${l1Index + 1}',
+            displayId: '${l1Index + 1}',
             controller: l1.name,
             hintText: 'eg. Downtown',
             onDelete: () => _removeL1Location(l1),
@@ -138,7 +138,7 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
                   'create-location-l2-name-$l1Index-$l2Index',
                 ),
                 title: 'L2 Location',
-                displayId: 'Loc_${l1Index + 1}_${l2Index + 1}',
+                displayId: '${l1Index + 1}.${l2Index + 1}',
                 controller: l2.name,
                 hintText: 'eg. Main Street',
                 onDelete: () => _removeL2Location(l1, l2),
@@ -166,7 +166,7 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
                         index: l3Index + 1,
                         title: 'L3 Location',
                         titleSuffix:
-                            '(ID: Loc_${l1Index + 1}_${l2Index + 1}_${l3Index + 1})',
+                            '(No. ${l1Index + 1}.${l2Index + 1}.${l3Index + 1})',
                         showBorder: false,
                         titleFontSize: 14,
                         nameFieldLabel: 'Name *',
@@ -237,7 +237,7 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
                       text: title,
                       children: [
                         TextSpan(
-                          text: ' (ID: $displayId)',
+                          text: ' (No. $displayId)',
                           style: const TextStyle(
                             color: Color(0xFFA8A8AD),
                             fontSize: 12,

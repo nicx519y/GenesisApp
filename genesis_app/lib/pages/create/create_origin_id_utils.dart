@@ -2,8 +2,24 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/widgets.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+
+const int compactLocationIdLength = 32;
+
+final RegExp compactLocationIdPattern = RegExp(r'^[0-9a-f]{32}$');
+
+abstract interface class LocationIdGenerator {
+  String generate();
+}
+
+class UuidLocationIdGenerator implements LocationIdGenerator {
+  const UuidLocationIdGenerator();
+
+  @override
+  String generate() => const Uuid().v4().replaceAll('-', '');
+}
 
 String createUidTimestampHashId({
   required String uid,

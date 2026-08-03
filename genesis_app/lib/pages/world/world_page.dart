@@ -553,6 +553,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 onDisplayReadinessChanged:
                     _handleTilemapDisplayReadinessChanged,
                 onDisplayError: _handleTilemapDisplayError,
+                onCurrentLocationsChanged:
+                    _handleCurrentTilemapLocationsChanged,
               ),
             );
       return WorldKeepAlivePage(

@@ -9,10 +9,12 @@ class OriginLocationsEditorPage extends StatefulWidget {
     super.key,
     required this.repository,
     this.useLocationTree = false,
+    this.locationIdGenerator = const UuidLocationIdGenerator(),
   });
 
   final OriginDraftRepository repository;
   final bool useLocationTree;
+  final LocationIdGenerator locationIdGenerator;
 
   @override
   State<OriginLocationsEditorPage> createState() =>
@@ -45,7 +47,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
 
   final List<_LocationForm> _forms = <_LocationForm>[];
   final List<_L1LocationForm> _treeForms = <_L1LocationForm>[];
-  String _uid = 'anonymous';
+  final Set<String> _reservedLocationIds = <String>{};
   String _openingLocationId = '';
   List<CharacterDraft> _finalCharacters = const <CharacterDraft>[];
   bool _isSaving = false;
@@ -72,16 +74,19 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   }
 
   Future<void> _bootstrap() async {
-    final uidFuture = readCreateOriginUid(context);
     final draft = await widget.repository.loadDraft();
     _finalCharacters = await widget.repository.loadSavedCharacters();
     _openingLocationId = draft.openingSaved
         ? draft.opening.locationId.trim()
         : '';
-    _uid = await uidFuture;
     final source = draft.locations.isEmpty
         ? const <LocationDraft>[LocationDraft()]
         : draft.locations;
+    _reservedLocationIds.addAll(
+      source
+          .map((item) => item.locationId.trim())
+          .where((item) => item.isNotEmpty),
+    );
     if (widget.useLocationTree) {
       _treeForms.addAll(_createLocationTrees(source));
       _requiredInlineLocationId = _firstIncompleteParentLocationId();
@@ -90,7 +95,12 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
           _inlineLocationNameController(_inlineEditingLocationId)?.text ?? '';
     } else {
       for (final item in source) {
-        _forms.add(_LocationForm.fromDraft(item, uid: _uid));
+        _forms.add(
+          _LocationForm.fromDraft(
+            item,
+            createLocationId: _generateUniqueLocationId,
+          ),
+        );
       }
     }
     if (!mounted) return;
@@ -98,6 +108,20 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     if (_requiredInlineLocationId != null) {
       _requestInlineNameFocus();
     }
+  }
+
+  String _generateUniqueLocationId() {
+    for (var attempt = 0; attempt < 8; attempt += 1) {
+      final candidate = widget.locationIdGenerator.generate().trim();
+      if (!compactLocationIdPattern.hasMatch(candidate)) {
+        throw StateError(
+          'Generated location ID must be $compactLocationIdLength lowercase '
+          'hex characters.',
+        );
+      }
+      if (_reservedLocationIds.add(candidate)) return candidate;
+    }
+    throw StateError('Unable to generate a unique location ID.');
   }
 
   Future<void> _saveLocations() async {
@@ -147,6 +171,11 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       _showError('Please create at least one location.');
       return;
     }
+    final identityError = _locationIdentityError(currentLocations);
+    if (identityError != null) {
+      _showError(identityError);
+      return;
+    }
 
     setState(() => _isSaving = true);
     final draft = await widget.repository.loadDraft();
@@ -176,6 +205,31 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     if (!mounted) return;
     setState(() => _isSaving = false);
     Navigator.of(context).pop(true);
+  }
+
+  String? _locationIdentityError(List<LocationDraft> locations) {
+    final locationsById = <String, LocationDraft>{};
+    for (final location in locations) {
+      final locationId = location.locationId.trim();
+      if (locationId.isEmpty) return 'Every location must have an ID.';
+      if (locationsById.containsKey(locationId)) {
+        return 'Every location must have a unique ID.';
+      }
+      locationsById[locationId] = location;
+    }
+    for (final location in locations) {
+      final expectedParentLevel = switch (location.level) {
+        2 => 1,
+        3 => 2,
+        _ => null,
+      };
+      if (expectedParentLevel == null) continue;
+      final parent = locationsById[location.parentLocationId.trim()];
+      if (parent == null || parent.level != expectedParentLevel) {
+        return 'Every location must have a valid parent.';
+      }
+    }
+    return null;
   }
 
   bool get _canSaveCurrentLocations {

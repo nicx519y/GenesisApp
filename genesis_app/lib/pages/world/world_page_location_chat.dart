@@ -1,6 +1,13 @@
 part of 'world_page.dart';
 
 extension _WorldPageLocationChat on _WorldPageState {
+  void _handleCurrentTilemapLocationsChanged(
+    String _,
+    Set<String> locationIds,
+  ) {
+    _locationChatPageCache.preloadBackgroundsForTilemap(locationIds);
+  }
+
   Future<void> _openChatForPoint(WorldPoint point) async {
     final relationStatus = _world?.relationStatus.trim().toLowerCase() ?? '';
     if (!shouldConnectWorldChatroom(relationStatus)) {

@@ -115,14 +115,113 @@ void main() {
     expect(readiness.last, isTrue);
   });
 
+  testWidgets(
+    'Tilemap reports unique locations after the current map is live',
+    (tester) async {
+      final transport = _DelayedTilemapTransport();
+      final reportedMapIds = <String>[];
+      final reportedLocationIds = <Set<String>>[];
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Tilemap.world(
+                worldId: 'w_1',
+                locationNodes: [_locationNode('loc_a'), _locationNode('loc_b')],
+                tileImageLoader: _completeTileImageLoad,
+                onCurrentLocationsChanged: (mapId, locationIds) {
+                  reportedMapIds.add(mapId);
+                  reportedLocationIds.add(locationIds);
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(reportedLocationIds, isEmpty);
+
+      transport.complete(
+        _tilemapData(
+          tileLocationIds: const ['loc_a', 'loc_a', 'loc_b'],
+          assetName: 'root',
+        ),
+      );
+      for (var frame = 0; frame < 10; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(reportedMapIds, const ['world:w_1:root']);
+      expect(reportedLocationIds, [
+        const {'loc_a', 'loc_b'},
+      ]);
+    },
+  );
+
+  testWidgets('Tilemap reports locations after drilling into a new map', (
+    tester,
+  ) async {
+    final transport = _LocationTilemapTransport({
+      'root': _locationTilemapData('branch', assetName: 'root'),
+      'branch': _locationTilemapData('leaf', assetName: 'branch'),
+    });
+    final reports = <String, Set<String>>{};
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: MaterialApp(
+          home: Scaffold(
+            body: Tilemap.world(
+              worldId: 'w_1',
+              locationNodes: [
+                _locationNode(
+                  'branch',
+                  children: [_locationNode('leaf'), _locationNode('leaf_2')],
+                ),
+              ],
+              tileImageLoader: _completeTileImageLoad,
+              onCurrentLocationsChanged: (mapId, locationIds) {
+                reports[mapId] = locationIds;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    for (var frame = 0; frame < 10; frame += 1) {
+      await tester.pump();
+    }
+
+    expect(reports, {
+      'world:w_1:root': const {'branch'},
+    });
+
+    final rootRenderer = tester.widget<TilemapRenderer>(
+      _liveTilemapRendererFinder(),
+    );
+    await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+    for (var frame = 0; frame < 6; frame += 1) {
+      await tester.pump();
+    }
+
+    expect(reports, {
+      'world:w_1:root': const {'branch'},
+      'world:w_1:branch': const {'leaf'},
+    });
+  });
+
   testWidgets('Tilemap records Firebase load performance', (tester) async {
     final transport = _DelayedTilemapTransport();
-    final trace = _RecordingPerformanceTrace();
+    final traces = <String, _RecordingPerformanceTrace>{};
     final traceNames = <String>[];
     FirebasePerformanceMonitoring.setReadyForTesting(true);
     FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
       traceNames.add(name);
-      return trace;
+      return traces.putIfAbsent(name, _RecordingPerformanceTrace.new);
     });
 
     await tester.pumpWidget(
@@ -141,6 +240,7 @@ void main() {
     await tester.pump();
 
     expect(traceNames, const <String>['tilemap_load']);
+    final trace = traces['tilemap_load']!;
     expect(trace.started, isTrue);
     expect(trace.stopped, isFalse);
     expect(trace.attributes, const <String, String>{'source': 'origin'});
@@ -149,6 +249,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    expect(traceNames, contains('tilemap_first_render'));
     expect(trace.stopped, isTrue);
     expect(trace.attributes, const <String, String>{
       'source': 'origin',
@@ -159,6 +260,131 @@ void main() {
       'map_width': 1,
       'map_height': 1,
     });
+  });
+
+  testWidgets(
+    'Tilemap first render trace ignores offscreen background images',
+    (tester) async {
+      final pendingLoads = <String, Completer<void>>{};
+      final traces = <String, _RecordingPerformanceTrace>{};
+      FirebasePerformanceMonitoring.setReadyForTesting(true);
+      FirebasePerformanceMonitoring.setTraceFactoryForTesting(
+        (name) => traces.putIfAbsent(name, _RecordingPerformanceTrace.new),
+      );
+
+      Future<void> loadTileImage(String assetUrl) {
+        return pendingLoads.putIfAbsent(assetUrl, Completer<void>.new).future;
+      }
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(
+            _TilemapTransport(data: _visibleFirstTilemapData()),
+          ),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Tilemap.origin(
+                originId: 'o_1',
+                tileImageLoader: loadTileImage,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final requestTrace = traces['tilemap_load']!;
+      final firstRenderTrace = traces['tilemap_first_render']!;
+      expect(requestTrace.stopped, isTrue);
+      expect(firstRenderTrace.started, isTrue);
+      expect(firstRenderTrace.stopped, isFalse);
+      expect(pendingLoads, hasLength(1));
+
+      pendingLoads.values.single.complete();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(firstRenderTrace.stopped, isTrue);
+      expect(pendingLoads, hasLength(4));
+      expect(
+        pendingLoads.values.where((completer) => !completer.isCompleted),
+        hasLength(tilemapBackgroundImagePreloadConcurrency),
+      );
+      expect(firstRenderTrace.attributes, const <String, String>{
+        'source': 'origin',
+        'result': 'success',
+      });
+      expect(firstRenderTrace.metrics, const <String, int>{
+        'visible_tile_count': 1,
+        'image_count': 1,
+        'map_width': 100,
+        'map_height': 100,
+      });
+
+      for (final completer in pendingLoads.values) {
+        if (!completer.isCompleted) completer.complete();
+      }
+      await tester.pump();
+
+      expect(pendingLoads, hasLength(5));
+      pendingLoads.values
+          .singleWhere((completer) => !completer.isCompleted)
+          .complete();
+      await tester.pump();
+    },
+  );
+
+  testWidgets('Tilemap first render trace records only the first map', (
+    tester,
+  ) async {
+    final locationId = ValueNotifier<String>('root');
+    addTearDown(locationId.dispose);
+    final traces = <String, List<_RecordingPerformanceTrace>>{};
+    FirebasePerformanceMonitoring.setReadyForTesting(true);
+    FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
+      final trace = _RecordingPerformanceTrace();
+      traces.putIfAbsent(name, () => <_RecordingPerformanceTrace>[]).add(trace);
+      return trace;
+    });
+    final transport = _LocationTilemapTransport({
+      'root': _locationTilemapData('root_leaf', assetName: 'root'),
+      'branch': _locationTilemapData('branch_leaf', assetName: 'branch'),
+    });
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: MaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<String>(
+              valueListenable: locationId,
+              builder: (context, currentLocationId, _) => Tilemap.origin(
+                key: const ValueKey<String>('first-render-tilemap'),
+                originId: 'o_1',
+                locationId: currentLocationId,
+                tileImageLoader: _completeTileImageLoad,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    for (var frame = 0; frame < 8; frame += 1) {
+      await tester.pump();
+    }
+
+    expect(traces['tilemap_first_render'], hasLength(1));
+    expect(traces['tilemap_first_render']!.single.stopped, isTrue);
+
+    locationId.value = 'branch';
+    for (var frame = 0; frame < 8; frame += 1) {
+      await tester.pump();
+    }
+
+    expect(transport.requestCount('branch'), 1);
+    expect(traces['tilemap_first_render'], hasLength(1));
   });
 
   testWidgets(

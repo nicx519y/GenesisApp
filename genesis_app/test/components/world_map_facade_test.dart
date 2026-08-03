@@ -40,6 +40,11 @@ void main() {
   test('Origin v2 uses Tilemap and forwards Tilemap options', () {
     var legacyMapTapCount = 0;
     var tilemapMapTapCount = 0;
+    final reportedLocationIds = <Set<String>>[];
+    void handleCurrentLocations(String _, Set<String> locationIds) {
+      reportedLocationIds.add(locationIds);
+    }
+
     const tilemapLocationNode = WorldMapLocationNode(
       id: 'loc_1',
       point: WorldPoint(
@@ -69,6 +74,7 @@ void main() {
         visualModeToggleRight: 12,
         recentChatLocationIds: const {'loc_1'},
         onMapTap: () => tilemapMapTapCount += 1,
+        onCurrentLocationsChanged: handleCurrentLocations,
       ),
     );
 
@@ -87,6 +93,10 @@ void main() {
     expect(tilemap.recentChatLocationIds, const {'loc_1'});
     expect(tilemap.messageBubbles.single.content, 'Hello');
     expect(tilemap.messageBubblePlaybackPaused, isFalse);
+    tilemap.onCurrentLocationsChanged?.call('origin:o_1:root', const {'loc_1'});
+    expect(reportedLocationIds, [
+      const {'loc_1'},
+    ]);
     tilemap.onMapTap?.call();
     expect(tilemapMapTapCount, 1);
     expect(legacyMapTapCount, 0);

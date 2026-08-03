@@ -39,6 +39,7 @@ class WorldMapTilemapOptions {
     this.onMapTap,
     this.onDisplayReadinessChanged,
     this.onDisplayError,
+    this.onCurrentLocationsChanged,
   });
 
   final Key? implementationKey;
@@ -56,6 +57,7 @@ class WorldMapTilemapOptions {
   final VoidCallback? onMapTap;
   final ValueChanged<bool>? onDisplayReadinessChanged;
   final ValueChanged<Object>? onDisplayError;
+  final TilemapCurrentLocationsChanged? onCurrentLocationsChanged;
 }
 
 enum _WorldMapSource { origin, world }
@@ -121,6 +123,7 @@ class WorldMap extends StatelessWidget {
         restorationController: tilemap.restorationController,
         onDisplayReadinessChanged: tilemap.onDisplayReadinessChanged,
         onDisplayError: tilemap.onDisplayError,
+        onCurrentLocationsChanged: tilemap.onCurrentLocationsChanged,
       ),
       _WorldMapSource.world => Tilemap.world(
         key: tilemap.implementationKey,
@@ -142,6 +145,7 @@ class WorldMap extends StatelessWidget {
         restorationController: tilemap.restorationController,
         onDisplayReadinessChanged: tilemap.onDisplayReadinessChanged,
         onDisplayError: tilemap.onDisplayError,
+        onCurrentLocationsChanged: tilemap.onCurrentLocationsChanged,
       ),
     };
 

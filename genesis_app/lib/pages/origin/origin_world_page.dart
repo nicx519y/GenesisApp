@@ -52,6 +52,7 @@ import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/stat_count_formatter.dart';
+import '../chat/location_chat_background_preloader.dart';
 import '../chat/location_chat_page.dart';
 import '../world/world_header.dart';
 import '../world/world_map_bubble_candidates.dart';
@@ -134,6 +135,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
   _OriginLocationChatDescriptor? _activeChatLocation;
+  final LocationChatBackgroundPreloader _locationChatBackgroundPreloader =
+      LocationChatBackgroundPreloader();
+  Set<String> _currentTilemapLocationIds = const <String>{};
 
   SystemUiOverlayStyle get _baseStatusBarStyle => _showIntroPage
       ? _transparentDarkStatusBarStyle
@@ -164,6 +168,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
       _activeChatLocation = null;
+      _currentTilemapLocationIds = const <String>{};
+      _locationChatBackgroundPreloader.preload(const <Object?>[]);
       _showIntroPage = false;
       _tabController.index = 0;
       SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
@@ -190,6 +196,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       GenesisSystemUiChrome.applyDefault();
     }
     _originLoadGeneration += 1;
+    _locationChatBackgroundPreloader.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     _tabController.dispose();
     super.dispose();
@@ -261,6 +268,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           _contentMountScheduled = false;
         }
       });
+      _preloadCurrentTilemapLocationBackgrounds(origin);
       if (!shouldStageInitialContent) {
         _scheduleDeferredOriginPreloads(origin, generation);
       }
@@ -943,6 +951,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         visualModeToggleTop: topPadding + 8,
         visualModeToggleRight: 12,
         onMapTap: () => _recordWorldoTilemapClick(origin),
+        onCurrentLocationsChanged: _handleCurrentTilemapLocationsChanged,
       ),
     );
 

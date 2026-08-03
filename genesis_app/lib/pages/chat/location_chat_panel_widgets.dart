@@ -5,29 +5,46 @@ class _LocationChatBackground extends StatelessWidget {
     required this.imageUrl,
     required this.previewImageUrl,
     required this.color,
+    required this.enabled,
   });
 
   final String? imageUrl;
   final String? previewImageUrl;
   final Color color;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
+      key: const ValueKey<String>('location-chat-background'),
       child: ColoredBox(
         color: color,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final url = _resolveLocationChatBackgroundUrl(
-              imageUrl,
-              previewImageUrl: previewImageUrl,
-              logicalWidth: constraints.maxWidth,
-              logicalHeight: constraints.maxHeight,
-              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-            );
-            return _LocationChatBackgroundImage(url: url);
-          },
-        ),
+        child: enabled
+            ? LayoutBuilder(
+                builder: (context, constraints) {
+                  final devicePixelRatio = MediaQuery.devicePixelRatioOf(
+                    context,
+                  );
+                  final fullUrl = _resolveLocationChatBackgroundUrl(
+                    imageUrl,
+                    previewImageUrl: previewImageUrl,
+                    logicalWidth: constraints.maxWidth,
+                    logicalHeight: constraints.maxHeight,
+                    devicePixelRatio: devicePixelRatio,
+                  );
+                  final previewUrl = resolveLocationChatBackgroundPreviewUrl(
+                    imageUrl,
+                    previewImageUrl: previewImageUrl,
+                  );
+                  return _LocationChatBackgroundImage(
+                    previewUrl: previewUrl,
+                    fullUrl: fullUrl,
+                  );
+                },
+              )
+            : const SizedBox.expand(
+                key: ValueKey<String>('location-chat-background-disabled'),
+              ),
       ),
     );
   }
@@ -40,22 +57,181 @@ String _resolveLocationChatBackgroundUrl(
   required double? logicalHeight,
   required double devicePixelRatio,
 }) {
-  final selected = selectGenesisImageUrl(
+  return _resolveLocationChatBackgroundImageUrl(
     imageUrl,
     fallback: previewImageUrl,
     logicalWidth: logicalWidth,
     logicalHeight: logicalHeight,
+    devicePixelRatio: _locationChatBackgroundImageDevicePixelRatio(
+      devicePixelRatio,
+    ),
+  );
+}
+
+String resolveLocationChatBackgroundPreviewUrl(
+  Object? imageUrl, {
+  Object? previewImageUrl,
+}) {
+  return _resolveLocationChatBackgroundImageUrl(
+    imageUrl,
+    fallback: previewImageUrl,
+    logicalWidth: _locationChatBackgroundPreviewLogicalWidth,
+    logicalHeight: null,
+    devicePixelRatio: 1,
+  );
+}
+
+String _resolveLocationChatBackgroundImageUrl(
+  Object? source, {
+  Object? fallback,
+  required double? logicalWidth,
+  required double? logicalHeight,
+  required double devicePixelRatio,
+}) {
+  final selected = selectGenesisImageUrl(
+    source,
+    fallback: fallback,
+    logicalWidth: logicalWidth,
+    logicalHeight: logicalHeight,
     devicePixelRatio: devicePixelRatio,
   );
+  return _resizeLocationChatBackgroundImageUrl(
+    selected,
+    logicalWidth: logicalWidth,
+    devicePixelRatio: devicePixelRatio,
+  );
+}
+
+String _resizeLocationChatBackgroundImageUrl(
+  String selected, {
+  required double? logicalWidth,
+  required double devicePixelRatio,
+}) {
   final resolved = resolveAssetUrl(selected);
+  if (resolved.startsWith('assets/')) return resolved;
+  final resized = resizeGenesisImageUrl(
+    resolved,
+    logicalWidth: logicalWidth,
+    devicePixelRatio: devicePixelRatio,
+  );
+  if (resized.isNotEmpty) return resized;
   if (resolved.isNotEmpty) return resolved;
   return _locationChatDefaultBackgroundAsset;
 }
 
-class _LocationChatBackgroundImage extends StatelessWidget {
-  const _LocationChatBackgroundImage({required this.url});
+double _locationChatBackgroundImageDevicePixelRatio(double value) {
+  if (!value.isFinite || value <= 0) return 1;
+  return math.min(value, _locationChatMaxBackgroundImageDevicePixelRatio);
+}
+
+class _LocationChatBackgroundImage extends StatefulWidget {
+  const _LocationChatBackgroundImage({
+    required this.previewUrl,
+    required this.fullUrl,
+  });
+
+  final String previewUrl;
+  final String fullUrl;
+
+  @override
+  State<_LocationChatBackgroundImage> createState() =>
+      _LocationChatBackgroundImageState();
+}
+
+class _LocationChatBackgroundImageState
+    extends State<_LocationChatBackgroundImage> {
+  bool _loadFullImage = false;
+  bool _fullImageReady = false;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleFullImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LocationChatBackgroundImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.previewUrl == widget.previewUrl &&
+        oldWidget.fullUrl == widget.fullUrl) {
+      return;
+    }
+    _generation += 1;
+    _loadFullImage = false;
+    _fullImageReady = false;
+    _scheduleFullImage();
+  }
+
+  void _scheduleFullImage() {
+    final generation = _generation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _generation || _loadFullImage) return;
+      setState(() => _loadFullImage = true);
+    });
+  }
+
+  void _markFullImageReady(int generation) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _generation || _fullImageReady) return;
+      setState(() => _fullImageReady = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fullUrl = widget.fullUrl.trim();
+    final previewUrl = widget.previewUrl.trim();
+    final generation = _generation;
+    final singleUrl = fullUrl.isNotEmpty ? fullUrl : previewUrl;
+    if (singleUrl.isEmpty) return const SizedBox.expand();
+    if (fullUrl.startsWith('assets/') ||
+        previewUrl.isEmpty ||
+        previewUrl == fullUrl) {
+      return _LocationChatBackgroundLayer(
+        key: const ValueKey<String>('location-chat-background-single'),
+        url: singleUrl,
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _LocationChatBackgroundLayer(
+          key: const ValueKey<String>('location-chat-background-preview'),
+          url: previewUrl,
+        ),
+        if (_loadFullImage)
+          KeyedSubtree(
+            key: const ValueKey<String>('location-chat-background-full'),
+            child: AnimatedOpacity(
+              key: ValueKey<String>('location-chat-background-full:$fullUrl'),
+              opacity: _fullImageReady ? 1 : 0,
+              duration: _locationChatBackgroundFadeDuration,
+              curve: Curves.easeOut,
+              child: _LocationChatBackgroundLayer(
+                key: ValueKey<String>(
+                  'location-chat-background-full-image:$fullUrl',
+                ),
+                url: fullUrl,
+                onReady: () => _markFullImageReady(generation),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _LocationChatBackgroundLayer extends StatelessWidget {
+  const _LocationChatBackgroundLayer({
+    super.key,
+    required this.url,
+    this.onReady,
+  });
 
   final String url;
+  final VoidCallback? onReady;
 
   @override
   Widget build(BuildContext context) {
@@ -63,19 +239,26 @@ class _LocationChatBackgroundImage extends StatelessWidget {
     if (resolved.startsWith('assets/')) {
       return Image.asset(
         resolved,
+        key: ValueKey<String>('location-chat-background-asset:$resolved'),
         fit: BoxFit.cover,
         alignment: Alignment.center,
         width: double.infinity,
         height: double.infinity,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) onReady?.call();
+          return child;
+        },
         errorBuilder: (context, error, stackTrace) {
           return const SizedBox.expand();
         },
       );
     }
     return GenesisStaticNetworkImage(
+      key: ValueKey<String>('location-chat-background-network:$resolved'),
       imageUrl: resolved,
       fit: BoxFit.cover,
       alignment: Alignment.center,
+      onImageLoaded: onReady,
       placeholder: (_) => const SizedBox.expand(),
       errorWidget: (_, _) => const SizedBox.expand(),
     );
@@ -96,6 +279,17 @@ String resolveLocationChatBackgroundUrlForTesting({
     logicalWidth: logicalWidth,
     logicalHeight: logicalHeight,
     devicePixelRatio: devicePixelRatio,
+  );
+}
+
+@visibleForTesting
+String resolveLocationChatBackgroundPreviewUrlForTesting({
+  Object? imageUrl,
+  Object? previewImageUrl,
+}) {
+  return resolveLocationChatBackgroundPreviewUrl(
+    imageUrl,
+    previewImageUrl: previewImageUrl,
   );
 }
 

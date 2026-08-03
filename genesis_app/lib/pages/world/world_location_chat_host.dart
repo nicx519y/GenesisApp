@@ -7,6 +7,7 @@ import '../../components/chat/shared/location_chat_overlay_transition.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/location_tree.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../chat/location_chat_background_preloader.dart';
 import '../chat/location_chat_page.dart';
 import 'world_map_data.dart';
 import 'world_value_helpers.dart';
@@ -39,7 +40,10 @@ class WorldLocationChatPanelDescriptor {
         value,
         preferredKey: 'xl_url',
       ),
-      backgroundPreviewImageUrl: '',
+      backgroundPreviewImageUrl: worldLocationChatImageUrl(
+        value,
+        preferredKey: 'xl_url',
+      ),
       isLeafLocation: node.children.isEmpty,
       localMessageLocationIds: worldOrderedNonEmptyStrings([
         pointId,
@@ -66,7 +70,10 @@ class WorldLocationChatPanelDescriptor {
         location,
         preferredKey: 'xl_url',
       ),
-      backgroundPreviewImageUrl: '',
+      backgroundPreviewImageUrl: worldLocationChatImageUrl(
+        location,
+        preferredKey: 'xl_url',
+      ),
       isLeafLocation: isLeafLocation,
       localMessageLocationIds: worldOrderedNonEmptyStrings([
         pointId,
@@ -109,11 +116,18 @@ class WorldLocationChatPanelDescriptor {
 }
 
 class WorldLocationChatPageCache {
+  WorldLocationChatPageCache({
+    LocationChatBackgroundPreloader? backgroundPreloader,
+  }) : _backgroundPreloader =
+           backgroundPreloader ?? LocationChatBackgroundPreloader();
+
+  final LocationChatBackgroundPreloader _backgroundPreloader;
   final Map<String, WorldLocationChatPanelDescriptor> _descriptors =
       <String, WorldLocationChatPanelDescriptor>{};
   final Set<String> _cachedLocationIds = <String>{};
   final Set<String> _readyLocationIds = <String>{};
   final Map<String, String> _draftTextByLocation = <String, String>{};
+  Set<String> _currentTilemapLocationIds = const <String>{};
 
   String activeLocationId = '';
 
@@ -152,12 +166,33 @@ class WorldLocationChatPageCache {
     if (!_descriptors.containsKey(activeLocationId)) {
       activeLocationId = '';
     }
+    _preloadCurrentTilemapBackgrounds();
+  }
+
+  void preloadBackgroundsForTilemap(Iterable<String> locationIds) {
+    _currentTilemapLocationIds = Set<String>.unmodifiable(
+      locationIds
+          .map((locationId) => locationId.trim())
+          .where((locationId) => locationId.isNotEmpty),
+    );
+    _preloadCurrentTilemapBackgrounds();
+  }
+
+  void _preloadCurrentTilemapBackgrounds() {
+    _backgroundPreloader.preload(
+      _currentTilemapLocationIds
+          .map((locationId) => _descriptors[locationId]?.backgroundImageUrl)
+          .whereType<String>(),
+    );
   }
 
   void activate(WorldLocationChatPanelDescriptor descriptor) {
     _descriptors[descriptor.locationId] = descriptor;
     _cachedLocationIds.add(descriptor.locationId);
     activeLocationId = descriptor.locationId;
+    if (_currentTilemapLocationIds.contains(descriptor.locationId)) {
+      _preloadCurrentTilemapBackgrounds();
+    }
   }
 
   void deactivate() {
@@ -190,11 +225,14 @@ class WorldLocationChatPageCache {
     _cachedLocationIds.clear();
     _readyLocationIds.clear();
     _draftTextByLocation.clear();
+    _currentTilemapLocationIds = const <String>{};
+    _backgroundPreloader.preload(const <Object?>[]);
     activeLocationId = '';
   }
 
   void dispose() {
     clear();
+    _backgroundPreloader.dispose();
   }
 }
 
@@ -326,6 +364,7 @@ class WorldLocationChatRouterHostState
                   chatroom: widget.chatroom,
                   descriptor: descriptor,
                   active: active,
+                  renderBackgroundImage: visible,
                   messageQueueInitializationCovered: widget
                       .isMessageQueueInitializationCovered(
                         descriptor.locationId,
@@ -356,6 +395,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.chatroom,
     required this.descriptor,
     required this.active,
+    required this.renderBackgroundImage,
     required this.onBack,
     required this.onInitialContentReady,
     required this.initialDraftText,
@@ -367,6 +407,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   final WorldChatroomService? chatroom;
   final WorldLocationChatPanelDescriptor descriptor;
   final bool active;
+  final bool renderBackgroundImage;
   final VoidCallback onBack;
   final VoidCallback onInitialContentReady;
   final String initialDraftText;
@@ -388,6 +429,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             locationName: descriptor.locationName,
             backgroundImageUrl: descriptor.backgroundImageUrl,
             backgroundPreviewImageUrl: descriptor.backgroundPreviewImageUrl,
+            renderBackgroundImage: renderBackgroundImage,
             isLeafLocation: descriptor.isLeafLocation,
             localMessageLocationIds: descriptor.localMessageLocationIds,
             recentChatLocationPathIds: descriptor.recentChatLocationPathIds,

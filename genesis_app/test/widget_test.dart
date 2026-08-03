@@ -13248,10 +13248,10 @@ void main() {
       await _openInlineLocationNameEditor(
         tester,
         locationText: 'Harbor',
-        locationId: 'harbor',
+        locationId: 'Loc_2',
       );
       final harborEditor = find.byKey(
-        const ValueKey<String>('locations-inline-name-harbor'),
+        const ValueKey<String>('locations-inline-name-Loc_2'),
       );
       await tester.tap(
         find.descendant(
@@ -13415,7 +13415,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final addL3 = find.byKey(const ValueKey<String>('create-add-l3-building'));
+    final addL3 = find.byKey(const ValueKey<String>('create-add-l3-Loc_1_1'));
     await tester.scrollUntilVisible(
       addL3,
       500,
@@ -13781,13 +13781,7 @@ void main() {
     expect(l2Note, findsOneWidget);
     expect(tester.getRect(l2Note).top - tester.getRect(l2FieldBlock).bottom, 4);
     expect(
-      tester
-              .getRect(
-                find.byKey(
-                  const ValueKey<String>('world-location-card-Loc_1_1_1'),
-                ),
-              )
-              .top -
+      tester.getRect(_worldLocationCardForText('L3 Location')).top -
           tester.getRect(l2Note).bottom,
       8,
     );
@@ -13990,8 +13984,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(
-          const ValueKey<String>('world-location-memory-image-Loc_1_1_1'),
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.key is ValueKey<String> &&
+              ((widget.key! as ValueKey<String>).value).startsWith(
+                'world-location-memory-image-',
+              ),
         ),
         findsOneWidget,
       );
@@ -14130,18 +14128,19 @@ void main() {
       draft.locations.map((location) => location.level),
       orderedEquals(<int>[1, 2, 3]),
     );
-    expect(
-      draft.locations.map((location) => location.locationId),
-      orderedEquals(<String>['Loc_1', 'Loc_1_1', 'Loc_1_1_1']),
-    );
+    final locationIds = draft.locations
+        .map((location) => location.locationId)
+        .toList(growable: false);
+    expect(locationIds.toSet(), hasLength(3));
+    expect(locationIds.every(compactLocationIdPattern.hasMatch), isTrue);
     expect(draft.locations[0].name, 'Archive');
     expect(draft.locations[0].parentLocationId, isEmpty);
     expect(draft.locations[0].imageUrl, isEmpty);
     expect(draft.locations[1].name, 'Archive Wing');
-    expect(draft.locations[1].parentLocationId, 'Loc_1');
+    expect(draft.locations[1].parentLocationId, locationIds[0]);
     expect(draft.locations[1].description, isEmpty);
     expect(draft.locations[2].name, 'Hidden Door');
-    expect(draft.locations[2].parentLocationId, 'Loc_1_1');
+    expect(draft.locations[2].parentLocationId, locationIds[1]);
   });
 
   testWidgets('create locations explains disabled delete and save actions', (
@@ -14378,9 +14377,9 @@ void main() {
       orderedEquals(<int>[1, 2, 3, 3]),
     );
     expect(draft.locations[2].name, 'Gate');
-    expect(draft.locations[2].parentLocationId, 'Loc_1_1');
+    expect(draft.locations[2].parentLocationId, draft.locations[1].locationId);
     expect(draft.locations[3].name, 'Tower');
-    expect(draft.locations[3].parentLocationId, 'Loc_1_1');
+    expect(draft.locations[3].parentLocationId, draft.locations[1].locationId);
   });
 
   testWidgets(
@@ -14469,8 +14468,103 @@ void main() {
       expect(draft.locations.last.locationId, 'loc_gate');
       expect(draft.locations.last.name, 'Gate');
       expect(draft.locations.last.description, 'Existing description.');
-      expect(draft.locations.last.parentLocationId, 'Loc_1_1');
+      expect(
+        draft.locations.last.parentLocationId,
+        draft.locations[1].locationId,
+      );
       expect(repository.deletedLocationIds(draft), isEmpty);
+    },
+  );
+
+  testWidgets(
+    'edit locations preserves existing ids and never reuses a deleted id',
+    (WidgetTester tester) async {
+      final repository = MemoryOriginDraftRepository(
+        initialDraft: const CreateOriginDraft(
+          basics: BasicsDraft(),
+          characters: <CharacterDraft>[],
+          locations: <LocationDraft>[
+            LocationDraft(locationId: 'legacy_region', level: 1, name: 'City'),
+            LocationDraft(
+              locationId: 'legacy_building',
+              parentLocationId: 'legacy_region',
+              level: 2,
+              name: 'Station',
+            ),
+            LocationDraft(
+              locationId: 'legacy_room_a',
+              parentLocationId: 'legacy_building',
+              level: 3,
+              name: 'Room A',
+            ),
+            LocationDraft(
+              locationId: 'legacy_room_b',
+              parentLocationId: 'legacy_building',
+              level: 3,
+              name: 'Room B',
+            ),
+          ],
+          storyEvents: <StoryEventDraft>[],
+          basicsSaved: false,
+          charactersSaved: false,
+          locationsSaved: true,
+          storyEventsSaved: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: EditLocationsPage(repository: repository)),
+      );
+      await tester.pumpAndSettle();
+
+      await _openL3LocationEditorSheet(tester, locationName: 'Room B');
+      await tester.tap(
+        find.byKey(const ValueKey<String>('locations-l3-editor-delete')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('create-add-l3-Loc_1_1')),
+      );
+      await tester.pumpAndSettle();
+      final sheet = find.byKey(
+        const ValueKey<String>('locations-l3-editor-sheet'),
+      );
+      await tester.enterText(
+        find.descendant(of: sheet, matching: find.byType(TextField)).first,
+        'Room C',
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('locations-l3-editor-save')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      final draft = await repository.loadDraft();
+      expect(
+        draft.locations.map((location) => location.locationId),
+        containsAll(<String>[
+          'legacy_region',
+          'legacy_building',
+          'legacy_room_a',
+        ]),
+      );
+      expect(
+        draft.locations.any(
+          (location) => location.locationId == 'legacy_room_b',
+        ),
+        isFalse,
+      );
+      final added = draft.locations.singleWhere(
+        (location) => location.name == 'Room C',
+      );
+      expect(compactLocationIdPattern.hasMatch(added.locationId), isTrue);
+      expect(added.locationId, isNot('legacy_room_b'));
+      expect(added.parentLocationId, 'legacy_building');
+      expect(repository.deletedLocationIds(draft), <String>['legacy_room_b']);
     },
   );
 
@@ -14758,6 +14852,17 @@ void main() {
     );
     expect(id, startsWith('origin_'));
     expect(id.length, 'origin_'.length + 24);
+  });
+
+  test('location id generator creates unique compact UUID v4 values', () {
+    const generator = UuidLocationIdGenerator();
+    final ids = <String>{
+      for (var index = 0; index < 1000; index += 1) generator.generate(),
+    };
+
+    expect(ids, hasLength(1000));
+    expect(ids.every(compactLocationIdPattern.hasMatch), isTrue);
+    expect(ids.every((id) => id.length == compactLocationIdLength), isTrue);
   });
 
   testWidgets('create submit is disabled when required sections are missing', (
@@ -21977,6 +22082,22 @@ Finder _assetSvgFinder(String path, {bool skipOffstage = true}) {
   );
 }
 
+Finder _worldLocationCardForText(String text) {
+  return find
+      .ancestor(
+        of: find.text(text).first,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is InkWell &&
+              widget.key is ValueKey<String> &&
+              ((widget.key! as ValueKey<String>).value).startsWith(
+                'world-location-card-',
+              ),
+        ),
+      )
+      .first;
+}
+
 Future<Finder> _openInlineLocationNameEditor(
   WidgetTester tester, {
   required String locationText,
@@ -22060,16 +22181,7 @@ Future<Finder> _openL3LocationEditorSheet(
   final location = find.text(locationName).first;
   await tester.ensureVisible(location);
   await tester.pump();
-  final locationTapTarget = find
-      .byWidgetPredicate(
-        (widget) =>
-            widget is InkWell &&
-            widget.key is ValueKey<String> &&
-            ((widget.key! as ValueKey<String>).value).startsWith(
-              'world-location-card-',
-            ),
-      )
-      .first;
+  final locationTapTarget = _worldLocationCardForText(locationName);
   await tester.tap(locationTapTarget);
   await tester.pumpAndSettle();
   final sheet = find.byKey(const ValueKey<String>('locations-l3-editor-sheet'));
