@@ -7,63 +7,68 @@ class WorldDetailsLoadingContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverList.list(
-      children: const [
-        WorldHeaderLoadingSkeleton(),
-        SizedBox(height: 4),
-        WorldEventLoadingSkeleton(),
+    return const SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(child: SizedBox(height: worldStatsTopSpacerHeight)),
+        SliverToBoxAdapter(child: WorldInfoHeaderLoadingSkeleton()),
       ],
     );
   }
 }
 
-class WorldHeaderLoadingSkeleton extends StatelessWidget {
-  const WorldHeaderLoadingSkeleton();
+class WorldInfoHeaderLoadingSkeleton extends StatelessWidget {
+  const WorldInfoHeaderLoadingSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return const SizedBox(
+      key: ValueKey<String>('world-panel-info-row'),
+      height: worldInfoHeaderHeight,
+      child: Align(
+        alignment: Alignment.center,
+        child: SizedBox(
+          height: worldInfoHeaderContentHeight,
+          child: Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    WorldLoadingStatBone(),
+                    WorldLoadingStatBone(),
+                    WorldLoadingStatBone(),
+                    WorldLoadingStatBone(),
+                  ],
+                ),
+              ),
+              SizedBox(width: 18),
+              WorldLoadingBone(
+                key: ValueKey<String>('world-loading-action'),
+                width: 140,
+                height: worldInfoHeaderContentHeight,
+                radius: 8,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class WorldLoadingStatBone extends StatelessWidget {
+  const WorldLoadingStatBone();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            SizedBox(width: 38),
-            Expanded(
-              child: Align(
-                alignment: Alignment.center,
-                child: WorldLoadingBone(width: 168, height: 18),
-              ),
-            ),
-            SizedBox(width: 38),
-          ],
-        ),
-        SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(child: WorldLoadingBone(width: 128, height: 12)),
-            SizedBox(width: 18),
-            WorldLoadingBone(width: 112, height: 12),
-          ],
-        ),
-        SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: Wrap(
-                spacing: 20,
-                runSpacing: 8,
-                children: [
-                  WorldLoadingBone(width: 42, height: 12),
-                  WorldLoadingBone(width: 46, height: 12),
-                  WorldLoadingBone(width: 40, height: 12),
-                  WorldLoadingBone(width: 44, height: 12),
-                ],
-              ),
-            ),
-            SizedBox(width: 14),
-            WorldLoadingBone(width: 120, height: 28, radius: 8),
-          ],
-        ),
+        WorldLoadingBone(width: 14, height: 14, radius: 7),
+        SizedBox(width: 4),
+        WorldLoadingBone(width: 14, height: 12),
       ],
     );
   }
@@ -95,6 +100,7 @@ class WorldEventLoadingSkeleton extends StatelessWidget {
 
 class WorldLoadingBone extends StatelessWidget {
   const WorldLoadingBone({
+    super.key,
     this.width,
     this.widthFactor,
     required this.height,

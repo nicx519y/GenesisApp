@@ -37,6 +37,9 @@ extension _WorldPageDetailSync on _WorldPageState {
     _precacheProgressWaitAvatarImages(world);
     _setWorldPageState(() {
       _world = world;
+      if (_renderStage == _WorldPageRenderStage.framework) {
+        _renderStage = _WorldPageRenderStage.detailShell;
+      }
       if (tilemapImplementationChanged) {
         _tilemapDisplayReady = world.definitionVersion != 2;
         _tilemapDisplayError = null;

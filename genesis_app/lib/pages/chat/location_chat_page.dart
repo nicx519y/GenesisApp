@@ -46,6 +46,11 @@ part 'location_chat_shared.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
 const double _locationChatComposerBottomExtension = 60;
+const double _locationChatMaxBackgroundImageDevicePixelRatio = 2;
+const double _locationChatBackgroundPreviewLogicalWidth = 120;
+const Duration _locationChatBackgroundFadeDuration = Duration(
+  milliseconds: 150,
+);
 const double _locationChatEdgeSwipeWidth = 24;
 const double _locationChatEdgeSwipeTriggerDistance = 64;
 const double _locationChatEdgeSwipeTriggerVelocity = 450;
@@ -65,6 +70,7 @@ class LocationChatPage extends StatelessWidget {
     this.locationName,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
+    this.renderBackgroundImage = true,
     this.service,
     this.connection,
   });
@@ -78,6 +84,7 @@ class LocationChatPage extends StatelessWidget {
   final String? locationName;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
+  final bool renderBackgroundImage;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
 
@@ -93,6 +100,7 @@ class LocationChatPage extends StatelessWidget {
       locationName: locationName,
       backgroundImageUrl: backgroundImageUrl,
       backgroundPreviewImageUrl: backgroundPreviewImageUrl,
+      renderBackgroundImage: renderBackgroundImage,
       service: service,
       connection: connection,
       active: true,
@@ -114,6 +122,7 @@ class LocationChatPanel extends StatefulWidget {
     this.locationName,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
+    this.renderBackgroundImage = true,
     this.openingPreviewMessages = const <WorldChatroomMessage>[],
     this.openingPreviewEntities = const <WorldChatroomEntity>[],
     this.service,
@@ -142,6 +151,7 @@ class LocationChatPanel extends StatefulWidget {
   final String? locationName;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
+  final bool renderBackgroundImage;
   final List<WorldChatroomMessage> openingPreviewMessages;
   final List<WorldChatroomEntity> openingPreviewEntities;
   final WorldChatroomService? service;
@@ -449,6 +459,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                 imageUrl: widget.backgroundImageUrl,
                 previewImageUrl: widget.backgroundPreviewImageUrl,
                 color: style.conversationBackgroundColor,
+                enabled: widget.renderBackgroundImage,
               ),
             ),
             Positioned.fill(

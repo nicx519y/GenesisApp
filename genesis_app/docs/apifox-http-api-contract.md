@@ -1035,7 +1035,7 @@ Query：
 
 `OriginLocationUpsert`：
 
-- `location_id`: string，请求内临时引用 id
+- `location_id`: string，最长 32 字符，请求内临时引用 id；客户端新建节点使用 32 位、无连字符的小写 UUID v4，编辑已有节点时保留服务端原 ID
 - `level`: integer，兼容字段；create/update 时服务端忽略
 - `location_pid`: string，兼容字段；当前客户端会按表单树发送该关联，V2 foredit 通过完整 `Location` 返回服务端当前层级关系
 - `location_name*`: string

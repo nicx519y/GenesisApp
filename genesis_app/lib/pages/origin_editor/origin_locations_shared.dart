@@ -657,10 +657,13 @@ class _LocationForm {
     );
   }
 
-  factory _LocationForm.fromDraft(LocationDraft draft, {required String uid}) {
+  factory _LocationForm.fromDraft(
+    LocationDraft draft, {
+    required String Function() createLocationId,
+  }) {
     return _LocationForm(
       locationId: draft.locationId.trim().isEmpty
-          ? createUidTimestampHashId(uid: uid, prefix: 'location')
+          ? createLocationId()
           : draft.locationId.trim(),
       parentLocationId: draft.parentLocationId,
       level: draft.level,

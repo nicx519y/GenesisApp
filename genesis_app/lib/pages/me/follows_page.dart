@@ -7,6 +7,7 @@ import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/me/genesis_follow_user_list_tile.dart';
 import '../../components/page_header.dart';
+import '../../network/api_exception.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -61,8 +62,8 @@ class _FollowsPageState extends State<FollowsPage>
     if (_didLoad) return;
     _didLoad = true;
     unawaited(_loadCachedTotals());
-    _followingFuture = _loadUsers(_FollowListType.following);
-    _followersFuture = _loadUsers(_FollowListType.followers);
+    _followingFuture = _startUsersLoad(_FollowListType.following);
+    _followersFuture = _startUsersLoad(_FollowListType.followers);
     unawaited(_loadCanToggleFollow());
     if (_cleanTitle(widget.initialTitle) == null) {
       _loadTitle();
@@ -150,6 +151,15 @@ class _FollowsPageState extends State<FollowsPage>
     return items;
   }
 
+  Future<List<_FollowUserItem>> _startUsersLoad(_FollowListType type) {
+    final load = _loadUsers(type);
+    // Both tab requests start before TabBarView necessarily mounts each
+    // FutureBuilder. Attach an error handler immediately; the original future
+    // still retains its error for the owning FutureBuilder to render.
+    load.ignore();
+    return load;
+  }
+
   Future<void> _toggleFollow(_FollowUserItem item, bool isFollowed) async {
     final uid = item.uid.trim();
     if (uid.isEmpty || _loadingUids.contains(uid)) return;
@@ -184,16 +194,20 @@ class _FollowsPageState extends State<FollowsPage>
   }
 
   Future<void> _refresh(_FollowListType type) async {
+    late final Future<List<_FollowUserItem>> refresh;
     setState(() {
       if (type == _FollowListType.following) {
-        _followingFuture = _loadUsers(type);
+        refresh = _followingFuture = _startUsersLoad(type);
       } else {
-        _followersFuture = _loadUsers(type);
+        refresh = _followersFuture = _startUsersLoad(type);
       }
     });
-    await (type == _FollowListType.following
-        ? _followingFuture!
-        : _followersFuture!);
+    try {
+      await refresh;
+    } on ApiException {
+      // FutureBuilder renders the failure. Keep Retry/RefreshIndicator from
+      // forwarding an expected request error to PlatformDispatcher.
+    }
   }
 
   @override

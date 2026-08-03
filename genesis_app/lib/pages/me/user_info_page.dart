@@ -146,10 +146,16 @@ class _UserInfoPageState extends State<UserInfoPage> {
   }
 
   Future<void> _refresh() async {
+    final refresh = _loadData();
     setState(() {
-      _future = _loadData();
+      _future = refresh;
     });
-    await _future;
+    try {
+      await refresh;
+    } on ApiException {
+      // FutureBuilder owns the visible error state. Do not let an expected
+      // request failure escape an async callback used as a VoidCallback.
+    }
   }
 
   Future<void> _refreshOrigins() async {

@@ -6,7 +6,10 @@ import 'package:genesis_flutter_android/components/world_map.dart';
 
 void main() {
   const common = WorldMapCommonConfig();
-  const legacy = LegacyWorldMapConfig(points: <WorldPoint>[]);
+  const legacy = LegacyWorldMapConfig(
+    points: <WorldPoint>[],
+    drillExitMaxWidth: 204,
+  );
 
   test('Origin v1 and unknown versions use LegacyWorldMap', () {
     for (final version in <int?>[1, null, 3]) {
@@ -37,6 +40,11 @@ void main() {
   test('Origin v2 uses Tilemap and forwards Tilemap options', () {
     var legacyMapTapCount = 0;
     var tilemapMapTapCount = 0;
+    final reportedLocationIds = <Set<String>>[];
+    void handleCurrentLocations(String _, Set<String> locationIds) {
+      reportedLocationIds.add(locationIds);
+    }
+
     const tilemapLocationNode = WorldMapLocationNode(
       id: 'loc_1',
       point: WorldPoint(
@@ -66,6 +74,7 @@ void main() {
         visualModeToggleRight: 12,
         recentChatLocationIds: const {'loc_1'},
         onMapTap: () => tilemapMapTapCount += 1,
+        onCurrentLocationsChanged: handleCurrentLocations,
       ),
     );
 
@@ -77,12 +86,17 @@ void main() {
     expect(tilemap.locationId, 'root');
     expect(tilemap.locationNodes, <WorldMapLocationNode>[tilemapLocationNode]);
     expect(tilemap.drillExitTop, 91);
+    expect(tilemap.drillExitMaxWidth, 204);
     expect(tilemap.showVisualModeToggle, isFalse);
     expect(tilemap.visualModeToggleTop, 17);
     expect(tilemap.visualModeToggleRight, 12);
     expect(tilemap.recentChatLocationIds, const {'loc_1'});
     expect(tilemap.messageBubbles.single.content, 'Hello');
     expect(tilemap.messageBubblePlaybackPaused, isFalse);
+    tilemap.onCurrentLocationsChanged?.call('origin:o_1:root', const {'loc_1'});
+    expect(reportedLocationIds, [
+      const {'loc_1'},
+    ]);
     tilemap.onMapTap?.call();
     expect(tilemapMapTapCount, 1);
     expect(legacyMapTapCount, 0);

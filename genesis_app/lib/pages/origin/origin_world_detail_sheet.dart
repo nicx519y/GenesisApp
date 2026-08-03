@@ -1,11 +1,8 @@
 part of 'origin_world_page.dart';
 
-const Color _originDetailSheetBackgroundColor = Color(0xFFEDEDED);
-
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
-    required this.copyWorldProgressSummaries,
     required this.baseStatusBarStyle,
     required this.minChildSize,
     required this.collapseRequest,
@@ -18,7 +15,6 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   static const double defaultInitialChildSize = 0.22;
 
   final OriginDetail origin;
-  final List<WorldSummaryLatestItem> copyWorldProgressSummaries;
   final SystemUiOverlayStyle baseStatusBarStyle;
   final double minChildSize;
   final int collapseRequest;
@@ -43,6 +39,7 @@ class _OriginDetailDraggableSheetState
   late final DraggableScrollableController _sheetController;
   ScrollController? _sheetScrollController;
   var _sheetExtent = 0.0;
+  var _isFullyExpanded = false;
 
   double get _minChildSize => widget.minChildSize.clamp(0.08, 0.42).toDouble();
 
@@ -131,6 +128,16 @@ class _OriginDetailDraggableSheetState
     final extent = notification.extent
         .clamp(_minChildSize, maxChildSize)
         .toDouble();
+    final isFullyExpanded =
+        (maxChildSize - extent).abs() <= _extentUpdateEpsilon;
+    if (isFullyExpanded && !_isFullyExpanded) {
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'worldo_detail_sheet',
+        object1: widget.origin.oid,
+      );
+    }
+    _isFullyExpanded = isFullyExpanded;
     final extentChanged = (extent - _sheetExtent).abs() > _extentUpdateEpsilon;
     if (!extentChanged) return false;
     setState(() => _sheetExtent = extent);
@@ -160,7 +167,7 @@ class _OriginDetailDraggableSheetState
     final alpha = _statusBarAlphaForExtent(context, extent);
     if (alpha <= 0.001) return widget.baseStatusBarStyle;
     return widget.baseStatusBarStyle.copyWith(
-      statusBarColor: _originDetailSheetBackgroundColor.withValues(
+      statusBarColor: originWorldDetailSheetBackgroundColor.withValues(
         alpha: alpha,
       ),
       statusBarIconBrightness: Brightness.dark,
@@ -195,8 +202,9 @@ class _OriginDetailDraggableSheetState
           builder: (context, scrollController) {
             _sheetScrollController = scrollController;
             return DecoratedBox(
+              key: const ValueKey<String>('origin-detail-sheet-surface'),
               decoration: BoxDecoration(
-                color: _originDetailSheetBackgroundColor,
+                color: originWorldDetailSheetBackgroundColor,
                 borderRadius: GenesisRadii.sheet,
               ),
               child: ClipRRect(
@@ -387,7 +395,7 @@ class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return ColoredBox(
-      color: _originDetailSheetBackgroundColor,
+      color: originWorldDetailSheetBackgroundColor,
       child: Stack(
         children: [
           Positioned(

@@ -18,6 +18,7 @@ class WorldTopOverlayBar extends StatelessWidget {
     this.onBack,
     this.onTabTap,
     this.secondaryTabIsIntro = false,
+    this.tabsEnabled = true,
   });
 
   final int pointsCount;
@@ -28,6 +29,7 @@ class WorldTopOverlayBar extends StatelessWidget {
   /// Uses the origin-detail information view as the second tab instead of
   /// the map's location list.
   final bool secondaryTabIsIntro;
+  final bool tabsEnabled;
 
   void _handleTabTap(BuildContext context, int index) {
     onTabTap?.call(index);
@@ -63,70 +65,73 @@ class WorldTopOverlayBar extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Container(
-            height: _worldTopOverlayHeight,
-            decoration: BoxDecoration(
-              color: _worldTopOverlayBackground,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TabBar(
-              controller: controller,
-              isScrollable: true,
-              tabAlignment: TabAlignment.center,
-              dividerColor: Colors.transparent,
-              padding: EdgeInsets.zero,
-              labelPadding: EdgeInsets.symmetric(
-                horizontal: secondaryTabIsIntro ? 20 : 12,
+          child: IgnorePointer(
+            ignoring: !tabsEnabled,
+            child: Container(
+              height: _worldTopOverlayHeight,
+              decoration: BoxDecoration(
+                color: _worldTopOverlayBackground,
+                borderRadius: BorderRadius.circular(12),
               ),
-              splashFactory: NoSplash.splashFactory,
-              overlayColor: WidgetStateProperty.all(Colors.transparent),
-              indicatorSize: TabBarIndicatorSize.label,
-              onTap: (index) => _handleTabTap(context, index),
-              indicator: GenesisFixedUnderlineIndicator(
-                color: uiTheme.tabIndicatorColor,
-                width: uiTheme.tabIndicatorWidth,
-                height: uiTheme.tabIndicatorHeight,
-                bottomPadding: genesisTabIndicatorBottomPadding,
+              child: TabBar(
+                controller: controller,
+                isScrollable: true,
+                tabAlignment: TabAlignment.center,
+                dividerColor: Colors.transparent,
+                padding: EdgeInsets.zero,
+                labelPadding: EdgeInsets.symmetric(
+                  horizontal: secondaryTabIsIntro ? 20 : 12,
+                ),
+                splashFactory: NoSplash.splashFactory,
+                overlayColor: WidgetStateProperty.all(Colors.transparent),
+                indicatorSize: TabBarIndicatorSize.label,
+                onTap: (index) => _handleTabTap(context, index),
+                indicator: GenesisFixedUnderlineIndicator(
+                  color: uiTheme.tabIndicatorColor,
+                  width: uiTheme.tabIndicatorWidth,
+                  height: uiTheme.tabIndicatorHeight,
+                  bottomPadding: genesisTabIndicatorBottomPadding,
+                ),
+                labelColor: _worldTopTabTextColor,
+                unselectedLabelColor: _worldTopTabTextColor,
+                labelStyle: uiTheme.bodyStrongStyle.copyWith(fontSize: 16),
+                unselectedLabelStyle: uiTheme.bodyStyle.copyWith(fontSize: 16),
+                tabs: [
+                  const Tab(
+                    height: _worldTopOverlayHeight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.map_outlined, size: 16),
+                        SizedBox(width: 6),
+                        Text('Map'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    height: _worldTopOverlayHeight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          secondaryTabIsIntro
+                              ? Icons.info_outline
+                              : Icons.place_outlined,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          secondaryTabIsIntro
+                              ? 'Info.'
+                              : 'Location ($pointsCount)',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              labelColor: _worldTopTabTextColor,
-              unselectedLabelColor: _worldTopTabTextColor,
-              labelStyle: uiTheme.bodyStrongStyle.copyWith(fontSize: 16),
-              unselectedLabelStyle: uiTheme.bodyStyle.copyWith(fontSize: 16),
-              tabs: [
-                const Tab(
-                  height: _worldTopOverlayHeight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.map_outlined, size: 16),
-                      SizedBox(width: 6),
-                      Text('Map'),
-                    ],
-                  ),
-                ),
-                Tab(
-                  height: _worldTopOverlayHeight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        secondaryTabIsIntro
-                            ? Icons.info_outline
-                            : Icons.place_outlined,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        secondaryTabIsIntro
-                            ? 'Info.'
-                            : 'Location ($pointsCount)',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ),
         ),

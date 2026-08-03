@@ -25,7 +25,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
         l1.name.text = name;
         if (_requiredInlineLocationId == editingId) {
           if (l1.children.isEmpty) {
-            final l2 = _newL2Location(l1, l1.nextChildOrdinal++);
+            final l2 = _newL2Location(l1);
             l1.children.add(l2);
           }
           _L2LocationForm? requiredL2;
@@ -266,9 +266,10 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
     int level,
   ) {
     if (point.isLeafLocation) return null;
+    final displayLocationId = _displayLocationId(point.id);
     if (_inlineEditingLocationId != point.id) {
       return _InlineTreeLocationPreviewHeader(
-        key: ValueKey<String>('world-location-node-header-${point.id}'),
+        key: ValueKey<String>('world-location-node-header-$displayLocationId'),
         name: point.name,
         level: level,
         onTap: () => _beginInlineNameEdit(point),
@@ -278,11 +279,13 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
       final l1 = _treeForms[l1Index];
       if (l1.locationId == point.id) {
         return _InlineTreeLocationNameEditor(
-          key: ValueKey<String>('locations-inline-name-${point.id}'),
+          key: ValueKey<String>('locations-inline-name-$displayLocationId'),
           testKey: ValueKey<String>(
-            'locations-inline-name-content-${point.id}',
+            'locations-inline-name-content-$displayLocationId',
           ),
-          fieldKey: ValueKey<String>('locations-inline-name-field-${point.id}'),
+          fieldKey: ValueKey<String>(
+            'locations-inline-name-field-$displayLocationId',
+          ),
           controller: _inlineNameController,
           focusNode: _inlineNameFocusNode,
           level: level,
@@ -291,7 +294,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           onChanged: _onFormChanged,
           onEditingComplete: _finishInlineNameEdit,
           onTapOutside: _cancelInlineEditForOutsideTap,
-          saveButtonKey: ValueKey<String>('locations-inline-save-${point.id}'),
+          saveButtonKey: ValueKey<String>(
+            'locations-inline-save-$displayLocationId',
+          ),
           onDelete: () => _removeLocationBranchFromEditor(
             hasChildren: l1.children.isNotEmpty,
             level: 1,
@@ -308,11 +313,13 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
         if (l2.locationId != point.id) continue;
         final deleteWholeL1 = l1.children.length == 1;
         return _InlineTreeLocationNameEditor(
-          key: ValueKey<String>('locations-inline-name-${point.id}'),
+          key: ValueKey<String>('locations-inline-name-$displayLocationId'),
           testKey: ValueKey<String>(
-            'locations-inline-name-content-${point.id}',
+            'locations-inline-name-content-$displayLocationId',
           ),
-          fieldKey: ValueKey<String>('locations-inline-name-field-${point.id}'),
+          fieldKey: ValueKey<String>(
+            'locations-inline-name-field-$displayLocationId',
+          ),
           controller: _inlineNameController,
           focusNode: _inlineNameFocusNode,
           level: level,
@@ -321,7 +328,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           onChanged: _onFormChanged,
           onEditingComplete: _finishInlineNameEdit,
           onTapOutside: _cancelInlineEditForOutsideTap,
-          saveButtonKey: ValueKey<String>('locations-inline-save-${point.id}'),
+          saveButtonKey: ValueKey<String>(
+            'locations-inline-save-$displayLocationId',
+          ),
           onDelete: () => _removeLocationBranchFromEditor(
             hasChildren: l2.children.isNotEmpty,
             level: deleteWholeL1 ? 1 : 2,
@@ -354,7 +363,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
         return Padding(
           padding: EdgeInsets.fromLTRB((level + 1) * 15.0, 0, 0, 12),
           child: _LocationTreeAddButton(
-            key: ValueKey<String>('create-add-l2-${l1.locationId}'),
+            key: ValueKey<String>(
+              'create-add-l2-${_displayLocationId(l1.locationId)}',
+            ),
             label: '+ L2',
             onTap: () => _addL2Location(l1),
           ),
@@ -369,7 +380,9 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
         return Padding(
           padding: EdgeInsets.fromLTRB((level + 1) * 15.0, 5, 0, 8),
           child: _LocationTreeAddL3Button(
-            buttonKey: ValueKey<String>('create-add-l3-${l2.locationId}'),
+            buttonKey: ValueKey<String>(
+              'create-add-l3-${_displayLocationId(l2.locationId)}',
+            ),
             isRequired: !_l2HasSavedL3(l2),
             onTap: () => _addL3Location(l2),
           ),
@@ -606,7 +619,6 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
         if (isNew) {
           _setLocationEditorState(() {
             target.parent.children.add(target.form);
-            target.parent.nextChildOrdinal++;
           });
         } else {
           _onFormChanged();

@@ -1,6 +1,28 @@
 part of 'origin_world_page.dart';
 
 extension _OriginWorldPageLocationChat on _OriginWorldPageState {
+  void _handleCurrentTilemapLocationsChanged(
+    String _,
+    Set<String> locationIds,
+  ) {
+    _currentTilemapLocationIds = Set<String>.unmodifiable(locationIds);
+    _preloadCurrentTilemapLocationBackgrounds(_origin);
+  }
+
+  void _preloadCurrentTilemapLocationBackgrounds(OriginDetail? origin) {
+    if (origin == null || _currentTilemapLocationIds.isEmpty) return;
+    _locationChatBackgroundPreloader.preload(
+      _currentTilemapLocationIds.map((locationId) {
+        final location = origin.processedLocationTree
+            .nodeById(locationId)
+            ?.value;
+        if (location == null) return '';
+        final xlUrl = location.imageResource.xlUrl.trim();
+        return _resolveAssetUrl(xlUrl.isNotEmpty ? xlUrl : location.icon);
+      }),
+    );
+  }
+
   Widget _buildLocationChatOverlay(OriginDetail origin) {
     final descriptor = _activeChatLocation;
     return Positioned.fill(
@@ -29,7 +51,10 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                   onBack: _closeLocationChat,
                   composerReplacement: _OriginLocationChatLaunchBar(
                     launching: _launching,
-                    onLaunch: () => _showLaunchRoleSheet(origin),
+                    onLaunch: () => _showLaunchRoleSheet(
+                      origin,
+                      initialLocationId: descriptor.locationId,
+                    ),
                   ),
                 ),
               ),

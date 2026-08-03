@@ -53,6 +53,7 @@ class WorldDetailsPageScaffold extends StatefulWidget {
     this.topOverlay,
     this.persistentTopOverlay,
     this.onPanelTopPullUp,
+    this.backgroundColor,
   });
 
   static const double defaultPanelTopGap = 30;
@@ -78,6 +79,7 @@ class WorldDetailsPageScaffold extends StatefulWidget {
   final Widget? topOverlay;
   final Widget? persistentTopOverlay;
   final VoidCallback? onPanelTopPullUp;
+  final Color? backgroundColor;
 
   @override
   State<WorldDetailsPageScaffold> createState() =>
@@ -138,6 +140,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
     final bottomBar = widget.bottomBar;
     final topOverlay = widget.topOverlay;
     return Scaffold(
+      backgroundColor: widget.backgroundColor,
       resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
         builder: (context, constraints) {

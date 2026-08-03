@@ -102,7 +102,9 @@ void main() {
     );
     expect(loadingShell, contains('contentBottomPaddingOverride: 0'));
     expect(loadingShell, contains("'world-map-loading-background'"));
-    expect(loadingShell, contains('kWorldMapLoadingBackgroundColor'));
+    expect(loadingShell, contains('_tilemapLoadingBackgroundColor'));
+    expect(loadingShell, contains('_buildWorldBottomTagsOverlay('));
+    expect(loadingShell, contains('interactive: false'));
     expect(loadingShell, isNot(contains('map: WorldMap(')));
   });
 

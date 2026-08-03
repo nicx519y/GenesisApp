@@ -24,6 +24,7 @@ extension _MePageData on _MePageState {
   }
 
   void _handleRecentChatChanged() {
+    if (!_canUpdateAsyncState) return;
     final record = recentWorldChatStore.listenable.value;
     if (record == null) return;
     if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;

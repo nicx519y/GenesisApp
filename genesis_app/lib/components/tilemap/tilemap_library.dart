@@ -15,6 +15,7 @@ import '../../network/models/tilemap_definition.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
+import '../world_map_exit_location_button.dart';
 import '../world_map_location_action.dart';
 import '../world_point.dart';
 import 'loading/tilemap_loading.dart';
@@ -31,6 +32,8 @@ part 'tilemap_controls_feedback.dart';
 enum _TilemapSource { origin, world }
 
 typedef TilemapTileImageLoader = Future<void> Function(String assetUrl);
+typedef TilemapCurrentLocationsChanged =
+    void Function(String mapId, Set<String> locationIds);
 
 class TilemapRestorationController {
   String _scopeKey = '';
@@ -135,6 +138,7 @@ class Tilemap extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.preferredFocusLocationId = '',
     this.drillExitTop = 68,
+    this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
@@ -148,6 +152,7 @@ class Tilemap extends StatefulWidget {
     this.restorationController,
     this.onDisplayReadinessChanged,
     this.onDisplayError,
+    this.onCurrentLocationsChanged,
   }) : _source = _TilemapSource.origin,
        _entityId = originId;
 
@@ -158,6 +163,7 @@ class Tilemap extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.preferredFocusLocationId = '',
     this.drillExitTop = 68,
+    this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
@@ -171,6 +177,7 @@ class Tilemap extends StatefulWidget {
     this.restorationController,
     this.onDisplayReadinessChanged,
     this.onDisplayError,
+    this.onCurrentLocationsChanged,
   }) : _source = _TilemapSource.world,
        _entityId = worldId;
 
@@ -180,6 +187,7 @@ class Tilemap extends StatefulWidget {
   final List<WorldMapLocationNode> locationNodes;
   final String preferredFocusLocationId;
   final double drillExitTop;
+  final double? drillExitMaxWidth;
   final bool showVisualModeToggle;
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
@@ -193,6 +201,7 @@ class Tilemap extends StatefulWidget {
   final TilemapRestorationController? restorationController;
   final ValueChanged<bool>? onDisplayReadinessChanged;
   final ValueChanged<Object>? onDisplayError;
+  final TilemapCurrentLocationsChanged? onCurrentLocationsChanged;
 
   @override
   State<Tilemap> createState() => _TilemapState();
@@ -201,6 +210,7 @@ class Tilemap extends StatefulWidget {
 class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   static const Duration _settingsSaveDelay = Duration(milliseconds: 250);
   static const String _loadPerformanceTraceName = 'tilemap_load';
+  static const String _firstRenderPerformanceTraceName = 'tilemap_first_render';
   static const int _maxCachedMapResults = 8;
 
   GenesisApi? _api;
@@ -220,13 +230,18 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   late final TilemapPrerenderController _prerenderController;
   final Map<String, VoidCallback> _liveViewportReadyCallbacks =
       <String, VoidCallback>{};
+  final Map<String, AppPerformanceTrace> _firstRenderTraces =
+      <String, AppPerformanceTrace>{};
+  bool _hasRequestedFirstRenderTrace = false;
   int _prerenderEnvironmentGeneration = 0;
   bool _hasRevealedInitialMap = false;
   String? _configuredPrerenderEnvironmentKey;
   Size? _configuredPrerenderViewportSize;
   double? _configuredPrerenderDevicePixelRatio;
   bool? _reportedDisplayReady;
-  TilemapVisualMode _visualMode = tilemapDefaultVisualMode;
+  String _reportedCurrentLocationsSignature = '';
+  String _scheduledCurrentLocationsSignature = '';
+  TilemapVisualMode _visualMode = tilemapVisualModeController.value;
   TilemapLoadingStyle _loadingStyle = tilemapDefaultLoadingStyle;
   List<TilemapFogControlPoint> _fogControlPoints =
       tilemapDefaultFogControlPoints;
@@ -291,6 +306,11 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant Tilemap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.onCurrentLocationsChanged !=
+        widget.onCurrentLocationsChanged) {
+      _reportedCurrentLocationsSignature = '';
+      _scheduledCurrentLocationsSignature = '';
+    }
     if (oldWidget.onDisplayReadinessChanged !=
         widget.onDisplayReadinessChanged) {
       _reportedDisplayReady = null;
@@ -320,6 +340,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   void dispose() {
     _saveRestorationNavigation();
     _cacheGeneration += 1;
+    _stopAllFirstRenderTraces(result: 'cancelled');
     _loadingCoordinator.dispose();
     _prerenderController.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -390,6 +411,10 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     if (!mounted) return;
     final error = _loadingCoordinator.initialLoadError;
     if (error != null) {
+      final mapId = _currentConfig?.id;
+      if (mapId != null) {
+        _finishFirstRenderTrace(mapId: mapId, result: 'failure');
+      }
       _reportDisplayReadiness(false);
       _reportDisplayError(error);
     }
@@ -505,6 +530,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _initialScale = defaults.initialScale;
       _dragBoundaryPaddingTiles = defaults.dragBoundaryPaddingTiles;
     });
+    tilemapVisualModeController.setVisualMode(defaults.visualMode);
     ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()
       ..showSnackBar(
@@ -566,6 +592,12 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
           },
         ),
       );
+      if (reportFailure &&
+          !_hasRequestedFirstRenderTrace &&
+          _isCurrentMapId(config.id)) {
+        _hasRequestedFirstRenderTrace = true;
+        await _startFirstRenderTrace(config);
+      }
       return _TilemapLoadResult.success(config);
     } catch (error) {
       unawaited(
@@ -578,6 +610,78 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
         debugPrint('[Tilemap] load failed: $error');
       }
       return _TilemapLoadResult.failure(error);
+    }
+  }
+
+  Future<void> _startFirstRenderTrace(TilemapConfig config) async {
+    final generation = _cacheGeneration;
+    final trace = await FirebasePerformanceMonitoring.startTrace(
+      _firstRenderPerformanceTraceName,
+      attributes: <String, String>{'source': widget._source.name},
+    );
+    if (trace == null) return;
+
+    if (!mounted ||
+        generation != _cacheGeneration ||
+        !_isCurrentMapId(config.id)) {
+      unawaited(
+        FirebasePerformanceMonitoring.stopTrace(
+          trace,
+          attributes: const <String, String>{'result': 'cancelled'},
+        ),
+      );
+      return;
+    }
+
+    final previous = _firstRenderTraces.remove(config.id);
+    if (previous != null) {
+      unawaited(
+        FirebasePerformanceMonitoring.stopTrace(
+          previous,
+          attributes: const <String, String>{'result': 'cancelled'},
+        ),
+      );
+    }
+    _firstRenderTraces[config.id] = trace;
+  }
+
+  void _finishFirstRenderTrace({
+    required String mapId,
+    required String result,
+    TilemapConfig? config,
+    TilemapImageLoadPlan? plan,
+  }) {
+    final trace = _firstRenderTraces.remove(mapId);
+    if (trace == null) return;
+    final imageAssets = plan == null
+        ? const <String>{}
+        : plan.tileCountByAsset.keys.toSet();
+    unawaited(
+      FirebasePerformanceMonitoring.stopTrace(
+        trace,
+        attributes: <String, String>{'result': result},
+        metrics: config == null || plan == null
+            ? const <String, int>{}
+            : <String, int>{
+                'visible_tile_count': plan.totalTileCount,
+                'image_count': imageAssets.length,
+                'map_width': config.width,
+                'map_height': config.height,
+              },
+      ),
+    );
+  }
+
+  void _stopFirstRenderTracesExcept(String retainedMapId) {
+    for (final mapId in _firstRenderTraces.keys.toList(growable: false)) {
+      if (mapId == retainedMapId) continue;
+      _finishFirstRenderTrace(mapId: mapId, result: 'cancelled');
+    }
+  }
+
+  void _stopAllFirstRenderTraces({required String result}) {
+    for (final mapId in _firstRenderTraces.keys.toList(growable: false)) {
+      _finishFirstRenderTrace(mapId: mapId, result: result);
     }
   }
 
@@ -646,6 +750,8 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   void _resetMapCache() {
     _reportDisplayReadiness(false);
     _cacheGeneration += 1;
+    _stopAllFirstRenderTraces(result: 'cancelled');
+    _hasRequestedFirstRenderTrace = false;
     _loadingCoordinator.resetSession();
     _prerenderController.resetSession();
     if (_settingsReady && _loadingStyle == TilemapLoadingStyle.disabled) {
@@ -662,6 +768,8 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     _configuredPrerenderViewportSize = null;
     _configuredPrerenderDevicePixelRatio = null;
     _liveViewportReadyCallbacks.clear();
+    _reportedCurrentLocationsSignature = '';
+    _scheduledCurrentLocationsSignature = '';
     _prerenderEnvironmentGeneration += 1;
   }
 
@@ -690,6 +798,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     if (api == null) return;
     _reportDisplayReadiness(false);
     final locationId = _currentLocationId.trim();
+    _stopFirstRenderTracesExcept(_mapIdForLocation(locationId));
     final cached = _cachedMapResult(locationId);
     final cachedConfig = cached?.config;
     if (cachedConfig != null) _activateConfig(cachedConfig);
@@ -867,6 +976,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   void _setVisualMode(TilemapVisualMode visualMode) {
     if (_visualMode == visualMode) return;
     setState(() => _visualMode = visualMode);
+    tilemapVisualModeController.setVisualMode(visualMode);
     _scheduleSettingsSave();
   }
 
@@ -989,6 +1099,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   void _handleImageError(String mapId, Object error) {
     if (!_isCurrentMapId(mapId)) return;
     if (_imageError != null) return;
+    _finishFirstRenderTrace(mapId: mapId, result: 'failure');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _imageError != null || !_isCurrentMapId(mapId)) return;
       _reportDisplayReadiness(false);
@@ -1218,13 +1329,20 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       final viewportSize = _configuredPrerenderViewportSize;
       final devicePixelRatio = _configuredPrerenderDevicePixelRatio;
       if (config != null && viewportSize != null && devicePixelRatio != null) {
+        final plan = _imageLoadPlanForViewport(
+          config: config,
+          viewportSize: viewportSize,
+          devicePixelRatio: devicePixelRatio,
+        );
+        _finishFirstRenderTrace(
+          mapId: config.id,
+          result: 'success',
+          config: config,
+          plan: plan,
+        );
         _loadingCoordinator.scheduleBackgroundTilePreload(
           config: config,
-          plan: _imageLoadPlanForViewport(
-            config: config,
-            viewportSize: viewportSize,
-            devicePixelRatio: devicePixelRatio,
-          ),
+          plan: plan,
           loadImage: _loadTileImage,
         );
       }
@@ -1244,6 +1362,32 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
         _imageError == null &&
         _mapError == null &&
         _loadingCoordinator.initialLoadError == null;
+  }
+
+  void _scheduleCurrentLocationsChanged(TilemapConfig config) {
+    if (widget.onCurrentLocationsChanged == null) return;
+    final locationIds =
+        config.tiles
+            .map((tile) => tile.locationId?.trim() ?? '')
+            .where((locationId) => locationId.isNotEmpty)
+            .toSet()
+            .toList(growable: false)
+          ..sort();
+    final signature = '${config.id}\u001f${locationIds.join('\u001e')}';
+    if (_reportedCurrentLocationsSignature == signature ||
+        _scheduledCurrentLocationsSignature == signature) {
+      return;
+    }
+    _scheduledCurrentLocationsSignature = signature;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scheduledCurrentLocationsSignature != signature) return;
+      _scheduledCurrentLocationsSignature = '';
+      if (!mounted || !_isCurrentMapId(config.id)) return;
+      final callback = widget.onCurrentLocationsChanged;
+      if (callback == null) return;
+      _reportedCurrentLocationsSignature = signature;
+      callback(config.id, Set<String>.unmodifiable(locationIds));
+    });
   }
 
   void _reportDisplayReadiness(bool ready) {
@@ -1460,6 +1604,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     }
 
     if (liveReady) {
+      _scheduleCurrentLocationsChanged(config);
       final displayTilePixelSize =
           tilemapBaseTileExtent *
           _initialScale *
@@ -1474,6 +1619,12 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final exitLocationLabel =
+        findWorldMapLocationNode(
+          widget.locationNodes,
+          _currentLocationId,
+        )?.point.name ??
+        '';
     final settingsButtonTop =
         widget.visualModeToggleTop ?? MediaQuery.paddingOf(context).top + 6;
     final settingsPanelMaxHeight =
@@ -1502,7 +1653,14 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
               Positioned(
                 left: 12,
                 top: widget.drillExitTop,
-                child: _TilemapExitLocationButton(onPressed: _exitLocation),
+                child: WorldMapConstrainedMaxWidth(
+                  maxWidth: widget.drillExitMaxWidth,
+                  child: WorldMapExitLocationButton(
+                    key: const ValueKey<String>('tilemap-exit-location'),
+                    label: exitLocationLabel,
+                    onPressed: _exitLocation,
+                  ),
+                ),
               ),
             if (showSettings)
               Positioned.fill(
