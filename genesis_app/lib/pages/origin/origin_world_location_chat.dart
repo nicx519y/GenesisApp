@@ -29,7 +29,10 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                   onBack: _closeLocationChat,
                   composerReplacement: _OriginLocationChatLaunchBar(
                     launching: _launching,
-                    onLaunch: () => _showLaunchRoleSheet(origin),
+                    onLaunch: () => _showLaunchRoleSheet(
+                      origin,
+                      initialLocationId: descriptor.locationId,
+                    ),
                   ),
                 ),
               ),

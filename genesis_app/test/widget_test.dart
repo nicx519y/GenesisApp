@@ -6776,50 +6776,97 @@ void main() {
     expect(worldRequests, hasLength(1));
   });
 
-  testWidgets('Origin detail location opens launch-only chat panel', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    final chatroom = _FakeChatroomClient();
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          chatroom: chatroom,
+  testWidgets(
+    'Origin Launch to send enters the same location and backs to map',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldLocations: const [
+          {
+            'location_id': 'l_o_test_1',
+            'location_name': 'Detail Location',
+            'location_summary': 'A location from detail.',
+            'image': '',
+            'map_url': '',
+            'x_percent': 30,
+            'y_percent': 40,
+          },
+        ],
+        worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
+        worldDetailTickCountsByRequest: const [0],
+      );
+      final chatroom = _FakeChatroomClient();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+            chatroom: chatroom,
+          ),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
         ),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Detail Location'), warnIfMissed: false);
-    await tester.pump();
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Detail Location'), warnIfMissed: false);
+      await tester.pump();
+      await tester.pumpAndSettle();
 
-    expect(chatroom.connectCount, 0);
-    expect(_visibleText('Detail Location (1)'), findsOneWidget);
-    final chatPanel = find.byType(LocationChatPanel);
-    expect(chatPanel, findsOneWidget);
-    expect(
-      find.descendant(of: chatPanel, matching: find.byType(TextField)),
-      findsNothing,
-    );
-    final chatLaunch = find.descendant(
-      of: chatPanel,
-      matching: find.text('Launch to send'),
-    );
-    expect(chatLaunch, findsOneWidget);
+      expect(chatroom.connectCount, 0);
+      final chatPanel = find.byType(LocationChatPanel);
+      expect(chatPanel, findsOneWidget);
+      expect(
+        find.descendant(of: chatPanel, matching: find.byType(TextField)),
+        findsNothing,
+      );
+      final chatLaunch = find.descendant(
+        of: chatPanel,
+        matching: find.text('Launch to send'),
+      );
+      expect(chatLaunch, findsOneWidget);
 
-    await tester.tap(chatLaunch);
-    await tester.pumpAndSettle();
+      await tester.tap(chatLaunch);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Setup Your Role'), findsOneWidget);
-    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
-  });
+      expect(find.text('Setup Your Role'), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+
+      await tester.tap(
+        find.byKey(const ValueKey('origin-role-preset-c_o_test_1')),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+
+      final launchedWorldPage = tester.widget<WorldPage>(
+        find.byType(WorldPage),
+      );
+      expect(launchedWorldPage.wid, 'w_launched_from_origin');
+      expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
+      final launchedLocationChat = find.byKey(
+        const ValueKey('world-location-chat-l_o_test_1'),
+      );
+      expect(launchedLocationChat, findsOneWidget);
+
+      final launchedLocationBack = find.descendant(
+        of: launchedLocationChat,
+        matching: find.byIcon(Icons.arrow_back_ios_new),
+      );
+      expect(launchedLocationBack, findsOneWidget);
+      await tester.tap(launchedLocationBack);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(WorldPage), findsOneWidget);
+      expect(launchedLocationChat, findsNothing);
+    },
+  );
 
   testWidgets('Origin detail launch preview uses detail tick and locations', (
     WidgetTester tester,
