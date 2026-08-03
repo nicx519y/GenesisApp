@@ -14,6 +14,7 @@ typedef TilemapPreloadImage = Future<void> Function(String assetUrl);
 
 const int tilemapSilentPreloadMaxPendingTargets = 2;
 const int tilemapSilentPreloadMaxRememberedKeys = 16;
+const int tilemapInitialImagePreloadConcurrency = 2;
 const int tilemapBackgroundImagePreloadConcurrency = 3;
 
 /// Owns visible-first loading and background Tilemap image preloading.
@@ -277,36 +278,59 @@ class TilemapLoadingCoordinator {
     _notifyChanged();
 
     Object? firstError;
-    await Future.wait<void>([
-      for (final entry in plan.tileCountByAsset.entries)
-        () async {
-          try {
-            await _loadImageOnce(entry.key, loadImage);
-          } catch (error) {
-            if (_isActiveInitialLoadCurrent(
-                  sessionGeneration: sessionGeneration,
-                  loadGeneration: loadGeneration,
-                  loadKey: loadKey,
-                ) &&
-                firstError == null) {
-              firstError = error;
-              _initialLoadError = error;
-              _notifyChanged();
-            }
-            return;
-          }
-          if (!_isActiveInitialLoadCurrent(
+    final pendingEntries = plan.tileCountByAsset.entries.toList(
+      growable: false,
+    );
+    var nextEntryIndex = 0;
+
+    Future<void> worker() async {
+      while (nextEntryIndex < pendingEntries.length && firstError == null) {
+        if (!_isActiveInitialLoadCurrent(
+          sessionGeneration: sessionGeneration,
+          loadGeneration: loadGeneration,
+          loadKey: loadKey,
+        )) {
+          return;
+        }
+        final entry = pendingEntries[nextEntryIndex];
+        nextEntryIndex += 1;
+        try {
+          await _loadImageOnce(entry.key, loadImage);
+        } catch (error) {
+          if (_isActiveInitialLoadCurrent(
                 sessionGeneration: sessionGeneration,
                 loadGeneration: loadGeneration,
                 loadKey: loadKey,
-              ) ||
-              firstError != null) {
-            return;
+              ) &&
+              firstError == null) {
+            firstError = error;
+            _initialLoadError = error;
+            _notifyChanged();
           }
-          _loadedInitialTileCount = (_loadedInitialTileCount + entry.value)
-              .clamp(0, _totalInitialTileCount);
-          _notifyChanged();
-        }(),
+          return;
+        }
+        if (!_isActiveInitialLoadCurrent(
+              sessionGeneration: sessionGeneration,
+              loadGeneration: loadGeneration,
+              loadKey: loadKey,
+            ) ||
+            firstError != null) {
+          return;
+        }
+        _loadedInitialTileCount = (_loadedInitialTileCount + entry.value).clamp(
+          0,
+          _totalInitialTileCount,
+        );
+        _notifyChanged();
+      }
+    }
+
+    final workerCount = pendingEntries.length.clamp(
+      0,
+      tilemapInitialImagePreloadConcurrency,
+    );
+    await Future.wait<void>([
+      for (var index = 0; index < workerCount; index += 1) worker(),
     ]);
 
     if (firstError != null ||

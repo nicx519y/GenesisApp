@@ -118,6 +118,7 @@ void main() {
   testWidgets(
     'Tilemap reports unique locations after the current map is live',
     (tester) async {
+      debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
       final transport = _DelayedTilemapTransport();
       final reportedMapIds = <String>[];
       final reportedLocationIds = <Set<String>>[];
@@ -763,6 +764,45 @@ void main() {
       findsNothing,
     );
     expect(find.byKey(const ValueKey<String>('tilemap-grid')), findsOneWidget);
+  });
+
+  testWidgets('Tilemap limits initial visible image preload concurrency', (
+    tester,
+  ) async {
+    final pendingLoads = <String, Completer<void>>{};
+
+    Future<void> loadTileImage(String assetUrl) {
+      return pendingLoads.putIfAbsent(assetUrl, Completer<void>.new).future;
+    }
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(
+          _TilemapTransport(data: _threeVisibleAssetTilemapData()),
+        ),
+        child: MaterialApp(
+          home: Scaffold(
+            body: Tilemap.origin(
+              originId: 'o_1',
+              tileImageLoader: loadTileImage,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(pendingLoads, hasLength(tilemapInitialImagePreloadConcurrency));
+    pendingLoads.values.first.complete();
+    await tester.pump();
+    expect(pendingLoads, hasLength(3));
+
+    for (final completer in pendingLoads.values) {
+      if (!completer.isCompleted) completer.complete();
+    }
+    await tester.pump();
+    await tester.pump();
   });
 
   testWidgets(
@@ -1995,6 +2035,7 @@ void main() {
   testWidgets('Tilemap keeps one parent and two child warm renderers', (
     tester,
   ) async {
+    debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
     final transport = _LocationTilemapTransport({
       'root': _locationTilemapData('branch', assetName: 'root'),
       'branch': _tilemapData(
@@ -2112,6 +2153,7 @@ void main() {
   testWidgets(
     'Tilemap keeps only the parent after drilling into an uncached target',
     (tester) async {
+      debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
       final transport = _LocationTilemapTransport({
         'root': _tilemapData(
           tileLocationIds: const ['branch_a', 'branch_b', 'branch_c'],
@@ -2187,6 +2229,7 @@ void main() {
   testWidgets(
     'Tilemap silently preloads drillable maps and never reloads on drill/back',
     (tester) async {
+      debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
       final transport = _LocationTilemapTransport({
         'root': _tilemapData(
           tileLocationIds: const ['branch_a', 'branch_b', 'leaf'],
@@ -2244,9 +2287,13 @@ void main() {
           .singleWhere((entry) => entry.key.contains('/root.png?'))
           .value
           .complete();
-      await tester.pump();
-      await tester.pump();
-      await tester.pump();
+      for (
+        var frame = 0;
+        frame < 10 && transport.requestCount('branch_a') == 0;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
 
       expect(
         transport.requests
@@ -2272,9 +2319,13 @@ void main() {
           .singleWhere((entry) => entry.key.contains('/branch_a.png?'))
           .value
           .complete();
-      await tester.pump();
-      await tester.pump();
-      await tester.pump();
+      for (
+        var frame = 0;
+        frame < 10 && transport.requestCount('branch_b') == 0;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
 
       expect(
         transport.requests
@@ -2858,6 +2909,25 @@ Map<String, dynamic> _weightedTilemapData() {
         {'x': 0, 'y': 0, 'type': 'a', 'shadow': 0},
         {'x': 1, 'y': 0, 'type': 'a', 'shadow': 0},
         {'x': 2, 'y': 0, 'type': 'b', 'shadow': 0},
+      ],
+    },
+  };
+}
+
+Map<String, dynamic> _threeVisibleAssetTilemapData() {
+  return {
+    'tile_types': {
+      'a': 'https://invalid.example.test/tile/a.png',
+      'b': 'https://invalid.example.test/tile/b.png',
+      'c': 'https://invalid.example.test/tile/c.png',
+    },
+    'map_json': {
+      'width': 3,
+      'height': 1,
+      'tiles': [
+        {'x': 0, 'y': 0, 'type': 'a', 'shadow': 0},
+        {'x': 1, 'y': 0, 'type': 'b', 'shadow': 0},
+        {'x': 2, 'y': 0, 'type': 'c', 'shadow': 0},
       ],
     },
   };

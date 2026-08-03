@@ -18,12 +18,14 @@ class TilemapMessageBubblePlayback extends StatefulWidget {
     required this.messageBubbles,
     required this.visibleCharacterIds,
     required this.paused,
+    this.frozen = false,
     required this.builder,
   });
 
   final List<WorldMapMessageBubble> messageBubbles;
   final Set<String> visibleCharacterIds;
   final bool paused;
+  final bool frozen;
   final TilemapMessageBubbleBuilder builder;
 
   @override
@@ -100,7 +102,7 @@ class _TilemapMessageBubblePlaybackState
       _pageIndex = 0;
     }
 
-    if (widget.paused || signature.isEmpty) {
+    if (widget.paused || widget.frozen || signature.isEmpty) {
       _stopTimer();
       return;
     }
@@ -108,14 +110,24 @@ class _TilemapMessageBubblePlaybackState
   }
 
   void _ensureTimer() {
-    if (_timer != null || widget.paused || _signature.isEmpty) return;
+    if (_timer != null ||
+        widget.paused ||
+        widget.frozen ||
+        _signature.isEmpty) {
+      return;
+    }
     _timer = Timer(
       _bubbleVisible
           ? tilemapMessageBubbleDisplayDuration
           : tilemapMessageBubbleGapDuration,
       () {
         _timer = null;
-        if (!mounted || widget.paused || _visibleBubbles.isEmpty) return;
+        if (!mounted ||
+            widget.paused ||
+            widget.frozen ||
+            _visibleBubbles.isEmpty) {
+          return;
+        }
         setState(() {
           if (_bubbleVisible) {
             final activeBubble =

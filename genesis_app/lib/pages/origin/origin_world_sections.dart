@@ -83,7 +83,19 @@ class _OriginPreviewImage extends StatelessWidget {
         if (viewerUrl.isEmpty) return preview;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => showGenesisImageViewer(context, imageUrls: [viewerUrl]),
+          onTap: () => showGenesisImageViewer(
+            context,
+            imageUrls: [viewerUrl],
+            previewImageProviders: [
+              genesisImageViewerPreviewProvider(
+                context,
+                imageUrl: imageUrl,
+                logicalWidth: width,
+                logicalHeight: height,
+                fit: BoxFit.cover,
+              ),
+            ],
+          ),
           child: preview,
         );
       },

@@ -659,6 +659,15 @@ class _PostImageGrid extends StatelessWidget {
             onTap: () => showGenesisImageViewer(
               context,
               imageUrls: urls,
+              previewImageProviders: [
+                for (final url in urls)
+                  genesisImageViewerListPreviewProvider(
+                    context,
+                    source: url,
+                    logicalWidth: _imageSize,
+                    logicalHeight: _imageSize,
+                  ),
+              ],
               initialIndex: entry.$1,
             ),
             child: GenesisListImage(

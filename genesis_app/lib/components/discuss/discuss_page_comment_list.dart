@@ -228,6 +228,15 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
                   onTap: (index) => showGenesisImageViewer(
                     context,
                     imageUrls: widget.item.imageUrls,
+                    previewImageProviders: [
+                      for (final url in widget.item.imageUrls)
+                        genesisImageViewerListPreviewProvider(
+                          context,
+                          source: url,
+                          logicalWidth: _DiscussPageImageThumbnails._imageSize,
+                          logicalHeight: _DiscussPageImageThumbnails._imageSize,
+                        ),
+                    ],
                     initialIndex: index,
                   ),
                 ),

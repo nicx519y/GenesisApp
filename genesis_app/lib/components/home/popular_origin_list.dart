@@ -903,7 +903,18 @@ String _originatorLabel(OriginListItem item) {
 void _showCover(BuildContext context, String cover) {
   final url = cover.trim();
   if (url.isEmpty) return;
-  showGenesisImageViewer(context, imageUrls: [url]);
+  showGenesisImageViewer(
+    context,
+    imageUrls: [url],
+    previewImageProviders: [
+      genesisImageViewerListPreviewProvider(
+        context,
+        source: url,
+        logicalWidth: _popularOriginHeroImageWidth,
+        logicalHeight: _popularOriginHeroImageHeight,
+      ),
+    ],
+  );
 }
 
 const _bodyStyle = TextStyle(

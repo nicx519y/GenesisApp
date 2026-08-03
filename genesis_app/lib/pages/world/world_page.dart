@@ -546,6 +546,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 locationId: initialTilemapLocationId,
                 locationNodes: listLocationNodes,
                 recentChatLocationIds: recentMapLocationIds,
+                animationsPaused: _worldBottomSheetOpen,
                 visualModeToggleTop: topPadding + 6,
                 visualModeToggleRight: worldMapBackButtonLeft,
                 restorationController: _tilemapRestorationController,

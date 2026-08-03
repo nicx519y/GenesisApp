@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
@@ -9,6 +10,7 @@ import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart
 import 'package:genesis_flutter_android/components/world_map_contract.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 void main() {
   test('tilemap defaults to dark visual mode', () {
@@ -1264,6 +1266,7 @@ void main() {
   testWidgets(
     'renderer only enables image flow for named shadow-zero location tiles',
     (tester) async {
+      await _primeSuccessfulTileImage(tester);
       final config = TilemapConfig.fromTiles(
         id: 'location_image_flow',
         width: 3,
@@ -1303,6 +1306,7 @@ void main() {
       }
 
       await tester.pumpWidget(renderer());
+      await tester.pump();
       await tester.pump();
 
       expect(
@@ -1375,6 +1379,7 @@ void main() {
   testWidgets('renderer exposes configurable fog and wireframe layers', (
     tester,
   ) async {
+    await _primeSuccessfulTileImage(tester);
     final config = TilemapConfig.fromTiles(
       id: 'tile_shadow',
       width: 2,
@@ -1399,6 +1404,7 @@ void main() {
         ),
       ),
     );
+    await tester.pump();
     await tester.pump();
 
     final fogLayer = find.byKey(const ValueKey<String>('tilemap-fog-layer'));
@@ -1466,6 +1472,7 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump();
 
     final renderer = tester.widget<TilemapRenderer>(
       find.byType(TilemapRenderer),
@@ -1495,6 +1502,7 @@ void main() {
   testWidgets('renderer creates tiles and labels only inside retained bounds', (
     tester,
   ) async {
+    await _primeSuccessfulTileImage(tester);
     final config = TilemapConfig.fromTiles(
       id: 'culled_tiles',
       width: 100,
@@ -1538,6 +1546,7 @@ void main() {
         ),
       ),
     );
+    await tester.pump();
     await tester.pump();
 
     expect(find.byKey(const ValueKey<String>('tile-50-50')), findsOneWidget);
@@ -1591,6 +1600,7 @@ void main() {
   });
 
   testWidgets('renderer reports network tile image failures', (tester) async {
+    _primeFailedTileImage();
     Object? imageError;
     final config = TilemapConfig.fromTiles(
       id: 'network_failure',
@@ -1687,6 +1697,39 @@ void main() {
       );
     },
   );
+}
+
+Future<void> _primeSuccessfulTileImage(WidgetTester tester) async {
+  PaintingBinding.instance.imageCache.clear();
+  PaintingBinding.instance.imageCache.clearLiveImages();
+  final image = (await tester.runAsync(() async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(
+      const Rect.fromLTWH(0, 0, 1, 1),
+      Paint()..color = Colors.green,
+    );
+    return recorder.endRecording().toImage(1, 1);
+  }))!;
+  debugGenesisStaticNetworkImageCompleter = (_) => OneFrameImageStreamCompleter(
+    SynchronousFuture<ImageInfo>(ImageInfo(image: image)),
+  );
+  addTearDown(_resetDebugTileImageCompleter);
+}
+
+void _primeFailedTileImage() {
+  PaintingBinding.instance.imageCache.clear();
+  PaintingBinding.instance.imageCache.clearLiveImages();
+  debugGenesisStaticNetworkImageCompleter = (_) => OneFrameImageStreamCompleter(
+    Future<ImageInfo>.error(StateError('expected tile image failure')),
+  );
+  addTearDown(_resetDebugTileImageCompleter);
+}
+
+void _resetDebugTileImageCompleter() {
+  debugGenesisStaticNetworkImageCompleter = null;
+  PaintingBinding.instance.imageCache.clear();
+  PaintingBinding.instance.imageCache.clearLiveImages();
 }
 
 const _tileTypes = <String, String>{

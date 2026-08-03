@@ -558,7 +558,28 @@ class WorldDetailCoverImage extends StatelessWidget {
         if (viewerUrl.isEmpty) return preview;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => showGenesisImageViewer(context, imageUrls: [viewerUrl]),
+          onTap: () {
+            final imageUrl = selectGenesisImageUrl(
+              url,
+              logicalWidth: width,
+              logicalHeight: height,
+              devicePixelRatio:
+                  MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+            );
+            showGenesisImageViewer(
+              context,
+              imageUrls: [viewerUrl],
+              previewImageProviders: [
+                genesisImageViewerPreviewProvider(
+                  context,
+                  imageUrl: imageUrl,
+                  logicalWidth: width,
+                  logicalHeight: height,
+                  fit: BoxFit.cover,
+                ),
+              ],
+            );
+          },
           child: preview,
         );
       },

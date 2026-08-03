@@ -41,7 +41,7 @@ extension _WorldPageSheets on _WorldPageState {
       eventsTargetTickNumber: _eventsTargetTickNumber,
     );
     if (_worldBottomSheetOpen) return;
-    _worldBottomSheetOpen = true;
+    _setWorldPageState(() => _worldBottomSheetOpen = true);
     unawaited(
       showModalBottomSheet<void>(
         context: context,
@@ -66,8 +66,15 @@ extension _WorldPageSheets on _WorldPageState {
           );
         },
       ).whenComplete(() {
-        _worldBottomSheetOpen = false;
-        _worldBottomSheetContext = null;
+        if (mounted) {
+          _setWorldPageState(() {
+            _worldBottomSheetOpen = false;
+            _worldBottomSheetContext = null;
+          });
+        } else {
+          _worldBottomSheetOpen = false;
+          _worldBottomSheetContext = null;
+        }
         final openEvents = _openEventsAfterCurrentBottomSheetClosed;
         final targetTickNumber =
             _eventsAfterCurrentBottomSheetClosedTargetTickNumber;

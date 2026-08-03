@@ -136,6 +136,15 @@ class _OriginDiscussReplyImageThumbnails extends StatelessWidget {
             onTap: () => showGenesisImageViewer(
               context,
               imageUrls: urls,
+              previewImageProviders: [
+                for (final url in urls)
+                  genesisImageViewerListPreviewProvider(
+                    context,
+                    source: url,
+                    logicalWidth: _OriginDiscussReplyImageThumbnail._size,
+                    logicalHeight: _OriginDiscussReplyImageThumbnail._size,
+                  ),
+              ],
               initialIndex: entry.$1,
             ),
           ),
@@ -152,10 +161,10 @@ class _OriginDiscussReplyImageThumbnail extends StatelessWidget {
 
   final String url;
   final VoidCallback onTap;
+  static const double _size = 32;
 
   @override
   Widget build(BuildContext context) {
-    const size = 32.0;
     final imageUrl = url.trim();
 
     return GestureDetector(
@@ -164,8 +173,8 @@ class _OriginDiscussReplyImageThumbnail extends StatelessWidget {
       onTap: onTap,
       child: GenesisListImage(
         imageUrl: imageUrl,
-        width: size,
-        height: size,
+        width: _size,
+        height: _size,
         borderRadius: GenesisImageRadii.content,
       ),
     );

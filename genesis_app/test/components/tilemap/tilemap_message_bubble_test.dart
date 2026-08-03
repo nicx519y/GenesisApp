@@ -40,12 +40,13 @@ void main() {
       content: 'Tilemap hello',
     );
 
-    Widget harness({bool paused = false}) {
+    Widget harness({bool paused = false, bool frozen = false}) {
       return MaterialApp(
         home: TilemapMessageBubblePlayback(
           messageBubbles: const [bubble],
           visibleCharacterIds: const {'char_1'},
           paused: paused,
+          frozen: frozen,
           builder: (context, activeBubble) {
             return Text(activeBubble?.content ?? 'hidden');
           },
@@ -63,6 +64,39 @@ void main() {
     expect(find.text('Tilemap hello'), findsOneWidget);
 
     await tester.pumpWidget(harness(paused: true));
+    expect(find.text('hidden'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Tilemap bubble freeze keeps the current bubble visible', (
+    tester,
+  ) async {
+    const bubble = WorldMapMessageBubble(
+      characterId: 'char_1',
+      content: 'Frozen Tilemap bubble',
+    );
+
+    Widget harness({required bool frozen}) {
+      return MaterialApp(
+        home: TilemapMessageBubblePlayback(
+          messageBubbles: const [bubble],
+          visibleCharacterIds: const {'char_1'},
+          paused: false,
+          frozen: frozen,
+          builder: (context, activeBubble) {
+            return Text(activeBubble?.content ?? 'hidden');
+          },
+        ),
+      );
+    }
+
+    await tester.pumpWidget(harness(frozen: true));
+    await tester.pump(tilemapMessageBubbleDisplayDuration * 2);
+    expect(find.text('Frozen Tilemap bubble'), findsOneWidget);
+
+    await tester.pumpWidget(harness(frozen: false));
+    await tester.pump(tilemapMessageBubbleDisplayDuration);
     expect(find.text('hidden'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());

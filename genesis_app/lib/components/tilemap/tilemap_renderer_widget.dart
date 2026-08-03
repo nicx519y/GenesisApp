@@ -1,5 +1,10 @@
 part of 'tilemap_renderer_library.dart';
 
+const int _foregroundVisibleTileMountBatchSize = 6;
+const int _backgroundVisibleTileMountBatchSize = 2;
+const int _retainedTileMountBatchSize = 2;
+const int _newTileAssetMountBatchSize = 2;
+
 class TilemapRenderer extends StatefulWidget {
   const TilemapRenderer({
     super.key,
@@ -18,6 +23,7 @@ class TilemapRenderer extends StatefulWidget {
     this.onViewportReady,
     this.waitForVisibleTileImageFrames = true,
     this.isForeground = true,
+    this.animationsPaused = false,
     this.visualMode = tilemapDefaultVisualMode,
     this.fogControlPoints = tilemapDefaultFogControlPoints,
     this.blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles,
@@ -50,6 +56,7 @@ class TilemapRenderer extends StatefulWidget {
   final VoidCallback? onViewportReady;
   final bool waitForVisibleTileImageFrames;
   final bool isForeground;
+  final bool animationsPaused;
   final TilemapVisualMode visualMode;
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
@@ -104,6 +111,17 @@ class _TilemapRendererState extends State<TilemapRenderer>
   bool _viewportReadyCallbackScheduled = false;
   bool _isViewportReady = false;
   int _viewportReadyGeneration = 0;
+  final Set<String> _revealedTileKeys = <String>{};
+  final Map<String, String> _revealedTileAssets = <String, String>{};
+  final Set<String> _probingTileAssets = <String>{};
+  final Set<String> _readyTileAssets = <String>{};
+  List<_TilemapRenderRecord> _pendingVisibleRecords = const [];
+  List<_TilemapRenderRecord> _pendingRetainedRecords = const [];
+  double _progressiveMountTilePixelSize = 0;
+  bool _hasStartedProgressiveMount = false;
+  bool _progressiveMountCallbackScheduled = false;
+  int _progressiveMountGeneration = 0;
+  int _progressiveMountScheduleGeneration = 0;
   bool _hasViewportReadinessEnvironment = false;
   Size? _viewportReadinessSize;
   double? _viewportReadinessDevicePixelRatio;
@@ -137,11 +155,19 @@ class _TilemapRendererState extends State<TilemapRenderer>
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.config, widget.config)) {
       _resetViewportReadiness();
+      _resetProgressiveTileMount();
     } else if (!identical(oldWidget.onViewportReady, widget.onViewportReady) &&
         _isViewportReady) {
       _scheduleViewportReadyCallback();
     }
-    if (oldWidget.showLocationImageFlow != widget.showLocationImageFlow) {
+    final animationsPausedChanged =
+        oldWidget.animationsPaused != widget.animationsPaused;
+    if (oldWidget.isForeground != widget.isForeground ||
+        animationsPausedChanged) {
+      _restartProgressiveTileMountSchedule();
+    }
+    if (oldWidget.showLocationImageFlow != widget.showLocationImageFlow ||
+        animationsPausedChanged) {
       _syncLocationImageFlowAnimation();
     }
     if (oldWidget.locationImageFlowDurationSeconds !=
@@ -156,6 +182,10 @@ class _TilemapRendererState extends State<TilemapRenderer>
   }
 
   void _syncLocationImageFlowAnimation() {
+    if (widget.animationsPaused) {
+      _locationImageFlowController.stop();
+      return;
+    }
     final shouldAnimate =
         widget.showLocationImageFlow &&
         _hasLocationImageFlowTiles &&
@@ -188,6 +218,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
 
   @override
   void dispose() {
+    _progressiveMountGeneration += 1;
+    _progressiveMountScheduleGeneration += 1;
     _handleTransformChanged();
     _locationImageFlowController.dispose();
     _transformationController
@@ -308,6 +340,11 @@ class _TilemapRendererState extends State<TilemapRenderer>
                             renderIndex: renderIndex,
                             visibleSceneBounds: visibleSceneBounds,
                           );
+                          _syncProgressiveTileMount(
+                            records: records,
+                            visibleSceneBounds: visibleSceneBounds,
+                            tilePixelSize: tilePixelSize,
+                          );
                           _captureInitialViewportTiles(
                             records: records,
                             visibleSceneBounds: visibleSceneBounds,
@@ -370,6 +407,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 messageBubbles: widget.messageBubbles,
                                 visibleCharacterIds: visibleCharacterIds,
                                 paused: widget.messageBubblePlaybackPaused,
+                                frozen: widget.animationsPaused,
                                 builder: (context, activeBubble) {
                                   _TilemapLocationLabelData? activeBubbleLabel;
                                   var activeBubbleAvatarIndex = -1;
@@ -468,58 +506,64 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                             clipBehavior: Clip.none,
                                             children: [
                                               for (final record in records)
-                                                _ProjectedTile(
-                                                  key: ValueKey<String>(
-                                                    'tile-${record.tile.x}-'
-                                                    '${record.tile.y}',
+                                                if (_revealedTileKeys.contains(
+                                                  record.tile.cellKey,
+                                                ))
+                                                  _ProjectedTile(
+                                                    key: ValueKey<String>(
+                                                      'tile-${record.tile.x}-'
+                                                      '${record.tile.y}',
+                                                    ),
+                                                    tile: record.tile,
+                                                    asset:
+                                                        _revealedAssetForRecord(
+                                                          record,
+                                                        ),
+                                                    topLeft:
+                                                        record.imageTopLeft,
+                                                    extent:
+                                                        projection.tileExtent,
+                                                    locationImageFlowAnimation:
+                                                        showLocationImageFlow &&
+                                                            locationImageFlowTileKeys
+                                                                .contains(
+                                                                  record
+                                                                      .tile
+                                                                      .cellKey,
+                                                                )
+                                                        ? _locationImageFlowController
+                                                        : null,
+                                                    locationImageFlowPhase:
+                                                        tilemapLocationImageFlowPhase(
+                                                          record.tile,
+                                                        ),
+                                                    locationImageFlowAngleDegrees:
+                                                        widget
+                                                            .locationImageFlowAngleDegrees,
+                                                    locationImageFlowGradientPoints:
+                                                        widget
+                                                            .locationImageFlowGradientPoints,
+                                                    locationImageFlowOpacity: widget
+                                                        .locationImageFlowOpacity,
+                                                    locationImageFlowBlendMode:
+                                                        widget
+                                                            .locationImageFlowBlendMode,
+                                                    fogField:
+                                                        widget.blendFogWithShadowTiles &&
+                                                            record
+                                                                .tile
+                                                                .hasShadow
+                                                        ? fogField
+                                                        : null,
+                                                    onImageError:
+                                                        _tileImageErrorCallback(
+                                                          record,
+                                                        ),
+                                                    onImageFrame:
+                                                        _tileImageFrameCallback(
+                                                          record,
+                                                        ),
                                                   ),
-                                                  tile: record.tile,
-                                                  asset:
-                                                      resolveTilemapAssetForDisplaySize(
-                                                        widget.config
-                                                            .baseAssetUrlForTile(
-                                                              record.tile,
-                                                            ),
-                                                        tilePixelSize,
-                                                      ),
-                                                  topLeft: record.imageTopLeft,
-                                                  extent: projection.tileExtent,
-                                                  locationImageFlowAnimation:
-                                                      showLocationImageFlow &&
-                                                          locationImageFlowTileKeys
-                                                              .contains(
-                                                                record
-                                                                    .tile
-                                                                    .cellKey,
-                                                              )
-                                                      ? _locationImageFlowController
-                                                      : null,
-                                                  locationImageFlowPhase:
-                                                      tilemapLocationImageFlowPhase(
-                                                        record.tile,
-                                                      ),
-                                                  locationImageFlowAngleDegrees:
-                                                      widget
-                                                          .locationImageFlowAngleDegrees,
-                                                  locationImageFlowGradientPoints:
-                                                      widget
-                                                          .locationImageFlowGradientPoints,
-                                                  locationImageFlowOpacity: widget
-                                                      .locationImageFlowOpacity,
-                                                  locationImageFlowBlendMode: widget
-                                                      .locationImageFlowBlendMode,
-                                                  fogField:
-                                                      widget.blendFogWithShadowTiles &&
-                                                          record.tile.hasShadow
-                                                      ? fogField
-                                                      : null,
-                                                  onImageError:
-                                                      widget.onImageError,
-                                                  onImageFrame: () =>
-                                                      _handleTileImageFrame(
-                                                        record.tile.cellKey,
-                                                      ),
-                                                ),
                                             ],
                                           ),
                                         ),
@@ -672,6 +716,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
     _retainedSceneBounds = null;
     _retainedRecords = const [];
     _retainedTiles = const [];
+    _resetProgressiveTileMount();
     _fogBounds = null;
     _fogControlPoints = null;
     _fogRenderTiles = null;
@@ -708,7 +753,10 @@ class _TilemapRendererState extends State<TilemapRenderer>
     _viewportReadinessInitialScale = initialScale;
     _viewportReadinessInitialFocus = initialFocus;
     _viewportReadinessDragBoundary = dragBoundary;
-    if (environmentChanged) _resetViewportReadiness();
+    if (environmentChanged) {
+      _resetViewportReadiness();
+      _resetProgressiveTileMount();
+    }
   }
 
   void _captureInitialViewportTiles({
@@ -716,7 +764,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
     required Rect visibleSceneBounds,
   }) {
     if (_initialViewportTileKeys != null) {
-      if (!widget.waitForVisibleTileImageFrames) {
+      if (!widget.waitForVisibleTileImageFrames &&
+          _hasRevealedInitialViewportTiles) {
         _scheduleViewportReadyCallback();
       }
       return;
@@ -732,7 +781,9 @@ class _TilemapRendererState extends State<TilemapRenderer>
     };
     if (!widget.waitForVisibleTileImageFrames ||
         _initialViewportTileKeys!.isEmpty) {
-      _scheduleViewportReadyCallback();
+      if (_hasRevealedInitialViewportTiles) {
+        _scheduleViewportReadyCallback();
+      }
     }
   }
 
@@ -741,7 +792,34 @@ class _TilemapRendererState extends State<TilemapRenderer>
     return intersection.width > 0 && intersection.height > 0;
   }
 
-  void _handleTileImageFrame(String tileKey) {
+  VoidCallback _tileImageFrameCallback(_TilemapRenderRecord record) {
+    final generation = _progressiveMountGeneration;
+    final tileKey = record.tile.cellKey;
+    final asset = _revealedAssetForRecord(record);
+    return () => _handleTileImageFrame(
+      tileKey,
+      asset: asset,
+      progressiveMountGeneration: generation,
+    );
+  }
+
+  ValueChanged<Object> _tileImageErrorCallback(_TilemapRenderRecord record) {
+    final generation = _progressiveMountGeneration;
+    final asset = _revealedAssetForRecord(record);
+    return (error) {
+      if (generation != _progressiveMountGeneration) return;
+      _markTileAssetReady(asset);
+      widget.onImageError?.call(error);
+    };
+  }
+
+  void _handleTileImageFrame(
+    String tileKey, {
+    required String asset,
+    required int progressiveMountGeneration,
+  }) {
+    if (progressiveMountGeneration != _progressiveMountGeneration) return;
+    _markTileAssetReady(asset);
     if (_isViewportReady || !widget.waitForVisibleTileImageFrames) {
       return;
     }
@@ -753,6 +831,12 @@ class _TilemapRendererState extends State<TilemapRenderer>
     }
   }
 
+  void _markTileAssetReady(String asset) {
+    if (!_readyTileAssets.add(asset)) return;
+    _probingTileAssets.remove(asset);
+    _scheduleProgressiveTileMount();
+  }
+
   void _scheduleViewportReadyCallback() {
     if (_viewportReadyCallbackScheduled) return;
     _viewportReadyCallbackScheduled = true;
@@ -762,6 +846,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
       _viewportReadyCallbackScheduled = false;
       final initialTileKeys = _initialViewportTileKeys;
       if (initialTileKeys == null) return;
+      if (!_hasRevealedInitialViewportTiles) return;
       if (!_isViewportReady &&
           widget.waitForVisibleTileImageFrames &&
           initialTileKeys.isNotEmpty &&
@@ -799,6 +884,247 @@ class _TilemapRendererState extends State<TilemapRenderer>
       nextRecords.map((record) => record.tile),
     );
     return nextRecords;
+  }
+
+  bool get _hasRevealedInitialViewportTiles {
+    final initialTileKeys = _initialViewportTileKeys;
+    return initialTileKeys != null &&
+        _revealedTileKeys.containsAll(initialTileKeys);
+  }
+
+  void _resetProgressiveTileMount() {
+    _progressiveMountGeneration += 1;
+    _progressiveMountScheduleGeneration += 1;
+    _revealedTileKeys.clear();
+    _revealedTileAssets.clear();
+    _probingTileAssets.clear();
+    _readyTileAssets.clear();
+    _pendingVisibleRecords = const [];
+    _pendingRetainedRecords = const [];
+    _progressiveMountTilePixelSize = 0;
+    _hasStartedProgressiveMount = false;
+    _progressiveMountCallbackScheduled = false;
+  }
+
+  void _restartProgressiveTileMountSchedule() {
+    _progressiveMountScheduleGeneration += 1;
+    _progressiveMountCallbackScheduled = false;
+  }
+
+  void _syncProgressiveTileMount({
+    required List<_TilemapRenderRecord> records,
+    required Rect visibleSceneBounds,
+    required double tilePixelSize,
+  }) {
+    _progressiveMountTilePixelSize = tilePixelSize;
+    final retainedTileKeys = <String>{
+      for (final record in records) record.tile.cellKey,
+    };
+    final removedTileAssets = <String>{
+      for (final entry in _revealedTileAssets.entries)
+        if (!retainedTileKeys.contains(entry.key)) entry.value,
+    };
+    _revealedTileKeys.removeWhere(
+      (tileKey) => !retainedTileKeys.contains(tileKey),
+    );
+    _revealedTileAssets.removeWhere(
+      (tileKey, _) => !retainedTileKeys.contains(tileKey),
+    );
+    for (final asset in _probingTileAssets.toList(growable: false)) {
+      if (removedTileAssets.contains(asset) &&
+          !_revealedTileAssets.containsValue(asset)) {
+        _probingTileAssets.remove(asset);
+      }
+    }
+
+    final visibleRecords = <_TilemapRenderRecord>[];
+    final retainedRecords = <_TilemapRenderRecord>[];
+    for (final record in records) {
+      final tileKey = record.tile.cellKey;
+      final desiredAsset = resolveTilemapAssetForDisplaySize(
+        widget.config.baseAssetUrlForTile(record.tile),
+        tilePixelSize,
+      );
+      if (_revealedTileKeys.contains(tileKey) &&
+          _revealedTileAssets[tileKey] == desiredAsset) {
+        continue;
+      }
+      if (_rectsOverlapWithVisibleArea(
+        record.imageBounds,
+        visibleSceneBounds,
+      )) {
+        visibleRecords.add(record);
+      } else {
+        retainedRecords.add(record);
+      }
+    }
+    final viewportCenter = visibleSceneBounds.center;
+    visibleRecords.sort(
+      (first, second) => _compareProgressiveMountPriority(
+        first,
+        second,
+        viewportCenter: viewportCenter,
+      ),
+    );
+    retainedRecords.sort(
+      (first, second) => _compareProgressiveMountPriority(
+        first,
+        second,
+        viewportCenter: viewportCenter,
+      ),
+    );
+    _pendingVisibleRecords = visibleRecords;
+    _pendingRetainedRecords = retainedRecords;
+
+    if (!_hasStartedProgressiveMount && !widget.animationsPaused) {
+      _hasStartedProgressiveMount = true;
+      final visibleBatchSize = _visibleTileMountBatchSize;
+      final initialVisibleRecords = _selectProgressiveMountBatch(
+        visibleRecords,
+        maxCellCount: visibleBatchSize,
+      );
+      _revealProgressiveRecords(initialVisibleRecords);
+      final remainingInitialCapacity =
+          visibleBatchSize - initialVisibleRecords.length;
+      if (initialVisibleRecords.length == visibleRecords.length &&
+          remainingInitialCapacity > 0) {
+        final initialRetainedRecords = _selectProgressiveMountBatch(
+          retainedRecords,
+          maxCellCount: math.min(
+            _retainedTileMountBatchSize,
+            remainingInitialCapacity,
+          ),
+        );
+        _revealProgressiveRecords(initialRetainedRecords);
+      }
+      _pendingVisibleRecords = visibleRecords
+          .where((record) => !_revealedTileKeys.contains(record.tile.cellKey))
+          .toList(growable: false);
+      _pendingRetainedRecords = retainedRecords
+          .where((record) => !_revealedTileKeys.contains(record.tile.cellKey))
+          .toList(growable: false);
+    }
+    _scheduleProgressiveTileMount();
+  }
+
+  int _compareProgressiveMountPriority(
+    _TilemapRenderRecord first,
+    _TilemapRenderRecord second, {
+    required Offset viewportCenter,
+  }) {
+    final preferredLocationId = widget.preferredFocusLocationId.trim();
+    final firstIsPreferred =
+        preferredLocationId.isNotEmpty &&
+        first.tile.locationId?.trim() == preferredLocationId;
+    final secondIsPreferred =
+        preferredLocationId.isNotEmpty &&
+        second.tile.locationId?.trim() == preferredLocationId;
+    if (firstIsPreferred != secondIsPreferred) {
+      return firstIsPreferred ? -1 : 1;
+    }
+    if (first.tile.isLocationTile != second.tile.isLocationTile) {
+      return first.tile.isLocationTile ? -1 : 1;
+    }
+    final firstDelta = first.imageBounds.center - viewportCenter;
+    final secondDelta = second.imageBounds.center - viewportCenter;
+    final distanceOrder = firstDelta.distanceSquared.compareTo(
+      secondDelta.distanceSquared,
+    );
+    if (distanceOrder != 0) return distanceOrder;
+    return first.paintOrder.compareTo(second.paintOrder);
+  }
+
+  void _scheduleProgressiveTileMount() {
+    if (widget.animationsPaused ||
+        _progressiveMountCallbackScheduled ||
+        (_pendingVisibleRecords.isEmpty && _pendingRetainedRecords.isEmpty)) {
+      return;
+    }
+    _progressiveMountCallbackScheduled = true;
+    final generation = _progressiveMountScheduleGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _progressiveMountScheduleGeneration) {
+        return;
+      }
+      _progressiveMountCallbackScheduled = false;
+      if (widget.animationsPaused) return;
+
+      final hasVisibleRecords = _pendingVisibleRecords.isNotEmpty;
+      final pendingRecords = hasVisibleRecords
+          ? _pendingVisibleRecords
+          : _pendingRetainedRecords;
+      final batchSize = hasVisibleRecords
+          ? _visibleTileMountBatchSize
+          : _retainedTileMountBatchSize;
+      final nextRecords = _selectProgressiveMountBatch(
+        pendingRecords,
+        maxCellCount: batchSize,
+      );
+      if (nextRecords.isEmpty) return;
+      setState(() {
+        _revealProgressiveRecords(nextRecords);
+      });
+      if (_hasRevealedInitialViewportTiles &&
+          !widget.waitForVisibleTileImageFrames) {
+        _scheduleViewportReadyCallback();
+      }
+    });
+  }
+
+  void _revealProgressiveRecords(Iterable<_TilemapRenderRecord> records) {
+    for (final record in records) {
+      _revealedTileKeys.add(record.tile.cellKey);
+    }
+  }
+
+  int get _visibleTileMountBatchSize => widget.isForeground
+      ? _foregroundVisibleTileMountBatchSize
+      : _backgroundVisibleTileMountBatchSize;
+
+  List<_TilemapRenderRecord> _selectProgressiveMountBatch(
+    List<_TilemapRenderRecord> pendingRecords, {
+    required int maxCellCount,
+  }) {
+    final selectedRecords = <_TilemapRenderRecord>[];
+    for (final record in pendingRecords) {
+      final tileKey = record.tile.cellKey;
+      final asset = resolveTilemapAssetForDisplaySize(
+        widget.config.baseAssetUrlForTile(record.tile),
+        _progressiveMountTilePixelSize,
+      );
+      final previousAsset = _revealedTileAssets[tileKey];
+      final replacesSoleProbe =
+          previousAsset != null &&
+          previousAsset != asset &&
+          _probingTileAssets.contains(previousAsset) &&
+          !_revealedTileAssets.entries.any(
+            (entry) => entry.key != tileKey && entry.value == previousAsset,
+          );
+      if (!_readyTileAssets.contains(asset)) {
+        if (_probingTileAssets.contains(asset)) {
+          continue;
+        }
+        final effectiveProbeCount =
+            _probingTileAssets.length - (replacesSoleProbe ? 1 : 0);
+        if (effectiveProbeCount >= _newTileAssetMountBatchSize) continue;
+        if (replacesSoleProbe) _probingTileAssets.remove(previousAsset);
+        _probingTileAssets.add(asset);
+      } else if (replacesSoleProbe) {
+        _probingTileAssets.remove(previousAsset);
+      }
+      selectedRecords.add(record);
+      _revealedTileAssets[tileKey] = asset;
+      if (selectedRecords.length >= maxCellCount) break;
+    }
+    return selectedRecords;
+  }
+
+  String _revealedAssetForRecord(_TilemapRenderRecord record) {
+    return _revealedTileAssets[record.tile.cellKey] ??
+        resolveTilemapAssetForDisplaySize(
+          widget.config.baseAssetUrlForTile(record.tile),
+          _progressiveMountTilePixelSize,
+        );
   }
 
   TilemapFogField _resolveFogField({

@@ -19,15 +19,67 @@ typedef GenesisImageViewerPrecacheImage =
 @visibleForTesting
 GenesisImageViewerPrecacheImage? debugGenesisImageViewerPrecacheImage;
 
+ImageProvider<Object>? genesisImageViewerPreviewProvider(
+  BuildContext context, {
+  required String imageUrl,
+  double? logicalWidth,
+  double? logicalHeight,
+  BoxFit? fit,
+}) {
+  final url = imageUrl.trim();
+  if (url.isEmpty) return null;
+  if (url.startsWith('assets/')) return AssetImage(url);
+  final devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+  return GenesisStaticNetworkImageProvider(
+    imageUrl: url,
+    cacheWidth: _viewerDecodePixelDimension(logicalWidth, devicePixelRatio),
+    cacheHeight: _viewerDecodePixelDimension(logicalHeight, devicePixelRatio),
+    fit: fit,
+  );
+}
+
+ImageProvider<Object>? genesisImageViewerListPreviewProvider(
+  BuildContext context, {
+  required String source,
+  required double? logicalWidth,
+  required double? logicalHeight,
+  BoxFit fit = BoxFit.cover,
+}) {
+  final devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+  final imageUrl = selectGenesisImageUrl(
+    source,
+    logicalWidth: logicalWidth,
+    logicalHeight: logicalHeight,
+    devicePixelRatio: devicePixelRatio,
+  ).trim();
+  return genesisImageViewerPreviewProvider(
+    context,
+    imageUrl: imageUrl,
+    logicalWidth: logicalWidth,
+    logicalHeight: logicalHeight,
+    fit: fit,
+  );
+}
+
 Future<void> showGenesisImageViewer(
   BuildContext context, {
   required List<String> imageUrls,
+  List<ImageProvider<Object>?> previewImageProviders =
+      const <ImageProvider<Object>?>[],
   int initialIndex = 0,
 }) {
-  final urls = imageUrls
-      .map((url) => url.trim())
-      .where((url) => url.isNotEmpty)
-      .toList(growable: false);
+  final urls = <String>[];
+  final previews = <ImageProvider<Object>?>[];
+  for (var index = 0; index < imageUrls.length; index += 1) {
+    final url = imageUrls[index].trim();
+    if (url.isEmpty) continue;
+    urls.add(url);
+    previews.add(
+      index < previewImageProviders.length
+          ? previewImageProviders[index]
+          : null,
+    );
+  }
   if (urls.isEmpty) return Future<void>.value();
 
   return showGenesisGeneralDialog<void>(
@@ -39,6 +91,7 @@ Future<void> showGenesisImageViewer(
     pageBuilder: (context, animation, secondaryAnimation) {
       return GenesisImageViewerOverlay(
         imageUrls: urls,
+        previewImageProviders: previews,
         initialIndex: initialIndex.clamp(0, urls.length - 1),
       );
     },
@@ -52,10 +105,12 @@ class GenesisImageViewerOverlay extends StatefulWidget {
   const GenesisImageViewerOverlay({
     super.key,
     required this.imageUrls,
+    this.previewImageProviders = const <ImageProvider<Object>?>[],
     this.initialIndex = 0,
   });
 
   final List<String> imageUrls;
+  final List<ImageProvider<Object>?> previewImageProviders;
   final int initialIndex;
 
   @override
@@ -269,6 +324,10 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
                               child: _ViewerImage(
                                 index: index,
                                 url: widget.imageUrls[index],
+                                previewImageProvider:
+                                    index < widget.previewImageProviders.length
+                                    ? widget.previewImageProviders[index]
+                                    : null,
                                 controller: _transformationControllers[index],
                               ),
                             );
@@ -342,6 +401,21 @@ ImageProvider<Object> _viewerImageProvider(String url) {
   return GenesisStaticNetworkImageProvider(imageUrl: url);
 }
 
+int? _viewerDecodePixelDimension(
+  double? logicalDimension,
+  double devicePixelRatio,
+) {
+  if (logicalDimension == null ||
+      !logicalDimension.isFinite ||
+      logicalDimension <= 0) {
+    return null;
+  }
+  final ratio = devicePixelRatio.isFinite && devicePixelRatio > 0
+      ? devicePixelRatio
+      : 1.0;
+  return (logicalDimension * ratio).ceil();
+}
+
 class _ViewerPageSlot extends StatelessWidget {
   const _ViewerPageSlot({required this.viewportFraction, required this.child});
 
@@ -370,11 +444,13 @@ class _ViewerImage extends StatelessWidget {
   const _ViewerImage({
     required this.index,
     required this.url,
+    required this.previewImageProvider,
     required this.controller,
   });
 
   final int index;
   final String url;
+  final ImageProvider<Object>? previewImageProvider;
   final TransformationController controller;
 
   @override
@@ -391,7 +467,12 @@ class _ViewerImage extends StatelessWidget {
               key: ValueKey('genesis-image-viewer-image-$index'),
               width: constraints.maxWidth,
               height: constraints.maxHeight,
-              child: _ImageByUrl(url: url, fit: BoxFit.fitWidth),
+              child: _ProgressiveImageByUrl(
+                index: index,
+                url: url,
+                previewImageProvider: previewImageProvider,
+                fit: BoxFit.fitWidth,
+              ),
             ),
           ),
         );
@@ -439,10 +520,17 @@ class _ViewerPageDots extends StatelessWidget {
   }
 }
 
-class _ImageByUrl extends StatelessWidget {
-  const _ImageByUrl({required this.url, required this.fit});
+class _ProgressiveImageByUrl extends StatelessWidget {
+  const _ProgressiveImageByUrl({
+    required this.index,
+    required this.url,
+    required this.previewImageProvider,
+    required this.fit,
+  });
 
+  final int index;
   final String url;
+  final ImageProvider<Object>? previewImageProvider;
   final BoxFit fit;
 
   @override
@@ -454,35 +542,101 @@ class _ImageByUrl extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final imageUrl = _selectViewerImageUrl(
+        final devicePixelRatio =
+            MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+        final logicalWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : null;
+        final logicalHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : null;
+        final fullImageUrl = _selectViewerImageUrl(
           url,
-          logicalWidth: constraints.maxWidth.isFinite
-              ? constraints.maxWidth
-              : null,
-          logicalHeight: constraints.maxHeight.isFinite
-              ? constraints.maxHeight
-              : null,
-          devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+          logicalWidth: logicalWidth,
+          logicalHeight: logicalHeight,
+          devicePixelRatio: devicePixelRatio,
         );
-        if (imageUrl.isEmpty) return fallback;
-        if (imageUrl.startsWith('assets/')) {
-          return SizedBox.expand(
-            child: Image.asset(
-              imageUrl,
-              fit: fit,
-              errorBuilder: (context, error, stackTrace) => fallback,
-            ),
+        if (fullImageUrl.isEmpty) return fallback;
+
+        final explicitPreviewProvider = previewImageProvider;
+        final previewImageUrl = explicitPreviewProvider == null
+            ? _selectViewerPreviewImageUrl(
+                url,
+                fullImageUrl: fullImageUrl,
+                devicePixelRatio: devicePixelRatio,
+              )
+            : '';
+        if (explicitPreviewProvider == null &&
+            (previewImageUrl.isEmpty || previewImageUrl == fullImageUrl)) {
+          return _buildViewerImage(
+            key: ValueKey('genesis-image-viewer-full-$index'),
+            imageUrl: fullImageUrl,
+            fit: fit,
+            fallback: fallback,
           );
         }
-        return SizedBox.expand(
-          child: GenesisStaticNetworkImage(
-            imageUrl: imageUrl,
-            fit: fit,
-            placeholder: (_) => fallback,
-            errorWidget: (_, _) => fallback,
-          ),
+
+        final preview = explicitPreviewProvider == null
+            ? _buildViewerImage(
+                key: ValueKey('genesis-image-viewer-preview-$index'),
+                imageUrl: previewImageUrl,
+                fit: fit,
+                fallback: fallback,
+              )
+            : SizedBox.expand(
+                key: ValueKey('genesis-image-viewer-preview-$index'),
+                child: Image(
+                  image: explicitPreviewProvider,
+                  fit: fit,
+                  gaplessPlayback: true,
+                  frameBuilder:
+                      (context, child, frame, wasSynchronouslyLoaded) {
+                        if (wasSynchronouslyLoaded || frame != null) {
+                          return child;
+                        }
+                        return fallback;
+                      },
+                  errorBuilder: (context, error, stackTrace) => fallback,
+                ),
+              );
+        return _buildViewerImage(
+          key: ValueKey('genesis-image-viewer-full-$index'),
+          imageUrl: fullImageUrl,
+          fit: fit,
+          fallback: preview,
         );
       },
+    );
+  }
+
+  Widget _buildViewerImage({
+    required Key key,
+    required String imageUrl,
+    required BoxFit fit,
+    required Widget fallback,
+  }) {
+    if (imageUrl.startsWith('assets/')) {
+      return SizedBox.expand(
+        key: key,
+        child: Image.asset(
+          imageUrl,
+          fit: fit,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded || frame != null) return child;
+            return fallback;
+          },
+          errorBuilder: (context, error, stackTrace) => fallback,
+        ),
+      );
+    }
+    return SizedBox.expand(
+      key: key,
+      child: GenesisStaticNetworkImage(
+        imageUrl: imageUrl,
+        fit: fit,
+        placeholder: (_) => fallback,
+        errorWidget: (_, _) => fallback,
+      ),
     );
   }
 }
@@ -503,6 +657,30 @@ String _selectViewerImageUrl(
   final resized = resizeGenesisImageUrl(
     candidate,
     logicalWidth: logicalWidth,
+    devicePixelRatio: devicePixelRatio,
+  );
+  return resized.isNotEmpty ? resized : candidate;
+}
+
+String _selectViewerPreviewImageUrl(
+  String source, {
+  required String fullImageUrl,
+  required double devicePixelRatio,
+}) {
+  final candidate = source.trim();
+  if (candidate.isEmpty || candidate.startsWith('assets/')) return candidate;
+  if (candidate.contains('x-oss-process=image/resize')) return candidate;
+
+  final resource = GenesisImageResourceRegistry.resolve(candidate);
+  final smallImageUrl = resource.smUrl.trim();
+  if (smallImageUrl.isNotEmpty) {
+    return localDefaultMapImageAssetForBackendImageUrl(smallImageUrl) ??
+        smallImageUrl;
+  }
+
+  final resized = resizeGenesisImageUrl(
+    fullImageUrl,
+    logicalWidth: 120,
     devicePixelRatio: devicePixelRatio,
   );
   return resized.isNotEmpty ? resized : candidate;

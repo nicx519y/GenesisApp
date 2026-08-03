@@ -3,6 +3,8 @@ part of 'origin_discuss_library.dart';
 class _DiscussImageThumbnail extends StatelessWidget {
   const _DiscussImageThumbnail({required this.url, required this.onTap});
 
+  static const double size = 48;
+
   final String url;
   final VoidCallback onTap;
 
@@ -16,8 +18,8 @@ class _DiscussImageThumbnail extends StatelessWidget {
       onTap: onTap,
       child: GenesisListImage(
         imageUrl: imageUrl,
-        width: 48,
-        height: 48,
+        width: size,
+        height: size,
         borderRadius: GenesisImageRadii.content,
       ),
     );

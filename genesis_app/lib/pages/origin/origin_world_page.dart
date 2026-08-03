@@ -134,6 +134,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   bool _preserveStatusBarDuringWorldHandoff = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
+  bool _detailSheetRaised = false;
   _OriginLocationChatDescriptor? _activeChatLocation;
   final LocationChatBackgroundPreloader _locationChatBackgroundPreloader =
       LocationChatBackgroundPreloader();
@@ -171,6 +172,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _currentTilemapLocationIds = const <String>{};
       _locationChatBackgroundPreloader.preload(const <Object?>[]);
       _showIntroPage = false;
+      _detailSheetRaised = false;
       _tabController.index = 0;
       SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
       _scheduleInitialOriginLoadAfterFrameworkFrame();
@@ -948,6 +950,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         preferredFocusLocationId:
             origin.initLocationGroup?.locationId.trim() ?? '',
         showVisualModeToggle: !_showIntroPage,
+        animationsPaused: _detailSheetRaised,
         visualModeToggleTop: topPadding + 8,
         visualModeToggleRight: 12,
         onMapTap: () => _recordWorldoTilemapClick(origin),
@@ -973,6 +976,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
               baseStatusBarStyle: _baseStatusBarStyle,
               minChildSize: minChildSize,
               collapseRequest: _detailSheetCollapseRequest,
+              onRaisedChanged: _handleDetailSheetRaisedChanged,
               onOriginChanged: _refreshOriginDetail,
               launching: _launching,
               onSelectRole: (character) =>
@@ -989,5 +993,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         map: WorldKeepAlivePage(child: map),
       ),
     );
+  }
+
+  void _handleDetailSheetRaisedChanged(bool raised) {
+    if (!mounted || _detailSheetRaised == raised) return;
+    setState(() => _detailSheetRaised = raised);
   }
 }

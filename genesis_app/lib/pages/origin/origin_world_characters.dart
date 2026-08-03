@@ -169,6 +169,15 @@ class _OriginCharacterPortrait extends StatelessWidget {
       onTap: () => showGenesisImageViewer(
         context,
         imageUrls: imageUrls,
+        previewImageProviders: [
+          for (final imageUrl in imageUrls)
+            genesisImageViewerPreviewProvider(
+              context,
+              imageUrl: _originRoleCardAvatarUrl(context, imageUrl),
+              logicalWidth: _width,
+              fit: BoxFit.fitWidth,
+            ),
+        ],
         initialIndex: initialIndex < 0 ? 0 : initialIndex,
       ),
       child: portrait,

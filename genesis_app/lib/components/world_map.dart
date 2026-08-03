@@ -35,6 +35,7 @@ class WorldMapTilemapOptions {
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
+    this.animationsPaused = false,
     this.restorationController,
     this.onMapTap,
     this.onDisplayReadinessChanged,
@@ -53,6 +54,7 @@ class WorldMapTilemapOptions {
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
   final Set<String> recentChatLocationIds;
+  final bool animationsPaused;
   final TilemapRestorationController? restorationController;
   final VoidCallback? onMapTap;
   final ValueChanged<bool>? onDisplayReadinessChanged;
@@ -114,6 +116,7 @@ class WorldMap extends StatelessWidget {
         visualModeToggleTop: tilemap.visualModeToggleTop,
         visualModeToggleRight: tilemap.visualModeToggleRight,
         recentChatLocationIds: tilemap.recentChatLocationIds,
+        animationsPaused: tilemap.animationsPaused,
         messageBubbles: common.messageBubbles,
         messageBubblePlaybackPaused:
             common.messageBubblePlaybackPaused || legacy.showPointsList,
@@ -137,6 +140,7 @@ class WorldMap extends StatelessWidget {
         visualModeToggleTop: tilemap.visualModeToggleTop,
         visualModeToggleRight: tilemap.visualModeToggleRight,
         recentChatLocationIds: tilemap.recentChatLocationIds,
+        animationsPaused: tilemap.animationsPaused,
         messageBubbles: common.messageBubbles,
         messageBubblePlaybackPaused: common.messageBubblePlaybackPaused,
         onDrillIntoLocation: common.onDrillIntoLocation,

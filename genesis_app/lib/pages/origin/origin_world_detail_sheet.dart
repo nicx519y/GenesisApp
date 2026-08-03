@@ -6,6 +6,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.baseStatusBarStyle,
     required this.minChildSize,
     required this.collapseRequest,
+    required this.onRaisedChanged,
     required this.onOriginChanged,
     required this.launching,
     required this.onSelectRole,
@@ -18,6 +19,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final SystemUiOverlayStyle baseStatusBarStyle;
   final double minChildSize;
   final int collapseRequest;
+  final ValueChanged<bool> onRaisedChanged;
   final VoidCallback onOriginChanged;
   final bool launching;
   final Future<void> Function(OriginCharacter character) onSelectRole;
@@ -40,6 +42,7 @@ class _OriginDetailDraggableSheetState
   ScrollController? _sheetScrollController;
   var _sheetExtent = 0.0;
   var _isFullyExpanded = false;
+  var _isRaised = false;
 
   double get _minChildSize => widget.minChildSize.clamp(0.08, 0.42).toDouble();
 
@@ -83,6 +86,7 @@ class _OriginDetailDraggableSheetState
           .clamp(_minChildSize, maxChildSize)
           .toDouble();
       if (nextExtent != _sheetExtent) _sheetExtent = nextExtent;
+      _syncRaisedStateAfterBuild();
     }
     if (oldWidget.baseStatusBarStyle != widget.baseStatusBarStyle) {
       SystemChrome.setSystemUIOverlayStyle(
@@ -130,6 +134,8 @@ class _OriginDetailDraggableSheetState
         .toDouble();
     final isFullyExpanded =
         (maxChildSize - extent).abs() <= _extentUpdateEpsilon;
+    final isRaised = extent > _minChildSize + _extentUpdateEpsilon;
+    _updateRaisedState(isRaised);
     if (isFullyExpanded && !_isFullyExpanded) {
       GenesisTelemetry.collectLog(
         actionType: 'event',
@@ -145,6 +151,22 @@ class _OriginDetailDraggableSheetState
       _statusBarStyleForExtent(context, extent),
     );
     return false;
+  }
+
+  void _syncRaisedStateAfterBuild() {
+    final isRaised = _sheetExtent > _minChildSize + _extentUpdateEpsilon;
+    if (isRaised == _isRaised) return;
+    _isRaised = isRaised;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _isRaised != isRaised) return;
+      widget.onRaisedChanged(isRaised);
+    });
+  }
+
+  void _updateRaisedState(bool isRaised) {
+    if (isRaised == _isRaised) return;
+    _isRaised = isRaised;
+    widget.onRaisedChanged(isRaised);
   }
 
   double _statusBarAlphaForExtent(BuildContext context, double extent) {

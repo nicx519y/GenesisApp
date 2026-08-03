@@ -5875,6 +5875,39 @@ void main() {
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
   });
 
+  testWidgets('origin detail sheet pauses Tilemap animations while raised', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Tilemap currentTilemap() => tester.widget<Tilemap>(find.byType(Tilemap));
+    final sheet = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    expect(currentTilemap().animationsPaused, isFalse);
+
+    await tester.drag(sheet, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(currentTilemap().animationsPaused, isTrue);
+
+    await tester.drag(sheet, const Offset(0, 700));
+    await tester.pumpAndSettle();
+    expect(currentTilemap().animationsPaused, isFalse);
+  });
+
   testWidgets(
     'origin detail version 2 selects first multiple-children Tilemap location',
     (WidgetTester tester) async {
@@ -18187,6 +18220,37 @@ void main() {
       'world_id': 'w_test_1',
       'location_id': 'l_w_test_1',
     });
+  });
+
+  testWidgets('world detail sheet pauses Tilemap animations while open', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'anonymous',
+      worldDefinitionVersion: 2,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Tilemap currentTilemap() => tester.widget<Tilemap>(find.byType(Tilemap));
+    expect(currentTilemap().animationsPaused, isFalse);
+
+    final detailTag = find.descendant(
+      of: find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
+      matching: find.text('Detail'),
+    );
+    await tester.tap(detailTag);
+    await tester.pumpAndSettle();
+    expect(currentTilemap().animationsPaused, isTrue);
+
+    Navigator.of(tester.element(find.byType(WorldPage))).pop();
+    await tester.pumpAndSettle();
+    expect(currentTilemap().animationsPaused, isFalse);
   });
 
   testWidgets('world route slides over its matching loading backdrop', (

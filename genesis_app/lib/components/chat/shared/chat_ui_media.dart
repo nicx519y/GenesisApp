@@ -29,18 +29,16 @@ class ChatImageMessage extends StatelessWidget {
             final maxWidth = constraints.maxWidth.isFinite
                 ? constraints.maxWidth
                 : MediaQuery.sizeOf(context).width;
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
+            return ChatThumbnailImage(
+              key: ValueKey<String>('chat-image-message-${message.localId}'),
+              imageUrl: _rawImageUrl(message),
+              maxWidth: maxWidth,
+              borderRadius: BorderRadius.circular(8),
               onTap: _rawImageUrl(message).isEmpty
                   ? null
-                  : () => _showImageViewer(context),
+                  : (previewImageProvider) =>
+                        _showImageViewer(context, previewImageProvider),
               onLongPressStart: onLongPressStart,
-              child: ChatThumbnailImage(
-                key: ValueKey<String>('chat-image-message-${message.localId}'),
-                imageUrl: _rawImageUrl(message),
-                maxWidth: maxWidth,
-                borderRadius: BorderRadius.circular(8),
-              ),
             );
           },
         ),
@@ -48,7 +46,10 @@ class ChatImageMessage extends StatelessWidget {
     );
   }
 
-  void _showImageViewer(BuildContext context) {
+  void _showImageViewer(
+    BuildContext context,
+    ImageProvider<Object>? previewImageProvider,
+  ) {
     final sourceMessages = imageViewerMessages.isEmpty
         ? <ChatMessageVm>[message]
         : imageViewerMessages;
@@ -69,12 +70,17 @@ class ChatImageMessage extends StatelessWidget {
     final initialIndex = indexedMessages.indexWhere(
       (entry) => entry.message.localId == message.localId,
     );
+    final viewerInitialIndex = initialIndex < 0 ? 0 : initialIndex;
     showGenesisImageViewer(
       context,
       imageUrls: [
         for (final entry in indexedMessages) _rawImageUrl(entry.message),
       ],
-      initialIndex: initialIndex < 0 ? 0 : initialIndex,
+      previewImageProviders: [
+        for (var index = 0; index < indexedMessages.length; index += 1)
+          index == viewerInitialIndex ? previewImageProvider : null,
+      ],
+      initialIndex: viewerInitialIndex,
     );
   }
 }
@@ -85,11 +91,15 @@ class ChatThumbnailImage extends StatefulWidget {
     required this.imageUrl,
     required this.maxWidth,
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.onTap,
+    this.onLongPressStart,
   });
 
   final String imageUrl;
   final double maxWidth;
   final BorderRadiusGeometry borderRadius;
+  final ValueChanged<ImageProvider<Object>?>? onTap;
+  final GestureLongPressStartCallback? onLongPressStart;
 
   @override
   State<ChatThumbnailImage> createState() => _ChatThumbnailImageState();
@@ -209,27 +219,35 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
   Widget build(BuildContext context) {
     final provider = _provider;
     final displaySize = _displaySize;
+    final Widget thumbnail;
     if (_failed || provider == null || displaySize == null) {
-      return _buildPlaceholder();
-    }
-
-    return ClipRRect(
-      borderRadius: widget.borderRadius,
-      child: SizedBox(
-        width: displaySize.width,
-        height: displaySize.height,
-        child: Image(
-          image: provider,
+      thumbnail = _buildPlaceholder();
+    } else {
+      thumbnail = ClipRRect(
+        borderRadius: widget.borderRadius,
+        child: SizedBox(
           width: displaySize.width,
           height: displaySize.height,
-          fit: BoxFit.contain,
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded || frame != null) return child;
-            return _buildPlaceholder(size: displaySize);
-          },
-          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+          child: Image(
+            image: provider,
+            width: displaySize.width,
+            height: displaySize.height,
+            fit: BoxFit.contain,
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded || frame != null) return child;
+              return _buildPlaceholder(size: displaySize);
+            },
+            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+          ),
         ),
-      ),
+      );
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap == null ? null : () => widget.onTap!(provider),
+      onLongPressStart: widget.onLongPressStart,
+      child: thumbnail,
     );
   }
 

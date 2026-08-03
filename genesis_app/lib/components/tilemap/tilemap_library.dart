@@ -143,6 +143,7 @@ class Tilemap extends StatefulWidget {
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
+    this.animationsPaused = false,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
     this.onDrillIntoLocation,
@@ -168,6 +169,7 @@ class Tilemap extends StatefulWidget {
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
+    this.animationsPaused = false,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
     this.onDrillIntoLocation,
@@ -192,6 +194,7 @@ class Tilemap extends StatefulWidget {
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
   final Set<String> recentChatLocationIds;
+  final bool animationsPaused;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
   final VoidCallback? onDrillIntoLocation;
@@ -1221,6 +1224,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       onViewportReady: onViewportReady,
       waitForVisibleTileImageFrames: widget.tileImageLoader == null,
       isForeground: foreground,
+      animationsPaused: widget.animationsPaused,
       visualMode: _visualMode,
       fogControlPoints: _fogControlPoints,
       blendFogWithShadowTiles: _blendFogWithShadowTiles,
@@ -1636,104 +1640,109 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
         tilemapSettingsButtonVisibility.value &&
         _settingsReady;
     final showSettings = showSettingsButton && _showSettings;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final mediaSize = MediaQuery.sizeOf(context);
-        final viewportSize = Size(
-          constraints.hasBoundedWidth ? constraints.maxWidth : mediaSize.width,
-          constraints.hasBoundedHeight
-              ? constraints.maxHeight
-              : mediaSize.height,
-        );
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            _buildMapViewport(context, viewportSize),
-            if (_locationTrail.isNotEmpty)
-              Positioned(
-                left: 12,
-                top: widget.drillExitTop,
-                child: WorldMapConstrainedMaxWidth(
-                  maxWidth: widget.drillExitMaxWidth,
-                  child: WorldMapExitLocationButton(
-                    key: const ValueKey<String>('tilemap-exit-location'),
-                    label: exitLocationLabel,
-                    onPressed: _exitLocation,
+    return TickerMode(
+      enabled: !widget.animationsPaused,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final mediaSize = MediaQuery.sizeOf(context);
+          final viewportSize = Size(
+            constraints.hasBoundedWidth
+                ? constraints.maxWidth
+                : mediaSize.width,
+            constraints.hasBoundedHeight
+                ? constraints.maxHeight
+                : mediaSize.height,
+          );
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildMapViewport(context, viewportSize),
+              if (_locationTrail.isNotEmpty)
+                Positioned(
+                  left: 12,
+                  top: widget.drillExitTop,
+                  child: WorldMapConstrainedMaxWidth(
+                    maxWidth: widget.drillExitMaxWidth,
+                    child: WorldMapExitLocationButton(
+                      key: const ValueKey<String>('tilemap-exit-location'),
+                      label: exitLocationLabel,
+                      onPressed: _exitLocation,
+                    ),
                   ),
                 ),
-              ),
-            if (showSettings)
-              Positioned.fill(
-                child: GestureDetector(
-                  key: const ValueKey<String>('tilemap-settings-dismiss'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _closeSettings,
-                ),
-              ),
-            if (showSettings)
-              Positioned(
-                left: 0,
-                right: 0,
-                top: settingsButtonTop + 46,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: settingsPanelMaxHeight,
-                  ),
-                  child: _TilemapSettingsPanel(
-                    visualMode: _visualMode,
-                    loadingStyle: _loadingStyle,
-                    fogControlPoints: _fogControlPoints,
-                    blendFogWithShadowTiles: _blendFogWithShadowTiles,
-                    showShadowZeroBorders: _showShadowZeroBorders,
-                    showLocationImageFlow: _showLocationImageFlow,
-                    locationImageFlowAngleDegrees:
-                        _locationImageFlowAngleDegrees,
-                    locationImageFlowGradientPoints:
-                        _locationImageFlowGradientPoints,
-                    locationImageFlowOpacity: _locationImageFlowOpacity,
-                    locationImageFlowDurationSeconds:
-                        _locationImageFlowDurationSeconds,
-                    locationImageFlowBlendMode: _locationImageFlowBlendMode,
-                    initialScale: _initialScale,
-                    dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
-                    onVisualModeChanged: _setVisualMode,
-                    onLoadingStyleChanged: _setLoadingStyle,
-                    onFogControlPointsChanged: _setFogControlPoints,
-                    onBlendFogWithShadowTilesChanged:
-                        _setBlendFogWithShadowTiles,
-                    onShowShadowZeroBordersChanged: _setShowShadowZeroBorders,
-                    onShowLocationImageFlowChanged: _setShowLocationImageFlow,
-                    onLocationImageFlowAngleDegreesChanged:
-                        _setLocationImageFlowAngleDegrees,
-                    onLocationImageFlowGradientPointsChanged:
-                        _setLocationImageFlowGradientPoints,
-                    onLocationImageFlowOpacityChanged:
-                        _setLocationImageFlowOpacity,
-                    onLocationImageFlowDurationSecondsChanged:
-                        _setLocationImageFlowDurationSeconds,
-                    onLocationImageFlowBlendModeChanged:
-                        _setLocationImageFlowBlendMode,
-                    onInitialScaleChanged: _setInitialScale,
-                    onDragBoundaryPaddingTilesChanged:
-                        _setDragBoundaryPaddingTiles,
-                    onCopySettings: _copySettingsToClipboard,
-                    onResetSettings: _resetSettings,
-                    onClose: _closeSettings,
+              if (showSettings)
+                Positioned.fill(
+                  child: GestureDetector(
+                    key: const ValueKey<String>('tilemap-settings-dismiss'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _closeSettings,
                   ),
                 ),
-              ),
-            if (showSettingsButton)
-              Positioned(
-                right: widget.visualModeToggleRight,
-                top: settingsButtonTop,
-                child: _TilemapSettingsButton(
-                  isOpen: showSettings,
-                  onPressed: _toggleSettings,
+              if (showSettings)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: settingsButtonTop + 46,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: settingsPanelMaxHeight,
+                    ),
+                    child: _TilemapSettingsPanel(
+                      visualMode: _visualMode,
+                      loadingStyle: _loadingStyle,
+                      fogControlPoints: _fogControlPoints,
+                      blendFogWithShadowTiles: _blendFogWithShadowTiles,
+                      showShadowZeroBorders: _showShadowZeroBorders,
+                      showLocationImageFlow: _showLocationImageFlow,
+                      locationImageFlowAngleDegrees:
+                          _locationImageFlowAngleDegrees,
+                      locationImageFlowGradientPoints:
+                          _locationImageFlowGradientPoints,
+                      locationImageFlowOpacity: _locationImageFlowOpacity,
+                      locationImageFlowDurationSeconds:
+                          _locationImageFlowDurationSeconds,
+                      locationImageFlowBlendMode: _locationImageFlowBlendMode,
+                      initialScale: _initialScale,
+                      dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
+                      onVisualModeChanged: _setVisualMode,
+                      onLoadingStyleChanged: _setLoadingStyle,
+                      onFogControlPointsChanged: _setFogControlPoints,
+                      onBlendFogWithShadowTilesChanged:
+                          _setBlendFogWithShadowTiles,
+                      onShowShadowZeroBordersChanged: _setShowShadowZeroBorders,
+                      onShowLocationImageFlowChanged: _setShowLocationImageFlow,
+                      onLocationImageFlowAngleDegreesChanged:
+                          _setLocationImageFlowAngleDegrees,
+                      onLocationImageFlowGradientPointsChanged:
+                          _setLocationImageFlowGradientPoints,
+                      onLocationImageFlowOpacityChanged:
+                          _setLocationImageFlowOpacity,
+                      onLocationImageFlowDurationSecondsChanged:
+                          _setLocationImageFlowDurationSeconds,
+                      onLocationImageFlowBlendModeChanged:
+                          _setLocationImageFlowBlendMode,
+                      onInitialScaleChanged: _setInitialScale,
+                      onDragBoundaryPaddingTilesChanged:
+                          _setDragBoundaryPaddingTiles,
+                      onCopySettings: _copySettingsToClipboard,
+                      onResetSettings: _resetSettings,
+                      onClose: _closeSettings,
+                    ),
+                  ),
                 ),
-              ),
-          ],
-        );
-      },
+              if (showSettingsButton)
+                Positioned(
+                  right: widget.visualModeToggleRight,
+                  top: settingsButtonTop,
+                  child: _TilemapSettingsButton(
+                    isOpen: showSettings,
+                    onPressed: _toggleSettings,
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

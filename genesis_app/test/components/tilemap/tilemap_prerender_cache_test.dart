@@ -1,8 +1,12 @@
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/tilemap/loading/tilemap_prerender_cache.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 void main() {
   test('warms only one real instance at a time and caps the pool at four', () {
@@ -189,6 +193,7 @@ void main() {
   testWidgets('warm real renderer keeps the normal viewport tile culling', (
     tester,
   ) async {
+    await _primeSuccessfulTileImage(tester);
     final config = TilemapConfig.fromTiles(
       id: 'offscreen-culling',
       width: 100,
@@ -211,6 +216,7 @@ void main() {
         child: TilemapRenderer(
           config: config,
           waitForVisibleTileImageFrames: false,
+          isForeground: false,
         ),
       ),
     );
@@ -222,6 +228,26 @@ void main() {
     expect(find.byKey(const ValueKey<String>('tile-60-50')), findsNothing);
     expect(find.byKey(const ValueKey<String>('tile-99-99')), findsNothing);
     expect(find.byType(Image), findsNWidgets(2));
+  });
+}
+
+Future<void> _primeSuccessfulTileImage(WidgetTester tester) async {
+  final image = (await tester.runAsync(() async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(
+      const Rect.fromLTWH(0, 0, 1, 1),
+      Paint()..color = Colors.green,
+    );
+    return recorder.endRecording().toImage(1, 1);
+  }))!;
+  debugGenesisStaticNetworkImageCompleter = (_) => OneFrameImageStreamCompleter(
+    SynchronousFuture<ImageInfo>(ImageInfo(image: image)),
+  );
+  addTearDown(() {
+    debugGenesisStaticNetworkImageCompleter = null;
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
   });
 }
 

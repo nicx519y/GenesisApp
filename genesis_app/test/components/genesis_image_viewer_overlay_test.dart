@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 const _firstImage = 'assets/images/map_default/root_default.webp';
 const _secondImage = 'assets/images/map_default/l1_default.webp';
@@ -185,10 +186,14 @@ void main() {
   });
 
   testWidgets(
-    'viewer display and precache share the full-screen compressed URL',
+    'viewer displays a low-resolution image before the full-screen image',
     (tester) async {
-      const first =
-          'https://cdn.example.com/first.png?old_query=true#old_fragment';
+      const small = 'https://cdn.example.com/first-sm.png';
+      const large =
+          'https://cdn.example.com/first-xl.png?old_query=true#old_fragment';
+      GenesisImageResourceRegistry.register(
+        const GenesisImageResource(smUrl: small, xlUrl: large),
+      );
       final preloadedUrls = <String>[];
       debugGenesisImageViewerPrecacheImage = (imageProvider, context) async {
         if (imageProvider is GenesisStaticNetworkImageProvider) {
@@ -199,34 +204,95 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       tester.view.devicePixelRatio = 2;
 
-      await _pumpViewerHost(tester, const [first, first]);
+      await _pumpViewerHost(tester, const [large, large]);
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
       const expectedSuffix =
           '?x-oss-process=image/resize,w_2160,image/format,webp';
-      final displayedUrls = tester
-          .widgetList<GenesisStaticNetworkImage>(
-            find.byType(GenesisStaticNetworkImage),
-          )
-          .map((image) => image.imageUrl)
-          .toList(growable: false);
-      expect(
-        displayedUrls,
-        everyElement(
-          allOf(
-            endsWith(expectedSuffix),
-            isNot(contains('old_query')),
-            isNot(contains('old_fragment')),
-          ),
+      const expectedFullUrl =
+          'https://cdn.example.com/first-xl.png$expectedSuffix';
+      final previewImage = tester.widget<GenesisStaticNetworkImage>(
+        find.descendant(
+          of: find.byKey(const ValueKey('genesis-image-viewer-preview-0')),
+          matching: find.byType(GenesisStaticNetworkImage),
         ),
       );
-      expect(preloadedUrls, <String>[
-        'https://cdn.example.com/first.png$expectedSuffix',
-      ]);
-      expect(displayedUrls, contains(preloadedUrls.first));
+      final fullImage = tester.widget<GenesisStaticNetworkImage>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('genesis-image-viewer-full-0')),
+              matching: find.byType(GenesisStaticNetworkImage),
+            )
+            .first,
+      );
+
+      expect(previewImage.imageUrl, small);
+      expect(fullImage.imageUrl, expectedFullUrl);
+      expect(preloadedUrls, <String>[expectedFullUrl]);
     },
   );
+
+  testWidgets('viewer reuses an existing resized URL as its preview', (
+    tester,
+  ) async {
+    const thumbnail =
+        'https://cdn.example.com/legacy.png'
+        '?x-oss-process=image/resize,w_180,image/format,webp';
+
+    await _pumpViewerHost(tester, const [thumbnail]);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final previewImage = tester.widget<GenesisStaticNetworkImage>(
+      find.descendant(
+        of: find.byKey(const ValueKey('genesis-image-viewer-preview-0')),
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+    );
+    final fullImage = tester.widget<GenesisStaticNetworkImage>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('genesis-image-viewer-full-0')),
+            matching: find.byType(GenesisStaticNetworkImage),
+          )
+          .first,
+    );
+
+    expect(previewImage.imageUrl, thumbnail);
+    expect(
+      fullImage.imageUrl,
+      'https://cdn.example.com/legacy.png'
+      '?x-oss-process=image/resize,w_2160,image/format,webp',
+    );
+  });
+
+  testWidgets('viewer reuses the caller thumbnail image provider', (
+    tester,
+  ) async {
+    final previewProvider = GenesisStaticNetworkImageProvider(
+      imageUrl: 'https://cdn.example.com/cached-thumbnail.webp',
+      cacheWidth: 160,
+      cacheHeight: 160,
+      fit: BoxFit.cover,
+    );
+
+    await _pumpViewerHost(
+      tester,
+      const ['https://cdn.example.com/cached-thumbnail.webp'],
+      previewImageProviders: [previewProvider],
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final previewImage = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(const ValueKey('genesis-image-viewer-preview-0')),
+        matching: find.byType(Image),
+      ),
+    );
+    expect(identical(previewImage.image, previewProvider), isTrue);
+  });
 
   testWidgets('image zoom resets after paging away and back', (tester) async {
     await _pumpViewerHost(tester, const [_firstImage, _secondImage]);
@@ -356,6 +422,8 @@ void main() {
 Future<void> _pumpViewerHost(
   WidgetTester tester,
   List<String> imageUrls, {
+  List<ImageProvider<Object>?> previewImageProviders =
+      const <ImageProvider<Object>?>[],
   int initialIndex = 0,
 }) async {
   await tester.pumpWidget(
@@ -367,6 +435,7 @@ Future<void> _pumpViewerHost(
               onPressed: () => showGenesisImageViewer(
                 context,
                 imageUrls: imageUrls,
+                previewImageProviders: previewImageProviders,
                 initialIndex: initialIndex,
               ),
               child: const Text('Open'),
