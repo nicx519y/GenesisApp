@@ -8,6 +8,7 @@ import '../../ui/components/genesis_static_network_image.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
 import '../world_map_location_action.dart';
+import '../world_map_exit_location_button.dart';
 import '../world_location_list.dart';
 import '../world_point.dart';
 import 'legacy_world_map_background.dart';
@@ -339,9 +340,9 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
               Positioned(
                 left: 12,
                 top: widget.drillExitTop,
-                child: LegacyWorldMapConstrainedMaxWidth(
+                child: WorldMapConstrainedMaxWidth(
                   maxWidth: widget.drillExitMaxWidth,
-                  child: LegacyWorldMapExitLocationButton(
+                  child: WorldMapExitLocationButton(
                     label: exitLocationLabel,
                     onPressed: _exitLocation,
                   ),

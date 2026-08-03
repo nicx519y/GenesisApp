@@ -108,34 +108,6 @@ class _TilemapSettingsSwitch extends StatelessWidget {
   }
 }
 
-class _TilemapExitLocationButton extends StatelessWidget {
-  const _TilemapExitLocationButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.82),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        key: const ValueKey<String>('tilemap-exit-location'),
-        borderRadius: BorderRadius.circular(12),
-        onTap: onPressed,
-        child: const SizedBox(
-          width: 36,
-          height: 36,
-          child: Icon(
-            Icons.subdirectory_arrow_left,
-            color: Colors.black,
-            size: 18,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _TilemapLoadResult {
   const _TilemapLoadResult.success(this.config) : error = null;
 
