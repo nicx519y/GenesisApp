@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -1144,11 +1145,6 @@ void main() {
         const ValueKey<String>('tile-location-bubble-body-High School'),
       ),
     );
-    expect(
-      bubbleBody.padding,
-      const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-    );
-    expect(bubbleBody.constraints, const BoxConstraints(maxWidth: 141));
     final labelDecoration = bubbleBody.decoration! as BoxDecoration;
     expect(labelDecoration.color, Colors.black.withValues(alpha: 0.4));
     expect(labelDecoration.borderRadius, BorderRadius.circular(4));
@@ -1173,7 +1169,15 @@ void main() {
       closeTo(tileRect.center.dy + tileRect.height / 8, 0.01),
     );
     expect(bubbleBodyRect.center.dx, closeTo(tileRect.center.dx, 0.01));
-    await tester.tap(find.text('High School'));
+    final recentChatBadgeRect = tester.getRect(
+      find.byKey(const ValueKey<String>('tilemap-recent-chat-icon')),
+    );
+    expect(recentChatBadgeRect.left - bubbleBodyRect.right, closeTo(3, 0.01));
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('tile-location-bubble-body-High School'),
+      ),
+    );
     await tester.pump();
     expect(tappedTile?.locationId, 'loc_1');
 
@@ -1221,6 +1225,30 @@ void main() {
         );
       }
 
+      Size expectedLabelSize(String name) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: name,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.2,
+              leadingDistribution: TextLeadingDistribution.even,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: 135);
+        final longestLine = painter.computeLineMetrics().fold<double>(
+          0,
+          (width, line) => math.max(width, line.width),
+        );
+        return Size(
+          (longestLine.ceilToDouble() + 6).clamp(6, 141),
+          painter.height + 8,
+        );
+      }
+
       const singleLineName = 'Cafe';
       await tester.pumpWidget(harness(singleLineName));
       await tester.pump();
@@ -1237,6 +1265,25 @@ void main() {
           const ValueKey<String>('tilemap-character-message-bubble-body'),
         ),
       );
+
+      for (final singleLineName in const ['Campus S', 'Hartley Hall']) {
+        await tester.pumpWidget(harness(singleLineName));
+        await tester.pump();
+        final labelRect = tester.getRect(
+          find.byKey(
+            ValueKey<String>('tile-location-bubble-body-$singleLineName'),
+          ),
+        );
+
+        final expectedSize = expectedLabelSize(singleLineName);
+
+        expect(
+          labelRect.height,
+          closeTo(expectedSize.height, 0.01),
+          reason: '$singleLineName must use the canonical 135px text layout',
+        );
+        expect(labelRect.width, closeTo(expectedSize.width, 0.01));
+      }
 
       const wrappedName =
           'A Very Long Location Name That Must Wrap Onto Another Line';
