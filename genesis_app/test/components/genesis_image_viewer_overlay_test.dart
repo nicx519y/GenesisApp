@@ -28,6 +28,7 @@ void main() {
     });
 
     GenesisSystemUiChrome.applyDefault();
+    await tester.pump();
     calls.clear();
 
     await _pumpViewerHost(tester, const [_firstImage]);
@@ -35,15 +36,26 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
     await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.idle();
 
-    expect(calls.length, greaterThanOrEqualTo(2));
+    final statusBarCalls = calls
+        .where((call) => call['statusBarColor'] != null)
+        .toList(growable: false);
+    expect(statusBarCalls, isNotEmpty);
+    expect(
+      statusBarCalls.where(
+        (call) => call['statusBarColor'] == Colors.black.toARGB32(),
+      ),
+      isEmpty,
+    );
     expect(
       calls.any(
         (call) => call['statusBarIconBrightness'] == 'Brightness.light',
       ),
       isTrue,
     );
-    expect(calls.last['statusBarIconBrightness'], 'Brightness.dark');
+    expect(statusBarCalls.last['statusBarIconBrightness'], 'Brightness.dark');
   });
 
   testWidgets('single image viewer supports zoom and hides page dots', (
@@ -428,19 +440,22 @@ Future<void> _pumpViewerHost(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) {
-            return TextButton(
-              onPressed: () => showGenesisImageViewer(
-                context,
-                imageUrls: imageUrls,
-                previewImageProviders: previewImageProviders,
-                initialIndex: initialIndex,
-              ),
-              child: const Text('Open'),
-            );
-          },
+      home: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: kGenesisDefaultSystemUiOverlayStyle,
+        child: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return TextButton(
+                onPressed: () => showGenesisImageViewer(
+                  context,
+                  imageUrls: imageUrls,
+                  previewImageProviders: previewImageProviders,
+                  initialIndex: initialIndex,
+                ),
+                child: const Text('Open'),
+              );
+            },
+          ),
         ),
       ),
     ),

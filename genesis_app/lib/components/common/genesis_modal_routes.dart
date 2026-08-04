@@ -29,8 +29,12 @@ class GenesisSystemUiChrome {
     Future<T> Function() action, {
     SystemUiOverlayStyle? modalOverrideStyle,
     SystemUiOverlayStyle? restoreOverrideStyle,
+    bool restoreAfterFrame = false,
   }) async {
-    final previousStyle = _currentStyle;
+    // This is the only available value that includes styles applied by both
+    // imperative calls and AnnotatedRegion frame updates.
+    // ignore: invalid_use_of_visible_for_testing_member
+    final previousStyle = SystemChrome.latestStyle ?? _currentStyle;
     _styleStack.add(previousStyle);
     _apply(modalOverrideStyle ?? _modalStyle(color));
     try {
@@ -39,7 +43,16 @@ class GenesisSystemUiChrome {
       final previousStyle = _styleStack.isNotEmpty
           ? _styleStack.removeLast()
           : kGenesisDefaultSystemUiOverlayStyle;
-      _apply(restoreOverrideStyle ?? previousStyle);
+      final restoreStyle = restoreOverrideStyle ?? previousStyle;
+      if (restoreAfterFrame) {
+        final restoreDepth = _styleStack.length;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_styleStack.length == restoreDepth) _apply(restoreStyle);
+        });
+        WidgetsBinding.instance.scheduleFrame();
+      } else {
+        _apply(restoreStyle);
+      }
     }
   }
 
@@ -130,16 +143,17 @@ Future<T?> showGenesisGeneralDialog<T>({
   required RoutePageBuilder pageBuilder,
   Color barrierColor = kGenesisModalBarrierColor,
   Color? systemBarColor,
+  SystemUiOverlayStyle? modalSystemUiOverlayStyle,
+  SystemUiOverlayStyle? restoreSystemUiOverlayStyle,
+  bool restoreSystemUiOverlayAfterFrame = false,
   bool barrierDismissible = false,
   String? barrierLabel,
   Duration transitionDuration = const Duration(milliseconds: 200),
   RouteTransitionsBuilder? transitionBuilder,
   bool useRootNavigator = true,
 }) {
-  final chromeColor = systemBarColor ?? barrierColor;
-  return GenesisSystemUiChrome.runWithModalChrome(
-    chromeColor,
-    () => showGeneralDialog<T>(
+  Future<T?> showDialogRoute() {
+    return showGeneralDialog<T>(
       context: context,
       pageBuilder: pageBuilder,
       barrierColor: barrierColor,
@@ -148,6 +162,15 @@ Future<T?> showGenesisGeneralDialog<T>({
       transitionDuration: transitionDuration,
       transitionBuilder: transitionBuilder,
       useRootNavigator: useRootNavigator,
-    ),
+    );
+  }
+
+  final chromeColor = systemBarColor ?? barrierColor;
+  return GenesisSystemUiChrome.runWithModalChrome(
+    chromeColor,
+    showDialogRoute,
+    modalOverrideStyle: modalSystemUiOverlayStyle,
+    restoreOverrideStyle: restoreSystemUiOverlayStyle,
+    restoreAfterFrame: restoreSystemUiOverlayAfterFrame,
   );
 }

@@ -19,6 +19,13 @@ typedef GenesisImageViewerPrecacheImage =
 @visibleForTesting
 GenesisImageViewerPrecacheImage? debugGenesisImageViewerPrecacheImage;
 
+const SystemUiOverlayStyle _kGenesisImageViewerSystemUiOverlayStyle =
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    );
+
 ImageProvider<Object>? genesisImageViewerPreviewProvider(
   BuildContext context, {
   required String imageUrl,
@@ -86,7 +93,8 @@ Future<void> showGenesisImageViewer(
     context: context,
     barrierDismissible: false,
     barrierColor: Colors.transparent,
-    systemBarColor: Colors.black,
+    modalSystemUiOverlayStyle: _kGenesisImageViewerSystemUiOverlayStyle,
+    restoreSystemUiOverlayAfterFrame: true,
     transitionDuration: const Duration(milliseconds: 120),
     pageBuilder: (context, animation, secondaryAnimation) {
       return GenesisImageViewerOverlay(
@@ -122,13 +130,6 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
   static const double _dismissDragDistance = 20;
   static const double _maxDragScaleReduction = 0.1;
   static const double _pageViewportFraction = 1.035;
-  static const SystemUiOverlayStyle _immersiveStatusBarStyle =
-      SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-      );
-
   late final PageController _pageController;
   late final List<TransformationController> _transformationControllers;
   late int _currentIndex;
@@ -143,7 +144,6 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      SystemChrome.setSystemUIOverlayStyle(_immersiveStatusBarStyle);
       _precacheAdjacentImages();
     });
     _currentIndex = widget.initialIndex.clamp(0, widget.imageUrls.length - 1);
@@ -163,7 +163,6 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     for (final controller in _transformationControllers) {
       controller.dispose();
     }
-    GenesisSystemUiChrome.applyDefault();
     super.dispose();
   }
 
@@ -260,7 +259,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     return GenesisBottomSystemBarStyleScope(
       style: const GenesisBottomSystemBarStyle(color: Colors.black),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: _immersiveStatusBarStyle,
+        value: _kGenesisImageViewerSystemUiOverlayStyle,
         child: GenesisEdgeSwipeBack(
           onBack: () => Navigator.of(context).pop(),
           child: Material(
