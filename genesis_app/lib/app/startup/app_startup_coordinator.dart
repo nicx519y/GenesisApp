@@ -16,6 +16,7 @@ class AppStartupCoordinator {
   static Future<void>? _telemetryInitialization;
   static bool _warmUpStarted = false;
   static bool _telemetryLifecycleObserverAdded = false;
+  static GenesisTelemetryLifecycleObserver? _telemetryLifecycleObserver;
   static bool _startupFirstReportRecorded = false;
   static bool _attRequestClaimed = false;
   // Kept as a shared startup readiness signal for upgrade/polling work. It is
@@ -73,14 +74,28 @@ class AppStartupCoordinator {
       // remains enabled even when the user denies or cannot answer the prompt.
       trackingEnabled: true,
     );
+    final uid = await _readInitialTelemetryUid(services);
+    GenesisTelemetry.setUserId(uid);
     GenesisTelemetry.startCollectUploader();
     if (_telemetryLifecycleObserverAdded) return;
     _telemetryLifecycleObserverAdded = true;
-    WidgetsBinding.instance.addObserver(
-      GenesisTelemetryLifecycleObserver(
-        startedAt: _startedAt ?? DateTime.now(),
-      ),
+    final observer = GenesisTelemetryLifecycleObserver(
+      startedAt: _startedAt ?? DateTime.now(),
     );
+    _telemetryLifecycleObserver = observer;
+    WidgetsBinding.instance.addObserver(observer);
+  }
+
+  static Future<String?> _readInitialTelemetryUid(AppServices services) async {
+    try {
+      final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+      if (uid.isEmpty || uid.startsWith('guest_')) return null;
+      return uid;
+    } catch (error, stackTrace) {
+      debugPrint('[Telemetry] initial UID read failed: $error');
+      debugPrint('[Telemetry] stacktrace:\n$stackTrace');
+      return null;
+    }
   }
 
   static void recordStartupFirstReport() {
@@ -99,6 +114,11 @@ class AppStartupCoordinator {
     _telemetryInitialization = null;
     _warmUpStarted = false;
     _telemetryLifecycleObserverAdded = false;
+    final observer = _telemetryLifecycleObserver;
+    if (observer != null) {
+      WidgetsBinding.instance.removeObserver(observer);
+      _telemetryLifecycleObserver = null;
+    }
     _startupFirstReportRecorded = false;
     _attRequestClaimed = false;
     _postLaunchWorkAllowed.value = true;
