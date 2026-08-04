@@ -30,22 +30,20 @@ const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
   fontWeight: FontWeight.w600,
 );
 
-double _tilemapLocationLabelHeight(BuildContext context, String name) {
-  final painter =
-      TextPainter(
-        text: TextSpan(text: name, style: _tilemapLocationLabelTextStyle),
-        textAlign: TextAlign.center,
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout(
-        maxWidth:
-            _tilemapLocationLabelMaxWidth -
-            _tilemapLocationLabelHorizontalPadding * 2,
-      );
-  return painter.height + _tilemapLocationLabelVerticalPadding * 2;
+class _TilemapLocationLabelLayout {
+  const _TilemapLocationLabelLayout({
+    required this.bubbleWidth,
+    required this.height,
+  });
+
+  final double bubbleWidth;
+  final double height;
 }
 
-double _tilemapLocationLabelWidth(BuildContext context, String name) {
+_TilemapLocationLabelLayout _tilemapLocationLabelLayout(
+  BuildContext context,
+  String name,
+) {
   final painter =
       TextPainter(
         text: TextSpan(text: name, style: _tilemapLocationLabelTextStyle),
@@ -63,10 +61,17 @@ double _tilemapLocationLabelWidth(BuildContext context, String name) {
   );
   final paddedLongestLine =
       longestLine.ceilToDouble() + _tilemapLocationLabelHorizontalPadding * 2;
-  return paddedLongestLine.clamp(
-    _tilemapLocationLabelHorizontalPadding * 2,
-    _tilemapLocationLabelMaxWidth,
+  return _TilemapLocationLabelLayout(
+    bubbleWidth: paddedLongestLine.clamp(
+      _tilemapLocationLabelHorizontalPadding * 2,
+      _tilemapLocationLabelMaxWidth,
+    ),
+    height: painter.height + _tilemapLocationLabelVerticalPadding * 2,
   );
+}
+
+double _tilemapLocationLabelHeight(BuildContext context, String name) {
+  return _tilemapLocationLabelLayout(context, name).height;
 }
 
 double _tilemapLocationSingleLineLabelHeight(BuildContext context) {
@@ -198,6 +203,7 @@ class _TilemapLocationBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final labelLayout = _tilemapLocationLabelLayout(context, name);
     return Positioned(
       left: anchor.dx,
       top: anchor.dy,
@@ -218,38 +224,68 @@ class _TilemapLocationBubble extends StatelessWidget {
                       const SizedBox(
                         width: _tilemapLocationRecentChatExtraWidth,
                       ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onLabelTap,
-                      child: Container(
-                        key: ValueKey<String>(
-                          'tile-location-bubble-body-$name',
-                        ),
-                        width: _tilemapLocationLabelWidth(context, name),
-                        constraints: const BoxConstraints(
-                          maxWidth: _tilemapLocationLabelMaxWidth,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: _tilemapLocationLabelHorizontalPadding,
-                          vertical: _tilemapLocationLabelVerticalPadding,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.18),
-                              blurRadius: 6,
-                              offset: const Offset(0, 4),
+                    SizedBox(
+                      width: labelLayout.bubbleWidth,
+                      height: labelLayout.height,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Keep text layout at the canonical max width while
+                          // keeping the row footprint at the measured bubble
+                          // width. Shrinking the text box itself can trigger a
+                          // second wrap; keeping a 141px row footprint pushes
+                          // the recent-chat badge too far away.
+                          Positioned.fill(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: onLabelTap,
+                              child: Container(
+                                key: ValueKey<String>(
+                                  'tile-location-bubble-body-$name',
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(4),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ],
-                        ),
-                        child: Text(
-                          name,
-                          textAlign: TextAlign.center,
-                          softWrap: true,
-                          style: _tilemapLocationLabelTextStyle,
-                        ),
+                          ),
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: OverflowBox(
+                                alignment: Alignment.center,
+                                minWidth: _tilemapLocationLabelMaxWidth,
+                                maxWidth: _tilemapLocationLabelMaxWidth,
+                                minHeight: labelLayout.height,
+                                maxHeight: labelLayout.height,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal:
+                                        _tilemapLocationLabelHorizontalPadding,
+                                    vertical:
+                                        _tilemapLocationLabelVerticalPadding,
+                                  ),
+                                  child: Text(
+                                    name,
+                                    textAlign: TextAlign.center,
+                                    softWrap: true,
+                                    style: _tilemapLocationLabelTextStyle,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (showRecentChat)
