@@ -159,6 +159,7 @@ TilemapFogField buildTilemapFogField({
   required List<TilemapFogControlPoint> controlPoints,
   TilemapFogGeometry? geometry,
   Iterable<TilemapCell>? renderTiles,
+  Map<String, ui.Vertices>? reusableShadowTileVertices,
 }) {
   final allTiles = geometry == null || renderTiles == null
       ? tiles.toList(growable: false)
@@ -193,14 +194,16 @@ TilemapFogField buildTilemapFogField({
   );
   final shadowTileVertices = <String, ui.Vertices>{
     for (final tile in shadowTiles)
-      tile.cellKey: _buildFogVertices(
-        bounds: imageBoundsForTile(tile),
-        boundaryIndex: boundaryIndex,
-        tileExtent: tileExtent,
-        tileDiamondWidth: tileDiamondWidth,
-        tileDiamondHeight: tileDiamondHeight,
-        controlPoints: controlPoints,
-      ),
+      tile.cellKey:
+          reusableShadowTileVertices?[tile.cellKey] ??
+          _buildFogVertices(
+            bounds: imageBoundsForTile(tile),
+            boundaryIndex: boundaryIndex,
+            tileExtent: tileExtent,
+            tileDiamondWidth: tileDiamondWidth,
+            tileDiamondHeight: tileDiamondHeight,
+            controlPoints: controlPoints,
+          ),
   };
 
   return TilemapFogField(

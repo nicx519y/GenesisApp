@@ -1290,6 +1290,13 @@ void main() {
           .onChanged!(true);
       tester
           .widget<Switch>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-fog-bitmap-cache'),
+            ),
+          )
+          .onChanged!(false);
+      tester
+          .widget<Switch>(
             find.byKey(const ValueKey<String>('tilemap-settings-wireframe')),
           )
           .onChanged!(false);
@@ -1386,6 +1393,7 @@ void main() {
       expect(savedSettings.fogControlPoints[2].position, greaterThan(0.5));
       expect(savedSettings.fogControlPoints[2].opacity, greaterThan(0.5));
       expect(savedSettings.blendFogWithShadowTiles, true);
+      expect(savedSettings.cacheFogTileBitmaps, false);
       expect(savedSettings.showShadowZeroBorders, false);
       expect(savedSettings.showLocationImageFlow, false);
       expect(savedSettings.locationImageFlowAngleDegrees, 120);
@@ -1432,6 +1440,7 @@ void main() {
         reason: '$renderedFogPoints',
       );
       expect(renderer.blendFogWithShadowTiles, true);
+      expect(renderer.cacheFogTileBitmaps, false);
       expect(renderer.showShadowZeroBorders, false);
       expect(renderer.showLocationImageFlow, false);
       expect(renderer.locationImageFlowAngleDegrees, 120);
@@ -1692,6 +1701,7 @@ void main() {
         TilemapFogControlPoint(position: 1, opacity: 0.9),
       ],
       blendFogWithShadowTiles: true,
+      cacheFogTileBitmaps: false,
       showShadowZeroBorders: false,
       showLocationImageFlow: false,
       locationImageFlowAngleDegrees: 135,
@@ -1747,6 +1757,7 @@ void main() {
     expect(renderer.visualMode, TilemapVisualMode.light);
     expect(renderer.fogControlPoints, cachedSettings.fogControlPoints);
     expect(renderer.blendFogWithShadowTiles, true);
+    expect(renderer.cacheFogTileBitmaps, false);
     expect(renderer.showShadowZeroBorders, false);
     expect(renderer.showLocationImageFlow, false);
     expect(renderer.locationImageFlowAngleDegrees, 135);
@@ -1777,6 +1788,16 @@ void main() {
       const ValueKey<String>('tilemap-settings-close'),
     );
     expect(resetButton, findsOneWidget);
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-fog-bitmap-cache'),
+            ),
+          )
+          .value,
+      false,
+    );
     expect(
       find.byKey(
         const ValueKey<String>('tilemap-settings-location-flow-angle'),
@@ -1867,10 +1888,28 @@ void main() {
           .value,
       tilemapDefaultLoadingStyle,
     );
+    expect(
+      tester
+          .widget<Switch>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-fog-bitmap-cache'),
+            ),
+          )
+          .value,
+      tilemapDefaultCacheFogTileBitmaps,
+    );
+    expect(
+      tester
+          .widget<TilemapRenderer>(_liveTilemapRendererFinder())
+          .cacheFogTileBitmaps,
+      tilemapDefaultCacheFogTileBitmaps,
+    );
     await tester.tap(copyButton);
     await tester.pump();
     expect(copiedValues, hasLength(1));
-    expect(jsonDecode(copiedValues.single), defaults.toJson());
+    final copiedDefaults = jsonDecode(copiedValues.single);
+    expect(copiedDefaults['cache_fog_tile_bitmaps'], true);
+    expect(copiedDefaults, defaults.toJson());
   });
 
   testWidgets('Tilemap copies all current settings as serialized JSON', (
@@ -1920,6 +1959,7 @@ void main() {
 
     expect(copiedValues, hasLength(1));
     final copiedJson = jsonDecode(copiedValues.single);
+    expect(copiedJson['cache_fog_tile_bitmaps'], true);
     expect(copiedJson, TilemapRenderSettings.defaults().toJson());
     expect(find.text('Tilemap settings JSON copied'), findsOneWidget);
 

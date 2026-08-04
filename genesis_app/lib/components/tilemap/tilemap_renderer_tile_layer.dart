@@ -16,6 +16,7 @@ class _ProjectedTile extends StatelessWidget {
     this.locationImageFlowOpacity = tilemapDefaultLocationImageFlowOpacity,
     this.locationImageFlowBlendMode = tilemapDefaultLocationImageFlowBlendMode,
     this.fogField,
+    this.rasterizeFogComposite = false,
     this.onImageError,
     this.onImageFrame,
   });
@@ -32,6 +33,7 @@ class _ProjectedTile extends StatelessWidget {
   final double locationImageFlowOpacity;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
   final TilemapFogField? fogField;
+  final bool rasterizeFogComposite;
   final ValueChanged<Object>? onImageError;
   final VoidCallback? onImageFrame;
 
@@ -81,6 +83,11 @@ class _ProjectedTile extends StatelessWidget {
               key: ValueKey<String>('tile-fog-blend-${tile.x}-${tile.y}'),
               vertices: fogVertices,
               sceneTopLeft: topLeft,
+              rasterizationEnabled: rasterizeFogComposite,
+              rasterPixelRatio: _tilemapFogRasterPixelRatio(
+                asset: asset,
+                tileExtent: extent,
+              ),
               child: imageWithFlow,
             ),
     );

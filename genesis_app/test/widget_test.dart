@@ -6555,6 +6555,58 @@ void main() {
     expect(expansionEvents(), hasLength(2));
   });
 
+  testWidgets('Origin role avatar CDN sizing caps device pixel ratio at 2', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 3;
+    tester.view.physicalSize = const Size(1080, 2340);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+      originCharacters: const [
+        {
+          'char_id': 'c_o_test_1',
+          'type': 'ai',
+          'name': 'CDN Character',
+          'identity': 'Guide',
+          'brief': '',
+          'goal': '',
+          'avatar': {
+            'sm_url': 'https://cdn.example.com/avatar_180x180.jpg',
+            'xl_url': 'https://cdn.example.com/avatar_1080x1080.jpg',
+          },
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final portrait = find.byKey(
+      const ValueKey<String>('origin-setup-role-portrait-c_o_test_1'),
+    );
+    final avatar = tester.widget<GenesisStaticNetworkImage>(
+      find.descendant(
+        of: portrait,
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+    );
+    expect(
+      avatar.imageUrl,
+      'https://cdn.example.com/avatar_1080x1080.jpg'
+      '?x-oss-process=image/resize,w_720,image/format,webp',
+    );
+  });
+
   testWidgets('Origin detail launch bar launches a world', (
     WidgetTester tester,
   ) async {
@@ -6684,6 +6736,7 @@ void main() {
       setupAvatar.placeholder!(tester.element(setupAvatarFinder)),
       isA<ColoredBox>(),
     );
+
     expect(
       find.descendant(of: portrait, matching: find.text('Guide')),
       findsOneWidget,

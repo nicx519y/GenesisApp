@@ -312,6 +312,12 @@ String _originRoleCardAvatarUrl(BuildContext context, String sourceUrl) {
     sourceUrl,
     logicalWidth: _OriginSetupRoleSection._cardWidth,
     logicalHeight: _OriginSetupRoleSection._cardWidth,
-    devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    devicePixelRatio: _originRoleCardImageDevicePixelRatio(
+      MediaQuery.devicePixelRatioOf(context),
+    ),
   ).trim();
+}
+
+double _originRoleCardImageDevicePixelRatio(double devicePixelRatio) {
+  return devicePixelRatio > 2 ? 2 : devicePixelRatio;
 }

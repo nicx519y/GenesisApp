@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_location_avatars.dart';
@@ -269,6 +271,67 @@ void main() {
 
       expect(alphas!.prepared, lessThan(alphas.localOnly));
       expect(alphas.localOnly, 255);
+    },
+  );
+
+  test(
+    'fog field preserves overlapping tile vertices across retained bounds',
+    () {
+      const projection = TilemapProjection(
+        mapWidth: 48,
+        mapHeight: 24,
+        tileExtent: 16,
+        originX: 8,
+      );
+      const land = TilemapCell(x: 0, y: 0, type: 'a');
+      const firstShadow = TilemapCell(x: 1, y: 0, type: 'a', shadow: 1);
+      const secondShadow = TilemapCell(x: 2, y: 0, type: 'a', shadow: 1);
+      const tiles = [land, firstShadow, secondShadow];
+      final geometry = prepareTilemapFogGeometry(
+        tiles: tiles,
+        polygonForTile: projection.polygonForTile,
+        tileExtent: projection.tileExtent,
+        verticalScale: projection.tileDiamondWidthToHeightRatio,
+      );
+
+      TilemapFogField buildField({
+        required Rect bounds,
+        required List<TilemapCell> renderTiles,
+        Map<String, ui.Vertices>? reusableVertices,
+      }) {
+        return buildTilemapFogField(
+          fieldBounds: bounds,
+          tiles: tiles,
+          renderTiles: renderTiles,
+          geometry: geometry,
+          polygonForTile: projection.polygonForTile,
+          imageBoundsForTile: (tile) =>
+              projection.imageTopLeftForTile(tile) &
+              Size.square(projection.tileExtent),
+          tileExtent: projection.tileExtent,
+          tileDiamondWidth: projection.tileDiamondWidth,
+          tileDiamondHeight: projection.tileDiamondHeight,
+          verticalScale: projection.tileDiamondWidthToHeightRatio,
+          controlPoints: tilemapDefaultFogControlPoints,
+          reusableShadowTileVertices: reusableVertices,
+        );
+      }
+
+      final initial = buildField(
+        bounds: const Rect.fromLTWH(0, -8, 32, 32),
+        renderTiles: const [land, firstShadow],
+      );
+      final shifted = buildField(
+        bounds: const Rect.fromLTWH(8, -8, 40, 32),
+        renderTiles: const [firstShadow, secondShadow],
+        reusableVertices: initial.shadowTileVertices,
+      );
+
+      expect(
+        shifted.shadowTileVertices[firstShadow.cellKey],
+        same(initial.shadowTileVertices[firstShadow.cellKey]),
+      );
+      expect(shifted.shadowTileVertices[secondShadow.cellKey], isNotNull);
     },
   );
 
@@ -1392,6 +1455,279 @@ void main() {
     expect(imageFlow, findsNothing);
   });
 
+  testWidgets(
+    'fog-blended tile caches its stable composite and invalidates on fog changes',
+    (tester) async {
+      await _primeSuccessfulTileImage(tester);
+      final config = TilemapConfig.fromTiles(
+        id: 'fog_blend_raster_cache',
+        width: 2,
+        height: 1,
+        tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+        tiles: const [
+          TilemapCell(x: 0, y: 0, type: 'a', shadow: 1),
+          TilemapCell(x: 1, y: 0, type: 'a'),
+        ],
+      );
+
+      Widget renderer({
+        List<TilemapFogControlPoint> fogControlPoints =
+            tilemapDefaultFogControlPoints,
+      }) {
+        return MaterialApp(
+          home: SizedBox(
+            width: 320,
+            height: 480,
+            child: TilemapRenderer(
+              config: config,
+              fogControlPoints: fogControlPoints,
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(renderer());
+      await tester.pump();
+
+      final fogBlend = find.byKey(const ValueKey<String>('tile-fog-blend-0-0'));
+      final initialRenderObject = tester.renderObject(fogBlend);
+      final initialBoundaryLayer = initialRenderObject.debugLayer;
+
+      expect(initialRenderObject.isRepaintBoundary, isTrue);
+      expect(initialBoundaryLayer, isA<OffsetLayer>());
+      expect(
+        debugTilemapFogBlendPaintCount(initialRenderObject),
+        greaterThanOrEqualTo(1),
+      );
+
+      await _pumpUntil(
+        tester,
+        () => debugTilemapFogBlendHasRasterizedComposite(initialRenderObject),
+      );
+      await tester.pump();
+
+      final initialPictureLayer = _firstPictureLayer(
+        initialRenderObject.debugLayer!,
+      );
+      final initialPicture = initialPictureLayer.picture;
+      final initialBlendPaintCount = debugTilemapFogBlendPaintCount(
+        initialRenderObject,
+      );
+      final initialRasterizedPaintCount = debugTilemapFogRasterizedPaintCount(
+        initialRenderObject,
+      );
+
+      expect(initialRasterizedPaintCount, greaterThanOrEqualTo(1));
+      expect(initialPictureLayer.willChangeHint, isFalse);
+
+      await tester.pumpWidget(renderer());
+      await tester.pump();
+
+      final stableRenderObject = tester.renderObject(fogBlend);
+      final stablePictureLayer = _firstPictureLayer(
+        stableRenderObject.debugLayer!,
+      );
+      expect(stableRenderObject, same(initialRenderObject));
+      expect(stableRenderObject.debugLayer, same(initialBoundaryLayer));
+      expect(stablePictureLayer, same(initialPictureLayer));
+      expect(stablePictureLayer.picture, same(initialPicture));
+      expect(
+        debugTilemapFogBlendPaintCount(stableRenderObject),
+        initialBlendPaintCount,
+      );
+
+      await tester.drag(
+        find.byKey(const ValueKey<String>('tilemap-gesture-layer')),
+        const Offset(-8, 0),
+      );
+      await tester.pump();
+
+      final transformedRenderObject = tester.renderObject(fogBlend);
+      final transformedPictureLayer = _firstPictureLayer(
+        transformedRenderObject.debugLayer!,
+      );
+      expect(transformedRenderObject, same(initialRenderObject));
+      expect(transformedRenderObject.debugLayer, same(initialBoundaryLayer));
+      expect(transformedPictureLayer, same(initialPictureLayer));
+      expect(transformedPictureLayer.picture, same(initialPicture));
+      expect(
+        debugTilemapFogBlendPaintCount(transformedRenderObject),
+        initialBlendPaintCount,
+      );
+
+      await tester.pumpWidget(
+        renderer(
+          fogControlPoints: const [
+            TilemapFogControlPoint(position: 0, opacity: 0.2),
+            TilemapFogControlPoint(position: 1, opacity: 1),
+          ],
+        ),
+      );
+      await tester.pump();
+
+      final invalidatedRenderObject = tester.renderObject(fogBlend);
+      expect(invalidatedRenderObject, same(initialRenderObject));
+      expect(
+        debugTilemapFogBlendPaintCount(invalidatedRenderObject),
+        initialBlendPaintCount + 1,
+      );
+      await _pumpUntil(
+        tester,
+        () =>
+            debugTilemapFogBlendHasRasterizedComposite(invalidatedRenderObject),
+      );
+      await tester.pump();
+
+      final recachedPictureLayer = _firstPictureLayer(
+        invalidatedRenderObject.debugLayer!,
+      );
+      expect(recachedPictureLayer.picture, isNot(same(initialPicture)));
+      expect(
+        debugTilemapFogRasterizedPaintCount(invalidatedRenderObject),
+        greaterThan(initialRasterizedPaintCount),
+      );
+      expect(recachedPictureLayer.willChangeHint, isFalse);
+    },
+  );
+
+  testWidgets(
+    'fog bitmap cache toggle releases and restores the cached composite',
+    (tester) async {
+      await _primeSuccessfulTileImage(tester);
+      final config = TilemapConfig.fromTiles(
+        id: 'fog_blend_raster_cache_toggle',
+        width: 1,
+        height: 1,
+        tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+        tiles: const [TilemapCell(x: 0, y: 0, type: 'a', shadow: 1)],
+      );
+
+      Widget renderer({required bool cacheFogTileBitmaps}) {
+        return MaterialApp(
+          home: SizedBox(
+            width: 320,
+            height: 480,
+            child: TilemapRenderer(
+              config: config,
+              cacheFogTileBitmaps: cacheFogTileBitmaps,
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(renderer(cacheFogTileBitmaps: true));
+      await tester.pump();
+
+      final fogBlend = find.byKey(const ValueKey<String>('tile-fog-blend-0-0'));
+      final renderObject = tester.renderObject(fogBlend);
+      await _pumpUntil(
+        tester,
+        () => debugTilemapFogBlendHasRasterizedComposite(renderObject),
+      );
+      expect(debugTilemapFogBlendHasRasterizedComposite(renderObject), isTrue);
+
+      await tester.pumpWidget(renderer(cacheFogTileBitmaps: false));
+      await tester.pump();
+
+      final disabledRenderObject = tester.renderObject(fogBlend);
+      expect(disabledRenderObject, same(renderObject));
+      expect(
+        debugTilemapFogBlendHasRasterizedComposite(disabledRenderObject),
+        isFalse,
+      );
+      final disabledBlendPaintCount = debugTilemapFogBlendPaintCount(
+        disabledRenderObject,
+      );
+      expect(disabledBlendPaintCount, greaterThanOrEqualTo(2));
+
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        debugTilemapFogBlendHasRasterizedComposite(disabledRenderObject),
+        isFalse,
+      );
+
+      await tester.pumpWidget(renderer(cacheFogTileBitmaps: true));
+      await tester.pump();
+      await _pumpUntil(
+        tester,
+        () => debugTilemapFogBlendHasRasterizedComposite(disabledRenderObject),
+      );
+
+      expect(
+        debugTilemapFogBlendHasRasterizedComposite(disabledRenderObject),
+        isTrue,
+      );
+      expect(
+        debugTilemapFogBlendPaintCount(disabledRenderObject),
+        greaterThan(disabledBlendPaintCount),
+      );
+    },
+  );
+
+  testWidgets('fog composite refreshes when a delayed image frame arrives', (
+    tester,
+  ) async {
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    final image = (await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.drawRect(
+        const Rect.fromLTWH(0, 0, 1, 1),
+        Paint()..color = Colors.green,
+      );
+      return recorder.endRecording().toImage(1, 1);
+    }))!;
+    final delayedFrame = Completer<ImageInfo>();
+    debugGenesisStaticNetworkImageCompleter = (_) =>
+        OneFrameImageStreamCompleter(delayedFrame.future);
+    addTearDown(_resetDebugTileImageCompleter);
+    final config = TilemapConfig.fromTiles(
+      id: 'delayed_fog_tile_frame',
+      width: 1,
+      height: 1,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: const [TilemapCell(x: 0, y: 0, type: 'a', shadow: 1)],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 480,
+          child: TilemapRenderer(config: config),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final renderObject = tester.renderObject(
+      find.byKey(const ValueKey<String>('tile-fog-blend-0-0')),
+    );
+    await _pumpUntil(
+      tester,
+      () => debugTilemapFogBlendHasRasterizedComposite(renderObject),
+    );
+    await tester.pump();
+    final transparentBlendPaintCount = debugTilemapFogBlendPaintCount(
+      renderObject,
+    );
+
+    delayedFrame.complete(ImageInfo(image: image));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      debugTilemapFogBlendPaintCount(renderObject),
+      greaterThan(transparentBlendPaintCount),
+    );
+    await _pumpUntil(
+      tester,
+      () => debugTilemapFogBlendHasRasterizedComposite(renderObject),
+    );
+  });
+
   testWidgets('renderer exposes configurable fog and wireframe layers', (
     tester,
   ) async {
@@ -1746,6 +2082,31 @@ void _resetDebugTileImageCompleter() {
   debugGenesisStaticNetworkImageCompleter = null;
   PaintingBinding.instance.imageCache.clear();
   PaintingBinding.instance.imageCache.clearLiveImages();
+}
+
+Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
+  for (var attempt = 0; attempt < 30 && !condition(); attempt += 1) {
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  expect(condition(), isTrue);
+}
+
+PictureLayer _firstPictureLayer(Layer layer) {
+  if (layer is PictureLayer) return layer;
+  if (layer is ContainerLayer) {
+    for (
+      var child = layer.firstChild;
+      child != null;
+      child = child.nextSibling
+    ) {
+      try {
+        return _firstPictureLayer(child);
+      } on StateError {
+        // Continue searching sibling layers.
+      }
+    }
+  }
+  throw StateError('No PictureLayer found below $layer');
 }
 
 const _tileTypes = <String, String>{

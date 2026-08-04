@@ -40,6 +40,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.loadingStyle,
     required this.fogControlPoints,
     required this.blendFogWithShadowTiles,
+    required this.cacheFogTileBitmaps,
     required this.showShadowZeroBorders,
     required this.showLocationImageFlow,
     required this.locationImageFlowAngleDegrees,
@@ -53,6 +54,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.onLoadingStyleChanged,
     required this.onFogControlPointsChanged,
     required this.onBlendFogWithShadowTilesChanged,
+    required this.onCacheFogTileBitmapsChanged,
     required this.onShowShadowZeroBordersChanged,
     required this.onShowLocationImageFlowChanged,
     required this.onLocationImageFlowAngleDegreesChanged,
@@ -71,6 +73,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final TilemapLoadingStyle loadingStyle;
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
+  final bool cacheFogTileBitmaps;
   final bool showShadowZeroBorders;
   final bool showLocationImageFlow;
   final double locationImageFlowAngleDegrees;
@@ -85,6 +88,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final ValueChanged<TilemapLoadingStyle> onLoadingStyleChanged;
   final ValueChanged<List<TilemapFogControlPoint>> onFogControlPointsChanged;
   final ValueChanged<bool> onBlendFogWithShadowTilesChanged;
+  final ValueChanged<bool> onCacheFogTileBitmapsChanged;
   final ValueChanged<bool> onShowShadowZeroBordersChanged;
   final ValueChanged<bool> onShowLocationImageFlowChanged;
   final ValueChanged<double> onLocationImageFlowAngleDegreesChanged;
@@ -379,6 +383,15 @@ class _TilemapSettingsPanel extends StatelessWidget {
               switchKey: const ValueKey<String>('tilemap-settings-fog-blend'),
               foregroundColor: foregroundColor,
               onChanged: onBlendFogWithShadowTilesChanged,
+            ),
+            _TilemapSettingsSwitch(
+              label: 'Cache fog-blended tile bitmaps',
+              value: cacheFogTileBitmaps,
+              switchKey: const ValueKey<String>(
+                'tilemap-settings-fog-bitmap-cache',
+              ),
+              foregroundColor: foregroundColor,
+              onChanged: onCacheFogTileBitmapsChanged,
             ),
             _TilemapSettingsSwitch(
               label: 'Show shadow == 0 wireframe',

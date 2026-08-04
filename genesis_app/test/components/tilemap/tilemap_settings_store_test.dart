@@ -42,6 +42,7 @@ void main() {
       settings.blendFogWithShadowTiles,
       tilemapDefaultBlendFogWithShadowTiles,
     );
+    expect(settings.cacheFogTileBitmaps, tilemapDefaultCacheFogTileBitmaps);
     expect(settings.showShadowZeroBorders, tilemapDefaultShowShadowZeroBorders);
     expect(settings.showLocationImageFlow, tilemapDefaultShowLocationImageFlow);
     expect(
@@ -101,6 +102,7 @@ void main() {
         {'position': 0.8515625, 'opacity': 1.0},
       ],
       'blend_fog_with_shadow_tiles': true,
+      'cache_fog_tile_bitmaps': true,
       'show_shadow_zero_borders': false,
       'show_location_image_flow': true,
       'location_image_flow_angle_degrees': 267.88,
@@ -153,6 +155,7 @@ void main() {
         TilemapFogControlPoint(position: 1, opacity: 0.95),
       ],
       blendFogWithShadowTiles: true,
+      cacheFogTileBitmaps: false,
       showShadowZeroBorders: false,
       showLocationImageFlow: false,
       locationImageFlowAngleDegrees: 120,
@@ -172,6 +175,7 @@ void main() {
     expect(restored.loadingStyle, TilemapLoadingStyle.coordinatePulse);
     expect(restored.fogControlPoints, settings.fogControlPoints);
     expect(restored.blendFogWithShadowTiles, true);
+    expect(restored.cacheFogTileBitmaps, false);
     expect(restored.showShadowZeroBorders, false);
     expect(restored.showLocationImageFlow, false);
     expect(restored.locationImageFlowAngleDegrees, 120);
@@ -191,6 +195,7 @@ void main() {
     expect(serialized['loading_style'], 'coordinatePulse');
     expect(serialized['fog_control_points'], hasLength(5));
     expect(serialized['blend_fog_with_shadow_tiles'], true);
+    expect(serialized['cache_fog_tile_bitmaps'], false);
     expect(serialized['show_shadow_zero_borders'], false);
     expect(serialized['show_location_image_flow'], false);
     expect(serialized['location_image_flow_angle_degrees'], 120);
@@ -214,6 +219,7 @@ void main() {
         loadingStyle: TilemapLoadingStyle.worldPortal,
         fogControlPoints: tilemapDefaultFogControlPoints,
         blendFogWithShadowTiles: false,
+        cacheFogTileBitmaps: false,
         showShadowZeroBorders: true,
         showLocationImageFlow: false,
         locationImageFlowAngleDegrees: 120,
@@ -236,6 +242,7 @@ void main() {
       expect(releaseSettings.loadingStyle, TilemapLoadingStyle.disabled);
       expect(releaseSettings.initialScale, 12);
       expect(releaseSettings.visualMode, cachedSettings.visualMode);
+      expect(releaseSettings.cacheFogTileBitmaps, false);
       expect(releaseSettings.dragBoundaryPaddingTiles, 8);
       expect(debugSettings, same(cachedSettings));
     },
@@ -250,6 +257,7 @@ void main() {
           {'position': 0.5, 'opacity': 2},
         ],
         'blend_fog_with_shadow_tiles': true,
+        'cache_fog_tile_bitmaps': 'invalid',
         'show_shadow_zero_borders': false,
         'show_location_image_flow': 'invalid',
         'location_image_flow_angle_degrees': 720,
@@ -270,6 +278,7 @@ void main() {
     expect(settings.loadingStyle, tilemapDefaultLoadingStyle);
     expect(settings.fogControlPoints, tilemapDefaultFogControlPoints);
     expect(settings.blendFogWithShadowTiles, true);
+    expect(settings.cacheFogTileBitmaps, tilemapDefaultCacheFogTileBitmaps);
     expect(settings.showShadowZeroBorders, false);
     expect(settings.showLocationImageFlow, true);
     expect(
@@ -319,6 +328,7 @@ void main() {
       final settings = await const TilemapSettingsStore().load();
 
       expect(settings.loadingStyle, tilemapDefaultLoadingStyle);
+      expect(settings.cacheFogTileBitmaps, tilemapDefaultCacheFogTileBitmaps);
       expect(settings.showLocationImageFlow, true);
       expect(
         settings.locationImageFlowAngleDegrees,
@@ -355,6 +365,7 @@ void main() {
       loadingStyle: TilemapLoadingStyle.disabled,
       fogControlPoints: tilemapDefaultFogControlPoints,
       blendFogWithShadowTiles: false,
+      cacheFogTileBitmaps: false,
       showShadowZeroBorders: true,
       showLocationImageFlow: false,
       locationImageFlowAngleDegrees: 180,
@@ -373,6 +384,7 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.containsKey(TilemapSettingsStore.storageKey), false);
     final restored = await store.load();
+    expect(restored.cacheFogTileBitmaps, tilemapDefaultCacheFogTileBitmaps);
     expect(restored.toJson(), TilemapRenderSettings.defaults().toJson());
   });
 }

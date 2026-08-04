@@ -27,6 +27,7 @@ class TilemapRenderer extends StatefulWidget {
     this.visualMode = tilemapDefaultVisualMode,
     this.fogControlPoints = tilemapDefaultFogControlPoints,
     this.blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles,
+    this.cacheFogTileBitmaps = tilemapDefaultCacheFogTileBitmaps,
     this.showShadowZeroBorders = tilemapDefaultShowShadowZeroBorders,
     this.showLocationImageFlow = tilemapDefaultShowLocationImageFlow,
     this.locationImageFlowAngleDegrees =
@@ -60,6 +61,7 @@ class TilemapRenderer extends StatefulWidget {
   final TilemapVisualMode visualMode;
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
+  final bool cacheFogTileBitmaps;
   final bool showShadowZeroBorders;
   final bool showLocationImageFlow;
   final double locationImageFlowAngleDegrees;
@@ -555,6 +557,14 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                                                 .hasShadow
                                                         ? fogField
                                                         : null,
+                                                    rasterizeFogComposite:
+                                                        widget
+                                                            .cacheFogTileBitmaps &&
+                                                        widget.isForeground &&
+                                                        _rectsOverlapWithVisibleArea(
+                                                          record.imageBounds,
+                                                          visibleSceneBounds,
+                                                        ),
                                                     onImageError:
                                                         _tileImageErrorCallback(
                                                           record,
@@ -1131,8 +1141,12 @@ class _TilemapRendererState extends State<TilemapRenderer>
     required TilemapProjection projection,
     required Rect fogBounds,
   }) {
+    final controlPointsMatch = listEquals(
+      _fogControlPoints,
+      widget.fogControlPoints,
+    );
     if (_fogBounds == fogBounds &&
-        identical(_fogControlPoints, widget.fogControlPoints) &&
+        controlPointsMatch &&
         identical(_fogRenderTiles, _retainedTiles) &&
         _fogField != null) {
       return _fogField!;
@@ -1151,9 +1165,14 @@ class _TilemapRendererState extends State<TilemapRenderer>
       controlPoints: widget.fogControlPoints,
       geometry: _fogGeometry,
       renderTiles: _retainedTiles,
+      reusableShadowTileVertices: controlPointsMatch
+          ? _fogField?.shadowTileVertices
+          : null,
     );
     _fogBounds = fogBounds;
-    _fogControlPoints = widget.fogControlPoints;
+    _fogControlPoints = List<TilemapFogControlPoint>.unmodifiable(
+      widget.fogControlPoints,
+    );
     _fogRenderTiles = _retainedTiles;
     _fogField = field;
     return field;

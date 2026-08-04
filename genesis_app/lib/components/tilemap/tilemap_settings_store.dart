@@ -47,6 +47,7 @@ class TilemapRenderSettings {
     required this.loadingStyle,
     required this.fogControlPoints,
     required this.blendFogWithShadowTiles,
+    required this.cacheFogTileBitmaps,
     required this.showShadowZeroBorders,
     required this.showLocationImageFlow,
     required this.locationImageFlowAngleDegrees,
@@ -64,6 +65,7 @@ class TilemapRenderSettings {
       loadingStyle: tilemapDefaultLoadingStyle,
       fogControlPoints: tilemapDefaultFogControlPoints,
       blendFogWithShadowTiles: tilemapDefaultBlendFogWithShadowTiles,
+      cacheFogTileBitmaps: tilemapDefaultCacheFogTileBitmaps,
       showShadowZeroBorders: tilemapDefaultShowShadowZeroBorders,
       showLocationImageFlow: tilemapDefaultShowLocationImageFlow,
       locationImageFlowAngleDegrees:
@@ -96,6 +98,9 @@ class TilemapRenderSettings {
       blendFogWithShadowTiles: json['blend_fog_with_shadow_tiles'] is bool
           ? json['blend_fog_with_shadow_tiles'] as bool
           : defaults.blendFogWithShadowTiles,
+      cacheFogTileBitmaps: json['cache_fog_tile_bitmaps'] is bool
+          ? json['cache_fog_tile_bitmaps'] as bool
+          : defaults.cacheFogTileBitmaps,
       showShadowZeroBorders: json['show_shadow_zero_borders'] is bool
           ? json['show_shadow_zero_borders'] as bool
           : defaults.showShadowZeroBorders,
@@ -150,6 +155,7 @@ class TilemapRenderSettings {
   final TilemapLoadingStyle loadingStyle;
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
+  final bool cacheFogTileBitmaps;
   final bool showShadowZeroBorders;
   final bool showLocationImageFlow;
   final double locationImageFlowAngleDegrees;
@@ -168,6 +174,7 @@ class TilemapRenderSettings {
       loadingStyle: TilemapLoadingStyle.disabled,
       fogControlPoints: fogControlPoints,
       blendFogWithShadowTiles: blendFogWithShadowTiles,
+      cacheFogTileBitmaps: cacheFogTileBitmaps,
       showShadowZeroBorders: showShadowZeroBorders,
       showLocationImageFlow: showLocationImageFlow,
       locationImageFlowAngleDegrees: locationImageFlowAngleDegrees,
@@ -194,6 +201,7 @@ class TilemapRenderSettings {
           {'position': point.position, 'opacity': point.opacity},
       ],
       'blend_fog_with_shadow_tiles': blendFogWithShadowTiles,
+      'cache_fog_tile_bitmaps': cacheFogTileBitmaps,
       'show_shadow_zero_borders': showShadowZeroBorders,
       'show_location_image_flow': showLocationImageFlow,
       'location_image_flow_angle_degrees': locationImageFlowAngleDegrees,

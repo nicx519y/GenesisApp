@@ -249,6 +249,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   List<TilemapFogControlPoint> _fogControlPoints =
       tilemapDefaultFogControlPoints;
   bool _blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles;
+  bool _cacheFogTileBitmaps = tilemapDefaultCacheFogTileBitmaps;
   bool _showShadowZeroBorders = tilemapDefaultShowShadowZeroBorders;
   bool _showLocationImageFlow = tilemapDefaultShowLocationImageFlow;
   double _locationImageFlowAngleDegrees =
@@ -376,6 +377,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       loadingStyle: _loadingStyle,
       fogControlPoints: _fogControlPoints,
       blendFogWithShadowTiles: _blendFogWithShadowTiles,
+      cacheFogTileBitmaps: _cacheFogTileBitmaps,
       showShadowZeroBorders: _showShadowZeroBorders,
       showLocationImageFlow: _showLocationImageFlow,
       locationImageFlowAngleDegrees: _locationImageFlowAngleDegrees,
@@ -401,6 +403,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _loadingStyle = settings.loadingStyle;
       _fogControlPoints = settings.fogControlPoints;
       _blendFogWithShadowTiles = settings.blendFogWithShadowTiles;
+      _cacheFogTileBitmaps = settings.cacheFogTileBitmaps;
       _showShadowZeroBorders = settings.showShadowZeroBorders;
       _showLocationImageFlow = settings.showLocationImageFlow;
       _locationImageFlowAngleDegrees = settings.locationImageFlowAngleDegrees;
@@ -527,6 +530,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _loadingStyle = defaults.loadingStyle;
       _fogControlPoints = defaults.fogControlPoints;
       _blendFogWithShadowTiles = defaults.blendFogWithShadowTiles;
+      _cacheFogTileBitmaps = defaults.cacheFogTileBitmaps;
       _showShadowZeroBorders = defaults.showShadowZeroBorders;
       _showLocationImageFlow = defaults.showLocationImageFlow;
       _locationImageFlowAngleDegrees = defaults.locationImageFlowAngleDegrees;
@@ -1013,6 +1017,12 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     _scheduleSettingsSave();
   }
 
+  void _setCacheFogTileBitmaps(bool value) {
+    if (_cacheFogTileBitmaps == value) return;
+    setState(() => _cacheFogTileBitmaps = value);
+    _scheduleSettingsSave();
+  }
+
   void _setShowShadowZeroBorders(bool value) {
     if (_showShadowZeroBorders == value) return;
     setState(() => _showShadowZeroBorders = value);
@@ -1234,6 +1244,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       visualMode: _visualMode,
       fogControlPoints: _fogControlPoints,
       blendFogWithShadowTiles: _blendFogWithShadowTiles,
+      cacheFogTileBitmaps: _cacheFogTileBitmaps,
       showShadowZeroBorders: _showShadowZeroBorders,
       showLocationImageFlow: _showLocationImageFlow,
       locationImageFlowAngleDegrees: _locationImageFlowAngleDegrees,
@@ -1699,6 +1710,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
                       loadingStyle: _loadingStyle,
                       fogControlPoints: _fogControlPoints,
                       blendFogWithShadowTiles: _blendFogWithShadowTiles,
+                      cacheFogTileBitmaps: _cacheFogTileBitmaps,
                       showShadowZeroBorders: _showShadowZeroBorders,
                       showLocationImageFlow: _showLocationImageFlow,
                       locationImageFlowAngleDegrees:
@@ -1716,6 +1728,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
                       onFogControlPointsChanged: _setFogControlPoints,
                       onBlendFogWithShadowTilesChanged:
                           _setBlendFogWithShadowTiles,
+                      onCacheFogTileBitmapsChanged: _setCacheFogTileBitmaps,
                       onShowShadowZeroBordersChanged: _setShowShadowZeroBorders,
                       onShowLocationImageFlowChanged: _setShowLocationImageFlow,
                       onLocationImageFlowAngleDegreesChanged:

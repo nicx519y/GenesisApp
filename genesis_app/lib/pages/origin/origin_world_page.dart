@@ -381,7 +381,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             _resolveAssetUrl(character.avatar),
             logicalWidth: _OriginSetupRoleSection._cardWidth,
             logicalHeight: _OriginSetupRoleSection._cardWidth,
-            devicePixelRatio: mediaQuery.devicePixelRatio,
+            devicePixelRatio: _originRoleCardImageDevicePixelRatio(
+              mediaQuery.devicePixelRatio,
+            ),
           ).trim(),
         )
         .where((url) => url.isNotEmpty && !url.startsWith('assets/'))

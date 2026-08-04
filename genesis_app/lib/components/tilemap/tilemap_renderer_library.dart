@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -24,6 +25,7 @@ part 'tilemap_renderer_widget.dart';
 part 'tilemap_renderer_labels.dart';
 part 'tilemap_renderer_tile_layer.dart';
 part 'tilemap_renderer_image_flow.dart';
+part 'tilemap_renderer_fog_bitmap_cache.dart';
 part 'tilemap_renderer_fog_shadow.dart';
 
 const double tilemapBaseTileExtent = 16;
@@ -39,6 +41,7 @@ const double tilemapDragBoundaryPaddingTilesMax = 20;
 const double tilemapDefaultDragBoundaryPaddingTiles = 2;
 const double tilemapZoomControlScaleFactor = 1.25;
 const bool tilemapDefaultBlendFogWithShadowTiles = true;
+const bool tilemapDefaultCacheFogTileBitmaps = true;
 const bool tilemapDefaultShowShadowZeroBorders = false;
 const bool tilemapDefaultShowLocationImageFlow = true;
 const double tilemapDefaultLocationImageFlowAngleDegrees = 267.88;
