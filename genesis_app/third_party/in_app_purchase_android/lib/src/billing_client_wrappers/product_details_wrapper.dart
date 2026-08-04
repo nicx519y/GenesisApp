@@ -141,10 +141,16 @@ class ProductDetailsResponseWrapper implements HasBillingResponse {
 @immutable
 class UnfetchedProductWrapper {
   /// Creates an [UnfetchedProductWrapper].
-  const UnfetchedProductWrapper({required this.productId});
+  const UnfetchedProductWrapper({
+    required this.productId,
+    required this.statusCode,
+  });
 
   /// The product ID that could not be fetched.
   final String productId;
+
+  /// The native Google Play Billing `UnfetchedProduct.StatusCode`.
+  final int statusCode;
 
   @override
   bool operator ==(Object other) {
@@ -152,11 +158,13 @@ class UnfetchedProductWrapper {
       return false;
     }
 
-    return other is UnfetchedProductWrapper && other.productId == productId;
+    return other is UnfetchedProductWrapper &&
+        other.productId == productId &&
+        other.statusCode == statusCode;
   }
 
   @override
-  int get hashCode => productId.hashCode;
+  int get hashCode => Object.hash(productId, statusCode);
 }
 
 /// Recurrence mode of the pricing phase.

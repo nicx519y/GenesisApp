@@ -389,9 +389,10 @@ class PlatformPendingPurchasesParams {
 
 /// Pigeon version of Java [UnfetchedProduct](https://developer.android.com/reference/com/android/billingclient/api/QueryProductDetailsParams.Product).
 class PlatformUnfetchedProduct {
-  PlatformUnfetchedProduct({required this.productId});
+  PlatformUnfetchedProduct({required this.productId, required this.statusCode});
 
   final String productId;
+  final int statusCode;
 }
 
 /// Pigeon version of Java BillingClient.ProductType.

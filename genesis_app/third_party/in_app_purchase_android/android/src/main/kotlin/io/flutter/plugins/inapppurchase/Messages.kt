@@ -1412,18 +1412,21 @@ data class PlatformPendingPurchasesParams (
  * Generated class from Pigeon that represents data sent in messages.
  */
 data class PlatformUnfetchedProduct (
-  val productId: String
+  val productId: String,
+  val statusCode: Long
 )
  {
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): PlatformUnfetchedProduct {
       val productId = pigeonVar_list[0] as String
-      return PlatformUnfetchedProduct(productId)
+      val statusCode = pigeonVar_list[1] as Long
+      return PlatformUnfetchedProduct(productId, statusCode)
     }
   }
   fun toList(): List<Any?> {
     return listOf(
       productId,
+      statusCode,
     )
   }
   override fun equals(other: Any?): Boolean {
@@ -1434,12 +1437,13 @@ data class PlatformUnfetchedProduct (
       return true
     }
     val other = other as PlatformUnfetchedProduct
-    return MessagesPigeonUtils.deepEquals(this.productId, other.productId)
+    return MessagesPigeonUtils.deepEquals(this.productId, other.productId) && MessagesPigeonUtils.deepEquals(this.statusCode, other.statusCode)
   }
 
   override fun hashCode(): Int {
     var result = javaClass.hashCode()
     result = 31 * result + MessagesPigeonUtils.deepHash(this.productId)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.statusCode)
     return result
   }
 }

@@ -84,24 +84,35 @@ class GooglePlayBillingPlatform implements BillingPlatform {
     String? offerId,
   }) async {
     if (defaultTargetPlatform != TargetPlatform.android) {
-      return const BillingProductQueryResult.failure('platform_unavailable');
+      return const BillingProductQueryResult.failure('unknown');
     }
     try {
-      final response = await _inAppPurchase.queryProductDetails({
-        storeProductId,
-      });
-      if (response.error != null) {
+      final productType = switch (expectedType) {
+        BillingStoreProductType.inApp => ProductType.inapp,
+        BillingStoreProductType.subscription => ProductType.subs,
+      };
+      final addition = _inAppPurchase
+          .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
+      final response = await addition.queryProductDetails(
+        productId: storeProductId,
+        productType: productType,
+      );
+      if (response.billingResult.responseCode != BillingResponse.ok) {
+        final errorCode = googlePlayBillingQueryErrorCode(
+          response.billingResult.responseCode,
+        );
         debugPrint(
           '[Billing] product query failed id=$storeProductId '
-          'code=${response.error!.code}',
+          'response=${response.billingResult.responseCode.name} '
+          'code=$errorCode message=${response.billingResult.debugMessage}',
         );
-        return BillingProductQueryResult.failure(response.error!.code);
+        return BillingProductQueryResult.failure(errorCode);
       }
-      for (final product in response.productDetails) {
-        if (product is! GooglePlayProductDetails ||
-            product.id != storeProductId) {
-          continue;
-        }
+      final products = response.productDetailsList.expand(
+        GooglePlayProductDetails.fromProductDetails,
+      );
+      for (final product in products) {
+        if (product.id != storeProductId) continue;
         final type = switch (product.productDetails.productType) {
           ProductType.inapp => BillingStoreProductType.inApp,
           ProductType.subs => BillingStoreProductType.subscription,
@@ -153,9 +164,20 @@ class GooglePlayBillingPlatform implements BillingPlatform {
           ),
         );
       }
-      return const BillingProductQueryResult.failure('product_not_found');
+      for (final unfetched in response.unfetchedProductList) {
+        if (unfetched.productId != storeProductId) continue;
+        final errorCode = googlePlayUnfetchedProductErrorCode(
+          unfetched.statusCode,
+        );
+        debugPrint(
+          '[Billing] product not fetched id=$storeProductId '
+          'status=${unfetched.statusCode} code=$errorCode',
+        );
+        return BillingProductQueryResult.failure(errorCode);
+      }
+      return const BillingProductQueryResult.failure('unknown');
     } on Object catch (error) {
-      throw BillingPlatformException('query_product_failed', '$error');
+      throw BillingPlatformException('unknown', '$error');
     }
   }
 
@@ -211,6 +233,35 @@ class GooglePlayBillingPlatform implements BillingPlatform {
     }
     return true;
   }
+}
+
+@visibleForTesting
+String googlePlayUnfetchedProductErrorCode(int statusCode) {
+  return switch (statusCode) {
+    2 => 'invalid_product_id_format',
+    3 => 'product_not_found',
+    4 => 'no_eligible_offer',
+    _ => 'unknown',
+  };
+}
+
+@visibleForTesting
+String googlePlayBillingQueryErrorCode(BillingResponse responseCode) {
+  return switch (responseCode) {
+    BillingResponse.serviceTimeout => 'service_timeout',
+    BillingResponse.featureNotSupported => 'feature_not_supported',
+    BillingResponse.serviceDisconnected => 'service_disconnected',
+    BillingResponse.ok => 'unknown',
+    BillingResponse.userCanceled => 'user_canceled',
+    BillingResponse.serviceUnavailable => 'service_unavailable',
+    BillingResponse.billingUnavailable => 'billing_unavailable',
+    BillingResponse.itemUnavailable => 'item_unavailable',
+    BillingResponse.developerError => 'developer_error',
+    BillingResponse.error => 'error',
+    BillingResponse.itemAlreadyOwned => 'item_already_owned',
+    BillingResponse.itemNotOwned => 'item_not_owned',
+    BillingResponse.networkError => 'network_error',
+  };
 }
 
 void _logGoogleProductDetails(GooglePlayProductDetails product) {

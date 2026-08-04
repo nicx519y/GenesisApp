@@ -227,7 +227,9 @@ fun fromUnfetchedProductList(
 }
 
 fun fromUnfetchedProduct(unfetchedProduct: UnfetchedProduct): PlatformUnfetchedProduct {
-  return PlatformUnfetchedProduct(productId = unfetchedProduct.productId)
+  return PlatformUnfetchedProduct(
+      productId = unfetchedProduct.productId,
+      statusCode = unfetchedProduct.statusCode.toLong())
 }
 
 fun fromBillingResult(billingResult: BillingResult): PlatformBillingResult {

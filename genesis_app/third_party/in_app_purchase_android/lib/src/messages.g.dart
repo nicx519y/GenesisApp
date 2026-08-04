@@ -1467,12 +1467,14 @@ class PlatformPendingPurchasesParams {
 
 /// Pigeon version of Java [UnfetchedProduct](https://developer.android.com/reference/com/android/billingclient/api/QueryProductDetailsParams.Product).
 class PlatformUnfetchedProduct {
-  PlatformUnfetchedProduct({required this.productId});
+  PlatformUnfetchedProduct({required this.productId, required this.statusCode});
 
   String productId;
 
+  int statusCode;
+
   List<Object?> _toList() {
-    return <Object?>[productId];
+    return <Object?>[productId, statusCode];
   }
 
   Object encode() {
@@ -1481,7 +1483,10 @@ class PlatformUnfetchedProduct {
 
   static PlatformUnfetchedProduct decode(Object result) {
     result as List<Object?>;
-    return PlatformUnfetchedProduct(productId: result[0]! as String);
+    return PlatformUnfetchedProduct(
+      productId: result[0]! as String,
+      statusCode: result[1]! as int,
+    );
   }
 
   @override
@@ -1494,7 +1499,8 @@ class PlatformUnfetchedProduct {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(productId, other.productId);
+    return _deepEquals(productId, other.productId) &&
+        _deepEquals(statusCode, other.statusCode);
   }
 
   @override

@@ -72,7 +72,10 @@ ProductDetailsWrapper productDetailsWrapperFromPlatform(
 UnfetchedProductWrapper unfetchedProductWrapperFromPlatform(
   PlatformUnfetchedProduct product,
 ) {
-  return UnfetchedProductWrapper(productId: product.productId);
+  return UnfetchedProductWrapper(
+    productId: product.productId,
+    statusCode: product.statusCode,
+  );
 }
 
 /// Creates a [OneTimePurchaseOfferDetailsWrapper] from the Pigeon equivalent.

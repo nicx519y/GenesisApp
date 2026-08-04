@@ -31,6 +31,20 @@ class InAppPurchaseAndroidPlatformAddition extends InAppPurchasePlatformAddition
 
   final BillingClientManager _billingClientManager;
 
+  /// Queries one product using its expected Google Play product type.
+  Future<ProductDetailsResponseWrapper> queryProductDetails({
+    required String productId,
+    required ProductType productType,
+  }) {
+    return _billingClientManager.runWithClient(
+      (BillingClient client) => client.queryProductDetails(
+        productList: <ProductWrapper>[
+          ProductWrapper(productId: productId, productType: productType),
+        ],
+      ),
+    );
+  }
+
   /// Mark that the user has consumed a product.
   ///
   /// You are responsible for consuming all consumable purchases once they are
