@@ -129,9 +129,13 @@ class GooglePlayBillingService implements BillingService {
       return;
     }
     if (!_state.value.storeAvailable) {
-      _trackPrecheckFailure(product, attemptId, 'gp_unavailable');
-      _emitFailure(product.productId, attemptId, _storeUnavailableMessage());
-      return;
+      final available = await _refreshStoreAvailability();
+      if (_disposed) return;
+      if (!available) {
+        _trackPrecheckFailure(product, attemptId, 'gp_unavailable');
+        _emitFailure(product.productId, attemptId, _storeUnavailableMessage());
+        return;
+      }
     }
     if (_state.value.hasBusyPurchase) {
       _trackPrecheckFailure(product, attemptId, 'purchase_in_progress');

@@ -8,11 +8,19 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
       ),
     );
 
+    await _refreshStoreAvailability();
+  }
+
+  Future<bool> _refreshStoreAvailability() async {
     var available = false;
     try {
       available = await _platform.isAvailable();
-    } catch (_) {}
+    } catch (error) {
+      debugPrint('[Billing] store availability check failed: $error');
+    }
+    if (_disposed) return false;
     _setState(storeAvailable: available);
+    return available;
   }
 
   Future<BillingProductQueryResult> _queryStoreProduct(

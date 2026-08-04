@@ -31,6 +31,7 @@ class _FakeBillingPlatform implements BillingPlatform {
       );
   bool available = true;
   bool buyAccepted = true;
+  int availabilityCheckCount = 0;
   int queryCount = 0;
   int recoverableQueryCount = 0;
   int buyCount = 0;
@@ -40,6 +41,7 @@ class _FakeBillingPlatform implements BillingPlatform {
   String? queriedOfferId;
   String? purchasedOfferToken;
   FutureOr<bool> Function()? buyHandler;
+  FutureOr<bool> Function()? availabilityHandler;
   FutureOr<BillingProductQueryResult> Function(String storeProductId)?
   queryHandler;
   final List<String> queriedStoreProductIds = <String>[];
@@ -51,7 +53,12 @@ class _FakeBillingPlatform implements BillingPlatform {
   Stream<List<BillingPurchase>> get purchaseStream => _controller.stream;
 
   @override
-  Future<bool> isAvailable() async => available;
+  Future<bool> isAvailable() async {
+    availabilityCheckCount += 1;
+    final handler = availabilityHandler;
+    if (handler != null) return handler();
+    return available;
+  }
 
   @override
   Future<List<BillingPurchase>> queryRecoverablePurchases() async {
@@ -253,6 +260,80 @@ void main() {
 
     expect(reports, hasLength(1));
     expect(await pendingStore.loadAll(), isEmpty);
+  });
+
+  test(
+    'purchase rechecks an unavailable store and continues with the same attempt',
+    () async {
+      platform.availabilityHandler = () => platform.availabilityCheckCount > 1;
+      platform.buyAccepted = false;
+
+      await service.start();
+      expect(service.state.value.storeAvailable, isFalse);
+
+      await service.purchaseGem(
+        _product,
+        payTrackId: 'track_id_availability_retry',
+      );
+
+      expect(platform.availabilityCheckCount, 2);
+      expect(service.state.value.storeAvailable, isTrue);
+      expect(platform.queryCount, 1);
+      expect(platform.buyCount, 1);
+      final click = analytics.records.singleWhere(
+        (record) => record.action == 'product_click',
+      );
+      final failed = analytics.records.singleWhere(
+        (record) => record.action == 'purchase_failed',
+      );
+      expect(click.properties['attempt_id'], 'track_id_availability_retry');
+      expect(failed.properties['attempt_id'], 'track_id_availability_retry');
+      expect(failed.properties['reason'], 'launch_failed');
+    },
+  );
+
+  test(
+    'purchase reports gp unavailable after the recheck is still false',
+    () async {
+      platform.availabilityHandler = () => false;
+
+      await service.start();
+      await service.purchaseGem(
+        _product,
+        payTrackId: 'track_id_still_unavailable',
+      );
+
+      expect(platform.availabilityCheckCount, 2);
+      expect(platform.queryCount, 0);
+      expect(platform.buyCount, 0);
+      final failed = analytics.records.singleWhere(
+        (record) => record.action == 'purchase_failed',
+      );
+      expect(failed.properties['attempt_id'], 'track_id_still_unavailable');
+      expect(failed.properties['reason'], 'gp_unavailable');
+    },
+  );
+
+  test('purchase reports gp unavailable when the recheck throws', () async {
+    platform.availabilityHandler = () {
+      if (platform.availabilityCheckCount == 1) return false;
+      throw StateError('billing unavailable');
+    };
+
+    await service.start();
+    await service.purchaseGem(
+      _product,
+      payTrackId: 'track_id_availability_exception',
+    );
+
+    expect(platform.availabilityCheckCount, 2);
+    expect(platform.queryCount, 0);
+    expect(platform.buyCount, 0);
+    final failed = analytics.records.singleWhere(
+      (record) => record.action == 'purchase_failed',
+    );
+    expect(failed.properties['attempt_id'], 'track_id_availability_exception');
+    expect(failed.properties['reason'], 'gp_unavailable');
   });
 
   test(
