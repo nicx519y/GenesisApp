@@ -26,6 +26,79 @@ void main() {
     ];
   }
 
+  testWidgets('chat message row uses a dedicated component per bubble type', (
+    WidgetTester tester,
+  ) async {
+    final messages = [
+      ChatMessageVm(
+        localId: 'self',
+        senderId: 'self',
+        senderName: 'Self',
+        text: 'Self message',
+        isMe: true,
+        status: 'sent',
+      ),
+      ChatMessageVm(
+        localId: 'other',
+        senderId: 'other',
+        senderName: 'Other',
+        text: 'Other message',
+        isMe: false,
+        status: 'sent',
+      ),
+      ChatMessageVm.system('System message'),
+      ChatMessageVm(
+        localId: 'narrator',
+        senderId: 'nar',
+        senderName: 'Narrator',
+        text: 'Narrator message',
+        isMe: false,
+        status: 'sent',
+        senderType: 'narrator',
+      ),
+      ChatMessageVm(
+        localId: 'tick',
+        senderId: 'tick',
+        senderName: 'Time',
+        text: 'Day 1',
+        isMe: false,
+        status: 'sent',
+        senderType: 'tick',
+        tickNo: 1,
+      ),
+      ChatMessageVm(
+        localId: 'image',
+        senderId: 'nar_pic',
+        senderName: 'Narrator',
+        imageUrl: 'assets/images/default_list_image.png',
+        text: '',
+        isMe: false,
+        status: 'sent',
+        senderType: 'image',
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(
+            children: [
+              for (final message in messages)
+                ChatMessageRow(message: message, showDateDivider: false),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
+    expect(find.byType(ChatOtherMessageBubble), findsOneWidget);
+    expect(find.byType(ChatSystemMessage), findsNWidgets(3));
+    expect(find.byType(ChatNarratorMessageBubble), findsOneWidget);
+    expect(find.byType(ChatTickMessageBubble), findsOneWidget);
+    expect(find.byType(ChatImageMessage), findsOneWidget);
+  });
+
   testWidgets('chat message list can render an oldest-edge notice', (
     WidgetTester tester,
   ) async {

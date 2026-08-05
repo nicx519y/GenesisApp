@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'devtools_websocket_profile.dart';
 import 'io_http_transport.dart';
 
 const kLogWebSocketFrames = !bool.fromEnvironment('dart.vm.product');
@@ -63,6 +64,9 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
       logName: _logName,
       frameLogName: _frameLogName,
       frameLogSink: _frameLogSink,
+      frameProfile: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : DevToolsWebSocketProfile(uri),
     );
   }
 }
@@ -74,16 +78,19 @@ class _IoNetworkWebSocket implements NetworkWebSocket {
     required String logName,
     required String frameLogName,
     required WebSocketFrameLogSink? frameLogSink,
+    required DevToolsWebSocketProfile? frameProfile,
   }) : _logFrames = logFrames,
        _logName = logName,
        _frameLogName = frameLogName,
-       _frameLogSink = frameLogSink;
+       _frameLogSink = frameLogSink,
+       _frameProfile = frameProfile;
 
   final WebSocket _socket;
   final bool _logFrames;
   final String _logName;
   final String _frameLogName;
   final WebSocketFrameLogSink? _frameLogSink;
+  final DevToolsWebSocketProfile? _frameProfile;
 
   @override
   Stream<String> get messages {
@@ -131,13 +138,21 @@ class _IoNetworkWebSocket implements NetworkWebSocket {
   }
 
   void _logFrame(String direction, String message) {
-    if (!_logFrames || const bool.fromEnvironment('dart.vm.product')) return;
-    final formatted = formatWebSocketFrameLog(
-      direction: direction,
-      message: message,
-    );
-    developer.log(formatted, name: _frameLogName);
-    _frameLogSink?.call(direction, formatted);
+    if (const bool.fromEnvironment('dart.vm.product')) return;
+    if (_logFrames) {
+      final formatted = formatWebSocketFrameLog(
+        direction: direction,
+        message: message,
+      );
+      developer.log(formatted, name: _frameLogName);
+      _frameLogSink?.call(direction, formatted);
+    }
+    final frameProfile = _frameProfile;
+    if (frameProfile != null) {
+      unawaited(
+        frameProfile.recordFrame(direction: direction, message: message),
+      );
+    }
   }
 }
 
