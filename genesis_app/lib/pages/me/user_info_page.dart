@@ -31,6 +31,7 @@ class UserInfoPage extends StatefulWidget {
 
 class _UserInfoPageState extends State<UserInfoPage> {
   late Future<UserProfileData> _future;
+  int _loadGeneration = 0;
   String _profileUid = '';
   String _profileTitle = '';
   bool _profileIsSelf = true;
@@ -68,6 +69,8 @@ class _UserInfoPageState extends State<UserInfoPage> {
   }
 
   Future<UserProfileData> _loadData() async {
+    final generation = _loadGeneration + 1;
+    _loadGeneration = generation;
     final services = AppServicesScope.read(context);
     final api = services.api;
     final uid = widget.uid.trim();
@@ -104,33 +107,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       });
     }
 
-    List<UserProfileOriginItem> origins = const [];
-    if (profileUid.trim().isNotEmpty && !isBlocked) {
-      try {
-        origins = await _loadOriginItems(api, profileUid);
-      } catch (_) {}
-    }
-    if (mounted) {
-      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
-        items: origins,
-        isLoading: false,
-      );
-    }
-
-    List<UserProfileWorldItem> worldItems = const [];
-    if (profileUid.trim().isNotEmpty && !isBlocked) {
-      try {
-        worldItems = await _loadWorldItems(api, profileUid);
-      } catch (_) {}
-    }
-    if (mounted) {
-      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
-        items: worldItems,
-        isLoading: false,
-      );
-    }
-
-    return UserProfileData(
+    final data = UserProfileData(
       avatarUrl: avatarUrl,
       displayName: displayName,
       uid: profileUid.trim().isEmpty ? 'Unknown' : profileUid,
@@ -140,9 +117,58 @@ class _UserInfoPageState extends State<UserInfoPage> {
       isSelf: isSelf,
       isFollowed:
           _mapBool(relation, 'is_followed') || _mapBool(relation, 'i_followed'),
-      origins: origins,
-      worlds: worldItems,
+      origins: const [],
+      worlds: const [],
     );
+    if (!mounted || generation != _loadGeneration) return data;
+
+    if (profileUid.isEmpty || isBlocked) {
+      _clearProfileCollections();
+    } else {
+      _markProfileCollectionsLoading();
+      unawaited(_loadOrigins(generation, api, profileUid));
+      unawaited(_loadWorlds(generation, api, profileUid));
+    }
+    if (isSelf) {
+      unawaited(services.gemWallet.refresh());
+    }
+    return data;
+  }
+
+  Future<void> _loadOrigins(int generation, GenesisApi api, String uid) async {
+    try {
+      final items = await _loadOriginItems(api, uid);
+      if (!mounted || generation != _loadGeneration) return;
+      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+        items: items,
+        isLoading: false,
+      );
+    } catch (_) {
+      if (!mounted || generation != _loadGeneration) return;
+      _originsState.value =
+          const UserProfileCollectionState<UserProfileOriginItem>(
+            items: <UserProfileOriginItem>[],
+            isLoading: false,
+          );
+    }
+  }
+
+  Future<void> _loadWorlds(int generation, GenesisApi api, String uid) async {
+    try {
+      final items = await _loadWorldItems(api, uid);
+      if (!mounted || generation != _loadGeneration) return;
+      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+        items: items,
+        isLoading: false,
+      );
+    } catch (_) {
+      if (!mounted || generation != _loadGeneration) return;
+      _worldsState.value =
+          const UserProfileCollectionState<UserProfileWorldItem>(
+            items: <UserProfileWorldItem>[],
+            isLoading: false,
+          );
+    }
   }
 
   Future<void> _refresh() async {
@@ -492,6 +518,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
                 data: data,
                 originsListenable: _originsState,
                 worldsListenable: _worldsState,
+                gemWalletStateListenable: data.isSelf
+                    ? AppServicesScope.of(context).gemWallet.state
+                    : null,
                 onRefreshOrigins: _refreshOrigins,
                 onRefreshWorlds: _refreshWorlds,
                 onCollapsedChanged: _handleProfileCollapsedChanged,

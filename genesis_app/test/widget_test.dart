@@ -16961,6 +16961,107 @@ void main() {
   });
 
   testWidgets(
+    'user info page renders profile before origin and world lists complete',
+    (WidgetTester tester) async {
+      final originListCompleter = Completer<TransportResponse>();
+      final worldListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        originListCompleter: originListCompleter,
+        worldListCompleter: worldListCompleter,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const UserInfoPage(uid: 'u_progressive_peer'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Remote User'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-origin-list-loading')),
+        findsOneWidget,
+      );
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+      originListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'list': [transport._originItem(0)],
+            'total': 1,
+          },
+        }),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('#Origin 1'), findsOneWidget);
+
+      await tester.tap(find.text('World'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(
+        find.byKey(const ValueKey('profile-world-list-loading')),
+        findsOneWidget,
+      );
+
+      worldListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'list': [transport._worldItem(0)],
+            'total': 1,
+          },
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('World 1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('user info self profile loads and displays Gems balance', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: 'u_self',
+          ),
+          child: const UserInfoPage(uid: 'u_self'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('user-profile-gems-entry')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('user-profile-gems-balance')))
+          .data,
+      '430',
+    );
+    expect(transport.requestsFor('/api/v1/gem/wallet'), hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
     'user info origin and world refresh preserve old list until response',
     (WidgetTester tester) async {
       final transport = _UserInfoRefreshTransport();
@@ -16999,8 +17100,8 @@ void main() {
       await tester.tap(find.text('World'));
       await tester.pumpAndSettle();
 
-      expect(find.text('#World Old'), findsOneWidget);
-      expect(find.text('#World New'), findsNothing);
+      expect(find.text('World Old'), findsOneWidget);
+      expect(find.text('World New'), findsNothing);
 
       refreshFuture = tester
           .widget<RefreshIndicator>(
@@ -17010,15 +17111,15 @@ void main() {
       await tester.pump();
 
       expect(transport.worldListRequests, 2);
-      expect(find.text('#World Old'), findsOneWidget);
-      expect(find.text('#World New'), findsNothing);
+      expect(find.text('World Old'), findsOneWidget);
+      expect(find.text('World New'), findsNothing);
 
       transport.completeWorldRefresh();
       await tester.pumpAndSettle();
       await refreshFuture;
 
-      expect(find.text('#World Old'), findsNothing);
-      expect(find.text('#World New'), findsOneWidget);
+      expect(find.text('World Old'), findsNothing);
+      expect(find.text('World New'), findsOneWidget);
     },
   );
 
