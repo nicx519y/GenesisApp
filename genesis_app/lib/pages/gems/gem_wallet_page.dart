@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -92,6 +93,16 @@ Future<void> showGemBillingPurchaseOverlayPreview(BuildContext context) async {
 class _GemWalletPageState extends State<GemWalletPage>
     with WidgetsBindingObserver, RouteAware {
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
+  static const _systemUiOverlayStyle = SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+  );
+  static const _purchaseSystemUiOverlayStyle = SystemUiOverlayStyle(
+    statusBarColor: Color(0xFF757575),
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+  );
 
   List<GemProduct>? _products;
   List<GemTaskGroup>? _taskGroups;
@@ -180,6 +191,7 @@ class _GemWalletPageState extends State<GemWalletPage>
         backgroundColor: Colors.white,
         appBar: GenesisBackAppBar(
           pageName: 'Buy Gems',
+          systemOverlayStyle: _systemUiOverlayStyle,
           actions: [
             GestureDetector(
               behavior: HitTestBehavior.opaque,

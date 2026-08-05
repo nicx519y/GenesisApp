@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../routers/app_router.dart';
 import '../ui/genesis_ui.dart';
@@ -86,6 +87,7 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.titleKey,
     this.onTitleTap,
     this.titleStyle,
+    this.systemOverlayStyle,
   });
 
   final String pageName;
@@ -94,6 +96,7 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Key? titleKey;
   final VoidCallback? onTitleTap;
   final TextStyle? titleStyle;
+  final SystemUiOverlayStyle? systemOverlayStyle;
 
   @override
   Size get preferredSize => const Size.fromHeight(kGenesisTopBarHeight);
@@ -105,6 +108,7 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: Colors.white,
       elevation: 0,
       scrolledUnderElevation: 0,
+      systemOverlayStyle: systemOverlayStyle,
       centerTitle: true,
       leadingWidth: 37,
       leading: Padding(

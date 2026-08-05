@@ -24,6 +24,13 @@ class GenesisSystemUiChrome {
     _apply(kGenesisDefaultSystemUiOverlayStyle);
   }
 
+  static SystemUiOverlayStyle get currentStyle {
+    // This includes styles applied by both imperative calls and
+    // AnnotatedRegion frame updates.
+    // ignore: invalid_use_of_visible_for_testing_member
+    return SystemChrome.latestStyle ?? _currentStyle;
+  }
+
   static Future<T> runWithModalChrome<T>(
     Color color,
     Future<T> Function() action, {
@@ -31,10 +38,7 @@ class GenesisSystemUiChrome {
     SystemUiOverlayStyle? restoreOverrideStyle,
     bool restoreAfterFrame = false,
   }) async {
-    // This is the only available value that includes styles applied by both
-    // imperative calls and AnnotatedRegion frame updates.
-    // ignore: invalid_use_of_visible_for_testing_member
-    final previousStyle = SystemChrome.latestStyle ?? _currentStyle;
+    final previousStyle = currentStyle;
     _styleStack.add(previousStyle);
     _apply(modalOverrideStyle ?? _modalStyle(color));
     try {
@@ -81,7 +85,9 @@ Future<T?> showGenesisModalBottomSheet<T>({
   required WidgetBuilder builder,
   Color barrierColor = kGenesisModalBarrierColor,
   Color? systemBarColor,
+  SystemUiOverlayStyle? modalSystemUiOverlayStyle,
   SystemUiOverlayStyle? restoreSystemUiOverlayStyle,
+  bool restoreSystemUiOverlayAfterFrame = false,
   Color? backgroundColor,
   bool isScrollControlled = false,
   bool isDismissible = true,
@@ -107,7 +113,9 @@ Future<T?> showGenesisModalBottomSheet<T>({
       constraints: constraints,
       sheetAnimationStyle: sheetAnimationStyle,
     ),
+    modalOverrideStyle: modalSystemUiOverlayStyle,
     restoreOverrideStyle: restoreSystemUiOverlayStyle,
+    restoreAfterFrame: restoreSystemUiOverlayAfterFrame,
   );
 }
 

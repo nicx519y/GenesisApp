@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/bootstrap/app_services_scope.dart';
 import '../app/bootstrap/polling_scheduler.dart';
@@ -50,6 +51,12 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage>
     with WidgetsBindingObserver {
+  static const _systemUiOverlayStyle = SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+  );
+
   late int _selectedIndex;
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
@@ -608,17 +615,20 @@ class _AppShellPageState extends State<AppShellPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _buildBody(),
-      bottomNavigationBar: ValueListenableBuilder<UnreadSummary>(
-        valueListenable: _unreadSummaryNotifier,
-        builder: (context, unreadSummary, _) {
-          return BottomTabs(
-            currentIndex: _coldStartHomeTargetResolved ? _selectedIndex : -1,
-            messagesUnreadCount: unreadSummary.totalUnread,
-            onTap: (index) => unawaited(_onTapNav(index)),
-          );
-        },
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _systemUiOverlayStyle,
+      child: Scaffold(
+        body: _buildBody(),
+        bottomNavigationBar: ValueListenableBuilder<UnreadSummary>(
+          valueListenable: _unreadSummaryNotifier,
+          builder: (context, unreadSummary, _) {
+            return BottomTabs(
+              currentIndex: _coldStartHomeTargetResolved ? _selectedIndex : -1,
+              messagesUnreadCount: unreadSummary.totalUnread,
+              onTap: (index) => unawaited(_onTapNav(index)),
+            );
+          },
+        ),
       ),
     );
   }

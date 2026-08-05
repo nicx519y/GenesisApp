@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
@@ -523,6 +524,20 @@ void main() {
   testWidgets('tapping a product immediately shows purchase processing', (
     tester,
   ) async {
+    final systemUiOverlayStyleCalls = <Map<dynamic, dynamic>>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'SystemChrome.setSystemUIOverlayStyle') {
+            systemUiOverlayStyleCalls.add(
+              Map<dynamic, dynamic>.from(call.arguments as Map),
+            );
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
     final telemetry = _CapturingTelemetrySink();
     GenesisTelemetry.setSinkForTesting(telemetry);
     final walletStore = GemWalletStore(
@@ -546,11 +561,45 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(
+      tester.widget<AppBar>(find.byType(AppBar)).systemOverlayStyle,
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+    );
+    systemUiOverlayStyleCalls.clear();
 
     await tester.tap(
       find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
     );
+
+    expect(SystemChrome.latestStyle?.statusBarColor, Colors.transparent);
+    expect(
+      systemUiOverlayStyleCalls.where(
+        (call) =>
+            call['statusBarColor'] != null &&
+            call['statusBarColor'] != Colors.transparent.toARGB32(),
+      ),
+      isEmpty,
+    );
+
     await tester.pump();
+    expect(SystemChrome.latestStyle?.statusBarColor, Colors.transparent);
+
+    await tester.pump(const Duration(milliseconds: 16));
+
+    expect(SystemChrome.latestStyle?.statusBarColor, const Color(0xFF757575));
+    expect(
+      systemUiOverlayStyleCalls.where(
+        (call) =>
+            call['statusBarColor'] != null &&
+            call['statusBarColor'] != Colors.transparent.toARGB32() &&
+            call['statusBarColor'] != const Color(0xFF757575).toARGB32(),
+      ),
+      isEmpty,
+    );
 
     expect(billing.purchasedProducts, hasLength(1));
     expect(billing.purchasedProducts.single.productId, 'gem_pack_500');
@@ -603,6 +652,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.text('OK'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+    await tester.idle();
+    expect(SystemChrome.latestStyle?.statusBarColor, Colors.transparent);
   });
 
   testWidgets('store recovery starts only after products load succeeds', (
