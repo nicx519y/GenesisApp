@@ -19,6 +19,7 @@ void main() {
           bio: 'Bio\rline',
           goal: r'Keep \u300c literal',
           avatarUrl: ' https://cdn.example.com/avatar.png ',
+          isRecommend: 1,
         ),
       ],
       locations: <LocationDraft>[
@@ -48,6 +49,7 @@ void main() {
     expect(character['identity'], r'Identity \n');
     expect(character['description'], 'Bio\nline');
     expect(character['goal'], r'Keep \u300c literal');
+    expect(character['is_recommend'], 1);
 
     final location = (payload['location_list'] as List).single as Map;
     expect(location['location_id'], 'loc-1');
@@ -175,6 +177,32 @@ void main() {
     expect(
       incompleteOpening.toCreateOriginPayload(),
       isNot(contains('init_location_group')),
+    );
+  });
+
+  test('submission rejects more than one recommended character', () {
+    final errors = CreateOriginDraft.empty()
+        .copyWith(
+          characters: const <CharacterDraft>[
+            CharacterDraft(
+              name: 'Ari',
+              identity: 'Guide',
+              personality: 'Calm',
+              isRecommend: 1,
+            ),
+            CharacterDraft(
+              name: 'Bex',
+              identity: 'Scout',
+              personality: 'Bold',
+              isRecommend: 1,
+            ),
+          ],
+        )
+        .validateForSubmit();
+
+    expect(
+      errors,
+      contains('Characters: Only one character can be recommended.'),
     );
   });
 }

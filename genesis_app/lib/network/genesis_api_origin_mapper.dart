@@ -441,6 +441,7 @@ List<Map<String, dynamic>> _originTicksFromV1(Map<String, dynamic> raw) {
         return <String, dynamic>{
           'tick_id': asString(tick['tick_id']),
           'tick_no': asInt(tick['tick_no'], fallback: index + 1),
+          'sub_tick_no': asInt(tick['sub_tick_no'], fallback: 1),
           'status': asInt(tick['status']),
           'created_at': tick['created_at'],
           'tick_result': <String, dynamic>{
@@ -456,7 +457,7 @@ List<Map<String, dynamic>> _originTicksFromV1(Map<String, dynamic> raw) {
               ),
             ),
             'paragraphs': paragraphs,
-            'location_groups': locationGroups,
+            if (locationGroupsRaw is List) 'location_groups': locationGroups,
           },
         };
       })

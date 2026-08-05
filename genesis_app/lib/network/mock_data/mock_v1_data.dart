@@ -217,6 +217,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'goal': 'Keep the Central Hub stable.',
     'avatar': '',
     'location_id': 'loc_hub',
+    'is_recommend': 1,
   },
   {
     'type': 'ai',
@@ -778,7 +779,7 @@ const List<Map<String, dynamic>> kMockV1Ticks = [
         'text':
             'Iris calibrates the pressure gauges and notices the city grid humming too early.',
         'character_deltas': [
-          {'char_id': 'c_mock_iris', 'name': 'Iris Vale', 'delta': '+3 focus'},
+          {'char_id': 'c_mock_iris', 'name': 'Iris Vale', 'delta': 3},
         ],
       },
     ],
@@ -794,11 +795,7 @@ const List<Map<String, dynamic>> kMockV1Ticks = [
         'text':
             'Marshal Crow closes the east turnstile after finding a crate with mismatched seals.',
         'character_deltas': [
-          {
-            'char_id': 'c_mock_crow',
-            'name': 'Marshal Crow',
-            'delta': '+4 suspicion',
-          },
+          {'char_id': 'c_mock_crow', 'name': 'Marshal Crow', 'delta': 4},
         ],
       },
     ],
@@ -815,11 +812,7 @@ const List<Map<String, dynamic>> kMockV1Ticks = [
         'text':
             'Iris reroutes power through a museum generator while citizens trade battery favors.',
         'character_deltas': [
-          {
-            'char_id': 'c_mock_iris',
-            'name': 'Iris Vale',
-            'delta': '-2 stamina',
-          },
+          {'char_id': 'c_mock_iris', 'name': 'Iris Vale', 'delta': -2},
         ],
       },
       {
@@ -828,11 +821,7 @@ const List<Map<String, dynamic>> kMockV1Ticks = [
         'text':
             'Crow lets a stranded courier pass after verifying the message tube by hand.',
         'character_deltas': [
-          {
-            'char_id': 'c_mock_crow',
-            'name': 'Marshal Crow',
-            'delta': '+1 trust',
-          },
+          {'char_id': 'c_mock_crow', 'name': 'Marshal Crow', 'delta': 1},
         ],
       },
     ],
@@ -849,11 +838,7 @@ const List<Map<String, dynamic>> kMockV1Ticks = [
         'text':
             'Iris marks a new tunnel on the public map and asks for volunteers before the next shift.',
         'character_deltas': [
-          {
-            'char_id': 'c_mock_iris',
-            'name': 'Iris Vale',
-            'delta': '+5 resolve',
-          },
+          {'char_id': 'c_mock_iris', 'name': 'Iris Vale', 'delta': 5},
         ],
       },
     ],

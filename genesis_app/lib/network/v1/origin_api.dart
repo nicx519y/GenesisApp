@@ -98,7 +98,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"info":{"origin_id":"string","origin_name":"string","origin_version":"1","origin_version_time":1779184800,"definition_version":2,"language":"zh-Hans","current_time":"Day 1, 08:30","owner_uid":"string","owner_name":"string","owner_user":{},"brief":"string","tags":[],"metric":{},"created_at":0,"cover":{},"map_url":"string","status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"init_location_group":{"location_id":"loc_1","initial_dialogue":[]},"characters":[],"locations":[],"ticks":[]}}
+  /// {"err_no":0,"err_msg":"succ","data":{"info":{"origin_id":"string","origin_name":"string","origin_version":"1","origin_version_time":1779184800,"definition_version":2,"language":"zh-Hans","current_time":"Day 1, 08:30","owner_uid":"string","owner_name":"string","owner_user":{},"brief":"string","tags":[],"metric":{},"created_at":0,"cover":{},"map_url":"string","status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"init_location_group":{"location_id":"loc_1","initial_dialogue":[]},"characters":[{"char_id":"string","type":"ai","is_recommend":0}],"locations":[{"location_id":"string","location_summary":"string"}],"ticks":[{"tick_id":"string","tick_no":1,"sub_tick_no":1,"status":50,"tick_result":{"current_time":"string","narrator":"string","paragraphs":[]},"created_at":0}]}}
   /// ```
   Future<Map<String, dynamic>> detail({String? originId, String? oid}) {
     final resolvedOriginId = (originId ?? oid ?? '').trim();

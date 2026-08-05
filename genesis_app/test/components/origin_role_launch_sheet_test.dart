@@ -9,6 +9,90 @@ import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dar
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 void main() {
+  testWidgets('recommended preset roles are first and show an indicator', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: OriginRoleLaunchSheet(
+            characters: [
+              OriginCharacter(
+                id: 1,
+                characterId: 'preset_regular_1',
+                originId: 1,
+                name: 'Regular one',
+                avatar: '',
+                tags: '',
+                currentLocationId: 0,
+                initialLocationId: 0,
+                createdAt: null,
+                updatedAt: null,
+              ),
+              OriginCharacter(
+                id: 2,
+                characterId: 'preset_recommended',
+                originId: 1,
+                name: 'Recommended',
+                avatar: '',
+                tags: '',
+                currentLocationId: 0,
+                initialLocationId: 0,
+                isRecommend: 1,
+                createdAt: null,
+                updatedAt: null,
+              ),
+              OriginCharacter(
+                id: 3,
+                characterId: 'preset_regular_2',
+                originId: 1,
+                name: 'Regular two',
+                avatar: '',
+                tags: '',
+                currentLocationId: 0,
+                initialLocationId: 0,
+                createdAt: null,
+                updatedAt: null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final recommendedTile = find.byKey(
+      const ValueKey('origin-role-preset-preset_recommended'),
+    );
+    final regularOneTile = find.byKey(
+      const ValueKey('origin-role-preset-preset_regular_1'),
+    );
+    final regularTwoTile = find.byKey(
+      const ValueKey('origin-role-preset-preset_regular_2'),
+    );
+
+    expect(
+      tester.getTopLeft(recommendedTile).dx,
+      lessThan(tester.getTopLeft(regularOneTile).dx),
+    );
+    expect(
+      tester.getTopLeft(regularOneTile).dx,
+      lessThan(tester.getTopLeft(regularTwoTile).dx),
+    );
+    expect(
+      find.byKey(
+        const ValueKey('origin-role-preset-recommended-preset_recommended'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('origin-role-preset-recommended-preset_regular_1'),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('initial launched tab is visible before roles finish loading', (
     WidgetTester tester,
   ) async {

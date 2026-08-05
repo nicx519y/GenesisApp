@@ -56,7 +56,7 @@ mixin _GenesisApiCreateOriginOperations on _GenesisApiContext {
       tileTypes: payload['tile_types'] is Map
           ? asJsonMap(payload['tile_types'])
           : null,
-      characters: _createOriginCharacters(payload),
+      characters: _createOriginCharacters(payload, includeRecommendation: true),
       locations: _createOriginLocations(payload),
       initLocationGroup: payload['init_location_group'] is Map
           ? asJsonMap(payload['init_location_group'])
@@ -134,7 +134,7 @@ mixin _GenesisApiCreateOriginOperations on _GenesisApiContext {
       tileTypes: payload['tile_types'] is Map
           ? asJsonMap(payload['tile_types'])
           : null,
-      characters: _createOriginCharacters(payload),
+      characters: _createOriginCharacters(payload, includeRecommendation: true),
       locations: _createOriginLocations(payload),
       deletedCharIds:
           _createOriginStringList(payload['deleted_char_ids']) ??

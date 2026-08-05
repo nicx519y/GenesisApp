@@ -23,6 +23,8 @@ void main() {
       expect(draft.basics.coverImageUrl, 'cover.webp');
       expect(draft.characters.single.personality, 'Patient');
       expect(draft.characters.single.bio, isEmpty);
+      expect(draft.characters.single.isRecommend, 1);
+      expect(draft.characters.single.isRecommended, isTrue);
       expect(draft.locations.single.initialCharacterIds, ['char_mira']);
       expect(draft.storyEvents.single.event, isEmpty);
       expect(draft.storyEventsSaved, isTrue);
@@ -208,6 +210,7 @@ Map<String, dynamic> _forEditData() {
         'name': 'Mira',
         'identity': 'Archivist',
         'brief': 'Patient',
+        'is_recommend': 1,
         'initial_location_id': 'loc_archive',
         'location_id': 'loc_elsewhere',
       },

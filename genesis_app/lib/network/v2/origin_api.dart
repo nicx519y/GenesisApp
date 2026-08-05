@@ -7,7 +7,8 @@ class OriginV2Api extends V2ApiResource {
   ///
   /// Returns the owned Origin's complete detail using the same nested
   /// `info/stats/init_location_group/characters/locations/ticks` shape as
-  /// GET /api/v1/origin/detail.
+  /// GET /api/v1/origin/detail. Each character includes integer
+  /// `is_recommend` (`0` or `1`).
   Future<Map<String, dynamic>> forEdit({required String originId}) {
     final resolvedOriginId = originId.trim();
     if (resolvedOriginId.isEmpty) {
@@ -21,6 +22,7 @@ class OriginV2Api extends V2ApiResource {
   /// Uses the automatic 2.5D map generation flow. The server ignores
   /// [definitionVersion] and [tileTypes], persists definition version 2, and
   /// returns a lightweight OriginUpsertResp while map generation continues.
+  /// Character entries include integer `is_recommend` (`0` or `1`).
   Future<Map<String, dynamic>> create({
     required String originName,
     String? originVersion,
@@ -66,7 +68,8 @@ class OriginV2Api extends V2ApiResource {
   ///
   /// Updates an owned Origin and asynchronously regenerates its complete 2.5D
   /// map. Omitting [initLocationGroup] tells the server to clear the previous
-  /// initial dialogue.
+  /// initial dialogue. Character entries include integer `is_recommend`
+  /// (`0` or `1`).
   Future<Map<String, dynamic>> update({
     required String originId,
     required String originName,

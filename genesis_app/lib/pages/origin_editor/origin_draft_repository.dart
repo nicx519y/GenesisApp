@@ -469,6 +469,7 @@ CharacterDraft _characterDraftFromV1(Map<String, dynamic> raw) {
       asString(raw['bio'], fallback: asString(raw['description'])),
     ),
     goal: decodeGenesisUgcTextForDisplay(asString(raw['goal'])),
+    isRecommend: asInt(raw['is_recommend']) == 1 ? 1 : 0,
   );
 }
 

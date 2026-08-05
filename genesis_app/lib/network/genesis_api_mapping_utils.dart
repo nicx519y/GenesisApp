@@ -83,8 +83,9 @@ String? _createOriginTickDurationTime(Map<String, dynamic> payload) {
 }
 
 List<Map<String, dynamic>> _createOriginCharacters(
-  Map<String, dynamic> payload,
-) {
+  Map<String, dynamic> payload, {
+  bool includeRecommendation = false,
+}) {
   final locations = _payloadMapList(payload['location_list']);
   final initialLocationByCharacter = <String, String>{};
   for (final location in locations) {
@@ -118,6 +119,8 @@ List<Map<String, dynamic>> _createOriginCharacters(
             ),
           'goal': asString(item['goal']),
           'avatar': _createOriginImageInput(item['avatar']) ?? '',
+          if (includeRecommendation)
+            'is_recommend': asInt(item['is_recommend']) == 1 ? 1 : 0,
           'initial_location_id': asString(
             item['initial_location_id'],
             fallback: initialLocationByCharacter[charId] ?? '',

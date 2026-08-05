@@ -300,6 +300,9 @@ class CreateOriginDraft {
     if (characters.where(_characterHasContent).isEmpty) {
       errors.add('Characters: Please create at least one character.');
     }
+    if (characters.where((item) => item.isRecommended).length > 1) {
+      errors.add('Characters: Only one character can be recommended.');
+    }
 
     if (basics.originName.trim().isEmpty) {
       errors.add('Basics: Worldo Name is required.');
@@ -414,6 +417,7 @@ class CreateOriginDraft {
               'description': normalizeGenesisUgcTextForSubmission(item.bio),
               'goal': normalizeGenesisUgcTextForSubmission(item.goal),
               'avatar': item.avatarUrl.trim(),
+              'is_recommend': item.isRecommended ? 1 : 0,
             },
           )
           .toList(growable: false),
@@ -485,7 +489,8 @@ class CreateOriginDraft {
 }
 
 bool _characterHasContent(CharacterDraft item) {
-  return item.avatarUrl.trim().isNotEmpty ||
+  return item.isRecommended ||
+      item.avatarUrl.trim().isNotEmpty ||
       item.name.trim().isNotEmpty ||
       item.identity.trim().isNotEmpty ||
       item.personality.trim().isNotEmpty ||
@@ -602,6 +607,7 @@ class CharacterDraft {
     this.personality = '',
     this.bio = '',
     this.goal = '',
+    this.isRecommend = 0,
   });
 
   final String charId;
@@ -611,6 +617,9 @@ class CharacterDraft {
   final String personality;
   final String bio;
   final String goal;
+  final int isRecommend;
+
+  bool get isRecommended => isRecommend == 1;
 
   factory CharacterDraft.fromJson(Map<String, dynamic> json) {
     return CharacterDraft(
@@ -621,6 +630,7 @@ class CharacterDraft {
       personality: _asString(json['personality']),
       bio: _asString(json['bio']),
       goal: _asString(json['goal']),
+      isRecommend: _asNullableInt(json['is_recommend']) == 1 ? 1 : 0,
     );
   }
 
@@ -632,6 +642,7 @@ class CharacterDraft {
     String? personality,
     String? bio,
     String? goal,
+    int? isRecommend,
   }) {
     return CharacterDraft(
       charId: charId ?? this.charId,
@@ -641,6 +652,7 @@ class CharacterDraft {
       personality: personality ?? this.personality,
       bio: bio ?? this.bio,
       goal: goal ?? this.goal,
+      isRecommend: isRecommend ?? this.isRecommend,
     );
   }
 
@@ -653,6 +665,7 @@ class CharacterDraft {
       'personality': personality,
       'bio': bio,
       'goal': goal,
+      'is_recommend': isRecommended ? 1 : 0,
     };
   }
 }

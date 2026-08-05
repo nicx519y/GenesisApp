@@ -156,7 +156,7 @@ class WorldV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"tick_id":"string","tick_no":1,"status":10,"tick_result":{"narrator":"string","paragraphs":[],"location_groups":[]},"created_at":0}],"total":0,"pn":1,"rn":10}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"tick_id":"string","tick_no":1,"sub_tick_no":1,"status":50,"tick_result":{"current_time":"string","narrator":"string","paragraphs":[],"location_groups":[]},"created_at":0}],"total":0,"pn":1,"rn":10}}
   /// ```
   Future<Map<String, dynamic>> tickList({
     required String worldId,

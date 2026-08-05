@@ -172,6 +172,7 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
     initialLocationBusinessId: initialLocationBusinessId,
     metricValue: asInt(raw['metric_value']),
     delta: asInt(raw['delta']),
+    isRecommend: asInt(raw['is_recommend']),
     createdAt: _apiDateTime(raw['created_at']),
     updatedAt: _apiDateTime(raw['updated_at']),
   );
@@ -329,9 +330,11 @@ Map<String, dynamic> _worldTickFromV1(Map<String, dynamic> raw, int index) {
   return {
     'tick_id': asString(raw['tick_id']),
     'tick_no': asInt(raw['tick_no'], fallback: index + 1),
+    'sub_tick_no': asInt(raw['sub_tick_no'], fallback: 1),
     'status': asInt(raw['status']),
     'created_at': createdAt,
     'tick_result': {
+      'current_time': asString(result['current_time']),
       'narrator': asString(result['narrator']),
       'paragraphs': paragraphs,
       'location_groups': locationGroups,

@@ -17,6 +17,7 @@ class OriginCharacterForm {
     required this.personality,
     required this.bio,
     required this.goal,
+    this.isRecommended = false,
     OriginCharacterFormFocusNodes? focusNodes,
   }) : focusNodes = focusNodes ?? OriginCharacterFormFocusNodes();
 
@@ -40,6 +41,7 @@ class OriginCharacterForm {
     String personality = '',
     String bio = '',
     String goal = '',
+    bool isRecommended = false,
   }) {
     return OriginCharacterForm(
       charId: charId,
@@ -49,6 +51,7 @@ class OriginCharacterForm {
       personality: TextEditingController(text: personality),
       bio: TextEditingController(text: bio),
       goal: TextEditingController(text: goal),
+      isRecommended: isRecommended,
     );
   }
 
@@ -59,6 +62,7 @@ class OriginCharacterForm {
   final TextEditingController personality;
   final TextEditingController bio;
   final TextEditingController goal;
+  bool isRecommended;
   final OriginCharacterFormFocusNodes focusNodes;
 
   List<TextEditingController> get controllers {
@@ -92,10 +96,12 @@ class OriginCharacterForm {
   }
 
   bool get hasContent {
-    return controllers.any((controller) => controller.text.trim().isNotEmpty);
+    return isRecommended ||
+        controllers.any((controller) => controller.text.trim().isNotEmpty);
   }
 
   void clear() {
+    isRecommended = false;
     for (final controller in controllers) {
       controller.clear();
     }

@@ -507,6 +507,7 @@ class OriginCharacter {
     this.initialLocationBusinessId = '',
     this.metricValue = 0,
     this.delta = 0,
+    this.isRecommend = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -532,12 +533,15 @@ class OriginCharacter {
   final String initialLocationBusinessId;
   final int metricValue;
   final int delta;
+  final int isRecommend;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
   String get identity => tags;
 
   String get brief => tagline;
+
+  bool get isRecommended => isRecommend == 1;
 
   factory OriginCharacter.fromJson(Map<String, dynamic> json) {
     final currentLocation = json['current_location'];
@@ -611,6 +615,7 @@ class OriginCharacter {
       initialLocationBusinessId: initialLocationBusinessId,
       metricValue: asInt(json['metric_value']),
       delta: asInt(json['delta']),
+      isRecommend: asInt(json['is_recommend']),
       createdAt: asDateTime(json['created_at']),
       updatedAt: asDateTime(json['updated_at']),
     );
@@ -880,6 +885,7 @@ List<Map<String, dynamic>> _originTicksFromJson(Object? raw) {
         return <String, dynamic>{
           'tick_id': asString(tick['tick_id']),
           'tick_no': asInt(tick['tick_no'], fallback: index + 1),
+          'sub_tick_no': asInt(tick['sub_tick_no'], fallback: 1),
           'status': asInt(tick['status']),
           'created_at': tick['created_at'],
           'tick_result': <String, dynamic>{
@@ -895,7 +901,7 @@ List<Map<String, dynamic>> _originTicksFromJson(Object? raw) {
               ),
             ),
             'paragraphs': paragraphs,
-            'location_groups': locationGroups,
+            if (locationGroupsRaw is List) 'location_groups': locationGroups,
           },
         };
       })

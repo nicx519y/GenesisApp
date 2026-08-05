@@ -496,19 +496,40 @@ void main() {
     expect(((detail['stats'] as Map)['copy_cnt']), greaterThanOrEqualTo(1000));
     expect(detail['init_location_group'], isNull);
     final detailCharacter = (detail['characters'] as List).first as Map;
+    expect(detailCharacter['type'], 'ai');
+    expect(detailCharacter['player_uid'], isEmpty);
     expect(detailCharacter['player_user'], isA<Map>());
-    expect(detailCharacter['player_joined_at'], isA<int>());
+    expect(detailCharacter['player_joined_at'], 0);
+    expect(detailCharacter['is_recommend'], 1);
+    expect(
+      detailInfo,
+      allOf(
+        isNot(contains('setting')),
+        isNot(contains('events')),
+        isNot(contains('started_at')),
+        isNot(contains('tick_duration_days')),
+      ),
+    );
     expect(
       ((detail['locations'] as List).first as Map),
       allOf(
-        contains('location_description'),
+        isNot(contains('location_description')),
         containsPair('x', isA<double>()),
         containsPair('y', isA<double>()),
       ),
     );
     final detailTick = (detail['ticks'] as List).first as Map;
     expect(detailTick, contains('tick_result'));
-    expect((detailTick['tick_result'] as Map)['current_time'], isNotEmpty);
+    expect(detailTick['sub_tick_no'], 1);
+    final detailTickResult = detailTick['tick_result'] as Map;
+    expect(detailTickResult['current_time'], isNotEmpty);
+    expect(detailTickResult, isNot(contains('location_groups')));
+    final detailParagraph =
+        (detailTickResult['paragraphs'] as List).first as Map;
+    expect(detailParagraph['visibility'], anyOf('public', 'char_only'));
+    expect(detailParagraph['visible_to'], isA<List>());
+    expect(detailParagraph['clue'], isA<String>());
+    expect(detailParagraph['character_deltas'], isEmpty);
     final edit = await api.v2.origin.forEdit(originId: origin);
     expect((edit['info'] as Map)['origin_id'], origin);
     expect(edit, contains('characters'));
@@ -533,7 +554,13 @@ void main() {
     final createdV2 = await api.v2.origin.create(
       originName: 'Created V2 Mock Origin',
       events: const ['The old event remains.'],
-      characters: const [],
+      characters: const [
+        {
+          'char_id': 'char_v2_recommended',
+          'name': 'Recommended Guide',
+          'is_recommend': 1,
+        },
+      ],
       locations: const [],
       initLocationGroup: const {
         'location_id': 'loc_1_1_1',
@@ -557,6 +584,10 @@ void main() {
       originId: createdV2Origin,
     );
     expect((createdV2ForEdit['info'] as Map)['definition_version'], 2);
+    expect(
+      ((createdV2ForEdit['characters'] as List).single as Map)['is_recommend'],
+      1,
+    );
     expect(createdV2ForEdit, isNot(contains('tile_types')));
     expect(createdV2ForEdit['init_location_group'], {
       'location_id': 'loc_1_1_1',
@@ -594,12 +625,18 @@ void main() {
     final createdV2Ticks = createdV2Detail['ticks'] as List;
     final createdV2TickResult =
         (createdV2Ticks.first as Map)['tick_result'] as Map;
-    expect(createdV2TickResult['location_groups'], isEmpty);
+    expect(createdV2TickResult, isNot(contains('location_groups')));
     final updatedV2 = await api.v2.origin.update(
       originId: createdV2Origin,
       originName: 'Updated V2 Mock Origin',
       events: const [],
-      characters: const [],
+      characters: const [
+        {
+          'char_id': 'char_v2_recommended',
+          'name': 'Recommended Guide',
+          'is_recommend': 0,
+        },
+      ],
       locations: const [],
     );
     expect(updatedV2['origin_id'], createdV2Origin);
@@ -616,6 +653,10 @@ void main() {
       originId: createdV2Origin,
     );
     expect((updatedV2ForEdit['info'] as Map), isNot(contains('events')));
+    expect(
+      ((updatedV2ForEdit['characters'] as List).single as Map)['is_recommend'],
+      0,
+    );
     expect(updatedV2ForEdit['init_location_group'], isNull);
     await api.v1.origin.launch(
       oid: createdOrigin,
@@ -718,6 +759,10 @@ void main() {
     final tickListItems = tickList['list'] as List;
     expect(tickListItems, hasLength(2));
     expect(
+      tickListItems.every((tick) => (tick as Map)['status'] == 50),
+      isTrue,
+    );
+    expect(
       [
         for (final tick in tickListItems)
           ((tick as Map)['tick_no'] as num).toInt(),
@@ -727,6 +772,22 @@ void main() {
     expect(
       ((tickListItems.first as Map)['tick_result'] as Map)['narrator'],
       isNotEmpty,
+    );
+    final firstTick = tickListItems.first as Map;
+    expect(firstTick['sub_tick_no'], 1);
+    final firstTickResult = firstTick['tick_result'] as Map;
+    expect(firstTickResult['current_time'], isNotEmpty);
+    final firstParagraph = (firstTickResult['paragraphs'] as List).first as Map;
+    expect(firstParagraph['visibility'], 'public');
+    expect(firstParagraph['visible_to'], isEmpty);
+    expect(firstParagraph['clue'], isA<String>());
+    expect(
+      ((firstParagraph['character_deltas'] as List).first as Map)['delta'],
+      isA<int>(),
+    );
+    await expectLater(
+      api.v1.world.tickList(worldId: 'w_missing_tick_list'),
+      throwsA(isA<ApiException>().having((error) => error.code, 'code', 20201)),
     );
     final apply = await api.v1.world.apply(worldId: world, message: '想加入这个世界');
     expect(apply['status'], 10);

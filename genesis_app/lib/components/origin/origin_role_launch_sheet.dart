@@ -9,7 +9,9 @@ import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
 import '../world_details_shell.dart';
 import 'origin_character_form.dart';
+import 'origin_role_selection_mark.dart';
 import '../../icons/custom_icon_assets.dart';
+import '../../icons/my_flutter_app_icons.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
@@ -603,9 +605,14 @@ class _PresetRoleGrid extends StatelessWidget {
       );
     }
 
+    final sortedCharacters = <OriginCharacter>[
+      ...characters.where((character) => character.isRecommended),
+      ...characters.where((character) => !character.isRecommended),
+    ];
+
     return GridView.builder(
       padding: const EdgeInsets.only(top: 8),
-      itemCount: characters.length,
+      itemCount: sortedCharacters.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         mainAxisExtent: 116,
@@ -613,7 +620,7 @@ class _PresetRoleGrid extends StatelessWidget {
         mainAxisSpacing: 2,
       ),
       itemBuilder: (context, index) {
-        final character = characters[index];
+        final character = sortedCharacters[index];
         final id = _characterRoleId(character);
         final avatar =
             resolveAvatarUrl?.call(character.avatar) ?? character.avatar.trim();
@@ -668,8 +675,16 @@ class _PresetRoleTile extends StatelessWidget {
                   Positioned(
                     top: 6,
                     right: 6,
-                    child: _SelectionMark(selected: selected),
+                    child: OriginRoleSelectionMark(selected: selected),
                   ),
+                  if (character.isRecommended)
+                    Positioned(
+                      right: 6,
+                      bottom: 6,
+                      child: _RecommendedRoleMark(
+                        characterId: _characterRoleId(character),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -693,31 +708,37 @@ class _PresetRoleTile extends StatelessWidget {
   }
 }
 
-class _SelectionMark extends StatelessWidget {
-  const _SelectionMark({required this.selected});
+class _RecommendedRoleMark extends StatelessWidget {
+  const _RecommendedRoleMark({required this.characterId});
 
-  final bool selected;
+  final String characterId;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 26,
-      height: 26,
-      decoration: BoxDecoration(
-        color: selected ? GenesisColors.brand : Colors.white10,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 5,
-            offset: Offset(0, 1),
-          ),
-        ],
+    return Semantics(
+      label: 'Recommended role',
+      child: Container(
+        key: ValueKey('origin-role-preset-recommended-$characterId'),
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 5,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: const Icon(
+          MyFlutterApp.redstarCharIcon,
+          size: 16,
+          color: GenesisColors.brand,
+        ),
       ),
-      child: selected
-          ? const Icon(Icons.check, size: 18, color: Colors.white)
-          : null,
     );
   }
 }
@@ -815,7 +836,7 @@ class _LaunchedPresetRoleTile extends StatelessWidget {
                   Positioned(
                     top: 6,
                     right: 6,
-                    child: _SelectionMark(selected: selected),
+                    child: OriginRoleSelectionMark(selected: selected),
                   ),
                 ],
               ),

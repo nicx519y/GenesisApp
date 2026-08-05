@@ -1132,26 +1132,22 @@ void main() {
             'characters': const [
               {
                 'char_id': 'char_1',
-                'type': 'custom',
-                'player_uid': 'u_player',
-                'player_username': 'Player',
+                'type': 'ai',
+                'player_uid': '',
+                'player_username': '',
                 'player_user': {
-                  'uid': 'u_player',
-                  'name': 'Player',
-                  'avatar': {
-                    'sm_url': 'https://cdn.example.com/player-sm.webp',
-                    'xl_url': 'https://cdn.example.com/player-xl.webp',
-                    'object_key': 'player-xl.webp',
-                  },
+                  'uid': '',
+                  'name': '',
+                  'avatar': <String, Object?>{},
                   'deleted': false,
-                  'follower_cnt': 1,
-                  'following_cnt': 2,
-                  'friend_cnt': 3,
-                  'create_origin_cnt': 4,
-                  'launch_world_cnt': 5,
-                  'join_world_cnt': 6,
+                  'follower_cnt': 0,
+                  'following_cnt': 0,
+                  'friend_cnt': 0,
+                  'create_origin_cnt': 0,
+                  'launch_world_cnt': 0,
+                  'join_world_cnt': 0,
                 },
-                'player_joined_at': 1716000020,
+                'player_joined_at': 0,
                 'name': 'Sam',
                 'identity': 'Guide',
                 'brief': 'Knows the old roads.',
@@ -1165,6 +1161,7 @@ void main() {
                 'location_id': 'loc_2',
                 'metric_value': 9,
                 'delta': -2,
+                'is_recommend': 1,
               },
             ],
             'locations': const [
@@ -1173,7 +1170,6 @@ void main() {
                 'level': 1,
                 'location_pid': '',
                 'location_name': 'Gate',
-                'location_description': 'Gate fallback description.',
                 'location_paragraph': 'Gate launch paragraph.',
                 'location_timestamp': 'Day 1, 08:30',
                 'location_summary': 'The gate is open.',
@@ -1198,12 +1194,25 @@ void main() {
             ],
             'ticks': const [
               {
+                'tick_id': 'tick_1',
                 'tick_no': 1,
+                'sub_tick_no': 1,
+                'status': 50,
                 'created_at': 1716000000,
                 'tick_result': {
                   'current_time': 'Day 1, 08:30',
                   'narrator': 'Narrator from origin tick result.',
-                  'paragraphs': <Object?>[],
+                  'paragraphs': [
+                    {
+                      'location_id': 'loc_1',
+                      'timestamp': 'Day 1, 08:30',
+                      'text': 'The gate opens.',
+                      'visibility': 'char_only',
+                      'visible_to': ['char_1'],
+                      'clue': 'Move through the gate.',
+                      'character_deltas': <Object?>[],
+                    },
+                  ],
                 },
               },
             ],
@@ -1250,14 +1259,17 @@ void main() {
       ['nar', 'char_1', 'nar_pic'],
     );
     final character = origin.characters.single;
-    expect(character.type, 'custom');
-    expect(character.playerUser.uid, 'u_player');
-    expect(character.playerJoinedAt, 1716000020);
+    expect(character.type, 'ai');
+    expect(character.playerUid, isEmpty);
+    expect(character.playerUser.uid, isEmpty);
+    expect(character.playerJoinedAt, 0);
     expect(character.currentLocationBusinessId, 'loc_2');
     expect(character.initialLocationBusinessId, 'loc_1');
     expect(character.currentLocationId, isNot(character.initialLocationId));
     expect(character.metricValue, 9);
     expect(character.delta, -2);
+    expect(character.isRecommend, 1);
+    expect(character.isRecommended, isTrue);
     expect(character.avatarResource.objectKey, 'sam-xl.webp');
     expect(origin.ticks.single['tick_result'], isA<Map>());
     expect(
@@ -1268,6 +1280,14 @@ void main() {
       (origin.ticks.single['tick_result'] as Map)['current_time'],
       'Day 1, 08:30',
     );
+    expect(origin.ticks.single['sub_tick_no'], 1);
+    expect(origin.ticks.single['status'], 50);
+    final tickResult = origin.ticks.single['tick_result'] as Map;
+    expect(tickResult, isNot(contains('location_groups')));
+    final tickParagraph = (tickResult['paragraphs'] as List).single as Map;
+    expect(tickParagraph['visibility'], 'char_only');
+    expect(tickParagraph['visible_to'], ['char_1']);
+    expect(tickParagraph['clue'], 'Move through the gate.');
     expect(origin.metric['unit'], '%');
     expect(origin.definitionVersion, 2);
     final location = origin.locations.single;
@@ -1275,6 +1295,7 @@ void main() {
     expect(location.locationParagraph, 'Gate launch paragraph.');
     expect(location.locationTimestamp, 'Day 1, 08:30');
     expect(location.locationSummary, 'The gate is open.');
+    expect(location.description, 'The gate is open.');
     expect(location.xPercent, 20);
     expect(location.yPercent, 30);
     expect(location.x, 128.5);
@@ -1560,7 +1581,9 @@ void main() {
                 'location_id': 'loc_1',
                 'initial_dialogue': <Object?>[],
               },
-              'characters': const <Object?>[],
+              'characters': const <Object?>[
+                {'char_id': 'char_1', 'name': 'Ari', 'is_recommend': 1},
+              ],
               'locations': const <Object?>[],
               'ticks': const <Object?>[],
             },
@@ -1591,6 +1614,7 @@ void main() {
       );
       expect(edit['stats'], isA<Map>());
       expect(edit['ticks'], isEmpty);
+      expect(((edit['characters'] as List).single as Map)['is_recommend'], 1);
     },
   );
 
@@ -1648,6 +1672,7 @@ void main() {
             'description': 'Keeps the route.',
             'goal': 'Open the city.',
             'avatar': 'ari.png',
+            'is_recommend': 1,
           },
         ],
         'location_list': const [
@@ -1696,6 +1721,7 @@ void main() {
     expect(characters.single['personality'], 'Calm');
     expect(characters.single['bio'], 'Keeps the route.');
     expect(characters.single['initial_location_id'], 'loc_tmp_1');
+    expect(characters.single, isNot(contains('is_recommend')));
 
     final locations = body['locations'] as List;
     expect(locations, hasLength(1));
@@ -1766,6 +1792,7 @@ void main() {
             'goal': 'Find the first page.',
             'avatar': 'mira.png',
             'initial_location_id': 'loc_keep',
+            'is_recommend': 1,
           },
         ],
         'location_list': const [
@@ -1828,6 +1855,7 @@ void main() {
     expect(characters.single['personality'], 'Patient');
     expect(characters.single['bio'], 'Keeps the records.');
     expect(characters.single['initial_location_id'], 'loc_keep');
+    expect(characters.single, isNot(contains('is_recommend')));
 
     final locations = body['locations'] as List;
     expect(locations.single['location_id'], 'loc_keep');
@@ -1889,6 +1917,7 @@ void main() {
           {
             'char_id': 'char_1',
             'name': 'Ari',
+            'is_recommend': 1,
             'avatar': {
               'sm_url': 'avatar-small.webp',
               'xl_url': 'avatar-large.webp',
@@ -1934,6 +1963,7 @@ void main() {
     expect(body['characters'], hasLength(1));
     expect(body['locations'], hasLength(1));
     expect((body['characters'] as List).single['avatar'], isA<Map>());
+    expect((body['characters'] as List).single['is_recommend'], 1);
     expect(
       (body['locations'] as List).single['location_pid'],
       'loc_tmp_parent',
@@ -1978,7 +2008,9 @@ void main() {
         'world_setting': 'Updated setting.',
         'event_list': const <Map<String, Object?>>[],
         'cover': 'cover.webp',
-        'character_list': const <Map<String, Object?>>[],
+        'character_list': const <Map<String, Object?>>[
+          {'char_id': 'char_1', 'name': 'Ari', 'is_recommend': 0},
+        ],
         'location_list': const <Map<String, Object?>>[],
         'deleted_char_ids': const ['char_removed'],
         'deleted_location_ids': const ['loc_removed'],
@@ -1996,6 +2028,7 @@ void main() {
     expect(body['origin_name'], 'Updated Automatic Map Origin');
     expect(body['setting'], 'Updated setting.');
     expect(body['events'], isEmpty);
+    expect((body['characters'] as List).single['is_recommend'], 0);
     expect(body['update_notes'], 'Regenerate the map.');
     expect(body['deleted_char_ids'], ['char_removed']);
     expect(body['deleted_location_ids'], ['loc_removed']);
@@ -3692,7 +3725,7 @@ void main() {
           statusCode: 200,
           headers: {'content-type': 'application/json'},
           body:
-              '{"errNo":0,"errStr":"success","data":{"list":[{"tickId":"tick_2","tickNo":2,"status":10,"tickResult":{"narrator":"latest","paragraphs":[{"locationId":"loc_1","text":"paragraph"}],"locationGroups":[]},"createdAt":1779271200}],"total":3,"pn":1,"rn":2}}',
+              '{"errNo":0,"errStr":"success","data":{"list":[{"tickId":"tick_2","tickNo":2,"subTickNo":1,"status":50,"tickResult":{"currentTime":"Day 2, 19:10","narrator":"latest","paragraphs":[{"locationId":"loc_1","timestamp":"Day 2, 19:10","text":"paragraph","visibility":"char_only","visibleTo":["char_6"],"clue":"follow the signal","characterDeltas":[{"charId":"char_6","name":"Iris","delta":5}]}],"locationGroups":[]},"createdAt":1779271200}],"total":3,"pn":1,"rn":2}}',
         ),
       );
       final healthTransport = _FakeTransport(
@@ -3721,10 +3754,21 @@ void main() {
       expect(result.total, 3);
       expect(result.data.single['tick_id'], 'tick_2');
       expect(result.data.single['tick_no'], 2);
+      expect(result.data.single['sub_tick_no'], 1);
+      expect(result.data.single['status'], 50);
       final tickResult = result.data.single['tick_result'] as Map;
+      expect(tickResult['current_time'], 'Day 2, 19:10');
       expect(tickResult['narrator'], 'latest');
       final paragraphs = tickResult['paragraphs'] as List;
-      expect((paragraphs.single as Map)['location_id'], 'loc_1');
+      final paragraph = paragraphs.single as Map;
+      expect(paragraph['location_id'], 'loc_1');
+      expect(paragraph['visibility'], 'char_only');
+      expect(paragraph['visible_to'], ['char_6']);
+      expect(paragraph['clue'], 'follow the signal');
+      expect(
+        ((paragraph['character_deltas'] as List).single as Map)['delta'],
+        5,
+      );
     },
   );
 

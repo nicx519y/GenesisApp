@@ -557,9 +557,14 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'world/tick/list') {
-      return _v1Ok(
-        _state.v1WorldTickList(worldId: query['world_id'] ?? '', query: query),
-      );
+      final worldId = (query['world_id'] ?? '').trim();
+      if (worldId.isEmpty) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      if (!_state.hasV1World(worldId)) {
+        return _v1BusinessError(20201, 'ErrorWorldNotExist');
+      }
+      return _v1Ok(_state.v1WorldTickList(worldId: worldId, query: query));
     }
 
     if (method == 'GET' && path == 'world/origin_progress') {
@@ -2135,13 +2140,42 @@ class _MockState {
 
   Map<String, dynamic> v1OriginContractDetail(String? originId) {
     final origin = _findV1Origin(originId);
+    final contract = _v1OriginContractItem(origin);
+    final info = _mapFromObject(contract['info']);
     return {
-      ..._v1OriginContractItem(origin),
+      ...contract,
+      'info': <String, dynamic>{
+        for (final key in const <String>[
+          'origin_id',
+          'origin_name',
+          'origin_version',
+          'origin_version_time',
+          'definition_version',
+          'language',
+          'current_time',
+          'owner_uid',
+          'owner_name',
+          'owner_user',
+          'brief',
+          'tags',
+          'metric',
+          'created_at',
+          'cover',
+          'map_url',
+          'status',
+        ])
+          if (info.containsKey(key)) key: info[key],
+      },
       'init_location_group': _originContractInitLocationGroup(origin),
       'characters': _originEditCharacters(
         origin,
-      ).map(_contractCharacter).toList(),
-      'locations': _originEditLocations(origin).map(_contractLocation).toList(),
+      ).map(_contractOriginDetailCharacter).toList(),
+      'locations': _originEditLocations(origin)
+          .map(
+            (location) =>
+                _contractLocation(location, includeLocationDescription: false),
+          )
+          .toList(),
       'ticks': _originContractTicks(origin),
     };
   }
@@ -2592,14 +2626,20 @@ class _MockState {
     required Map<String, String> query,
   }) {
     final world = _findV1World(worldId.trim());
-    final ticks = _v1WorldTicks(world).map(_deepCopyMap).toList()
-      ..sort((a, b) {
-        final aTickNo = (a['tick_no'] as num?)?.toInt() ?? 0;
-        final bTickNo = (b['tick_no'] as num?)?.toInt() ?? 0;
-        final tickNoCompare = bTickNo.compareTo(aTickNo);
-        if (tickNoCompare != 0) return tickNoCompare;
-        return '${b['tick_id'] ?? ''}'.compareTo('${a['tick_id'] ?? ''}');
-      });
+    final indexedTicks =
+        _v1WorldTicks(world).indexed
+            .where((entry) => (entry.$2['status'] as num?)?.toInt() == 50)
+            .toList(growable: false)
+          ..sort((a, b) {
+            final aTickNo = (a.$2['tick_no'] as num?)?.toInt() ?? 0;
+            final bTickNo = (b.$2['tick_no'] as num?)?.toInt() ?? 0;
+            final tickNoCompare = bTickNo.compareTo(aTickNo);
+            if (tickNoCompare != 0) return tickNoCompare;
+            return b.$1.compareTo(a.$1);
+          });
+    final ticks = indexedTicks
+        .map((entry) => _deepCopyMap(entry.$2))
+        .toList(growable: false);
     return _v1Paged(ticks, query);
   }
 
@@ -2750,9 +2790,11 @@ class _MockState {
     final lastTick = {
       'tick_id': 'tick_${world['wid']}_$tickCount',
       'tick_no': tickCount,
-      'status': 10,
+      'sub_tick_no': 1,
+      'status': 50,
       'created_at': nowEpoch,
       'tick_result': {
+        'current_time': nowIso,
         'narrator': world['last_progress_summary'],
         'paragraphs': const <Map<String, dynamic>>[],
         'location_groups': const <Map<String, dynamic>>[],
@@ -3829,7 +3871,26 @@ class _MockState {
   }
 
   List<Map<String, dynamic>> _originContractTicks(Map<String, dynamic> origin) {
-    return kMockV1Ticks.map(_contractTick).toList(growable: false);
+    return kMockV1Ticks
+        .map((tick) {
+          final contracted = _contractTick(tick);
+          final result = _mapFromObject(contracted['tick_result']);
+          result.remove('location_groups');
+          final paragraphs = result['paragraphs'];
+          if (paragraphs is List) {
+            result['paragraphs'] = paragraphs
+                .map((paragraph) {
+                  final normalized = _mapFromObject(paragraph);
+                  normalized['character_deltas'] =
+                      const <Map<String, dynamic>>[];
+                  return normalized;
+                })
+                .toList(growable: false);
+          }
+          contracted['tick_result'] = result;
+          return contracted;
+        })
+        .toList(growable: false);
   }
 
   Map<String, dynamic>? _originContractInitLocationGroup(
@@ -4071,14 +4132,34 @@ class _MockState {
     };
   }
 
-  Map<String, dynamic> _contractLocation(Map<String, dynamic> location) {
+  Map<String, dynamic> _contractOriginDetailCharacter(
+    Map<String, dynamic> character,
+  ) {
+    final contract = _contractCharacter(character);
+    contract.remove('description');
+    return {
+      ...contract,
+      'type': 'ai',
+      'player_uid': '',
+      'player_username': '',
+      'player_user': _contractPublicUser(''),
+      'player_joined_at': 0,
+      'is_recommend': asInt(character['is_recommend']),
+    };
+  }
+
+  Map<String, dynamic> _contractLocation(
+    Map<String, dynamic> location, {
+    bool includeLocationDescription = true,
+  }) {
     return {
       'location_id': location['location_id'],
       'level': location['level'] ?? 1,
       'location_pid': location['location_pid'] ?? '',
       'location_name': location['location_name'] ?? location['name'],
-      'location_description':
-          location['location_description'] ?? location['description'],
+      if (includeLocationDescription)
+        'location_description':
+            location['location_description'] ?? location['description'],
       'location_paragraph': location['location_paragraph'] ?? '',
       'location_timestamp': location['location_timestamp'] ?? '',
       'location_summary':
@@ -4136,6 +4217,9 @@ class _MockState {
                       tick['created_at'] ??
                       kMockV1Now,
                   'text': paragraph['text'] ?? tick['summary'] ?? '',
+                  'visibility': paragraph['visibility'] ?? 'public',
+                  'visible_to': paragraph['visible_to'] ?? const <String>[],
+                  'clue': paragraph['clue'] ?? '',
                   'character_deltas':
                       paragraph['character_deltas'] ??
                       const <Map<String, dynamic>>[],
@@ -4147,13 +4231,17 @@ class _MockState {
               'location_id': 'loc_hub',
               'timestamp': tick['created_at'] ?? kMockV1Now,
               'text': tick['summary'] ?? '',
+              'visibility': 'public',
+              'visible_to': const <String>[],
+              'clue': '',
               'character_deltas': const <Map<String, dynamic>>[],
             },
           ];
     return {
       'tick_id': 'tick_mock_${tick['tick_no'] ?? 1}',
       'tick_no': tick['tick_no'] ?? 1,
-      'status': tick['status'] ?? 10,
+      'sub_tick_no': tick['sub_tick_no'] ?? 1,
+      'status': tick['status'] ?? 50,
       'created_at': _mockEpoch(tick['created_at']),
       'tick_result': {
         'current_time':
@@ -4212,6 +4300,12 @@ class _MockState {
       (item) => item['wid'] == wid,
       orElse: () => {..._v1World, 'wid': wid},
     );
+  }
+
+  bool hasV1World(String wid) {
+    final resolvedWorldId = wid.trim();
+    return resolvedWorldId.isNotEmpty &&
+        _v1Worlds.any((item) => item['wid'] == resolvedWorldId);
   }
 
   void _ensureChatroomMessages() {

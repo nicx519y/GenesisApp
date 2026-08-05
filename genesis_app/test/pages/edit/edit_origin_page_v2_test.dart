@@ -9,6 +9,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
+import 'package:genesis_flutter_android/components/origin/origin_role_selection_mark.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
@@ -16,7 +17,10 @@ import 'package:genesis_flutter_android/network/direct_message_message_store.dar
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
+import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.dart';
+import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
+import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/platform/platform_services.dart';
 
@@ -89,6 +93,7 @@ void main() {
       expect(body, isNot(contains('setting')));
       expect(body, isNot(contains('events')));
       expect((body['characters'] as List).single, isNot(contains('bio')));
+      expect((body['characters'] as List).single['is_recommend'], 1);
       expect(body['init_location_group'], {
         'location_id': 'loc_archive',
         'initial_dialogue': [
@@ -97,6 +102,100 @@ void main() {
           {'char_id': 'nar_pic', 'content': 'opening.webp'},
         ],
       });
+    },
+  );
+
+  testWidgets(
+    'character recommendation confirmation keeps exactly one selected',
+    (tester) async {
+      final services = await _editTestServices(_EditOriginTransport());
+      final repository = MemoryOriginDraftRepository(
+        initialDraft: const CreateOriginDraft(
+          basics: BasicsDraft(),
+          characters: <CharacterDraft>[
+            CharacterDraft(
+              charId: 'char_ari',
+              name: 'Ari',
+              identity: 'Guide',
+              personality: 'Calm',
+              isRecommend: 1,
+            ),
+            CharacterDraft(
+              charId: 'char_bex',
+              name: 'Bex',
+              identity: 'Scout',
+              personality: 'Bold',
+            ),
+          ],
+          locations: <LocationDraft>[LocationDraft()],
+          storyEvents: <StoryEventDraft>[StoryEventDraft()],
+          charactersSaved: true,
+          basicsSaved: false,
+          locationsSaved: false,
+          storyEventsSaved: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(home: EditCharactersPage(repository: repository)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final ariCheckbox = find.byKey(
+        const ValueKey('origin-character-recommended-char_ari'),
+      );
+      final bexCheckbox = find.byKey(
+        const ValueKey('origin-character-recommended-char_bex'),
+      );
+      expect(
+        tester.widget<OriginRoleSelectionMark>(ariCheckbox).selected,
+        isTrue,
+      );
+      expect(
+        tester.widget<OriginRoleSelectionMark>(bexCheckbox).selected,
+        isFalse,
+      );
+
+      await tester.ensureVisible(bexCheckbox);
+      await tester.tap(bexCheckbox);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recommend this character?'), findsOneWidget);
+      expect(
+        find.text('This will remove the recommendation from "Ari".'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<OriginRoleSelectionMark>(ariCheckbox).selected,
+        isTrue,
+      );
+      expect(
+        tester.widget<OriginRoleSelectionMark>(bexCheckbox).selected,
+        isFalse,
+      );
+
+      await tester.tap(bexCheckbox);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Recommend'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<OriginRoleSelectionMark>(ariCheckbox).selected,
+        isFalse,
+      );
+      expect(
+        tester.widget<OriginRoleSelectionMark>(bexCheckbox).selected,
+        isTrue,
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      final saved = await repository.loadDraft();
+      expect(saved.characters.map((item) => item.isRecommend).toList(), [0, 1]);
     },
   );
 }
@@ -198,6 +297,7 @@ class _EditOriginTransport implements HttpTransport {
             'name': 'Mira',
             'identity': 'Archivist',
             'brief': 'Patient',
+            'is_recommend': 1,
             'initial_location_id': 'loc_archive',
             'location_id': 'loc_archive',
           },
