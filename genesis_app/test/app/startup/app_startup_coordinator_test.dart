@@ -79,13 +79,13 @@ void main() {
     return client;
   }
 
-  test('sets the persisted UID before the first Collect upload', () async {
+  test('does not wait for the persisted UID before the first upload', () async {
     final sessionStore = MemoryUserSessionStore();
     await sessionStore.saveUid('user-123');
 
     final client = await initializeWith(sessionStore);
 
-    expect(client.headers.single['X-UID'], 'user-123');
+    expect(client.headers.single, isNot(contains('X-UID')));
   });
 
   test('starts Collect anonymously when there is no persisted UID', () async {
@@ -94,11 +94,14 @@ void main() {
     expect(client.headers.single, isNot(contains('X-UID')));
   });
 
-  test('starts Collect anonymously when reading the UID fails', () async {
-    final client = await initializeWith(_ThrowingUidSessionStore());
+  test(
+    'starts Collect without reading UID in telemetry initialization',
+    () async {
+      final client = await initializeWith(_ThrowingUidSessionStore());
 
-    expect(client.headers.single, isNot(contains('X-UID')));
-  });
+      expect(client.headers.single, isNot(contains('X-UID')));
+    },
+  );
 }
 
 Future<void> _waitUntil(

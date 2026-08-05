@@ -74,8 +74,6 @@ class AppStartupCoordinator {
       // remains enabled even when the user denies or cannot answer the prompt.
       trackingEnabled: true,
     );
-    final uid = await _readInitialTelemetryUid(services);
-    GenesisTelemetry.setUserId(uid);
     GenesisTelemetry.startCollectUploader();
     if (_telemetryLifecycleObserverAdded) return;
     _telemetryLifecycleObserverAdded = true;
@@ -84,18 +82,6 @@ class AppStartupCoordinator {
     );
     _telemetryLifecycleObserver = observer;
     WidgetsBinding.instance.addObserver(observer);
-  }
-
-  static Future<String?> _readInitialTelemetryUid(AppServices services) async {
-    try {
-      final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-      if (uid.isEmpty || uid.startsWith('guest_')) return null;
-      return uid;
-    } catch (error, stackTrace) {
-      debugPrint('[Telemetry] initial UID read failed: $error');
-      debugPrint('[Telemetry] stacktrace:\n$stackTrace');
-      return null;
-    }
   }
 
   static void recordStartupFirstReport() {
