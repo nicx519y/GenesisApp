@@ -395,22 +395,33 @@ String _collectAppEnvironment(AppConfig config) {
 }
 
 class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {
-  GenesisTelemetryLifecycleObserver({DateTime? startedAt})
-    : _startedAt = startedAt ?? DateTime.now() {
+  GenesisTelemetryLifecycleObserver({
+    DateTime? startedAt,
+    AppLifecycleState? initialState,
+  }) : _startedAt = startedAt ?? DateTime.now() {
+    final startupDurationMs = DateTime.now()
+        .difference(_startedAt)
+        .inMilliseconds;
     GenesisTelemetry.event(
       'app_start',
       category: 'app.lifecycle',
       data: <String, Object?>{
-        'startup_duration_ms': DateTime.now()
-            .difference(_startedAt)
-            .inMilliseconds,
+        'startup_duration_ms': startupDurationMs,
         'start_type': 'cold',
       },
+      collectPayload: <String, Object?>{
+        'action_type': 'event',
+        'action': 'app_start',
+      },
     );
+    if ((initialState ?? WidgetsBinding.instance.lifecycleState) ==
+        AppLifecycleState.resumed) {
+      _reportForeground();
+    }
   }
 
   final DateTime _startedAt;
-  DateTime? _backgroundedAt;
+  bool _isForeground = false;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -419,29 +430,34 @@ class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
-        _backgroundedAt ??= DateTime.now();
+        if (!_isForeground) return;
+        _isForeground = false;
         GenesisTelemetry.event(
           'app_background',
           category: 'app.lifecycle',
           data: <String, Object?>{'state': state.name},
-        );
-      case AppLifecycleState.resumed:
-        final backgroundedAt = _backgroundedAt;
-        _backgroundedAt = null;
-        GenesisTelemetry.handleAppResumed();
-        GenesisTelemetry.event(
-          'app_foreground',
-          category: 'app.lifecycle',
-          data: <String, Object?>{
-            'state': state.name,
-            if (backgroundedAt != null)
-              'background_duration_ms': DateTime.now()
-                  .difference(backgroundedAt)
-                  .inMilliseconds,
-            'start_type': backgroundedAt == null ? 'cold' : 'warm',
+          collectPayload: <String, Object?>{
+            'action_type': 'event',
+            'action': 'app_background',
           },
         );
+      case AppLifecycleState.resumed:
+        GenesisTelemetry.handleAppResumed();
+        _reportForeground();
     }
+  }
+
+  void _reportForeground() {
+    if (_isForeground) return;
+    _isForeground = true;
+    GenesisTelemetry.event(
+      'app_foreground',
+      category: 'app.lifecycle',
+      collectPayload: <String, Object?>{
+        'action_type': 'event',
+        'action': 'app_foreground',
+      },
+    );
   }
 }
 
