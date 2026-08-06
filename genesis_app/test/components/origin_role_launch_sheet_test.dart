@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
@@ -79,12 +80,25 @@ void main() {
       tester.getTopLeft(regularOneTile).dx,
       lessThan(tester.getTopLeft(regularTwoTile).dx),
     );
+    final recommendedMark = find.byKey(
+      const ValueKey('origin-role-preset-recommended-preset_recommended'),
+    );
+    expect(recommendedMark, findsOneWidget);
     expect(
-      find.byKey(
-        const ValueKey('origin-role-preset-recommended-preset_recommended'),
+      find.descendant(
+        of: recommendedMark,
+        matching: find.byIcon(Icons.star_rounded),
       ),
       findsOneWidget,
     );
+    final recommendedAvatar = find.descendant(
+      of: recommendedTile,
+      matching: find.byType(GenesisCharacterAvatar),
+    );
+    final avatarRect = tester.getRect(recommendedAvatar);
+    final markRect = tester.getRect(recommendedMark);
+    expect(markRect.right, greaterThan(avatarRect.right));
+    expect(markRect.bottom, greaterThan(avatarRect.bottom));
     expect(
       find.byKey(
         const ValueKey('origin-role-preset-recommended-preset_regular_1'),

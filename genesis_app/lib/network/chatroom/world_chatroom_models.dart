@@ -21,6 +21,7 @@ class WorldChatroomState {
     this.latestSocketCurrentTimeRevision = 0,
     this.latestNewUserJoin,
     this.latestNewUserJoinRevision = 0,
+    this.mapUpdatedRevision = 0,
     this.lastFailure,
   });
 
@@ -43,6 +44,7 @@ class WorldChatroomState {
   final int latestSocketCurrentTimeRevision;
   final ChatroomNewUserJoinEvent? latestNewUserJoin;
   final int latestNewUserJoinRevision;
+  final int mapUpdatedRevision;
   final ChatroomFailureEvent? lastFailure;
 
   WorldChatroomState copyWith({
@@ -65,6 +67,7 @@ class WorldChatroomState {
     int? latestSocketCurrentTimeRevision,
     ChatroomNewUserJoinEvent? latestNewUserJoin,
     int? latestNewUserJoinRevision,
+    int? mapUpdatedRevision,
     ChatroomFailureEvent? lastFailure,
   }) {
     return WorldChatroomState(
@@ -92,6 +95,7 @@ class WorldChatroomState {
       latestNewUserJoin: latestNewUserJoin ?? this.latestNewUserJoin,
       latestNewUserJoinRevision:
           latestNewUserJoinRevision ?? this.latestNewUserJoinRevision,
+      mapUpdatedRevision: mapUpdatedRevision ?? this.mapUpdatedRevision,
       lastFailure: lastFailure ?? this.lastFailure,
     );
   }
@@ -125,6 +129,7 @@ class WorldChatroomMessage {
     required this.conversationRoundId,
     required this.roundOrder,
     this.tickNo = 0,
+    this.subTickNo = 0,
     required this.locationId,
     required this.senderType,
     this.userId = '',
@@ -137,6 +142,7 @@ class WorldChatroomMessage {
     required this.createdAt,
     this.streaming = false,
     this.isLlmStreamMessage = false,
+    this.timelinePayload,
   }) : locationMessageId = locationMessageId ?? 0;
 
   final int globalMessageId;
@@ -145,6 +151,7 @@ class WorldChatroomMessage {
   final String conversationRoundId;
   final int roundOrder;
   final int tickNo;
+  final int subTickNo;
   final String locationId;
   final String senderType;
   final String userId;
@@ -157,6 +164,7 @@ class WorldChatroomMessage {
   final DateTime? createdAt;
   final bool streaming;
   final bool isLlmStreamMessage;
+  final ChatroomTimelinePayload? timelinePayload;
 
   int get locationQueueMessageId => locationMessageId;
 
@@ -172,6 +180,7 @@ class WorldChatroomMessage {
       conversationRoundId: '${message.conversationRoundId}',
       roundOrder: 0,
       tickNo: message.tickNo,
+      subTickNo: message.subTickNo,
       locationId: message.locationId,
       senderType: message.senderType,
       userId: message.userId,
@@ -182,6 +191,7 @@ class WorldChatroomMessage {
       messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.createdAt,
+      timelinePayload: message.timelinePayload,
     );
   }
 
@@ -197,6 +207,7 @@ class WorldChatroomMessage {
       ),
       roundOrder: asInt(json['round_order']),
       tickNo: asInt(json['tick_no']),
+      subTickNo: asInt(json['sub_tick_no']),
       locationId: asString(json['location_id']),
       senderType: asString(json['sender_type']),
       userId: asString(json['user_id']),
@@ -212,6 +223,10 @@ class WorldChatroomMessage {
       currentTime: asString(json['current_time']),
       createdAt: asDateTime(json['ts']),
       isLlmStreamMessage: asBool(json['is_llm_stream']),
+      timelinePayload: tryDecodeChatroomTimelinePayload(
+        senderType: json['sender_type'],
+        rawPayload: json['content'],
+      ),
     );
   }
 
@@ -276,6 +291,7 @@ class WorldChatroomMessage {
       conversationRoundId: message.conversationRoundId,
       roundOrder: message.roundOrder,
       tickNo: message.tickNo,
+      subTickNo: message.subTickNo,
       locationId: message.locationId,
       senderType: 'tick',
       userId: message.userId,
@@ -285,6 +301,56 @@ class WorldChatroomMessage {
       messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.ts,
+    );
+  }
+
+  factory WorldChatroomMessage.fromStoryEventsMessage(
+    ChatroomStoryEventsMessage message,
+  ) {
+    return WorldChatroomMessage(
+      globalMessageId: message.globalMessageId,
+      messageId: message.messageId,
+      locationMessageId: _safeLocationMessageId(
+        () => message.locationMessageId,
+      ),
+      conversationRoundId: message.conversationRoundId,
+      roundOrder: message.roundOrder,
+      tickNo: message.tickNo,
+      subTickNo: message.subTickNo,
+      locationId: message.locationId,
+      senderType: chatroomStoryEventsSenderType,
+      userId: message.userId,
+      senderId: message.senderId,
+      senderName: message.senderName,
+      content: message.content,
+      currentTime: message.currentTime,
+      createdAt: message.createdAt ?? message.ts,
+      timelinePayload: message.timelinePayload,
+    );
+  }
+
+  factory WorldChatroomMessage.fromCharactersMovedMessage(
+    ChatroomCharactersMovedMessage message,
+  ) {
+    return WorldChatroomMessage(
+      globalMessageId: message.globalMessageId,
+      messageId: message.messageId,
+      locationMessageId: _safeLocationMessageId(
+        () => message.locationMessageId,
+      ),
+      conversationRoundId: message.conversationRoundId,
+      roundOrder: message.roundOrder,
+      tickNo: message.tickNo,
+      subTickNo: message.subTickNo,
+      locationId: message.locationId,
+      senderType: chatroomCharactersMovedSenderType,
+      userId: message.userId,
+      senderId: message.senderId,
+      senderName: message.senderName,
+      content: message.content,
+      currentTime: message.currentTime,
+      createdAt: message.createdAt ?? message.ts,
+      timelinePayload: message.timelinePayload,
     );
   }
 
@@ -316,6 +382,7 @@ class WorldChatroomMessage {
     String? conversationRoundId,
     int? roundOrder,
     int? tickNo,
+    int? subTickNo,
     String? locationId,
     String? senderType,
     String? userId,
@@ -328,6 +395,7 @@ class WorldChatroomMessage {
     DateTime? createdAt,
     bool? streaming,
     bool? isLlmStreamMessage,
+    ChatroomTimelinePayload? timelinePayload,
   }) {
     return WorldChatroomMessage(
       globalMessageId: globalMessageId ?? this.globalMessageId,
@@ -336,6 +404,7 @@ class WorldChatroomMessage {
       conversationRoundId: conversationRoundId ?? this.conversationRoundId,
       roundOrder: roundOrder ?? this.roundOrder,
       tickNo: tickNo ?? this.tickNo,
+      subTickNo: subTickNo ?? this.subTickNo,
       locationId: locationId ?? this.locationId,
       senderType: senderType ?? this.senderType,
       userId: userId ?? this.userId,
@@ -348,6 +417,7 @@ class WorldChatroomMessage {
       createdAt: createdAt ?? this.createdAt,
       streaming: streaming ?? this.streaming,
       isLlmStreamMessage: isLlmStreamMessage ?? this.isLlmStreamMessage,
+      timelinePayload: timelinePayload ?? this.timelinePayload,
     );
   }
 }

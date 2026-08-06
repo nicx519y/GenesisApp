@@ -244,6 +244,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
     required this.onBack,
     required this.onPanelReady,
     required this.isMessageQueueInitializationCovered,
+    required this.onCharactersMovedLocationTap,
     this.animateTransitions = true,
   });
 
@@ -253,6 +254,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
   final VoidCallback onBack;
   final ValueChanged<String> onPanelReady;
   final bool Function(String locationId) isMessageQueueInitializationCovered;
+  final ChatCharacterMovementTap onCharactersMovedLocationTap;
   final bool animateTransitions;
 
   @override
@@ -378,6 +380,8 @@ class WorldLocationChatRouterHostState
                   onDraftTextChanged: (text) {
                     widget.cache.updateDraftText(descriptor.locationId, text);
                   },
+                  onCharactersMovedLocationTap:
+                      widget.onCharactersMovedLocationTap,
                 ),
               ),
             ),
@@ -401,6 +405,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.initialDraftText,
     required this.onDraftTextChanged,
     required this.messageQueueInitializationCovered,
+    required this.onCharactersMovedLocationTap,
   });
 
   final String worldId;
@@ -413,6 +418,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   final String initialDraftText;
   final ValueChanged<String> onDraftTextChanged;
   final bool messageQueueInitializationCovered;
+  final ChatCharacterMovementTap onCharactersMovedLocationTap;
 
   @override
   Widget build(BuildContext context) {
@@ -445,6 +451,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             onInitialContentReady: onInitialContentReady,
             initialDraftText: initialDraftText,
             onDraftTextChanged: onDraftTextChanged,
+            onCharactersMovedLocationTap: onCharactersMovedLocationTap,
           ),
         ),
       ],

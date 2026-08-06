@@ -9,6 +9,7 @@ class ChatMessageRow extends StatelessWidget {
     this.onAvatarTap,
     this.onMessageLongPressStart,
     this.onFailedMessageTap,
+    this.onCharactersMovedLocationTap,
     this.style,
   });
 
@@ -18,6 +19,7 @@ class ChatMessageRow extends StatelessWidget {
   final VoidCallback? onAvatarTap;
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ChatMessageTap? onFailedMessageTap;
+  final ChatCharacterMovementTap? onCharactersMovedLocationTap;
   final ChatUiStyleConfig? style;
 
   @override
@@ -27,6 +29,28 @@ class ChatMessageRow extends StatelessWidget {
         ? null
         : (LongPressStartDetails details) =>
               onMessageLongPressStart!(context, message, details);
+    if (message.isUserEnterLocation) {
+      return ChatUserEnterLocationMessageBubble(
+        message: message,
+        style: style,
+        onLongPressStart: onLongPressStart,
+      );
+    }
+    if (message.isStoryEvents) {
+      return ChatStoryEventsMessageBubble(
+        message: message,
+        style: style,
+        onLongPressStart: onLongPressStart,
+      );
+    }
+    if (message.isCharactersMoved) {
+      return ChatCharactersMovedMessageBubble(
+        message: message,
+        style: style,
+        onLongPressStart: onLongPressStart,
+        onLocationTap: onCharactersMovedLocationTap,
+      );
+    }
     if (message.isImage) {
       return ChatImageMessage(
         message: message,

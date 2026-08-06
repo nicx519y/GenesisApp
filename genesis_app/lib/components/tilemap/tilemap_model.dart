@@ -140,6 +140,35 @@ class TilemapConfig {
   }
 }
 
+bool tilemapConfigDataEquals(TilemapConfig? a, TilemapConfig? b) {
+  if (identical(a, b)) return true;
+  if (a == null ||
+      b == null ||
+      a.id != b.id ||
+      a.width != b.width ||
+      a.height != b.height ||
+      a.tileTypes.length != b.tileTypes.length ||
+      a.tiles.length != b.tiles.length) {
+    return false;
+  }
+  for (final entry in a.tileTypes.entries) {
+    if (b.tileTypes[entry.key] != entry.value) return false;
+  }
+  final bTilesByCell = <String, TilemapCell>{
+    for (final tile in b.tiles) tile.cellKey: tile,
+  };
+  for (final tile in a.tiles) {
+    final other = bTilesByCell[tile.cellKey];
+    if (other == null ||
+        tile.type != other.type ||
+        tile.shadow != other.shadow ||
+        (tile.locationId?.trim() ?? '') != (other.locationId?.trim() ?? '')) {
+      return false;
+    }
+  }
+  return true;
+}
+
 String _urlWithoutQueryOrFragment(String url) {
   final queryIndex = url.indexOf('?');
   final fragmentIndex = url.indexOf('#');

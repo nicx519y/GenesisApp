@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../json_utils.dart';
 import 'chatroom_message_type.dart';
+import 'chatroom_timeline_payload.dart';
 
 class ChatroomProtocolException implements Exception {
   const ChatroomProtocolException(this.message, {this.error});
@@ -16,6 +17,8 @@ class ChatroomProtocolException implements Exception {
 class ChatroomEnvelope {
   const ChatroomEnvelope({
     required this.type,
+    this.schemaVersion,
+    this.eventId = '',
     this.ts,
     this.payload = const <String, dynamic>{},
     this.worldId = '',
@@ -31,11 +34,15 @@ class ChatroomEnvelope {
     this.msgId,
     this.locationMsgId,
     this.conversationRoundId,
+    this.tickNo,
+    this.subTickNo,
     this.clientMsgId = '',
     this.broadcast,
   });
 
   final String type;
+  final int? schemaVersion;
+  final String eventId;
   final int? ts;
   final Map<String, dynamic> payload;
   final String worldId;
@@ -51,12 +58,18 @@ class ChatroomEnvelope {
   final int? msgId;
   final int? locationMsgId;
   final int? conversationRoundId;
+  final int? tickNo;
+  final int? subTickNo;
   final String clientMsgId;
   final bool? broadcast;
 
   factory ChatroomEnvelope.fromJson(Map<String, dynamic> json) {
     return ChatroomEnvelope(
       type: asString(json['type']),
+      schemaVersion: json['schema_version'] == null
+          ? null
+          : asInt(json['schema_version']),
+      eventId: asString(json['event_id']),
       ts: json['ts'] == null ? null : asInt(json['ts']),
       payload: _optionalJsonMap(json['payload']),
       worldId: asString(json['world_id']),
@@ -78,6 +91,10 @@ class ChatroomEnvelope {
       conversationRoundId: json['conversation_round_id'] == null
           ? null
           : asInt(json['conversation_round_id']),
+      tickNo: json['tick_no'] == null ? null : asInt(json['tick_no']),
+      subTickNo: json['sub_tick_no'] == null
+          ? null
+          : asInt(json['sub_tick_no']),
       clientMsgId: asString(json['client_msg_id']),
       broadcast: json.containsKey('broadcast')
           ? asBool(json['broadcast'])
@@ -102,9 +119,13 @@ class ChatroomEnvelope {
   String encode() {
     final json = <String, Object?>{
       'type': type,
+      if (schemaVersion != null) 'schema_version': schemaVersion,
+      if (eventId.isNotEmpty) 'event_id': eventId,
       'ts': ts ?? DateTime.now().millisecondsSinceEpoch,
       if (worldId.isNotEmpty) 'world_id': worldId,
       if (locationId.isNotEmpty) 'location_id': locationId,
+      if (tickNo != null) 'tick_no': tickNo,
+      if (subTickNo != null) 'sub_tick_no': subTickNo,
       if (payload.isNotEmpty) 'payload': payload,
     };
     return jsonEncode(json);
@@ -113,6 +134,8 @@ class ChatroomEnvelope {
   Map<String, dynamic> get mergedPayload {
     final merged = <String, dynamic>{...payload};
 
+    if (schemaVersion != null) merged['schema_version'] = schemaVersion;
+    if (eventId.isNotEmpty) merged['event_id'] = eventId;
     if (ts != null) merged['ts'] = ts;
     if (worldId.isNotEmpty) merged['world_id'] = worldId;
     if (sessionId.isNotEmpty) merged['session_id'] = sessionId;
@@ -129,6 +152,8 @@ class ChatroomEnvelope {
     if (conversationRoundId != null) {
       merged['conversation_round_id'] = conversationRoundId;
     }
+    if (tickNo != null) merged['tick_no'] = tickNo;
+    if (subTickNo != null) merged['sub_tick_no'] = subTickNo;
     if (clientMsgId.isNotEmpty) merged['client_msg_id'] = clientMsgId;
     if (broadcast != null) merged['broadcast'] = broadcast;
     merged.putIfAbsent('err_no', () => '');
@@ -505,10 +530,12 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
     super.messageType,
     required super.broadcast,
     required this.tickNo,
+    required this.subTickNo,
     required this.currentTime,
   });
 
   final int tickNo;
+  final int subTickNo;
   final String currentTime;
 
   factory ChatroomTickAdvanceMessage.fromEnvelope(ChatroomEnvelope envelope) {
@@ -533,6 +560,7 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
       content: asString(payload['content'], fallback: currentTime),
       broadcast: asBool(payload['broadcast']),
       tickNo: asInt(payload['tick_no']),
+      subTickNo: asInt(payload['sub_tick_no']),
       currentTime: currentTime,
     );
   }
@@ -676,36 +704,248 @@ class ChatroomWorldNotification extends ChatroomEvent {
     required this.worldId,
     required this.locationId,
     required this.eventType,
+    this.schemaVersion,
+    this.eventId = '',
     required this.title,
     required this.summary,
     required this.detailUrl,
     required this.ts,
     required this.broadcast,
     this.currentTime = '',
+    this.timelinePayload,
   });
 
   final String worldId;
   final String locationId;
   final String eventType;
+  final int? schemaVersion;
+  final String eventId;
   final String title;
   final String summary;
   final String detailUrl;
   final DateTime? ts;
   final bool broadcast;
   final String currentTime;
+  final ChatroomTimelinePayload? timelinePayload;
 
   factory ChatroomWorldNotification.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
+    ChatroomTimelinePayload? timelinePayload;
+    if (isChatroomTimelinePayloadSenderType(envelope.type)) {
+      try {
+        timelinePayload = decodeChatroomTimelinePayload(
+          senderType: envelope.type,
+          rawPayload: envelope.payload,
+        );
+      } catch (error) {
+        throw ChatroomProtocolException(
+          'Invalid ${envelope.type} payload',
+          error: error,
+        );
+      }
+    }
     return ChatroomWorldNotification(
       worldId: asString(payload['world_id'], fallback: envelope.worldId),
       locationId: asString(payload['location_id']),
       eventType: asString(payload['event_type'], fallback: envelope.type),
+      schemaVersion: envelope.schemaVersion,
+      eventId: envelope.eventId,
       title: asString(payload['title']),
       summary: asString(payload['summary']),
       detailUrl: asString(payload['detail_url']),
       ts: asDateTime(payload['ts'] ?? envelope.ts),
       broadcast: asBool(payload['broadcast']),
       currentTime: _currentTime(payload),
+      timelinePayload: timelinePayload,
+    );
+  }
+}
+
+class ChatroomStoryEventsMessage extends ChatroomMessageEvent {
+  const ChatroomStoryEventsMessage({
+    required super.sessionId,
+    required super.worldId,
+    required super.locationId,
+    required super.userId,
+    required super.code,
+    required super.codeMsg,
+    required super.ts,
+    super.globalMessageId,
+    required super.messageId,
+    super.locationMessageId,
+    required super.conversationRoundId,
+    required super.roundOrder,
+    required super.senderType,
+    required super.senderId,
+    required super.senderName,
+    required super.content,
+    super.messageType,
+    required super.broadcast,
+    required this.schemaVersion,
+    required this.eventId,
+    required this.tickNo,
+    required this.subTickNo,
+    required this.currentTime,
+    required this.createdAt,
+    required this.timelinePayload,
+  });
+
+  final int? schemaVersion;
+  final String eventId;
+  final int tickNo;
+  final int subTickNo;
+  final String currentTime;
+  final DateTime? createdAt;
+  final ChatroomStoryEventsPayload timelinePayload;
+
+  factory ChatroomStoryEventsMessage.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.mergedPayload;
+    final messageId = asInt(payload['msg_id']);
+    if (messageId <= 0) {
+      throw const ChatroomProtocolException(
+        'story_events msg_id must be a positive integer',
+      );
+    }
+    late final ChatroomStoryEventsPayload timelinePayload;
+    try {
+      final decoded = decodeChatroomTimelinePayload(
+        senderType: chatroomStoryEventsSenderType,
+        rawPayload: envelope.payload,
+      );
+      if (decoded is! ChatroomStoryEventsPayload) {
+        throw const FormatException('story_events payload type mismatch');
+      }
+      timelinePayload = decoded;
+    } catch (error) {
+      throw ChatroomProtocolException(
+        'Invalid story_events payload',
+        error: error,
+      );
+    }
+    final senderId = asString(payload['sender_id'], fallback: 'sub_tick');
+    return ChatroomStoryEventsMessage(
+      sessionId: asString(payload['session_id']),
+      worldId: _worldId(payload),
+      locationId: timelinePayload.locationId,
+      userId: asString(payload['user_id']),
+      code: _wsCode(payload),
+      codeMsg: asString(payload['err_msg']),
+      ts: asDateTime(payload['ts'] ?? envelope.ts),
+      globalMessageId: asInt(payload['global_msg_id']),
+      messageId: messageId,
+      locationMessageId: asInt(payload['location_msg_id']),
+      conversationRoundId: asString(payload['conversation_round_id']),
+      roundOrder: asInt(payload['round_order']),
+      senderType: chatroomStoryEventsSenderType,
+      senderId: senderId,
+      senderName: asString(payload['sender_name'], fallback: senderId),
+      content: encodeChatroomTimelinePayload(timelinePayload),
+      broadcast: asBool(payload['broadcast']),
+      schemaVersion: envelope.schemaVersion,
+      eventId: envelope.eventId,
+      tickNo: asInt(payload['tick_no']),
+      subTickNo: asInt(payload['sub_tick_no']),
+      currentTime: _currentTime(payload),
+      createdAt: asDateTime(payload['ts'] ?? envelope.ts),
+      timelinePayload: timelinePayload,
+    );
+  }
+}
+
+class ChatroomCharactersMovedMessage extends ChatroomMessageEvent {
+  const ChatroomCharactersMovedMessage({
+    required super.sessionId,
+    required super.worldId,
+    required super.locationId,
+    required super.userId,
+    required super.code,
+    required super.codeMsg,
+    required super.ts,
+    super.globalMessageId,
+    required super.messageId,
+    super.locationMessageId,
+    required super.conversationRoundId,
+    required super.roundOrder,
+    required super.senderType,
+    required super.senderId,
+    required super.senderName,
+    required super.content,
+    super.messageType,
+    required super.broadcast,
+    required this.schemaVersion,
+    required this.eventId,
+    required this.tickNo,
+    required this.subTickNo,
+    required this.currentTime,
+    required this.createdAt,
+    required this.timelinePayload,
+  });
+
+  final int? schemaVersion;
+  final String eventId;
+  final int tickNo;
+  final int subTickNo;
+  final String currentTime;
+  final DateTime? createdAt;
+  final ChatroomCharactersMovedPayload timelinePayload;
+
+  factory ChatroomCharactersMovedMessage.fromEnvelope(
+    ChatroomEnvelope envelope,
+  ) {
+    final payload = envelope.mergedPayload;
+    final messageId = envelope.msgId ?? 0;
+    if (messageId <= 0) {
+      throw const ChatroomProtocolException(
+        'characters_moved msg_id must be a positive integer',
+      );
+    }
+    final locationId = envelope.locationId.trim();
+    late final ChatroomCharactersMovedPayload timelinePayload;
+    try {
+      final decoded = decodeChatroomTimelinePayload(
+        senderType: chatroomCharactersMovedSenderType,
+        rawPayload: envelope.payload,
+      );
+      if (decoded is! ChatroomCharactersMovedPayload) {
+        throw const FormatException('characters_moved payload type mismatch');
+      }
+      timelinePayload = decoded;
+    } catch (error) {
+      throw ChatroomProtocolException(
+        'Invalid characters_moved payload',
+        error: error,
+      );
+    }
+    final senderId = envelope.senderId.trim().isEmpty
+        ? 'sub_tick'
+        : envelope.senderId;
+    return ChatroomCharactersMovedMessage(
+      sessionId: envelope.sessionId,
+      worldId: envelope.worldId,
+      locationId: locationId,
+      userId: envelope.userId,
+      code: _wsCode(payload),
+      codeMsg: envelope.errMsg,
+      ts: asDateTime(envelope.ts),
+      globalMessageId: envelope.globalMsgId ?? 0,
+      messageId: messageId,
+      locationMessageId: envelope.locationMsgId ?? 0,
+      conversationRoundId: asString(envelope.conversationRoundId),
+      roundOrder: asInt(payload['round_order']),
+      senderType: chatroomCharactersMovedSenderType,
+      senderId: senderId,
+      senderName: envelope.senderName.trim().isEmpty
+          ? senderId
+          : envelope.senderName,
+      content: encodeChatroomTimelinePayload(timelinePayload),
+      broadcast: envelope.broadcast ?? false,
+      schemaVersion: envelope.schemaVersion,
+      eventId: envelope.eventId,
+      tickNo: envelope.tickNo ?? 0,
+      subTickNo: envelope.subTickNo ?? 0,
+      currentTime: envelope.currentTime,
+      createdAt: asDateTime(envelope.ts),
+      timelinePayload: timelinePayload,
     );
   }
 }
@@ -793,6 +1033,8 @@ class ChatroomMessageHandlers {
     this.onFailure,
     this.onBalanceLow,
     this.onWorldNotification,
+    this.onStoryEventsMessage,
+    this.onCharactersMovedMessage,
     this.onUserMessage,
     this.onNarratorMessage,
     this.onTickAdvanceMessage,
@@ -809,6 +1051,9 @@ class ChatroomMessageHandlers {
   final void Function(ChatroomFailureEvent event)? onFailure;
   final void Function(ChatroomBalanceLow event)? onBalanceLow;
   final void Function(ChatroomWorldNotification event)? onWorldNotification;
+  final void Function(ChatroomStoryEventsMessage event)? onStoryEventsMessage;
+  final void Function(ChatroomCharactersMovedMessage event)?
+  onCharactersMovedMessage;
   final void Function(ChatroomUserMessage event)? onUserMessage;
   final void Function(ChatroomNarratorMessage event)? onNarratorMessage;
   final void Function(ChatroomTickAdvanceMessage event)? onTickAdvanceMessage;
@@ -833,6 +1078,10 @@ class ChatroomMessageHandlers {
         onBalanceLow?.call(e);
       case ChatroomWorldNotification e:
         onWorldNotification?.call(e);
+      case ChatroomStoryEventsMessage e:
+        onStoryEventsMessage?.call(e);
+      case ChatroomCharactersMovedMessage e:
+        onCharactersMovedMessage?.call(e);
       case ChatroomNewUserJoinEvent():
         break;
       case ChatroomUserMessage e:
@@ -862,7 +1111,16 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
     case 'world_change':
     case 'user_location_change':
     case 'world_new_message':
+    case 'user_enter_location':
+    case 'map_updated':
+    case 'character_updated':
       return ChatroomWorldNotification.fromEnvelope(envelope);
+    case 'story_events':
+      return ChatroomStoryEventsMessage.fromEnvelope(envelope);
+    case 'characters_moved':
+      return (envelope.msgId ?? 0) > 0
+          ? ChatroomCharactersMovedMessage.fromEnvelope(envelope)
+          : ChatroomWorldNotification.fromEnvelope(envelope);
     case 'new_user_join':
       return ChatroomNewUserJoinEvent.fromEnvelope(envelope);
     case 'tick_advance':
@@ -898,6 +1156,10 @@ String chatroomEventType(ChatroomEvent event) {
       return 'balance_low';
     case ChatroomWorldNotification e:
       return e.eventType;
+    case ChatroomStoryEventsMessage():
+      return 'story_events';
+    case ChatroomCharactersMovedMessage():
+      return 'characters_moved';
     case ChatroomNewUserJoinEvent():
       return 'new_user_join';
     case ChatroomUserMessage():

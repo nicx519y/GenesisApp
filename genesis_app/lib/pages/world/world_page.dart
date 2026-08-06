@@ -136,6 +136,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   int _eventsLatestRevision = 0;
   int? _eventsTargetTickNumber;
   int _lastAppliedNewUserJoinRevision = 0;
+  int _lastAppliedMapUpdatedRevision = 0;
+  int _tilemapReloadRevision = 0;
   WorldNewUserJoinNotice? _pendingNewUserJoinNotice;
   bool _tick1WaitDialogStarted = false;
   bool? _lastChatroomInputBlocked;
@@ -179,6 +181,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       chatroom: _worldChatroom,
       cache: _locationChatPageCache,
       onBack: _closeCachedLocationChat,
+      onCharactersMovedLocationTap: (movement) =>
+          unawaited(_openCharactersMovedTargetLocation(movement)),
       animateTransitions: _locationChatTransitionsEnabled,
       isMessageQueueInitializationCovered: (locationId) {
         final resolvedLocationId = locationId.trim();
@@ -383,6 +387,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _mainTabController.dispose();
     _sectionsEventsCache.clear();
     _locationChatPageCache.dispose();
+    _tilemapRestorationController.dispose();
     _sectionsWorldNotifier.dispose();
     _worldBottomSheetSelection.removeListener(
       _handleWorldBottomSheetSelectionChanged,
@@ -548,6 +553,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 locationNodes: listLocationNodes,
                 recentChatLocationIds: recentMapLocationIds,
                 animationsPaused: _worldBottomSheetOpen,
+                reloadRevision: _tilemapReloadRevision,
                 visualModeToggleTop: topPadding + 6,
                 visualModeToggleRight: worldMapBackButtonLeft,
                 restorationController: _tilemapRestorationController,

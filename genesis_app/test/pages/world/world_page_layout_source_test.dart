@@ -625,6 +625,36 @@ void main() {
     );
   });
 
+  test('world events group sub ticks into one tick-number page', () {
+    final merged = worldMergeEventTicksAscending(
+      const [
+        {'tick_no': 4, 'sub_tick_no': 2, 'tick_result': <String, dynamic>{}},
+        {'tick_no': 3, 'sub_tick_no': 1, 'tick_result': <String, dynamic>{}},
+      ],
+      const [
+        {'tick_no': 4, 'sub_tick_no': 1, 'tick_result': <String, dynamic>{}},
+      ],
+    );
+    final pages = worldEventTickPagesAscending(merged);
+
+    expect(merged, hasLength(3));
+    expect(pages, hasLength(2));
+    expect(pages.first.map(worldEventTickNumber), [3]);
+    expect(pages.last.map(worldEventTickNumber), [4, 4]);
+    expect(pages.last.map(worldEventSubTickNumber), [1, 2]);
+    expect(worldEventTickPageIdentity(pages.last), 'tick:4');
+
+    final eventsSection = worldSectionsSource.substring(
+      worldSectionsSource.indexOf('class WorldEventsSectionState'),
+      worldSectionsSource.indexOf('class WorldTickPendingEventPage'),
+    );
+    expect(eventsSection, contains('final ticks = visibleTickPages'));
+    expect(
+      eventsSection,
+      contains('subTickNumber: worldEventSubTickNumber(tick)'),
+    );
+  });
+
   test('world tick edge pull ignores stale pointer callbacks', () {
     final sections = worldSectionsSource;
     final tickCardState = sections.substring(

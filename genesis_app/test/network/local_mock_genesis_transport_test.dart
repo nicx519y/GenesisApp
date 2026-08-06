@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
+import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
@@ -65,6 +67,55 @@ void main() {
     expect(
       imageWorldMessages.locations.single.messages.single.messageType,
       'image',
+    );
+  });
+
+  test('local mock can seed flat supplemental chatroom history', () async {
+    const worldId = 'w_timeline_message_contract_test';
+    const locationId = 'loc_timeline_message_contract_test';
+    LocalMockGenesisTransport.instance.seedChatroomTimelineMessages(
+      worldId: worldId,
+      locationId: locationId,
+    );
+    final api = GenesisApi(useMock: true);
+
+    final history = await api.chatroomHttp.getMessages(
+      worldId: worldId,
+      locationId: locationId,
+      since: 0,
+      limit: 20,
+    );
+
+    expect(history.messages, hasLength(3));
+    expect(history.hasMore, isFalse);
+    expect(history.newestMessageId, greaterThan(0));
+    expect(
+      history.messages.map((message) => message.locationMessageId),
+      everyElement(0),
+    );
+    expect(
+      history.messages.map((message) => message.locationId),
+      everyElement(isEmpty),
+    );
+    final bySenderType = {
+      for (final message in history.messages) message.senderType: message,
+    };
+    expect(bySenderType.keys, {
+      chatroomUserEnterLocationSenderType,
+      chatroomStoryEventsSenderType,
+      chatroomCharactersMovedSenderType,
+    });
+    expect(
+      bySenderType[chatroomUserEnterLocationSenderType]?.timelinePayload,
+      isA<ChatroomUserEnterLocationPayload>(),
+    );
+    expect(
+      bySenderType[chatroomStoryEventsSenderType]?.timelinePayload,
+      isA<ChatroomStoryEventsPayload>(),
+    );
+    expect(
+      bySenderType[chatroomCharactersMovedSenderType]?.timelinePayload,
+      isA<ChatroomCharactersMovedPayload>(),
     );
   });
 

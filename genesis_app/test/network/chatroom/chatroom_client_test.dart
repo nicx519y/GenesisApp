@@ -8,11 +8,250 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_con
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_type.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transport.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('envelope retains schema version and event id', () {
+    final envelope = ChatroomEnvelope.fromJson({
+      'type': 'map_updated',
+      'schema_version': 1,
+      'event_id': 'evt-map-1',
+      'ts': 1785890000000,
+      'world_id': 'world-1',
+      'payload': <String, Object?>{},
+    });
+
+    expect(envelope.schemaVersion, 1);
+    expect(envelope.eventId, 'evt-map-1');
+    expect(envelope.mergedPayload['schema_version'], 1);
+    expect(envelope.mergedPayload['event_id'], 'evt-map-1');
+    expect(
+      jsonDecode(envelope.encode()),
+      containsPair('event_id', 'evt-map-1'),
+    );
+  });
+
+  test('parses the five new world timeline event types', () {
+    ChatroomEvent parse(String type, Map<String, Object?> payload) {
+      final isQueuedTimeline =
+          type == 'story_events' || type == 'characters_moved';
+      return chatroomEventFromEnvelope(
+        ChatroomEnvelope.fromJson({
+          'type': type,
+          'schema_version': 1,
+          'event_id': 'evt-$type',
+          'ts': 1785890000000,
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'global_msg_id': isQueuedTimeline ? 5626 : null,
+          'msg_id': isQueuedTimeline ? 232 : null,
+          'location_msg_id': isQueuedTimeline ? 32 : null,
+          'conversation_round_id': isQueuedTimeline ? 6816 : null,
+          'sender_id': isQueuedTimeline ? 'sub_tick' : null,
+          'sender_name': isQueuedTimeline ? 'SubTick' : null,
+          'tick_no': isQueuedTimeline ? 4 : null,
+          'sub_tick_no': isQueuedTimeline ? 1 : null,
+          'current_time': isQueuedTimeline ? 'Day 2, 00:09:15' : null,
+          'payload': payload,
+        }),
+      );
+    }
+
+    final entered =
+        parse('user_enter_location', {
+              'char_id': 'char-alice',
+              'to_location_id': 'loc-1',
+              'text': 'Alice entered',
+            })
+            as ChatroomWorldNotification;
+    expect(entered.schemaVersion, 1);
+    expect(entered.eventId, 'evt-user_enter_location');
+    expect(entered.timelinePayload, isA<ChatroomUserEnterLocationPayload>());
+
+    final story =
+        parse('story_events', {
+              'location_id': 'loc-1',
+              'location_name': 'Station',
+              'paragraphs': [
+                {
+                  'timestamp': 'Day 1, 08:00',
+                  'visibility': 'public',
+                  'visible_to': <String>[],
+                  'text': 'A train arrived.',
+                  'clue': '',
+                },
+              ],
+            })
+            as ChatroomStoryEventsMessage;
+    expect(story.messageId, 232);
+    expect(story.locationId, 'loc-1');
+    expect(story.schemaVersion, 1);
+    expect(story.eventId, 'evt-story_events');
+    expect(story.tickNo, 4);
+    expect(story.subTickNo, 1);
+    expect(story.currentTime, 'Day 2, 00:09:15');
+    expect(story.timelinePayload.paragraphs.single.text, 'A train arrived.');
+
+    final mapUpdated = parse('map_updated', const {});
+    final characterUpdated = parse('character_updated', const {});
+    final moved =
+        parse('characters_moved', {
+              'movements': [
+                {'char_id': 'char-alice', 'to_loc_id': 'loc-2'},
+              ],
+            })
+            as ChatroomCharactersMovedMessage;
+    expect((mapUpdated as ChatroomWorldNotification).eventType, 'map_updated');
+    expect(
+      (characterUpdated as ChatroomWorldNotification).eventType,
+      'character_updated',
+    );
+    expect(moved.globalMessageId, 5626);
+    expect(moved.messageId, 232);
+    expect(moved.locationMessageId, 32);
+    expect(moved.locationId, 'loc-1');
+    expect(moved.conversationRoundId, '6816');
+    expect(moved.senderId, 'sub_tick');
+    expect(moved.senderName, 'SubTick');
+    expect(moved.tickNo, 4);
+    expect(moved.subTickNo, 1);
+    expect(moved.currentTime, 'Day 2, 00:09:15');
+    expect(moved.schemaVersion, 1);
+    expect(moved.eventId, 'evt-characters_moved');
+    expect(moved.timelinePayload.movements.single.charId, 'char-alice');
+    expect(moved.timelinePayload.movements.single.toLocationId, 'loc-2');
+  });
+
+  test('story_events requires a positive msg_id', () {
+    expect(
+      () => chatroomEventFromEnvelope(
+        ChatroomEnvelope.fromJson({
+          'type': 'story_events',
+          'world_id': 'world-1',
+          'msg_id': 0,
+          'payload': {
+            'location_id': 'loc-1',
+            'location_name': 'Station',
+            'paragraphs': <Object?>[],
+          },
+        }),
+      ),
+      throwsA(
+        isA<ChatroomProtocolException>().having(
+          (error) => error.message,
+          'message',
+          contains('msg_id'),
+        ),
+      ),
+    );
+  });
+
+  test('story_events accepts the flat single-event websocket payload', () {
+    final event =
+        chatroomEventFromEnvelope(
+              ChatroomEnvelope.fromJson({
+                'type': 'story_events',
+                'world_id': 'world-1',
+                'location_id': 'loc_1_1_1',
+                'msg_id': 61,
+                'location_msg_id': 32,
+                'tick_no': 4,
+                'sub_tick_no': 1,
+                'current_time': 'Day 2, 00:09:15',
+                'payload': {
+                  'location_id': 'loc_1_1_1',
+                  'timestamp': 'Day 2, 00:09:00',
+                  'visibility': 'char_only',
+                  'visible_to': ['char_1'],
+                  'text': '录音机开始播放。',
+                  'clue': '去辨认磁带里的耳语者。',
+                },
+              }),
+            )
+            as ChatroomStoryEventsMessage;
+
+    expect(event.locationMessageId, 32);
+    expect(event.tickNo, 4);
+    expect(event.subTickNo, 1);
+    expect(event.timelinePayload.locationId, 'loc_1_1_1');
+    expect(event.timelinePayload.locationName, isEmpty);
+    expect(event.timelinePayload.paragraphs, hasLength(1));
+    expect(event.timelinePayload.paragraphs.single.visibleTo, ['char_1']);
+    expect(event.timelinePayload.paragraphs.single.text, '录音机开始播放。');
+  });
+
+  test(
+    'characters_moved supports formal messages and legacy notifications',
+    () {
+      ChatroomEvent parse({
+        required int messageId,
+        required String locationId,
+      }) {
+        return chatroomEventFromEnvelope(
+          ChatroomEnvelope.fromJson({
+            'type': 'characters_moved',
+            'world_id': 'world-1',
+            'location_id': locationId,
+            'msg_id': messageId,
+            'payload': {
+              'movements': [
+                {'char_id': 'char-alice', 'to_loc_id': 'loc-2'},
+              ],
+            },
+          }),
+        );
+      }
+
+      final legacy = parse(messageId: 0, locationId: 'loc-1');
+      expect(legacy, isA<ChatroomWorldNotification>());
+      expect(
+        (legacy as ChatroomWorldNotification).timelinePayload,
+        isA<ChatroomCharactersMovedPayload>(),
+      );
+
+      final broadcast = parse(messageId: 233, locationId: '');
+      expect(broadcast, isA<ChatroomCharactersMovedMessage>());
+      expect((broadcast as ChatroomCharactersMovedMessage).locationId, isEmpty);
+    },
+  );
+
+  test(
+    'invalid characters_moved payload is reported as protocol_error',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(_FakeChatroomTransport(socket));
+      final session = await _connectedSession(client, socket);
+      final failureFuture = session.failures.first;
+
+      socket.serverFrame('characters_moved', {
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'msg_id': 233,
+        'payload': {
+          'movements': [
+            {'char_id': '', 'to_loc_id': 'loc-2'},
+          ],
+        },
+      });
+
+      final failure = await failureFuture;
+      expect(failure.code, 'protocol_error');
+      expect(failure.sourceType, 'protocol_error');
+      expect(
+        failure.cause,
+        isA<ChatroomProtocolException>().having(
+          (error) => error.message,
+          'message',
+          contains('Invalid characters_moved payload'),
+        ),
+      );
+      await session.close();
+    },
+  );
+
   test('nar_new_message normalizes message_type and defaults to text', () {
     ChatroomNarratorMessage parse(Map<String, dynamic> payload) {
       return chatroomEventFromEnvelope(
@@ -786,6 +1025,7 @@ void main() {
       'msg_id': 156,
       'conversation_round_id': 1350,
       'current_time': 'Day 45, 19:30',
+      'sub_tick_no': 1,
       'payload': {'content': 'Day 45, 19:30', 'tick_no': 7},
     });
     socket.serverFrame('nar_new_message', {
@@ -818,6 +1058,7 @@ void main() {
     final tick = events.whereType<ChatroomTickAdvanceMessage>().single;
     expect(tick.currentTime, 'Day 45, 19:30');
     expect(tick.tickNo, 7);
+    expect(tick.subTickNo, 1);
     expect(tick.content, 'Day 45, 19:30');
     expect(tick.messageType, 'text');
     final narrator = events.whereType<ChatroomNarratorMessage>().single;
@@ -956,6 +1197,7 @@ void main() {
           onAck: (_) => handled.add('ack'),
           onFailure: (_) => handled.add('failure'),
           onWorldNotification: (_) => handled.add('world_notification'),
+          onCharactersMovedMessage: (_) => handled.add('characters_moved'),
           onUserMessage: (_) => handled.add('user_message'),
           onTickAdvanceMessage: (_) => handled.add('tick_advance'),
           onAiStreamStart: (_) => handled.add('llm_stream_start'),
@@ -995,6 +1237,19 @@ void main() {
           'title': '天气变化',
           'summary': '下雨了',
           'detail_url': '/api/v1/world/world-1/events/weather',
+        },
+      });
+      socket.serverFrame('characters_moved', {
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'global_msg_id': 9002,
+        'msg_id': 1002,
+        'location_msg_id': 202,
+        'conversation_round_id': 201,
+        'payload': {
+          'movements': [
+            {'char_id': 'char_alice', 'to_loc_id': 'loc-2'},
+          ],
         },
       });
       socket.serverFrame('user_message', {
@@ -1059,6 +1314,7 @@ void main() {
           'ack',
           'failure',
           'world_notification',
+          'characters_moved',
           'user_message',
           'tick_advance',
           'llm_stream_start',

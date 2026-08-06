@@ -19232,7 +19232,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.text('Tick 25 · tick-time-1', skipOffstage: false),
+        find.text('Tick 25-1 · tick-time-1', skipOffstage: false),
         findsOneWidget,
       );
       expect(find.text('Paged event 20.', skipOffstage: false), findsNothing);
@@ -19297,7 +19297,7 @@ void main() {
       Finder tickHeader(int tickNo) {
         final requestIndex = 26 - tickNo;
         return find.text(
-          'Tick $tickNo · tick-time-$requestIndex',
+          'Tick $tickNo-1 · tick-time-$requestIndex',
           skipOffstage: false,
         );
       }
@@ -19391,14 +19391,14 @@ void main() {
 
       expect(find.text('Paged event 25.', skipOffstage: false), findsOneWidget);
       expect(
-        find.text('Tick 1 · tick-time-25', skipOffstage: false),
+        find.text('Tick 1-1 · tick-time-25', skipOffstage: false),
         findsOneWidget,
       );
 
       await dragToNewerTick(1, 2);
       expect(find.text('Paged event 24.', skipOffstage: false), findsOneWidget);
       expect(
-        find.text('Tick 2 · tick-time-24', skipOffstage: false),
+        find.text('Tick 2-1 · tick-time-24', skipOffstage: false),
         findsOneWidget,
       );
 
@@ -19625,7 +19625,7 @@ void main() {
     expect(find.text('Completed tick event.'), findsOneWidget);
     expect(find.text('Completed tick paragraph.'), findsOneWidget);
     expect(
-      find.text('Tick 26 · tick-time-26', skipOffstage: false),
+      find.text('Tick 26-1 · tick-time-26', skipOffstage: false),
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 2));

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.d
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
@@ -208,6 +210,113 @@ void main() {
         ],
       ),
       isTrue,
+    );
+  });
+
+  test('story visibility uses every local character name', () {
+    final roleNamesById = locationChatCurrentRoleNamesByIdForTesting(
+      currentUserIds: const {'u_me'},
+      currentSenderIds: const {'u_me'},
+      characters: const [
+        {'char_id': 'mateo', 'player_uid': 'u_me', 'name': 'Mateo Cruz'},
+        {'char_id': 'iris', 'player_uid': 'u_me', 'name': 'Iris'},
+        {'char_id': 'marcus', 'player_uid': 'u_other', 'name': 'Marcus'},
+      ],
+      characterPositions: const [],
+    );
+
+    expect(roleNamesById, {
+      'mateo': 'Mateo Cruz',
+      'iris': 'Iris',
+      'marcus': 'Marcus',
+    });
+    expect(
+      locationChatStoryEventParagraphVmForTesting(
+        const ChatroomStoryEventParagraph(
+          timestamp: 'Day 2, 10:15',
+          visibility: 'public',
+          visibleTo: [],
+          text: 'Everyone can see this.',
+          clue: '',
+        ),
+        roleNamesById: roleNamesById,
+      )?.visibilityLabel,
+      'public',
+    );
+    expect(
+      locationChatStoryEventParagraphVmForTesting(
+        const ChatroomStoryEventParagraph(
+          timestamp: 'Day 2, 10:20',
+          visibility: 'char_only',
+          visibleTo: ['mateo', 'marcus', 'iris', 'mateo'],
+          text: 'Only local roles can see this.',
+          clue: '',
+        ),
+        roleNamesById: roleNamesById,
+      )?.visibilityLabel,
+      'Mateo Cruz, Marcus, Iris',
+    );
+    expect(
+      locationChatStoryEventParagraphVmForTesting(
+        const ChatroomStoryEventParagraph(
+          timestamp: 'Day 2, 10:25',
+          visibility: 'char_only',
+          visibleTo: ['marcus'],
+          text: 'A different player sees this.',
+          clue: '',
+        ),
+        roleNamesById: roleNamesById,
+      )?.visibilityLabel,
+      'Marcus',
+    );
+    expect(
+      locationChatStoryEventParagraphVmForTesting(
+        const ChatroomStoryEventParagraph(
+          timestamp: 'Day 2, 10:30',
+          visibility: 'char_only',
+          visibleTo: ['missing'],
+          text: 'The event remains visible without a matching label.',
+          clue: '',
+        ),
+        roleNamesById: roleNamesById,
+      )?.visibilityLabel,
+      isEmpty,
+    );
+  });
+
+  test('movement labels resolve known names and retain unknown ids', () {
+    expect(
+      resolveLocationChatTimelineCharacterNameForTesting(
+        characterId: 'char-alice',
+        characterPositions: const [
+          {
+            'location_id': 'loc-cafe',
+            'character': {'id': 'char-alice', 'name': 'Alice'},
+          },
+        ],
+      ),
+      'Alice',
+    );
+    expect(
+      resolveLocationChatTimelineCharacterNameForTesting(
+        characterId: 'char-unknown',
+      ),
+      'char-unknown',
+    );
+    expect(
+      resolveLocationChatTimelineLocationNameForTesting(
+        locationId: 'loc-cafe',
+        locations: const [
+          {'location_id': 'loc-cafe', 'location_name': 'Cafe'},
+        ],
+      ),
+      'Cafe',
+    );
+    expect(
+      resolveLocationChatTimelineLocationNameForTesting(
+        locationId: 'loc-unknown',
+      ),
+      'loc-unknown',
     );
   });
 
@@ -746,6 +855,268 @@ void main() {
     },
   );
 
+  testWidgets(
+    'location chat hides enter events but renders other typed timeline events',
+    (tester) async {
+      ChatCharacterMovementVm? openedMovement;
+      final enter = _timelineMessage(
+        messageId: 11,
+        senderType: chatroomUserEnterLocationSenderType,
+        payload: {
+          'char_id': 'char-alice',
+          'to_location_id': 'loc-cafe',
+          'text': 'Alice entered the cafe.',
+        },
+      );
+      final story = _timelineMessage(
+        messageId: 12,
+        senderType: chatroomStoryEventsSenderType,
+        tickNo: 4,
+        subTickNo: 1,
+        currentTime: 'Day 2, 00:09:15',
+        payload: {
+          'location_id': 'loc-station',
+          'location_name': 'Old Station',
+          'paragraphs': [
+            {
+              'timestamp': 'Day 2, 10:15',
+              'visibility': 'public',
+              'visible_to': <String>[],
+              'text': 'Alice found a ticket.',
+              'clue': 'The date is three years ago.',
+            },
+            {
+              'timestamp': 'Day 2, 10:20',
+              'visibility': 'public',
+              'visible_to': <String>[],
+              'text': 'The platform became quiet.',
+              'clue': '',
+            },
+          ],
+        },
+      );
+      final moved = _timelineMessage(
+        messageId: 13,
+        senderType: chatroomCharactersMovedSenderType,
+        payload: {
+          'movements': [
+            {'char_id': 'char-alice', 'to_loc_id': 'loc-cafe'},
+            {'char_id': 'char-unknown', 'to_loc_id': 'loc-unknown'},
+          ],
+        },
+      );
+      final invalid = _timelineMessage(
+        messageId: 14,
+        senderType: chatroomStoryEventsSenderType,
+        payload: '{"broken":',
+      );
+      final plainTextEnter = _timelineMessage(
+        messageId: 15,
+        senderType: chatroomUserEnterLocationSenderType,
+        payload: 'Dh来到了okkk。',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            active: false,
+            openingPreviewMessages: [
+              enter,
+              story,
+              moved,
+              invalid,
+              plainTextEnter,
+            ],
+            openingPreviewEntities: const [
+              WorldChatroomEntity(
+                id: 'char-alice',
+                name: 'Alice',
+                avatarUrl: '',
+                type: WorldChatroomEntityType.character,
+                locationId: 'loc-cafe',
+                isAi: true,
+              ),
+            ],
+            onCharactersMovedLocationTap: (movement) {
+              openedMovement = movement;
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(ChatUserEnterLocationMessageBubble), findsNothing);
+      expect(find.byType(ChatStoryEventsMessageBubble), findsOneWidget);
+      expect(find.byType(ChatCharactersMovedMessageBubble), findsOneWidget);
+      expect(find.text('Alice entered the cafe.'), findsNothing);
+      expect(find.text('Dh来到了okkk。'), findsNothing);
+      expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
+      expect(find.text('Old Station'), findsNothing);
+      expect(find.text('事件'), findsNWidgets(2));
+      expect(find.text('Day 2, 10:15'), findsOneWidget);
+      expect(find.text('public'), findsNWidgets(2));
+      expect(find.text('Alice found a ticket.'), findsOneWidget);
+      expect(find.text('The date is three years ago.'), findsOneWidget);
+      expect(find.text('Day 2, 10:20'), findsOneWidget);
+      expect(find.text('The platform became quiet.'), findsOneWidget);
+      expect(find.text('人物去向'), findsOneWidget);
+      expect(find.byIcon(Icons.directions_walk_rounded), findsNWidgets(3));
+      expect(find.text('Alice'), findsNWidgets(2));
+      expect(find.text('char-unknown'), findsOneWidget);
+      expect(find.text('has gone to'), findsNWidgets(2));
+      expect(find.text('loc-cafe'), findsOneWidget);
+      expect(find.text('loc-unknown'), findsOneWidget);
+      await tester.tap(find.text('loc-unknown'));
+      expect(openedMovement?.toLocationId, 'loc-unknown');
+      expect(find.text('{"broken":'), findsNothing);
+      expect(find.text('sub_tick'), findsNothing);
+      expect(find.byType(ChatAvatar), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'HTTP flat story_events 60 and 61 render the same event bubbles as WS',
+    (tester) async {
+      WorldChatroomMessage storyMessage({
+        required int globalMessageId,
+        required int messageId,
+        required int locationMessageId,
+        required String timestamp,
+        required String text,
+        required String clue,
+      }) {
+        return WorldChatroomMessage.fromHttpMessage(
+          ChatroomHttpMessage.fromJson({
+            'global_message_id': globalMessageId,
+            'message_id': messageId,
+            'location_message_id': locationMessageId,
+            'location_id': 'loc_1_1_1',
+            'conversation_round_id': 7003,
+            'sender_type': 'story_events',
+            'sender_id': 'tick',
+            'sender_name': 'SubTick',
+            'user_id': null,
+            'content': jsonEncode({
+              'location_id': 'loc_1_1_1',
+              'timestamp': timestamp,
+              'visibility': 'char_only',
+              'visible_to': ['char_1'],
+              'text': text,
+              'clue': clue,
+            }),
+            'message_type': 'text',
+            'current_time': 'Day 2, 00:09:15',
+            'tick_no': 4,
+            'sub_tick_no': 1,
+            'created_at': '2026-08-06 20:57:54',
+          }),
+        );
+      }
+
+      final message60 = storyMessage(
+        globalMessageId: 6140,
+        messageId: 60,
+        locationMessageId: 31,
+        timestamp: 'Day 2, 00:08:30',
+        text: '中年男人把录音带塞进桌角的旧录音机。',
+        clue: '问他为什么不敢让你听完。',
+      );
+      final message61 = storyMessage(
+        globalMessageId: 6141,
+        messageId: 61,
+        locationMessageId: 32,
+        timestamp: 'Day 2, 00:09:00',
+        text: '录音机开始播放，第三人的声音从磁带深处浮出来。',
+        clue: '去辨认磁带里的耳语者。',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'w_LV7MN3',
+            locationId: 'loc_1_1_1',
+            active: false,
+            openingPreviewMessages: [message60, message61],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(ChatStoryEventsMessageBubble), findsNWidgets(2));
+      expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
+      expect(find.text('loc_1_1_1'), findsNothing);
+      expect(find.text('Day 2, 00:08:30'), findsOneWidget);
+      expect(find.text('中年男人把录音带塞进桌角的旧录音机。'), findsOneWidget);
+      expect(find.text('问他为什么不敢让你听完。'), findsOneWidget);
+      expect(find.text('Day 2, 00:09:00'), findsOneWidget);
+      expect(find.text('录音机开始播放，第三人的声音从磁带深处浮出来。'), findsOneWidget);
+      expect(find.text('去辨认磁带里的耳语者。'), findsOneWidget);
+      expect(find.textContaining('"location_id"'), findsNothing);
+    },
+  );
+
+  testWidgets('HTTP and WSS story_events share the same bubble layout', (
+    tester,
+  ) async {
+    final httpMessage = _timelineMessage(
+      messageId: 201,
+      senderType: chatroomStoryEventsSenderType,
+      tickNo: 5,
+      subTickNo: 2,
+      currentTime: 'Day 3, 08:30:00',
+      payload: {
+        'location_id': 'location-current',
+        'timestamp': 'Day 3, 08:29:00',
+        'visibility': 'public',
+        'visible_to': <String>[],
+        'text': 'HTTP event body.',
+        'clue': 'HTTP event clue.',
+      },
+    );
+    final websocketMessage = _wssStoryTimelineMessage(
+      messageId: 202,
+      locationMessageId: 202,
+      tickNo: 5,
+      subTickNo: 2,
+      currentTime: 'Day 3, 08:30:00',
+      payload: {
+        'location_id': 'location-current',
+        'timestamp': 'Day 3, 08:29:30',
+        'visibility': 'public',
+        'visible_to': <String>[],
+        'text': 'WSS event body.',
+        'clue': 'WSS event clue.',
+      },
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'world-current',
+          locationId: 'location-current',
+          active: false,
+          openingPreviewMessages: [httpMessage, websocketMessage],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(ChatStoryEventsMessageBubble), findsNWidgets(2));
+    expect(find.text('Tick 5-2 · Day 3, 08:30:00'), findsNothing);
+    expect(find.text('事件'), findsNWidgets(2));
+    expect(find.byIcon(Icons.push_pin_rounded), findsNWidgets(2));
+    expect(find.byIcon(Icons.lightbulb_outline_rounded), findsNWidgets(2));
+    expect(find.text('public'), findsNWidgets(2));
+    expect(find.text('Day 3, 08:29:00'), findsOneWidget);
+    expect(find.text('HTTP event body.'), findsOneWidget);
+    expect(find.text('HTTP event clue.'), findsOneWidget);
+    expect(find.text('Day 3, 08:29:30'), findsOneWidget);
+    expect(find.text('WSS event body.'), findsOneWidget);
+    expect(find.text('WSS event clue.'), findsOneWidget);
+  });
+
   testWidgets('location chat updates when cached selected model arrives', (
     tester,
   ) async {
@@ -1066,6 +1437,40 @@ void main() {
     );
   });
 
+  test('timeline messages use world message id as local key', () {
+    const first = WorldChatroomMessage(
+      messageId: 1080,
+      locationMessageId: 0,
+      conversationRoundId: '80',
+      roundOrder: 0,
+      locationId: 'loc-1',
+      senderType: 'story_events',
+      senderId: 'sub_tick',
+      senderName: 'sub_tick',
+      content: '{}',
+      createdAt: null,
+    );
+    const second = WorldChatroomMessage(
+      messageId: 1083,
+      locationMessageId: 83,
+      conversationRoundId: '80',
+      roundOrder: 0,
+      locationId: 'loc-1',
+      senderType: 'story_events',
+      senderId: 'sub_tick',
+      senderName: 'sub_tick',
+      content: '{}',
+      createdAt: null,
+    );
+
+    expect(locationChatMessageLocalIdForTesting(first), 'message-loc-1-1080');
+    expect(locationChatMessageLocalIdForTesting(second), 'message-loc-1-1083');
+    expect(
+      locationChatMessageLocalIdForTesting(first),
+      isNot(locationChatMessageLocalIdForTesting(second)),
+    );
+  });
+
   test('local hydrate ignores stale disposed provided chatroom services', () {
     final panelSource = _readLocationChatImplementationSource();
     final serviceSource = File(
@@ -1155,6 +1560,143 @@ void main() {
       expect(locationChatMessageGapFillCursorForTesting(source), 0);
     },
   );
+
+  test(
+    'visible location chat messages insert timeline events by world message id',
+    () {
+      final source = [
+        _message(messageId: 100, locationMessageId: 10, content: 'ten'),
+        _message(
+          messageId: 110,
+          locationMessageId: 0,
+          senderType: 'user_enter_location',
+          content: 'enter',
+        ),
+        _message(messageId: 120, locationMessageId: 11, content: 'eleven'),
+        _message(
+          messageId: 130,
+          locationMessageId: 0,
+          senderType: 'story_events',
+          content: 'story',
+        ),
+        _message(
+          messageId: 135,
+          locationMessageId: 0,
+          senderType: 'characters_moved',
+          content: 'moved',
+        ),
+        _message(messageId: 140, locationMessageId: 12, content: 'twelve'),
+      ];
+
+      expect(
+        visibleLocationChatMessagesForTesting(
+          source,
+        ).map((message) => message.messageId),
+        [100, 110, 120, 130, 135, 140],
+      );
+      expect(oldestLocationChatMessageIdForTesting(source), 10);
+    },
+  );
+
+  test(
+    'positive story_events location ids participate in the continuous window',
+    () {
+      final source = [
+        _message(
+          messageId: 58,
+          locationMessageId: 30,
+          senderType: 'narrator',
+          content: 'Narrator before the events',
+        ),
+        _message(
+          messageId: 60,
+          locationMessageId: 31,
+          senderType: 'story_events',
+          content: 'First flat story event',
+        ),
+        _message(
+          messageId: 61,
+          locationMessageId: 32,
+          senderType: 'story_events',
+          content: 'Second flat story event',
+        ),
+        _message(
+          messageId: 64,
+          locationMessageId: 33,
+          senderType: 'user_enter_location',
+          content: 'Enter after the events',
+        ),
+      ];
+
+      expect(
+        visibleLocationChatMessagesForTesting(
+          source,
+        ).map((message) => message.messageId),
+        [58, 60, 61, 64],
+      );
+      expect(locationChatMessageGapFillCursorForTesting(source), 0);
+    },
+  );
+
+  test('timeline events respect the visible side of a location id gap', () {
+    final source = [
+      _message(messageId: 100, locationMessageId: 1, content: 'old one'),
+      _message(
+        messageId: 110,
+        locationMessageId: 0,
+        senderType: 'story_events',
+        content: 'old-side event',
+      ),
+      _message(messageId: 400, locationMessageId: 4, content: 'new four'),
+      _message(
+        messageId: 410,
+        locationMessageId: 0,
+        senderType: 'user_enter_location',
+        content: 'new-side event',
+      ),
+      _message(messageId: 500, locationMessageId: 5, content: 'new five'),
+    ];
+
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.messageId),
+      [400, 410, 500],
+    );
+    expect(locationChatMessageGapFillCursorForTesting(source), 4);
+  });
+
+  test('timeline-only queues retain every event without tick collapsing', () {
+    final source = [
+      _message(
+        messageId: 100,
+        locationMessageId: 0,
+        senderType: 'story_events',
+        content: 'story one',
+      ),
+      _message(
+        messageId: 110,
+        locationMessageId: 0,
+        senderType: 'story_events',
+        content: 'story two',
+      ),
+      _message(
+        messageId: 120,
+        locationMessageId: 0,
+        senderType: 'characters_moved',
+        content: 'moved',
+      ),
+    ];
+
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.messageId),
+      [100, 110, 120],
+    );
+    expect(oldestLocationChatMessageIdForTesting(source), 0);
+    expect(locationChatMessageGapFillCursorForTesting(source), 0);
+  });
 
   test(
     'visible location chat messages include leading tick in visible window',
@@ -1457,5 +1999,62 @@ WorldChatroomMessage _message({
     content: content,
     createdAt: null,
     isLlmStreamMessage: isLlmStreamMessage,
+  );
+}
+
+WorldChatroomMessage _timelineMessage({
+  required int messageId,
+  required String senderType,
+  required Object payload,
+  int tickNo = 0,
+  int subTickNo = 0,
+  String currentTime = '',
+}) {
+  return WorldChatroomMessage.fromHttpMessage(
+    ChatroomHttpMessage.fromJson({
+      'global_message_id': 90000 + messageId,
+      'message_id': messageId,
+      'location_msg_id': messageId,
+      'location_id': 'location-current',
+      'conversation_round_id': messageId,
+      'sender_type': senderType,
+      'sender_id': 'sub_tick',
+      'sender_name': 'sub_tick',
+      'tick_no': tickNo,
+      'sub_tick_no': subTickNo,
+      'content': payload is String ? payload : jsonEncode(payload),
+      'current_time': currentTime,
+    }),
+  );
+}
+
+WorldChatroomMessage _wssStoryTimelineMessage({
+  required int messageId,
+  required int locationMessageId,
+  required int tickNo,
+  required int subTickNo,
+  required String currentTime,
+  required Map<String, dynamic> payload,
+}) {
+  final envelope = ChatroomEnvelope.fromJson({
+    'type': chatroomStoryEventsSenderType,
+    'schema_version': 1,
+    'event_id': 'event-$messageId',
+    'ts': 1786062600000,
+    'world_id': 'world-current',
+    'location_id': 'location-current',
+    'global_msg_id': 90000 + messageId,
+    'msg_id': messageId,
+    'location_msg_id': locationMessageId,
+    'conversation_round_id': messageId,
+    'sender_id': 'sub_tick',
+    'sender_name': 'sub_tick',
+    'tick_no': tickNo,
+    'sub_tick_no': subTickNo,
+    'current_time': currentTime,
+    'payload': payload,
+  });
+  return WorldChatroomMessage.fromStoryEventsMessage(
+    ChatroomStoryEventsMessage.fromEnvelope(envelope),
   );
 }

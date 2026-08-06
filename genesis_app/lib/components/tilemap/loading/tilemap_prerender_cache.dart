@@ -245,11 +245,40 @@ class TilemapPrerenderController {
         _warmingMapId = mapId;
       } else {
         _residentMapIds.remove(mapId);
+        if (_warmingMapId == mapId) _warmingMapId = null;
         _enqueueMapId(mapId);
       }
     }
     _selectNextWarmingMap();
     if (wasReady) _notifyChanged();
+  }
+
+  /// Drops cached configs and renderer state outside the refreshed preload
+  /// plan. The active and transition-protected maps are always retained.
+  void retainKnownMapIds(Iterable<String> mapIds) {
+    if (_disposed) return;
+    final retainedMapIds = <String>{
+      ...mapIds.map((mapId) => mapId.trim()).where((mapId) => mapId.isNotEmpty),
+      if (_activeMapId case final mapId?) mapId,
+      ..._protectedMapIds,
+    };
+    final removedMapIds = _knownConfigs.keys
+        .where((mapId) => !retainedMapIds.contains(mapId))
+        .toList(growable: false);
+    if (removedMapIds.isEmpty) return;
+
+    for (final mapId in removedMapIds) {
+      _knownConfigs.remove(mapId);
+      _residentMapIds.remove(mapId);
+      _readyMapIds.remove(mapId);
+      _failedMapIds.remove(mapId);
+      _pendingMapIdSet.remove(mapId);
+      _pendingMapIds.remove(mapId);
+      _preferredMapIds.remove(mapId);
+      if (_warmingMapId == mapId) _warmingMapId = null;
+    }
+    _selectNextWarmingMap();
+    _notifyChanged();
   }
 
   void rejectMap(String mapId) {

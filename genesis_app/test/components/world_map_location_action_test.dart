@@ -67,6 +67,52 @@ void main() {
     expect(findWorldMapLocationNode(roots, ' target '), same(target));
     expect(findWorldMapLocationNode(roots, 'missing'), isNull);
   });
+
+  test('chat target navigation keeps a single-child target on root map', () {
+    final roots = [
+      _node(
+        '__world_root__',
+        children: [
+          _node(
+            'corridor',
+            children: [
+              _node('middle', children: [_node('leaf')]),
+            ],
+          ),
+        ],
+      ),
+    ];
+
+    final navigation = resolveWorldMapChatTargetNavigation(
+      initialLocationId: 'root',
+      targetLocationId: 'leaf',
+      locationNodes: roots,
+    );
+
+    expect(navigation?.currentLocationId, 'root');
+    expect(navigation?.locationTrail, isEmpty);
+  });
+
+  test('chat target navigation builds the parent map drill trail', () {
+    final roots = [
+      _node(
+        '__world_root__',
+        children: [
+          _node('branch', children: [_node('leaf_a'), _node('leaf_b')]),
+          _node('other_leaf'),
+        ],
+      ),
+    ];
+
+    final navigation = resolveWorldMapChatTargetNavigation(
+      initialLocationId: 'root',
+      targetLocationId: 'leaf_b',
+      locationNodes: roots,
+    );
+
+    expect(navigation?.currentLocationId, 'branch');
+    expect(navigation?.locationTrail, ['root']);
+  });
 }
 
 WorldMapLocationNode _node(

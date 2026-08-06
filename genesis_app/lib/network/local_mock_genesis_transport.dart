@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'chatroom/chatroom_timeline_payload.dart';
 import 'http_transport.dart';
 import 'json_utils.dart';
 import 'mock_data/mock_message_data.dart';
@@ -17,6 +18,17 @@ class LocalMockGenesisTransport implements HttpTransport {
       LocalMockGenesisTransport._();
 
   final _state = _MockState();
+
+  /// Adds an opt-in timeline bundle without changing the default mock seed.
+  void seedChatroomTimelineMessages({
+    required String worldId,
+    required String locationId,
+  }) {
+    _state.seedChatroomTimelineMessages(
+      worldId: worldId,
+      locationId: locationId,
+    );
+  }
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -1372,6 +1384,80 @@ class _MockState {
       'has_more': messages.length > page.length,
       'newest_message_id': newestId,
     };
+  }
+
+  void seedChatroomTimelineMessages({
+    required String worldId,
+    required String locationId,
+  }) {
+    final resolvedWorldId = _resolveChatroomWorldId(worldId);
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty) return;
+    final alreadySeeded = _chatroomMessages.any(
+      (message) =>
+          message['world_id'] == resolvedWorldId &&
+          message['location_id'] == resolvedLocationId &&
+          message['sender_type'] == chatroomUserEnterLocationSenderType,
+    );
+    if (alreadySeeded) return;
+
+    final roundId = ++_chatroomRoundSeq;
+    final payloads = <ChatroomTimelinePayload>[
+      ChatroomUserEnterLocationPayload(
+        charId: 'c_mock_iris',
+        toLocationId: resolvedLocationId,
+        text: 'Iris Vale entered the location.',
+      ),
+      ChatroomStoryEventsPayload(
+        locationId: resolvedLocationId,
+        locationName: 'Mock Timeline Location',
+        paragraphs: const [
+          ChatroomStoryEventParagraph(
+            timestamp: 'Day 2, 10:15',
+            visibility: 'public',
+            visibleTo: <String>[],
+            text: 'The mock timeline advanced.',
+            clue: '',
+          ),
+        ],
+      ),
+      ChatroomCharactersMovedPayload(
+        movements: [
+          ChatroomCharacterMovement(
+            charId: 'c_mock_iris',
+            toLocationId: resolvedLocationId,
+          ),
+        ],
+      ),
+    ];
+    for (var index = 0; index < payloads.length; index += 1) {
+      final payload = payloads[index];
+      final content = switch (payload) {
+        ChatroomStoryEventsPayload event when event.paragraphs.length == 1 =>
+          jsonEncode(<String, Object?>{
+            'location_id': event.locationId,
+            ...event.paragraphs.single.toJson(),
+          }),
+        _ => encodeChatroomTimelinePayload(payload),
+      };
+      _chatroomMessages.add(
+        _newChatroomMessage(
+          worldId: resolvedWorldId,
+          locationId: resolvedLocationId,
+          conversationRoundId: roundId,
+          roundOrder: index + 1,
+          senderType: payload.senderType,
+          senderId: 'sub_tick',
+          senderName: 'sub_tick',
+          userId: '',
+          content: content,
+          messageType: '',
+          tickNo: 4,
+          subTickNo: 1,
+          locationMessageId: 0,
+        ),
+      );
+    }
   }
 
   Map<String, dynamic> lockChatroomWorld(String worldId) {
@@ -4390,23 +4476,30 @@ class _MockState {
     required String userId,
     required String content,
     String messageType = 'text',
+    int tickNo = 0,
+    int subTickNo = 0,
+    int? locationMessageId,
     String? createdAt,
   }) {
     final resolvedWorldId = _resolveChatroomWorldId(worldId);
     final messageId = ++_chatroomMessageSeq;
     final locationSeqKey = '$resolvedWorldId::$locationId';
-    final locationMessageId =
-        (_chatroomLocationMessageSeq[locationSeqKey] ?? 100) + 1;
-    _chatroomLocationMessageSeq[locationSeqKey] = locationMessageId;
+    final resolvedLocationMessageId =
+        locationMessageId ??
+        ((_chatroomLocationMessageSeq[locationSeqKey] ?? 100) + 1);
+    if (locationMessageId == null) {
+      _chatroomLocationMessageSeq[locationSeqKey] = resolvedLocationMessageId;
+    }
     return {
       'global_message_id': messageId,
       'message_id': messageId,
-      'location_message_id': locationMessageId,
+      'location_message_id': resolvedLocationMessageId,
       'world_id': resolvedWorldId,
       'location_id': locationId,
       'conversation_round_id': conversationRoundId,
       'round_order': roundOrder,
-      'tick_no': 0,
+      'tick_no': tickNo,
+      if (subTickNo > 0) 'sub_tick_no': subTickNo,
       'sender_type': senderType,
       'sender_id': senderId,
       'sender_name': senderName,
@@ -4422,6 +4515,9 @@ class _MockState {
     final copy = _deepCopyMap(message);
     copy.remove('world_id');
     copy.remove('round_order');
+    if (isChatroomTimelinePayloadSenderType(copy['sender_type'])) {
+      copy['location_id'] = '';
+    }
     return copy;
   }
 

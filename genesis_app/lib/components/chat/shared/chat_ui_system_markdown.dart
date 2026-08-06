@@ -156,10 +156,15 @@ int _findInlineItalicEnd(String text, int start, String marker) {
 }
 
 String _tickAdvanceText(ChatMessageVm message) {
-  final tick = message.tickNo > 0 ? '${message.tickNo}' : '';
   final time = message.text.trim();
-  final prefix = tick.isEmpty ? 'Tick' : 'Tick $tick';
+  final prefix = _tickLabel(message);
   return time.isEmpty ? prefix : '$prefix · $time';
+}
+
+String _tickLabel(ChatMessageVm message) {
+  if (message.tickNo <= 0) return 'Tick';
+  final subTick = message.subTickNo > 0 ? '-${message.subTickNo}' : '';
+  return 'Tick ${message.tickNo}$subTick';
 }
 
 String chatInitials(String value) {

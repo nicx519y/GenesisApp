@@ -197,6 +197,7 @@ class LocationChatDebugHttp {
       'locationId': message.locationId,
       'roundId': message.conversationRoundId,
       'tickNo': message.tickNo,
+      'subTickNo': message.subTickNo,
       'senderType': message.senderType,
       'senderId': message.senderId,
       'senderName': message.senderName,

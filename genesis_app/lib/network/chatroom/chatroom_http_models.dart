@@ -1,5 +1,6 @@
 import '../json_utils.dart';
 import 'chatroom_message_type.dart';
+import 'chatroom_timeline_payload.dart';
 
 class ChatroomHttpMessage {
   const ChatroomHttpMessage({
@@ -10,6 +11,7 @@ class ChatroomHttpMessage {
     required this.locationId,
     required this.conversationRoundId,
     this.tickNo = 0,
+    this.subTickNo = 0,
     required this.senderType,
     required this.senderId,
     required this.senderName,
@@ -27,6 +29,7 @@ class ChatroomHttpMessage {
   final String locationId;
   final int conversationRoundId;
   final int tickNo;
+  final int subTickNo;
   final String senderType;
   final String senderId;
   final String senderName;
@@ -35,6 +38,23 @@ class ChatroomHttpMessage {
   final String messageType;
   final String currentTime;
   final DateTime? createdAt;
+
+  bool get isLocationSupplementalMessage =>
+      isChatroomLocationSupplementalSenderType(senderType);
+
+  ChatroomTimelinePayload? get timelinePayload {
+    return tryDecodeChatroomTimelinePayload(
+      senderType: senderType,
+      rawPayload: content,
+    );
+  }
+
+  ChatroomTimelinePayload decodeTimelinePayload() {
+    return decodeChatroomTimelinePayload(
+      senderType: senderType,
+      rawPayload: content,
+    );
+  }
 
   factory ChatroomHttpMessage.fromJson(Map<String, dynamic> json) {
     final messageId = asInt(json['message_id']);
@@ -50,6 +70,7 @@ class ChatroomHttpMessage {
       locationId: asString(json['location_id']),
       conversationRoundId: asInt(json['conversation_round_id']),
       tickNo: asInt(json['tick_no']),
+      subTickNo: asInt(json['sub_tick_no']),
       senderType: asString(json['sender_type']),
       senderId: senderId,
       senderName: asString(json['sender_name']),

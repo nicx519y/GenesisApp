@@ -7,6 +7,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_con
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transport.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -990,6 +991,185 @@ void main() {
     ]);
   });
 
+  test(
+    'chatroom message storage orders timeline payloads by world message id',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        messages: [
+          _storageMessageJson(
+            messageId: 100,
+            locationMessageId: 10,
+            locationId: 'loc-1',
+            content: 'location 10',
+          ),
+          _storageMessageJson(
+            messageId: 110,
+            locationMessageId: 0,
+            locationId: 'loc-1',
+            content: '{}',
+            senderType: 'story_events',
+          ),
+          _storageMessageJson(
+            messageId: 120,
+            locationMessageId: 11,
+            locationId: 'loc-1',
+            content: 'location 11',
+          ),
+          _storageMessageJson(
+            messageId: 130,
+            locationMessageId: 0,
+            locationId: 'loc-1',
+            content: '{}',
+            senderType: 'characters_moved',
+          ),
+        ],
+      );
+
+      final records = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+
+      expect(records.map((message) => message['msg_id']).toList(), [
+        100,
+        110,
+        120,
+        130,
+      ]);
+      expect(records.map((message) => message['location_msg_id']).toList(), [
+        10,
+        0,
+        11,
+        0,
+      ]);
+    },
+  );
+
+  test(
+    'supplemental sender type does not collide with a positive location id',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        messages: [
+          _storageMessageJson(
+            messageId: 100,
+            locationMessageId: 10,
+            locationId: 'loc-1',
+            content: 'ordinary',
+          ),
+          _storageMessageJson(
+            messageId: 110,
+            locationMessageId: 10,
+            locationId: 'loc-1',
+            content: '{}',
+            senderType: chatroomStoryEventsSenderType,
+          ),
+        ],
+      );
+
+      final records = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+
+      expect(records.map((message) => message['msg_id']).toList(), [100, 110]);
+      expect(records.map((message) => message['location_msg_id']).toList(), [
+        10,
+        10,
+      ]);
+    },
+  );
+
+  test(
+    'chatroom message storage pages and deletes with dual cursor boundaries',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        messages: [
+          _storageMessageJson(
+            messageId: 100,
+            locationMessageId: 10,
+            locationId: 'loc-1',
+            content: 'location 10',
+          ),
+          _storageMessageJson(
+            messageId: 110,
+            locationMessageId: 0,
+            locationId: 'loc-1',
+            content: '{}',
+            senderType: 'user_enter_location',
+          ),
+          _storageMessageJson(
+            messageId: 120,
+            locationMessageId: 11,
+            locationId: 'loc-1',
+            content: 'location 11',
+          ),
+          _storageMessageJson(
+            messageId: 130,
+            locationMessageId: 0,
+            locationId: 'loc-1',
+            content: '{}',
+            senderType: 'story_events',
+          ),
+          _storageMessageJson(
+            messageId: 140,
+            locationMessageId: 12,
+            locationId: 'loc-1',
+            content: 'location 12',
+          ),
+        ],
+      );
+
+      final older = await storage.loadMessagesBefore(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        beforeMessageId: 12,
+        beforeWorldMessageId: 140,
+        limit: 20,
+      );
+      expect(older.map((message) => message['msg_id']).toList(), [
+        100,
+        110,
+        120,
+        130,
+      ]);
+
+      await storage.deleteMessagesAtOrBefore(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        maxLocationMessageId: 11,
+        maxWorldMessageId: 120,
+      );
+      final remaining = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+      expect(remaining.map((message) => message['msg_id']).toList(), [
+        130,
+        140,
+      ]);
+    },
+  );
+
   test('clearCachedMessages clears persisted and in-memory history', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport()
@@ -1094,6 +1274,253 @@ void main() {
           .toList(),
       ['remote-old', 'remote-new'],
     );
+    await service.dispose();
+  });
+
+  test(
+    'flat HTTP timeline records join the requested location queue in order',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          _httpMessageJson(
+            messageId: 100,
+            locationMessageId: 10,
+            locationId: 'loc-1',
+            content: 'location ten',
+          ),
+          _httpMessageJson(
+            messageId: 110,
+            locationMessageId: 0,
+            locationId: '',
+            senderType: chatroomUserEnterLocationSenderType,
+            content: jsonEncode({
+              'char_id': 'char-alice',
+              'to_location_id': 'loc-1',
+              'text': 'Alice entered.',
+            }),
+          ),
+          _httpMessageJson(
+            messageId: 120,
+            locationMessageId: 11,
+            locationId: 'loc-1',
+            content: 'location eleven',
+          ),
+          _httpMessageJson(
+            messageId: 130,
+            locationMessageId: 0,
+            locationId: '',
+            senderType: chatroomStoryEventsSenderType,
+            content: jsonEncode({
+              'location_id': 'loc-1',
+              'location_name': 'Square',
+              'paragraphs': [
+                {
+                  'timestamp': 'Day 2, 10:15',
+                  'visibility': 'public',
+                  'visible_to': <String>[],
+                  'text': 'The bell rang.',
+                  'clue': '',
+                },
+              ],
+            }),
+          ),
+          _httpMessageJson(
+            messageId: 135,
+            locationMessageId: 0,
+            locationId: '',
+            senderType: chatroomCharactersMovedSenderType,
+            content: jsonEncode({
+              'movements': [
+                {'char_id': 'char-alice', 'to_loc_id': 'loc-2'},
+              ],
+            }),
+          ),
+          _httpMessageJson(
+            messageId: 140,
+            locationMessageId: 12,
+            locationId: 'loc-1',
+            content: 'location twelve',
+          ),
+        ]
+        ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+      final storage = MemoryChatroomMessageStorage();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        messageStorage: storage,
+      );
+
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final page = await service.loadOlderMessages(
+        locationId: 'loc-1',
+        beforeMessageId: 13,
+        limit: 20,
+      );
+
+      final queue = service.state.messagesByLocation['loc-1']!;
+      expect(queue.map((message) => message.messageId).toList(), [
+        100,
+        110,
+        120,
+        130,
+        135,
+        140,
+      ]);
+      expect(queue.map((message) => message.locationId), everyElement('loc-1'));
+      expect(queue[1].timelinePayload, isA<ChatroomUserEnterLocationPayload>());
+      expect(queue[3].timelinePayload, isA<ChatroomStoryEventsPayload>());
+      expect(queue[4].timelinePayload, isA<ChatroomCharactersMovedPayload>());
+      expect(page.loadedCount, 6);
+      final cached = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+      expect(cached.map((message) => message['msg_id']).toList(), [
+        100,
+        110,
+        120,
+        130,
+        135,
+        140,
+      ]);
+      await service.dispose();
+    },
+  );
+
+  test(
+    'HTTP supplemental messages use message id even with a location id',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          _httpMessageJson(
+            messageId: 100,
+            locationMessageId: 10,
+            locationId: 'loc-1',
+            content: 'ordinary',
+          ),
+          _httpMessageJson(
+            messageId: 110,
+            locationMessageId: 10,
+            locationId: 'loc-1',
+            senderType: chatroomStoryEventsSenderType,
+            content: jsonEncode({
+              'location_id': 'loc-1',
+              'location_name': 'Square',
+              'paragraphs': <Map<String, Object?>>[],
+            }),
+          ),
+        ]
+        ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+      final storage = MemoryChatroomMessageStorage();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        messageStorage: storage,
+      );
+
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final page = await service.loadOlderMessages(
+        locationId: 'loc-1',
+        beforeMessageId: 11,
+        limit: 20,
+      );
+
+      expect(page.loadedCount, 2);
+      expect(
+        service.state.messagesByLocation['loc-1']!.map(
+          (message) => message.messageId,
+        ),
+        [100, 110],
+      );
+      final cached = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+      expect(cached.map((message) => message['location_msg_id']), [10, 10]);
+      await service.dispose();
+    },
+  );
+
+  test('event-only HTTP page stops a non-advancing location cursor', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _WorldChatroomHttpTransport()
+      ..messagesByLocation['loc-1'] = [
+        for (var messageId = 110; messageId <= 130; messageId += 10)
+          _httpMessageJson(
+            messageId: messageId,
+            locationMessageId: 0,
+            locationId: '',
+            senderType: chatroomUserEnterLocationSenderType,
+            content: jsonEncode({
+              'char_id': 'char-$messageId',
+              'to_location_id': 'loc-1',
+              'text': 'entered $messageId',
+            }),
+          ),
+      ]
+      ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final page = await service.loadOlderMessages(
+      locationId: 'loc-1',
+      beforeMessageId: 10,
+      limit: 2,
+    );
+
+    expect(page.loadedCount, 2);
+    expect(page.hasMore, isFalse);
+    expect(http.messageSinceByLocation['loc-1']?.last, 10);
+    await service.dispose();
+  });
+
+  test('invalid HTTP timeline payload stays cached but is not typed', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _WorldChatroomHttpTransport()
+      ..messagesByLocation['loc-1'] = [
+        _httpMessageJson(
+          messageId: 110,
+          locationMessageId: 0,
+          locationId: '',
+          senderType: chatroomStoryEventsSenderType,
+          content: '{"broken":',
+        ),
+      ]
+      ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+    final storage = MemoryChatroomMessageStorage();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+      messageStorage: storage,
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+    await service.loadOlderMessages(
+      locationId: 'loc-1',
+      beforeMessageId: 10,
+      limit: 20,
+    );
+
+    final message = service.state.messagesByLocation['loc-1']!.single;
+    expect(message.timelinePayload, isNull);
+    expect(message.content, '{"broken":');
+    final cached = await storage.loadLatestMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      limit: 20,
+    );
+    expect(cached.single['sender_type'], chatroomStoryEventsSenderType);
+    expect(cached.single['content'], '{"broken":');
     await service.dispose();
   });
 
@@ -1833,6 +2260,520 @@ void main() {
   });
 
   test(
+    'user_enter_location refreshes the local user location snapshot',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport()..userLocationId = 'loc-1';
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      socket.serverFrame('user_enter_location', {
+        'schema_version': 1,
+        'event_id': 'evt-enter-1',
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'payload': {
+          'char_id': 'char-user-1',
+          'to_location_id': 'loc-1',
+          'text': 'Role One entered Square',
+        },
+      });
+
+      await _waitFor(
+        () => service.state.entitiesById['user-1']?.locationId == 'loc-1',
+      );
+      expect(http.userLocationRequests, 1);
+      expect(http.detailRequests, 0);
+      expect(
+        service.state.entitiesByLocation['loc-1']?.map((entity) => entity.id),
+        contains('user-1'),
+      );
+      expect(
+        service.state.world?.userPositions.any(
+          (position) =>
+              position['uid'] == 'user-1' && position['location_id'] == 'loc-1',
+        ),
+        isTrue,
+      );
+      await service.dispose();
+    },
+  );
+
+  test('latest overlapping user location refresh response wins', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _SequencedUserLocationsHttpTransport();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+      refreshInitialSnapshotOnConnect: false,
+    );
+    service.applyWorldSnapshot(_worldSnapshot());
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    socket.serverFrame('user_enter_location', {
+      'schema_version': 1,
+      'event_id': 'evt-enter-older',
+      'world_id': 'world-1',
+      'location_id': 'loc-2',
+      'payload': {
+        'char_id': 'char-user-1',
+        'to_location_id': 'loc-2',
+        'text': 'Role One entered Cafe',
+      },
+    });
+    await _waitFor(() => http.pendingUserLocations.length == 1);
+
+    socket.serverFrame('user_enter_location', {
+      'schema_version': 1,
+      'event_id': 'evt-enter-newer',
+      'world_id': 'world-1',
+      'location_id': 'loc-1',
+      'payload': {
+        'char_id': 'char-user-1',
+        'to_location_id': 'loc-1',
+        'text': 'Role One entered Square',
+      },
+    });
+    await _waitFor(() => http.pendingUserLocations.length == 2);
+
+    http.pendingUserLocations[1].complete('loc-1');
+    await _waitFor(
+      () => service.state.entitiesById['user-1']?.locationId == 'loc-1',
+    );
+    http.pendingUserLocations[0].complete('loc-2');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(http.userLocationRequests, 2);
+    expect(service.state.entitiesById['user-1']?.locationId, 'loc-1');
+    await service.dispose();
+  });
+
+  test(
+    'map update increments revision while character update is no-op',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      socket.serverFrame('map_updated', {
+        'schema_version': 1,
+        'event_id': 'evt-map-1',
+        'world_id': 'world-1',
+        'payload': <String, Object?>{},
+      });
+      await _waitFor(() => service.state.mapUpdatedRevision == 1);
+
+      socket.serverFrame('character_updated', {
+        'world_id': 'world-1',
+        'payload': <String, Object?>{},
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(service.state.mapUpdatedRevision, 1);
+      expect(http.detailRequests, 0);
+      expect(http.userLocationRequests, 0);
+      expect(http.worldMessagesRequests, 0);
+      expect(http.messagesRequests, 0);
+      await service.dispose();
+    },
+  );
+
+  test(
+    'characters_moved is persisted and replaced by matching HTTP message id',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport();
+      final storage = _RecordingChatroomMessageStorage();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        messageStorage: storage,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+      const socketPayload = ChatroomCharactersMovedPayload(
+        movements: [
+          ChatroomCharacterMovement(charId: 'char-1', toLocationId: 'loc-2'),
+        ],
+      );
+
+      socket.serverFrame('characters_moved', {
+        'schema_version': 1,
+        'event_id': 'evt-moved-233',
+        'ts': 1785890000000,
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'global_msg_id': 5627,
+        'msg_id': 233,
+        'location_msg_id': 33,
+        'conversation_round_id': 6817,
+        'sender_id': 'sub_tick',
+        'sender_name': 'SubTick',
+        'current_time': 'Day 2, 00:09:15',
+        'tick_no': 4,
+        'sub_tick_no': 1,
+        'payload': socketPayload.toJson(),
+      });
+
+      await _waitFor(
+        () => service.state.messagesByLocation['loc-1']?.length == 1,
+      );
+      final socketMessage = service.state.messagesByLocation['loc-1']!.single;
+      expect(socketMessage.globalMessageId, 5627);
+      expect(socketMessage.messageId, 233);
+      expect(socketMessage.locationMessageId, 33);
+      expect(socketMessage.locationId, 'loc-1');
+      expect(socketMessage.conversationRoundId, '6817');
+      expect(socketMessage.senderType, chatroomCharactersMovedSenderType);
+      expect(socketMessage.senderId, 'sub_tick');
+      expect(socketMessage.senderName, 'SubTick');
+      expect(socketMessage.tickNo, 4);
+      expect(socketMessage.subTickNo, 1);
+      expect(socketMessage.currentTime, 'Day 2, 00:09:15');
+      expect(
+        socketMessage.timelinePayload,
+        isA<ChatroomCharactersMovedPayload>(),
+      );
+      expect(
+        (socketMessage.timelinePayload as ChatroomCharactersMovedPayload)
+            .movements
+            .single
+            .toLocationId,
+        'loc-2',
+      );
+      expect(service.state.worldMessages, hasLength(1));
+      expect(service.state.worldMessages.single.messageId, 233);
+      expect(service.state.lastMessageId, 233);
+      expect(http.detailRequests, 0);
+      expect(http.userLocationRequests, 0);
+      expect(http.worldMessagesRequests, 0);
+      expect(http.messagesRequests, 0);
+
+      await _waitFor(() => storage.lastUpsertedMessage?['msg_id'] == 233);
+      expect(storage.lastUpsertedMessage?['global_msg_id'], 5627);
+      expect(storage.lastUpsertedMessage?['location_msg_id'], 33);
+      expect(storage.lastUpsertedMessage?['location_id'], 'loc-1');
+      expect(storage.lastUpsertedMessage?['current_time'], 'Day 2, 00:09:15');
+      final restored = WorldChatroomMessage.fromStorageJson(
+        storage.lastUpsertedMessage!,
+      );
+      expect(restored.timelinePayload, isA<ChatroomCharactersMovedPayload>());
+      expect(restored.tickNo, 4);
+      expect(restored.subTickNo, 1);
+
+      const httpPayload = ChatroomCharactersMovedPayload(
+        movements: [
+          ChatroomCharacterMovement(charId: 'char-1', toLocationId: 'loc-3'),
+        ],
+      );
+      http.messagesByLocation['loc-1'] = [
+        {
+          'global_message_id': 5627,
+          'message_id': 233,
+          'location_message_id': 33,
+          'location_id': 'loc-1',
+          'conversation_round_id': 6817,
+          'tick_no': 4,
+          'sub_tick_no': 1,
+          'sender_type': chatroomCharactersMovedSenderType,
+          'sender_id': 'sub_tick',
+          'sender_name': 'HTTP SubTick',
+          'user_id': null,
+          'content': encodeChatroomTimelinePayload(httpPayload),
+          'message_type': 'text',
+          'current_time': 'Day 2, 00:09:15',
+          'created_at': '2026-08-06 20:57:54',
+        },
+      ];
+      await service.refreshLatestMessages(locationId: 'loc-1');
+
+      final merged = service.state.messagesByLocation['loc-1']!;
+      expect(merged, hasLength(1));
+      expect(merged.single.messageId, 233);
+      expect(merged.single.senderName, 'HTTP SubTick');
+      expect(
+        (merged.single.timelinePayload as ChatroomCharactersMovedPayload)
+            .movements
+            .single
+            .toLocationId,
+        'loc-3',
+      );
+      expect(service.state.worldMessages, hasLength(1));
+      expect(service.state.worldMessages.single.senderName, 'HTTP SubTick');
+      final cached = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+      expect(cached, hasLength(1));
+      expect(cached.single['msg_id'], 233);
+      expect(cached.single['sender_name'], 'HTTP SubTick');
+      await service.dispose();
+    },
+  );
+
+  test(
+    'broadcast characters_moved is copied into every leaf location queue',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      socket.serverFrame('characters_moved', {
+        'event_id': 'evt-moved-broadcast',
+        'world_id': 'world-1',
+        'msg_id': 234,
+        'broadcast': true,
+        'payload': {
+          'movements': [
+            {'char_id': 'char-1', 'to_loc_id': 'loc-2'},
+          ],
+        },
+      });
+
+      await _waitFor(
+        () =>
+            (service.state.messagesByLocation['loc-1'] ?? const []).any(
+              (message) => message.messageId == 234,
+            ) &&
+            (service.state.messagesByLocation['loc-2'] ?? const []).any(
+              (message) => message.messageId == 234,
+            ),
+      );
+      expect(service.state.worldMessages, hasLength(1));
+      expect(http.worldMessagesRequests, 0);
+      expect(http.messagesRequests, 0);
+      await service.dispose();
+    },
+  );
+
+  test(
+    'legacy characters_moved enters queues before canonical HTTP is available',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = <Map<String, dynamic>>[]
+        ..messagesByLocation['loc-2'] = <Map<String, dynamic>>[];
+      const payload = ChatroomCharactersMovedPayload(
+        movements: [
+          ChatroomCharacterMovement(charId: 'char-1', toLocationId: 'loc-2'),
+        ],
+      );
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      socket.serverFrame('characters_moved', {
+        'event_id': 'evt-moved-without-canonical',
+        'world_id': 'world-1',
+        'payload': payload.toJson(),
+      });
+
+      await _waitFor(
+        () =>
+            (service.state.messagesByLocation['loc-1'] ?? const []).any(
+              (message) =>
+                  message.senderType == chatroomCharactersMovedSenderType,
+            ) &&
+            (service.state.messagesByLocation['loc-2'] ?? const []).any(
+              (message) =>
+                  message.senderType == chatroomCharactersMovedSenderType,
+            ),
+      );
+      final loc1Message = service.state.messagesByLocation['loc-1']!.single;
+      expect(loc1Message.conversationRoundId, startsWith('ws-event:'));
+      expect(
+        encodeChatroomTimelinePayload(loc1Message.timelinePayload!),
+        encodeChatroomTimelinePayload(payload),
+      );
+      await _waitFor(() => http.worldMessagesRequests == 1);
+      await service.dispose();
+    },
+  );
+
+  test(
+    'legacy characters_moved notification fetches canonical HTTP message',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport();
+      const payload = ChatroomCharactersMovedPayload(
+        movements: [
+          ChatroomCharacterMovement(charId: 'char-1', toLocationId: 'loc-2'),
+        ],
+      );
+      http.messagesByLocation
+        ..['loc-1'] = [
+          {
+            'global_message_id': 5628,
+            'message_id': 235,
+            'location_message_id': 34,
+            'location_id': 'loc-1',
+            'conversation_round_id': 6818,
+            'sender_type': chatroomCharactersMovedSenderType,
+            'sender_id': 'sub_tick',
+            'sender_name': 'SubTick',
+            'content': encodeChatroomTimelinePayload(payload),
+            'message_type': 'text',
+          },
+        ]
+        ..['loc-2'] = <Map<String, dynamic>>[];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      socket.serverFrame('characters_moved', {
+        'event_id': 'evt-moved-legacy',
+        'world_id': 'world-1',
+        'payload': payload.toJson(),
+      });
+
+      await _waitFor(
+        () =>
+            http.worldMessagesRequests == 1 &&
+            service.state.messagesByLocation['loc-1']?.single.messageId == 235,
+      );
+      expect(
+        service.state.messagesByLocation['loc-1']!.single.timelinePayload,
+        isA<ChatroomCharactersMovedPayload>(),
+      );
+      expect(http.messagesRequests, 0);
+      await service.dispose();
+    },
+  );
+
+  test(
+    'story_events is persisted and replaced by matching HTTP message id',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport();
+      final storage = _RecordingChatroomMessageStorage();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        messageStorage: storage,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+      const storyPayload = ChatroomStoryEventsPayload(
+        locationId: 'loc-1',
+        locationName: 'Square',
+        paragraphs: [
+          ChatroomStoryEventParagraph(
+            timestamp: 'Day 1, 08:00',
+            visibility: 'public',
+            visibleTo: <String>[],
+            text: 'A bell rang.',
+            clue: '',
+          ),
+        ],
+      );
+
+      socket.serverFrame('story_events', {
+        'schema_version': 1,
+        'event_id': 'evt-story-232',
+        'ts': 1785890000000,
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'global_msg_id': 5626,
+        'msg_id': 232,
+        'location_msg_id': 0,
+        'conversation_round_id': 6816,
+        'sender_id': 'sub_tick',
+        'sender_name': 'sub_tick',
+        'current_time': 'Day 2, 00:09:15',
+        'tick_no': 4,
+        'sub_tick_no': 1,
+        'payload': storyPayload.toJson(),
+      });
+
+      await _waitFor(
+        () => service.state.messagesByLocation['loc-1']?.length == 1,
+      );
+      final socketMessage = service.state.messagesByLocation['loc-1']!.single;
+      expect(socketMessage.messageId, 232);
+      expect(socketMessage.senderType, chatroomStoryEventsSenderType);
+      expect(socketMessage.tickNo, 4);
+      expect(socketMessage.subTickNo, 1);
+      expect(socketMessage.currentTime, 'Day 2, 00:09:15');
+      expect(socketMessage.timelinePayload, isA<ChatroomStoryEventsPayload>());
+      expect(service.state.lastMessageId, 232);
+      await _waitFor(() => storage.lastUpsertedMessage?['msg_id'] == 232);
+      expect(storage.lastUpsertedMessage?['sub_tick_no'], 1);
+      final restored = WorldChatroomMessage.fromStorageJson(
+        storage.lastUpsertedMessage!,
+      );
+      expect(restored.tickNo, 4);
+      expect(restored.subTickNo, 1);
+      expect(restored.currentTime, 'Day 2, 00:09:15');
+
+      http.messagesByLocation['loc-1'] = [
+        {
+          'global_message_id': 5626,
+          'message_id': 232,
+          'location_message_id': 0,
+          'location_id': 'loc-1',
+          'conversation_round_id': 6816,
+          'tick_no': 4,
+          'sub_tick_no': 1,
+          'sender_type': chatroomStoryEventsSenderType,
+          'sender_id': 'sub_tick',
+          'sender_name': 'HTTP sub tick',
+          'user_id': null,
+          'content': encodeChatroomTimelinePayload(storyPayload),
+          'message_type': '',
+          'current_time': 'Day 2, 00:09:15',
+          'created_at': '2026-08-04 18:46:33',
+        },
+      ];
+      await service.refreshLatestMessages(locationId: 'loc-1');
+
+      final merged = service.state.messagesByLocation['loc-1']!;
+      expect(merged, hasLength(1));
+      expect(merged.single.messageId, 232);
+      expect(merged.single.subTickNo, 1);
+      expect(merged.single.senderName, 'HTTP sub tick');
+      expect(merged.single.timelinePayload, isA<ChatroomStoryEventsPayload>());
+      final cached = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+      expect(cached, hasLength(1));
+      expect(cached.single['msg_id'], 232);
+      await service.dispose();
+    },
+  );
+
+  test(
     'snapshot-seeded connect waits for push events before refetching',
     () async {
       final socket = _FakeChatroomSocket();
@@ -2274,6 +3215,7 @@ Map<String, dynamic> _httpMessageJson({
   required String content,
   int? locationMessageId,
   String? messageType,
+  String senderType = 'user',
 }) {
   return {
     'global_message_id': 90000 + messageId,
@@ -2282,10 +3224,10 @@ Map<String, dynamic> _httpMessageJson({
     'location_id': locationId,
     'conversation_round_id': messageId,
     'tick_no': 0,
-    'sender_type': 'user',
-    'sender_id': 'user-$messageId',
-    'sender_name': 'User $messageId',
-    'user_id': 'user-$messageId',
+    'sender_type': senderType,
+    'sender_id': senderType == 'user' ? 'user-$messageId' : 'sub_tick',
+    'sender_name': senderType == 'user' ? 'User $messageId' : 'sub_tick',
+    'user_id': senderType == 'user' ? 'user-$messageId' : null,
     'content': content,
     if (messageType != null) 'message_type': messageType,
     'current_time': '',
@@ -2537,6 +3479,42 @@ class _WorldChatroomHttpTransport implements HttpTransport {
       headers: const {'content-type': 'application/json'},
       body: jsonEncode(body),
     );
+  }
+}
+
+class _SequencedUserLocationsHttpTransport extends _WorldChatroomHttpTransport {
+  final List<Completer<String?>> pendingUserLocations = <Completer<String?>>[];
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (!request.uri.path.endsWith('/aitown-chat/api/ulocation')) {
+      return super.send(request);
+    }
+    userLocationRequests += 1;
+    final completer = Completer<String?>();
+    pendingUserLocations.add(completer);
+    final locationId = (await completer.future)?.trim() ?? '';
+    return _json({
+      'err_no': 0,
+      'err_msg': 'succ',
+      'data': {
+        'world_id': 'world-1',
+        'locations': locationId.isEmpty
+            ? <Map<String, Object?>>[]
+            : <Map<String, Object?>>[
+                {
+                  'location_id': locationId,
+                  'users': <Map<String, Object?>>[
+                    {
+                      'user_id': 'user-1',
+                      'user_name': 'Player One',
+                      'avatar': '',
+                    },
+                  ],
+                },
+              ],
+      },
+    });
   }
 }
 

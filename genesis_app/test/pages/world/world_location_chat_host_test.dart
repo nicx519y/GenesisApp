@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/models/location_tree.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_background_preloader.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
@@ -92,6 +93,7 @@ void main() {
   testWidgets('cached world panels render a background only while displayed', (
     tester,
   ) async {
+    ChatCharacterMovementVm? openedMovement;
     const first = WorldLocationChatPanelDescriptor(
       locationId: 'loc_1',
       locationName: 'First Location',
@@ -124,6 +126,9 @@ void main() {
               onBack: () {},
               onPanelReady: (_) {},
               isMessageQueueInitializationCovered: (_) => false,
+              onCharactersMovedLocationTap: (movement) {
+                openedMovement = movement;
+              },
               animateTransitions: false,
             );
           },
@@ -190,6 +195,17 @@ void main() {
       ),
       same(secondState),
     );
+    panels()
+        .singleWhere((panel) => panel.locationId == 'loc_2')
+        .onCharactersMovedLocationTap!(
+      const ChatCharacterMovementVm(
+        characterId: 'char_1',
+        characterName: 'Character',
+        toLocationId: 'loc_1',
+        toLocationName: 'First Location',
+      ),
+    );
+    expect(openedMovement?.toLocationId, 'loc_1');
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

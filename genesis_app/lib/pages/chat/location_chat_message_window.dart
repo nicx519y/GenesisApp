@@ -110,7 +110,9 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
   int _oldestRenderedLocationMessageId() {
     var oldest = 0;
     for (final message in _messages) {
-      if (message.isSystem || message.locationMessageId <= 0) continue;
+      if (message.isSystem || message.locationMessageId <= 0) {
+        continue;
+      }
       if (oldest == 0 || message.locationMessageId < oldest) {
         oldest = message.locationMessageId;
       }
@@ -124,18 +126,10 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
   }
 
   int _earliestLoadedLocationMessageId() {
-    var earliest = 0;
     final source =
         _chatroomState.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
-    for (final message in source) {
-      final messageId = message.locationMessageId > 0
-          ? message.locationMessageId
-          : message.messageId;
-      if (messageId <= 0) continue;
-      if (earliest == 0 || messageId < earliest) earliest = messageId;
-    }
-    return earliest;
+    return _oldestLocationMessageId(source);
   }
 
   int _newIncomingTailMessageCount(
@@ -147,6 +141,11 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     for (final message in next) {
       if (previousKeys.contains(_messageDedupKey(message))) continue;
       if (_isMineMessage(message)) continue;
+      if (_isHiddenLocationChatTimelineMessage(message)) continue;
+      if (isChatroomTimelinePayloadSenderType(message.senderType) &&
+          message.timelinePayload == null) {
+        continue;
+      }
       if (resolveChatroomMessageRenderKind(
             messageType: message.messageType,
             senderId: message.senderId,
@@ -162,11 +161,12 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
   String _messageDedupKey(WorldChatroomMessage message) {
     final clientMsgId = message.clientMsgId.trim();
     if (clientMsgId.isNotEmpty) return 'client:$clientMsgId';
-    if (message.locationMessageId > 0) {
+    if (!isChatroomLocationSupplementalSenderType(message.senderType) &&
+        message.locationMessageId > 0) {
       return 'location:${message.locationId}:${message.locationMessageId}';
     }
-    if (message.locationId.trim().isEmpty && message.messageId > 0) {
-      return 'message:${message.messageId}';
+    if (message.messageId > 0) {
+      return 'message:${message.locationId}:${message.messageId}';
     }
     return [
       'round',
@@ -309,8 +309,12 @@ String locationChatMessageLocalIdForTesting(WorldChatroomMessage message) {
 }
 
 String _locationChatMessageLocalId(WorldChatroomMessage message) {
-  if (message.locationMessageId > 0) {
+  if (!isChatroomLocationSupplementalSenderType(message.senderType) &&
+      message.locationMessageId > 0) {
     return 'location-${message.locationId}-${message.locationMessageId}';
+  }
+  if (message.messageId > 0) {
+    return 'message-${message.locationId}-${message.messageId}';
   }
   return 'stream-${message.locationId}-${message.conversationRoundId}-${message.senderId}';
 }
@@ -379,6 +383,11 @@ int locationChatMessageGapFillCursorForTesting(
 }
 
 @visibleForTesting
+int oldestLocationChatMessageIdForTesting(List<WorldChatroomMessage> source) {
+  return _oldestLocationMessageId(source);
+}
+
+@visibleForTesting
 bool shouldShowLocationChatOldestEdgeNoticeForTesting(
   List<WorldChatroomMessage> source, {
   Set<int> renderedLocationMessageIds = const <int>{},
@@ -422,10 +431,7 @@ _VisibleLocationChatMessages _visibleLocationChatMessages(
   }
   final sorted = renderableSource..sort(_compareLocationChatRenderMessages);
   final locationMessages = sorted
-      .where(
-        (message) =>
-            !_isTickAdvanceMessage(message) && message.locationMessageId > 0,
-      )
+      .where((message) => message.locationMessageId > 0)
       .toList(growable: false);
   if (locationMessages.isEmpty) {
     return _VisibleLocationChatMessages(
@@ -505,7 +511,7 @@ _VisibleLocationChatMessages _visibleLocationChatMessages(
       gaps: <_LocationChatMessageGap>[],
     );
   }
-  final visible = _visibleLocationChatMessagesWithTicks(
+  final visible = _visibleLocationChatMessagesWithSupplementals(
     sorted: sorted,
     visibleLocationMessageIds: visibleLocationMessageIds,
   );
@@ -518,7 +524,7 @@ _VisibleLocationChatMessages _visibleLocationChatMessages(
   );
 }
 
-List<WorldChatroomMessage> _visibleLocationChatMessagesWithTicks({
+List<WorldChatroomMessage> _visibleLocationChatMessagesWithSupplementals({
   required List<WorldChatroomMessage> sorted,
   required Set<int> visibleLocationMessageIds,
 }) {
@@ -529,7 +535,8 @@ List<WorldChatroomMessage> _visibleLocationChatMessagesWithTicks({
   var blockedByHiddenLocationAfterVisible = false;
 
   for (final message in sorted) {
-    if (_isTickAdvanceMessage(message)) {
+    if (message.locationMessageId <= 0 &&
+        isChatroomLocationSupplementalSenderType(message.senderType)) {
       if (seenVisibleLocationMessage && !blockedByHiddenLocationAfterVisible) {
         visible.add(message);
       } else if (!seenLocationMessage) {
@@ -599,7 +606,7 @@ bool _visibleWindowContainsOldestLocationMessage({
 int _oldestLocationMessageId(List<WorldChatroomMessage> messages) {
   var oldest = 0;
   for (final message in messages) {
-    if (_isTickAdvanceMessage(message) || message.locationMessageId <= 0) {
+    if (message.locationMessageId <= 0) {
       continue;
     }
     if (oldest == 0 || message.locationMessageId < oldest) {
@@ -689,10 +696,7 @@ bool _isLocationChatMessageGapFilled(
   _LocationChatMessageGap gap,
 ) {
   final ids = messages
-      .where(
-        (message) =>
-            !_isTickAdvanceMessage(message) && message.locationMessageId > 0,
-      )
+      .where((message) => message.locationMessageId > 0)
       .map((message) => message.locationMessageId)
       .toSet();
   for (
@@ -720,8 +724,16 @@ int _compareLocationChatRenderMessages(
   WorldChatroomMessage a,
   WorldChatroomMessage b,
 ) {
-  final byMessageId = a.messageId.compareTo(b.messageId);
-  if (byMessageId != 0) return byMessageId;
+  if (isChatroomLocationSupplementalSenderType(a.senderType) ||
+      isChatroomLocationSupplementalSenderType(b.senderType)) {
+    final byMessageId = a.messageId.compareTo(b.messageId);
+    if (byMessageId != 0) return byMessageId;
+  } else if (a.locationMessageId > 0 && b.locationMessageId > 0) {
+    final byLocationMessageId = a.locationMessageId.compareTo(
+      b.locationMessageId,
+    );
+    if (byLocationMessageId != 0) return byLocationMessageId;
+  }
   final byLocationMessageId = a.locationMessageId.compareTo(
     b.locationMessageId,
   );

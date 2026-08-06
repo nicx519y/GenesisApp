@@ -11,7 +11,6 @@ import '../world_details_shell.dart';
 import 'origin_character_form.dart';
 import 'origin_role_selection_mark.dart';
 import '../../icons/custom_icon_assets.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
@@ -679,8 +678,8 @@ class _PresetRoleTile extends StatelessWidget {
                   ),
                   if (character.isRecommended)
                     Positioned(
-                      right: 6,
-                      bottom: 6,
+                      right: -4,
+                      bottom: -4,
                       child: _RecommendedRoleMark(
                         characterId: _characterRoleId(character),
                       ),
@@ -719,11 +718,11 @@ class _RecommendedRoleMark extends StatelessWidget {
       label: 'Recommended role',
       child: Container(
         key: ValueKey('origin-role-preset-recommended-$characterId'),
-        width: 24,
-        height: 24,
+        width: 30,
+        height: 30,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(9),
           border: Border.all(color: Colors.white, width: 2),
           boxShadow: const [
             BoxShadow(
@@ -734,8 +733,8 @@ class _RecommendedRoleMark extends StatelessWidget {
           ],
         ),
         child: const Icon(
-          MyFlutterApp.redstarCharIcon,
-          size: 16,
+          Icons.star_rounded,
+          size: 22,
           color: GenesisColors.brand,
         ),
       ),

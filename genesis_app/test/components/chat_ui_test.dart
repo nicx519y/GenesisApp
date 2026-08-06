@@ -76,6 +76,166 @@ void main() {
         status: 'sent',
         senderType: 'image',
       ),
+      ChatMessageVm(
+        localId: 'user-enter-location',
+        senderId: 'sub_tick',
+        senderName: 'sub_tick',
+        text: 'Alice entered the cafe',
+        isMe: false,
+        status: 'sent',
+        senderType: 'user_enter_location',
+        timelinePayload: const ChatUserEnterLocationPayloadVm(
+          characterId: 'char_alice',
+          toLocationId: 'loc_cafe',
+          text: 'Alice entered the cafe',
+        ),
+      ),
+      ChatMessageVm(
+        localId: 'story-events',
+        senderId: 'sub_tick',
+        senderName: 'sub_tick',
+        text: 'Alice found a ticket.',
+        isMe: false,
+        status: 'sent',
+        senderType: 'story_events',
+        tickNo: 4,
+        subTickNo: 1,
+        currentTime: 'Day 2, 00:09:15',
+        timelinePayload: const ChatStoryEventsPayloadVm(
+          locationId: 'loc_station',
+          locationName: 'Old Station',
+          paragraphs: [
+            ChatStoryEventParagraphVm(
+              timestamp: 'Day 2, 10:15',
+              text: 'Alice found a ticket.',
+              clue: 'The date is three years ago.',
+              visibilityLabel: 'public',
+            ),
+          ],
+        ),
+      ),
+      ChatMessageVm(
+        localId: 'characters-moved',
+        senderId: 'sub_tick',
+        senderName: 'sub_tick',
+        text: 'Alice → Cafe',
+        isMe: false,
+        status: 'sent',
+        senderType: 'characters_moved',
+        timelinePayload: const ChatCharactersMovedPayloadVm(
+          movements: [
+            ChatCharacterMovementVm(
+              characterId: 'char_alice',
+              characterName: 'Alice',
+              toLocationId: 'loc_cafe',
+              toLocationName: 'Cafe',
+            ),
+          ],
+        ),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                for (final message in messages)
+                  ChatMessageRow(message: message, showDateDivider: false),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
+    expect(find.byType(ChatOtherMessageBubble), findsOneWidget);
+    expect(find.byType(ChatSystemMessage), findsNWidgets(4));
+    expect(find.byType(ChatNarratorMessageBubble), findsOneWidget);
+    expect(find.byType(ChatTickMessageBubble), findsOneWidget);
+    expect(find.byType(ChatImageMessage), findsOneWidget);
+    expect(find.byType(ChatUserEnterLocationMessageBubble), findsOneWidget);
+    expect(find.byType(ChatStoryEventsMessageBubble), findsOneWidget);
+    expect(find.byType(ChatCharactersMovedMessageBubble), findsOneWidget);
+    expect(find.byType(ChatOtherMessageBubble), findsOneWidget);
+  });
+
+  testWidgets('timeline event bubbles render typed display fields', (
+    WidgetTester tester,
+  ) async {
+    ChatCharacterMovementVm? tappedMovement;
+    final messages = [
+      ChatMessageVm(
+        localId: 'enter',
+        senderId: 'sub_tick',
+        senderName: 'sub_tick',
+        text: 'Alice entered the cafe',
+        isMe: false,
+        status: 'sent',
+        senderType: 'user_enter_location',
+        timelinePayload: const ChatUserEnterLocationPayloadVm(
+          characterId: 'char_alice',
+          toLocationId: 'loc_cafe',
+          text: 'Alice entered the cafe',
+        ),
+      ),
+      ChatMessageVm(
+        localId: 'story',
+        senderId: 'sub_tick',
+        senderName: 'sub_tick',
+        text: 'Alice found a ticket.',
+        isMe: false,
+        status: 'sent',
+        senderType: 'story_events',
+        tickNo: 4,
+        subTickNo: 1,
+        currentTime: 'Day 2, 00:09:15',
+        timelinePayload: const ChatStoryEventsPayloadVm(
+          locationId: 'loc_station',
+          locationName: 'Old Station',
+          paragraphs: [
+            ChatStoryEventParagraphVm(
+              timestamp: 'Day 2, 10:15',
+              text: 'Alice found a ticket.',
+              clue: 'The date is three years ago.',
+              visibilityLabel: 'Mateo, Iris',
+            ),
+            ChatStoryEventParagraphVm(
+              timestamp: 'Day 2, 10:20',
+              text: 'The platform became quiet.',
+              clue: '',
+              visibilityLabel: 'public',
+            ),
+          ],
+        ),
+      ),
+      ChatMessageVm(
+        localId: 'moved',
+        senderId: 'sub_tick',
+        senderName: 'sub_tick',
+        text: 'Alice → Cafe',
+        isMe: false,
+        status: 'sent',
+        senderType: 'characters_moved',
+        timelinePayload: const ChatCharactersMovedPayloadVm(
+          movements: [
+            ChatCharacterMovementVm(
+              characterId: 'char_alice',
+              characterName: 'Alice',
+              toLocationId: 'loc_cafe',
+              toLocationName: 'Cafe',
+            ),
+            ChatCharacterMovementVm(
+              characterId: 'char_bob',
+              characterName: 'Bob',
+              toLocationId: 'loc_harbor',
+              toLocationName: 'Harbor',
+            ),
+          ],
+        ),
+      ),
     ];
 
     await tester.pumpWidget(
@@ -84,19 +244,157 @@ void main() {
           body: ListView(
             children: [
               for (final message in messages)
-                ChatMessageRow(message: message, showDateDivider: false),
+                ChatMessageRow(
+                  message: message,
+                  showDateDivider: false,
+                  style: kLocationChatStyle,
+                  onCharactersMovedLocationTap: (movement) {
+                    tappedMovement = movement;
+                  },
+                ),
             ],
           ),
         ),
       ),
     );
 
-    expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
-    expect(find.byType(ChatOtherMessageBubble), findsOneWidget);
-    expect(find.byType(ChatSystemMessage), findsNWidgets(3));
-    expect(find.byType(ChatNarratorMessageBubble), findsOneWidget);
-    expect(find.byType(ChatTickMessageBubble), findsOneWidget);
-    expect(find.byType(ChatImageMessage), findsOneWidget);
+    expect(find.text('Alice entered the cafe'), findsOneWidget);
+    expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
+    expect(find.text('Old Station'), findsNothing);
+    expect(find.text('事件'), findsNWidgets(2));
+    expect(find.byIcon(Icons.push_pin_rounded), findsNWidgets(2));
+    expect(find.byIcon(Icons.lightbulb_outline_rounded), findsOneWidget);
+    expect(find.text('Day 2, 10:15'), findsOneWidget);
+    expect(find.text('Mateo, Iris'), findsOneWidget);
+    expect(find.text('Alice found a ticket.'), findsOneWidget);
+    expect(find.text('The date is three years ago.'), findsOneWidget);
+    expect(find.text('Day 2, 10:20'), findsOneWidget);
+    expect(find.text('public'), findsOneWidget);
+    expect(find.text('The platform became quiet.'), findsOneWidget);
+    expect(find.text('Day 2, 10:15 · Mateo, Iris'), findsNothing);
+    expect(find.text('Day 2, 10:20 · public'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('chat-story-event-paragraph-story-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('chat-story-event-paragraph-story-1')),
+      findsOneWidget,
+    );
+    final firstTimestamp = find.byKey(
+      const ValueKey('chat-story-event-timestamp-story-0'),
+    );
+    final firstVisibility = find.byKey(
+      const ValueKey('chat-story-event-visibility-story-0'),
+    );
+    expect(
+      tester.getCenter(firstVisibility).dx,
+      greaterThan(tester.getCenter(firstTimestamp).dx),
+    );
+    expect(
+      (tester.getCenter(firstVisibility).dy -
+              tester.getCenter(firstTimestamp).dy)
+          .abs(),
+      lessThan(1),
+    );
+    expect(
+      tester.getTopLeft(find.text('Alice found a ticket.')).dy,
+      greaterThan(tester.getBottomLeft(firstTimestamp).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('The date is three years ago.')).dy,
+      greaterThan(tester.getBottomLeft(find.text('Alice found a ticket.')).dy),
+    );
+    final storyBubble = tester.widget<Container>(
+      find.byKey(const ValueKey('chat-story-events-message-story')),
+    );
+    expect(
+      (storyBubble.decoration as BoxDecoration).color,
+      kLocationChatStyle.systemMessageBackgroundColor,
+    );
+    final eventLabel = tester.widget<Text>(find.text('事件').first);
+    expect(
+      eventLabel.style?.color,
+      kLocationChatStyle.systemMessageTextStyle.color,
+    );
+    expect(find.text('人物去向'), findsOneWidget);
+    expect(find.byIcon(Icons.directions_walk_rounded), findsNWidgets(3));
+    expect(find.text('Alice'), findsOneWidget);
+    expect(find.text('Bob'), findsOneWidget);
+    expect(find.text('has gone to'), findsNWidgets(2));
+    expect(find.text('Cafe'), findsOneWidget);
+    expect(find.text('Harbor'), findsOneWidget);
+    expect(find.text('Alice → Cafe'), findsNothing);
+    final movedBubble = tester.widget<Container>(
+      find.byKey(const ValueKey('chat-characters-moved-message-moved')),
+    );
+    expect(
+      (movedBubble.decoration as BoxDecoration).color,
+      kLocationChatStyle.systemMessageBackgroundColor,
+    );
+    final locationLabel = tester.widget<Text>(find.text('Harbor'));
+    expect(
+      locationLabel.style?.color,
+      kLocationChatStyle.systemMessageTextStyle.color,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('chat-character-movement-location-moved-1')),
+    );
+    expect(tappedMovement?.toLocationId, 'loc_harbor');
+    expect(find.text('sub_tick'), findsNothing);
+    expect(find.text('char_alice'), findsNothing);
+    expect(find.byType(ChatAvatar), findsNothing);
+  });
+
+  testWidgets('story event visibility badge wraps safely on narrow screens', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final message = ChatMessageVm(
+      localId: 'narrow-story',
+      senderId: 'sub_tick',
+      senderName: 'sub_tick',
+      text: 'A narrow-screen event.',
+      isMe: false,
+      status: 'sent',
+      senderType: 'story_events',
+      timelinePayload: const ChatStoryEventsPayloadVm(
+        locationId: 'loc_station',
+        locationName: 'Old Station',
+        paragraphs: [
+          ChatStoryEventParagraphVm(
+            timestamp: 'Day 2, 10:15',
+            text: 'A narrow-screen event.',
+            clue: '',
+            visibilityLabel:
+                'Mateo Cruz, Iris, Marcus Aurelius, Alexandra Johnson',
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: message,
+            showDateDivider: false,
+            style: kLocationChatStyle,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('chat-story-event-visibility-narrow-story-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Mateo Cruz, Iris, Marcus Aurelius, Alexandra Johnson'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('chat message list can render an oldest-edge notice', (
@@ -1634,6 +1932,7 @@ void main() {
                 senderType: 'tick',
                 roundId: '1455',
                 tickNo: 7,
+                subTickNo: 1,
               ),
               showDateDivider: false,
             ),
@@ -1647,8 +1946,8 @@ void main() {
       find.byKey(const ValueKey('chat-tick-message-bubble')),
     );
 
-    expect(find.text('Tick 7 · Day 45, 19:34'), findsOneWidget);
-    final text = tester.widget<Text>(find.text('Tick 7 · Day 45, 19:34'));
+    expect(find.text('Tick 7-1 · Day 45, 19:34'), findsOneWidget);
+    final text = tester.widget<Text>(find.text('Tick 7-1 · Day 45, 19:34'));
     expect(text.maxLines, 1);
     expect(text.overflow, TextOverflow.ellipsis);
     expect(text.textAlign, TextAlign.left);

@@ -7,6 +7,14 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         await _handleWorldNotification(e);
       case ChatroomNewUserJoinEvent e:
         _handleNewUserJoin(e);
+      case ChatroomStoryEventsMessage e:
+        await _handleIncomingMessage(
+          WorldChatroomMessage.fromStoryEventsMessage(e),
+        );
+      case ChatroomCharactersMovedMessage e:
+        await _handleCharactersMovedMessage(
+          WorldChatroomMessage.fromCharactersMovedMessage(e),
+        );
       case ChatroomUserMessage e:
         await _handleIncomingMessage(WorldChatroomMessage.fromUserMessage(e));
       case ChatroomNarratorMessage e:
@@ -75,6 +83,66 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         await _refreshWorld(socketCurrentTime: event.currentTime);
       case 'user_location_change':
         await _refreshUserLocations(socketCurrentTime: event.currentTime);
+      case 'user_enter_location':
+        unawaited(
+          _refreshUserLocations(
+            socketCurrentTime: event.currentTime,
+          ).catchError((Object error) {
+            if (_disposed) return;
+            _recordFailure(
+              ChatroomFailureEvent(
+                code: 'user_locations_refresh_failed',
+                message: 'Something went wrong',
+                sourceType: 'user_enter_location',
+                requestType: 'get_user_locations',
+                cause: error,
+              ),
+            );
+          }),
+        );
+      case 'map_updated':
+        _setState(
+          _stateWithSocketWorldProgress(
+            _state.copyWith(mapUpdatedRevision: _state.mapUpdatedRevision + 1),
+            socketCurrentTime: event.currentTime,
+          ),
+        );
+      case 'character_updated':
+        break;
+      case 'characters_moved':
+        final timelinePayload = event.timelinePayload;
+        if (timelinePayload is ChatroomCharactersMovedPayload) {
+          final sequence = ++_transientCharactersMovedSequence;
+          final eventIdentity = event.eventId.trim().isNotEmpty
+              ? event.eventId.trim()
+              : '${event.ts?.microsecondsSinceEpoch ?? 0}:$sequence';
+          await _handleCharactersMovedMessage(
+            WorldChatroomMessage(
+              globalMessageId: 0,
+              messageId: _transientCharactersMovedMessageIdBase + sequence,
+              locationMessageId: 0,
+              conversationRoundId:
+                  '$_transientCharactersMovedRoundPrefix$eventIdentity',
+              roundOrder: 0,
+              locationId: event.locationId,
+              senderType: chatroomCharactersMovedSenderType,
+              senderId: 'sub_tick',
+              senderName: 'sub_tick',
+              content: encodeChatroomTimelinePayload(timelinePayload),
+              currentTime: event.currentTime,
+              createdAt: event.ts,
+              timelinePayload: timelinePayload,
+            ),
+            persist: false,
+          );
+        }
+        _logChatroomSocketEvent(
+          'characters_moved without msg_id fetch start world=$_worldId',
+        );
+        await _fetchLatestMessagesForNotification();
+        _logChatroomSocketEvent(
+          'characters_moved without msg_id fetch done world=$_worldId',
+        );
       case 'world_new_message':
         _logChatroomSocketEvent(
           'world_new_message fetch start location=${event.locationId} '
@@ -136,9 +204,25 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
   }
 
   Future<void> _refreshUserLocations({String socketCurrentTime = ''}) async {
-    final response = await _api.chatroomHttp.getUserLocations(
-      worldId: _worldId,
-    );
+    final refreshGeneration = ++_userLocationsRefreshGeneration;
+    late final ChatroomUserLocationsResponse response;
+    try {
+      response = await _api.chatroomHttp.getUserLocations(worldId: _worldId);
+    } catch (_) {
+      if (_disposed || refreshGeneration != _userLocationsRefreshGeneration) {
+        return;
+      }
+      rethrow;
+    }
+    if (_disposed || refreshGeneration != _userLocationsRefreshGeneration) {
+      return;
+    }
+    final responseWorldId = response.worldId.trim();
+    if (responseWorldId.isNotEmpty && responseWorldId != _worldId) {
+      throw ChatroomProtocolException(
+        'User locations world_id mismatch: $responseWorldId',
+      );
+    }
     final entities = <String, WorldChatroomEntity>{
       for (final entry in _state.entitiesById.entries)
         entry.key: entry.value.type == WorldChatroomEntityType.player

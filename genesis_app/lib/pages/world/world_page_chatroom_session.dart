@@ -11,6 +11,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
 
   WorldChatroomService _createWorldChatroom(AppServices services) {
     _lastAppliedNewUserJoinRevision = 0;
+    _lastAppliedMapUpdatedRevision = 0;
     final service = WorldChatroomService(
       api: services.api,
       client: services.chatroom,
@@ -182,6 +183,11 @@ extension _WorldPageChatroomSession on _WorldPageState {
     final newUserJoinNotice = hasNewUserJoin
         ? _newUserJoinNoticeFromEvent(latestNewUserJoin)
         : null;
+    final hasMapUpdate =
+        state.mapUpdatedRevision > _lastAppliedMapUpdatedRevision;
+    if (hasMapUpdate) {
+      _lastAppliedMapUpdatedRevision = state.mapUpdatedRevision;
+    }
     var shouldSyncRelationStatus = false;
     final previousInputBlocked = _lastChatroomInputBlocked;
     _lastChatroomInputBlocked = state.inputBlocked;
@@ -243,6 +249,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
         shouldApplyWorldSnapshot ||
         socketProgressChangesWorld ||
         mapVisualsChanged ||
+        hasMapUpdate ||
         newUserJoinNotice != null;
     void applyState() {
       var worldDetailChanged = false;
@@ -281,10 +288,13 @@ extension _WorldPageChatroomSession on _WorldPageState {
           state.latestNewUserJoinRevision,
         );
       }
+      if (hasMapUpdate) {
+        _tilemapReloadRevision += 1;
+      }
     }
 
     if (shouldMutatePageState) {
-      if (deferMapVisuals) {
+      if (deferMapVisuals && !hasMapUpdate) {
         applyState();
       } else {
         _setWorldPageState(applyState);

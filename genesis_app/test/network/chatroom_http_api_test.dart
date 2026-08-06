@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 
 class _FakeTransport implements HttpTransport {
@@ -213,6 +214,177 @@ void main() {
     expect(rawMessage['location_msg_id'], 101);
     expect(response.messages.single.rawJson['content'], 'full body');
   });
+
+  test('flat messages response decodes supplemental timeline payloads', () {
+    final response = ChatroomMessageListResponse.fromJson({
+      'messages': [
+        {
+          'message_id': 230,
+          'location_message_id': 0,
+          'location_id': '',
+          'sender_type': 'user_enter_location',
+          'sender_id': 'sub_tick',
+          'content': jsonEncode({
+            'char_id': 'char_alice',
+            'to_location_id': 'loc_cafe',
+            'text': 'Alice came to the cafe',
+          }),
+        },
+        {
+          'message_id': 231,
+          'location_message_id': 0,
+          'location_id': '',
+          'sender_type': 'story_events',
+          'sender_id': 'sub_tick',
+          'tick_no': 4,
+          'sub_tick_no': 1,
+          'current_time': 'Day 2, 00:09:15',
+          'content': jsonEncode({
+            'location_id': 'loc_cafe',
+            'location_name': 'Cafe',
+            'paragraphs': [
+              {
+                'timestamp': 'Day 2, 10:15',
+                'visibility': 'public',
+                'visible_to': <String>[],
+                'text': 'The lights flickered.',
+                'clue': '',
+              },
+            ],
+          }),
+        },
+        {
+          'message_id': 232,
+          'location_message_id': 0,
+          'location_id': '',
+          'sender_type': 'characters_moved',
+          'sender_id': 'sub_tick',
+          'content': jsonEncode({
+            'movements': [
+              {'char_id': 'char_alice', 'to_loc_id': 'loc_station'},
+            ],
+          }),
+        },
+      ],
+      'has_more': true,
+      'newest_message_id': 232,
+    });
+
+    expect(response.messages, hasLength(3));
+    expect(
+      response.messages.map((message) => message.locationMessageId),
+      everyElement(0),
+    );
+    expect(
+      response.messages.map((message) => message.isLocationSupplementalMessage),
+      everyElement(isTrue),
+    );
+    expect(
+      response.messages[0].timelinePayload,
+      isA<ChatroomUserEnterLocationPayload>(),
+    );
+    expect(
+      response.messages[1].decodeTimelinePayload(),
+      isA<ChatroomStoryEventsPayload>(),
+    );
+    expect(response.messages[1].tickNo, 4);
+    expect(response.messages[1].subTickNo, 1);
+    expect(response.messages[1].currentTime, 'Day 2, 00:09:15');
+    expect(
+      response.messages[2].timelinePayload,
+      isA<ChatroomCharactersMovedPayload>(),
+    );
+    expect(response.hasMore, isTrue);
+    expect(response.newestMessageId, 232);
+  });
+
+  test(
+    'HTTP story_events 60 and 61 decode flat content with location cursors',
+    () {
+      final response = ChatroomMessageListResponse.fromJson({
+        'messages': [
+          {
+            'global_message_id': 6140,
+            'message_id': 60,
+            'location_message_id': 31,
+            'location_id': 'loc_1_1_1',
+            'conversation_round_id': 7003,
+            'sender_type': 'story_events',
+            'sender_id': 'tick',
+            'sender_name': 'SubTick',
+            'user_id': null,
+            'content': jsonEncode({
+              'location_id': 'loc_1_1_1',
+              'timestamp': 'Day 2, 00:08:30',
+              'visibility': 'char_only',
+              'visible_to': ['char_1'],
+              'text': '中年男人把录音带塞进桌角的旧录音机。',
+              'clue': '问他为什么不敢让你听完。',
+            }),
+            'message_type': 'text',
+            'current_time': 'Day 2, 00:09:15',
+            'tick_no': 4,
+            'sub_tick_no': 1,
+            'created_at': '2026-08-06 20:57:54',
+          },
+          {
+            'global_message_id': 6141,
+            'message_id': 61,
+            'location_message_id': 32,
+            'location_id': 'loc_1_1_1',
+            'conversation_round_id': 7003,
+            'sender_type': 'story_events',
+            'sender_id': 'tick',
+            'sender_name': 'SubTick',
+            'user_id': null,
+            'content': jsonEncode({
+              'location_id': 'loc_1_1_1',
+              'timestamp': 'Day 2, 00:09:00',
+              'visibility': 'char_only',
+              'visible_to': ['char_1'],
+              'text': '录音机开始播放，第三人的声音从磁带深处浮出来。',
+              'clue': '去辨认磁带里的耳语者。',
+            }),
+            'message_type': 'text',
+            'current_time': 'Day 2, 00:09:15',
+            'tick_no': 4,
+            'sub_tick_no': 1,
+            'created_at': '2026-08-06 20:57:54',
+          },
+        ],
+        'has_more': true,
+        'newest_message_id': 67,
+      });
+
+      expect(response.messages.map((message) => message.messageId), [60, 61]);
+      expect(response.messages.map((message) => message.locationMessageId), [
+        31,
+        32,
+      ]);
+      for (final message in response.messages) {
+        expect(message.timelinePayload, isA<ChatroomStoryEventsPayload>());
+        final story = message.timelinePayload as ChatroomStoryEventsPayload;
+        expect(story.locationId, 'loc_1_1_1');
+        expect(story.locationName, isEmpty);
+        expect(story.paragraphs, hasLength(1));
+        expect(story.paragraphs.single.visibleTo, ['char_1']);
+      }
+      expect(
+        (response.messages.first.timelinePayload as ChatroomStoryEventsPayload)
+            .paragraphs
+            .single
+            .timestamp,
+        'Day 2, 00:08:30',
+      );
+      expect(
+        (response.messages.last.timelinePayload as ChatroomStoryEventsPayload)
+            .paragraphs
+            .single
+            .timestamp,
+        'Day 2, 00:09:00',
+      );
+    },
+  );
 
   test('ChatroomHttpApi maps all Apifox chatroom HTTP endpoints', () async {
     final transport = _FakeTransport();

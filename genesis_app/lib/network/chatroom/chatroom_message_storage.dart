@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../json_utils.dart';
+import 'chatroom_timeline_payload.dart';
 
 abstract class ChatroomMessageStorage {
   Future<List<Map<String, dynamic>>> loadLatestMessages({
@@ -17,6 +18,7 @@ abstract class ChatroomMessageStorage {
     required String worldId,
     required String locationId,
     required int beforeMessageId,
+    int beforeWorldMessageId = 0,
     required int limit,
   });
 
@@ -33,6 +35,7 @@ abstract class ChatroomMessageStorage {
     required String worldId,
     required String locationId,
     required int maxLocationMessageId,
+    int maxWorldMessageId = 0,
   });
 
   Future<void> upsertMessage({
@@ -111,6 +114,7 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
     required String worldId,
     required String locationId,
     required int beforeMessageId,
+    int beforeWorldMessageId = 0,
     required int limit,
   }) async {
     if (beforeMessageId <= 0) return const <Map<String, dynamic>>[];
@@ -125,8 +129,11 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
           .map(_messageFromRow)
           .whereType<Map<String, dynamic>>()
           .where(
-            (message) =>
-                _messageIsBeforeLocationCursor(message, beforeMessageId),
+            (message) => _messageIsBeforeLocationCursor(
+              message,
+              beforeMessageId,
+              beforeWorldMessageId: beforeWorldMessageId,
+            ),
           ),
     ).reversed.toList(growable: false);
     return _sortMessageJson(descending.take(limit));
@@ -182,6 +189,7 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
     required String worldId,
     required String locationId,
     required int maxLocationMessageId,
+    int maxWorldMessageId = 0,
   }) async {
     if (maxLocationMessageId <= 0) return;
     final db = await _db;
@@ -193,7 +201,11 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
     for (final row in rows.where((row) {
       final message = _messageFromRow(row);
       return message != null &&
-          _messageIsAtOrBeforeLocationCursor(message, maxLocationMessageId);
+          _messageIsAtOrBeforeLocationCursor(
+            message,
+            maxLocationMessageId,
+            maxWorldMessageId: maxWorldMessageId,
+          );
     })) {
       await db.delete(
         'chatroom_messages',
@@ -229,7 +241,7 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
     Map<String, dynamic> message,
   ) async {
     final messageId = _messageId(message);
-    final locationMessageId = _locationMessageId(message);
+    final locationMessageId = _storageLocationMessageId(message);
     final resolvedLocationId = locationId.trim().isNotEmpty
         ? locationId.trim()
         : asString(message['location_id']).trim();
@@ -328,12 +340,17 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
     required String worldId,
     required String locationId,
     required int beforeMessageId,
+    int beforeWorldMessageId = 0,
     required int limit,
   }) async {
     if (beforeMessageId <= 0) return const <Map<String, dynamic>>[];
     final descending = _sortMessageJson(
       _bucket(ownerUid, worldId, locationId).values.where(
-        (message) => _messageIsBeforeLocationCursor(message, beforeMessageId),
+        (message) => _messageIsBeforeLocationCursor(
+          message,
+          beforeMessageId,
+          beforeWorldMessageId: beforeWorldMessageId,
+        ),
       ),
     ).reversed.toList(growable: false);
     final messages = _sortMessageJson(descending.take(limit));
@@ -354,7 +371,7 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
       final key = _messageStorageKey(message);
       bucket[key] = _messageForStorage(
         _preservingLlmStreamFlag(message, bucket[key]),
-        _locationMessageId(message),
+        _storageLocationMessageId(message),
       );
     }
     _prune(bucket, maxMessagesPerLocation);
@@ -373,7 +390,7 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
     final key = _messageStorageKey(message);
     bucket[key] = _messageForStorage(
       _preservingLlmStreamFlag(message, bucket[key]),
-      _locationMessageId(message),
+      _storageLocationMessageId(message),
     );
     _prune(bucket, maxMessagesPerLocation);
   }
@@ -384,11 +401,16 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
     required String worldId,
     required String locationId,
     required int maxLocationMessageId,
+    int maxWorldMessageId = 0,
   }) async {
     if (maxLocationMessageId <= 0) return;
     final bucket = _bucket(ownerUid, worldId, locationId);
     bucket.removeWhere((_, message) {
-      return _messageIsAtOrBeforeLocationCursor(message, maxLocationMessageId);
+      return _messageIsAtOrBeforeLocationCursor(
+        message,
+        maxLocationMessageId,
+        maxWorldMessageId: maxWorldMessageId,
+      );
     });
   }
 
@@ -446,7 +468,7 @@ Map<String, dynamic>? _messageFromRow(Map<String, Object?> row) {
   try {
     final message = asJsonMap(jsonDecode('${row['raw_json']}'));
     message.putIfAbsent('global_msg_id', () => asInt(row['global_msg_id']));
-    message['location_msg_id'] = asInt(row['location_msg_id']);
+    message.putIfAbsent('location_msg_id', () => asInt(row['location_msg_id']));
     return message;
   } catch (_) {
     return null;
@@ -460,9 +482,9 @@ List<Map<String, dynamic>> _sortMessageJson(
       .map((message) => Map<String, dynamic>.from(message))
       .toList(growable: false);
   sorted.sort((a, b) {
-    final aIsTick = _isTickMessageJson(a);
-    final bIsTick = _isTickMessageJson(b);
-    if (aIsTick || bIsTick) {
+    final aIsMessageIdOrdered = _isMessageIdOrderedSupplementalJson(a);
+    final bIsMessageIdOrdered = _isMessageIdOrderedSupplementalJson(b);
+    if (aIsMessageIdOrdered || bIsMessageIdOrdered) {
       final byMessage = _messageId(a).compareTo(_messageId(b));
       if (byMessage != 0) return byMessage;
       final byLocation = _locationMessageId(a).compareTo(_locationMessageId(b));
@@ -502,17 +524,26 @@ int _locationMessageId(Map<String, dynamic> message) {
   );
 }
 
-bool _isTickMessageJson(Map<String, dynamic> message) {
-  return asString(message['sender_type']).trim().toLowerCase() == 'tick';
+bool _isMessageIdOrderedSupplementalJson(Map<String, dynamic> message) {
+  return isChatroomLocationSupplementalSenderType(message['sender_type']);
+}
+
+int _storageLocationMessageId(Map<String, dynamic> message) {
+  return _isMessageIdOrderedSupplementalJson(message)
+      ? 0
+      : _locationMessageId(message);
 }
 
 bool _messageIsBeforeLocationCursor(
   Map<String, dynamic> message,
-  int beforeMessageId,
-) {
+  int beforeMessageId, {
+  int beforeWorldMessageId = 0,
+}) {
   if (beforeMessageId <= 0) return false;
-  if (_isTickMessageJson(message)) {
-    return _messageId(message) > 0 && _messageId(message) < beforeMessageId;
+  if (_isMessageIdOrderedSupplementalJson(message)) {
+    return beforeWorldMessageId > 0 &&
+        _messageId(message) > 0 &&
+        _messageId(message) < beforeWorldMessageId;
   }
   final locationMessageId = _locationMessageId(message);
   if (locationMessageId <= 0) return true;
@@ -521,12 +552,14 @@ bool _messageIsBeforeLocationCursor(
 
 bool _messageIsAtOrBeforeLocationCursor(
   Map<String, dynamic> message,
-  int maxLocationMessageId,
-) {
+  int maxLocationMessageId, {
+  int maxWorldMessageId = 0,
+}) {
   if (maxLocationMessageId <= 0) return false;
-  if (_isTickMessageJson(message)) {
-    return _messageId(message) > 0 &&
-        _messageId(message) <= maxLocationMessageId;
+  if (_isMessageIdOrderedSupplementalJson(message)) {
+    return maxWorldMessageId > 0 &&
+        _messageId(message) > 0 &&
+        _messageId(message) <= maxWorldMessageId;
   }
   final locationMessageId = _locationMessageId(message);
   if (locationMessageId <= 0) return true;
@@ -535,7 +568,7 @@ bool _messageIsAtOrBeforeLocationCursor(
 
 String _messageStorageKey(Map<String, dynamic>? message) {
   if (message == null) return '';
-  final locationMessageId = _locationMessageId(message);
+  final locationMessageId = _storageLocationMessageId(message);
   if (locationMessageId > 0) return 'location:$locationMessageId';
   return 'message:${_messageId(message)}';
 }
@@ -544,8 +577,14 @@ Map<String, dynamic> _messageForStorage(
   Map<String, dynamic> message,
   int locationMessageId,
 ) {
-  return Map<String, dynamic>.from(message)
-    ..['location_msg_id'] = locationMessageId;
+  final result = Map<String, dynamic>.from(message);
+  final sourceLocationMessageId = _locationMessageId(message);
+  result['location_msg_id'] =
+      _isMessageIdOrderedSupplementalJson(message) &&
+          sourceLocationMessageId > 0
+      ? sourceLocationMessageId
+      : locationMessageId;
+  return result;
 }
 
 Map<String, dynamic> _preservingLlmStreamFlag(

@@ -143,6 +143,10 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
     required String reason,
   }) async {
     if (maxLocationMessageId <= 0) return;
+    final maxWorldMessageId = _worldMessageBoundaryForLocationCursor(
+      _state.messagesByLocation[locationId] ?? const <WorldChatroomMessage>[],
+      maxLocationMessageId,
+    );
     final ownerUid = _storageOwnerUid;
     if (ownerUid.isNotEmpty && _worldId.isNotEmpty) {
       await _messageStorage.deleteMessagesAtOrBefore(
@@ -150,6 +154,7 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
         worldId: _worldId,
         locationId: locationId,
         maxLocationMessageId: maxLocationMessageId,
+        maxWorldMessageId: maxWorldMessageId,
       );
     }
     final byLocation = Map<String, List<WorldChatroomMessage>>.from(
@@ -157,8 +162,11 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
     );
     byLocation[locationId] = List<WorldChatroomMessage>.unmodifiable(
       (byLocation[locationId] ?? const <WorldChatroomMessage>[]).where(
-        (message) =>
-            !_messageIsAtOrBeforeLocationCursor(message, maxLocationMessageId),
+        (message) => !_messageIsAtOrBeforeLocationCursor(
+          message,
+          maxLocationMessageId,
+          maxWorldMessageId: maxWorldMessageId,
+        ),
       ),
     );
     final streamMessagesByKey = <String, WorldChatroomMessage>{
@@ -166,7 +174,11 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
     };
     streamMessagesByKey.removeWhere((_, message) {
       return message.locationId == locationId &&
-          message.locationQueueMessageId <= maxLocationMessageId;
+          _messageIsAtOrBeforeLocationCursor(
+            message,
+            maxLocationMessageId,
+            maxWorldMessageId: maxWorldMessageId,
+          );
     });
     _setState(
       _state.copyWith(
@@ -177,6 +189,7 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
                   !_messageIsAtOrBeforeLocationCursor(
                     message,
                     maxLocationMessageId,
+                    maxWorldMessageId: maxWorldMessageId,
                   ),
             )
             .toList(growable: false),
@@ -187,8 +200,28 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
     _recordServiceQueueDebug(
       action: 'discardLocationMessages',
       locationId: locationId,
-      details: {'maxLocationMessageId': maxLocationMessageId, 'reason': reason},
+      details: {
+        'maxLocationMessageId': maxLocationMessageId,
+        'maxWorldMessageId': maxWorldMessageId,
+        'reason': reason,
+      },
     );
+  }
+
+  int _worldMessageBoundaryForLocationCursor(
+    List<WorldChatroomMessage> messages,
+    int maxLocationMessageId,
+  ) {
+    var boundary = 0;
+    for (final message in messages) {
+      if (message.locationMessageId <= 0 ||
+          message.locationMessageId > maxLocationMessageId ||
+          message.messageId <= 0) {
+        continue;
+      }
+      if (message.messageId > boundary) boundary = message.messageId;
+    }
+    return boundary;
   }
 
   _LocationMessageGap? _firstLocationMessageGap(
@@ -197,11 +230,7 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
   }) {
     final ids =
         messages
-            .where(
-              (message) =>
-                  !_isTickAdvanceWorldMessage(message) &&
-                  message.locationMessageId > 0,
-            )
+            .where((message) => message.locationMessageId > 0)
             .map((message) => message.locationMessageId)
             .toSet()
             .toList(growable: false)
@@ -226,11 +255,7 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
     _LocationMessageGap gap,
   ) {
     final ids = messages
-        .where(
-          (message) =>
-              !_isTickAdvanceWorldMessage(message) &&
-              message.locationMessageId > 0,
-        )
+        .where((message) => message.locationMessageId > 0)
         .map((message) => message.locationMessageId)
         .toSet();
     for (var id = gap.lower + 1; id < gap.upper; id += 1) {

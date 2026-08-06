@@ -14,6 +14,7 @@ import 'chatroom_http_models.dart';
 import 'chatroom_message_type.dart';
 import 'chatroom_message_storage.dart';
 import 'chatroom_models.dart';
+import 'chatroom_timeline_payload.dart';
 
 part 'world_chatroom_connection.dart';
 part 'world_chatroom_history_repository.dart';
@@ -26,6 +27,8 @@ const _maxMessagesPerLocation = 200;
 const _maxRecoverableLocationMessageGap = 50;
 const _maxLocationMessageGapFillAttempts = 3;
 const _defaultLocationQueueInitConcurrency = 4;
+const _transientCharactersMovedMessageIdBase = 0x10000000000000;
+const _transientCharactersMovedRoundPrefix = 'ws-event:';
 
 bool get _chatroomHydrateMetricsEnabled => kDebugMode || kProfileMode;
 
@@ -112,6 +115,8 @@ class WorldChatroomService {
       <String, Future<void>>{};
   final Set<String> _localHydratedMessageKeys = <String>{};
   int _localMessageCacheGeneration = 0;
+  int _userLocationsRefreshGeneration = 0;
+  int _transientCharactersMovedSequence = 0;
   final Map<String, Future<List<WorldChatroomMessage>>>
   _latestMessageFetchFutures = <String, Future<List<WorldChatroomMessage>>>{};
   bool _heartbeatInFlight = false;
@@ -449,6 +454,7 @@ class WorldChatroomService {
 
   Future<void> disconnect() async {
     _userDisconnected = true;
+    _userLocationsRefreshGeneration += 1;
     _desiredLocationId = '';
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
@@ -489,14 +495,37 @@ class WorldChatroomService {
         hasMore: false,
       );
     }
-    final loadedMessageIds = <int>{};
+    final loadedMessageKeys = <String>{};
+    final currentLocationMessages =
+        _state.messagesByLocation[resolvedLocationId] ??
+        const <WorldChatroomMessage>[];
+    final beforeWorldMessageId = _worldMessageBoundaryForLocationCursor(
+      currentLocationMessages,
+      beforeMessageId,
+    );
+    String loadedMessageKey({
+      required String senderType,
+      required int locationMessageId,
+      required int messageId,
+    }) {
+      if (!isChatroomLocationSupplementalSenderType(senderType) &&
+          locationMessageId > 0) {
+        return 'location:$locationMessageId';
+      }
+      return messageId > 0 ? 'message:$messageId' : '';
+    }
+
     final ownerUid = _storageOwnerUid;
     LocationChatDebugSlice.recordEvent(
       source: 'service',
       action: 'loadOlderStart',
       worldId: _worldId,
       locationId: resolvedLocationId,
-      details: {'beforeMessageId': beforeMessageId, 'limit': limit},
+      details: {
+        'beforeMessageId': beforeMessageId,
+        'beforeWorldMessageId': beforeWorldMessageId,
+        'limit': limit,
+      },
     );
     if (ownerUid.isNotEmpty && _worldId.isNotEmpty) {
       final localMessages = await _messageStorage.loadMessagesBefore(
@@ -504,12 +533,17 @@ class WorldChatroomService {
         worldId: _worldId,
         locationId: resolvedLocationId,
         beforeMessageId: beforeMessageId,
+        beforeWorldMessageId: beforeWorldMessageId,
         limit: limit,
       );
       for (final json in localMessages) {
         final message = WorldChatroomMessage.fromStorageJson(json);
-        final queueMessageId = message.locationQueueMessageId;
-        if (queueMessageId > 0) loadedMessageIds.add(queueMessageId);
+        final key = loadedMessageKey(
+          senderType: message.senderType,
+          locationMessageId: message.locationMessageId,
+          messageId: message.messageId,
+        );
+        if (key.isNotEmpty) loadedMessageKeys.add(key);
         _upsertMessage(message, persist: false);
       }
     }
@@ -522,18 +556,46 @@ class WorldChatroomService {
     );
     await _mergeFetchedMessages(resolvedLocationId, response.messages);
     for (final message in response.messages) {
-      final queueMessageId = message.locationMessageId;
-      if (queueMessageId > 0) loadedMessageIds.add(queueMessageId);
+      final key = loadedMessageKey(
+        senderType: message.senderType,
+        locationMessageId: message.locationMessageId,
+        messageId: message.messageId,
+      );
+      if (key.isNotEmpty) loadedMessageKeys.add(key);
+    }
+    final remoteLocationCursorAdvanced = response.messages.any(
+      (message) =>
+          message.locationMessageId > 0 &&
+          message.locationMessageId < beforeMessageId,
+    );
+    final hasMore = response.hasMore && remoteLocationCursorAdvanced;
+    if (response.hasMore && !remoteLocationCursorAdvanced) {
+      _logChatroomSocketEvent(
+        'older history pagination stopped because location cursor did not '
+        'advance world=$_worldId location=$resolvedLocationId '
+        'before=$beforeMessageId responseCount=${response.messages.length}',
+      );
+      _recordServiceQueueDebug(
+        action: 'loadOlderCursorNotAdvanced',
+        locationId: resolvedLocationId,
+        details: {
+          'beforeMessageId': beforeMessageId,
+          'beforeWorldMessageId': beforeWorldMessageId,
+          'responseCount': response.messages.length,
+          'remoteHasMore': response.hasMore,
+        },
+      );
     }
     final page = WorldChatroomOlderMessagesPage(
-      loadedCount: loadedMessageIds.length,
-      hasMore: response.hasMore,
+      loadedCount: loadedMessageKeys.length,
+      hasMore: hasMore,
     );
     _recordServiceQueueDebug(
       action: 'loadOlderDone',
       locationId: resolvedLocationId,
       details: {
         'beforeMessageId': beforeMessageId,
+        'beforeWorldMessageId': beforeWorldMessageId,
         'limit': limit,
         'loadedCount': page.loadedCount,
         'hasMore': page.hasMore,

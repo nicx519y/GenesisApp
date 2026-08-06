@@ -8,6 +8,47 @@ extension _WorldPageLocationChat on _WorldPageState {
     _locationChatPageCache.preloadBackgroundsForTilemap(locationIds);
   }
 
+  Future<void> _openCharactersMovedTargetLocation(
+    ChatCharacterMovementVm movement,
+  ) async {
+    final targetLocationId = movement.toLocationId.trim();
+    if (targetLocationId.isEmpty || targetLocationId == _activeChatLocationId) {
+      return;
+    }
+    WorldLocationChatPanelDescriptor? descriptor =
+        _locationChatDescriptors[targetLocationId];
+    if (descriptor == null) {
+      for (final candidate in _locationChatDescriptors.values) {
+        if (candidate.localMessageLocationIds.contains(targetLocationId)) {
+          descriptor = candidate;
+          break;
+        }
+      }
+    }
+    if (descriptor == null || !mounted) {
+      if (mounted) showGenesisToast(context, 'Location is unavailable');
+      return;
+    }
+    if (descriptor.locationId == _activeChatLocationId) return;
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (_world?.definitionVersion == 2) {
+      _tilemapRestorationController.requestLocationNavigation(
+        descriptor.locationId,
+      );
+      _showMapTab();
+    }
+    _recordWorldLocationChatDebug(
+      action: 'charactersMovedLocationOpen',
+      locationId: descriptor.locationId,
+      details: <String, Object?>{
+        'previousActiveId': _activeChatLocationId,
+        'characterId': movement.characterId,
+      },
+    );
+    await _showCachedLocationChat(descriptor);
+  }
+
   Future<void> _openChatForPoint(WorldPoint point) async {
     final relationStatus = _world?.relationStatus.trim().toLowerCase() ?? '';
     if (!shouldConnectWorldChatroom(relationStatus)) {
@@ -322,10 +363,54 @@ extension _WorldPageLocationChat on _WorldPageState {
     if (currentWorld.tickCount != nextWorld.tickCount) return true;
     if (currentWorld.currentTime != nextWorld.currentTime) return true;
     if (currentWorld.isProgressing != nextWorld.isProgressing) return true;
+    if (_worldPositionsSignature(currentWorld) !=
+        _worldPositionsSignature(nextWorld)) {
+      return true;
+    }
     final nextSignature = _locationChatDescriptorsSignature(
       _locationChatDescriptorsForWorld(nextWorld),
     );
     return nextSignature != _locationChatDescriptorSignature;
+  }
+
+  String _worldPositionsSignature(WorldDetail world) {
+    final parts = <String>[];
+    for (final position in world.characterPositions) {
+      final rawCharacter = position['character'];
+      final character = rawCharacter is Map
+          ? rawCharacter.map((key, value) => MapEntry('$key', value))
+          : const <String, dynamic>{};
+      parts.add(
+        [
+          'character',
+          worldMapString(position, const [
+            'location_id',
+            'current_location_id',
+          ]),
+          worldMapString(character, const ['char_id', 'character_id', 'id']),
+          worldMapString(character, const ['player_uid', 'user_id', 'uid']),
+          worldMapString(character, const ['name']),
+          worldMapString(character, const ['avatar', 'avatar_url']),
+          '${character['type'] ?? ''}',
+        ].join('\u001f'),
+      );
+    }
+    for (final position in world.userPositions) {
+      parts.add(
+        [
+          'user',
+          worldMapString(position, const [
+            'location_id',
+            'current_location_id',
+          ]),
+          worldMapString(position, const ['uid', 'user_id', 'player_uid']),
+          worldMapString(position, const ['name', 'user_name']),
+          worldMapString(position, const ['avatar', 'avatar_url']),
+        ].join('\u001f'),
+      );
+    }
+    parts.sort();
+    return parts.join('\u001e');
   }
 
   String _locationChatDescriptorsSignature(

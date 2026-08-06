@@ -240,7 +240,9 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
   }
 
   String _tickReportText(ChatMessageVm message) {
-    final tick = message.tickNo > 0 ? 'Tick ${message.tickNo}' : 'Tick';
+    final tick = message.tickNo > 0
+        ? 'Tick ${message.tickNo}${message.subTickNo > 0 ? '-${message.subTickNo}' : ''}'
+        : 'Tick';
     final text = message.text.trim();
     return text.isEmpty ? tick : '$tick · $text';
   }

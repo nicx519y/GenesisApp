@@ -22,9 +22,11 @@ import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_message_type.dart';
 import '../../network/chatroom/chatroom_models.dart';
+import '../../network/chatroom/chatroom_timeline_payload.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
@@ -73,6 +75,7 @@ class LocationChatPage extends StatelessWidget {
     this.renderBackgroundImage = true,
     this.service,
     this.connection,
+    this.onCharactersMovedLocationTap,
   });
 
   final String worldId;
@@ -87,9 +90,35 @@ class LocationChatPage extends StatelessWidget {
   final bool renderBackgroundImage;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
+  final ChatCharacterMovementTap? onCharactersMovedLocationTap;
 
   @override
   Widget build(BuildContext context) {
+    void openCharactersMovedLocation(ChatCharacterMovementVm movement) {
+      final targetLocationId = movement.toLocationId.trim();
+      if (targetLocationId.isEmpty || targetLocationId == locationId.trim()) {
+        return;
+      }
+      final customHandler = onCharactersMovedLocationTap;
+      if (customHandler != null) {
+        customHandler(movement);
+        return;
+      }
+      Navigator.of(context).pushReplacementNamed(
+        RouteNames.locationChat,
+        arguments: <String, Object?>{
+          'world_id': worldId,
+          'location_id': targetLocationId,
+          'world_name': worldName ?? '',
+          'location_name': movement.toLocationName,
+          'is_leaf_location': true,
+          'local_message_location_ids': <String>[targetLocationId],
+          if (service != null) 'world_chatroom_service': service,
+          if (connection != null) 'chatroom_connection': connection,
+        },
+      );
+    }
+
     return LocationChatPanel(
       worldId: worldId,
       locationId: locationId,
@@ -106,6 +135,7 @@ class LocationChatPage extends StatelessWidget {
       active: true,
       showMoreButton: false,
       onBack: () => Navigator.of(context).maybePop(),
+      onCharactersMovedLocationTap: openCharactersMovedLocation,
     );
   }
 }
@@ -140,6 +170,7 @@ class LocationChatPanel extends StatefulWidget {
     this.onDraftTextChanged,
     this.messageQueueInitializationCovered = false,
     this.unauthorizedHandledByOwner = false,
+    this.onCharactersMovedLocationTap,
   });
 
   final String worldId;
@@ -169,6 +200,7 @@ class LocationChatPanel extends StatefulWidget {
   final ValueChanged<String>? onDraftTextChanged;
   final bool messageQueueInitializationCovered;
   final bool unauthorizedHandledByOwner;
+  final ChatCharacterMovementTap? onCharactersMovedLocationTap;
 
   @override
   State<LocationChatPanel> createState() => _LocationChatPanelState();
@@ -443,6 +475,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       oldestEdgeLoading: _loadingOlderMessages,
       onMessageLongPressStart: _showMessageActionMenu,
       onFailedMessageTap: (message) => unawaited(_retryFailedMessage(message)),
+      onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap == null
+          ? null
+          : (movement) {
+              final targetLocationId = movement.toLocationId.trim();
+              if (targetLocationId.isEmpty ||
+                  targetLocationId == widget.locationId.trim()) {
+                return;
+              }
+              widget.onCharactersMovedLocationTap!(movement);
+            },
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       showDateDividers: false,
       style: listStyle,

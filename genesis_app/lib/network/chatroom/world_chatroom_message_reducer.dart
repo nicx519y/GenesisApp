@@ -5,6 +5,25 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     _upsertMessage(message, socketCurrentTime: message.currentTime);
   }
 
+  Future<void> _handleCharactersMovedMessage(
+    WorldChatroomMessage message, {
+    bool persist = true,
+  }) async {
+    final locationId = message.locationId.trim();
+    final locationIds = locationId.isNotEmpty
+        ? <String>[locationId]
+        : _tickAdvanceLocationIds('');
+    _upsertMessages(
+      locationIds.isEmpty
+          ? <WorldChatroomMessage>[message]
+          : locationIds
+                .map((targetId) => message.copyWith(locationId: targetId))
+                .toList(growable: false),
+      persist: persist,
+      socketCurrentTime: message.currentTime,
+    );
+  }
+
   Future<void> _handleTickAdvanceMessage(WorldChatroomMessage message) async {
     final messages = _tickAdvanceLocationIds(message.locationId)
         .map((locationId) => message.copyWith(locationId: locationId))
@@ -386,7 +405,10 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       } else {
         streamKeys.remove(key);
       }
-      if (message.messageId > lastMessageId) lastMessageId = message.messageId;
+      if (!_isTransientCharactersMovedMessage(message) &&
+          message.messageId > lastMessageId) {
+        lastMessageId = message.messageId;
+      }
     }
     _setState(
       _stateWithSocketWorldProgress(
@@ -466,6 +488,14 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     if (aClientMsgId.isNotEmpty && bClientMsgId.isNotEmpty) {
       return aClientMsgId == bClientMsgId;
     }
+    if (_sameCanonicalAndTransientCharactersMovedMessage(a, b)) return true;
+    if (a.locationId == b.locationId &&
+        (isChatroomLocationSupplementalSenderType(a.senderType) ||
+            isChatroomLocationSupplementalSenderType(b.senderType)) &&
+        a.messageId > 0 &&
+        b.messageId > 0) {
+      return a.messageId == b.messageId;
+    }
     if (a.locationId == b.locationId &&
         a.locationMessageId > 0 &&
         b.locationMessageId > 0) {
@@ -474,10 +504,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     if (a.locationId == b.locationId &&
         a.messageId > 0 &&
         b.messageId > 0 &&
-        (_isTickAdvanceWorldMessage(a) ||
-            _isTickAdvanceWorldMessage(b) ||
-            a.locationMessageId <= 0 ||
-            b.locationMessageId <= 0)) {
+        (a.locationMessageId <= 0 || b.locationMessageId <= 0)) {
       return a.messageId == b.messageId;
     }
     if (a.locationId == b.locationId) {
@@ -496,11 +523,53 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         a.streaming == b.streaming;
   }
 
+  bool _sameCanonicalAndTransientCharactersMovedMessage(
+    WorldChatroomMessage a,
+    WorldChatroomMessage b,
+  ) {
+    if (a.senderType.trim().toLowerCase() !=
+            chatroomCharactersMovedSenderType ||
+        b.senderType.trim().toLowerCase() !=
+            chatroomCharactersMovedSenderType) {
+      return false;
+    }
+    final aTransient = _isTransientCharactersMovedMessage(a);
+    final bTransient = _isTransientCharactersMovedMessage(b);
+    if (aTransient == bTransient) return false;
+    final aCreatedAt = a.createdAt;
+    final bCreatedAt = b.createdAt;
+    if (aCreatedAt != null &&
+        bCreatedAt != null &&
+        aCreatedAt.difference(bCreatedAt).inSeconds.abs() > 300) {
+      return false;
+    }
+    final aPayload = a.timelinePayload;
+    final bPayload = b.timelinePayload;
+    if (aPayload is! ChatroomCharactersMovedPayload ||
+        bPayload is! ChatroomCharactersMovedPayload) {
+      return false;
+    }
+    return encodeChatroomTimelinePayload(aPayload) ==
+        encodeChatroomTimelinePayload(bPayload);
+  }
+
+  bool _isTransientCharactersMovedMessage(WorldChatroomMessage message) {
+    return message.senderType.trim().toLowerCase() ==
+            chatroomCharactersMovedSenderType &&
+        message.conversationRoundId.startsWith(
+          _transientCharactersMovedRoundPrefix,
+        );
+  }
+
   int _compareMessages(WorldChatroomMessage a, WorldChatroomMessage b) {
     if (a.locationId == b.locationId) {
-      final aIsTick = _isTickAdvanceWorldMessage(a);
-      final bIsTick = _isTickAdvanceWorldMessage(b);
-      if (aIsTick || bIsTick) {
+      final aIsMessageIdOrdered = isChatroomLocationSupplementalSenderType(
+        a.senderType,
+      );
+      final bIsMessageIdOrdered = isChatroomLocationSupplementalSenderType(
+        b.senderType,
+      );
+      if (aIsMessageIdOrdered || bIsMessageIdOrdered) {
         final byMessageId = a.messageId.compareTo(b.messageId);
         if (byMessageId != 0) return byMessageId;
         final byLocationMessage = a.locationMessageId.compareTo(
@@ -582,11 +651,14 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
 
   bool _messageIsAtOrBeforeLocationCursor(
     WorldChatroomMessage message,
-    int maxLocationMessageId,
-  ) {
+    int maxLocationMessageId, {
+    int maxWorldMessageId = 0,
+  }) {
     if (maxLocationMessageId <= 0) return false;
-    if (_isTickAdvanceWorldMessage(message)) {
-      return message.messageId > 0 && message.messageId <= maxLocationMessageId;
+    if (isChatroomLocationSupplementalSenderType(message.senderType)) {
+      return maxWorldMessageId > 0 &&
+          message.messageId > 0 &&
+          message.messageId <= maxWorldMessageId;
     }
     if (message.locationMessageId <= 0) return true;
     return message.locationMessageId <= maxLocationMessageId;

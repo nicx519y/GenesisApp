@@ -35,12 +35,22 @@ typedef TilemapTileImageLoader = Future<void> Function(String assetUrl);
 typedef TilemapCurrentLocationsChanged =
     void Function(String mapId, Set<String> locationIds);
 
-class TilemapRestorationController {
+class TilemapRestorationController extends ChangeNotifier {
   String _scopeKey = '';
   String _initialLocationId = '';
   String _currentLocationId = '';
   final List<String> _locationTrail = <String>[];
   final Map<String, Matrix4> _viewportTransforms = <String, Matrix4>{};
+  String _requestedLocationId = '';
+  int _locationNavigationRevision = 0;
+
+  void requestLocationNavigation(String locationId) {
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty) return;
+    _requestedLocationId = resolvedLocationId;
+    _locationNavigationRevision += 1;
+    notifyListeners();
+  }
 
   void clear() {
     _scopeKey = '';
@@ -48,6 +58,9 @@ class TilemapRestorationController {
     _currentLocationId = '';
     _locationTrail.clear();
     _viewportTransforms.clear();
+    _requestedLocationId = '';
+    _locationNavigationRevision += 1;
+    notifyListeners();
   }
 
   void _ensureScope({
@@ -57,10 +70,11 @@ class TilemapRestorationController {
     if (_scopeKey == scopeKey && _initialLocationId == initialLocationId) {
       return;
     }
-    clear();
     _scopeKey = scopeKey;
     _initialLocationId = initialLocationId;
     _currentLocationId = initialLocationId;
+    _locationTrail.clear();
+    _viewportTransforms.clear();
   }
 
   void _saveNavigation({
@@ -93,6 +107,26 @@ class TilemapRestorationController {
   }) {
     _ensureScope(scopeKey: scopeKey, initialLocationId: initialLocationId);
     _viewportTransforms[mapId] = transform.clone();
+  }
+
+  void _clearViewportTransform({
+    required String scopeKey,
+    required String initialLocationId,
+    required String mapId,
+  }) {
+    _ensureScope(scopeKey: scopeKey, initialLocationId: initialLocationId);
+    _viewportTransforms.remove(mapId);
+  }
+
+  void _consumeLocationNavigationRequest({
+    required int revision,
+    required String locationId,
+  }) {
+    if (_locationNavigationRevision != revision ||
+        _requestedLocationId != locationId) {
+      return;
+    }
+    _requestedLocationId = '';
   }
 }
 
@@ -144,6 +178,7 @@ class Tilemap extends StatefulWidget {
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
     this.animationsPaused = false,
+    this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
     this.onDrillIntoLocation,
@@ -170,6 +205,7 @@ class Tilemap extends StatefulWidget {
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
     this.animationsPaused = false,
+    this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
     this.onDrillIntoLocation,
@@ -195,6 +231,7 @@ class Tilemap extends StatefulWidget {
   final double visualModeToggleRight;
   final Set<String> recentChatLocationIds;
   final bool animationsPaused;
+  final int reloadRevision;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
   final VoidCallback? onDrillIntoLocation;
@@ -227,7 +264,12 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   Object? _imageError;
   late String _currentLocationId;
   final List<String> _locationTrail = <String>[];
+  int _appliedLocationNavigationRevision = 0;
+  String _requestedPreferredFocusLocationId = '';
   int _cacheGeneration = 0;
+  int _mapDataGeneration = 0;
+  bool _mapDataRefreshRunning = false;
+  bool _mapDataRefreshPending = false;
   final Map<String, int> _rendererRevisionByMapId = <String, int>{};
   late final TilemapLoadingCoordinator _loadingCoordinator;
   late final TilemapPrerenderController _prerenderController;
@@ -292,6 +334,10 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       onChanged: _handlePrerenderControllerChanged,
       warmupSuspended: widget.animationsPaused,
     );
+    restorationController?.addListener(
+      _handleRestorationControllerNavigationRequested,
+    );
+    _applyRequestedLocationNavigation(reload: false);
     tilemapSettingsButtonVisibility.listenable.addListener(
       _handleSettingsButtonVisibilityChanged,
     );
@@ -312,6 +358,15 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant Tilemap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.restorationController != widget.restorationController) {
+      oldWidget.restorationController?.removeListener(
+        _handleRestorationControllerNavigationRequested,
+      );
+      widget.restorationController?.addListener(
+        _handleRestorationControllerNavigationRequested,
+      );
+      _appliedLocationNavigationRevision = 0;
+    }
     if (oldWidget.onCurrentLocationsChanged !=
         widget.onCurrentLocationsChanged) {
       _reportedCurrentLocationsSignature = '';
@@ -326,13 +381,21 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _loadingCoordinator.setBackgroundWorkSuspended(widget.animationsPaused);
       _prerenderController.setWarmupSuspended(widget.animationsPaused);
     }
+    if (widget._source == _TilemapSource.world &&
+        oldWidget.reloadRevision != widget.reloadRevision) {
+      _scheduleMapDataRefresh();
+    }
     final entityChanged =
         oldWidget._source != widget._source ||
         oldWidget._entityId != widget._entityId;
     final initialLocationChanged = oldWidget.locationId != widget.locationId;
-    if (!entityChanged && !initialLocationChanged) return;
+    if (!entityChanged && !initialLocationChanged) {
+      _applyRequestedLocationNavigation(reload: true);
+      return;
+    }
     _currentLocationId = widget.locationId.trim();
     _locationTrail.clear();
+    _requestedPreferredFocusLocationId = '';
     widget.restorationController?._ensureScope(
       scopeKey: _restorationScopeKey,
       initialLocationId: _currentLocationId,
@@ -343,13 +406,18 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     } else {
       _loadingCoordinator.retargetInitialEntry();
     }
+    _applyRequestedLocationNavigation(reload: false);
     _loadCurrentLocation(rebuild: false);
   }
 
   @override
   void dispose() {
     _saveRestorationNavigation();
+    widget.restorationController?.removeListener(
+      _handleRestorationControllerNavigationRequested,
+    );
     _cacheGeneration += 1;
+    _mapDataGeneration += 1;
     _stopAllFirstRenderTraces(result: 'cancelled');
     _loadingCoordinator.dispose();
     _prerenderController.dispose();
@@ -711,16 +779,19 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     if (existing != null) return existing;
 
     final generation = _cacheGeneration;
+    final mapDataGeneration = _mapDataGeneration;
     final request =
         _loadSafely(api, locationId: locationId, reportFailure: reportFailure)
             .then((result) {
-              if (generation == _cacheGeneration) {
+              if (generation == _cacheGeneration &&
+                  mapDataGeneration == _mapDataGeneration) {
                 _storeMapResult(locationId, result);
               }
               return result;
             })
             .whenComplete(() {
-              if (generation == _cacheGeneration) {
+              if (generation == _cacheGeneration &&
+                  mapDataGeneration == _mapDataGeneration) {
                 _mapRequests.remove(locationId);
               }
             });
@@ -763,6 +834,8 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   void _resetMapCache() {
     _reportDisplayReadiness(false);
     _cacheGeneration += 1;
+    _mapDataGeneration += 1;
+    _mapDataRefreshPending = false;
     _stopAllFirstRenderTraces(result: 'cancelled');
     _hasRequestedFirstRenderTrace = false;
     _loadingCoordinator.resetSession();
@@ -784,6 +857,227 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     _reportedCurrentLocationsSignature = '';
     _scheduledCurrentLocationsSignature = '';
     _prerenderEnvironmentGeneration += 1;
+  }
+
+  void _scheduleMapDataRefresh() {
+    if (!mounted || widget._source != _TilemapSource.world) return;
+    _mapDataGeneration += 1;
+    _mapDataRefreshPending = true;
+    _mapRequests.clear();
+    _loadingCoordinator.invalidatePreloadCaches();
+    if (_mapDataRefreshRunning) return;
+    unawaited(_drainMapDataRefreshes());
+  }
+
+  Future<void> _drainMapDataRefreshes() async {
+    if (_mapDataRefreshRunning) return;
+    _mapDataRefreshRunning = true;
+    try {
+      while (mounted && _mapDataRefreshPending) {
+        _mapDataRefreshPending = false;
+        final generation = _mapDataGeneration;
+        await _refreshCurrentMapData(generation);
+      }
+    } finally {
+      _mapDataRefreshRunning = false;
+      if (mounted && _mapDataRefreshPending) {
+        unawaited(_drainMapDataRefreshes());
+      }
+    }
+  }
+
+  Future<void> _refreshCurrentMapData(int generation) async {
+    final api = _api;
+    if (api == null) return;
+    final locationId = _currentLocationId.trim();
+    if (locationId.isEmpty) return;
+
+    final previousCurrentConfig = _currentConfig;
+    final currentResult = await _loadSafely(
+      api,
+      locationId: locationId,
+      reportFailure: false,
+    );
+    if (!_mapDataRefreshIsCurrent(generation, locationId)) {
+      _restartMapDataRefreshIfLocationChanged(locationId);
+      return;
+    }
+
+    final loadedCurrentConfig = currentResult.config;
+    if (loadedCurrentConfig == null) {
+      final error = currentResult.error;
+      if (kDebugMode && error != null) {
+        debugPrint('[Tilemap] map_updated refresh failed: $error');
+      }
+      if (previousCurrentConfig == null) {
+        if (error != null) _reportDisplayError(error);
+        setState(() => _mapError = error);
+      } else {
+        setState(() {});
+        _scheduleRefreshedPreloadWork(previousCurrentConfig);
+      }
+      return;
+    }
+
+    final currentConfigChanged = !tilemapConfigDataEquals(
+      previousCurrentConfig,
+      loadedCurrentConfig,
+    );
+    final nextCurrentConfig = currentConfigChanged
+        ? loadedCurrentConfig
+        : previousCurrentConfig ?? loadedCurrentConfig;
+    final nextPreloadLocationIds = _preferredPreloadLocationIds(
+      nextCurrentConfig,
+    );
+    final previousPreloadResults = <String, _TilemapLoadResult?>{
+      for (final preloadLocationId in nextPreloadLocationIds)
+        preloadLocationId: _mapResults[preloadLocationId],
+    };
+    final refreshedPreloadResults = await Future.wait(
+      nextPreloadLocationIds.map(
+        (preloadLocationId) async => MapEntry(
+          preloadLocationId,
+          await _loadSafely(
+            api,
+            locationId: preloadLocationId,
+            reportFailure: false,
+          ),
+        ),
+      ),
+    );
+    if (!_mapDataRefreshIsCurrent(generation, locationId)) {
+      _restartMapDataRefreshIfLocationChanged(locationId);
+      return;
+    }
+
+    final resolvedPreloadConfigs = <String, TilemapConfig>{};
+    final changedPreloadMapIds = <String>{};
+    for (final entry in refreshedPreloadResults) {
+      final previousResult = previousPreloadResults[entry.key];
+      final previousConfig = previousResult?.config;
+      final loadedConfig = entry.value.config;
+      if (loadedConfig == null) {
+        final error = entry.value.error;
+        if (kDebugMode && error != null) {
+          debugPrint(
+            '[Tilemap] map_updated preload refresh failed '
+            'location=${entry.key}: $error',
+          );
+        }
+        if (previousConfig != null) {
+          resolvedPreloadConfigs[entry.key] = previousConfig;
+        }
+        continue;
+      }
+      final changed = !tilemapConfigDataEquals(previousConfig, loadedConfig);
+      final resolvedConfig = changed
+          ? loadedConfig
+          : previousConfig ?? loadedConfig;
+      resolvedPreloadConfigs[entry.key] = resolvedConfig;
+      if (changed && previousConfig != null) {
+        changedPreloadMapIds.add(resolvedConfig.id);
+      }
+    }
+
+    final retainedLocationIds = <String>{
+      locationId,
+      ...resolvedPreloadConfigs.keys,
+    };
+    _mapResults.removeWhere(
+      (cachedLocationId, _) => !retainedLocationIds.contains(cachedLocationId),
+    );
+    _storeMapResult(locationId, _TilemapLoadResult.success(nextCurrentConfig));
+    for (final entry in resolvedPreloadConfigs.entries) {
+      _storeMapResult(entry.key, _TilemapLoadResult.success(entry.value));
+    }
+    if (currentConfigChanged && _loadingCoordinator.initialLoadError != null) {
+      _loadingCoordinator.retryInitialTileLoad();
+    }
+    setState(() {
+      _currentConfig = nextCurrentConfig;
+      _mapError = null;
+      if (currentConfigChanged) _imageError = null;
+    });
+    for (final config in resolvedPreloadConfigs.values) {
+      _prerenderController.rememberConfig(config);
+    }
+    if (currentConfigChanged) {
+      _bumpRendererRevisionForMapId(nextCurrentConfig.id);
+      _activateConfig(nextCurrentConfig);
+    }
+    for (final mapId in changedPreloadMapIds) {
+      _bumpRendererRevisionForMapId(mapId);
+    }
+    _prerenderController.retainKnownMapIds({
+      nextCurrentConfig.id,
+      for (final preloadLocationId in nextPreloadLocationIds)
+        _mapIdForLocation(preloadLocationId),
+    });
+    _scheduleRefreshedPreloadWork(nextCurrentConfig);
+  }
+
+  bool _mapDataRefreshIsCurrent(int generation, String locationId) {
+    return mounted &&
+        generation == _mapDataGeneration &&
+        locationId == _currentLocationId.trim();
+  }
+
+  void _restartMapDataRefreshIfLocationChanged(String requestedLocationId) {
+    if (!mounted || requestedLocationId == _currentLocationId.trim()) return;
+    _mapDataGeneration += 1;
+    _mapDataRefreshPending = true;
+    _mapRequests.clear();
+  }
+
+  List<String> _preferredPreloadLocationIds([TilemapConfig? config]) {
+    final result = <String>[];
+    void add(String rawLocationId) {
+      final locationId = rawLocationId.trim();
+      if (locationId.isEmpty ||
+          locationId == _currentLocationId.trim() ||
+          result.contains(locationId)) {
+        return;
+      }
+      result.add(locationId);
+    }
+
+    if (_locationTrail.isNotEmpty) add(_locationTrail.last);
+    final currentConfig = config ?? _currentConfig;
+    if (currentConfig != null) {
+      for (final locationId in tilemapDrillTargetLocationIds(
+        config: currentConfig,
+        locationNodes: widget.locationNodes,
+      ).take(tilemapSilentPreloadMaxPendingTargets)) {
+        add(locationId);
+      }
+    }
+    return result;
+  }
+
+  void _scheduleRefreshedPreloadWork(TilemapConfig config) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_currentConfig, config)) return;
+      final viewportSize = _configuredPrerenderViewportSize;
+      final devicePixelRatio = _configuredPrerenderDevicePixelRatio;
+      if (viewportSize == null || devicePixelRatio == null) return;
+      final plan = _imageLoadPlanForViewport(
+        config: config,
+        viewportSize: viewportSize,
+        devicePixelRatio: devicePixelRatio,
+      );
+      _loadingCoordinator.scheduleBackgroundTilePreload(
+        config: config,
+        plan: plan,
+        loadImage: _loadTileImage,
+      );
+      _scheduleSilentDrillDownPreload(
+        config,
+        displayTilePixelSize:
+            tilemapBaseTileExtent *
+            _initialScale *
+            tilemapImageDevicePixelRatio(devicePixelRatio),
+      );
+    });
   }
 
   Future<TilemapConfig?> _preloadMap(String locationId) async {
@@ -834,10 +1128,12 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     }
 
     final generation = _cacheGeneration;
+    final mapDataGeneration = _mapDataGeneration;
     unawaited(
       _requestMap(api, locationId, reportFailure: true).then((result) {
         if (!mounted ||
             generation != _cacheGeneration ||
+            mapDataGeneration != _mapDataGeneration ||
             locationId != _currentLocationId.trim()) {
           return;
         }
@@ -937,7 +1233,9 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
 
   String _preferredVisibleFocusLocationId(TilemapConfig config) {
     return resolveTilemapPreferredVisibleLocationId(
-      preferredLocationId: widget.preferredFocusLocationId,
+      preferredLocationId: _requestedPreferredFocusLocationId.isNotEmpty
+          ? _requestedPreferredFocusLocationId
+          : widget.preferredFocusLocationId,
       visibleLocationIds: config.tiles
           .map((tile) => tile.locationId?.trim() ?? '')
           .where((locationId) => locationId.isNotEmpty),
@@ -963,6 +1261,56 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       currentLocationId: _currentLocationId,
       locationTrail: _locationTrail,
     );
+  }
+
+  void _handleRestorationControllerNavigationRequested() {
+    _applyRequestedLocationNavigation(reload: true);
+  }
+
+  void _applyRequestedLocationNavigation({required bool reload}) {
+    final controller = widget.restorationController;
+    if (controller == null) return;
+    final revision = controller._locationNavigationRevision;
+    final targetLocationId = controller._requestedLocationId.trim();
+    if (targetLocationId.isEmpty ||
+        revision == _appliedLocationNavigationRevision) {
+      return;
+    }
+    final navigation = resolveWorldMapChatTargetNavigation(
+      initialLocationId: widget.locationId,
+      targetLocationId: targetLocationId,
+      locationNodes: widget.locationNodes,
+    );
+    if (navigation == null) {
+      _appliedLocationNavigationRevision = revision;
+      controller._consumeLocationNavigationRequest(
+        revision: revision,
+        locationId: targetLocationId,
+      );
+      return;
+    }
+
+    _appliedLocationNavigationRevision = revision;
+    _currentLocationId = navigation.currentLocationId;
+    _locationTrail
+      ..clear()
+      ..addAll(navigation.locationTrail);
+    _requestedPreferredFocusLocationId = targetLocationId;
+    final targetMapId = _mapIdForLocation(_currentLocationId);
+    controller._clearViewportTransform(
+      scopeKey: _restorationScopeKey,
+      initialLocationId: widget.locationId.trim(),
+      mapId: targetMapId,
+    );
+    _saveRestorationNavigation();
+    controller._consumeLocationNavigationRequest(
+      revision: revision,
+      locationId: targetLocationId,
+    );
+    if (!reload) return;
+
+    _bumpRendererRevisionForMapId(targetMapId);
+    _loadCurrentLocation(rebuild: true);
   }
 
   void _retry() {
@@ -1263,11 +1611,13 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
 
   void _bumpCurrentRendererRevision() {
     final mapId = _currentConfig?.id;
-    if (mapId != null) {
-      _rendererRevisionByMapId[mapId] =
-          (_rendererRevisionByMapId[mapId] ?? 0) + 1;
-      _prerenderController.invalidateMap(mapId);
-    }
+    if (mapId != null) _bumpRendererRevisionForMapId(mapId);
+  }
+
+  void _bumpRendererRevisionForMapId(String mapId) {
+    _rendererRevisionByMapId[mapId] =
+        (_rendererRevisionByMapId[mapId] ?? 0) + 1;
+    _prerenderController.invalidateMap(mapId);
   }
 
   String _mapIdForLocation(String rawLocationId) {
@@ -1346,6 +1696,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
 
     final isCurrentTarget = _currentConfig?.id == mapId;
     if (isCurrentTarget) {
+      _requestedPreferredFocusLocationId = '';
       _hasRevealedInitialMap = true;
       final config = _currentConfig;
       final viewportSize = _configuredPrerenderViewportSize;
@@ -1495,7 +1846,9 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _cacheGeneration,
       renderSettings,
       Object.hashAll(widget.locationNodes.map(_locationNodeEnvironmentHash)),
-      widget.preferredFocusLocationId,
+      _requestedPreferredFocusLocationId.isNotEmpty
+          ? _requestedPreferredFocusLocationId
+          : widget.preferredFocusLocationId,
       Object.hashAll(widget.messageBubbles.map(_messageBubbleEnvironmentHash)),
       widget.messageBubblePlaybackPaused,
       locale,

@@ -148,6 +148,23 @@ class TilemapLoadingCoordinator {
     _silentPlanGeneration += 1;
   }
 
+  /// Rebuilds background and silent-preload bookkeeping without reopening the
+  /// foreground map's initial-entry gate.
+  void invalidatePreloadCaches() {
+    if (_disposed) return;
+    _imageRequests.clear();
+    _scheduledBackgroundLoadKeys.clear();
+    _completedBackgroundLoadKeys.clear();
+    _activeBackgroundTilePreload = null;
+    _pendingBackgroundTilePreload = null;
+    _backgroundLoadGeneration += 1;
+    _silentLoadQueue.clear();
+    _scheduledSilentLoadKeys.clear();
+    _completedSilentLoadKeys.clear();
+    _silentPlanKey = null;
+    _silentPlanGeneration += 1;
+  }
+
   void ensureInitialMapReady({
     required TilemapConfig config,
     required TilemapImageLoadPlan plan,
@@ -487,7 +504,8 @@ class TilemapLoadingCoordinator {
       // Background images are an optimization. A later viewport can retry the
       // same asset through the normal renderer request path.
     } finally {
-      if (_isSessionCurrent(task.sessionGeneration)) {
+      if (_isSessionCurrent(task.sessionGeneration) &&
+          backgroundLoadGeneration == _backgroundLoadGeneration) {
         final pendingContinuation = continuation;
         if (pendingContinuation != null &&
             (_pendingBackgroundTilePreload == null ||
@@ -529,6 +547,12 @@ class TilemapLoadingCoordinator {
         if (_backgroundWorkSuspended) break;
         _silentLoadQueue.removeFirst();
         final continuation = await _preloadLocation(task);
+        if (!_isSilentPlanCurrent(
+          sessionGeneration: task.sessionGeneration,
+          planGeneration: task.planGeneration,
+        )) {
+          continue;
+        }
         if (continuation != null) {
           _silentLoadQueue.addFirst(continuation);
           if (_backgroundWorkSuspended) break;

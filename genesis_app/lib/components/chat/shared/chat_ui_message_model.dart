@@ -9,10 +9,12 @@ class ChatMessageVm {
     this.locationMessageId = 0,
     this.roundId = '',
     this.tickNo = 0,
+    this.subTickNo = 0,
     required this.senderId,
     required this.senderName,
     this.avatarUrl = '',
     this.imageUrl = '',
+    this.timelinePayload,
     this.isPlayerControlledRole = false,
     required this.text,
     this.currentTime = '',
@@ -41,10 +43,12 @@ class ChatMessageVm {
   int locationMessageId;
   String roundId;
   int tickNo;
+  int subTickNo;
   final String senderId;
   String senderName;
   String avatarUrl;
   String imageUrl;
+  ChatTimelinePayloadVm? timelinePayload;
   bool isPlayerControlledRole;
   String text;
   String currentTime;
@@ -64,6 +68,135 @@ class ChatMessageVm {
       senderType == 'image' ||
       senderType == 'nar_pic' ||
       imageUrl.trim().isNotEmpty;
+
+  bool get isUserEnterLocation =>
+      timelinePayload is ChatUserEnterLocationPayloadVm;
+
+  bool get isStoryEvents => timelinePayload is ChatStoryEventsPayloadVm;
+
+  bool get isCharactersMoved => timelinePayload is ChatCharactersMovedPayloadVm;
+
+  bool get isTimelineEvent =>
+      isUserEnterLocation || isStoryEvents || isCharactersMoved;
+}
+
+sealed class ChatTimelinePayloadVm {
+  const ChatTimelinePayloadVm();
+}
+
+class ChatUserEnterLocationPayloadVm extends ChatTimelinePayloadVm {
+  const ChatUserEnterLocationPayloadVm({
+    required this.characterId,
+    required this.toLocationId,
+    required this.text,
+  });
+
+  final String characterId;
+  final String toLocationId;
+  final String text;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ChatUserEnterLocationPayloadVm &&
+        other.characterId == characterId &&
+        other.toLocationId == toLocationId &&
+        other.text == text;
+  }
+
+  @override
+  int get hashCode => Object.hash(characterId, toLocationId, text);
+}
+
+class ChatStoryEventsPayloadVm extends ChatTimelinePayloadVm {
+  const ChatStoryEventsPayloadVm({
+    required this.locationId,
+    required this.locationName,
+    required this.paragraphs,
+  });
+
+  final String locationId;
+  final String locationName;
+  final List<ChatStoryEventParagraphVm> paragraphs;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ChatStoryEventsPayloadVm &&
+        other.locationId == locationId &&
+        other.locationName == locationName &&
+        listEquals(other.paragraphs, paragraphs);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(locationId, locationName, Object.hashAll(paragraphs));
+}
+
+class ChatStoryEventParagraphVm {
+  const ChatStoryEventParagraphVm({
+    required this.timestamp,
+    required this.text,
+    required this.clue,
+    required this.visibilityLabel,
+  });
+
+  final String timestamp;
+  final String text;
+  final String clue;
+  final String visibilityLabel;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ChatStoryEventParagraphVm &&
+        other.timestamp == timestamp &&
+        other.text == text &&
+        other.clue == clue &&
+        other.visibilityLabel == visibilityLabel;
+  }
+
+  @override
+  int get hashCode => Object.hash(timestamp, text, clue, visibilityLabel);
+}
+
+class ChatCharactersMovedPayloadVm extends ChatTimelinePayloadVm {
+  const ChatCharactersMovedPayloadVm({required this.movements});
+
+  final List<ChatCharacterMovementVm> movements;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ChatCharactersMovedPayloadVm &&
+        listEquals(other.movements, movements);
+  }
+
+  @override
+  int get hashCode => Object.hashAll(movements);
+}
+
+class ChatCharacterMovementVm {
+  const ChatCharacterMovementVm({
+    required this.characterId,
+    required this.characterName,
+    required this.toLocationId,
+    required this.toLocationName,
+  });
+
+  final String characterId;
+  final String characterName;
+  final String toLocationId;
+  final String toLocationName;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ChatCharacterMovementVm &&
+        other.characterId == characterId &&
+        other.characterName == characterName &&
+        other.toLocationId == toLocationId &&
+        other.toLocationName == toLocationName;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(characterId, characterName, toLocationId, toLocationName);
 }
 
 typedef ChatMessageLongPressStart =
@@ -74,3 +207,6 @@ typedef ChatMessageLongPressStart =
     );
 
 typedef ChatMessageTap = void Function(ChatMessageVm message);
+
+typedef ChatCharacterMovementTap =
+    void Function(ChatCharacterMovementVm movement);

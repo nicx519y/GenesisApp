@@ -1,4 +1,5 @@
 import '../../network/chatroom/chatroom_message_storage.dart';
+import '../../network/chatroom/chatroom_timeline_payload.dart';
 import '../../network/json_utils.dart';
 import 'location_chat_debug_hub.dart';
 
@@ -44,6 +45,7 @@ class LocationChatDebugChatroomMessageStorage
     required String worldId,
     required String locationId,
     required int beforeMessageId,
+    int beforeWorldMessageId = 0,
     required int limit,
   }) async {
     final messages = await _delegate.loadMessagesBefore(
@@ -51,6 +53,7 @@ class LocationChatDebugChatroomMessageStorage
       worldId: worldId,
       locationId: locationId,
       beforeMessageId: beforeMessageId,
+      beforeWorldMessageId: beforeWorldMessageId,
       limit: limit,
     );
     _record(
@@ -61,6 +64,7 @@ class LocationChatDebugChatroomMessageStorage
       messages: messages,
       details: {
         'beforeMessageId': beforeMessageId,
+        'beforeWorldMessageId': beforeWorldMessageId,
         'limit': limit,
         'loaded': messages.length,
       },
@@ -127,12 +131,14 @@ class LocationChatDebugChatroomMessageStorage
     required String worldId,
     required String locationId,
     required int maxLocationMessageId,
+    int maxWorldMessageId = 0,
   }) async {
     await _delegate.deleteMessagesAtOrBefore(
       ownerUid: ownerUid,
       worldId: worldId,
       locationId: locationId,
       maxLocationMessageId: maxLocationMessageId,
+      maxWorldMessageId: maxWorldMessageId,
     );
     await _recordLatestSnapshot(
       action: 'deleteAtOrBefore',
@@ -140,7 +146,10 @@ class LocationChatDebugChatroomMessageStorage
       worldId: worldId,
       locationId: locationId,
       limit: 200,
-      details: {'maxLocationMessageId': maxLocationMessageId},
+      details: {
+        'maxLocationMessageId': maxLocationMessageId,
+        'maxWorldMessageId': maxWorldMessageId,
+      },
     );
   }
 
@@ -232,6 +241,7 @@ List<Map<String, Object?>> _storageDebugQueue(
           'senderId': asString(message['sender_id']),
           'clientMsgId': asString(message['client_msg_id']),
           'contentPreview': _preview(asString(message['content'])),
+          'subTickNo': asInt(message['sub_tick_no']),
           'currentTime': asString(message['current_time']),
           'createdAt':
               (asDateTime(message['created_at']) ?? asDateTime(message['ts']))
@@ -248,6 +258,11 @@ List<Map<String, dynamic>> _sortMessageJson(
       .map((message) => Map<String, dynamic>.from(message))
       .toList(growable: false);
   sorted.sort((a, b) {
+    if (isChatroomLocationSupplementalSenderType(a['sender_type']) ||
+        isChatroomLocationSupplementalSenderType(b['sender_type'])) {
+      final byMessageId = _messageId(a).compareTo(_messageId(b));
+      if (byMessageId != 0) return byMessageId;
+    }
     final byLocationMessage = _locationQueueMessageId(
       a,
     ).compareTo(_locationQueueMessageId(b));

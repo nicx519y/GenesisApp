@@ -8,6 +8,7 @@ class ChatMessageList extends StatelessWidget {
     required this.topTitle,
     this.onMessageLongPressStart,
     this.onFailedMessageTap,
+    this.onCharactersMovedLocationTap,
     this.keyboardDismissBehavior,
     this.oldestEdgeNotice,
     this.oldestEdgeLoading = false,
@@ -21,6 +22,7 @@ class ChatMessageList extends StatelessWidget {
   final String topTitle;
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ChatMessageTap? onFailedMessageTap;
+  final ChatCharacterMovementTap? onCharactersMovedLocationTap;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
   final String? oldestEdgeNotice;
   final bool oldestEdgeLoading;
@@ -59,6 +61,7 @@ class ChatMessageList extends StatelessWidget {
           style: style,
           onMessageLongPressStart: onMessageLongPressStart,
           onFailedMessageTap: onFailedMessageTap,
+          onCharactersMovedLocationTap: onCharactersMovedLocationTap,
           showDateDivider:
               showDateDividers &&
               shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
@@ -77,6 +80,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
     required this.topTitle,
     this.onMessageLongPressStart,
     this.onFailedMessageTap,
+    this.onCharactersMovedLocationTap,
     this.keyboardDismissBehavior,
     this.oldestEdgeNotice,
     this.oldestEdgeLoading = false,
@@ -94,6 +98,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
   final String topTitle;
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ChatMessageTap? onFailedMessageTap;
+  final ChatCharacterMovementTap? onCharactersMovedLocationTap;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
   final String? oldestEdgeNotice;
   final bool oldestEdgeLoading;
@@ -243,6 +248,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
       style: style,
       onMessageLongPressStart: onMessageLongPressStart,
       onFailedMessageTap: onFailedMessageTap,
+      onCharactersMovedLocationTap: onCharactersMovedLocationTap,
       showDateDivider:
           showDateDividers &&
           shouldShowChatDateDivider(previous?.createdAt, current.createdAt),

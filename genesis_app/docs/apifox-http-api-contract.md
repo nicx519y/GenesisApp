@@ -357,18 +357,36 @@ Origin detail 增量核对时间：2026-08-05
 
 - `global_message_id`: integer，全局递增消息 ID
 - `message_id`: integer，world 级别递增消息 ID
-- `location_message_id`: integer，location 级别递增消息 ID
+- `location_message_id`: integer，location 级别递增消息 ID；三类 location 时间线记录可能返回正数或 `0`。正数与普通消息一样参与 location 连续性、补洞和 `since` 游标；仅值为 `0` 时作为无 location cursor 的补充记录处理
 - `location_id`: string，地点 ID；世界级消息可能为空
 - `conversation_round_id`: integer，对话轮次 ID
-- `sender_type`: string，`user`、`character`、`narrator`、`npc` 或 `tick`
+- `sender_type`: string，`user`、`character`、`narrator`、`npc`、`tick`、`user_enter_location`、`story_events` 或 `characters_moved`
 - `sender_id`: string，发送者 ID
 - `sender_name`: string，发送者名称
-- `user_id`: string，用户消息时非空
-- `content`: string，消息内容
+- `user_id`: string 或 null，用户消息时非空
+- `content`: string，普通消息为消息内容；三类 location 时间线记录为对应 payload 的 JSON 编码字符串
 - `message_type`: string，消息内容类型；`text` 表示文本，`image` 表示图片且 `content` 保存图片 URL。Flutter 读取时去除首尾空白并转为小写；字段缺失时，旧 `sender_id=nar_pic` 消息兼容为 `image`，其他发送方按 `text`；字段存在但为 `null` 或空字符串时按 `text`。只有 `image + nar_pic` 渲染图片，其他图片发送方和未知非空类型保留在消息模型和缓存中但不渲染
 - `current_time`: string，世界时间，tick advance 时非空
 - `tick_no`: integer，Tick 序号，仅 tick 相关消息时非零
+- `sub_tick_no`: integer，可选的子 Tick 序号；正数时 UI 与 `tick_no` 组合显示为 `Tick {tick_no}-{sub_tick_no}`
 - `created_at`: string，创建时间，格式为 `2006-01-02 15:04:05`
+
+三类 location 时间线补充 payload：
+
+- `user_enter_location`: `{ char_id, to_location_id, text }`
+- `story_events` 兼容两种等价形态：
+  - grouped：`{ location_id, location_name, paragraphs }`，其中 `paragraphs[]` 为 `{ timestamp, visibility, visible_to, text, clue }`
+  - flat single-event：`{ location_id, timestamp, visibility, visible_to, text, clue }`；客户端将其归一化成 `location_name: ""` 且只包含这一项的 `paragraphs[]`
+  - 两种形态中的 `visibility` 均为 `public` 或 `char_only`；`char_only` 必须提供非空 `visible_to`
+- `characters_moved`: `{ movements }`，其中 `movements[]` 为 `{ char_id, to_loc_id }`
+
+这三类记录均属于 location 本地消息队列，并且无论 `location_message_id` 是否为正数，时间线排序、本地 key 和去重都始终使用 world 级 `message_id`。记录携带正数 `location_message_id` 时，该 ID 额外与普通消息共同维护连续窗口、补洞和 `since` 分页；值为 `0` 时不创建或填补 location 连续性缺口。服务端单地点响应中的 `location_id` 为空时，客户端使用请求的 `location_id` 分桶。
+
+合法的 `characters_moved` 使用独立人物去向气泡，逐行显示“角色名 has gone to 地点名”；角色或地点名称无法从本地 world 缓存解析时回退到对应 ID。地点名可以点击：目标与当前地点不同时切换到目标地点聊天；V2 Tilemap 同步登记目标地点，使退出聊天后恢复到承载目标地点的父级地图。HTTP 与 WebSocket 来源使用完全相同的 VM、气泡和点击规则。
+
+旧版 WebSocket `characters_moved` envelope 若缺少 `msg_id`，客户端仍会先生成仅存在于内存的临时正式消息并立即加入所有叶子地点队列；随后请求 HTTP world messages，并用相同 movements payload 的 canonical `message_id/location_id` 原位替换、持久化该临时项。HTTP 暂时失败不会阻止本次 WSS 气泡显示。
+
+`/aitown-chat/api/messages` 返回的 `user_enter_location` 只用于队列排序、缓存与 location 连续性，地点聊天 UI 不为它创建气泡，也不计入新消息提示数。该隐藏规则与 `content` 是否能解码成 typed payload 无关。
 
 ### ChatroomNarratorLocationGroup
 
@@ -1287,6 +1305,8 @@ Query：
 - `has_more`: boolean，是否有更多消息
 - `newest_message_id`: integer，最新消息 ID
 
+`data` 为上述扁平对象，单地点接口不返回 world 级接口使用的 `locations[]` 包装。`messages[]` 可同时包含普通 location 消息及三类时间线记录；时间线记录的 `location_message_id` 既可能为正数，也可能为 `0`。
+
 图片消息仅在单条 `ChatroomMessageDTO` 中新增 `message_type`，不改变现有响应 envelope、消息 ID 字段或时间字段。例如：
 
 ```json
@@ -1973,7 +1993,7 @@ query：
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
 | `GET /aitown-chat/api/ulocation` | `ChatroomHttpApi.getUserLocations(worldId)` query 使用 `world_id`，响应消费 `locations[].characters[]`，角色字段为 `char_id/player_uid/player_username/name/location_id`；`WorldChatroomService` 用 `player_uid` 识别真实用户并刷新所在 location，本地 mock 从 world detail 角色列表生成同形状响应。 |
 | `GET /aitown-chat/internal/world/messages` | `ChatroomHttpApi.getWorldMessages(worldId)` query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；`WorldChatroomService.refreshLatestMessages(...)` 的 latest 刷新走该 world 级接口，再按响应 location 分桶写入本地队列；`ChatroomHttpMessage` 按新 DTO 解析 `global_message_id/message_id/location_message_id/message_type/current_time/tick_no/created_at`。字段缺失时，旧 `sender_id=nar_pic` 消息兼容为 `image`，其他发送方按 `text`；字段显式为空时按 `text`。 |
-| `GET /aitown-chat/api/messages` | `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)` query 使用 `world_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`；仅用于单 location 的 older 分页/补洞；每条消息消费 `message_type`，`image` 的 `content` 为图片 URL。只有 `image + nar_pic` 渲染图片；其他图片发送方和未知非空类型正常存储但不渲染。本地 mock 返回同形状 `MessageDTO` 字段。 |
+| `GET /aitown-chat/api/messages` | `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)` query 使用 `world_id/location_id/since/limit`，响应直接消费扁平 `data.messages/has_more/newest_message_id`，不套 `locations[]`；用于单 location 的 latest、older 分页和补洞。`user_enter_location/story_events/characters_moved` 的 `content` 按各自 typed JSON payload 解码；`story_events` 同时兼容 grouped `paragraphs[]` 与 flat single-event，并统一归一化为段落列表。三类记录始终按 world `message_id` 排序并生成本地 key/去重；携带正数 `location_message_id` 时，该 ID 额外参与 location 连续窗口、补洞和 `since` 游标，值为 `0` 时不参与 location 缺口判定。响应内 `location_id` 为空时会回填请求地点；缓存分页使用 location/world 双边界避免漏载或误删。每条消息仍消费 `message_type`，`image` 的 `content` 为图片 URL。只有 `image + nar_pic` 渲染图片；其他图片发送方和未知非空类型正常存储但不渲染。本地 mock 返回同形状 `MessageDTO` 字段，并可通过 `LocalMockGenesisTransport.seedChatroomTimelineMessages(...)` 按 world/location 显式注入三类记录；默认 seed 不变。 |
 | `POST /aitown-chat/internal/tick/lock` | 已新增 `ChatroomHttpApi.lockWorld(worldId)`，按 Apifox 同时发送 query `world_id` 与 multipart form `world_id`，响应消费 `locked`。 |
 | `GET /aitown-chat/internal/tick/progress` | 已新增 `ChatroomHttpApi.tickProgress(worldId)`，响应消费 `progress/pending_messages/active_llm_calls`。 |
 | `POST /aitown-chat/internal/tick/unlock` | 已新增 `ChatroomHttpApi.unlockWorld(worldId)`，multipart form 发送 `world_id`，响应消费 `unlocked`。 |

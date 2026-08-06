@@ -193,6 +193,37 @@ void main() {
     expect(controller.isResident('candidate'), isFalse);
   });
 
+  test('refreshed preload plan forgets maps that are no longer needed', () {
+    final controller = TilemapPrerenderController(onChanged: () {});
+    addTearDown(controller.dispose);
+
+    final active = _singleTileConfig('active');
+    controller.activateMap(active, preferredMapIds: const ['old', 'kept']);
+    controller.configure(
+      environmentKey: 'environment',
+      activeMapId: active.id,
+      preferredMapIds: const ['old', 'kept'],
+    );
+    controller.markReady(active.id);
+    controller.rememberConfig(_singleTileConfig('old'));
+    controller.markReady('old');
+    controller.rememberConfig(_singleTileConfig('kept'));
+
+    controller.retainKnownMapIds(const ['active', 'kept']);
+    controller.configure(
+      environmentKey: 'environment',
+      activeMapId: active.id,
+      preferredMapIds: const ['old', 'kept'],
+    );
+
+    expect(controller.isResident('old'), isFalse);
+    expect(controller.pendingMapIds, isNot(contains('old')));
+    expect(
+      controller.residentConfigs.map((config) => config.id),
+      isNot(contains('old')),
+    );
+  });
+
   test(
     'environment changes keep active state and invalidate warm instances',
     () {

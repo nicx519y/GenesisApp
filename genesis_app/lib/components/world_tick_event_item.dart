@@ -7,6 +7,7 @@ class WorldTickEventItem extends StatelessWidget {
     super.key,
     required this.tick,
     required this.tickNumber,
+    this.subTickNumber = 0,
     required this.fallbackBody,
     this.locationsById = const <String, Map<String, dynamic>>{},
     this.isLast = true,
@@ -21,6 +22,7 @@ class WorldTickEventItem extends StatelessWidget {
 
   final Map<String, dynamic> tick;
   final int tickNumber;
+  final int subTickNumber;
   final String fallbackBody;
   final Map<String, Map<String, dynamic>> locationsById;
   final bool isLast;
@@ -48,7 +50,12 @@ class WorldTickEventItem extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _TickHeader(tickNumber: tickNumber, date: date, timeAgo: timeAgo),
+          _TickHeader(
+            tickNumber: tickNumber,
+            subTickNumber: subTickNumber,
+            date: date,
+            timeAgo: timeAgo,
+          ),
           const SizedBox(height: 6),
           _GlobalEventCard(
             body: body,
@@ -82,11 +89,13 @@ int worldTickEventNumber(Map<String, dynamic> tick, {int fallback = 0}) {
 class _TickHeader extends StatelessWidget {
   const _TickHeader({
     required this.tickNumber,
+    required this.subTickNumber,
     required this.date,
     required this.timeAgo,
   });
 
   final int tickNumber;
+  final int subTickNumber;
   final String date;
   final String timeAgo;
 
@@ -103,7 +112,8 @@ class _TickHeader extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'Tick $tickNumber${date.isEmpty ? '' : ' · $date'}',
+              'Tick $tickNumber${subTickNumber > 0 ? '-$subTickNumber' : ''}'
+              '${date.isEmpty ? '' : ' · $date'}',
               style: const TextStyle(
                 fontSize: 12,
                 height: 1.2,

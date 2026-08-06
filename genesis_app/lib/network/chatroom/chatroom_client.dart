@@ -505,6 +505,8 @@ class ChatroomSession {
           'direction': 'in',
           'type': envelope.type,
           'eventType': chatroomEventType(event),
+          'schemaVersion': envelope.schemaVersion,
+          'eventId': envelope.eventId,
           'raw': raw,
           'payload': envelope.mergedPayload,
         },

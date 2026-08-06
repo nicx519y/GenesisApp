@@ -13,16 +13,29 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       locationId: widget.locationId,
     );
     _requestVisibleMessageGapFillIfNeeded(renderWindow.gaps, source);
-    final visibleSource = renderWindow.messages
-        .where(
-          (message) =>
-              resolveChatroomMessageRenderKind(
-                messageType: message.messageType,
-                senderId: message.senderId,
-              ) !=
-              ChatroomMessageRenderKind.hidden,
-        )
-        .toList(growable: false);
+    final visibleSource = <_RenderableLocationChatMessage>[];
+    for (final message in renderWindow.messages) {
+      if (_isHiddenLocationChatTimelineMessage(message)) continue;
+      final timelinePayload = _timelinePayloadVmForMessage(
+        message,
+        identityState: resolvedIdentityState,
+      );
+      if (isChatroomTimelinePayloadSenderType(message.senderType)) {
+        if (timelinePayload == null) continue;
+      } else if (resolveChatroomMessageRenderKind(
+            messageType: message.messageType,
+            senderId: message.senderId,
+          ) ==
+          ChatroomMessageRenderKind.hidden) {
+        continue;
+      }
+      visibleSource.add(
+        _RenderableLocationChatMessage(
+          message: message,
+          timelinePayload: timelinePayload,
+        ),
+      );
+    }
     final previous = _messages.where((message) => !message.isSystem).toList();
     final existingByKey = {
       for (final message in previous) message.localId: message,
@@ -39,7 +52,9 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     final next = <ChatMessageVm>[];
     final usedLocalIds = <String>{};
     var changed = previous.length != visibleSource.length;
-    for (final message in visibleSource) {
+    for (final visibleMessage in visibleSource) {
+      final message = visibleMessage.message;
+      final timelinePayload = visibleMessage.timelinePayload;
       final localId = _messageLocalId(message);
       final status = message.streaming ? 'streaming' : 'sent';
       final isMe = _isMineMessage(
@@ -70,7 +85,9 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         message,
         identityState: resolvedIdentityState,
       );
-      final text = _locationChatMessageDisplayText(message);
+      final text = timelinePayload == null
+          ? _locationChatMessageDisplayText(message)
+          : _timelinePayloadCopyText(timelinePayload);
       final renderKind = resolveChatroomMessageRenderKind(
         messageType: message.messageType,
         senderId: message.senderId,
@@ -94,11 +111,13 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
             existing.locationMessageId != message.locationMessageId ||
             existing.roundId != message.conversationRoundId ||
             existing.tickNo != message.tickNo ||
+            existing.subTickNo != message.subTickNo ||
             existing.senderName != senderName ||
             existing.isMe != isMe ||
             existing.isPlayerControlledRole != isPlayerControlledRole ||
             existing.avatarUrl != avatarUrl ||
             existing.imageUrl != imageUrl ||
+            existing.timelinePayload != timelinePayload ||
             existing.text != text ||
             existing.currentTime != currentTime ||
             existing.status != status ||
@@ -110,11 +129,13 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         existing.locationMessageId = message.locationMessageId;
         existing.roundId = message.conversationRoundId;
         existing.tickNo = message.tickNo;
+        existing.subTickNo = message.subTickNo;
         existing.senderName = senderName;
         existing.isMe = isMe;
         existing.isPlayerControlledRole = isPlayerControlledRole;
         existing.avatarUrl = avatarUrl;
         existing.imageUrl = imageUrl;
+        existing.timelinePayload = timelinePayload;
         existing.text = text;
         existing.currentTime = currentTime;
         existing.status = status;
@@ -130,11 +151,13 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
           locationMessageId: message.locationMessageId,
           roundId: message.conversationRoundId,
           tickNo: message.tickNo,
+          subTickNo: message.subTickNo,
           senderId: message.senderId,
           senderName: senderName,
           isPlayerControlledRole: isPlayerControlledRole,
           avatarUrl: avatarUrl,
           imageUrl: imageUrl,
+          timelinePayload: timelinePayload,
           text: text,
           currentTime: currentTime,
           isMe: isMe,
@@ -393,7 +416,120 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     return senderType.isEmpty ? 'user' : senderType;
   }
 
+  ChatTimelinePayloadVm? _timelinePayloadVmForMessage(
+    WorldChatroomMessage message, {
+    required WorldChatroomState identityState,
+  }) {
+    final payload = message.timelinePayload;
+    return switch (payload) {
+      ChatroomUserEnterLocationPayload event => ChatUserEnterLocationPayloadVm(
+        characterId: event.charId.trim(),
+        toLocationId: event.toLocationId.trim(),
+        text: normalizeGenesisUgcTextForDisplay(event.text),
+      ),
+      ChatroomStoryEventsPayload event => _storyEventsPayloadVm(
+        event,
+        identityState: identityState,
+      ),
+      ChatroomCharactersMovedPayload event => _charactersMovedPayloadVm(
+        event,
+        identityState: identityState,
+      ),
+      null => null,
+    };
+  }
+
+  ChatStoryEventsPayloadVm? _storyEventsPayloadVm(
+    ChatroomStoryEventsPayload payload, {
+    required WorldChatroomState identityState,
+  }) {
+    final roleNamesById = _locationChatRoleNamesById(
+      currentUserIds: _myUserIdKeys,
+      currentSenderIds: _mySenderIdKeys,
+      characters:
+          identityState.world?.characters ?? const <Map<String, dynamic>>[],
+      characterPositions:
+          identityState.world?.characterPositions ??
+          const <Map<String, dynamic>>[],
+    );
+    final paragraphs = <ChatStoryEventParagraphVm>[];
+    for (final paragraph in payload.paragraphs) {
+      final paragraphVm = _storyEventParagraphVm(
+        paragraph,
+        roleNamesById: roleNamesById,
+      );
+      paragraphs.add(paragraphVm);
+    }
+    if (paragraphs.isEmpty) return null;
+    final payloadLocationName = normalizeGenesisUgcTextForDisplay(
+      payload.locationName,
+    ).trim();
+    return ChatStoryEventsPayloadVm(
+      locationId: payload.locationId.trim(),
+      locationName: payloadLocationName.isNotEmpty
+          ? payloadLocationName
+          : _timelineLocationName(payload.locationId, identityState),
+      paragraphs: List<ChatStoryEventParagraphVm>.unmodifiable(paragraphs),
+    );
+  }
+
+  ChatCharactersMovedPayloadVm? _charactersMovedPayloadVm(
+    ChatroomCharactersMovedPayload payload, {
+    required WorldChatroomState identityState,
+  }) {
+    if (payload.movements.isEmpty) return null;
+    final movements = payload.movements
+        .map(
+          (movement) => ChatCharacterMovementVm(
+            characterId: movement.charId.trim(),
+            characterName: _timelineCharacterName(
+              movement.charId,
+              identityState,
+            ),
+            toLocationId: movement.toLocationId.trim(),
+            toLocationName: _timelineLocationName(
+              movement.toLocationId,
+              identityState,
+            ),
+          ),
+        )
+        .toList(growable: false);
+    return ChatCharactersMovedPayloadVm(movements: movements);
+  }
+
+  String _timelineCharacterName(
+    String characterId,
+    WorldChatroomState identityState,
+  ) {
+    return _resolveTimelineCharacterName(
+      characterId,
+      characters:
+          identityState.world?.characters ?? const <Map<String, dynamic>>[],
+      characterPositions:
+          identityState.world?.characterPositions ??
+          const <Map<String, dynamic>>[],
+      entitiesById: identityState.entitiesById,
+    );
+  }
+
+  String _timelineLocationName(
+    String locationId,
+    WorldChatroomState identityState,
+  ) {
+    final world = identityState.world;
+    return _resolveTimelineLocationName(
+      locationId,
+      locations: world?.locations ?? const <Map<String, dynamic>>[],
+      processedLocationTree: world?.processedLocationTree,
+    );
+  }
+
   String _messageCurrentTime(WorldChatroomMessage message) {
+    if (message.senderType.trim().toLowerCase() ==
+        chatroomStoryEventsSenderType) {
+      return message.currentTime.trim();
+    }
+    if (isChatroomTimelinePayloadSenderType(message.senderType)) return '';
     final senderType = _messageSenderType(message);
     if (senderType == 'user' ||
         senderType == 'tick' ||
@@ -531,4 +667,232 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     }
     return false;
   }
+}
+
+class _RenderableLocationChatMessage {
+  const _RenderableLocationChatMessage({
+    required this.message,
+    required this.timelinePayload,
+  });
+
+  final WorldChatroomMessage message;
+  final ChatTimelinePayloadVm? timelinePayload;
+}
+
+String _resolveTimelineCharacterName(
+  String characterId, {
+  required Iterable<Map<String, dynamic>> characters,
+  required Iterable<Map<String, dynamic>> characterPositions,
+  required Map<String, WorldChatroomEntity> entitiesById,
+}) {
+  final resolvedId = characterId.trim();
+  final identityKey = _chatroomIdentityKey(resolvedId);
+  for (final candidate in <Map<String, dynamic>>[
+    ...characters,
+    ...characterPositions,
+  ]) {
+    final rawCharacter = candidate['character'];
+    final character = rawCharacter is Map
+        ? _stringKeyMap(rawCharacter)
+        : candidate;
+    final candidateId = _firstMapString(character, const [
+      'char_id',
+      'character_id',
+      'id',
+    ]);
+    if (_chatroomIdentityKey(candidateId) != identityKey) continue;
+    final name = _firstMapString(character, const [
+      'name',
+      'role_nickname',
+      'role_name',
+      'character_name',
+    ]).trim();
+    if (name.isNotEmpty) return normalizeGenesisUgcTextForDisplay(name);
+  }
+  for (final entry in entitiesById.entries) {
+    if (_chatroomIdentityKey(entry.key) != identityKey &&
+        _chatroomIdentityKey(entry.value.id) != identityKey) {
+      continue;
+    }
+    final name = entry.value.name.trim();
+    if (name.isNotEmpty) return normalizeGenesisUgcTextForDisplay(name);
+  }
+  return resolvedId;
+}
+
+String _resolveTimelineLocationName(
+  String locationId, {
+  required Iterable<Map<String, dynamic>> locations,
+  ProcessedLocationTree<Map<String, dynamic>>? processedLocationTree,
+}) {
+  final resolvedId = locationId.trim();
+  final identityKey = _chatroomIdentityKey(resolvedId);
+  for (final location in locations) {
+    final candidateId = _firstMapString(location, const ['location_id', 'id']);
+    if (_chatroomIdentityKey(candidateId) != identityKey) continue;
+    final name = _firstMapString(location, const [
+      'location_name',
+      'name',
+    ]).trim();
+    if (name.isNotEmpty) return normalizeGenesisUgcTextForDisplay(name);
+  }
+  final node = processedLocationTree?.nodeById(resolvedId);
+  if (node != null) {
+    final name = _firstMapString(node.value, const [
+      'location_name',
+      'name',
+    ]).trim();
+    if (name.isNotEmpty) return normalizeGenesisUgcTextForDisplay(name);
+  }
+  return resolvedId;
+}
+
+ChatStoryEventParagraphVm _storyEventParagraphVm(
+  ChatroomStoryEventParagraph paragraph, {
+  required Map<String, String> roleNamesById,
+}) {
+  final visibility = paragraph.visibility.trim().toLowerCase();
+  String visibilityLabel;
+  if (visibility == 'public') {
+    visibilityLabel = 'public';
+  } else if (visibility == 'char_only') {
+    final matchingNames = <String>[];
+    final seenNames = <String>{};
+    for (final visibleId in paragraph.visibleTo) {
+      final name = roleNamesById[_chatroomIdentityKey(visibleId)]?.trim() ?? '';
+      if (name.isEmpty || !seenNames.add(name)) continue;
+      matchingNames.add(name);
+    }
+    visibilityLabel = matchingNames.join(', ');
+  } else {
+    visibilityLabel = '';
+  }
+  return ChatStoryEventParagraphVm(
+    timestamp: normalizeGenesisUgcTextForDisplay(paragraph.timestamp),
+    text: normalizeGenesisUgcTextForDisplay(paragraph.text),
+    clue: normalizeGenesisUgcTextForDisplay(paragraph.clue),
+    visibilityLabel: normalizeGenesisUgcTextForDisplay(visibilityLabel),
+  );
+}
+
+Map<String, String> _locationChatRoleNamesById({
+  required Iterable<String> currentUserIds,
+  required Iterable<String> currentSenderIds,
+  required Iterable<Map<String, dynamic>> characters,
+  required Iterable<Map<String, dynamic>> characterPositions,
+}) {
+  final candidates = <Map<String, dynamic>>[];
+  for (final candidate in <Map<String, dynamic>>[
+    ...characters,
+    ...characterPositions,
+  ]) {
+    final rawCharacter = candidate['character'];
+    candidates.add(
+      rawCharacter is Map ? _stringKeyMap(rawCharacter) : candidate,
+    );
+  }
+  final result = <String, String>{};
+  for (final character in candidates) {
+    final characterId = _firstMapString(character, const [
+      'character_id',
+      'char_id',
+      'id',
+    ]).trim();
+    final characterKey = _chatroomIdentityKey(characterId);
+    if (characterKey.isEmpty) continue;
+    final name = _firstMapString(character, const [
+      'name',
+      'role_nickname',
+      'role_name',
+      'character_name',
+    ]).trim();
+    final resolvedName = normalizeGenesisUgcTextForDisplay(
+      name.isEmpty ? characterId : name,
+    );
+    final existingName = result[characterKey];
+    if (existingName == null ||
+        existingName == characterId ||
+        name.isNotEmpty) {
+      result[characterKey] = resolvedName;
+    }
+  }
+  return result;
+}
+
+bool _isHiddenLocationChatTimelineMessage(WorldChatroomMessage message) {
+  return message.senderType.trim().toLowerCase() ==
+      chatroomUserEnterLocationSenderType;
+}
+
+String _timelinePayloadCopyText(ChatTimelinePayloadVm payload) {
+  return switch (payload) {
+    ChatUserEnterLocationPayloadVm event => event.text,
+    ChatStoryEventsPayloadVm event => [
+      if (event.locationName.trim().isNotEmpty) event.locationName,
+      for (final paragraph in event.paragraphs) ...[
+        [
+          if (paragraph.timestamp.trim().isNotEmpty) paragraph.timestamp,
+          if (paragraph.visibilityLabel.trim().isNotEmpty)
+            paragraph.visibilityLabel,
+        ].join(' · '),
+        paragraph.text,
+        if (paragraph.clue.trim().isNotEmpty) paragraph.clue,
+      ],
+    ].join('\n'),
+    ChatCharactersMovedPayloadVm event =>
+      event.movements
+          .map(
+            (movement) =>
+                '${movement.characterName} → ${movement.toLocationName}',
+          )
+          .join('\n'),
+  };
+}
+
+@visibleForTesting
+Map<String, String> locationChatCurrentRoleNamesByIdForTesting({
+  required Iterable<String> currentUserIds,
+  required Iterable<String> currentSenderIds,
+  required Iterable<Map<String, dynamic>> characters,
+  required Iterable<Map<String, dynamic>> characterPositions,
+}) {
+  return _locationChatRoleNamesById(
+    currentUserIds: currentUserIds,
+    currentSenderIds: currentSenderIds,
+    characters: characters,
+    characterPositions: characterPositions,
+  );
+}
+
+@visibleForTesting
+ChatStoryEventParagraphVm? locationChatStoryEventParagraphVmForTesting(
+  ChatroomStoryEventParagraph paragraph, {
+  required Map<String, String> roleNamesById,
+}) {
+  return _storyEventParagraphVm(paragraph, roleNamesById: roleNamesById);
+}
+
+@visibleForTesting
+String resolveLocationChatTimelineCharacterNameForTesting({
+  required String characterId,
+  Iterable<Map<String, dynamic>> characters = const <Map<String, dynamic>>[],
+  Iterable<Map<String, dynamic>> characterPositions =
+      const <Map<String, dynamic>>[],
+  Map<String, WorldChatroomEntity> entitiesById =
+      const <String, WorldChatroomEntity>{},
+}) {
+  return _resolveTimelineCharacterName(
+    characterId,
+    characters: characters,
+    characterPositions: characterPositions,
+    entitiesById: entitiesById,
+  );
+}
+
+@visibleForTesting
+String resolveLocationChatTimelineLocationNameForTesting({
+  required String locationId,
+  Iterable<Map<String, dynamic>> locations = const <Map<String, dynamic>>[],
+}) {
+  return _resolveTimelineLocationName(locationId, locations: locations);
 }

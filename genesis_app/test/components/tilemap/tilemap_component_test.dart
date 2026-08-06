@@ -355,6 +355,59 @@ void main() {
     expect(config.baseAssetUrlForTile(config.tiles.first), endsWith('a.png'));
   });
 
+  test('tilemap semantic equality ignores tile order but keeps full data', () {
+    final first = TilemapConfig.fromTiles(
+      id: 'semantic-map',
+      width: 2,
+      height: 1,
+      tileTypes: const {
+        'a': 'https://cdn.example.com/a.png?version=1',
+        'b': 'https://cdn.example.com/b.webp',
+      },
+      tiles: const [
+        TilemapCell(x: 0, y: 0, type: 'a', locationId: 'loc-a'),
+        TilemapCell(x: 1, y: 0, type: 'b', shadow: 1),
+      ],
+    );
+    final reordered = TilemapConfig.fromTiles(
+      id: 'semantic-map',
+      width: 2,
+      height: 1,
+      tileTypes: const {
+        'b': 'https://cdn.example.com/b.webp',
+        'a': 'https://cdn.example.com/a.png?version=1',
+      },
+      tiles: const [
+        TilemapCell(x: 1, y: 0, type: 'b', shadow: 1),
+        TilemapCell(x: 0, y: 0, type: 'a', locationId: 'loc-a'),
+      ],
+    );
+    final changedUrl = TilemapConfig.fromTiles(
+      id: 'semantic-map',
+      width: 2,
+      height: 1,
+      tileTypes: const {
+        'a': 'https://cdn.example.com/a.png?version=2',
+        'b': 'https://cdn.example.com/b.webp',
+      },
+      tiles: reordered.tiles,
+    );
+    final changedCell = TilemapConfig.fromTiles(
+      id: 'semantic-map',
+      width: 2,
+      height: 1,
+      tileTypes: reordered.tileTypes,
+      tiles: const [
+        TilemapCell(x: 1, y: 0, type: 'b'),
+        TilemapCell(x: 0, y: 0, type: 'a', locationId: 'loc-b'),
+      ],
+    );
+
+    expect(tilemapConfigDataEquals(first, reordered), isTrue);
+    expect(tilemapConfigDataEquals(first, changedUrl), isFalse);
+    expect(tilemapConfigDataEquals(first, changedCell), isFalse);
+  });
+
   test('tilemap config rejects unknown tile types', () {
     expect(
       () => TilemapConfig.fromTiles(

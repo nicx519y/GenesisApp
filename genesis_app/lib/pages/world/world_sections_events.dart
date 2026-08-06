@@ -11,6 +11,10 @@ List<Map<String, dynamic>> worldEventTicksAscending(
       a.$2,
     ).compareTo(worldEventTickNumber(b.$2));
     if (tickCompare != 0) return tickCompare;
+    final subTickCompare = worldEventSubTickNumber(
+      a.$2,
+    ).compareTo(worldEventSubTickNumber(b.$2));
+    if (subTickCompare != 0) return subTickCompare;
     return a.$1.compareTo(b.$1);
   });
   return [for (final entry in indexedTicks) entry.$2];
@@ -34,10 +38,11 @@ List<Map<String, dynamic>> worldMergeEventTicksAscending(
 }
 
 String worldEventTickIdentity(Map<String, dynamic> tick) {
+  final subTickNo = worldEventSubTickNumber(tick);
   final tickId = worldMapString(tick, const ['tick_id', 'id']);
-  if (tickId.isNotEmpty) return 'id:$tickId';
+  if (tickId.isNotEmpty) return 'id:$tickId:sub:$subTickNo';
   final tickNo = worldEventTickNumber(tick);
-  if (tickNo > 0) return 'no:$tickNo';
+  if (tickNo > 0) return 'no:$tickNo:sub:$subTickNo';
   return '';
 }
 
@@ -49,6 +54,38 @@ int worldEventTickNumber(Map<String, dynamic> tick) {
   final id = worldMapString(tick, const ['tick_id', 'id']);
   final suffix = RegExp(r'(\d+)$').firstMatch(id)?.group(1);
   return int.tryParse(suffix ?? '') ?? 0;
+}
+
+int worldEventSubTickNumber(Map<String, dynamic> tick) {
+  final subTickNo = worldMapString(tick, const [
+    'sub_tick_no',
+    'sub_tick_number',
+  ]);
+  return int.tryParse(subTickNo) ?? 0;
+}
+
+List<List<Map<String, dynamic>>> worldEventTickPagesAscending(
+  List<Map<String, dynamic>> ticks,
+) {
+  final pages = <List<Map<String, dynamic>>>[];
+  for (final tick in worldEventTicksAscending(ticks)) {
+    final tickNo = worldEventTickNumber(tick);
+    if (tickNo > 0 &&
+        pages.isNotEmpty &&
+        worldEventTickNumber(pages.last.first) == tickNo) {
+      pages.last.add(tick);
+    } else {
+      pages.add(<Map<String, dynamic>>[tick]);
+    }
+  }
+  return pages;
+}
+
+String worldEventTickPageIdentity(List<Map<String, dynamic>> ticks) {
+  if (ticks.isEmpty) return '';
+  final tickNo = worldEventTickNumber(ticks.first);
+  if (tickNo > 0) return 'tick:$tickNo';
+  return worldEventTickIdentity(ticks.first);
 }
 
 class WorldEventsSection extends StatefulWidget {
@@ -169,16 +206,16 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _visibleTicks {
-    return widget.ticks;
+  List<List<Map<String, dynamic>>> get _visibleTickPages {
+    return worldEventTickPagesAscending(widget.ticks);
   }
 
   int get _maxRenderedPage => math.max(0, _pageCount - 1);
 
   int get _pageCount {
     final pendingTargetPage = _pendingTargetPage;
-    if (pendingTargetPage == null) return _visibleTicks.length;
-    return _visibleTicks.length + 1;
+    if (pendingTargetPage == null) return _visibleTickPages.length;
+    return _visibleTickPages.length + 1;
   }
 
   int? get _pendingTargetPage {
@@ -193,7 +230,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
   }
 
   bool _setCurrentPageToRequestedTargetOrLatestIfAvailable() {
-    final visibleTicks = _visibleTicks;
+    final visibleTickPages = _visibleTickPages;
     final requestedTickNumber = _requestedTickNumber;
     if (requestedTickNumber != null) {
       final resolvedTargetPage = _pageIndexForTickNumber(requestedTickNumber);
@@ -207,7 +244,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
         return _pageCount > 0;
       }
     }
-    if (visibleTicks.isEmpty) return false;
+    if (visibleTickPages.isEmpty) return false;
     final target = _showLatestWhenTicksArrive ? _maxRenderedPage : _currentPage;
     _currentPage = target.clamp(0, _maxRenderedPage).toInt();
     _currentTickIdentity = _pageIdentityAt(_currentPage);
@@ -327,7 +364,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     }..remove('');
     final fallbackBody = worldEventBody(widget.world);
     final metricUnit = worldMapString(widget.world.metric, const ['unit']);
-    final visibleTicks = _visibleTicks;
+    final visibleTickPages = _visibleTickPages;
 
     return Stack(
       children: [
@@ -352,17 +389,17 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
                 child: WorldTickPendingEventPage(tickNumber: tickNumber),
               );
             }
-            final tickIndex = _tickIndexForPage(index);
-            if (tickIndex == null) return const SizedBox.shrink();
-            final tick = visibleTicks[tickIndex];
-            final identity = worldEventTickIdentity(tick);
+            final tickPageIndex = _tickPageIndexForPage(index);
+            if (tickPageIndex == null) return const SizedBox.shrink();
+            final ticks = visibleTickPages[tickPageIndex];
+            final pageIdentity = worldEventTickPageIdentity(ticks);
             final tickNumber = worldTickEventNumber(
-              tick,
-              fallback: tickIndex + 1,
+              ticks.first,
+              fallback: tickPageIndex + 1,
             );
             return WorldTickEventCardPage(
-              key: ValueKey<String>('world-event-tick-$identity'),
-              resetRevision: _tickCardResetRevisions[identity] ?? 0,
+              key: ValueKey<String>('world-event-tick-$pageIdentity'),
+              resetRevision: _tickCardResetRevisions[pageIdentity] ?? 0,
               hasTopEdgePage: index > 0,
               hasBottomEdgePage: index < _pageCount - 1,
               padding: widget.contentPadding,
@@ -375,20 +412,24 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
                       padding: EdgeInsets.fromLTRB(10, 0, 10, 18),
                       textAlign: TextAlign.left,
                     ),
-                  WorldTickEventItem(
-                    key: ValueKey<String>('world-event-tick-item-$identity'),
-                    tick: tick,
-                    tickNumber: tickNumber,
-                    fallbackBody: fallbackBody,
-                    locationsById: locationsById,
-                    dateLabel: worldTickParagraphTimestamp(tick),
-                    stackedContent: true,
-                    contentLabelStyle: _worldEventContentLabelStyle,
-                    contentTextStyle: _worldEventContentTextStyle,
-                    contentTimestampStyle: _worldEventContentTimestampStyle,
-                    metricUnit: metricUnit,
-                    isLast: true,
-                  ),
+                  for (final (subTickIndex, tick) in ticks.indexed)
+                    WorldTickEventItem(
+                      key: ValueKey<String>(
+                        'world-event-tick-item-${worldEventTickIdentity(tick)}',
+                      ),
+                      tick: tick,
+                      tickNumber: tickNumber,
+                      subTickNumber: worldEventSubTickNumber(tick),
+                      fallbackBody: fallbackBody,
+                      locationsById: locationsById,
+                      dateLabel: worldTickParagraphTimestamp(tick),
+                      stackedContent: true,
+                      contentLabelStyle: _worldEventContentLabelStyle,
+                      contentTextStyle: _worldEventContentTextStyle,
+                      contentTimestampStyle: _worldEventContentTimestampStyle,
+                      metricUnit: metricUnit,
+                      isLast: subTickIndex == ticks.length - 1,
+                    ),
                 ],
               ),
             );
@@ -405,13 +446,15 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     );
   }
 
-  int? _tickIndexForPage(int page) {
+  int? _tickPageIndexForPage(int page) {
     final pendingTargetPage = _pendingTargetPage;
-    final tickIndex = pendingTargetPage != null && page > pendingTargetPage
+    final tickPageIndex = pendingTargetPage != null && page > pendingTargetPage
         ? page - 1
         : page;
-    if (tickIndex < 0 || tickIndex >= _visibleTicks.length) return null;
-    return tickIndex;
+    if (tickPageIndex < 0 || tickPageIndex >= _visibleTickPages.length) {
+      return null;
+    }
+    return tickPageIndex;
   }
 
   String _pageIdentityAt(int page) {
@@ -419,9 +462,9 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     if (pendingTargetPage != null && page == pendingTargetPage) {
       return 'pending_tick:${_requestedTickNumber ?? 0}';
     }
-    final tickIndex = _tickIndexForPage(page);
-    if (tickIndex == null) return '';
-    return worldEventTickIdentity(_visibleTicks[tickIndex]);
+    final tickPageIndex = _tickPageIndexForPage(page);
+    if (tickPageIndex == null) return '';
+    return worldEventTickPageIdentity(_visibleTickPages[tickPageIndex]);
   }
 
   int _findPageByIdentity(String identity) {
@@ -437,19 +480,19 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
   }
 
   int? _pageIndexForTickNumber(int targetTickNumber) {
-    final tickIndex = _visibleTicks.indexWhere(
-      (tick) => worldTickEventNumber(tick) == targetTickNumber,
+    final tickPageIndex = _visibleTickPages.indexWhere(
+      (ticks) => worldTickEventNumber(ticks.first) == targetTickNumber,
     );
-    if (tickIndex < 0) return null;
-    return tickIndex;
+    if (tickPageIndex < 0) return null;
+    return tickPageIndex;
   }
 
   int _insertionPageForTickNumber(int targetTickNumber) {
-    final visibleTicks = _visibleTicks;
-    for (var index = 0; index < visibleTicks.length; index += 1) {
-      final tickNumber = worldTickEventNumber(visibleTicks[index]);
+    final visibleTickPages = _visibleTickPages;
+    for (var index = 0; index < visibleTickPages.length; index += 1) {
+      final tickNumber = worldTickEventNumber(visibleTickPages[index].first);
       if (tickNumber >= targetTickNumber) return index;
     }
-    return visibleTicks.length;
+    return visibleTickPages.length;
   }
 }

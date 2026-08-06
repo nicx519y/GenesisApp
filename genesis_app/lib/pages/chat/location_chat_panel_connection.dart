@@ -494,6 +494,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   bool _messageShouldShowCurrentTime(ChatMessageVm message) {
+    if (message.isTimelineEvent) return false;
     final senderType = message.senderType.trim().toLowerCase();
     return senderType != 'user' &&
         senderType != 'tick' &&
