@@ -41,6 +41,7 @@ class _TilemapMessageBubblePlaybackState
   int _bubbleIndex = 0;
   int _pageIndex = 0;
   bool _bubbleVisible = true;
+  bool _active = true;
 
   @override
   void initState() {
@@ -55,7 +56,22 @@ class _TilemapMessageBubblePlaybackState
   }
 
   @override
+  void deactivate() {
+    _active = false;
+    _stopTimer();
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _active = true;
+    _syncPlayback();
+  }
+
+  @override
   void dispose() {
+    _active = false;
     _stopTimer();
     super.dispose();
   }
@@ -102,7 +118,7 @@ class _TilemapMessageBubblePlaybackState
       _pageIndex = 0;
     }
 
-    if (widget.paused || widget.frozen || signature.isEmpty) {
+    if (!_active || widget.paused || widget.frozen || signature.isEmpty) {
       _stopTimer();
       return;
     }
@@ -111,6 +127,7 @@ class _TilemapMessageBubblePlaybackState
 
   void _ensureTimer() {
     if (_timer != null ||
+        !_active ||
         widget.paused ||
         widget.frozen ||
         _signature.isEmpty) {
@@ -123,6 +140,7 @@ class _TilemapMessageBubblePlaybackState
       () {
         _timer = null;
         if (!mounted ||
+            !_active ||
             widget.paused ||
             widget.frozen ||
             _visibleBubbles.isEmpty) {

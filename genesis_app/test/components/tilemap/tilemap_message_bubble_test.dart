@@ -102,6 +102,49 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('Tilemap bubble restarts its timer after reactivation', (
+    tester,
+  ) async {
+    const bubble = WorldMapMessageBubble(
+      characterId: 'char_1',
+      content: 'Reactivated Tilemap bubble',
+    );
+    final playbackKey = GlobalKey();
+
+    Widget harness({required bool movePlayback}) {
+      final playback = TilemapMessageBubblePlayback(
+        key: playbackKey,
+        messageBubbles: const [bubble],
+        visibleCharacterIds: const {'char_1'},
+        paused: false,
+        builder: (context, activeBubble) {
+          return Text(activeBubble?.content ?? 'hidden');
+        },
+      );
+      return MaterialApp(
+        home: movePlayback
+            ? Align(alignment: Alignment.bottomCenter, child: playback)
+            : Padding(padding: EdgeInsets.zero, child: playback),
+      );
+    }
+
+    await tester.pumpWidget(harness(movePlayback: false));
+    await tester.pump(
+      tilemapMessageBubbleDisplayDuration - const Duration(seconds: 1),
+    );
+
+    await tester.pumpWidget(harness(movePlayback: true));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Reactivated Tilemap bubble'), findsOneWidget);
+
+    await tester.pump(
+      tilemapMessageBubbleDisplayDuration - const Duration(seconds: 1),
+    );
+    expect(find.text('hidden'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Tilemap bubble marks only continuation pages to keep width', (
     tester,
   ) async {

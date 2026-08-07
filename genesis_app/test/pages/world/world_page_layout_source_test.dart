@@ -379,22 +379,20 @@ void main() {
         '!preparingInitialTilemap;',
       ),
     );
+    expect(source, isNot(contains('destroyTilemapForLocationChat')));
     expect(
       source,
-      contains(
-        'final destroyTilemapForLocationChat =\n'
-        '          world.definitionVersion == 2 && '
-        'mapPausedForLocationChat;',
-      ),
+      isNot(contains("'world-tilemap-destroyed-for-location-chat'")),
     );
     expect(
       source,
-      contains(
-        'destroyTilemapForLocationChat\n'
-        '          ? const ColoredBox(',
+      matches(
+        RegExp(
+          r'animationsPaused:\s*'
+          r'_worldBottomSheetOpen \|\| mapPausedForLocationChat',
+        ),
       ),
     );
-    expect(source, contains("'world-tilemap-destroyed-for-location-chat'"));
     expect(
       source,
       contains(

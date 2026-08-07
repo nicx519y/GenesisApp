@@ -2818,6 +2818,203 @@ void main() {
     },
   );
 
+  testWidgets(
+    'animationsPaused keeps the foreground renderer and defers map reloads',
+    (tester) async {
+      debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
+      final refreshedRootResponse = Completer<Map<String, dynamic>>();
+      final transport = _ScriptedLocationTilemapTransport({
+        'root': [
+          Future<Map<String, dynamic>>.value(
+            _locationTilemapData('leaf', assetName: 'root'),
+          ),
+          refreshedRootResponse.future,
+        ],
+      });
+      final controls = ValueNotifier<({bool paused, int reloadRevision})>((
+        paused: false,
+        reloadRevision: 0,
+      ));
+      addTearDown(controls.dispose);
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: MaterialApp(
+            home: Scaffold(
+              body: ValueListenableBuilder<({bool paused, int reloadRevision})>(
+                valueListenable: controls,
+                builder: (context, value, _) => Tilemap.world(
+                  worldId: 'w_1',
+                  animationsPaused: value.paused,
+                  reloadRevision: value.reloadRevision,
+                  locationNodes: [_locationNode('leaf')],
+                  tileImageLoader: _completeTileImageLoad,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var frame = 0; frame < 12; frame += 1) {
+        await tester.pump();
+      }
+
+      final rootFinder = _tilemapRendererForMap('world:w_1:root');
+      expect(rootFinder, findsOneWidget);
+      expect(transport.requestCount('root'), 1);
+      final rootState = tester.state(rootFinder);
+
+      controls.value = (paused: true, reloadRevision: 0);
+      await tester.pump();
+      expect(tester.state(rootFinder), same(rootState));
+
+      controls.value = (paused: false, reloadRevision: 0);
+      await tester.pump();
+      expect(tester.state(rootFinder), same(rootState));
+
+      controls.value = (paused: true, reloadRevision: 1);
+      for (var frame = 0; frame < 4; frame += 1) {
+        await tester.pump();
+      }
+      expect(transport.requestCount('root'), 1);
+      expect(tester.state(rootFinder), same(rootState));
+
+      controls.value = (paused: true, reloadRevision: 2);
+      for (var frame = 0; frame < 4; frame += 1) {
+        await tester.pump();
+      }
+      expect(transport.requestCount('root'), 1);
+      expect(tester.state(rootFinder), same(rootState));
+
+      controls.value = (paused: false, reloadRevision: 2);
+      for (
+        var frame = 0;
+        frame < 10 && transport.requestCount('root') < 2;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+      expect(transport.requestCount('root'), 2);
+      expect(tester.state(rootFinder), same(rootState));
+
+      refreshedRootResponse.complete(
+        _locationTilemapData('leaf', assetName: 'root-v2'),
+      );
+      for (var frame = 0; frame < 12; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(transport.requestCount('root'), 2);
+      expect(tester.state(rootFinder), isNot(same(rootState)));
+      expect(
+        tester
+            .widget<TilemapRenderer>(_liveTilemapRendererFinder())
+            .config
+            .tileTypes['tile'],
+        contains('root-v2.png'),
+      );
+    },
+  );
+
+  testWidgets('animationsPaused defers a map reload already in flight', (
+    tester,
+  ) async {
+    debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
+    final inFlightRefresh = Completer<Map<String, dynamic>>();
+    final resumedRefresh = Completer<Map<String, dynamic>>();
+    final transport = _ScriptedLocationTilemapTransport({
+      'root': [
+        Future<Map<String, dynamic>>.value(
+          _locationTilemapData('leaf', assetName: 'root'),
+        ),
+        inFlightRefresh.future,
+        resumedRefresh.future,
+      ],
+    });
+    final controls = ValueNotifier<({bool paused, int reloadRevision})>((
+      paused: false,
+      reloadRevision: 0,
+    ));
+    addTearDown(controls.dispose);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: MaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<({bool paused, int reloadRevision})>(
+              valueListenable: controls,
+              builder: (context, value, _) => Tilemap.world(
+                worldId: 'w_1',
+                animationsPaused: value.paused,
+                reloadRevision: value.reloadRevision,
+                locationNodes: [_locationNode('leaf')],
+                tileImageLoader: _completeTileImageLoad,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    for (var frame = 0; frame < 12; frame += 1) {
+      await tester.pump();
+    }
+
+    final rootFinder = _tilemapRendererForMap('world:w_1:root');
+    final rootState = tester.state(rootFinder);
+    controls.value = (paused: false, reloadRevision: 1);
+    for (
+      var frame = 0;
+      frame < 10 && transport.requestCount('root') < 2;
+      frame += 1
+    ) {
+      await tester.pump();
+    }
+    expect(transport.requestCount('root'), 2);
+
+    controls.value = (paused: true, reloadRevision: 1);
+    await tester.pump();
+    inFlightRefresh.complete(
+      _locationTilemapData('leaf', assetName: 'root-stale'),
+    );
+    for (var frame = 0; frame < 8; frame += 1) {
+      await tester.pump();
+    }
+
+    expect(tester.state(rootFinder), same(rootState));
+    expect(
+      tester.widget<TilemapRenderer>(rootFinder).config.tileTypes['tile'],
+      contains('root.png'),
+    );
+
+    controls.value = (paused: false, reloadRevision: 1);
+    for (
+      var frame = 0;
+      frame < 10 && transport.requestCount('root') < 3;
+      frame += 1
+    ) {
+      await tester.pump();
+    }
+    expect(transport.requestCount('root'), 3);
+    expect(tester.state(rootFinder), same(rootState));
+
+    resumedRefresh.complete(_locationTilemapData('leaf', assetName: 'root-v2'));
+    for (var frame = 0; frame < 12; frame += 1) {
+      await tester.pump();
+    }
+
+    expect(transport.requestCount('root'), 3);
+    expect(tester.state(rootFinder), isNot(same(rootState)));
+    expect(
+      tester
+          .widget<TilemapRenderer>(_liveTilemapRendererFinder())
+          .config
+          .tileTypes['tile'],
+      contains('root-v2.png'),
+    );
+  });
+
   testWidgets('Tilemap map reload remounts only a changed current renderer', (
     tester,
   ) async {

@@ -481,6 +481,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   int _mapDataGeneration = 0;
   bool _mapDataRefreshRunning = false;
   bool _mapDataRefreshPending = false;
+  bool _mapDataRefreshDeferredUntilResume = false;
   final Map<String, int> _rendererRevisionByMapId = <String, int>{};
   late final TilemapLoadingCoordinator _loadingCoordinator;
   late final TilemapPrerenderController _prerenderController;
@@ -592,8 +593,20 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _loadingCoordinator.setBackgroundWorkSuspended(widget.animationsPaused);
       _prerenderController.setWarmupSuspended(widget.animationsPaused);
     }
-    if (widget._source == _TilemapSource.world &&
-        oldWidget.reloadRevision != widget.reloadRevision) {
+    final reloadRevisionChanged =
+        oldWidget.reloadRevision != widget.reloadRevision;
+    if (widget._source == _TilemapSource.world && reloadRevisionChanged) {
+      if (widget.animationsPaused) {
+        _mapDataRefreshDeferredUntilResume = true;
+      } else {
+        _mapDataRefreshDeferredUntilResume = false;
+        _scheduleMapDataRefresh();
+      }
+    } else if (widget._source == _TilemapSource.world &&
+        oldWidget.animationsPaused &&
+        !widget.animationsPaused &&
+        _mapDataRefreshDeferredUntilResume) {
+      _mapDataRefreshDeferredUntilResume = false;
       _scheduleMapDataRefresh();
     }
     final entityChanged =
@@ -1058,6 +1071,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     _cacheGeneration += 1;
     _mapDataGeneration += 1;
     _mapDataRefreshPending = false;
+    _mapDataRefreshDeferredUntilResume = false;
     _stopAllFirstRenderTraces(result: 'cancelled');
     _hasRequestedFirstRenderTrace = false;
     _loadingCoordinator.resetSession();
@@ -1117,6 +1131,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   Future<void> _refreshCurrentMapData(int generation) async {
     final api = _api;
     if (api == null) return;
+    if (_deferMapDataRefreshIfPaused()) return;
     final locationId = _currentLocationId.trim();
     if (locationId.isEmpty) return;
 
@@ -1126,6 +1141,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       locationId: locationId,
       reportFailure: false,
     );
+    if (_deferMapDataRefreshIfPaused()) return;
     if (!_mapDataRefreshIsCurrent(generation, locationId)) {
       _restartMapDataRefreshIfLocationChanged(locationId);
       return;
@@ -1167,16 +1183,13 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
         _restartMapDataRefreshIfLocationChanged(locationId);
         return;
       }
-      refreshedPreloadResults.add(
-        MapEntry(
-          preloadLocationId,
-          await _loadSafely(
-            api,
-            locationId: preloadLocationId,
-            reportFailure: false,
-          ),
-        ),
+      final preloadResult = await _loadSafely(
+        api,
+        locationId: preloadLocationId,
+        reportFailure: false,
       );
+      if (_deferMapDataRefreshIfPaused()) return;
+      refreshedPreloadResults.add(MapEntry(preloadLocationId, preloadResult));
     }
     if (!_mapDataRefreshIsCurrent(generation, locationId)) {
       _restartMapDataRefreshIfLocationChanged(locationId);
@@ -1247,6 +1260,12 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
         _mapIdForLocation(preloadLocationId),
     });
     _scheduleRefreshedPreloadWork(nextCurrentConfig);
+  }
+
+  bool _deferMapDataRefreshIfPaused() {
+    if (!mounted || !widget.animationsPaused) return false;
+    _mapDataRefreshDeferredUntilResume = true;
+    return true;
   }
 
   bool _mapDataRefreshIsCurrent(int generation, String locationId) {

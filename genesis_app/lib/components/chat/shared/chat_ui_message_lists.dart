@@ -223,8 +223,21 @@ class _ChatAnchoredMessageListState extends State<ChatAnchoredMessageList> {
     if (localId.isEmpty) return null;
     final messageContext = _messageLayoutKeys[localId]?.currentContext;
     final renderObject = messageContext?.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.attached) return null;
-    return renderObject.localToGlobal(Offset.zero).dy;
+    if (renderObject is! RenderBox || !_hasLaidOutRenderPath(renderObject)) {
+      return null;
+    }
+    final top = renderObject.localToGlobal(Offset.zero).dy;
+    return top.isFinite ? top : null;
+  }
+
+  bool _hasLaidOutRenderPath(RenderObject renderObject) {
+    RenderObject? current = renderObject;
+    while (current != null) {
+      if (!current.attached) return false;
+      if (current is RenderBox && !current.hasSize) return false;
+      current = current.parent;
+    }
+    return true;
   }
 
   Widget _buildMessageRow(int messageIndex, ChatUiStyleConfig style) {

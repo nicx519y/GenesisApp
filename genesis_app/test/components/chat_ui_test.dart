@@ -824,6 +824,59 @@ void main() {
     },
   );
 
+  testWidgets(
+    'anchored message list skips geometry while a transform is unlaid out',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final listKey = GlobalKey();
+      final messages = chatMessages(1, 24);
+      var width = 360.0;
+      addTearDown(controller.dispose);
+
+      Widget build() {
+        return MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: width,
+                height: 360,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Transform.scale(
+                      key: ValueKey<double>(constraints.maxWidth),
+                      alignment: Alignment.topLeft,
+                      scale: 1,
+                      child: ChatAnchoredMessageList(
+                        key: listKey,
+                        controller: controller,
+                        messages: messages,
+                        centerLocalId: 'm10',
+                        topTitle: '',
+                        showDateDividers: false,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      controller.jumpTo(controller.position.maxScrollExtent - 120);
+      await tester.pump();
+
+      messages.last.text = List.filled(8, 'updated message').join('\n');
+      width = 320;
+      await tester.pumpWidget(build());
+
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('chat message list shows first divider and long gaps', (
     WidgetTester tester,
   ) async {
