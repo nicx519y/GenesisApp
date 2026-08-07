@@ -66,6 +66,58 @@ void main() {
       expect(find.text('Tick 4 sub tick 2 body'), findsOneWidget);
     },
   );
+
+  testWidgets('events pager groups tick zero events on one page', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorldEventsSection(
+            world: _worldDetail(),
+            ticks: const [
+              {
+                'tick_id': 'tick_0_2',
+                'tick_no': 0,
+                'sub_tick_no': 2,
+                'tick_result': {
+                  'narrator': 'Tick zero sub tick 2 body',
+                  'paragraphs': <Object?>[],
+                },
+              },
+              {
+                'tick_id': 'tick_0_1',
+                'tick_no': 0,
+                'sub_tick_no': 1,
+                'tick_result': {
+                  'narrator': 'Tick zero sub tick 1 body',
+                  'paragraphs': <Object?>[],
+                },
+              },
+            ],
+            initialLoading: false,
+            loadingMore: false,
+            hasMore: false,
+            error: null,
+            latestRevision: 0,
+            targetTickNumber: null,
+            contentPadding: EdgeInsets.zero,
+            onLoadMore: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pager = tester.widget<PageView>(
+      find.byKey(const ValueKey<String>('world-events-tick-pager')),
+    );
+    expect(pager.childrenDelegate.estimatedChildCount, 1);
+    expect(find.text('Tick 0-1'), findsOneWidget);
+    expect(find.text('Tick 0-2'), findsOneWidget);
+    expect(find.text('Tick zero sub tick 1 body'), findsOneWidget);
+    expect(find.text('Tick zero sub tick 2 body'), findsOneWidget);
+  });
 }
 
 WorldDetail _worldDetail() {

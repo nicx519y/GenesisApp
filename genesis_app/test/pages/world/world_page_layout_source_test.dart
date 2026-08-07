@@ -425,6 +425,24 @@ void main() {
     expect(sheets, contains('_applyDeferredBottomSheetMapChatroomState();'));
   });
 
+  test('map updates preload current Tilemap while location chat is open', () {
+    final chatroom = File(
+      'lib/pages/world/world_page_chatroom_session.dart',
+    ).readAsStringSync();
+
+    expect(
+      chatroom,
+      contains('_prefetchTilemapUpdateForLocationChat(currentWorld);'),
+    );
+    expect(chatroom, contains('world.definitionVersion != 2'));
+    expect(chatroom, contains('_activeChatLocationId.isEmpty'));
+    expect(
+      chatroom,
+      contains('_tilemapRestorationController.prefetchWorldMapUpdate('),
+    );
+    expect(chatroom, contains('drillableLocationIds:'));
+  });
+
   test('world sheet caches location projection inputs', () {
     final bottomSheet = worldBottomSheetSource.readAsStringSync();
     final locationBuilder = bottomSheet.substring(
@@ -653,6 +671,34 @@ void main() {
       eventsSection,
       contains('subTickNumber: worldEventSubTickNumber(tick)'),
     );
+  });
+
+  test('world events group tick zero sub ticks into one page', () {
+    final pages = worldEventTickPagesAscending(const [
+      {
+        'tick_id': 'tick_0_2',
+        'tick_no': 0,
+        'sub_tick_no': 2,
+        'tick_result': <String, dynamic>{},
+      },
+      {
+        'tick_id': 'tick_0_0',
+        'tick_no': 0,
+        'sub_tick_no': 0,
+        'tick_result': <String, dynamic>{},
+      },
+      {
+        'tick_id': 'tick_0_1',
+        'tick_no': 0,
+        'sub_tick_no': 1,
+        'tick_result': <String, dynamic>{},
+      },
+    ]);
+
+    expect(pages, hasLength(1));
+    expect(pages.single.map(worldEventTickNumber), [0, 0, 0]);
+    expect(pages.single.map(worldEventSubTickNumber), [0, 1, 2]);
+    expect(worldEventTickPageIdentity(pages.single), 'tick:0');
   });
 
   test('world tick edge pull ignores stale pointer callbacks', () {

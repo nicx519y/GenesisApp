@@ -1688,6 +1688,85 @@ void main() {
   );
 
   testWidgets(
+    'Tilemap consumes map update prefetched while location chat is open',
+    (tester) async {
+      final locationChatOpen = ValueNotifier<bool>(false);
+      final restorationController = TilemapRestorationController();
+      final transport = _LocationTilemapTransport({
+        'root': _locationTilemapData('branch', assetName: 'root-before'),
+        'branch': _locationTilemapData('leaf', assetName: 'branch-before'),
+      });
+      final services = _servicesWithTransport(transport);
+      final branch = _locationNode('branch', children: [_locationNode('leaf')]);
+      addTearDown(locationChatOpen.dispose);
+      addTearDown(restorationController.dispose);
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: Scaffold(
+              body: ValueListenableBuilder<bool>(
+                valueListenable: locationChatOpen,
+                builder: (context, chatOpen, _) {
+                  if (chatOpen) return const ColoredBox(color: Colors.black);
+                  return Tilemap.world(
+                    worldId: 'w_1',
+                    locationNodes: [branch],
+                    restorationController: restorationController,
+                    tileImageLoader: _completeTileImageLoad,
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var frame = 0; frame < 7; frame += 1) {
+        await tester.pump();
+      }
+      expect(transport.requestCount('root'), 1);
+      expect(transport.requestCount('branch'), 0);
+
+      locationChatOpen.value = true;
+      await tester.pump();
+      expect(_liveTilemapRendererFinder(), findsNothing);
+      transport.dataByLocation['root'] = _locationTilemapData(
+        'branch',
+        assetName: 'root-after',
+      );
+      transport.dataByLocation['branch'] = _locationTilemapData(
+        'leaf',
+        assetName: 'branch-after',
+      );
+
+      await restorationController.prefetchWorldMapUpdate(
+        api: services.api,
+        worldId: 'w_1',
+        initialLocationId: 'root',
+        drillableLocationIds: const ['branch'],
+      );
+      expect(transport.requestCount('root'), 2);
+      expect(transport.requestCount('branch'), 1);
+
+      locationChatOpen.value = false;
+      for (var frame = 0; frame < 7; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(transport.requestCount('root'), 2);
+      expect(transport.requestCount('branch'), 1);
+      expect(
+        tester
+            .widget<TilemapRenderer>(_liveTilemapRendererFinder())
+            .config
+            .tileTypes['tile'],
+        'https://invalid.example.test/tile/root-after.png',
+      );
+    },
+  );
+
+  testWidgets(
     'Tilemap opens the requested target parent after chat switches location',
     (tester) async {
       final locationChatOpen = ValueNotifier<bool>(false);

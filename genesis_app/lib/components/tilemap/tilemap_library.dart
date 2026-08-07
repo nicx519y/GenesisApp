@@ -43,6 +43,9 @@ class TilemapRestorationController extends ChangeNotifier {
   final Map<String, Matrix4> _viewportTransforms = <String, Matrix4>{};
   String _requestedLocationId = '';
   int _locationNavigationRevision = 0;
+  int _worldMapPrefetchGeneration = 0;
+  final Map<String, _TilemapWorldMapPrefetch> _worldMapPrefetches =
+      <String, _TilemapWorldMapPrefetch>{};
 
   void requestLocationNavigation(String locationId) {
     final resolvedLocationId = locationId.trim();
@@ -60,7 +63,122 @@ class TilemapRestorationController extends ChangeNotifier {
     _viewportTransforms.clear();
     _requestedLocationId = '';
     _locationNavigationRevision += 1;
+    _clearWorldMapPrefetches();
     notifyListeners();
+  }
+
+  Future<void> prefetchWorldMapUpdate({
+    required GenesisApi api,
+    required String worldId,
+    required String initialLocationId,
+    Iterable<String> drillableLocationIds = const <String>[],
+  }) async {
+    final resolvedWorldId = worldId.trim();
+    final resolvedInitialLocationId = initialLocationId.trim();
+    if (resolvedWorldId.isEmpty || resolvedInitialLocationId.isEmpty) return;
+
+    final scopeKey = '${_TilemapSource.world.name}:$resolvedWorldId';
+    _ensureScope(
+      scopeKey: scopeKey,
+      initialLocationId: resolvedInitialLocationId,
+    );
+    final locationId = _currentLocationId.trim().isNotEmpty
+        ? _currentLocationId.trim()
+        : resolvedInitialLocationId;
+    final generation = ++_worldMapPrefetchGeneration;
+    _worldMapPrefetches.clear();
+    final request = _loadWorldMapUpdate(
+      api: api,
+      worldId: resolvedWorldId,
+      locationId: locationId,
+    );
+    final entry = _TilemapWorldMapPrefetch(
+      generation: generation,
+      request: request,
+    );
+    _worldMapPrefetches[locationId] = entry;
+    final definition = await request;
+    if (_scopeKey != scopeKey || generation != _worldMapPrefetchGeneration) {
+      return;
+    }
+
+    final drillableIds = drillableLocationIds
+        .map((locationId) => locationId.trim())
+        .where((locationId) => locationId.isNotEmpty)
+        .toSet();
+    final relatedLocationIds = <String>[];
+    void addRelatedLocation(String rawLocationId) {
+      final relatedLocationId = rawLocationId.trim();
+      if (relatedLocationId.isEmpty ||
+          relatedLocationId == locationId ||
+          relatedLocationIds.contains(relatedLocationId)) {
+        return;
+      }
+      relatedLocationIds.add(relatedLocationId);
+    }
+
+    if (_locationTrail.isNotEmpty) addRelatedLocation(_locationTrail.last);
+    if (definition != null && drillableIds.isNotEmpty) {
+      var drillTargetCount = 0;
+      for (final tile in definition.tiles) {
+        final targetLocationId = tile.locationId?.trim() ?? '';
+        if (!drillableIds.contains(targetLocationId)) continue;
+        final previousCount = relatedLocationIds.length;
+        addRelatedLocation(targetLocationId);
+        if (relatedLocationIds.length > previousCount) drillTargetCount += 1;
+        if (drillTargetCount >= tilemapSilentPreloadMaxPendingTargets) break;
+      }
+    }
+    final relatedRequests = <Future<TilemapDefinition?>>[];
+    for (final relatedLocationId in relatedLocationIds) {
+      final relatedRequest = _loadWorldMapUpdate(
+        api: api,
+        worldId: resolvedWorldId,
+        locationId: relatedLocationId,
+      );
+      _worldMapPrefetches[relatedLocationId] = _TilemapWorldMapPrefetch(
+        generation: generation,
+        request: relatedRequest,
+      );
+      relatedRequests.add(relatedRequest);
+    }
+    await Future.wait(relatedRequests);
+  }
+
+  Future<TilemapDefinition?> _loadWorldMapUpdate({
+    required GenesisApi api,
+    required String worldId,
+    required String locationId,
+  }) async {
+    try {
+      return await api.getWorldMap(worldId: worldId, locationId: locationId);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          '[Tilemap] location chat map_updated prefetch failed '
+          'world=$worldId location=$locationId: $error',
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<TilemapDefinition?>? _takePrefetchedWorldMap({
+    required String scopeKey,
+    required String initialLocationId,
+    required String locationId,
+  }) {
+    _ensureScope(scopeKey: scopeKey, initialLocationId: initialLocationId);
+    final entry = _worldMapPrefetches.remove(locationId);
+    if (entry == null || entry.generation != _worldMapPrefetchGeneration) {
+      return null;
+    }
+    return entry.request;
+  }
+
+  void _clearWorldMapPrefetches() {
+    _worldMapPrefetchGeneration += 1;
+    _worldMapPrefetches.clear();
   }
 
   void _ensureScope({
@@ -75,6 +193,7 @@ class TilemapRestorationController extends ChangeNotifier {
     _currentLocationId = initialLocationId;
     _locationTrail.clear();
     _viewportTransforms.clear();
+    _clearWorldMapPrefetches();
   }
 
   void _saveNavigation({
@@ -128,6 +247,16 @@ class TilemapRestorationController extends ChangeNotifier {
     }
     _requestedLocationId = '';
   }
+}
+
+class _TilemapWorldMapPrefetch {
+  const _TilemapWorldMapPrefetch({
+    required this.generation,
+    required this.request,
+  });
+
+  final int generation;
+  final Future<TilemapDefinition?> request;
 }
 
 String resolveTilemapPreferredVisibleLocationId({
@@ -635,16 +764,27 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       throw const TilemapConfigException('location_id must not be empty.');
     }
 
-    final definition = switch (source) {
-      _TilemapSource.origin => await api.getOriginMap(
-        originId: entityId,
-        locationId: locationId,
-      ),
-      _TilemapSource.world => await api.getWorldMap(
-        worldId: entityId,
-        locationId: locationId,
-      ),
-    };
+    late final TilemapDefinition definition;
+    switch (source) {
+      case _TilemapSource.origin:
+        definition = await api.getOriginMap(
+          originId: entityId,
+          locationId: locationId,
+        );
+      case _TilemapSource.world:
+        final prefetchedRequest = widget.restorationController
+            ?._takePrefetchedWorldMap(
+              scopeKey: _restorationScopeKey,
+              initialLocationId: widget.locationId.trim(),
+              locationId: locationId,
+            );
+        final prefetchedDefinition = prefetchedRequest == null
+            ? null
+            : await prefetchedRequest;
+        definition =
+            prefetchedDefinition ??
+            await api.getWorldMap(worldId: entityId, locationId: locationId);
+    }
     return _configFromDefinition(
       definition,
       mapId: '${source.name}:$entityId:$locationId',

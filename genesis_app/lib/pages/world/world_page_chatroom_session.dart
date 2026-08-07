@@ -187,6 +187,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
         state.mapUpdatedRevision > _lastAppliedMapUpdatedRevision;
     if (hasMapUpdate) {
       _lastAppliedMapUpdatedRevision = state.mapUpdatedRevision;
+      _prefetchTilemapUpdateForLocationChat(currentWorld);
     }
     var shouldSyncRelationStatus = false;
     final previousInputBlocked = _lastChatroomInputBlocked;
@@ -311,6 +312,29 @@ extension _WorldPageChatroomSession on _WorldPageState {
     if (tickDoneFromPush) {
       unawaited(_handleWorldTickDone());
     }
+  }
+
+  void _prefetchTilemapUpdateForLocationChat(WorldDetail? world) {
+    if (world == null ||
+        world.definitionVersion != 2 ||
+        _activeChatLocationId.isEmpty ||
+        _initialLocationChatEntry) {
+      return;
+    }
+    final initialLocationId = world.processedLocationTree
+        .initialTilemapLocationId(syntheticRootId: worldSyntheticRootLocationId)
+        .trim();
+    if (initialLocationId.isEmpty) return;
+    unawaited(
+      _tilemapRestorationController.prefetchWorldMapUpdate(
+        api: AppServicesScope.read(context).api,
+        worldId: widget.wid,
+        initialLocationId: initialLocationId,
+        drillableLocationIds: world.processedLocationTree.flattened
+            .where((location) => location.children.isNotEmpty)
+            .map((location) => location.id),
+      ),
+    );
   }
 
   bool _applyRecentChatLocationSelection(

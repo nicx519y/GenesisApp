@@ -70,9 +70,7 @@ List<List<Map<String, dynamic>>> worldEventTickPagesAscending(
   final pages = <List<Map<String, dynamic>>>[];
   for (final tick in worldEventTicksAscending(ticks)) {
     final tickNo = worldEventTickNumber(tick);
-    if (tickNo > 0 &&
-        pages.isNotEmpty &&
-        worldEventTickNumber(pages.last.first) == tickNo) {
+    if (pages.isNotEmpty && worldEventTickNumber(pages.last.first) == tickNo) {
       pages.last.add(tick);
     } else {
       pages.add(<Map<String, dynamic>>[tick]);
@@ -84,8 +82,7 @@ List<List<Map<String, dynamic>>> worldEventTickPagesAscending(
 String worldEventTickPageIdentity(List<Map<String, dynamic>> ticks) {
   if (ticks.isEmpty) return '';
   final tickNo = worldEventTickNumber(ticks.first);
-  if (tickNo > 0) return 'tick:$tickNo';
-  return worldEventTickIdentity(ticks.first);
+  return 'tick:$tickNo';
 }
 
 class WorldEventsSection extends StatefulWidget {
