@@ -60,7 +60,7 @@ const int _locationChatMessageGapMaxAttempts = 3;
 const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
 
-class LocationChatPage extends StatelessWidget {
+class LocationChatPage extends StatefulWidget {
   const LocationChatPage({
     super.key,
     required this.worldId,
@@ -93,49 +93,95 @@ class LocationChatPage extends StatelessWidget {
   final ChatCharacterMovementTap? onCharactersMovedLocationTap;
 
   @override
-  Widget build(BuildContext context) {
-    void openCharactersMovedLocation(ChatCharacterMovementVm movement) {
-      final targetLocationId = movement.toLocationId.trim();
-      if (targetLocationId.isEmpty || targetLocationId == locationId.trim()) {
-        return;
-      }
-      final customHandler = onCharactersMovedLocationTap;
-      if (customHandler != null) {
+  State<LocationChatPage> createState() => _LocationChatPageState();
+}
+
+class _LocationChatPageState extends State<LocationChatPage> {
+  bool _openingCharactersMovedLocation = false;
+
+  Future<void> _openCharactersMovedLocation(
+    ChatCharacterMovementVm movement,
+  ) async {
+    final targetLocationId = movement.toLocationId.trim();
+    if (targetLocationId.isEmpty ||
+        targetLocationId == widget.locationId.trim()) {
+      return;
+    }
+    if (_openingCharactersMovedLocation) return;
+    _openingCharactersMovedLocation = true;
+    final customHandler = widget.onCharactersMovedLocationTap;
+    if (customHandler != null) {
+      try {
         customHandler(movement);
-        return;
+      } catch (error) {
+        GenesisTelemetry.collectLog(
+          actionType: 'event',
+          action: 'location_chat_movement_navigation_failed',
+          object1: widget.worldId,
+          object2: targetLocationId,
+        );
+        if (kDebugMode) {
+          debugPrint('[LocationChat] movement callback failed: $error');
+        }
+      } finally {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _openingCharactersMovedLocation = false;
+        });
       }
-      Navigator.of(context).pushReplacementNamed(
+      return;
+    }
+    try {
+      await Navigator.of(context).pushReplacementNamed(
         RouteNames.locationChat,
         arguments: <String, Object?>{
-          'world_id': worldId,
+          'world_id': widget.worldId,
           'location_id': targetLocationId,
-          'world_name': worldName ?? '',
+          'world_name': widget.worldName ?? '',
           'location_name': movement.toLocationName,
           'is_leaf_location': true,
           'local_message_location_ids': <String>[targetLocationId],
-          if (service != null) 'world_chatroom_service': service,
-          if (connection != null) 'chatroom_connection': connection,
+          if (widget.service != null) 'world_chatroom_service': widget.service,
+          if (widget.connection != null)
+            'chatroom_connection': widget.connection,
         },
       );
+    } catch (error) {
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'location_chat_movement_navigation_failed',
+        object1: widget.worldId,
+        object2: targetLocationId,
+      );
+      if (kDebugMode) {
+        debugPrint('[LocationChat] movement navigation failed: $error');
+      }
+    } finally {
+      if (mounted) _openingCharactersMovedLocation = false;
     }
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return LocationChatPanel(
-      worldId: worldId,
-      locationId: locationId,
-      isLeafLocation: isLeafLocation,
-      localMessageLocationIds: localMessageLocationIds,
-      recentChatLocationPathIds: recentChatLocationPathIds,
-      worldName: worldName,
-      locationName: locationName,
-      backgroundImageUrl: backgroundImageUrl,
-      backgroundPreviewImageUrl: backgroundPreviewImageUrl,
-      renderBackgroundImage: renderBackgroundImage,
-      service: service,
-      connection: connection,
+      worldId: widget.worldId,
+      locationId: widget.locationId,
+      isLeafLocation: widget.isLeafLocation,
+      localMessageLocationIds: widget.localMessageLocationIds,
+      recentChatLocationPathIds: widget.recentChatLocationPathIds,
+      worldName: widget.worldName,
+      locationName: widget.locationName,
+      backgroundImageUrl: widget.backgroundImageUrl,
+      backgroundPreviewImageUrl: widget.backgroundPreviewImageUrl,
+      renderBackgroundImage: widget.renderBackgroundImage,
+      service: widget.service,
+      connection: widget.connection,
       active: true,
+      leaveOnInactive: widget.service == null,
       showMoreButton: false,
       onBack: () => Navigator.of(context).maybePop(),
-      onCharactersMovedLocationTap: openCharactersMovedLocation,
+      onCharactersMovedLocationTap: (movement) {
+        unawaited(_openCharactersMovedLocation(movement));
+      },
     );
   }
 }
@@ -212,6 +258,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   final _composerFocusNode = FocusNode();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
   final _messages = <ChatMessageVm>[];
+  final Map<String, _LocationChatTimelineVmCacheEntry> _timelineVmCache =
+      <String, _LocationChatTimelineVmCacheEntry>{};
   double _composerHeight = 0;
 
   WorldChatroomService? _service;
@@ -294,6 +342,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void dispose() {
     _selectedModelLoadGeneration++;
+    _timelineVmCache.clear();
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     _recordPanelDebug(action: 'dispose', activeOverride: false);
     final service = _service;

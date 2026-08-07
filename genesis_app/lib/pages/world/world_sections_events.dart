@@ -401,34 +401,35 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
               hasBottomEdgePage: index < _pageCount - 1,
               padding: widget.contentPadding,
               onTurnPage: _turnPage,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (tickNumber == 1)
-                    const AiContentDisclaimer(
-                      padding: EdgeInsets.fromLTRB(10, 0, 10, 18),
-                      textAlign: TextAlign.left,
-                    ),
-                  for (final (subTickIndex, tick) in ticks.indexed)
-                    WorldTickEventItem(
-                      key: ValueKey<String>(
-                        'world-event-tick-item-${worldEventTickIdentity(tick)}',
-                      ),
-                      tick: tick,
-                      tickNumber: tickNumber,
-                      subTickNumber: worldEventSubTickNumber(tick),
-                      fallbackBody: fallbackBody,
-                      locationsById: locationsById,
-                      dateLabel: worldTickParagraphTimestamp(tick),
-                      stackedContent: true,
-                      contentLabelStyle: _worldEventContentLabelStyle,
-                      contentTextStyle: _worldEventContentTextStyle,
-                      contentTimestampStyle: _worldEventContentTimestampStyle,
-                      metricUnit: metricUnit,
-                      isLast: subTickIndex == ticks.length - 1,
-                    ),
-                ],
-              ),
+              itemCount: ticks.length + (tickNumber == 1 ? 1 : 0),
+              itemBuilder: (context, itemIndex) {
+                if (tickNumber == 1 && itemIndex == 0) {
+                  return const AiContentDisclaimer(
+                    padding: EdgeInsets.fromLTRB(10, 0, 10, 18),
+                    textAlign: TextAlign.left,
+                  );
+                }
+                final subTickIndex = itemIndex - (tickNumber == 1 ? 1 : 0);
+                final tick = ticks[subTickIndex];
+                return WorldTickEventItem(
+                  key: ValueKey<String>(
+                    'world-event-tick-item-${worldEventTickIdentity(tick)}',
+                  ),
+                  tick: tick,
+                  tickNumber: tickNumber,
+                  subTickNumber: worldEventSubTickNumber(tick),
+                  fallbackBody: fallbackBody,
+                  locationsById: locationsById,
+                  dateLabel: worldTickParagraphTimestamp(tick),
+                  stackedContent: true,
+                  contentLabelStyle: _worldEventContentLabelStyle,
+                  contentTextStyle: _worldEventContentTextStyle,
+                  contentTimestampStyle: _worldEventContentTimestampStyle,
+                  metricUnit: metricUnit,
+                  showParagraphClue: true,
+                  isLast: subTickIndex == ticks.length - 1,
+                );
+              },
             );
           },
         ),

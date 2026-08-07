@@ -168,8 +168,43 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     }
   }
 
-  Future<void> _fetchLatestMessagesForNotification() async {
-    await _fetchLatestWorldMessagesWithFailure(limit: 20);
+  Future<void> _scheduleLatestMessagesRefresh() {
+    if (_disposed || _worldId.trim().isEmpty) return Future<void>.value();
+    _latestWorldMessagesRefreshPending = true;
+    final activeDrain = _latestWorldMessagesRefreshDrain;
+    if (activeDrain != null) return activeDrain;
+    final drain = _drainLatestMessagesRefreshes();
+    _latestWorldMessagesRefreshDrain = drain;
+    unawaited(
+      drain.whenComplete(() {
+        if (!identical(_latestWorldMessagesRefreshDrain, drain)) return;
+        _latestWorldMessagesRefreshDrain = null;
+        if (_latestWorldMessagesRefreshPending && !_disposed) {
+          unawaited(_scheduleLatestMessagesRefresh());
+        }
+      }),
+    );
+    return drain;
+  }
+
+  Future<void> _drainLatestMessagesRefreshes() async {
+    while (_latestWorldMessagesRefreshPending && !_disposed) {
+      _latestWorldMessagesRefreshPending = false;
+      try {
+        await _fetchLatestWorldMessagesWithFailure(limit: 20);
+      } catch (error) {
+        if (_disposed) return;
+        _recordFailure(
+          ChatroomFailureEvent(
+            code: 'message_history_load_failed',
+            message: 'Something went wrong',
+            sourceType: 'world_message_refresh',
+            requestType: 'get_messages',
+            cause: error,
+          ),
+        );
+      }
+    }
   }
 
   List<String> _leafLocationIdsForCurrentWorld() {
@@ -490,8 +525,14 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     }
     if (_sameCanonicalAndTransientCharactersMovedMessage(a, b)) return true;
     if (a.locationId == b.locationId &&
-        (isChatroomLocationSupplementalSenderType(a.senderType) ||
-            isChatroomLocationSupplementalSenderType(b.senderType)) &&
+        (isChatroomMessageIdOrderedSupplemental(
+              a.senderType,
+              locationMessageId: a.locationMessageId,
+            ) ||
+            isChatroomMessageIdOrderedSupplemental(
+              b.senderType,
+              locationMessageId: b.locationMessageId,
+            )) &&
         a.messageId > 0 &&
         b.messageId > 0) {
       return a.messageId == b.messageId;
@@ -563,11 +604,13 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
 
   int _compareMessages(WorldChatroomMessage a, WorldChatroomMessage b) {
     if (a.locationId == b.locationId) {
-      final aIsMessageIdOrdered = isChatroomLocationSupplementalSenderType(
+      final aIsMessageIdOrdered = isChatroomMessageIdOrderedSupplemental(
         a.senderType,
+        locationMessageId: a.locationMessageId,
       );
-      final bIsMessageIdOrdered = isChatroomLocationSupplementalSenderType(
+      final bIsMessageIdOrdered = isChatroomMessageIdOrderedSupplemental(
         b.senderType,
+        locationMessageId: b.locationMessageId,
       );
       if (aIsMessageIdOrdered || bIsMessageIdOrdered) {
         final byMessageId = a.messageId.compareTo(b.messageId);
@@ -655,7 +698,10 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     int maxWorldMessageId = 0,
   }) {
     if (maxLocationMessageId <= 0) return false;
-    if (isChatroomLocationSupplementalSenderType(message.senderType)) {
+    if (isChatroomMessageIdOrderedSupplemental(
+      message.senderType,
+      locationMessageId: message.locationMessageId,
+    )) {
       return maxWorldMessageId > 0 &&
           message.messageId > 0 &&
           message.messageId <= maxWorldMessageId;

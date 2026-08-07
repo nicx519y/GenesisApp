@@ -118,6 +118,102 @@ void main() {
     expect(find.text('Tick zero sub tick 1 body'), findsOneWidget);
     expect(find.text('Tick zero sub tick 2 body'), findsOneWidget);
   });
+
+  testWidgets(
+    'events sheet renders non-empty paragraph clues like story events',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WorldEventsSection(
+              world: _worldDetail(),
+              ticks: const [
+                {
+                  'tick_id': 'tick_4_1',
+                  'tick_no': 4,
+                  'sub_tick_no': 1,
+                  'tick_result': {
+                    'narrator': 'A signal reaches the harbor.',
+                    'paragraphs': <Object?>[
+                      {
+                        'location_id': 'loc_harbor',
+                        'text': 'The harbor lights answer in sequence.',
+                        'clue': 'Follow the light toward the gate.',
+                      },
+                      {
+                        'location_id': 'loc_harbor',
+                        'text': 'The other signal fades.',
+                        'clue': '',
+                      },
+                    ],
+                  },
+                },
+              ],
+              initialLoading: false,
+              loadingMore: false,
+              hasMore: false,
+              error: null,
+              latestRevision: 0,
+              targetTickNumber: null,
+              contentPadding: EdgeInsets.zero,
+              onLoadMore: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Follow the light toward the gate.'), findsOneWidget);
+      expect(find.byIcon(Icons.lightbulb_outline_rounded), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.text('Follow the light toward the gate.'))
+            .style
+            ?.fontStyle,
+        FontStyle.italic,
+      );
+    },
+  );
+
+  testWidgets('same tick lazily builds a 500 sub-tick page', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 320,
+            child: WorldEventsSection(
+              world: _worldDetail(),
+              ticks: [
+                for (var index = 1; index <= 500; index += 1)
+                  {
+                    'tick_id': 'tick_4_$index',
+                    'tick_no': 4,
+                    'sub_tick_no': index,
+                    'tick_result': {
+                      'narrator': 'Sub tick $index body',
+                      'paragraphs': <Object?>[],
+                    },
+                  },
+              ],
+              initialLoading: false,
+              loadingMore: false,
+              hasMore: false,
+              error: null,
+              latestRevision: 0,
+              targetTickNumber: null,
+              contentPadding: EdgeInsets.zero,
+              onLoadMore: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.textContaining('Sub tick'), findsWidgets);
+    expect(find.textContaining('Sub tick').evaluate().length, lessThan(500));
+    expect(find.text('Sub tick 500 body'), findsNothing);
+  });
 }
 
 WorldDetail _worldDetail() {

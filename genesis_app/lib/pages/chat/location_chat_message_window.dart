@@ -141,7 +141,6 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     for (final message in next) {
       if (previousKeys.contains(_messageDedupKey(message))) continue;
       if (_isMineMessage(message)) continue;
-      if (_isHiddenLocationChatTimelineMessage(message)) continue;
       if (isChatroomTimelinePayloadSenderType(message.senderType) &&
           message.timelinePayload == null) {
         continue;
@@ -161,7 +160,10 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
   String _messageDedupKey(WorldChatroomMessage message) {
     final clientMsgId = message.clientMsgId.trim();
     if (clientMsgId.isNotEmpty) return 'client:$clientMsgId';
-    if (!isChatroomLocationSupplementalSenderType(message.senderType) &&
+    if (!isChatroomMessageIdOrderedSupplemental(
+          message.senderType,
+          locationMessageId: message.locationMessageId,
+        ) &&
         message.locationMessageId > 0) {
       return 'location:${message.locationId}:${message.locationMessageId}';
     }
@@ -309,7 +311,10 @@ String locationChatMessageLocalIdForTesting(WorldChatroomMessage message) {
 }
 
 String _locationChatMessageLocalId(WorldChatroomMessage message) {
-  if (!isChatroomLocationSupplementalSenderType(message.senderType) &&
+  if (!isChatroomMessageIdOrderedSupplemental(
+        message.senderType,
+        locationMessageId: message.locationMessageId,
+      ) &&
       message.locationMessageId > 0) {
     return 'location-${message.locationId}-${message.locationMessageId}';
   }
@@ -724,8 +729,14 @@ int _compareLocationChatRenderMessages(
   WorldChatroomMessage a,
   WorldChatroomMessage b,
 ) {
-  if (isChatroomLocationSupplementalSenderType(a.senderType) ||
-      isChatroomLocationSupplementalSenderType(b.senderType)) {
+  if (isChatroomMessageIdOrderedSupplemental(
+        a.senderType,
+        locationMessageId: a.locationMessageId,
+      ) ||
+      isChatroomMessageIdOrderedSupplemental(
+        b.senderType,
+        locationMessageId: b.locationMessageId,
+      )) {
     final byMessageId = a.messageId.compareTo(b.messageId);
     if (byMessageId != 0) return byMessageId;
   } else if (a.locationMessageId > 0 && b.locationMessageId > 0) {

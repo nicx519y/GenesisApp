@@ -4,6 +4,10 @@ const String chatroomUserEnterLocationSenderType = 'user_enter_location';
 const String chatroomStoryEventsSenderType = 'story_events';
 const String chatroomCharactersMovedSenderType = 'characters_moved';
 
+const int chatroomMaxFrameBytes = 1024 * 1024;
+const int chatroomMaxCollectionItems = 100;
+const int chatroomMaxStringCodeUnits = 32 * 1024;
+
 const Set<String> chatroomTimelinePayloadSenderTypes = <String>{
   chatroomUserEnterLocationSenderType,
   chatroomStoryEventsSenderType,
@@ -18,6 +22,18 @@ bool isChatroomLocationSupplementalSenderType(Object? value) {
   final normalized = _normalizedType(value);
   return normalized == 'tick' ||
       chatroomTimelinePayloadSenderTypes.contains(normalized);
+}
+
+bool isChatroomMessageIdOrderedSupplemental(
+  Object? value, {
+  required int locationMessageId,
+}) {
+  final normalized = _normalizedType(value);
+  if (normalized == chatroomUserEnterLocationSenderType &&
+      locationMessageId > 0) {
+    return false;
+  }
+  return isChatroomLocationSupplementalSenderType(normalized);
 }
 
 sealed class ChatroomTimelinePayload {
@@ -258,6 +274,76 @@ String encodeChatroomTimelinePayload(ChatroomTimelinePayload payload) {
   return jsonEncode(payload.toJson());
 }
 
+bool isChatroomFrameOversized(String value) {
+  var byteCount = 0;
+  for (var index = 0; index < value.length; index += 1) {
+    final codeUnit = value.codeUnitAt(index);
+    if (codeUnit <= 0x7f) {
+      byteCount += 1;
+    } else if (codeUnit <= 0x7ff) {
+      byteCount += 2;
+    } else if (codeUnit >= 0xd800 &&
+        codeUnit <= 0xdbff &&
+        index + 1 < value.length) {
+      final nextCodeUnit = value.codeUnitAt(index + 1);
+      if (nextCodeUnit >= 0xdc00 && nextCodeUnit <= 0xdfff) {
+        byteCount += 4;
+        index += 1;
+      } else {
+        byteCount += 3;
+      }
+    } else {
+      byteCount += 3;
+    }
+    if (byteCount > chatroomMaxFrameBytes) return true;
+  }
+  return false;
+}
+
+void validateChatroomPayloadLimits(Object? value, {String field = 'payload'}) {
+  final pending = <({Object? value, String field})>[
+    (value: value, field: field),
+  ];
+  while (pending.isNotEmpty) {
+    final current = pending.removeLast();
+    final currentValue = current.value;
+    if (currentValue is String) {
+      if (currentValue.length > chatroomMaxStringCodeUnits) {
+        throw FormatException(
+          '${current.field} exceeds $chatroomMaxStringCodeUnits code units',
+        );
+      }
+      continue;
+    }
+    if (currentValue is List) {
+      if (currentValue.length > chatroomMaxCollectionItems) {
+        throw FormatException(
+          '${current.field} exceeds $chatroomMaxCollectionItems items',
+        );
+      }
+      for (var index = 0; index < currentValue.length; index += 1) {
+        pending.add((
+          value: currentValue[index],
+          field: '${current.field}[$index]',
+        ));
+      }
+      continue;
+    }
+    if (currentValue is Map) {
+      for (final entry in currentValue.entries) {
+        final key = entry.key.toString();
+        if (key.length > chatroomMaxStringCodeUnits) {
+          throw FormatException(
+            '${current.field} key exceeds '
+            '$chatroomMaxStringCodeUnits code units',
+          );
+        }
+        pending.add((value: entry.value, field: '${current.field}.$key'));
+      }
+    }
+  }
+}
+
 Map<String, Object?> _decodePayloadMap(Object? rawPayload) {
   return _requiredJsonMap(_decodePayload(rawPayload), field: 'payload');
 }
@@ -273,6 +359,11 @@ Map<String, Object?> _decodeCharactersMovedPayloadMap(Object? rawPayload) {
 Object? _decodePayload(Object? rawPayload) {
   Object? decoded = rawPayload;
   if (rawPayload is String) {
+    if (isChatroomFrameOversized(rawPayload)) {
+      throw const FormatException(
+        'Chatroom timeline content exceeds the maximum payload size',
+      );
+    }
     try {
       decoded = jsonDecode(rawPayload);
     } on FormatException catch (error) {
@@ -283,6 +374,7 @@ Object? _decodePayload(Object? rawPayload) {
       );
     }
   }
+  validateChatroomPayloadLimits(decoded);
   return decoded;
 }
 
@@ -296,6 +388,9 @@ Map<String, Object?> _requiredJsonMap(Object? value, {required String field}) {
 List<Object?> _requiredList(Map<String, Object?> json, String key) {
   final value = json[key];
   if (value is! List) throw FormatException('$key must be a JSON array');
+  if (value.length > chatroomMaxCollectionItems) {
+    throw FormatException('$key exceeds $chatroomMaxCollectionItems items');
+  }
   return List<Object?>.from(value);
 }
 
@@ -318,6 +413,11 @@ String _requiredString(
 }) {
   final value = json[key];
   if (value is! String) throw FormatException('$key must be a string');
+  if (value.length > chatroomMaxStringCodeUnits) {
+    throw FormatException(
+      '$key exceeds $chatroomMaxStringCodeUnits code units',
+    );
+  }
   if (nonEmpty && value.trim().isEmpty) {
     throw FormatException('$key must not be empty');
   }

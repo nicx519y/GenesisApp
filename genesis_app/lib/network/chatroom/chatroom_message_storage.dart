@@ -525,7 +525,10 @@ int _locationMessageId(Map<String, dynamic> message) {
 }
 
 bool _isMessageIdOrderedSupplementalJson(Map<String, dynamic> message) {
-  return isChatroomLocationSupplementalSenderType(message['sender_type']);
+  return isChatroomMessageIdOrderedSupplemental(
+    message['sender_type'],
+    locationMessageId: _locationMessageId(message),
+  );
 }
 
 int _storageLocationMessageId(Map<String, dynamic> message) {

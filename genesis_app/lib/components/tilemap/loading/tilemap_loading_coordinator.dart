@@ -152,7 +152,6 @@ class TilemapLoadingCoordinator {
   /// foreground map's initial-entry gate.
   void invalidatePreloadCaches() {
     if (_disposed) return;
-    _imageRequests.clear();
     _scheduledBackgroundLoadKeys.clear();
     _completedBackgroundLoadKeys.clear();
     _activeBackgroundTilePreload = null;

@@ -13,12 +13,22 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       locationId: widget.locationId,
     );
     _requestVisibleMessageGapFillIfNeeded(renderWindow.gaps, source);
+    final timelineIdentityIndex = _LocationChatTimelineIdentityIndex.fromState(
+      resolvedIdentityState,
+      currentUserIds: _myUserIdKeys,
+      currentSenderIds: _mySenderIdKeys,
+    );
+    final retainedTimelineCacheKeys = <String>{};
     final visibleSource = <_RenderableLocationChatMessage>[];
     for (final message in renderWindow.messages) {
-      if (_isHiddenLocationChatTimelineMessage(message)) continue;
+      final timelineCacheKey = _messageLocalId(message);
+      if (isChatroomTimelinePayloadSenderType(message.senderType)) {
+        retainedTimelineCacheKeys.add(timelineCacheKey);
+      }
       final timelinePayload = _timelinePayloadVmForMessage(
         message,
-        identityState: resolvedIdentityState,
+        cacheKey: timelineCacheKey,
+        identityIndex: timelineIdentityIndex,
       );
       if (isChatroomTimelinePayloadSenderType(message.senderType)) {
         if (timelinePayload == null) continue;
@@ -36,6 +46,9 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         ),
       );
     }
+    _timelineVmCache.removeWhere(
+      (key, _) => !retainedTimelineCacheKeys.contains(key),
+    );
     final previous = _messages.where((message) => !message.isSystem).toList();
     final existingByKey = {
       for (final message in previous) message.localId: message,
@@ -418,10 +431,17 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
 
   ChatTimelinePayloadVm? _timelinePayloadVmForMessage(
     WorldChatroomMessage message, {
-    required WorldChatroomState identityState,
+    required String cacheKey,
+    required _LocationChatTimelineIdentityIndex identityIndex,
   }) {
     final payload = message.timelinePayload;
-    return switch (payload) {
+    final cached = _timelineVmCache[cacheKey];
+    if (cached != null &&
+        identical(cached.payload, payload) &&
+        cached.identityRevision == identityIndex.revision) {
+      return cached.viewModel;
+    }
+    final viewModel = switch (payload) {
       ChatroomUserEnterLocationPayload event => ChatUserEnterLocationPayloadVm(
         characterId: event.charId.trim(),
         toLocationId: event.toLocationId.trim(),
@@ -429,34 +449,44 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       ),
       ChatroomStoryEventsPayload event => _storyEventsPayloadVm(
         event,
-        identityState: identityState,
+        identityIndex: identityIndex,
       ),
       ChatroomCharactersMovedPayload event => _charactersMovedPayloadVm(
         event,
-        identityState: identityState,
+        identityIndex: identityIndex,
       ),
       null => null,
     };
+    _timelineVmCache[cacheKey] = _LocationChatTimelineVmCacheEntry(
+      payload: payload,
+      identityRevision: identityIndex.revision,
+      viewModel: viewModel,
+    );
+    return viewModel;
   }
 
   ChatStoryEventsPayloadVm? _storyEventsPayloadVm(
     ChatroomStoryEventsPayload payload, {
-    required WorldChatroomState identityState,
+    required _LocationChatTimelineIdentityIndex identityIndex,
   }) {
-    final roleNamesById = _locationChatRoleNamesById(
-      currentUserIds: _myUserIdKeys,
-      currentSenderIds: _mySenderIdKeys,
-      characters:
-          identityState.world?.characters ?? const <Map<String, dynamic>>[],
-      characterPositions:
-          identityState.world?.characterPositions ??
-          const <Map<String, dynamic>>[],
-    );
+    if (!_timelineStringIsSafe(payload.locationId) ||
+        !_timelineStringIsSafe(payload.locationName) ||
+        payload.paragraphs.length > chatroomMaxCollectionItems) {
+      return null;
+    }
     final paragraphs = <ChatStoryEventParagraphVm>[];
     for (final paragraph in payload.paragraphs) {
+      if (!_timelineStringIsSafe(paragraph.timestamp) ||
+          !_timelineStringIsSafe(paragraph.visibility) ||
+          !_timelineStringIsSafe(paragraph.text) ||
+          !_timelineStringIsSafe(paragraph.clue) ||
+          paragraph.visibleTo.length > chatroomMaxCollectionItems ||
+          paragraph.visibleTo.any((value) => !_timelineStringIsSafe(value))) {
+        return null;
+      }
       final paragraphVm = _storyEventParagraphVm(
         paragraph,
-        roleNamesById: roleNamesById,
+        roleNamesById: identityIndex.roleNamesById,
       );
       paragraphs.add(paragraphVm);
     }
@@ -468,60 +498,37 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       locationId: payload.locationId.trim(),
       locationName: payloadLocationName.isNotEmpty
           ? payloadLocationName
-          : _timelineLocationName(payload.locationId, identityState),
+          : identityIndex.locationName(payload.locationId),
       paragraphs: List<ChatStoryEventParagraphVm>.unmodifiable(paragraphs),
     );
   }
 
   ChatCharactersMovedPayloadVm? _charactersMovedPayloadVm(
     ChatroomCharactersMovedPayload payload, {
-    required WorldChatroomState identityState,
+    required _LocationChatTimelineIdentityIndex identityIndex,
   }) {
-    if (payload.movements.isEmpty) return null;
+    if (payload.movements.isEmpty ||
+        payload.movements.length > chatroomMaxCollectionItems) {
+      return null;
+    }
+    if (payload.movements.any(
+      (movement) =>
+          !_timelineStringIsSafe(movement.charId) ||
+          !_timelineStringIsSafe(movement.toLocationId),
+    )) {
+      return null;
+    }
     final movements = payload.movements
         .map(
           (movement) => ChatCharacterMovementVm(
             characterId: movement.charId.trim(),
-            characterName: _timelineCharacterName(
-              movement.charId,
-              identityState,
-            ),
+            characterName: identityIndex.characterName(movement.charId),
             toLocationId: movement.toLocationId.trim(),
-            toLocationName: _timelineLocationName(
-              movement.toLocationId,
-              identityState,
-            ),
+            toLocationName: identityIndex.locationName(movement.toLocationId),
           ),
         )
         .toList(growable: false);
     return ChatCharactersMovedPayloadVm(movements: movements);
-  }
-
-  String _timelineCharacterName(
-    String characterId,
-    WorldChatroomState identityState,
-  ) {
-    return _resolveTimelineCharacterName(
-      characterId,
-      characters:
-          identityState.world?.characters ?? const <Map<String, dynamic>>[],
-      characterPositions:
-          identityState.world?.characterPositions ??
-          const <Map<String, dynamic>>[],
-      entitiesById: identityState.entitiesById,
-    );
-  }
-
-  String _timelineLocationName(
-    String locationId,
-    WorldChatroomState identityState,
-  ) {
-    final world = identityState.world;
-    return _resolveTimelineLocationName(
-      locationId,
-      locations: world?.locations ?? const <Map<String, dynamic>>[],
-      processedLocationTree: world?.processedLocationTree,
-    );
   }
 
   String _messageCurrentTime(WorldChatroomMessage message) {
@@ -679,6 +686,135 @@ class _RenderableLocationChatMessage {
   final ChatTimelinePayloadVm? timelinePayload;
 }
 
+class _LocationChatTimelineVmCacheEntry {
+  const _LocationChatTimelineVmCacheEntry({
+    required this.payload,
+    required this.identityRevision,
+    required this.viewModel,
+  });
+
+  final ChatroomTimelinePayload? payload;
+  final int identityRevision;
+  final ChatTimelinePayloadVm? viewModel;
+}
+
+class _LocationChatTimelineIdentityIndex {
+  _LocationChatTimelineIdentityIndex._({
+    required this.characterNamesById,
+    required this.locationNamesById,
+    required this.roleNamesById,
+    required this.revision,
+  });
+
+  factory _LocationChatTimelineIdentityIndex.fromState(
+    WorldChatroomState state, {
+    required Iterable<String> currentUserIds,
+    required Iterable<String> currentSenderIds,
+  }) {
+    final world = state.world;
+    final characters = world?.characters ?? const <Map<String, dynamic>>[];
+    final characterPositions =
+        world?.characterPositions ?? const <Map<String, dynamic>>[];
+    final characterNamesById = <String, String>{};
+    for (final candidate in <Map<String, dynamic>>[
+      ...characters,
+      ...characterPositions,
+    ]) {
+      final rawCharacter = candidate['character'];
+      final character = rawCharacter is Map
+          ? _stringKeyMap(rawCharacter)
+          : candidate;
+      final characterId = _firstMapString(character, const [
+        'char_id',
+        'character_id',
+        'id',
+      ]).trim();
+      final key = _chatroomIdentityKey(characterId);
+      if (key.isEmpty || characterNamesById.containsKey(key)) continue;
+      final name = _firstMapString(character, const [
+        'name',
+        'role_nickname',
+        'role_name',
+        'character_name',
+      ]).trim();
+      if (name.isNotEmpty) {
+        characterNamesById[key] = normalizeGenesisUgcTextForDisplay(name);
+      }
+    }
+    for (final entry in state.entitiesById.entries) {
+      final keys = <String>{
+        _chatroomIdentityKey(entry.key),
+        _chatroomIdentityKey(entry.value.id),
+      }..remove('');
+      final name = entry.value.name.trim();
+      if (name.isEmpty) continue;
+      for (final key in keys) {
+        characterNamesById.putIfAbsent(
+          key,
+          () => normalizeGenesisUgcTextForDisplay(name),
+        );
+      }
+    }
+
+    final locationNamesById = <String, String>{};
+    final locations = <Map<String, dynamic>>[
+      ...?world?.locations,
+      ...?world?.processedLocationTree.flattened.map((node) => node.value),
+    ];
+    for (final location in locations) {
+      final locationId = _firstMapString(location, const [
+        'location_id',
+        'id',
+      ]).trim();
+      final key = _chatroomIdentityKey(locationId);
+      if (key.isEmpty || locationNamesById.containsKey(key)) continue;
+      final name = _firstMapString(location, const [
+        'location_name',
+        'name',
+      ]).trim();
+      if (name.isNotEmpty) {
+        locationNamesById[key] = normalizeGenesisUgcTextForDisplay(name);
+      }
+    }
+    final roleNamesById = _locationChatRoleNamesById(
+      currentUserIds: currentUserIds,
+      currentSenderIds: currentSenderIds,
+      characters: characters,
+      characterPositions: characterPositions,
+    );
+    final revision = Object.hashAll(<Object?>[
+      ...characterNamesById.entries.expand((entry) => [entry.key, entry.value]),
+      ...locationNamesById.entries.expand((entry) => [entry.key, entry.value]),
+      ...roleNamesById.entries.expand((entry) => [entry.key, entry.value]),
+    ]);
+    return _LocationChatTimelineIdentityIndex._(
+      characterNamesById: characterNamesById,
+      locationNamesById: locationNamesById,
+      roleNamesById: roleNamesById,
+      revision: revision,
+    );
+  }
+
+  final Map<String, String> characterNamesById;
+  final Map<String, String> locationNamesById;
+  final Map<String, String> roleNamesById;
+  final int revision;
+
+  String characterName(String characterId) {
+    final resolvedId = characterId.trim();
+    return characterNamesById[_chatroomIdentityKey(resolvedId)] ?? resolvedId;
+  }
+
+  String locationName(String locationId) {
+    final resolvedId = locationId.trim();
+    return locationNamesById[_chatroomIdentityKey(resolvedId)] ?? resolvedId;
+  }
+}
+
+bool _timelineStringIsSafe(String value) {
+  return value.length <= chatroomMaxStringCodeUnits;
+}
+
 String _resolveTimelineCharacterName(
   String characterId, {
   required Iterable<Map<String, dynamic>> characters,
@@ -817,11 +953,6 @@ Map<String, String> _locationChatRoleNamesById({
     }
   }
   return result;
-}
-
-bool _isHiddenLocationChatTimelineMessage(WorldChatroomMessage message) {
-  return message.senderType.trim().toLowerCase() ==
-      chatroomUserEnterLocationSenderType;
 }
 
 String _timelinePayloadCopyText(ChatTimelinePayloadVm payload) {

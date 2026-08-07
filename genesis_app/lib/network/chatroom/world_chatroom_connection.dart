@@ -69,7 +69,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
   Future<void> _refreshInitialSnapshot() async {
     try {
       await _refreshWorld();
-      await _refreshUserLocations();
+      await _scheduleUserLocationsRefresh();
     } catch (e) {
       _recordFailure(
         ChatroomFailureEvent(
@@ -90,6 +90,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
       if (session == null || locationId.isEmpty) {
         throw const ChatroomProtocolException('chatroom is not connected');
       }
+      _sendPendingUserEnterLocationCommand(session, locationId);
       final joined = await _joinSession(session, locationId);
       if (!completer.isCompleted) completer.complete(joined);
     } catch (e) {
@@ -109,6 +110,29 @@ extension _WorldChatroomConnection on WorldChatroomService {
         _joinCompleter = null;
       }
     }
+  }
+
+  void _sendPendingUserEnterLocationCommand(
+    ChatroomSession session,
+    String locationId,
+  ) {
+    if (_pendingUserEnterLocationCommandId != locationId) return;
+    _pendingUserEnterLocationCommandId = '';
+    unawaited(
+      Future<void>.sync(
+        () => session.sendUserEnterLocation(locationId: locationId),
+      ).catchError((Object error) {
+        _logChatroomSocketEvent(
+          'user_enter_location send ignored world=$_worldId '
+          'location=$locationId error=$error',
+        );
+        _recordServiceQueueDebug(
+          action: 'userEnterLocationSendIgnored',
+          locationId: locationId,
+          details: {'error': '$error'},
+        );
+      }),
+    );
   }
 
   Future<ChatroomJoined> _joinSession(

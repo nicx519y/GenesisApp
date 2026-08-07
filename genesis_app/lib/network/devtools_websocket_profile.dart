@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:http_profile/http_profile.dart';
 
 import 'devtools_http_profile.dart';
 
 const kDevToolsWebSocketProfileMaxBodyBytes = 64 * 1024;
+const kDevToolsWebSocketProfileMaxFramesPerConnection = 1000;
 
 const _redactedValue = '[REDACTED]';
 const _sensitiveFieldNames = <String>{
@@ -35,12 +37,29 @@ class DevToolsWebSocketProfile {
   final GenesisHttpProfileFactory _profileFactory;
   final String _connectionId;
   int _nextSequence = 1;
+  int _recordedFrameCount = 0;
+  int _droppedFrameCount = 0;
+  bool _dropSummaryRecorded = false;
 
   Future<void> recordFrame({
     required String direction,
     required String message,
   }) async {
     if (const bool.fromEnvironment('dart.vm.product')) return;
+    if (_recordedFrameCount >=
+        kDevToolsWebSocketProfileMaxFramesPerConnection) {
+      _droppedFrameCount += 1;
+      if (!_dropSummaryRecorded) {
+        _dropSummaryRecorded = true;
+        developer.log(
+          'WebSocket synthetic profile limit reached; '
+          'droppedFrames=$_droppedFrameCount connection=$_connectionId',
+          name: 'DevToolsWebSocketProfile',
+        );
+      }
+      return;
+    }
+    _recordedFrameCount += 1;
 
     final isOutgoing = direction == '=>';
     final sequence = _nextSequence++;
@@ -184,6 +203,18 @@ Uri _profileUri(
 }
 
 _WebSocketProfilePayload _profilePayload(String message) {
+  if (devToolsWebSocketFrameExceedsBodyLimit(message)) {
+    return _WebSocketProfilePayload(
+      contentType: 'text/plain; charset=utf-8',
+      bodyBytes: utf8.encode(
+        '[websocket frame omitted: ${message.length} code units exceeds '
+        '$kDevToolsWebSocketProfileMaxBodyBytes-byte profile limit]',
+      ),
+      messageType: null,
+      messageId: null,
+      locationMessageId: null,
+    );
+  }
   String sanitized;
   var contentType = 'text/plain; charset=utf-8';
   String? messageType;
@@ -208,6 +239,32 @@ _WebSocketProfilePayload _profilePayload(String message) {
     messageId: messageId,
     locationMessageId: locationMessageId,
   );
+}
+
+bool devToolsWebSocketFrameExceedsBodyLimit(String value) {
+  var byteCount = 0;
+  for (var index = 0; index < value.length; index += 1) {
+    final codeUnit = value.codeUnitAt(index);
+    if (codeUnit <= 0x7f) {
+      byteCount += 1;
+    } else if (codeUnit <= 0x7ff) {
+      byteCount += 2;
+    } else if (codeUnit >= 0xd800 &&
+        codeUnit <= 0xdbff &&
+        index + 1 < value.length) {
+      final nextCodeUnit = value.codeUnitAt(index + 1);
+      if (nextCodeUnit >= 0xdc00 && nextCodeUnit <= 0xdfff) {
+        byteCount += 4;
+        index += 1;
+      } else {
+        byteCount += 3;
+      }
+    } else {
+      byteCount += 3;
+    }
+    if (byteCount > kDevToolsWebSocketProfileMaxBodyBytes) return true;
+  }
+  return false;
 }
 
 String? _profileField(Map<dynamic, dynamic> json, String key) {

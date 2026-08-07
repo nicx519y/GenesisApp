@@ -154,19 +154,33 @@ bool tilemapConfigDataEquals(TilemapConfig? a, TilemapConfig? b) {
   for (final entry in a.tileTypes.entries) {
     if (b.tileTypes[entry.key] != entry.value) return false;
   }
+  var orderedCellsMatch = true;
+  for (var index = 0; index < a.tiles.length; index += 1) {
+    final tile = a.tiles[index];
+    final other = b.tiles[index];
+    if (tile.cellKey != other.cellKey) {
+      orderedCellsMatch = false;
+      break;
+    }
+    if (!_tilemapCellDataEquals(tile, other)) return false;
+  }
+  if (orderedCellsMatch) return true;
   final bTilesByCell = <String, TilemapCell>{
     for (final tile in b.tiles) tile.cellKey: tile,
   };
   for (final tile in a.tiles) {
     final other = bTilesByCell[tile.cellKey];
-    if (other == null ||
-        tile.type != other.type ||
-        tile.shadow != other.shadow ||
-        (tile.locationId?.trim() ?? '') != (other.locationId?.trim() ?? '')) {
+    if (other == null || !_tilemapCellDataEquals(tile, other)) {
       return false;
     }
   }
   return true;
+}
+
+bool _tilemapCellDataEquals(TilemapCell a, TilemapCell b) {
+  return a.type == b.type &&
+      a.shadow == b.shadow &&
+      (a.locationId?.trim() ?? '') == (b.locationId?.trim() ?? '');
 }
 
 String _urlWithoutQueryOrFragment(String url) {

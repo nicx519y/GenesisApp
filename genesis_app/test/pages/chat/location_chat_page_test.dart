@@ -856,7 +856,7 @@ void main() {
   );
 
   testWidgets(
-    'location chat hides enter events but renders other typed timeline events',
+    'location chat renders structured and plain enter timeline events',
     (tester) async {
       ChatCharacterMovementVm? openedMovement;
       final enter = _timelineMessage(
@@ -953,11 +953,11 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byType(ChatUserEnterLocationMessageBubble), findsNothing);
+      expect(find.byType(ChatUserEnterLocationMessageBubble), findsNWidgets(2));
       expect(find.byType(ChatStoryEventsMessageBubble), findsOneWidget);
       expect(find.byType(ChatCharactersMovedMessageBubble), findsOneWidget);
-      expect(find.text('Alice entered the cafe.'), findsNothing);
-      expect(find.text('Dh来到了okkk。'), findsNothing);
+      expect(find.text('Alice entered the cafe.'), findsOneWidget);
+      expect(find.text('Dh来到了okkk。'), findsOneWidget);
       expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
       expect(find.text('Old Station'), findsNothing);
       expect(find.text('事件'), findsNWidgets(2));
@@ -1160,6 +1160,76 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'movement navigation is single-flight and preserves a shared service',
+    (tester) async {
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_1');
+      await sessionStore.saveAuthToken('token');
+      final services = ServiceRegistry.build(
+        config: const AppConfig(useMock: true),
+        sessionStoreOverride: sessionStore,
+      );
+      final sharedService = WorldChatroomService(
+        api: services.api,
+        client: services.chatroom,
+        messageStorage: services.chatroomMessages,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      var targetRouteBuilds = 0;
+      Object? targetArguments;
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: LocationChatPage(
+              worldId: 'world-current',
+              locationId: 'loc-current',
+              service: sharedService,
+            ),
+            onGenerateRoute: (settings) {
+              if (settings.name != RouteNames.locationChat) return null;
+              targetRouteBuilds += 1;
+              targetArguments = settings.arguments;
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (_) => const SizedBox.shrink(),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final panel = tester.widget<LocationChatPanel>(
+        find.byType(LocationChatPanel),
+      );
+      expect(panel.leaveOnInactive, isFalse);
+      const movement = ChatCharacterMovementVm(
+        characterId: 'char-1',
+        characterName: 'Alice',
+        toLocationId: 'loc-target',
+        toLocationName: 'Target',
+      );
+      panel.onCharactersMovedLocationTap!(movement);
+      panel.onCharactersMovedLocationTap!(movement);
+      await tester.pumpAndSettle();
+
+      expect(targetRouteBuilds, 1);
+      expect(
+        (targetArguments as Map<String, Object?>)['world_chatroom_service'],
+        same(sharedService),
+      );
+      expect(sharedService.isDisposed, isFalse);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(sharedService.isDisposed, isFalse);
+      await sharedService.dispose();
+    },
+  );
 
   test('location chat background falls back to bundled default when empty', () {
     expect(

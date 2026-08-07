@@ -89,14 +89,6 @@ void main() {
     expect(history.messages, hasLength(3));
     expect(history.hasMore, isFalse);
     expect(history.newestMessageId, greaterThan(0));
-    expect(
-      history.messages.map((message) => message.locationMessageId),
-      everyElement(0),
-    );
-    expect(
-      history.messages.map((message) => message.locationId),
-      everyElement(isEmpty),
-    );
     final bySenderType = {
       for (final message in history.messages) message.senderType: message,
     };
@@ -108,6 +100,23 @@ void main() {
     expect(
       bySenderType[chatroomUserEnterLocationSenderType]?.timelinePayload,
       isA<ChatroomUserEnterLocationPayload>(),
+    );
+    expect(
+      bySenderType[chatroomUserEnterLocationSenderType]?.locationMessageId,
+      greaterThan(0),
+    );
+    expect(
+      bySenderType[chatroomUserEnterLocationSenderType]?.locationId,
+      locationId,
+    );
+    expect(
+      bySenderType[chatroomUserEnterLocationSenderType]?.content,
+      'Iris Vale entered the location.',
+    );
+    expect(bySenderType[chatroomStoryEventsSenderType]?.locationMessageId, 0);
+    expect(
+      bySenderType[chatroomCharactersMovedSenderType]?.locationMessageId,
+      0,
     );
     expect(
       bySenderType[chatroomStoryEventsSenderType]?.timelinePayload,

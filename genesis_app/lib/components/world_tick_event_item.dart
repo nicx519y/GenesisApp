@@ -18,6 +18,7 @@ class WorldTickEventItem extends StatelessWidget {
     this.contentLabelStyle,
     this.contentTimestampStyle,
     this.metricUnit = '',
+    this.showParagraphClue = false,
   });
 
   final Map<String, dynamic> tick;
@@ -33,6 +34,7 @@ class WorldTickEventItem extends StatelessWidget {
   final TextStyle? contentLabelStyle;
   final TextStyle? contentTimestampStyle;
   final String metricUnit;
+  final bool showParagraphClue;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +75,7 @@ class WorldTickEventItem extends StatelessWidget {
               bodyStyle: contentTextStyle,
               timestampStyle: contentTimestampStyle,
               metricUnit: metricUnit,
+              showClue: showParagraphClue,
             ),
             const SizedBox(height: 6),
           ],
@@ -192,6 +195,7 @@ class _TickParagraphRow extends StatelessWidget {
     this.bodyStyle,
     this.timestampStyle,
     this.metricUnit = '',
+    this.showClue = false,
   });
 
   final Map<String, dynamic> paragraph;
@@ -201,6 +205,7 @@ class _TickParagraphRow extends StatelessWidget {
   final TextStyle? bodyStyle;
   final TextStyle? timestampStyle;
   final String metricUnit;
+  final bool showClue;
 
   @override
   Widget build(BuildContext context) {
@@ -217,6 +222,7 @@ class _TickParagraphRow extends StatelessWidget {
       'timesamp',
       'time',
     ]);
+    final clue = showClue ? _mapString(paragraph, const ['clue']) : '';
     final characterDetails = _characterDetails(
       paragraph,
       metricUnit: metricUnit,
@@ -228,6 +234,9 @@ class _TickParagraphRow extends StatelessWidget {
     );
     final resolvedBodyStyle = bodyStyle ?? _bodyStyle;
     final bodyText = Text(body, style: resolvedBodyStyle);
+    final clueText = clue.isEmpty
+        ? null
+        : _ClueText(text: clue, style: resolvedBodyStyle);
     final timestampText = timestamp.isEmpty
         ? null
         : _TimestampLabel(text: timestamp, style: timestampStyle);
@@ -251,6 +260,7 @@ class _TickParagraphRow extends StatelessWidget {
                   const SizedBox(height: 2),
                 ],
                 bodyText,
+                if (clueText != null) ...[const SizedBox(height: 8), clueText],
                 if (characterDetailsText != null) ...[
                   const SizedBox(height: 6),
                   characterDetailsText,
@@ -270,6 +280,10 @@ class _TickParagraphRow extends StatelessWidget {
                         const SizedBox(height: 2),
                       ],
                       bodyText,
+                      if (clueText != null) ...[
+                        const SizedBox(height: 8),
+                        clueText,
+                      ],
                       if (characterDetailsText != null) ...[
                         const SizedBox(height: 6),
                         characterDetailsText,
@@ -279,6 +293,34 @@ class _TickParagraphRow extends StatelessWidget {
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _ClueText extends StatelessWidget {
+  const _ClueText({required this.text, required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = style.color ?? const Color(0xFF444444);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(Icons.lightbulb_outline_rounded, size: 14, color: color),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            text,
+            style: style.copyWith(fontStyle: FontStyle.italic, height: 1.35),
+          ),
+        ),
+      ],
     );
   }
 }

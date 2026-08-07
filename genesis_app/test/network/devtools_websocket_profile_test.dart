@@ -142,7 +142,7 @@ void main() {
     expect(capturedProfile.connectionInfo?['direction'], 'receive');
   });
 
-  test('increments frame sequence and truncates oversized payloads', () async {
+  test('increments frame sequence and omits oversized payloads', () async {
     final capturedProfiles = <HttpClientRequestProfile>[];
     final recorder = DevToolsWebSocketProfile(
       Uri.parse('wss://api.worldo.ai/aitown-chat/ws'),
@@ -182,6 +182,73 @@ void main() {
       body.length,
       lessThanOrEqualTo(kDevToolsWebSocketProfileMaxBodyBytes),
     );
-    expect(utf8.decode(body), contains('[truncated'));
+    expect(utf8.decode(body), contains('[websocket frame omitted:'));
+    expect(
+      capturedProfiles[1].responseData.headers,
+      containsPair('content-type', ['text/plain; charset=utf-8']),
+    );
+  });
+
+  test('checks UTF-8 bytes before decoding an oversized JSON frame', () async {
+    late HttpClientRequestProfile capturedProfile;
+    final recorder = DevToolsWebSocketProfile(
+      Uri.parse('wss://api.worldo.ai/aitown-chat/ws'),
+      profileFactory:
+          ({
+            required requestStartTime,
+            required requestMethod,
+            required requestUri,
+          }) {
+            capturedProfile = HttpClientRequestProfile.profile(
+              requestStartTime: requestStartTime,
+              requestMethod: requestMethod,
+              requestUri: requestUri,
+            )!;
+            return capturedProfile;
+          },
+    );
+
+    await recorder.recordFrame(
+      direction: '<=',
+      message: '{"type":"ack","content":"${'你' * 22000}"}',
+    );
+
+    expect(
+      utf8.decode(capturedProfile.responseData.bodyBytes),
+      contains('[websocket frame omitted:'),
+    );
+    expect(
+      Uri.parse(capturedProfile.requestUri).fragment,
+      isNot(contains('type=ack')),
+    );
+  });
+
+  test('retains at most 1000 synthetic profiles per connection', () async {
+    var profileFactoryCalls = 0;
+    final recorder = DevToolsWebSocketProfile(
+      Uri.parse('wss://api.worldo.ai/aitown-chat/ws'),
+      profileFactory:
+          ({
+            required requestStartTime,
+            required requestMethod,
+            required requestUri,
+          }) {
+            profileFactoryCalls += 1;
+            return null;
+          },
+    );
+
+    for (
+      var index = 0;
+      index < kDevToolsWebSocketProfileMaxFramesPerConnection + 5;
+      index += 1
+    ) {
+      await recorder.recordFrame(direction: '<=', message: '{}');
+    }
+
+    expect(
+      profileFactoryCalls,
+      kDevToolsWebSocketProfileMaxFramesPerConnection,
+    );
   });
 }

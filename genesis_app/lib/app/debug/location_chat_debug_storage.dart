@@ -258,8 +258,14 @@ List<Map<String, dynamic>> _sortMessageJson(
       .map((message) => Map<String, dynamic>.from(message))
       .toList(growable: false);
   sorted.sort((a, b) {
-    if (isChatroomLocationSupplementalSenderType(a['sender_type']) ||
-        isChatroomLocationSupplementalSenderType(b['sender_type'])) {
+    if (isChatroomMessageIdOrderedSupplemental(
+          a['sender_type'],
+          locationMessageId: _locationQueueMessageId(a),
+        ) ||
+        isChatroomMessageIdOrderedSupplemental(
+          b['sender_type'],
+          locationMessageId: _locationQueueMessageId(b),
+        )) {
       final byMessageId = _messageId(a).compareTo(_messageId(b));
       if (byMessageId != 0) return byMessageId;
     }

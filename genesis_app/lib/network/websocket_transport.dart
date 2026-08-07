@@ -160,6 +160,10 @@ String formatWebSocketFrameLog({
   required String direction,
   required String message,
 }) {
+  if (devToolsWebSocketFrameExceedsBodyLimit(message)) {
+    return 'WS $direction omitted oversized frame '
+        'codeUnits=${message.length}';
+  }
   Object? decoded;
   try {
     decoded = jsonDecode(message);

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_controller.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transport.dart';
@@ -85,6 +86,32 @@ void main() {
 
     expect(legacy.messageType, 'image');
     expect(explicitText.messageType, 'text');
+  });
+
+  test('plain user enter history synthesizes a timeline payload', () {
+    final message = WorldChatroomMessage.fromHttpMessage(
+      ChatroomHttpMessage.fromJson({
+        'global_message_id': 901,
+        'message_id': 101,
+        'location_message_id': 11,
+        'location_id': 'loc-1',
+        'conversation_round_id': 501,
+        'sender_type': 'user_enter_location',
+        'sender_id': 'char-1',
+        'sender_name': 'Alice',
+        'user_id': 'user-1',
+        'content': 'Alice entered the cafe.',
+        'message_type': 'text',
+        'created_at': '2026-08-07 12:00:00',
+      }),
+    );
+
+    expect(message.locationMessageId, 11);
+    expect(message.timelinePayload, isA<ChatroomUserEnterLocationPayload>());
+    final payload = message.timelinePayload as ChatroomUserEnterLocationPayload;
+    expect(payload.charId, 'char-1');
+    expect(payload.toLocationId, 'loc-1');
+    expect(payload.text, 'Alice entered the cafe.');
   });
 
   test(
@@ -384,6 +411,88 @@ void main() {
       await service.dispose();
     },
   );
+
+  test(
+    'explicit location entry sends once and automatic reconnect does not resend',
+    () async {
+      final firstSocket = _FakeChatroomSocket();
+      final secondSocket = _FakeChatroomSocket();
+      final transport = _SequencedChatroomTransport([
+        firstSocket,
+        secondSocket,
+      ]);
+      final service = await _service(
+        socketTransport: transport,
+        reconnectInterval: const Duration(milliseconds: 5),
+      );
+
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final firstJoin = service.join(locationId: 'loc-1');
+      await _waitFor(() => firstSocket.sentTypes.contains('join'));
+      expect(
+        firstSocket.sentTypes.where((type) => type == 'user_enter_location'),
+        hasLength(1),
+      );
+      final enterFrame = firstSocket.sent
+          .map((raw) => jsonDecode(raw) as Map<String, dynamic>)
+          .singleWhere((frame) => frame['type'] == 'user_enter_location');
+      expect(enterFrame['world_id'], 'world-1');
+      expect(enterFrame['payload'], {'loc_id': 'loc-1'});
+      expect(enterFrame, isNot(contains('client_msg_id')));
+      firstSocket.serverJoinAck();
+      await firstJoin;
+
+      await service.join(locationId: 'loc-1');
+      expect(
+        firstSocket.sentTypes.where((type) => type == 'user_enter_location'),
+        hasLength(1),
+      );
+
+      await firstSocket.serverClose();
+      await _waitFor(() => secondSocket.sentTypes.contains('join'));
+      expect(secondSocket.sentTypes, isNot(contains('user_enter_location')));
+      secondSocket.serverJoinAck();
+      await _waitFor(() => service.state.joinedLocationId == 'loc-1');
+
+      await service.leave();
+      final reenter = service.join(locationId: 'loc-1');
+      await _waitFor(
+        () => secondSocket.sentTypes
+            .where((type) => type == 'user_enter_location')
+            .isNotEmpty,
+      );
+      secondSocket.serverJoinAck();
+      await reenter;
+      expect(
+        secondSocket.sentTypes.where((type) => type == 'user_enter_location'),
+        hasLength(1),
+      );
+      await service.dispose();
+    },
+  );
+
+  test('user_enter_location send failure does not fail join', () async {
+    final socket = _FakeChatroomSocket()..failUserEnterLocationSend = true;
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+    );
+    final failures = <ChatroomFailureEvent>[];
+    final subscription = service.failures.listen(failures.add);
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final join = service.join(locationId: 'loc-1');
+    await _waitFor(() => socket.sentTypes.contains('join'));
+    socket.serverJoinAck();
+    await join;
+
+    expect(service.state.joinedLocationId, 'loc-1');
+    expect(
+      failures.where((failure) => failure.sourceType == 'user_enter_location'),
+      isEmpty,
+    );
+    await subscription.cancel();
+    await service.dispose();
+  });
 
   test(
     'HTTP image history preserves message type through cache hydration',
@@ -1524,6 +1633,59 @@ void main() {
     await service.dispose();
   });
 
+  test('oversized HTTP timeline payload stays raw but is not typed', () async {
+    final socket = _FakeChatroomSocket();
+    final oversizedContent = jsonEncode({
+      'location_id': 'loc-1',
+      'location_name': 'Square',
+      'paragraphs': [
+        {
+          'timestamp': '',
+          'visibility': 'public',
+          'visible_to': <String>[],
+          'text': 'x' * (chatroomMaxStringCodeUnits + 1),
+          'clue': '',
+        },
+      ],
+    });
+    final http = _WorldChatroomHttpTransport()
+      ..messagesByLocation['loc-1'] = [
+        _httpMessageJson(
+          messageId: 111,
+          locationMessageId: 0,
+          locationId: '',
+          senderType: chatroomStoryEventsSenderType,
+          content: oversizedContent,
+        ),
+      ]
+      ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+    final storage = MemoryChatroomMessageStorage();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+      messageStorage: storage,
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+    await service.loadOlderMessages(
+      locationId: 'loc-1',
+      beforeMessageId: 10,
+      limit: 20,
+    );
+
+    final message = service.state.messagesByLocation['loc-1']!.single;
+    expect(message.timelinePayload, isNull);
+    expect(message.content, oversizedContent);
+    final cached = await storage.loadLatestMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      limit: 20,
+    );
+    expect(cached.single['content'], oversizedContent);
+    await service.dispose();
+  });
+
   test(
     'loadOlderMessages trusts explicit remote has_more when page is full',
     () async {
@@ -2304,54 +2466,240 @@ void main() {
     },
   );
 
-  test('latest overlapping user location refresh response wins', () async {
-    final socket = _FakeChatroomSocket();
-    final http = _SequencedUserLocationsHttpTransport();
-    final service = await _service(
-      socketTransport: _FakeChatroomTransport(socket),
-      httpTransport: http,
-      refreshInitialSnapshotOnConnect: false,
-    );
-    service.applyWorldSnapshot(_worldSnapshot());
-    await service.connect(worldId: 'world-1', identity: _identity());
+  test(
+    'canonical user_enter_location is persisted and refreshes locations',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport()..userLocationId = 'loc-1';
+      final storage = _RecordingChatroomMessageStorage();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        messageStorage: storage,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
 
-    socket.serverFrame('user_enter_location', {
-      'schema_version': 1,
-      'event_id': 'evt-enter-older',
-      'world_id': 'world-1',
-      'location_id': 'loc-2',
-      'payload': {
-        'char_id': 'char-user-1',
-        'to_location_id': 'loc-2',
-        'text': 'Role One entered Cafe',
-      },
-    });
-    await _waitFor(() => http.pendingUserLocations.length == 1);
+      socket.serverFrame('user_enter_location', {
+        'ts': 1786000000000,
+        'world_id': 'world-1',
+        'session_id': 'sess-1',
+        'global_msg_id': 1006,
+        'msg_id': 506,
+        'location_msg_id': 203,
+        'conversation_round_id': 126,
+        'user_id': 'user-1',
+        'sender_id': 'char-user-1',
+        'sender_name': 'Role One',
+        'location_id': 'loc-1',
+        'err_no': '',
+        'err_msg': '',
+        'broadcast': true,
+        'payload': {
+          'content': 'Role One entered Square.',
+          'message_type': 'text',
+        },
+      });
 
-    socket.serverFrame('user_enter_location', {
-      'schema_version': 1,
-      'event_id': 'evt-enter-newer',
-      'world_id': 'world-1',
-      'location_id': 'loc-1',
-      'payload': {
-        'char_id': 'char-user-1',
-        'to_location_id': 'loc-1',
-        'text': 'Role One entered Square',
-      },
-    });
-    await _waitFor(() => http.pendingUserLocations.length == 2);
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.messageId == 506,
+            ) ==
+            true,
+      );
+      await _waitFor(() => http.userLocationRequests == 1);
+      final message = service.state.messagesByLocation['loc-1']!.singleWhere(
+        (message) => message.messageId == 506,
+      );
+      expect(message.locationMessageId, 203);
+      expect(message.senderType, 'user_enter_location');
+      expect(message.userId, 'user-1');
+      expect(message.content, 'Role One entered Square.');
+      expect(message.timelinePayload, isA<ChatroomUserEnterLocationPayload>());
+      expect(storage.lastUpsertedMessage?['location_msg_id'], 203);
+      expect(
+        storage.lastUpsertedMessage?['content'],
+        'Role One entered Square.',
+      );
 
-    http.pendingUserLocations[1].complete('loc-1');
-    await _waitFor(
-      () => service.state.entitiesById['user-1']?.locationId == 'loc-1',
-    );
-    http.pendingUserLocations[0].complete('loc-2');
-    await Future<void>.delayed(Duration.zero);
+      http.messagesByLocation['loc-1'] = [
+        {
+          'global_message_id': 1006,
+          'message_id': 506,
+          'location_message_id': 203,
+          'location_id': 'loc-1',
+          'conversation_round_id': 126,
+          'tick_no': 0,
+          'sender_type': 'user_enter_location',
+          'sender_id': 'char-user-1',
+          'sender_name': 'HTTP Role One',
+          'user_id': 'user-1',
+          'content': 'Role One entered Square.',
+          'message_type': 'text',
+          'current_time': '',
+          'created_at': '2026-08-07 10:00:00',
+        },
+      ];
+      await service.refreshLatestMessages(locationId: 'loc-1');
 
-    expect(http.userLocationRequests, 2);
-    expect(service.state.entitiesById['user-1']?.locationId, 'loc-1');
-    await service.dispose();
-  });
+      final merged = service.state.messagesByLocation['loc-1']!;
+      expect(merged, hasLength(1));
+      expect(merged.single.messageId, 506);
+      expect(merged.single.locationMessageId, 203);
+      expect(merged.single.senderName, 'HTTP Role One');
+      expect(
+        merged.single.timelinePayload,
+        isA<ChatroomUserEnterLocationPayload>(),
+      );
+      final cached = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+      expect(cached, hasLength(1));
+      expect(cached.single['msg_id'], 506);
+      await service.dispose();
+    },
+  );
+
+  test(
+    'user location event storm keeps one active and one trailing refresh',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _SequencedUserLocationsHttpTransport();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      socket.serverFrame('user_enter_location', {
+        'schema_version': 1,
+        'event_id': 'evt-enter-older',
+        'world_id': 'world-1',
+        'location_id': 'loc-2',
+        'payload': {
+          'char_id': 'char-user-1',
+          'to_location_id': 'loc-2',
+          'text': 'Role One entered Cafe',
+        },
+      });
+      await _waitFor(() => http.pendingUserLocations.length == 1);
+
+      for (var index = 1; index < 100; index += 1) {
+        socket.serverFrame('user_enter_location', {
+          'schema_version': 1,
+          'event_id': 'evt-enter-$index',
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'payload': {
+            'char_id': 'char-user-1',
+            'to_location_id': 'loc-1',
+            'text': 'Role One entered Square',
+          },
+        });
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(http.pendingUserLocations, hasLength(1));
+
+      http.pendingUserLocations[0].complete('loc-2');
+      await _waitFor(() => http.pendingUserLocations.length == 2);
+      http.pendingUserLocations[1].complete('loc-1');
+      await _waitFor(
+        () => service.state.entitiesById['user-1']?.locationId == 'loc-1',
+      );
+
+      expect(http.userLocationRequests, 2);
+      expect(service.state.entitiesById['user-1']?.locationId, 'loc-1');
+      await service.dispose();
+    },
+  );
+
+  test(
+    'characters moved event storm keeps one active and one trailing history refresh',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _SequencedWorldMessagesHttpTransport();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      for (var index = 0; index < 100; index += 1) {
+        socket.serverFrame('characters_moved', {
+          'event_id': 'evt-moved-storm-$index',
+          'world_id': 'world-1',
+          'payload': {
+            'movements': [
+              {'char_id': 'char-1', 'to_loc_id': 'loc-2'},
+            ],
+          },
+        });
+      }
+      await _waitFor(() => http.pendingWorldMessages.length == 1);
+      await _waitFor(
+        () =>
+            (service.state.messagesByLocation['loc-1'] ?? const []).length ==
+            100,
+      );
+      expect(http.worldMessagesRequests, 1);
+
+      http.pendingWorldMessages[0].complete();
+      await _waitFor(() => http.pendingWorldMessages.length == 2);
+      http.pendingWorldMessages[1].complete();
+      await _waitFor(() => http.completedWorldMessages == 2);
+
+      expect(http.worldMessagesRequests, 2);
+      await service.dispose();
+    },
+  );
+
+  test(
+    'disposing during a refresh drops its state commit and errors',
+    () async {
+      final unhandledErrors = <Object>[];
+
+      await runZonedGuarded<Future<void>>(() async {
+        final socket = _FakeChatroomSocket();
+        final http = _SequencedUserLocationsHttpTransport();
+        final service = await _service(
+          socketTransport: _FakeChatroomTransport(socket),
+          httpTransport: http,
+          refreshInitialSnapshotOnConnect: false,
+        );
+        service.applyWorldSnapshot(_worldSnapshot());
+        await service.connect(worldId: 'world-1', identity: _identity());
+
+        socket.serverFrame('user_enter_location', {
+          'event_id': 'evt-enter-dispose',
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'payload': {
+            'char_id': 'char-user-1',
+            'to_location_id': 'loc-1',
+            'text': 'Role One entered Square',
+          },
+        });
+        await _waitFor(() => http.pendingUserLocations.length == 1);
+
+        await service.dispose();
+        http.pendingUserLocations.single.complete('loc-1');
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(service.state.entitiesById['user-1']?.locationId, 'loc-2');
+      }, (error, _) => unhandledErrors.add(error));
+
+      expect(unhandledErrors, isEmpty);
+    },
+  );
 
   test(
     'map update increments revision while character update is no-op',
@@ -3518,6 +3866,28 @@ class _SequencedUserLocationsHttpTransport extends _WorldChatroomHttpTransport {
   }
 }
 
+class _SequencedWorldMessagesHttpTransport extends _WorldChatroomHttpTransport {
+  final List<Completer<void>> pendingWorldMessages = <Completer<void>>[];
+  int completedWorldMessages = 0;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (!request.uri.path.endsWith('/aitown-chat/internal/world/messages')) {
+      return super.send(request);
+    }
+    worldMessagesRequests += 1;
+    final completer = Completer<void>();
+    pendingWorldMessages.add(completer);
+    await completer.future;
+    completedWorldMessages += 1;
+    return _json({
+      'err_no': 0,
+      'err_msg': 'succ',
+      'data': {'locations': <Map<String, Object?>>[]},
+    });
+  }
+}
+
 class _FakeDeviceIdService implements DeviceIdService {
   const _FakeDeviceIdService();
 
@@ -3633,6 +4003,7 @@ class _FakeChatroomSocket implements ChatroomSocket {
   final _messages = StreamController<String>.broadcast();
   final sent = <String>[];
   bool closed = false;
+  bool failUserEnterLocationSend = false;
 
   List<String> get sentTypes {
     return sent
@@ -3648,6 +4019,10 @@ class _FakeChatroomSocket implements ChatroomSocket {
   @override
   Future<void> send(String message) async {
     if (closed) throw StateError('socket closed');
+    final frame = jsonDecode(message) as Map<String, dynamic>;
+    if (failUserEnterLocationSend && frame['type'] == 'user_enter_location') {
+      throw StateError('user_enter_location send failed');
+    }
     sent.add(message);
   }
 

@@ -171,6 +171,13 @@ class WorldChatroomMessage {
   int get conversationRoundNumber => int.tryParse(conversationRoundId) ?? 0;
 
   factory WorldChatroomMessage.fromHttpMessage(ChatroomHttpMessage message) {
+    final timelinePayload = _resolvedChatroomTimelinePayload(
+      senderType: message.senderType,
+      rawPayload: message.content,
+      senderId: message.senderId,
+      locationId: message.locationId,
+      content: message.content,
+    );
     return WorldChatroomMessage(
       globalMessageId: message.globalMessageId,
       messageId: message.messageId,
@@ -191,12 +198,15 @@ class WorldChatroomMessage {
       messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.createdAt,
-      timelinePayload: message.timelinePayload,
+      timelinePayload: timelinePayload,
     );
   }
 
   factory WorldChatroomMessage.fromStorageJson(Map<String, dynamic> json) {
     final senderId = asString(json['sender_id']);
+    final senderType = asString(json['sender_type']);
+    final locationId = asString(json['location_id']);
+    final content = asString(json['content']);
     return WorldChatroomMessage(
       globalMessageId: asInt(json['global_msg_id']),
       messageId: asInt(json['msg_id']),
@@ -208,13 +218,13 @@ class WorldChatroomMessage {
       roundOrder: asInt(json['round_order']),
       tickNo: asInt(json['tick_no']),
       subTickNo: asInt(json['sub_tick_no']),
-      locationId: asString(json['location_id']),
-      senderType: asString(json['sender_type']),
+      locationId: locationId,
+      senderType: senderType,
       userId: asString(json['user_id']),
       senderId: senderId,
       senderName: asString(json['sender_name']),
       clientMsgId: asString(json['client_msg_id']),
-      content: asString(json['content']),
+      content: content,
       messageType: resolveIncomingChatroomMessageType(
         hasMessageTypeField: json.containsKey('message_type'),
         rawMessageType: json['message_type'],
@@ -223,9 +233,12 @@ class WorldChatroomMessage {
       currentTime: asString(json['current_time']),
       createdAt: asDateTime(json['ts']),
       isLlmStreamMessage: asBool(json['is_llm_stream']),
-      timelinePayload: tryDecodeChatroomTimelinePayload(
-        senderType: json['sender_type'],
-        rawPayload: json['content'],
+      timelinePayload: _resolvedChatroomTimelinePayload(
+        senderType: senderType,
+        rawPayload: content,
+        senderId: senderId,
+        locationId: locationId,
+        content: content,
       ),
     );
   }
@@ -249,6 +262,34 @@ class WorldChatroomMessage {
       messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.createdAt ?? message.ts,
+    );
+  }
+
+  factory WorldChatroomMessage.fromUserEnterLocationMessage(
+    ChatroomUserEnterLocationMessage message,
+  ) {
+    return WorldChatroomMessage(
+      globalMessageId: message.globalMessageId,
+      messageId: message.messageId,
+      locationMessageId: _safeLocationMessageId(
+        () => message.locationMessageId,
+      ),
+      conversationRoundId: message.conversationRoundId,
+      roundOrder: message.roundOrder,
+      locationId: message.locationId,
+      senderType: chatroomUserEnterLocationSenderType,
+      userId: message.userId,
+      senderId: message.senderId,
+      senderName: message.senderName,
+      content: message.content,
+      messageType: message.messageType,
+      currentTime: message.currentTime,
+      createdAt: message.createdAt ?? message.ts,
+      timelinePayload: ChatroomUserEnterLocationPayload(
+        charId: message.senderId,
+        toLocationId: message.locationId,
+        text: message.content,
+      ),
     );
   }
 
@@ -420,6 +461,36 @@ class WorldChatroomMessage {
       timelinePayload: timelinePayload ?? this.timelinePayload,
     );
   }
+}
+
+ChatroomTimelinePayload? _resolvedChatroomTimelinePayload({
+  required Object? senderType,
+  required Object? rawPayload,
+  required String senderId,
+  required String locationId,
+  required String content,
+}) {
+  final decoded = tryDecodeChatroomTimelinePayload(
+    senderType: senderType,
+    rawPayload: rawPayload,
+  );
+  if (decoded != null) return decoded;
+  if ('$senderType'.trim().toLowerCase() !=
+      chatroomUserEnterLocationSenderType) {
+    return null;
+  }
+  final resolvedSenderId = senderId.trim();
+  final resolvedLocationId = locationId.trim();
+  if (resolvedSenderId.isEmpty ||
+      resolvedLocationId.isEmpty ||
+      content.trim().isEmpty) {
+    return null;
+  }
+  return ChatroomUserEnterLocationPayload(
+    charId: resolvedSenderId,
+    toLocationId: resolvedLocationId,
+    text: content,
+  );
 }
 
 int _safeLocationMessageId(int Function() read) {

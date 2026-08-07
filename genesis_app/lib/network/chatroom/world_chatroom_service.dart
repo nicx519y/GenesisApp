@@ -107,6 +107,8 @@ class WorldChatroomService {
   ChatroomConnectionIdentity? _identity;
   String _worldId = '';
   String _desiredLocationId = '';
+  String _lastUserEnterLocationCommandId = '';
+  String _pendingUserEnterLocationCommandId = '';
   bool _userDisconnected = true;
   bool _disposed = false;
   Completer<void>? _connectCompleter;
@@ -116,6 +118,11 @@ class WorldChatroomService {
   final Set<String> _localHydratedMessageKeys = <String>{};
   int _localMessageCacheGeneration = 0;
   int _userLocationsRefreshGeneration = 0;
+  bool _userLocationsRefreshPending = false;
+  String _pendingUserLocationsSocketCurrentTime = '';
+  Future<void>? _userLocationsRefreshDrain;
+  bool _latestWorldMessagesRefreshPending = false;
+  Future<void>? _latestWorldMessagesRefreshDrain;
   int _transientCharactersMovedSequence = 0;
   final Map<String, Future<List<WorldChatroomMessage>>>
   _latestMessageFetchFutures = <String, Future<List<WorldChatroomMessage>>>{};
@@ -169,7 +176,7 @@ class WorldChatroomService {
   Future<void> refreshUserLocations() async {
     _throwIfDisposed();
     if (_worldId.trim().isEmpty) return;
-    await _refreshUserLocations();
+    await _scheduleUserLocationsRefresh();
   }
 
   Future<void> connect({
@@ -198,6 +205,10 @@ class WorldChatroomService {
       throw const ChatroomProtocolException('locationId is required');
     }
     _desiredLocationId = resolvedLocationId;
+    if (_lastUserEnterLocationCommandId != resolvedLocationId) {
+      _lastUserEnterLocationCommandId = resolvedLocationId;
+      _pendingUserEnterLocationCommandId = resolvedLocationId;
+    }
     unawaited(_hydrateLocalMessagesForLocation(resolvedLocationId));
     final existing = _joinCompleter;
     if (existing != null) return existing.future;
@@ -420,6 +431,8 @@ class WorldChatroomService {
   Future<void> leave() async {
     _throwIfDisposed();
     _desiredLocationId = '';
+    _lastUserEnterLocationCommandId = '';
+    _pendingUserEnterLocationCommandId = '';
     final joinCompleter = _joinCompleter;
     _joinCompleter = null;
     if (joinCompleter != null && !joinCompleter.isCompleted) {
@@ -455,7 +468,11 @@ class WorldChatroomService {
   Future<void> disconnect() async {
     _userDisconnected = true;
     _userLocationsRefreshGeneration += 1;
+    _userLocationsRefreshPending = false;
+    _latestWorldMessagesRefreshPending = false;
     _desiredLocationId = '';
+    _lastUserEnterLocationCommandId = '';
+    _pendingUserEnterLocationCommandId = '';
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _heartbeatTimer?.cancel();
@@ -508,7 +525,10 @@ class WorldChatroomService {
       required int locationMessageId,
       required int messageId,
     }) {
-      if (!isChatroomLocationSupplementalSenderType(senderType) &&
+      if (!isChatroomMessageIdOrderedSupplemental(
+            senderType,
+            locationMessageId: locationMessageId,
+          ) &&
           locationMessageId > 0) {
         return 'location:$locationMessageId';
       }
@@ -634,6 +654,9 @@ class WorldChatroomService {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _userLocationsRefreshGeneration += 1;
+    _userLocationsRefreshPending = false;
+    _latestWorldMessagesRefreshPending = false;
     await disconnect();
     await _states.close();
     await _failures.close();

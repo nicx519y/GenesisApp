@@ -1766,6 +1766,57 @@ void main() {
     },
   );
 
+  test(
+    'restoration prefetch storm keeps one active and one trailing map load',
+    () async {
+      final firstRoot = Completer<Map<String, dynamic>>();
+      final trailingRoot = Completer<Map<String, dynamic>>();
+      final transport = _ScriptedLocationTilemapTransport({
+        'root': [firstRoot.future, trailingRoot.future],
+        'branch': [
+          Future<Map<String, dynamic>>.value(
+            _locationTilemapData('leaf', assetName: 'branch-after'),
+          ),
+        ],
+      });
+      final api = GenesisApi(transport: transport, useMock: false);
+      final restorationController = TilemapRestorationController();
+      addTearDown(restorationController.dispose);
+
+      final drain = restorationController.prefetchWorldMapUpdate(
+        api: api,
+        worldId: 'w_1',
+        initialLocationId: 'root',
+        drillableLocationIds: const ['branch'],
+      );
+      await _waitForTilemapRequestCount(transport, 'root', 1);
+      for (var index = 1; index < 100; index += 1) {
+        restorationController.prefetchWorldMapUpdate(
+          api: api,
+          worldId: 'w_1',
+          initialLocationId: 'root',
+          drillableLocationIds: const ['branch'],
+        );
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(transport.requestCount('root'), 1);
+      expect(transport.requestCount('branch'), 0);
+
+      firstRoot.complete(
+        _locationTilemapData('branch', assetName: 'root-stale'),
+      );
+      await _waitForTilemapRequestCount(transport, 'root', 2);
+      expect(transport.requestCount('branch'), 0);
+      trailingRoot.complete(
+        _locationTilemapData('branch', assetName: 'root-after'),
+      );
+      await drain;
+
+      expect(transport.requestCount('root'), 2);
+      expect(transport.requestCount('branch'), 1);
+    },
+  );
+
   testWidgets(
     'Tilemap opens the requested target parent after chat switches location',
     (tester) async {
@@ -4161,6 +4212,19 @@ class _DelayedTilemapTransport implements HttpTransport {
     requests.add(request);
     return _response.future;
   }
+}
+
+Future<void> _waitForTilemapRequestCount(
+  _ScriptedLocationTilemapTransport transport,
+  String locationId,
+  int count,
+) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 1));
+  while (DateTime.now().isBefore(deadline)) {
+    if (transport.requestCount(locationId) == count) return;
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
+  expect(transport.requestCount(locationId), count);
 }
 
 class _RecordingPerformanceTrace implements AppPerformanceTrace {

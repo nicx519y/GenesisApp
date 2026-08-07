@@ -428,6 +428,74 @@ void main() {
     await session.close();
   });
 
+  test('user_enter_location sends one unacked generic envelope', () async {
+    final socket = _FakeChatroomSocket();
+    final transport = _FakeChatroomTransport(socket);
+    final client = await _client(
+      transport,
+      ackTimeout: const Duration(milliseconds: 5),
+      autoHeartbeat: false,
+    );
+    final session = await client.connect(
+      worldId: 'world-1',
+      locationId: 'loc-1',
+    );
+
+    await session.sendUserEnterLocation(locationId: ' loc-1 ');
+    final frame = socket.sentFrame('user_enter_location');
+    expect(frame, {
+      'type': 'user_enter_location',
+      'ts': isA<int>(),
+      'world_id': 'world-1',
+      'payload': {'loc_id': 'loc-1'},
+      'err_no': '',
+      'err_msg': '',
+      'broadcast': false,
+    });
+    expect(frame, isNot(contains('client_msg_id')));
+
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+    expect(socket.sentFrames('user_enter_location'), hasLength(1));
+    await session.disconnect();
+  });
+
+  test('parses canonical user_enter_location server message', () {
+    final event = chatroomEventFromEnvelope(
+      ChatroomEnvelope.fromJson({
+        'type': 'user_enter_location',
+        'ts': 1786000000000,
+        'world_id': 'world-1',
+        'session_id': 'sess-1',
+        'global_msg_id': 1006,
+        'msg_id': 506,
+        'location_msg_id': 203,
+        'conversation_round_id': 126,
+        'user_id': 'user-1',
+        'sender_id': 'char-1',
+        'sender_name': 'Alice',
+        'location_id': 'loc-1',
+        'err_no': '',
+        'err_msg': '',
+        'broadcast': true,
+        'payload': {
+          'content': 'Alice entered the cafe.',
+          'message_type': 'text',
+        },
+      }),
+    );
+
+    expect(event, isA<ChatroomUserEnterLocationMessage>());
+    final entered = event as ChatroomUserEnterLocationMessage;
+    expect(entered.messageId, 506);
+    expect(entered.locationMessageId, 203);
+    expect(entered.locationId, 'loc-1');
+    expect(entered.senderId, 'char-1');
+    expect(entered.userId, 'user-1');
+    expect(entered.content, 'Alice entered the cafe.');
+    expect(entered.messageType, 'text');
+    expect(entered.broadcast, isTrue);
+  });
+
   test('connect requires authorization token from the session store', () async {
     final socket = _FakeChatroomSocket();
     final transport = _FakeChatroomTransport(socket);
@@ -1184,6 +1252,31 @@ void main() {
     expect(failure.code, 'protocol_error');
     await session.close();
   });
+
+  test(
+    'oversized frame reports protocol error and keeps the socket alive',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(_FakeChatroomTransport(socket));
+      final session = await _connectedSession(client, socket);
+
+      final failureFuture = session.failures.first;
+      socket.serverRaw('x' * (chatroomMaxFrameBytes + 1));
+      final failure = await failureFuture;
+      expect(failure.code, 'protocol_error');
+
+      final eventFuture = session.events
+          .where((event) => event is ChatroomWorldNotification)
+          .cast<ChatroomWorldNotification>()
+          .first;
+      socket.serverFrame('map_updated', {
+        'world_id': 'world-1',
+        'payload': <String, Object?>{},
+      });
+      expect((await eventFuture).eventType, 'map_updated');
+      await session.close();
+    },
+  );
 
   test(
     'listenMessages dispatches every server event to typed handlers',

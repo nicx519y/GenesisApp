@@ -12,6 +12,7 @@ import '../../platform/session/user_session_store.dart';
 import '../../utils/genesis_ugc_text.dart';
 import 'chatroom_models.dart';
 import 'chatroom_socket_transport.dart';
+import 'chatroom_timeline_payload.dart';
 
 class ChatroomClient {
   ChatroomClient({
@@ -345,6 +346,23 @@ class ChatroomSession {
     }
   }
 
+  Future<void> sendUserEnterLocation({required String locationId}) {
+    _throwIfClosed();
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty) {
+      throw const ChatroomProtocolException('locationId is required');
+    }
+    return _sendClientJson(<String, Object?>{
+      'type': 'user_enter_location',
+      'ts': DateTime.now().millisecondsSinceEpoch,
+      'world_id': worldId,
+      'payload': <String, Object?>{'loc_id': resolvedLocationId},
+      'err_no': '',
+      'err_msg': '',
+      'broadcast': false,
+    });
+  }
+
   Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
     _throwIfClosed();
     final content = normalizeGenesisUgcTextForSubmission(text);
@@ -486,6 +504,12 @@ class ChatroomSession {
       if (value is String && value.trim().isEmpty) continue;
       json[entry.key] = value;
     }
+    return _sendClientJson(json);
+  }
+
+  Future<void> _sendClientJson(Map<String, Object?> json) {
+    _throwIfClosed();
+    final type = '${json['type'] ?? ''}';
     final raw = jsonEncode(json);
     _recordWebSocketDebug(
       action: 'send',
@@ -495,7 +519,13 @@ class ChatroomSession {
   }
 
   void _handleMessage(String raw) {
+    final oversized = isChatroomFrameOversized(raw);
     try {
+      if (oversized) {
+        throw const ChatroomProtocolException(
+          'Envelope exceeds the maximum frame size',
+        );
+      }
       final envelope = ChatroomEnvelope.decode(raw);
       final event = chatroomEventFromEnvelope(envelope);
       _recordWebSocketDebug(
@@ -515,7 +545,12 @@ class ChatroomSession {
     } catch (e) {
       _recordWebSocketDebug(
         action: 'decodeFailed',
-        details: {'direction': 'in', 'raw': raw, 'error': e.toString()},
+        details: {
+          'direction': 'in',
+          if (!oversized) 'raw': raw,
+          if (oversized) ...{'rawOmitted': true, 'rawCodeUnits': raw.length},
+          'error': e.toString(),
+        },
       );
       _emitFailure(
         ChatroomFailureEvent(

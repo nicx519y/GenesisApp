@@ -46,6 +46,8 @@ class TilemapRestorationController extends ChangeNotifier {
   int _worldMapPrefetchGeneration = 0;
   final Map<String, _TilemapWorldMapPrefetch> _worldMapPrefetches =
       <String, _TilemapWorldMapPrefetch>{};
+  _TilemapWorldMapPrefetchRequest? _pendingWorldMapPrefetch;
+  Future<void>? _worldMapPrefetchDrain;
 
   void requestLocationNavigation(String locationId) {
     final resolvedLocationId = locationId.trim();
@@ -67,29 +69,90 @@ class TilemapRestorationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
+  void dispose() {
+    _clearWorldMapPrefetches();
+    super.dispose();
+  }
+
   Future<void> prefetchWorldMapUpdate({
     required GenesisApi api,
     required String worldId,
     required String initialLocationId,
     Iterable<String> drillableLocationIds = const <String>[],
-  }) async {
+  }) {
     final resolvedWorldId = worldId.trim();
     final resolvedInitialLocationId = initialLocationId.trim();
-    if (resolvedWorldId.isEmpty || resolvedInitialLocationId.isEmpty) return;
+    if (resolvedWorldId.isEmpty || resolvedInitialLocationId.isEmpty) {
+      return Future<void>.value();
+    }
 
     final scopeKey = '${_TilemapSource.world.name}:$resolvedWorldId';
     _ensureScope(
       scopeKey: scopeKey,
       initialLocationId: resolvedInitialLocationId,
     );
-    final locationId = _currentLocationId.trim().isNotEmpty
-        ? _currentLocationId.trim()
-        : resolvedInitialLocationId;
     final generation = ++_worldMapPrefetchGeneration;
-    _worldMapPrefetches.clear();
-    final request = _loadWorldMapUpdate(
+    _pendingWorldMapPrefetch = _TilemapWorldMapPrefetchRequest(
       api: api,
       worldId: resolvedWorldId,
+      initialLocationId: resolvedInitialLocationId,
+      drillableLocationIds: drillableLocationIds
+          .map((locationId) => locationId.trim())
+          .where((locationId) => locationId.isNotEmpty)
+          .toSet(),
+      scopeKey: scopeKey,
+      generation: generation,
+    );
+    return _startWorldMapPrefetchDrain();
+  }
+
+  Future<void> _startWorldMapPrefetchDrain() {
+    final activeDrain = _worldMapPrefetchDrain;
+    if (activeDrain != null) return activeDrain;
+    final drain = _drainWorldMapPrefetches();
+    _worldMapPrefetchDrain = drain;
+    unawaited(
+      drain.whenComplete(() {
+        if (!identical(_worldMapPrefetchDrain, drain)) return;
+        _worldMapPrefetchDrain = null;
+        if (_pendingWorldMapPrefetch != null) {
+          unawaited(_startWorldMapPrefetchDrain());
+        }
+      }),
+    );
+    return drain;
+  }
+
+  Future<void> _drainWorldMapPrefetches() async {
+    while (true) {
+      final request = _pendingWorldMapPrefetch;
+      if (request == null) return;
+      _pendingWorldMapPrefetch = null;
+      try {
+        await _runWorldMapPrefetch(request);
+      } catch (error) {
+        if (kDebugMode) {
+          debugPrint(
+            '[Tilemap] location chat map_updated prefetch drain failed: '
+            '$error',
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _runWorldMapPrefetch(
+    _TilemapWorldMapPrefetchRequest prefetchRequest,
+  ) async {
+    final locationId = _currentLocationId.trim().isNotEmpty
+        ? _currentLocationId.trim()
+        : prefetchRequest.initialLocationId;
+    final generation = prefetchRequest.generation;
+    _worldMapPrefetches.clear();
+    final request = _loadWorldMapUpdate(
+      api: prefetchRequest.api,
+      worldId: prefetchRequest.worldId,
       locationId: locationId,
     );
     final entry = _TilemapWorldMapPrefetch(
@@ -98,14 +161,12 @@ class TilemapRestorationController extends ChangeNotifier {
     );
     _worldMapPrefetches[locationId] = entry;
     final definition = await request;
-    if (_scopeKey != scopeKey || generation != _worldMapPrefetchGeneration) {
+    if (_scopeKey != prefetchRequest.scopeKey ||
+        generation != _worldMapPrefetchGeneration) {
       return;
     }
 
-    final drillableIds = drillableLocationIds
-        .map((locationId) => locationId.trim())
-        .where((locationId) => locationId.isNotEmpty)
-        .toSet();
+    final drillableIds = prefetchRequest.drillableLocationIds;
     final relatedLocationIds = <String>[];
     void addRelatedLocation(String rawLocationId) {
       final relatedLocationId = rawLocationId.trim();
@@ -129,20 +190,22 @@ class TilemapRestorationController extends ChangeNotifier {
         if (drillTargetCount >= tilemapSilentPreloadMaxPendingTargets) break;
       }
     }
-    final relatedRequests = <Future<TilemapDefinition?>>[];
     for (final relatedLocationId in relatedLocationIds) {
+      if (_scopeKey != prefetchRequest.scopeKey ||
+          generation != _worldMapPrefetchGeneration) {
+        return;
+      }
       final relatedRequest = _loadWorldMapUpdate(
-        api: api,
-        worldId: resolvedWorldId,
+        api: prefetchRequest.api,
+        worldId: prefetchRequest.worldId,
         locationId: relatedLocationId,
       );
       _worldMapPrefetches[relatedLocationId] = _TilemapWorldMapPrefetch(
         generation: generation,
         request: relatedRequest,
       );
-      relatedRequests.add(relatedRequest);
+      await relatedRequest;
     }
-    await Future.wait(relatedRequests);
   }
 
   Future<TilemapDefinition?> _loadWorldMapUpdate({
@@ -178,6 +241,7 @@ class TilemapRestorationController extends ChangeNotifier {
 
   void _clearWorldMapPrefetches() {
     _worldMapPrefetchGeneration += 1;
+    _pendingWorldMapPrefetch = null;
     _worldMapPrefetches.clear();
   }
 
@@ -257,6 +321,24 @@ class _TilemapWorldMapPrefetch {
 
   final int generation;
   final Future<TilemapDefinition?> request;
+}
+
+class _TilemapWorldMapPrefetchRequest {
+  const _TilemapWorldMapPrefetchRequest({
+    required this.api,
+    required this.worldId,
+    required this.initialLocationId,
+    required this.drillableLocationIds,
+    required this.scopeKey,
+    required this.generation,
+  });
+
+  final GenesisApi api;
+  final String worldId;
+  final String initialLocationId;
+  final Set<String> drillableLocationIds;
+  final String scopeKey;
+  final int generation;
 }
 
 String resolveTilemapPreferredVisibleLocationId({
@@ -1016,7 +1098,13 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       while (mounted && _mapDataRefreshPending) {
         _mapDataRefreshPending = false;
         final generation = _mapDataGeneration;
-        await _refreshCurrentMapData(generation);
+        try {
+          await _refreshCurrentMapData(generation);
+        } catch (error) {
+          if (kDebugMode) {
+            debugPrint('[Tilemap] map_updated refresh failed: $error');
+          }
+        }
       }
     } finally {
       _mapDataRefreshRunning = false;
@@ -1073,9 +1161,14 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       for (final preloadLocationId in nextPreloadLocationIds)
         preloadLocationId: _mapResults[preloadLocationId],
     };
-    final refreshedPreloadResults = await Future.wait(
-      nextPreloadLocationIds.map(
-        (preloadLocationId) async => MapEntry(
+    final refreshedPreloadResults = <MapEntry<String, _TilemapLoadResult>>[];
+    for (final preloadLocationId in nextPreloadLocationIds) {
+      if (!_mapDataRefreshIsCurrent(generation, locationId)) {
+        _restartMapDataRefreshIfLocationChanged(locationId);
+        return;
+      }
+      refreshedPreloadResults.add(
+        MapEntry(
           preloadLocationId,
           await _loadSafely(
             api,
@@ -1083,8 +1176,8 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
             reportFailure: false,
           ),
         ),
-      ),
-    );
+      );
+    }
     if (!_mapDataRefreshIsCurrent(generation, locationId)) {
       _restartMapDataRefreshIfLocationChanged(locationId);
       return;

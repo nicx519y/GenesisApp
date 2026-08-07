@@ -1433,6 +1433,7 @@ class _MockState {
     for (var index = 0; index < payloads.length; index += 1) {
       final payload = payloads[index];
       final content = switch (payload) {
+        ChatroomUserEnterLocationPayload event => event.text,
         ChatroomStoryEventsPayload event when event.paragraphs.length == 1 =>
           jsonEncode(<String, Object?>{
             'location_id': event.locationId,
@@ -1447,14 +1448,24 @@ class _MockState {
           conversationRoundId: roundId,
           roundOrder: index + 1,
           senderType: payload.senderType,
-          senderId: 'sub_tick',
-          senderName: 'sub_tick',
-          userId: '',
+          senderId: payload is ChatroomUserEnterLocationPayload
+              ? payload.charId
+              : 'sub_tick',
+          senderName: payload is ChatroomUserEnterLocationPayload
+              ? 'Iris Vale'
+              : 'sub_tick',
+          userId: payload is ChatroomUserEnterLocationPayload
+              ? 'u_mock_iris'
+              : '',
           content: content,
-          messageType: '',
+          messageType: payload is ChatroomUserEnterLocationPayload
+              ? 'text'
+              : '',
           tickNo: 4,
           subTickNo: 1,
-          locationMessageId: 0,
+          locationMessageId: payload is ChatroomUserEnterLocationPayload
+              ? null
+              : 0,
         ),
       );
     }
@@ -4515,7 +4526,8 @@ class _MockState {
     final copy = _deepCopyMap(message);
     copy.remove('world_id');
     copy.remove('round_order');
-    if (isChatroomTimelinePayloadSenderType(copy['sender_type'])) {
+    if (isChatroomTimelinePayloadSenderType(copy['sender_type']) &&
+        copy['sender_type'] != chatroomUserEnterLocationSenderType) {
       copy['location_id'] = '';
     }
     return copy;

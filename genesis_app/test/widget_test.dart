@@ -23075,6 +23075,9 @@ class _FakeChatroomSession implements ChatroomSession {
   Future<void> heartbeat() async {}
 
   @override
+  Future<void> sendUserEnterLocation({required String locationId}) async {}
+
+  @override
   Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
     sentMessages.add(text);
     final resolvedClientMsgId = clientMsgId ?? 'client-1';

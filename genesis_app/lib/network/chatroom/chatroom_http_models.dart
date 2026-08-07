@@ -43,9 +43,26 @@ class ChatroomHttpMessage {
       isChatroomLocationSupplementalSenderType(senderType);
 
   ChatroomTimelinePayload? get timelinePayload {
-    return tryDecodeChatroomTimelinePayload(
+    final decoded = tryDecodeChatroomTimelinePayload(
       senderType: senderType,
       rawPayload: content,
+    );
+    if (decoded != null) return decoded;
+    if (senderType.trim().toLowerCase() !=
+        chatroomUserEnterLocationSenderType) {
+      return null;
+    }
+    final resolvedSenderId = senderId.trim();
+    final resolvedLocationId = locationId.trim();
+    if (resolvedSenderId.isEmpty ||
+        resolvedLocationId.isEmpty ||
+        content.trim().isEmpty) {
+      return null;
+    }
+    return ChatroomUserEnterLocationPayload(
+      charId: resolvedSenderId,
+      toLocationId: resolvedLocationId,
+      text: content,
     );
   }
 

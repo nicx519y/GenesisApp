@@ -71,7 +71,7 @@ class ChatMessageList extends StatelessWidget {
   }
 }
 
-class ChatAnchoredMessageList extends StatelessWidget {
+class ChatAnchoredMessageList extends StatefulWidget {
   const ChatAnchoredMessageList({
     super.key,
     required this.controller,
@@ -88,10 +88,6 @@ class ChatAnchoredMessageList extends StatelessWidget {
     this.style,
   });
 
-  static const _bottomSliverKey = ValueKey<String>(
-    'chat-anchored-message-list-bottom',
-  );
-
   final ScrollController controller;
   final List<ChatMessageVm> messages;
   final String centerLocalId;
@@ -106,152 +102,154 @@ class ChatAnchoredMessageList extends StatelessWidget {
   final ChatUiStyleConfig? style;
 
   @override
-  Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
-    if (messages.isEmpty) {
-      return ListView(
-        controller: controller,
-        physics: const ChatBottomAnchoringScrollPhysics(),
-        keyboardDismissBehavior:
-            keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
-        padding: style.messageListPadding,
-        children: [
-          _ChatOldestEdgeContent(
-            topTitle: topTitle,
-            notice: oldestEdgeNotice,
-            loading: oldestEdgeLoading,
-            style: style,
-          ),
-        ],
-      );
+  State<ChatAnchoredMessageList> createState() =>
+      _ChatAnchoredMessageListState();
+}
+
+class _ChatAnchoredMessageListState extends State<ChatAnchoredMessageList> {
+  final Map<String, GlobalKey> _messageLayoutKeys = <String, GlobalKey>{};
+  int _anchorRestoreGeneration = 0;
+
+  @override
+  void didUpdateWidget(ChatAnchoredMessageList oldWidget) {
+    final keepsController = oldWidget.controller == widget.controller;
+    final wasNearBottom =
+        keepsController &&
+        oldWidget.controller.hasClients &&
+        oldWidget.controller.position.maxScrollExtent -
+                oldWidget.controller.position.pixels <=
+            24;
+    final anchorLocalId = oldWidget.centerLocalId.trim();
+    final anchorTop = _messageTop(anchorLocalId);
+    super.didUpdateWidget(oldWidget);
+    _pruneMessageLayoutKeys();
+
+    _anchorRestoreGeneration += 1;
+    if (!keepsController) return;
+    final generation = _anchorRestoreGeneration;
+    if (wasNearBottom) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || generation != _anchorRestoreGeneration) return;
+        if (!widget.controller.hasClients) return;
+        widget.controller.jumpTo(widget.controller.position.maxScrollExtent);
+      });
+      return;
     }
+    if (anchorLocalId.isEmpty ||
+        anchorLocalId != widget.centerLocalId.trim() ||
+        anchorTop == null) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _anchorRestoreGeneration) return;
+      final nextAnchorTop = _messageTop(anchorLocalId);
+      if (nextAnchorTop == null || !widget.controller.hasClients) return;
+      final delta = nextAnchorTop - anchorTop;
+      if (delta.abs() < precisionErrorTolerance) return;
+      final position = widget.controller.position;
+      final target = (position.pixels + delta).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      if ((target - position.pixels).abs() < precisionErrorTolerance) return;
+      widget.controller.jumpTo(target);
+    });
+  }
 
-    final centerIndex = _resolvedCenterIndex();
-    final olderCount = centerIndex;
-    final newerCount = messages.length - centerIndex;
-    final padding = style.messageListPadding;
+  @override
+  void dispose() {
+    _anchorRestoreGeneration += 1;
+    _messageLayoutKeys.clear();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = widget.style ?? ChatUiStyleConfig.standard;
     final hasOldestEdgeContent =
-        topTitle.trim().isNotEmpty ||
-        (oldestEdgeNotice?.trim().isNotEmpty ?? false) ||
-        oldestEdgeLoading;
-
-    if (centerIndex == 0 || !_hasNonSystemMessageBefore(centerIndex)) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final minHeight = constraints.hasBoundedHeight
-              ? constraints.maxHeight
-              : 0.0;
-          return SingleChildScrollView(
-            controller: controller,
-            physics: const ChatBottomAnchoringScrollPhysics(),
-            keyboardDismissBehavior:
-                keyboardDismissBehavior ??
-                ScrollViewKeyboardDismissBehavior.manual,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: minHeight),
-              child: Padding(
-                padding: padding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (hasOldestEdgeContent)
-                      _ChatOldestEdgeContent(
-                        topTitle: topTitle,
-                        notice: oldestEdgeNotice,
-                        loading: oldestEdgeLoading,
-                        style: style,
-                      ),
-                    for (var index = 0; index < messages.length; index += 1)
-                      _buildMessageRow(index, style),
-                  ],
-                ),
+        widget.topTitle.trim().isNotEmpty ||
+        (widget.oldestEdgeNotice?.trim().isNotEmpty ?? false) ||
+        widget.oldestEdgeLoading;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minHeight = constraints.hasBoundedHeight
+            ? constraints.maxHeight
+            : 0.0;
+        return SingleChildScrollView(
+          controller: widget.controller,
+          physics: const ChatBottomAnchoringScrollPhysics(),
+          keyboardDismissBehavior:
+              widget.keyboardDismissBehavior ??
+              ScrollViewKeyboardDismissBehavior.manual,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            child: Padding(
+              padding: style.messageListPadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (hasOldestEdgeContent)
+                    _ChatOldestEdgeContent(
+                      topTitle: widget.topTitle,
+                      notice: widget.oldestEdgeNotice,
+                      loading: widget.oldestEdgeLoading,
+                      style: style,
+                    ),
+                  for (
+                    var index = 0;
+                    index < widget.messages.length;
+                    index += 1
+                  )
+                    _buildMessageRow(index, style),
+                ],
               ),
             ),
-          );
-        },
-      );
-    }
-
-    return CustomScrollView(
-      controller: controller,
-      center: _bottomSliverKey,
-      physics: const ChatBottomAnchoringScrollPhysics(),
-      keyboardDismissBehavior:
-          keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.only(
-            left: padding.left,
-            top: padding.top,
-            right: padding.right,
           ),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              if (index == olderCount) {
-                return _ChatOldestEdgeContent(
-                  topTitle: topTitle,
-                  notice: oldestEdgeNotice,
-                  loading: oldestEdgeLoading,
-                  style: style,
-                );
-              }
-              final messageIndex = centerIndex - 1 - index;
-              return _buildMessageRow(messageIndex, style);
-            }, childCount: olderCount + 1),
-          ),
-        ),
-        SliverPadding(
-          key: _bottomSliverKey,
-          padding: EdgeInsets.only(
-            left: padding.left,
-            right: padding.right,
-            bottom: padding.bottom,
-          ),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final messageIndex = centerIndex + index;
-              return _buildMessageRow(messageIndex, style);
-            }, childCount: newerCount),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
-  int _resolvedCenterIndex() {
-    final normalizedCenterLocalId = centerLocalId.trim();
-    if (normalizedCenterLocalId.isEmpty) return 0;
-    final index = messages.indexWhere(
-      (message) => message.localId == normalizedCenterLocalId,
+  void _pruneMessageLayoutKeys() {
+    final retainedLocalIds = widget.messages
+        .map((message) => message.localId)
+        .toSet();
+    _messageLayoutKeys.removeWhere(
+      (localId, _) => !retainedLocalIds.contains(localId),
     );
-    return index < 0 ? 0 : index;
   }
 
-  bool _hasNonSystemMessageBefore(int centerIndex) {
-    for (
-      var index = 0;
-      index < centerIndex && index < messages.length;
-      index += 1
-    ) {
-      if (!messages[index].isSystem) return true;
-    }
-    return false;
+  double? _messageTop(String localId) {
+    if (localId.isEmpty) return null;
+    final messageContext = _messageLayoutKeys[localId]?.currentContext;
+    final renderObject = messageContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return null;
+    return renderObject.localToGlobal(Offset.zero).dy;
   }
 
   Widget _buildMessageRow(int messageIndex, ChatUiStyleConfig style) {
-    final current = messages[messageIndex];
-    final previous = messageIndex == 0 ? null : messages[messageIndex - 1];
-    return ChatMessageRow(
-      key: ValueKey(current.localId),
-      message: current,
-      imageViewerMessages: messages,
-      style: style,
-      onMessageLongPressStart: onMessageLongPressStart,
-      onFailedMessageTap: onFailedMessageTap,
-      onCharactersMovedLocationTap: onCharactersMovedLocationTap,
-      showDateDivider:
-          showDateDividers &&
-          shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
+    final current = widget.messages[messageIndex];
+    final previous = messageIndex == 0
+        ? null
+        : widget.messages[messageIndex - 1];
+    final layoutKey = _messageLayoutKeys.putIfAbsent(
+      current.localId,
+      GlobalKey.new,
+    );
+    return KeyedSubtree(
+      key: layoutKey,
+      child: ChatMessageRow(
+        key: ValueKey(current.localId),
+        message: current,
+        imageViewerMessages: widget.messages,
+        style: style,
+        onMessageLongPressStart: widget.onMessageLongPressStart,
+        onFailedMessageTap: widget.onFailedMessageTap,
+        onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap,
+        showDateDivider:
+            widget.showDateDividers &&
+            shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
+      ),
     );
   }
 }
@@ -280,7 +278,7 @@ class ChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
     required double velocity,
   }) {
     final wasNearBottom =
-        oldPosition.maxScrollExtent - newPosition.pixels <= bottomTolerance;
+        oldPosition.maxScrollExtent - oldPosition.pixels <= bottomTolerance;
     if (wasNearBottom) {
       return newPosition.maxScrollExtent;
     }

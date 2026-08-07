@@ -104,10 +104,16 @@ class ChatroomEnvelope {
 
   factory ChatroomEnvelope.decode(String input) {
     try {
+      if (isChatroomFrameOversized(input)) {
+        throw const ChatroomProtocolException(
+          'Envelope exceeds the maximum frame size',
+        );
+      }
       final decoded = jsonDecode(input);
       if (decoded is! Map) {
         throw const ChatroomProtocolException('Envelope is not a JSON object');
       }
+      validateChatroomPayloadLimits(decoded, field: 'envelope');
       return ChatroomEnvelope.fromJson(asJsonMap(decoded));
     } on ChatroomProtocolException {
       rethrow;
@@ -446,6 +452,90 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
       broadcast: asBool(payload['broadcast']),
       clientMsgId: asString(payload['client_msg_id']),
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),
+    );
+  }
+}
+
+class ChatroomUserEnterLocationMessage extends ChatroomMessageEvent {
+  const ChatroomUserEnterLocationMessage({
+    required super.sessionId,
+    required super.worldId,
+    required super.locationId,
+    required super.userId,
+    required super.code,
+    required super.codeMsg,
+    required super.ts,
+    super.globalMessageId,
+    required super.messageId,
+    super.locationMessageId,
+    required super.conversationRoundId,
+    required super.roundOrder,
+    required super.senderType,
+    required super.senderId,
+    required super.senderName,
+    required super.content,
+    super.messageType,
+    required super.broadcast,
+    required this.currentTime,
+    required this.createdAt,
+  });
+
+  final String currentTime;
+  final DateTime? createdAt;
+
+  factory ChatroomUserEnterLocationMessage.fromEnvelope(
+    ChatroomEnvelope envelope,
+  ) {
+    final payload = envelope.mergedPayload;
+    final messageId = envelope.msgId ?? 0;
+    final locationMessageId = envelope.locationMsgId ?? 0;
+    final locationId = envelope.locationId.trim();
+    final senderId = envelope.senderId.trim();
+    if (messageId <= 0) {
+      throw const ChatroomProtocolException(
+        'user_enter_location msg_id must be a positive integer',
+      );
+    }
+    if (locationMessageId <= 0) {
+      throw const ChatroomProtocolException(
+        'user_enter_location location_msg_id must be a positive integer',
+      );
+    }
+    if (locationId.isEmpty) {
+      throw const ChatroomProtocolException(
+        'user_enter_location location_id is required',
+      );
+    }
+    if (senderId.isEmpty) {
+      throw const ChatroomProtocolException(
+        'user_enter_location sender_id is required',
+      );
+    }
+    return ChatroomUserEnterLocationMessage(
+      sessionId: envelope.sessionId,
+      worldId: envelope.worldId,
+      locationId: locationId,
+      userId: envelope.userId,
+      code: _wsCode(payload),
+      codeMsg: envelope.errMsg,
+      ts: asDateTime(envelope.ts),
+      globalMessageId: envelope.globalMsgId ?? 0,
+      messageId: messageId,
+      locationMessageId: locationMessageId,
+      conversationRoundId: asString(envelope.conversationRoundId),
+      roundOrder: asInt(payload['round_order']),
+      senderType: chatroomUserEnterLocationSenderType,
+      senderId: senderId,
+      senderName: envelope.senderName,
+      content: asString(payload['content']),
+      messageType: resolveIncomingChatroomMessageType(
+        hasMessageTypeField: envelope.payload.containsKey('message_type'),
+        rawMessageType: envelope.payload['message_type'],
+        senderId: senderId,
+      ),
+      broadcast: envelope.broadcast ?? false,
+      currentTime: envelope.currentTime,
+      createdAt: asDateTime(envelope.ts),
     );
   }
 }
@@ -1035,6 +1125,7 @@ class ChatroomMessageHandlers {
     this.onWorldNotification,
     this.onStoryEventsMessage,
     this.onCharactersMovedMessage,
+    this.onUserEnterLocationMessage,
     this.onUserMessage,
     this.onNarratorMessage,
     this.onTickAdvanceMessage,
@@ -1054,6 +1145,8 @@ class ChatroomMessageHandlers {
   final void Function(ChatroomStoryEventsMessage event)? onStoryEventsMessage;
   final void Function(ChatroomCharactersMovedMessage event)?
   onCharactersMovedMessage;
+  final void Function(ChatroomUserEnterLocationMessage event)?
+  onUserEnterLocationMessage;
   final void Function(ChatroomUserMessage event)? onUserMessage;
   final void Function(ChatroomNarratorMessage event)? onNarratorMessage;
   final void Function(ChatroomTickAdvanceMessage event)? onTickAdvanceMessage;
@@ -1082,6 +1175,8 @@ class ChatroomMessageHandlers {
         onStoryEventsMessage?.call(e);
       case ChatroomCharactersMovedMessage e:
         onCharactersMovedMessage?.call(e);
+      case ChatroomUserEnterLocationMessage e:
+        onUserEnterLocationMessage?.call(e);
       case ChatroomNewUserJoinEvent():
         break;
       case ChatroomUserMessage e:
@@ -1111,10 +1206,14 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
     case 'world_change':
     case 'user_location_change':
     case 'world_new_message':
-    case 'user_enter_location':
     case 'map_updated':
     case 'character_updated':
       return ChatroomWorldNotification.fromEnvelope(envelope);
+    case 'user_enter_location':
+      return (envelope.msgId ?? 0) > 0 &&
+              envelope.payload.containsKey('content')
+          ? ChatroomUserEnterLocationMessage.fromEnvelope(envelope)
+          : ChatroomWorldNotification.fromEnvelope(envelope);
     case 'story_events':
       return ChatroomStoryEventsMessage.fromEnvelope(envelope);
     case 'characters_moved':
@@ -1160,6 +1259,8 @@ String chatroomEventType(ChatroomEvent event) {
       return 'story_events';
     case ChatroomCharactersMovedMessage():
       return 'characters_moved';
+    case ChatroomUserEnterLocationMessage():
+      return 'user_enter_location';
     case ChatroomNewUserJoinEvent():
       return 'new_user_join';
     case ChatroomUserMessage():

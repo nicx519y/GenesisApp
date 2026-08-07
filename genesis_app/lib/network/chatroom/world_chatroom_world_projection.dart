@@ -166,6 +166,7 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     String socketCurrentTime = '',
     int socketTickNo = 0,
   }) {
+    if (_disposed) return;
     if (!_failures.isClosed) _failures.add(failure);
     _setState(
       _stateWithSocketWorldProgress(
@@ -295,6 +296,7 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
   }
 
   void _setState(WorldChatroomState state) {
+    if (_disposed) return;
     _state = state;
     if (!_states.isClosed) _states.add(state);
   }

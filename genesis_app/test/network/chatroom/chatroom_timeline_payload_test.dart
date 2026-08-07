@@ -12,6 +12,24 @@ void main() {
       isChatroomLocationSupplementalSenderType('characters_moved'),
       isTrue,
     );
+    expect(
+      isChatroomLocationSupplementalSenderType('user_enter_location'),
+      isTrue,
+    );
+    expect(
+      isChatroomMessageIdOrderedSupplemental(
+        'user_enter_location',
+        locationMessageId: 0,
+      ),
+      isTrue,
+    );
+    expect(
+      isChatroomMessageIdOrderedSupplemental(
+        'user_enter_location',
+        locationMessageId: 1,
+      ),
+      isFalse,
+    );
     expect(isChatroomLocationSupplementalSenderType('user'), isFalse);
   });
 
@@ -190,4 +208,49 @@ void main() {
       );
     },
   );
+
+  test('payload limits accept the boundary and reject oversized values', () {
+    final boundaryMovements = [
+      for (var index = 0; index < chatroomMaxCollectionItems; index += 1)
+        {'char_id': 'char-$index', 'to_loc_id': 'loc-$index'},
+    ];
+    expect(
+      decodeChatroomTimelinePayload(
+        senderType: chatroomCharactersMovedSenderType,
+        rawPayload: {'movements': boundaryMovements},
+      ),
+      isA<ChatroomCharactersMovedPayload>(),
+    );
+    expect(
+      () => decodeChatroomTimelinePayload(
+        senderType: chatroomCharactersMovedSenderType,
+        rawPayload: {
+          'movements': [
+            ...boundaryMovements,
+            {'char_id': 'char-over', 'to_loc_id': 'loc-over'},
+          ],
+        },
+      ),
+      throwsFormatException,
+    );
+    expect(
+      () => decodeChatroomTimelinePayload(
+        senderType: chatroomUserEnterLocationSenderType,
+        rawPayload: {
+          'char_id': 'char-1',
+          'to_location_id': 'loc-1',
+          'text': 'x' * (chatroomMaxStringCodeUnits + 1),
+        },
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('frame limit is measured in UTF-8 bytes', () {
+    expect(isChatroomFrameOversized('x' * chatroomMaxFrameBytes), isFalse);
+    expect(
+      isChatroomFrameOversized('你' * ((chatroomMaxFrameBytes ~/ 3) + 1)),
+      isTrue,
+    );
+  });
 }

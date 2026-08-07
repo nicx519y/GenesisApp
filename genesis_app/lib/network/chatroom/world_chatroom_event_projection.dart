@@ -15,6 +15,13 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         await _handleCharactersMovedMessage(
           WorldChatroomMessage.fromCharactersMovedMessage(e),
         );
+      case ChatroomUserEnterLocationMessage e:
+        await _handleIncomingMessage(
+          WorldChatroomMessage.fromUserEnterLocationMessage(e),
+        );
+        unawaited(
+          _scheduleUserLocationsRefresh(socketCurrentTime: e.currentTime),
+        );
       case ChatroomUserMessage e:
         await _handleIncomingMessage(WorldChatroomMessage.fromUserMessage(e));
       case ChatroomNarratorMessage e:
@@ -82,23 +89,12 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       case 'world_change':
         await _refreshWorld(socketCurrentTime: event.currentTime);
       case 'user_location_change':
-        await _refreshUserLocations(socketCurrentTime: event.currentTime);
+        unawaited(
+          _scheduleUserLocationsRefresh(socketCurrentTime: event.currentTime),
+        );
       case 'user_enter_location':
         unawaited(
-          _refreshUserLocations(
-            socketCurrentTime: event.currentTime,
-          ).catchError((Object error) {
-            if (_disposed) return;
-            _recordFailure(
-              ChatroomFailureEvent(
-                code: 'user_locations_refresh_failed',
-                message: 'Something went wrong',
-                sourceType: 'user_enter_location',
-                requestType: 'get_user_locations',
-                cause: error,
-              ),
-            );
-          }),
+          _scheduleUserLocationsRefresh(socketCurrentTime: event.currentTime),
         );
       case 'map_updated':
         _setState(
@@ -139,18 +135,18 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         _logChatroomSocketEvent(
           'characters_moved without msg_id fetch start world=$_worldId',
         );
-        await _fetchLatestMessagesForNotification();
+        unawaited(_scheduleLatestMessagesRefresh());
         _logChatroomSocketEvent(
-          'characters_moved without msg_id fetch done world=$_worldId',
+          'characters_moved without msg_id fetch scheduled world=$_worldId',
         );
       case 'world_new_message':
         _logChatroomSocketEvent(
           'world_new_message fetch start location=${event.locationId} '
           'world=$_worldId',
         );
-        await _fetchLatestMessagesForNotification();
+        unawaited(_scheduleLatestMessagesRefresh());
         _logChatroomSocketEvent(
-          'world_new_message fetch done location=${event.locationId} '
+          'world_new_message fetch scheduled location=${event.locationId} '
           'world=$_worldId',
         );
       case 'tick_start':
@@ -203,8 +199,62 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
     return updatedWorld;
   }
 
-  Future<void> _refreshUserLocations({String socketCurrentTime = ''}) async {
-    final refreshGeneration = ++_userLocationsRefreshGeneration;
+  Future<void> _scheduleUserLocationsRefresh({String socketCurrentTime = ''}) {
+    if (_disposed || _worldId.trim().isEmpty) return Future<void>.value();
+    _pendingUserLocationsSocketCurrentTime = socketCurrentTime;
+    _userLocationsRefreshPending = true;
+    _userLocationsRefreshGeneration += 1;
+    return _startUserLocationsRefreshDrain();
+  }
+
+  Future<void> _startUserLocationsRefreshDrain() {
+    final activeDrain = _userLocationsRefreshDrain;
+    if (activeDrain != null) return activeDrain;
+    final drain = _drainUserLocationsRefreshes();
+    _userLocationsRefreshDrain = drain;
+    unawaited(
+      drain.whenComplete(() {
+        if (!identical(_userLocationsRefreshDrain, drain)) return;
+        _userLocationsRefreshDrain = null;
+        if (_userLocationsRefreshPending && !_disposed) {
+          unawaited(_startUserLocationsRefreshDrain());
+        }
+      }),
+    );
+    return drain;
+  }
+
+  Future<void> _drainUserLocationsRefreshes() async {
+    while (_userLocationsRefreshPending && !_disposed) {
+      _userLocationsRefreshPending = false;
+      final refreshGeneration = _userLocationsRefreshGeneration;
+      final socketCurrentTime = _pendingUserLocationsSocketCurrentTime;
+      try {
+        await _runUserLocationsRefresh(
+          refreshGeneration: refreshGeneration,
+          socketCurrentTime: socketCurrentTime,
+        );
+      } catch (error) {
+        if (_disposed || refreshGeneration != _userLocationsRefreshGeneration) {
+          continue;
+        }
+        _recordFailure(
+          ChatroomFailureEvent(
+            code: 'user_locations_refresh_failed',
+            message: 'Something went wrong',
+            sourceType: 'user_locations_refresh',
+            requestType: 'get_user_locations',
+            cause: error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _runUserLocationsRefresh({
+    required int refreshGeneration,
+    String socketCurrentTime = '',
+  }) async {
     late final ChatroomUserLocationsResponse response;
     try {
       response = await _api.chatroomHttp.getUserLocations(worldId: _worldId);

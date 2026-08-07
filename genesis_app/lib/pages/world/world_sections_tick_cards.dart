@@ -89,15 +89,27 @@ class WorldTickPendingSkeletonLine extends StatelessWidget {
 class WorldTickEventCardPage extends StatefulWidget {
   const WorldTickEventCardPage({
     super.key,
-    required this.child,
+    this.child,
+    this.itemCount,
+    this.itemBuilder,
     required this.resetRevision,
     required this.hasTopEdgePage,
     required this.hasBottomEdgePage,
     required this.padding,
     required this.onTurnPage,
-  });
+  }) : assert(
+         child != null || (itemCount != null && itemBuilder != null),
+         'Provide child or itemCount/itemBuilder.',
+       ),
+       assert(
+         child == null || (itemCount == null && itemBuilder == null),
+         'child and itemCount/itemBuilder are mutually exclusive.',
+       ),
+       assert(itemCount == null || itemCount >= 0);
 
-  final Widget child;
+  final Widget? child;
+  final int? itemCount;
+  final IndexedWidgetBuilder? itemBuilder;
   final int resetRevision;
   final bool hasTopEdgePage;
   final bool hasBottomEdgePage;
@@ -252,15 +264,26 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
-            child: SingleChildScrollView(
+            child: CustomScrollView(
               controller: _scrollController,
-              padding: widget.padding,
               physics: WorldTickCardScrollPhysics(
                 allowLeadingOverscroll: widget.hasTopEdgePage,
                 allowTrailingOverscroll: widget.hasBottomEdgePage,
                 parent: AlwaysScrollableScrollPhysics(),
               ),
-              child: widget.child,
+              slivers: [
+                SliverPadding(
+                  padding: widget.padding,
+                  sliver: widget.itemBuilder == null
+                      ? SliverToBoxAdapter(child: widget.child)
+                      : SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            widget.itemBuilder!,
+                            childCount: widget.itemCount,
+                          ),
+                        ),
+                ),
+              ],
             ),
           ),
           _buildEdgeArrow(
