@@ -898,12 +898,18 @@ void main() {
       final moved = _timelineMessage(
         messageId: 13,
         senderType: chatroomCharactersMovedSenderType,
-        payload: {
-          'movements': [
-            {'char_id': 'char-alice', 'to_loc_id': 'loc-cafe'},
-            {'char_id': 'char-unknown', 'to_loc_id': 'loc-unknown'},
-          ],
-        },
+        payload: [
+          {
+            'char_id': 'char-alice',
+            'old_loc_id': 'loc-station',
+            'to_loc_id': 'loc-cafe',
+          },
+          {
+            'char_id': 'char-unknown',
+            'old_loc_id': 'loc-cafe',
+            'to_loc_id': 'loc-unknown',
+          },
+        ],
       );
       final invalid = _timelineMessage(
         messageId: 14,

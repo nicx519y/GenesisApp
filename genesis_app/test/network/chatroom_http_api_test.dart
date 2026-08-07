@@ -259,11 +259,13 @@ void main() {
           'location_id': '',
           'sender_type': 'characters_moved',
           'sender_id': 'sub_tick',
-          'content': jsonEncode({
-            'movements': [
-              {'char_id': 'char_alice', 'to_loc_id': 'loc_station'},
-            ],
-          }),
+          'content': jsonEncode([
+            {
+              'char_id': 'char_alice',
+              'old_loc_id': 'loc_cafe',
+              'to_loc_id': 'loc_station',
+            },
+          ]),
         },
       ],
       'has_more': true,
@@ -293,6 +295,13 @@ void main() {
     expect(
       response.messages[2].timelinePayload,
       isA<ChatroomCharactersMovedPayload>(),
+    );
+    expect(
+      (response.messages[2].timelinePayload as ChatroomCharactersMovedPayload)
+          .movements
+          .single
+          .toLocationId,
+      'loc_station',
     );
     expect(response.hasMore, isTrue);
     expect(response.newestMessageId, 232);

@@ -127,6 +127,29 @@ void main() {
     });
   });
 
+  test('decodes characters_moved top-level movement array from HTTP', () {
+    final payload = decodeChatroomTimelinePayload(
+      senderType: chatroomCharactersMovedSenderType,
+      rawPayload: jsonEncode([
+        {
+          'char_id': 'char_1',
+          'old_loc_id': 'loc_1_1_1',
+          'to_loc_id': 'loc_2_1_1',
+        },
+      ]),
+    );
+
+    expect(payload, isA<ChatroomCharactersMovedPayload>());
+    final moved = payload as ChatroomCharactersMovedPayload;
+    expect(moved.movements.single.charId, 'char_1');
+    expect(moved.movements.single.toLocationId, 'loc_2_1_1');
+    expect(jsonDecode(encodeChatroomTimelinePayload(moved)), {
+      'movements': [
+        {'char_id': 'char_1', 'to_loc_id': 'loc_2_1_1'},
+      ],
+    });
+  });
+
   test(
     'strict decode rejects malformed payload and tolerant decode hides it',
     () {

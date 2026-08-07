@@ -223,7 +223,9 @@ ChatroomTimelinePayload decodeChatroomTimelinePayload({
       'Unsupported chatroom timeline sender_type: $normalizedSenderType',
     );
   }
-  final payload = _decodePayloadMap(rawPayload);
+  final payload = normalizedSenderType == chatroomCharactersMovedSenderType
+      ? _decodeCharactersMovedPayloadMap(rawPayload)
+      : _decodePayloadMap(rawPayload);
   return switch (normalizedSenderType) {
     chatroomUserEnterLocationSenderType =>
       ChatroomUserEnterLocationPayload.fromJson(payload),
@@ -257,6 +259,18 @@ String encodeChatroomTimelinePayload(ChatroomTimelinePayload payload) {
 }
 
 Map<String, Object?> _decodePayloadMap(Object? rawPayload) {
+  return _requiredJsonMap(_decodePayload(rawPayload), field: 'payload');
+}
+
+Map<String, Object?> _decodeCharactersMovedPayloadMap(Object? rawPayload) {
+  final decoded = _decodePayload(rawPayload);
+  if (decoded is List) {
+    return <String, Object?>{'movements': List<Object?>.from(decoded)};
+  }
+  return _requiredJsonMap(decoded, field: 'payload');
+}
+
+Object? _decodePayload(Object? rawPayload) {
   Object? decoded = rawPayload;
   if (rawPayload is String) {
     try {
@@ -269,7 +283,7 @@ Map<String, Object?> _decodePayloadMap(Object? rawPayload) {
       );
     }
   }
-  return _requiredJsonMap(decoded, field: 'payload');
+  return decoded;
 }
 
 Map<String, Object?> _requiredJsonMap(Object? value, {required String field}) {
