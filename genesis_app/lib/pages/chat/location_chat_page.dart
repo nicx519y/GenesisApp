@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -299,6 +300,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _initialBottomScrollDidJump = false;
   bool _composerFocusBottomPinActive = false;
   bool _composerFocusBottomScheduled = false;
+  bool _autoFollowLatestMessages = true;
   final Set<String> _messageGapFillKeys = <String>{};
   final Set<int> _messageGapFillBeforeLocationMessageIds = <int>{};
   final Map<String, int> _messageGapFillAttempts = <String, int>{};
@@ -517,6 +519,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       controller: _scrollController,
       messages: _messages,
       centerLocalId: _scrollCenterLocalId,
+      autoFollowBottom: _autoFollowLatestMessages,
       topTitle: '',
       oldestEdgeNotice: _shouldShowOldestEdgeNotice()
           ? kAiContentDisclaimerText

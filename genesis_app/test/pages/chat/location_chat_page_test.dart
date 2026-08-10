@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,8 +9,12 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_controller.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transport.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
@@ -87,6 +92,145 @@ void main() {
       newPosition.maxScrollExtent,
     );
   });
+
+  test('chat scroll physics does not pin when auto follow is disabled', () {
+    const physics = ChatBottomAnchoringScrollPhysics(autoFollowBottom: false);
+    final oldPosition = FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: 500,
+      pixels: 500,
+      viewportDimension: 600,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+    final newPosition = FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: 800,
+      pixels: 500,
+      viewportDimension: 300,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+
+    expect(
+      physics.adjustPositionForNewDimensions(
+        oldPosition: oldPosition,
+        newPosition: newPosition,
+        isScrolling: false,
+        velocity: 0,
+      ),
+      isNot(newPosition.maxScrollExtent),
+    );
+  });
+
+  testWidgets(
+    'streaming messages never visit bottom while viewport is away from bottom',
+    (tester) async {
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('user-1');
+      await sessionStore.saveAuthToken('token-1');
+      final services = ServiceRegistry.build(
+        config: const AppConfig(useMock: true),
+        sessionStoreOverride: sessionStore,
+        chatroomMessagesOverride: MemoryChatroomMessageStorage(),
+      );
+      final socket = _LocationChatTestSocket();
+      final client = ChatroomClient(
+        wsBaseUrl: 'ws://localhost:8082/aitown-chat/ws',
+        sessionStore: sessionStore,
+        transport: _LocationChatTestTransport(socket),
+        autoHeartbeat: false,
+      );
+      final service = WorldChatroomService(
+        api: services.api,
+        client: client,
+        messageStorage: MemoryChatroomMessageStorage(),
+        refreshInitialSnapshotOnConnect: false,
+      );
+      await service.connect(
+        worldId: 'world-current',
+        identity: const ChatroomConnectionIdentity(
+          userId: 'user-1',
+          senderId: 'user-1',
+          senderName: 'Player One',
+        ),
+      );
+      for (var id = 1; id <= 20; id += 1) {
+        socket.serverUserMessage(messageId: id);
+      }
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.messagesByLocation['location-current']?.length == 20,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: service,
+              leaveOnInactive: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+
+      final scrollable = find.descendant(
+        of: find.byKey(const ValueKey('location-chat-message-list')),
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(position.maxScrollExtent - 300);
+      await tester.pump();
+      await tester.drag(scrollable, const Offset(0, 40));
+      await tester.pump();
+      expect(
+        tester
+            .widget<ChatAnchoredMessageList>(
+              find.byKey(const ValueKey('location-chat-message-list')),
+            )
+            .autoFollowBottom,
+        isFalse,
+      );
+      final pixelsBefore = position.pixels;
+      expect(position.maxScrollExtent - pixelsBefore, greaterThan(24));
+      final observedOffsets = <double>[];
+      void recordOffset() => observedOffsets.add(position.pixels);
+      position.addListener(recordOffset);
+
+      socket.serverLlmStreamStart(messageId: 21);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => service.state.streamMessagesByKey['location-current|21'] != null,
+      );
+      socket.serverLlmChunk(messageId: 21, content: 'streaming');
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.streamMessagesByKey['location-current|21']?.content ==
+            'streaming',
+      );
+      await tester.pump();
+      position.removeListener(recordOffset);
+
+      expect(position.pixels, closeTo(pixelsBefore, 0.1));
+      expect(
+        observedOffsets,
+        everyElement(inInclusiveRange(pixelsBefore - 0.1, pixelsBefore + 0.1)),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(service.dispose());
+    },
+  );
 
   test('location chat panel hides the inactive more button by default', () {
     const panel = LocationChatPanel(worldId: 'world-1', locationId: 'loc-1');
@@ -2133,4 +2277,111 @@ WorldChatroomMessage _wssStoryTimelineMessage({
   return WorldChatroomMessage.fromStoryEventsMessage(
     ChatroomStoryEventsMessage.fromEnvelope(envelope),
   );
+}
+
+Future<void> _pumpUntilLocationChatTest(
+  WidgetTester tester,
+  bool Function() condition,
+) async {
+  for (var attempt = 0; attempt < 100; attempt += 1) {
+    if (condition()) return;
+    await tester.pump();
+  }
+  fail('Timed out pumping location chat test state.');
+}
+
+class _LocationChatTestTransport implements ChatroomSocketTransport {
+  const _LocationChatTestTransport(this.socket);
+
+  final _LocationChatTestSocket socket;
+
+  @override
+  Future<ChatroomSocket> connect(
+    Uri uri, {
+    Map<String, String>? headers,
+  }) async {
+    return socket;
+  }
+}
+
+class _LocationChatTestSocket implements ChatroomSocket {
+  final _messages = StreamController<String>.broadcast();
+
+  @override
+  Stream<String> get messages => _messages.stream;
+
+  @override
+  Future<void> send(String message) async {
+    final frame = jsonDecode(message) as Map<String, dynamic>;
+    if (frame['type'] != 'join') return;
+    scheduleMicrotask(() {
+      _serverFrame('ack', {
+        'world_id': 'world-current',
+        'session_id': 'session-1',
+        'location_id': frame['location_id'],
+        'user_id': 'user-1',
+        'payload': {'client_msg_id': frame['client_msg_id']},
+      });
+    });
+  }
+
+  @override
+  Future<void> close([int? code, String? reason]) {
+    unawaited(_messages.close());
+    return Future<void>.value();
+  }
+
+  void serverUserMessage({required int messageId}) {
+    _serverFrame('user_message', {
+      'world_id': 'world-current',
+      'session_id': 'session-1',
+      'location_id': 'location-current',
+      'global_msg_id': 90000 + messageId,
+      'msg_id': messageId,
+      'location_msg_id': messageId,
+      'conversation_round_id': messageId,
+      'payload': {
+        'round_order': 1,
+        'sender_type': 'user',
+        'sender_id': 'user-1',
+        'sender_name': 'Player One',
+        'content': 'message $messageId',
+        'created_at': 1717300000000 + messageId,
+      },
+    });
+  }
+
+  void serverLlmStreamStart({required int messageId}) {
+    _serverFrame('llm_stream_start', {
+      'world_id': 'world-current',
+      'session_id': 'session-1',
+      'location_id': 'location-current',
+      'global_msg_id': 90000 + messageId,
+      'msg_id': messageId,
+      'location_msg_id': messageId,
+      'conversation_round_id': messageId,
+      'payload': {
+        'sender_id': 'char-1',
+        'sender_name': 'Alice',
+        'round_order': 1,
+      },
+    });
+  }
+
+  void serverLlmChunk({required int messageId, required String content}) {
+    _serverFrame('llm_chunk', {
+      'world_id': 'world-current',
+      'session_id': 'session-1',
+      'location_id': 'location-current',
+      'global_msg_id': 90000 + messageId,
+      'msg_id': messageId,
+      'location_msg_id': messageId,
+      'conversation_round_id': messageId,
+      'payload': {'sender_id': 'char-1', 'seq': 1, 'content': content},
+    });
+  }
+
+  void _serverFrame(String type, Map<String, Object?> fields) {
+    _messages.add(jsonEncode(<String, Object?>{'type': type, ...fields}));
+  }
 }

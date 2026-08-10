@@ -809,17 +809,25 @@ void main() {
       controller.jumpTo(controller.position.maxScrollExtent - 120);
       await tester.pump();
       final pixelsBefore = controller.position.pixels;
+      final observedOffsets = <double>[];
+      void recordOffset() => observedOffsets.add(controller.position.pixels);
+      controller.addListener(recordOffset);
 
       messages.last.text = List.filled(
         16,
         'streaming content keeps growing',
       ).join('\n');
       await tester.pumpWidget(build());
+      controller.removeListener(recordOffset);
 
       expect(controller.position.pixels, closeTo(pixelsBefore, 0.1));
       expect(
         controller.position.pixels,
         lessThan(controller.position.maxScrollExtent),
+      );
+      expect(
+        observedOffsets,
+        everyElement(inInclusiveRange(pixelsBefore - 0.1, pixelsBefore + 0.1)),
       );
     },
   );
@@ -1004,6 +1012,50 @@ void main() {
       expect(centerFinder, findsOneWidget);
       final after = tester.getTopLeft(centerFinder).dy;
       expect(after, closeTo(before, 1));
+    },
+  );
+
+  testWidgets(
+    'anchored message list keeps viewport stable when rolling window evicts head',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build(List<ChatMessageVm> messages, String centerLocalId) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: ChatAnchoredMessageList(
+                controller: controller,
+                messages: messages,
+                centerLocalId: centerLocalId,
+                topTitle: '',
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build(chatMessages(1, 80), 'm1'));
+      await tester.pumpAndSettle();
+      final retainedMessage = find.byKey(const ValueKey<String>('m30'));
+      await tester.ensureVisible(retainedMessage);
+      await tester.pumpAndSettle();
+      expect(
+        controller.position.maxScrollExtent - controller.position.pixels,
+        greaterThan(24),
+      );
+      final before = tester.getTopLeft(retainedMessage).dy;
+
+      await tester.pumpWidget(build(chatMessages(2, 81), 'm2'));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(before, 1));
     },
   );
 

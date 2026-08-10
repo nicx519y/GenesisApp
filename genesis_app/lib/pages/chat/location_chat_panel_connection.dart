@@ -520,6 +520,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       unawaited(_joinLocation(service));
     }
     final wasAtBottom = _isAtBottom();
+    final wasFollowingLatest = _autoFollowLatestMessages && wasAtBottom;
     final previousSource =
         _chatroomState.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
@@ -585,16 +586,21 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       },
     );
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
-    if (changedMessages && _initialBottomScrollPending) {
+    if (changedMessages &&
+        _initialBottomScrollPending &&
+        _autoFollowLatestMessages) {
       _scheduleInitialBottomScroll(complete: nextSource.isNotEmpty);
       return;
     }
-    if (changedMessages && _composerFocusBottomPinActive) {
-      _clearUnseenIncomingCount();
-      if (!wasAtBottom) _scheduleComposerFocusBottomPin();
-      return;
+    if (changedMessages && _initialBottomScrollPending) {
+      _cancelInitialBottomScroll(action: 'initialBottomScrollCancelled');
     }
-    if (changedMessages && wasAtBottom) {
+    if (changedMessages &&
+        _composerFocusBottomPinActive &&
+        !wasFollowingLatest) {
+      _deactivateComposerFocusBottomPin();
+    }
+    if (changedMessages && wasFollowingLatest) {
       _clearUnseenIncomingCount();
     } else if (changedMessages &&
         previousLatestLocalId.isNotEmpty &&

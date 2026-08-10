@@ -45,12 +45,31 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
     return position.maxScrollExtent - position.pixels <= 24;
   }
 
+  void _setAutoFollowLatestMessages(bool value, {required String action}) {
+    if (_autoFollowLatestMessages == value) return;
+    if (mounted) {
+      _setLocationChatState(() => _autoFollowLatestMessages = value);
+    } else {
+      _autoFollowLatestMessages = value;
+    }
+    _recordPanelDebug(action: action, details: {'enabled': value});
+  }
+
+  void _cancelInitialBottomScroll({required String action}) {
+    if (!_initialBottomScrollPending) return;
+    _initialBottomScrollPending = false;
+    _initialBottomScrollShouldComplete = false;
+    _initialBottomScrollDidJump = false;
+    _recordPanelDebug(action: action);
+  }
+
   double _bottomScrollOffset() {
     if (!_scrollController.hasClients) return 0;
     return _scrollController.position.maxScrollExtent;
   }
 
   void _startInitialBottomScroll() {
+    _autoFollowLatestMessages = true;
     _initialBottomScrollPending = true;
     _initialBottomScrollShouldComplete = false;
     _initialBottomScrollDidJump = false;
@@ -60,6 +79,10 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
 
   void _scheduleInitialBottomScroll({required bool complete}) {
     if (!_initialBottomScrollPending) return;
+    if (!_autoFollowLatestMessages) {
+      _cancelInitialBottomScroll(action: 'initialBottomScrollCancelled');
+      return;
+    }
     _initialBottomScrollShouldComplete =
         _initialBottomScrollShouldComplete || complete;
     if (_initialBottomScrollScheduled) return;
@@ -71,6 +94,10 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initialBottomScrollScheduled = false;
       if (!mounted || !_initialBottomScrollPending) return;
+      if (!_autoFollowLatestMessages) {
+        _cancelInitialBottomScroll(action: 'initialBottomScrollCancelled');
+        return;
+      }
       if (!_scrollController.hasClients) return;
       _scrollController.jumpTo(_bottomScrollOffset());
       _initialBottomScrollDidJump = true;
@@ -90,6 +117,7 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
   }
 
   void _scrollToBottom({bool jump = false}) {
+    _setAutoFollowLatestMessages(true, action: 'autoFollowEnabledByScroll');
     _recordPanelDebug(
       action: 'scrollToBottomScheduled',
       details: {'jump': jump},
@@ -110,6 +138,7 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
   }
 
   void _forceScrollToBottom() {
+    _setAutoFollowLatestMessages(true, action: 'autoFollowEnabledByForce');
     _recordPanelDebug(action: 'forceScrollToBottom');
     void jumpIfReady() {
       if (!mounted || !_scrollController.hasClients) return;
@@ -128,6 +157,7 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
   }
 
   void _activateComposerFocusBottomPin() {
+    _setAutoFollowLatestMessages(true, action: 'autoFollowEnabledByComposer');
     _composerFocusBottomPinActive = true;
     _recordPanelDebug(action: 'composerFocusBottomPinStart');
     if (_scrollController.hasClients) {
@@ -143,6 +173,10 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
 
   void _scheduleComposerFocusBottomPin() {
     if (!_composerFocusBottomPinActive) return;
+    if (!_autoFollowLatestMessages) {
+      _deactivateComposerFocusBottomPin();
+      return;
+    }
     if (_composerFocusBottomScheduled) return;
     _composerFocusBottomScheduled = true;
     _recordPanelDebug(action: 'composerFocusBottomPinScheduled');
@@ -150,7 +184,8 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
       _composerFocusBottomScheduled = false;
       if (!mounted ||
           !_composerFocusNode.hasFocus ||
-          !_composerFocusBottomPinActive) {
+          !_composerFocusBottomPinActive ||
+          !_autoFollowLatestMessages) {
         return;
       }
       if (_scrollController.hasClients) {
@@ -160,27 +195,42 @@ extension _LocationChatScrollActions on _LocationChatPanelState {
   }
 
   bool _handleMessageListScrollNotification(ScrollNotification notification) {
-    if (!_composerFocusBottomPinActive) return false;
-    if (notification is! ScrollUpdateNotification ||
-        notification.dragDetails == null) {
+    final userDriven =
+        notification is UserScrollNotification &&
+            notification.direction != ScrollDirection.idle ||
+        notification is ScrollUpdateNotification &&
+            notification.dragDetails != null;
+    if (!userDriven) {
       return false;
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_composerFocusBottomPinActive) return;
-      if (!_scrollController.hasClients || _isAtBottom()) return;
+    final atBottom =
+        notification.metrics.maxScrollExtent - notification.metrics.pixels <=
+        24;
+    _setAutoFollowLatestMessages(
+      atBottom,
+      action: atBottom ? 'autoFollowEnabledByUser' : 'autoFollowDisabledByUser',
+    );
+    if (atBottom) return false;
+    _cancelInitialBottomScroll(action: 'initialBottomScrollCancelledByUser');
+    if (_composerFocusBottomPinActive) {
       _deactivateComposerFocusBottomPin();
-    });
+    }
     return false;
   }
 
   void _keepBottomAfterLayoutIfNeeded() {
+    if (!_autoFollowLatestMessages) return;
     if (!_isAtBottom()) return;
     if (_keepBottomAfterLayoutScheduled) return;
     _keepBottomAfterLayoutScheduled = true;
     _recordPanelDebug(action: 'keepBottomAfterLayoutScheduled');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _keepBottomAfterLayoutScheduled = false;
-      if (!mounted || !_scrollController.hasClients) return;
+      if (!mounted ||
+          !_autoFollowLatestMessages ||
+          !_scrollController.hasClients) {
+        return;
+      }
       _scrollController.jumpTo(_bottomScrollOffset());
       _recordPanelDebug(action: 'keepBottomAfterLayoutJump');
     });

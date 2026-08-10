@@ -78,6 +78,7 @@ class ChatAnchoredMessageList extends StatefulWidget {
     required this.messages,
     required this.centerLocalId,
     required this.topTitle,
+    this.autoFollowBottom = true,
     this.onMessageLongPressStart,
     this.onFailedMessageTap,
     this.onCharactersMovedLocationTap,
@@ -92,6 +93,7 @@ class ChatAnchoredMessageList extends StatefulWidget {
   final List<ChatMessageVm> messages;
   final String centerLocalId;
   final String topTitle;
+  final bool autoFollowBottom;
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ChatMessageTap? onFailedMessageTap;
   final ChatCharacterMovementTap? onCharactersMovedLocationTap;
@@ -115,12 +117,14 @@ class _ChatAnchoredMessageListState extends State<ChatAnchoredMessageList> {
     final keepsController = oldWidget.controller == widget.controller;
     final wasNearBottom =
         keepsController &&
+        widget.autoFollowBottom &&
         oldWidget.controller.hasClients &&
         oldWidget.controller.position.maxScrollExtent -
                 oldWidget.controller.position.pixels <=
             24;
-    final anchorLocalId = oldWidget.centerLocalId.trim();
-    final anchorTop = _messageTop(anchorLocalId);
+    final anchor = keepsController && !wasNearBottom
+        ? _layoutAnchorForUpdate(oldWidget)
+        : null;
     super.didUpdateWidget(oldWidget);
     _pruneMessageLayoutKeys();
 
@@ -130,21 +134,18 @@ class _ChatAnchoredMessageListState extends State<ChatAnchoredMessageList> {
     if (wasNearBottom) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || generation != _anchorRestoreGeneration) return;
+        if (!widget.autoFollowBottom) return;
         if (!widget.controller.hasClients) return;
         widget.controller.jumpTo(widget.controller.position.maxScrollExtent);
       });
       return;
     }
-    if (anchorLocalId.isEmpty ||
-        anchorLocalId != widget.centerLocalId.trim() ||
-        anchorTop == null) {
-      return;
-    }
+    if (anchor == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || generation != _anchorRestoreGeneration) return;
-      final nextAnchorTop = _messageTop(anchorLocalId);
+      final nextAnchorTop = _messageTop(anchor.localId);
       if (nextAnchorTop == null || !widget.controller.hasClients) return;
-      final delta = nextAnchorTop - anchorTop;
+      final delta = nextAnchorTop - anchor.top;
       if (delta.abs() < precisionErrorTolerance) return;
       final position = widget.controller.position;
       final target = (position.pixels + delta).clamp(
@@ -154,6 +155,40 @@ class _ChatAnchoredMessageListState extends State<ChatAnchoredMessageList> {
       if ((target - position.pixels).abs() < precisionErrorTolerance) return;
       widget.controller.jumpTo(target);
     });
+  }
+
+  ({String localId, double top})? _layoutAnchorForUpdate(
+    ChatAnchoredMessageList oldWidget,
+  ) {
+    final previousCenterLocalId = oldWidget.centerLocalId.trim();
+    if (previousCenterLocalId.isNotEmpty &&
+        previousCenterLocalId == widget.centerLocalId.trim()) {
+      final top = _messageTop(previousCenterLocalId);
+      if (top != null) return (localId: previousCenterLocalId, top: top);
+    }
+
+    final viewportBounds = _globalBounds(context.findRenderObject());
+    ({String localId, double top})? closestAnchor;
+    var closestDistance = double.infinity;
+    for (final message in widget.messages) {
+      final messageBounds = _messageBounds(message.localId);
+      if (messageBounds == null) continue;
+      if (viewportBounds == null) {
+        return (localId: message.localId, top: messageBounds.top);
+      }
+      final distance = switch (messageBounds) {
+        Rect(:final bottom) when bottom < viewportBounds.top =>
+          viewportBounds.top - bottom,
+        Rect(:final top) when top > viewportBounds.bottom =>
+          top - viewportBounds.bottom,
+        _ => 0.0,
+      };
+      if (distance >= closestDistance) continue;
+      closestDistance = distance;
+      closestAnchor = (localId: message.localId, top: messageBounds.top);
+      if (distance == 0) break;
+    }
+    return closestAnchor;
   }
 
   @override
@@ -177,7 +212,9 @@ class _ChatAnchoredMessageListState extends State<ChatAnchoredMessageList> {
             : 0.0;
         return SingleChildScrollView(
           controller: widget.controller,
-          physics: const ChatBottomAnchoringScrollPhysics(),
+          physics: ChatBottomAnchoringScrollPhysics(
+            autoFollowBottom: widget.autoFollowBottom,
+          ),
           keyboardDismissBehavior:
               widget.keyboardDismissBehavior ??
               ScrollViewKeyboardDismissBehavior.manual,
@@ -220,14 +257,31 @@ class _ChatAnchoredMessageListState extends State<ChatAnchoredMessageList> {
   }
 
   double? _messageTop(String localId) {
+    return _messageBounds(localId)?.top;
+  }
+
+  Rect? _messageBounds(String localId) {
     if (localId.isEmpty) return null;
     final messageContext = _messageLayoutKeys[localId]?.currentContext;
     final renderObject = messageContext?.findRenderObject();
     if (renderObject is! RenderBox || !_hasLaidOutRenderPath(renderObject)) {
       return null;
     }
-    final top = renderObject.localToGlobal(Offset.zero).dy;
-    return top.isFinite ? top : null;
+    return _globalBounds(renderObject);
+  }
+
+  Rect? _globalBounds(RenderObject? renderObject) {
+    if (renderObject is! RenderBox || !_hasLaidOutRenderPath(renderObject)) {
+      return null;
+    }
+    final topLeft = renderObject.localToGlobal(Offset.zero);
+    final bounds = topLeft & renderObject.size;
+    return topLeft.dx.isFinite &&
+            topLeft.dy.isFinite &&
+            bounds.width.isFinite &&
+            bounds.height.isFinite
+        ? bounds
+        : null;
   }
 
   bool _hasLaidOutRenderPath(RenderObject renderObject) {
@@ -271,15 +325,18 @@ class ChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
   const ChatBottomAnchoringScrollPhysics({
     super.parent,
     this.bottomTolerance = 24,
+    this.autoFollowBottom = true,
   });
 
   final double bottomTolerance;
+  final bool autoFollowBottom;
 
   @override
   ChatBottomAnchoringScrollPhysics applyTo(ScrollPhysics? ancestor) {
     return ChatBottomAnchoringScrollPhysics(
       parent: buildParent(ancestor),
       bottomTolerance: bottomTolerance,
+      autoFollowBottom: autoFollowBottom,
     );
   }
 
@@ -291,6 +348,7 @@ class ChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
     required double velocity,
   }) {
     final wasNearBottom =
+        autoFollowBottom &&
         oldPosition.maxScrollExtent - oldPosition.pixels <= bottomTolerance;
     if (wasNearBottom) {
       return newPosition.maxScrollExtent;
