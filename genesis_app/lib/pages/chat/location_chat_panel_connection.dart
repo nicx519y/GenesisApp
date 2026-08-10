@@ -1,6 +1,42 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatPanelConnection on _LocationChatPanelState {
+  Future<void> _closeChatroom() async {
+    final service = _service;
+    final ownsService = _ownsService;
+    _serviceGeneration++;
+    _service = null;
+    _sending = false;
+    _joinedLocation = false;
+    _awaitingAiResponse = false;
+    _awaitingAiResponseRoundId = '';
+
+    await _stateSubscription?.cancel();
+    await _failuresSubscription?.cancel();
+    await _balanceAlertSubscription?.cancel();
+    _stateSubscription = null;
+    _failuresSubscription = null;
+    _balanceAlertSubscription = null;
+
+    if (service == null) return;
+    final shouldLeave =
+        _joinedLocation ||
+        (service.state.joinedLocationId == widget.locationId &&
+            widget.isLeafLocation);
+    if (widget.leaveOnInactive && shouldLeave) {
+      try {
+        await service.leave();
+      } catch (_) {
+        // Route disposal must not wait on or surface leave failures.
+      }
+    }
+    if (!ownsService) return;
+    try {
+      await service.disconnect();
+    } catch (_) {}
+    await service.dispose();
+  }
+
   Future<void> _loadSelectedModelCodeFromCache() async {
     final generation = ++_selectedModelLoadGeneration;
     try {
@@ -244,7 +280,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       _setLocationChatState(() {
         _messages.add(ChatMessageVm.system('WebSocket connection failed: $e'));
       });
-      _scrollToBottom();
     }
   }
 
@@ -268,7 +303,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       _setLocationChatState(() {
         _messages.add(ChatMessageVm.system('Join failed: $e'));
       });
-      _scrollToBottom();
     } finally {
       _joiningLocation = false;
     }
@@ -519,8 +553,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         !_joiningLocation) {
       unawaited(_joinLocation(service));
     }
-    final wasAtBottom = _isAtBottom();
-    final wasFollowingLatest = _autoFollowLatestMessages && wasAtBottom;
+    final wasFollowingLatest =
+        _scrollCoordinator.shouldFollowLatest && _scrollCoordinator.isAtBottom;
     final previousSource =
         _chatroomState.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
@@ -586,20 +620,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       },
     );
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
-    if (changedMessages &&
-        _initialBottomScrollPending &&
-        _autoFollowLatestMessages) {
-      _scheduleInitialBottomScroll(complete: nextSource.isNotEmpty);
-      return;
-    }
-    if (changedMessages && _initialBottomScrollPending) {
-      _cancelInitialBottomScroll(action: 'initialBottomScrollCancelled');
-    }
-    if (changedMessages &&
-        _composerFocusBottomPinActive &&
-        !wasFollowingLatest) {
-      _deactivateComposerFocusBottomPin();
-    }
     if (changedMessages && wasFollowingLatest) {
       _clearUnseenIncomingCount();
     } else if (changedMessages &&
@@ -725,12 +745,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         'maxScrollExtent': hasClients
             ? _scrollController.position.maxScrollExtent
             : 0,
-        'scrollCenterLocalId': _scrollCenterLocalId,
-        'isAtBottom': _isAtBottom(),
-        'initialBottomScrollPending': _initialBottomScrollPending,
-        'initialBottomScrollScheduled': _initialBottomScrollScheduled,
-        'composerFocusBottomPinActive': _composerFocusBottomPinActive,
-        'keepBottomAfterLayoutScheduled': _keepBottomAfterLayoutScheduled,
+        'viewportMode': _scrollCoordinator.mode.name,
+        'isAtBottom': _scrollCoordinator.isAtBottom,
+        'commandGeneration': _scrollCoordinator.commandGeneration,
       },
     );
   }

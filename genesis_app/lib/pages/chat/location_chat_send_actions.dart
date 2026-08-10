@@ -44,7 +44,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         'vm': LocationChatDebugSlice.debugRenderMessage(localMessage),
       },
     );
-    _scrollToBottom();
+    _scrollCoordinator.requestBottom(
+      reason: LocationChatBottomReason.sentMessage,
+      behavior: LocationChatBottomBehavior.animate,
+    );
 
     await _submitLocalMessage(
       service: service,

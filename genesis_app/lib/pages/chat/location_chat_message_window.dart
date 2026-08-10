@@ -3,14 +3,7 @@ part of 'location_chat_page.dart';
 extension _LocationChatMessageWindow on _LocationChatPanelState {
   void _handleMessageListScroll() {
     if (!_scrollController.hasClients) return;
-    if (_initialBottomScrollPending &&
-        _initialBottomScrollDidJump &&
-        _messages.isNotEmpty &&
-        !_isAtBottom()) {
-      _initialBottomScrollPending = false;
-      _initialBottomScrollShouldComplete = false;
-    }
-    if (_unseenIncomingCount > 0 && _isAtBottom()) {
+    if (_unseenIncomingCount > 0 && _scrollCoordinator.isAtBottom) {
       _clearUnseenIncomingCount();
     }
     if (!widget.active ||
@@ -311,31 +304,11 @@ String locationChatMessageLocalIdForTesting(WorldChatroomMessage message) {
 }
 
 String _locationChatMessageLocalId(WorldChatroomMessage message) {
-  if (!isChatroomMessageIdOrderedSupplemental(
-        message.senderType,
-        locationMessageId: message.locationMessageId,
-      ) &&
-      message.locationMessageId > 0) {
-    return 'location-${message.locationId}-${message.locationMessageId}';
-  }
-  if (message.messageId > 0) {
-    return 'message-${message.locationId}-${message.messageId}';
-  }
-  return 'stream-${message.locationId}-${message.conversationRoundId}-${message.senderId}';
+  return locationChatMessageLocalId(message);
 }
 
 String _locationChatMessageDisplayText(WorldChatroomMessage message) {
-  if (message.isLlmStreamMessage) {
-    return decodeLlmStreamTextForDisplay(
-      message.content,
-      isStreaming: message.streaming,
-    );
-  }
-  final senderType = message.senderType.trim().toLowerCase();
-  if (senderType.isEmpty || senderType == 'user') {
-    return decodeGenesisUgcTextForDisplay(message.content);
-  }
-  return normalizeGenesisUgcTextForDisplay(message.content);
+  return locationChatMessageDisplayText(message);
 }
 
 @visibleForTesting
@@ -351,11 +324,6 @@ Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
     if (text.isNotEmpty) return value;
   }
   return null;
-}
-
-bool _senderIdIsNarrator(String senderId) {
-  final normalized = senderId.trim().toLowerCase();
-  return normalized == 'nar' || normalized == chatroomNarratorPictureSenderId;
 }
 
 @visibleForTesting

@@ -18,33 +18,57 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       currentUserIds: _myUserIdKeys,
       currentSenderIds: _mySenderIdKeys,
     );
-    final retainedTimelineCacheKeys = <String>{};
-    final visibleSource = <_RenderableLocationChatMessage>[];
-    for (final message in renderWindow.messages) {
-      final timelineCacheKey = _messageLocalId(message);
-      if (isChatroomTimelinePayloadSenderType(message.senderType)) {
-        retainedTimelineCacheKeys.add(timelineCacheKey);
-      }
-      final timelinePayload = _timelinePayloadVmForMessage(
+    final baseParseContext = LocationChatMessageParseContext(
+      isMine: (message) =>
+          _isMineMessage(message, identityState: resolvedIdentityState),
+      senderName: (message) => _messageSenderDisplayName(
         message,
-        cacheKey: timelineCacheKey,
-        identityIndex: timelineIdentityIndex,
+        identityState: resolvedIdentityState,
+      ),
+      avatarUrl: (message) =>
+          _messageAvatarUrl(message, identityState: resolvedIdentityState),
+      isPlayerControlledRole: (message) => _messageSenderIsPlayerControlledRole(
+        message,
+        identityState: resolvedIdentityState,
+      ),
+      characterName: timelineIdentityIndex.characterName,
+      locationName: timelineIdentityIndex.locationName,
+      roleName: timelineIdentityIndex.roleName,
+    );
+    final retainedTimelineCacheKeys = <String>{};
+    final visibleSource = <LocationChatParsedMessage>[];
+    for (final message in renderWindow.messages) {
+      final isTimelineMessage = isChatroomTimelinePayloadSenderType(
+        message.senderType,
       );
-      if (isChatroomTimelinePayloadSenderType(message.senderType)) {
-        if (timelinePayload == null) continue;
-      } else if (resolveChatroomMessageRenderKind(
-            messageType: message.messageType,
-            senderId: message.senderId,
-          ) ==
-          ChatroomMessageRenderKind.hidden) {
-        continue;
+      final timelineCacheKey = locationChatMessageLocalId(message);
+      var parseContext = baseParseContext;
+      _LocationChatTimelineVmCacheEntry? cachedTimelineEntry;
+      if (isTimelineMessage) {
+        retainedTimelineCacheKeys.add(timelineCacheKey);
+        final cached = _timelineVmCache[timelineCacheKey];
+        if (cached != null &&
+            identical(cached.payload, message.timelinePayload) &&
+            cached.identityRevision == timelineIdentityIndex.revision) {
+          cachedTimelineEntry = cached;
+          parseContext = baseParseContext.withTimelineCache(
+            hasCachedTimelinePayload: true,
+            cachedTimelinePayload: cached.viewModel,
+          );
+        }
       }
-      visibleSource.add(
-        _RenderableLocationChatMessage(
-          message: message,
-          timelinePayload: timelinePayload,
-        ),
-      );
+      final parser = _parserForMessage(message);
+      if (parser == null) continue;
+      final parsed = parser.parse(message, parseContext);
+      if (isTimelineMessage && cachedTimelineEntry == null) {
+        _timelineVmCache[timelineCacheKey] = _LocationChatTimelineVmCacheEntry(
+          payload: message.timelinePayload,
+          identityRevision: timelineIdentityIndex.revision,
+          viewModel: parsed?.timelinePayload,
+        );
+      }
+      if (parsed == null) continue;
+      visibleSource.add(parsed);
     }
     _timelineVmCache.removeWhere(
       (key, _) => !retainedTimelineCacheKeys.contains(key),
@@ -65,118 +89,84 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     final next = <ChatMessageVm>[];
     final usedLocalIds = <String>{};
     var changed = previous.length != visibleSource.length;
-    for (final visibleMessage in visibleSource) {
-      final message = visibleMessage.message;
-      final timelinePayload = visibleMessage.timelinePayload;
-      final localId = _messageLocalId(message);
-      final status = message.streaming ? 'streaming' : 'sent';
-      final isMe = _isMineMessage(
-        message,
-        identityState: resolvedIdentityState,
-      );
-      final senderName = _messageSenderDisplayName(
-        message,
-        identityState: resolvedIdentityState,
-      );
-      final isPlayerControlledRole = _messageSenderIsPlayerControlledRole(
-        message,
-        identityState: resolvedIdentityState,
-      );
-      final clientMsgId = message.clientMsgId.trim();
+    for (final parsed in visibleSource) {
+      final message = parsed.source;
+      final clientMsgId = parsed.clientMsgId.trim();
       final existing =
           (clientMsgId.isEmpty ? null : existingByClientMsgId[clientMsgId]) ??
-          existingByKey[localId] ??
-          (message.messageId > 0
-              ? existingByMessageId[message.messageId]
+          existingByKey[parsed.localId] ??
+          (parsed.messageId > 0
+              ? existingByMessageId[parsed.messageId]
               : null) ??
           _matchingPendingSelfMessage(
             previous,
             message,
             usedLocalIds: usedLocalIds,
           );
-      final avatarUrl = _messageAvatarUrl(
-        message,
-        identityState: resolvedIdentityState,
-      );
-      final text = timelinePayload == null
-          ? _locationChatMessageDisplayText(message)
-          : _timelinePayloadCopyText(timelinePayload);
-      final renderKind = resolveChatroomMessageRenderKind(
-        messageType: message.messageType,
-        senderId: message.senderId,
-      );
-      final senderType = renderKind == ChatroomMessageRenderKind.image
-          ? 'image'
-          : _messageSenderType(message);
-      final imageUrl = renderKind == ChatroomMessageRenderKind.image
-          ? text.trim()
-          : '';
-      final currentTime = _messageCurrentTime(message);
-      final createdAt = message.createdAt ?? DateTime.now();
       if (existing != null) {
         if (usedLocalIds.contains(existing.localId)) {
           changed = true;
           continue;
         }
         usedLocalIds.add(existing.localId);
-        if (existing.globalMessageId != message.globalMessageId ||
-            existing.messageId != message.messageId ||
-            existing.locationMessageId != message.locationMessageId ||
-            existing.roundId != message.conversationRoundId ||
-            existing.tickNo != message.tickNo ||
-            existing.subTickNo != message.subTickNo ||
-            existing.senderName != senderName ||
-            existing.isMe != isMe ||
-            existing.isPlayerControlledRole != isPlayerControlledRole ||
-            existing.avatarUrl != avatarUrl ||
-            existing.imageUrl != imageUrl ||
-            existing.timelinePayload != timelinePayload ||
-            existing.text != text ||
-            existing.currentTime != currentTime ||
-            existing.status != status ||
-            existing.localId != localId) {
+        if (existing.globalMessageId != parsed.globalMessageId ||
+            existing.messageId != parsed.messageId ||
+            existing.locationMessageId != parsed.locationMessageId ||
+            existing.roundId != parsed.roundId ||
+            existing.tickNo != parsed.tickNo ||
+            existing.subTickNo != parsed.subTickNo ||
+            existing.senderName != parsed.senderName ||
+            existing.isMe != parsed.isMe ||
+            existing.isPlayerControlledRole != parsed.isPlayerControlledRole ||
+            existing.avatarUrl != parsed.avatarUrl ||
+            existing.imageUrl != parsed.imageUrl ||
+            existing.timelinePayload != parsed.timelinePayload ||
+            existing.text != parsed.text ||
+            existing.currentTime != parsed.currentTime ||
+            existing.status != parsed.status ||
+            existing.localId != parsed.localId) {
           changed = true;
         }
-        existing.globalMessageId = message.globalMessageId;
-        existing.messageId = message.messageId;
-        existing.locationMessageId = message.locationMessageId;
-        existing.roundId = message.conversationRoundId;
-        existing.tickNo = message.tickNo;
-        existing.subTickNo = message.subTickNo;
-        existing.senderName = senderName;
-        existing.isMe = isMe;
-        existing.isPlayerControlledRole = isPlayerControlledRole;
-        existing.avatarUrl = avatarUrl;
-        existing.imageUrl = imageUrl;
-        existing.timelinePayload = timelinePayload;
-        existing.text = text;
-        existing.currentTime = currentTime;
-        existing.status = status;
+        existing.globalMessageId = parsed.globalMessageId;
+        existing.messageId = parsed.messageId;
+        existing.locationMessageId = parsed.locationMessageId;
+        existing.roundId = parsed.roundId;
+        existing.tickNo = parsed.tickNo;
+        existing.subTickNo = parsed.subTickNo;
+        existing.senderName = parsed.senderName;
+        existing.isMe = parsed.isMe;
+        existing.isPlayerControlledRole = parsed.isPlayerControlledRole;
+        existing.avatarUrl = parsed.avatarUrl;
+        existing.imageUrl = parsed.imageUrl;
+        existing.timelinePayload = parsed.timelinePayload;
+        existing.text = parsed.text;
+        existing.currentTime = parsed.currentTime;
+        existing.status = parsed.status;
         existing.error = null;
         next.add(existing);
       } else {
         changed = true;
         final nextMessage = ChatMessageVm(
-          localId: localId,
-          clientMsgId: message.clientMsgId,
-          globalMessageId: message.globalMessageId,
-          messageId: message.messageId,
-          locationMessageId: message.locationMessageId,
-          roundId: message.conversationRoundId,
-          tickNo: message.tickNo,
-          subTickNo: message.subTickNo,
-          senderId: message.senderId,
-          senderName: senderName,
-          isPlayerControlledRole: isPlayerControlledRole,
-          avatarUrl: avatarUrl,
-          imageUrl: imageUrl,
-          timelinePayload: timelinePayload,
-          text: text,
-          currentTime: currentTime,
-          isMe: isMe,
-          status: status,
-          senderType: senderType,
-          createdAt: createdAt,
+          localId: parsed.localId,
+          clientMsgId: parsed.clientMsgId,
+          globalMessageId: parsed.globalMessageId,
+          messageId: parsed.messageId,
+          locationMessageId: parsed.locationMessageId,
+          roundId: parsed.roundId,
+          tickNo: parsed.tickNo,
+          subTickNo: parsed.subTickNo,
+          senderId: parsed.senderId,
+          senderName: parsed.senderName,
+          isPlayerControlledRole: parsed.isPlayerControlledRole,
+          avatarUrl: parsed.avatarUrl,
+          imageUrl: parsed.imageUrl,
+          timelinePayload: parsed.timelinePayload,
+          text: parsed.text,
+          currentTime: parsed.currentTime,
+          isMe: parsed.isMe,
+          status: parsed.status,
+          senderType: parsed.senderType,
+          createdAt: parsed.createdAt,
         );
         usedLocalIds.add(nextMessage.localId);
         next.add(nextMessage);
@@ -198,45 +188,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         ..clear()
         ..addAll(next);
     }
-    _syncScrollCenterLocalId();
     return changed;
-  }
-
-  void _syncScrollCenterLocalId() {
-    final nextCenterLocalId = _firstNonSystemMessageLocalId();
-    if (nextCenterLocalId.isEmpty) {
-      if (_scrollCenterLocalId.isNotEmpty) {
-        final previousCenterLocalId = _scrollCenterLocalId;
-        _scrollCenterLocalId = '';
-        _recordPanelDebug(
-          action: 'scrollCenterCleared',
-          details: {'previousCenterLocalId': previousCenterLocalId},
-        );
-      }
-      return;
-    }
-    if (_scrollCenterLocalId.isNotEmpty &&
-        _messages.any((message) => message.localId == _scrollCenterLocalId)) {
-      return;
-    }
-    final previousCenterLocalId = _scrollCenterLocalId;
-    _scrollCenterLocalId = nextCenterLocalId;
-    _recordPanelDebug(
-      action: previousCenterLocalId.isEmpty
-          ? 'scrollCenterInitialized'
-          : 'scrollCenterReset',
-      details: {
-        'previousCenterLocalId': previousCenterLocalId,
-        'centerLocalId': _scrollCenterLocalId,
-      },
-    );
-  }
-
-  String _firstNonSystemMessageLocalId() {
-    for (final message in _messages) {
-      if (!message.isSystem) return message.localId;
-    }
-    return '';
   }
 
   Set<int> _renderedLocationMessageIds() {
@@ -415,135 +367,29 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     return null;
   }
 
-  String _messageLocalId(WorldChatroomMessage message) {
-    return _locationChatMessageLocalId(message);
-  }
-
-  String _messageSenderType(WorldChatroomMessage message) {
-    final senderType = message.senderType.trim().toLowerCase();
-    if (senderType == 'narrator') {
-      return _senderIdIsNarrator(message.senderId) ? 'narrator' : 'character';
-    }
-    if (senderType == 'tick') return 'tick';
-    if (senderType == 'ai') return 'character';
-    return senderType.isEmpty ? 'user' : senderType;
-  }
-
-  ChatTimelinePayloadVm? _timelinePayloadVmForMessage(
-    WorldChatroomMessage message, {
-    required String cacheKey,
-    required _LocationChatTimelineIdentityIndex identityIndex,
-  }) {
-    final payload = message.timelinePayload;
-    final cached = _timelineVmCache[cacheKey];
-    if (cached != null &&
-        identical(cached.payload, payload) &&
-        cached.identityRevision == identityIndex.revision) {
-      return cached.viewModel;
-    }
-    final viewModel = switch (payload) {
-      ChatroomUserEnterLocationPayload event => ChatUserEnterLocationPayloadVm(
-        characterId: event.charId.trim(),
-        toLocationId: event.toLocationId.trim(),
-        text: normalizeGenesisUgcTextForDisplay(event.text),
-      ),
-      ChatroomStoryEventsPayload event => _storyEventsPayloadVm(
-        event,
-        identityIndex: identityIndex,
-      ),
-      ChatroomCharactersMovedPayload event => _charactersMovedPayloadVm(
-        event,
-        identityIndex: identityIndex,
-      ),
+  LocationChatMessageParser? _parserForMessage(WorldChatroomMessage message) {
+    final timelineParser = switch (message.timelinePayload) {
+      ChatroomUserEnterLocationPayload() =>
+        const UserEnterLocationMessageParser(),
+      ChatroomStoryEventsPayload() => const StoryEventsMessageParser(),
+      ChatroomCharactersMovedPayload() => const CharactersMovedMessageParser(),
       null => null,
     };
-    _timelineVmCache[cacheKey] = _LocationChatTimelineVmCacheEntry(
-      payload: payload,
-      identityRevision: identityIndex.revision,
-      viewModel: viewModel,
+    if (timelineParser != null) return timelineParser;
+    if (isChatroomTimelinePayloadSenderType(message.senderType)) return null;
+    final renderKind = resolveChatroomMessageRenderKind(
+      messageType: message.messageType,
+      senderId: message.senderId,
     );
-    return viewModel;
-  }
-
-  ChatStoryEventsPayloadVm? _storyEventsPayloadVm(
-    ChatroomStoryEventsPayload payload, {
-    required _LocationChatTimelineIdentityIndex identityIndex,
-  }) {
-    if (!_timelineStringIsSafe(payload.locationId) ||
-        !_timelineStringIsSafe(payload.locationName) ||
-        payload.paragraphs.length > chatroomMaxCollectionItems) {
-      return null;
+    if (renderKind == ChatroomMessageRenderKind.hidden) return null;
+    if (renderKind == ChatroomMessageRenderKind.image) {
+      return const ImageMessageParser();
     }
-    final paragraphs = <ChatStoryEventParagraphVm>[];
-    for (final paragraph in payload.paragraphs) {
-      if (!_timelineStringIsSafe(paragraph.timestamp) ||
-          !_timelineStringIsSafe(paragraph.visibility) ||
-          !_timelineStringIsSafe(paragraph.text) ||
-          !_timelineStringIsSafe(paragraph.clue) ||
-          paragraph.visibleTo.length > chatroomMaxCollectionItems ||
-          paragraph.visibleTo.any((value) => !_timelineStringIsSafe(value))) {
-        return null;
-      }
-      final paragraphVm = _storyEventParagraphVm(
-        paragraph,
-        roleNamesById: identityIndex.roleNamesById,
-      );
-      paragraphs.add(paragraphVm);
-    }
-    if (paragraphs.isEmpty) return null;
-    final payloadLocationName = normalizeGenesisUgcTextForDisplay(
-      payload.locationName,
-    ).trim();
-    return ChatStoryEventsPayloadVm(
-      locationId: payload.locationId.trim(),
-      locationName: payloadLocationName.isNotEmpty
-          ? payloadLocationName
-          : identityIndex.locationName(payload.locationId),
-      paragraphs: List<ChatStoryEventParagraphVm>.unmodifiable(paragraphs),
-    );
-  }
-
-  ChatCharactersMovedPayloadVm? _charactersMovedPayloadVm(
-    ChatroomCharactersMovedPayload payload, {
-    required _LocationChatTimelineIdentityIndex identityIndex,
-  }) {
-    if (payload.movements.isEmpty ||
-        payload.movements.length > chatroomMaxCollectionItems) {
-      return null;
-    }
-    if (payload.movements.any(
-      (movement) =>
-          !_timelineStringIsSafe(movement.charId) ||
-          !_timelineStringIsSafe(movement.toLocationId),
-    )) {
-      return null;
-    }
-    final movements = payload.movements
-        .map(
-          (movement) => ChatCharacterMovementVm(
-            characterId: movement.charId.trim(),
-            characterName: identityIndex.characterName(movement.charId),
-            toLocationId: movement.toLocationId.trim(),
-            toLocationName: identityIndex.locationName(movement.toLocationId),
-          ),
-        )
-        .toList(growable: false);
-    return ChatCharactersMovedPayloadVm(movements: movements);
-  }
-
-  String _messageCurrentTime(WorldChatroomMessage message) {
-    if (message.senderType.trim().toLowerCase() ==
-        chatroomStoryEventsSenderType) {
-      return message.currentTime.trim();
-    }
-    if (isChatroomTimelinePayloadSenderType(message.senderType)) return '';
-    final senderType = _messageSenderType(message);
-    if (senderType == 'user' ||
-        senderType == 'tick' ||
-        senderType == 'system') {
-      return '';
-    }
-    return message.currentTime.trim();
+    return switch (locationChatResolvedSenderType(message)) {
+      'narrator' => const NarratorMessageParser(),
+      'tick' => const TickMessageParser(),
+      _ => const TextMessageParser(),
+    };
   }
 
   void _syncSenderIdentity(WorldChatroomService service) {
@@ -669,21 +515,11 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       if (!_currentLocationIds().contains(message.locationId)) continue;
       if (message.conversationRoundId != awaitedRoundId) continue;
       if (_isMineMessage(message)) continue;
-      if (_messageSenderType(message) == 'user') continue;
+      if (locationChatResolvedSenderType(message) == 'user') continue;
       return !message.streaming;
     }
     return false;
   }
-}
-
-class _RenderableLocationChatMessage {
-  const _RenderableLocationChatMessage({
-    required this.message,
-    required this.timelinePayload,
-  });
-
-  final WorldChatroomMessage message;
-  final ChatTimelinePayloadVm? timelinePayload;
 }
 
 class _LocationChatTimelineVmCacheEntry {
@@ -809,10 +645,10 @@ class _LocationChatTimelineIdentityIndex {
     final resolvedId = locationId.trim();
     return locationNamesById[_chatroomIdentityKey(resolvedId)] ?? resolvedId;
   }
-}
 
-bool _timelineStringIsSafe(String value) {
-  return value.length <= chatroomMaxStringCodeUnits;
+  String roleName(String roleId) {
+    return roleNamesById[_chatroomIdentityKey(roleId)] ?? '';
+  }
 }
 
 String _resolveTimelineCharacterName(
@@ -883,34 +719,6 @@ String _resolveTimelineLocationName(
   return resolvedId;
 }
 
-ChatStoryEventParagraphVm _storyEventParagraphVm(
-  ChatroomStoryEventParagraph paragraph, {
-  required Map<String, String> roleNamesById,
-}) {
-  final visibility = paragraph.visibility.trim().toLowerCase();
-  String visibilityLabel;
-  if (visibility == 'public') {
-    visibilityLabel = 'public';
-  } else if (visibility == 'char_only') {
-    final matchingNames = <String>[];
-    final seenNames = <String>{};
-    for (final visibleId in paragraph.visibleTo) {
-      final name = roleNamesById[_chatroomIdentityKey(visibleId)]?.trim() ?? '';
-      if (name.isEmpty || !seenNames.add(name)) continue;
-      matchingNames.add(name);
-    }
-    visibilityLabel = matchingNames.join(', ');
-  } else {
-    visibilityLabel = '';
-  }
-  return ChatStoryEventParagraphVm(
-    timestamp: normalizeGenesisUgcTextForDisplay(paragraph.timestamp),
-    text: normalizeGenesisUgcTextForDisplay(paragraph.text),
-    clue: normalizeGenesisUgcTextForDisplay(paragraph.clue),
-    visibilityLabel: normalizeGenesisUgcTextForDisplay(visibilityLabel),
-  );
-}
-
 Map<String, String> _locationChatRoleNamesById({
   required Iterable<String> currentUserIds,
   required Iterable<String> currentSenderIds,
@@ -955,31 +763,6 @@ Map<String, String> _locationChatRoleNamesById({
   return result;
 }
 
-String _timelinePayloadCopyText(ChatTimelinePayloadVm payload) {
-  return switch (payload) {
-    ChatUserEnterLocationPayloadVm event => event.text,
-    ChatStoryEventsPayloadVm event => [
-      if (event.locationName.trim().isNotEmpty) event.locationName,
-      for (final paragraph in event.paragraphs) ...[
-        [
-          if (paragraph.timestamp.trim().isNotEmpty) paragraph.timestamp,
-          if (paragraph.visibilityLabel.trim().isNotEmpty)
-            paragraph.visibilityLabel,
-        ].join(' · '),
-        paragraph.text,
-        if (paragraph.clue.trim().isNotEmpty) paragraph.clue,
-      ],
-    ].join('\n'),
-    ChatCharactersMovedPayloadVm event =>
-      event.movements
-          .map(
-            (movement) =>
-                '${movement.characterName} → ${movement.toLocationName}',
-          )
-          .join('\n'),
-  };
-}
-
 @visibleForTesting
 Map<String, String> locationChatCurrentRoleNamesByIdForTesting({
   required Iterable<String> currentUserIds,
@@ -1000,7 +783,10 @@ ChatStoryEventParagraphVm? locationChatStoryEventParagraphVmForTesting(
   ChatroomStoryEventParagraph paragraph, {
   required Map<String, String> roleNamesById,
 }) {
-  return _storyEventParagraphVm(paragraph, roleNamesById: roleNamesById);
+  return parseLocationChatStoryEventParagraph(
+    paragraph,
+    roleName: (id) => roleNamesById[_chatroomIdentityKey(id)] ?? '',
+  );
 }
 
 @visibleForTesting

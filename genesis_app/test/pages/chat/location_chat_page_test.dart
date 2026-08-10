@@ -18,6 +18,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transpo
 import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
@@ -29,20 +30,24 @@ String _readLocationChatImplementationSource() {
     'lib/pages/chat/location_chat_send_actions.dart',
     'lib/pages/chat/location_chat_message_window.dart',
     'lib/pages/chat/location_chat_identity.dart',
-    'lib/pages/chat/location_chat_scroll_actions.dart',
+    'lib/pages/chat/location_chat_panel_actions.dart',
     'lib/pages/chat/location_chat_layout.dart',
     'lib/pages/chat/location_chat_panel_widgets.dart',
     'lib/pages/chat/location_chat_shared.dart',
   ].map((path) => File(path).readAsStringSync()).join('\n');
 }
 
+bool _returnTrue() => true;
+
+bool _returnFalse() => false;
+
 void main() {
-  test('location chat avoids broad MediaQuery and per-metric bottom jumps', () {
+  test('location chat keeps programmatic positioning in its coordinator', () {
     final pageSource = File(
       'lib/pages/chat/location_chat_page.dart',
     ).readAsStringSync();
-    final messageListSource = File(
-      'lib/components/chat/shared/chat_ui_message_lists.dart',
+    final coordinatorSource = File(
+      'lib/pages/chat/location_chat_scroll_coordinator.dart',
     ).readAsStringSync();
 
     expect(pageSource, contains('MediaQuery.devicePixelRatioOf(context)'));
@@ -57,18 +62,31 @@ void main() {
     );
     expect(pageSource, isNot(contains('void didChangeMetrics()')));
     expect(
-      messageListSource,
-      contains('class ChatBottomAnchoringScrollPhysics'),
+      coordinatorSource,
+      contains('class LocationChatBottomAnchoringScrollPhysics'),
     );
-    expect(messageListSource, contains('return newPosition.maxScrollExtent;'));
+    expect(coordinatorSource, contains('return newPosition.maxScrollExtent;'));
+    expect(coordinatorSource, contains('controller.jumpTo(target)'));
+    expect(coordinatorSource, contains('controller.animateTo('));
+    final implementationSource = _readLocationChatImplementationSource();
+    expect(implementationSource, isNot(contains('.jumpTo(')));
+    expect(implementationSource, isNot(contains('.animateTo(')));
+    expect(
+      RegExp(
+        r'_scrollCoordinator\.enter\(\);',
+      ).allMatches(implementationSource),
+      hasLength(2),
+    );
   });
 
   test('chat scroll physics keeps a bottom-aligned viewport anchored', () {
-    const physics = ChatBottomAnchoringScrollPhysics();
+    const physics = LocationChatBottomAnchoringScrollPhysics(
+      shouldFollowLatest: _returnTrue,
+    );
     final oldPosition = FixedScrollMetrics(
       minScrollExtent: 0,
       maxScrollExtent: 500,
-      pixels: 500,
+      pixels: 200,
       viewportDimension: 600,
       axisDirection: AxisDirection.down,
       devicePixelRatio: 1,
@@ -94,7 +112,9 @@ void main() {
   });
 
   test('chat scroll physics does not pin when auto follow is disabled', () {
-    const physics = ChatBottomAnchoringScrollPhysics(autoFollowBottom: false);
+    const physics = LocationChatBottomAnchoringScrollPhysics(
+      shouldFollowLatest: _returnFalse,
+    );
     final oldPosition = FixedScrollMetrics(
       minScrollExtent: 0,
       maxScrollExtent: 500,
@@ -106,7 +126,7 @@ void main() {
     final newPosition = FixedScrollMetrics(
       minScrollExtent: 0,
       maxScrollExtent: 800,
-      pixels: 500,
+      pixels: 320,
       viewportDimension: 300,
       axisDirection: AxisDirection.down,
       devicePixelRatio: 1,
@@ -119,7 +139,7 @@ void main() {
         isScrolling: false,
         velocity: 0,
       ),
-      isNot(newPosition.maxScrollExtent),
+      newPosition.pixels,
     );
   });
 
@@ -193,14 +213,34 @@ void main() {
       await tester.pump();
       expect(
         tester
-            .widget<ChatAnchoredMessageList>(
+            .widget<LocationChatAnchoredMessageList>(
               find.byKey(const ValueKey('location-chat-message-list')),
             )
-            .autoFollowBottom,
-        isFalse,
+            .coordinator
+            .mode,
+        LocationChatViewportMode.detached,
+      );
+      await tester.tap(find.byType(TextField));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      final viewportCoordinator = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey('location-chat-message-list')),
+          )
+          .coordinator;
+      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+      expect(
+        position.maxScrollExtent - position.pixels,
+        greaterThan(LocationChatScrollCoordinator.bottomTolerance),
       );
       final pixelsBefore = position.pixels;
-      expect(position.maxScrollExtent - pixelsBefore, greaterThan(24));
+      final localIdsBeforeStream = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey('location-chat-message-list')),
+          )
+          .messages
+          .map((message) => message.localId)
+          .toList(growable: false);
       final observedOffsets = <double>[];
       void recordOffset() => observedOffsets.add(position.pixels);
       position.addListener(recordOffset);
@@ -210,6 +250,18 @@ void main() {
         tester,
         () => service.state.streamMessagesByKey['location-current|21'] != null,
       );
+      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+      final localIdsAfterStreamStart = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey('location-chat-message-list')),
+          )
+          .messages
+          .map((message) => message.localId)
+          .toList(growable: false);
+      expect(
+        localIdsAfterStreamStart.take(localIdsBeforeStream.length),
+        localIdsBeforeStream,
+      );
       socket.serverLlmChunk(messageId: 21, content: 'streaming');
       await _pumpUntilLocationChatTest(
         tester,
@@ -217,6 +269,7 @@ void main() {
             service.state.streamMessagesByKey['location-current|21']?.content ==
             'streaming',
       );
+      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
       await tester.pump();
       position.removeListener(recordOffset);
 

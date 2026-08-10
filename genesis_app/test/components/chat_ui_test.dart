@@ -5,12 +5,21 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/components/gems/memory_model_entry_button.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_message_image.dart';
 
 void main() {
+  LocationChatScrollCoordinator locationChatCoordinator(
+    ScrollController controller,
+  ) {
+    final coordinator = LocationChatScrollCoordinator(controller: controller);
+    addTearDown(coordinator.dispose);
+    return coordinator;
+  }
+
   List<ChatMessageVm> chatMessages(int start, int end) {
     return [
       for (var id = start; id <= end; id += 1)
@@ -548,12 +557,12 @@ void main() {
     WidgetTester tester,
   ) async {
     const notice = 'Oldest edge notice';
+    final coordinator = locationChatCoordinator(ScrollController());
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ChatAnchoredMessageList(
-            controller: ScrollController(),
-            centerLocalId: '',
+          body: LocationChatAnchoredMessageList(
+            coordinator: coordinator,
             topTitle: '',
             oldestEdgeNotice: notice,
             oldestEdgeLoading: true,
@@ -572,6 +581,7 @@ void main() {
     'anchored message list does not scroll short notice and message content',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
       );
@@ -581,9 +591,8 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 640,
-              child: ChatAnchoredMessageList(
-                controller: controller,
-                centerLocalId: '',
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 topTitle: '',
                 oldestEdgeNotice: 'Oldest edge notice',
                 showDateDividers: false,
@@ -620,6 +629,7 @@ void main() {
     'anchored message list stays linear when only system messages precede center',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
       );
@@ -651,9 +661,8 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 640,
-              child: ChatAnchoredMessageList(
-                controller: controller,
-                centerLocalId: 'm1',
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 topTitle: '',
                 oldestEdgeNotice: 'Oldest edge notice',
                 showDateDividers: false,
@@ -685,6 +694,7 @@ void main() {
     'anchored message list does not scroll short content before center',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
       );
@@ -694,9 +704,8 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 640,
-              child: ChatAnchoredMessageList(
-                controller: controller,
-                centerLocalId: 'm2',
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 topTitle: '',
                 oldestEdgeNotice: 'Oldest edge notice',
                 showDateDividers: false,
@@ -733,6 +742,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final controller = ScrollController();
+    final coordinator = locationChatCoordinator(controller);
     final messages = chatMessages(1, 24);
     final style = ChatUiStyleConfig.standard.copyWith(
       messageListPadding: EdgeInsets.zero,
@@ -743,10 +753,9 @@ void main() {
         home: Scaffold(
           body: SizedBox(
             height: 360,
-            child: ChatAnchoredMessageList(
-              controller: controller,
+            child: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
               messages: messages,
-              centerLocalId: 'm10',
               topTitle: '',
               showDateDividers: false,
               style: style,
@@ -781,6 +790,7 @@ void main() {
     'anchored message list preserves position when last bubble grows away from bottom',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final messages = chatMessages(1, 24);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: EdgeInsets.zero,
@@ -791,10 +801,9 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 360,
-              child: ChatAnchoredMessageList(
-                controller: controller,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 messages: messages,
-                centerLocalId: '',
                 topTitle: '',
                 showDateDividers: false,
                 style: style,
@@ -807,6 +816,7 @@ void main() {
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
       controller.jumpTo(controller.position.maxScrollExtent - 120);
+      coordinator.deactivate();
       await tester.pump();
       final pixelsBefore = controller.position.pixels;
       final observedOffsets = <double>[];
@@ -836,10 +846,10 @@ void main() {
     'anchored message list skips geometry while a transform is unlaid out',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final listKey = GlobalKey();
       final messages = chatMessages(1, 24);
       var width = 360.0;
-      addTearDown(controller.dispose);
 
       Widget build() {
         return MaterialApp(
@@ -855,11 +865,10 @@ void main() {
                       key: ValueKey<double>(constraints.maxWidth),
                       alignment: Alignment.topLeft,
                       scale: 1,
-                      child: ChatAnchoredMessageList(
+                      child: LocationChatAnchoredMessageList(
                         key: listKey,
-                        controller: controller,
+                        coordinator: coordinator,
                         messages: messages,
-                        centerLocalId: 'm10',
                         topTitle: '',
                         showDateDividers: false,
                       ),
@@ -975,6 +984,7 @@ void main() {
     'anchored message list keeps center stable when history prepends',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: EdgeInsets.zero,
       );
@@ -984,10 +994,9 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 360,
-              child: ChatAnchoredMessageList(
-                controller: controller,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 messages: messages,
-                centerLocalId: 'm21',
                 topTitle: '',
                 showDateDividers: false,
                 style: style,
@@ -1000,6 +1009,7 @@ void main() {
       await tester.pumpWidget(build(chatMessages(21, 80)));
       await tester.pumpAndSettle();
       controller.jumpTo(0);
+      coordinator.deactivate();
       await tester.pumpAndSettle();
 
       final centerFinder = find.byKey(const ValueKey<String>('m21'));
@@ -1019,19 +1029,19 @@ void main() {
     'anchored message list keeps viewport stable when rolling window evicts head',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: EdgeInsets.zero,
       );
 
-      Widget build(List<ChatMessageVm> messages, String centerLocalId) {
+      Widget build(List<ChatMessageVm> messages) {
         return MaterialApp(
           home: Scaffold(
             body: SizedBox(
               height: 360,
-              child: ChatAnchoredMessageList(
-                controller: controller,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 messages: messages,
-                centerLocalId: centerLocalId,
                 topTitle: '',
                 showDateDividers: false,
                 style: style,
@@ -1041,18 +1051,19 @@ void main() {
         );
       }
 
-      await tester.pumpWidget(build(chatMessages(1, 80), 'm1'));
+      await tester.pumpWidget(build(chatMessages(1, 80)));
       await tester.pumpAndSettle();
       final retainedMessage = find.byKey(const ValueKey<String>('m30'));
       await tester.ensureVisible(retainedMessage);
       await tester.pumpAndSettle();
+      coordinator.deactivate();
       expect(
         controller.position.maxScrollExtent - controller.position.pixels,
         greaterThan(24),
       );
       final before = tester.getTopLeft(retainedMessage).dy;
 
-      await tester.pumpWidget(build(chatMessages(2, 81), 'm2'));
+      await tester.pumpWidget(build(chatMessages(2, 81)));
       await tester.pumpAndSettle();
 
       expect(tester.getTopLeft(retainedMessage).dy, closeTo(before, 1));
