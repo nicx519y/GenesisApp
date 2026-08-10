@@ -121,6 +121,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
 
   late final PageController _pageController = PageController();
   final _tickCardResetRevisions = <String, int>{};
+  final _tickCardAlignLatestSubTick = <String, bool>{};
   var _currentPage = 0;
   var _currentTickIdentity = '';
   var _animatingPage = false;
@@ -237,7 +238,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
         _currentPage = targetPage.clamp(0, _maxRenderedPage).toInt();
         _currentTickIdentity = _pageIdentityAt(_currentPage);
         _showLatestWhenTicksArrive = false;
-        _bumpTickCardResetRevisionAt(_currentPage);
+        _bumpTickCardResetRevisionAt(_currentPage, alignLatestSubTick: true);
         return _pageCount > 0;
       }
     }
@@ -246,7 +247,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     _currentPage = target.clamp(0, _maxRenderedPage).toInt();
     _currentTickIdentity = _pageIdentityAt(_currentPage);
     _showLatestWhenTicksArrive = false;
-    _bumpTickCardResetRevisionAt(_currentPage);
+    _bumpTickCardResetRevisionAt(_currentPage, alignLatestSubTick: true);
     return true;
   }
 
@@ -304,11 +305,15 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     });
   }
 
-  void _bumpTickCardResetRevisionAt(int page) {
+  void _bumpTickCardResetRevisionAt(
+    int page, {
+    bool alignLatestSubTick = false,
+  }) {
     final identity = _pageIdentityAt(page);
     if (identity.isEmpty) return;
     _tickCardResetRevisions[identity] =
         (_tickCardResetRevisions[identity] ?? 0) + 1;
+    _tickCardAlignLatestSubTick[identity] = alignLatestSubTick;
   }
 
   void _turnPage(int delta) {
@@ -397,6 +402,8 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
             return WorldTickEventCardPage(
               key: ValueKey<String>('world-event-tick-$pageIdentity'),
               resetRevision: _tickCardResetRevisions[pageIdentity] ?? 0,
+              alignLastItemToTop:
+                  _tickCardAlignLatestSubTick[pageIdentity] ?? false,
               hasTopEdgePage: index > 0,
               hasBottomEdgePage: index < _pageCount - 1,
               padding: widget.contentPadding,

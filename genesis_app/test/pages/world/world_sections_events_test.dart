@@ -60,10 +60,18 @@ void main() {
         find.byKey(const ValueKey<String>('world-events-tick-pager')),
       );
       expect(pager.childrenDelegate.estimatedChildCount, 2);
-      expect(find.text('Tick 4-1'), findsOneWidget);
       expect(find.text('Tick 4-2'), findsOneWidget);
-      expect(find.text('Tick 4 sub tick 1 body'), findsOneWidget);
       expect(find.text('Tick 4 sub tick 2 body'), findsOneWidget);
+      expect(find.text('Tick 4-1'), findsNothing);
+
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, 300),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tick 4-1'), findsOneWidget);
+      expect(find.text('Tick 4 sub tick 1 body'), findsOneWidget);
     },
   );
 
@@ -113,10 +121,15 @@ void main() {
       find.byKey(const ValueKey<String>('world-events-tick-pager')),
     );
     expect(pager.childrenDelegate.estimatedChildCount, 1);
-    expect(find.text('Tick 0-1'), findsOneWidget);
     expect(find.text('Tick 0-2'), findsOneWidget);
-    expect(find.text('Tick zero sub tick 1 body'), findsOneWidget);
     expect(find.text('Tick zero sub tick 2 body'), findsOneWidget);
+    expect(find.text('Tick 0-1'), findsNothing);
+
+    await tester.drag(find.byType(CustomScrollView).last, const Offset(0, 300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tick 0-1'), findsOneWidget);
+    expect(find.text('Tick zero sub tick 1 body'), findsOneWidget);
   });
 
   testWidgets(
@@ -175,7 +188,7 @@ void main() {
     },
   );
 
-  testWidgets('same tick lazily builds a 500 sub-tick page', (tester) async {
+  testWidgets('latest sub-tick starts a 500 sub-tick page', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -210,9 +223,21 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.textContaining('Sub tick'), findsWidgets);
+    expect(find.text('Sub tick 500 body'), findsOneWidget);
+    expect(find.text('Sub tick 1 body'), findsNothing);
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(
+              const ValueKey<String>(
+                'world-event-tick-item-id:tick_4_500:sub:500',
+              ),
+            ),
+          )
+          .dy,
+      0,
+    );
     expect(find.textContaining('Sub tick').evaluate().length, lessThan(500));
-    expect(find.text('Sub tick 500 body'), findsNothing);
   });
 }
 
