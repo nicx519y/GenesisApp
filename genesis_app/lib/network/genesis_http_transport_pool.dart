@@ -4,11 +4,13 @@ import 'package:flutter/foundation.dart';
 
 import 'dio_http_transport.dart';
 import 'http_transport.dart';
+import 'io_http_transport.dart';
 import 'ios_adaptive_http_transport.dart';
 import 'platform_http3_transport.dart';
 
 const int genesisHttp3ConnectionCount = 1;
 const int genesisHttp2ConnectionCount = 3;
+const int genesisHttp1ConnectionCount = 1;
 const int genesisHttpImageConcurrentFetches = 9;
 const Duration genesisHttp2FallbackIdleTimeout = Duration(minutes: 5);
 
@@ -85,11 +87,22 @@ class GenesisHttpTransportPool implements HttpTransport {
     );
   }
 
+  factory GenesisHttpTransportPool.http1({required String proxy}) {
+    return GenesisHttpTransportPool(
+      transports: <HttpTransport>[IoHttpTransport(proxy: proxy)],
+    );
+  }
+
   final List<HttpTransport> _transports;
   final Map<String, Future<void>> _warmUpRequests = <String, Future<void>>{};
   int _nextTransportIndex = 0;
 
   int get connectionCount => _transports.length;
+
+  @visibleForTesting
+  bool get debugUsesHttp1 =>
+      _transports.length == genesisHttp1ConnectionCount &&
+      _transports.single is IoHttpTransport;
 
   Future<void> warmUp(Uri uri) {
     if (uri.scheme.toLowerCase() != 'https' || uri.host.trim().isEmpty) {
@@ -167,16 +180,17 @@ class GenesisHttpTransportRegistry {
       return _transport!;
     }
 
+    final useProxyHttp1 = normalizedProxy.isNotEmpty;
     final useHttp3 =
         normalizedProxy.isEmpty &&
         (normalizedEngine == 'http3' ||
             normalizedEngine == 'quic' ||
             normalizedEngine == 'auto');
-    final transport = useHttp3
+    final transport = useProxyHttp1
+        ? GenesisHttpTransportPool.http1(proxy: normalizedProxy)
+        : useHttp3
         ? GenesisHttpTransportPool.platform()
-        : GenesisHttpTransportPool.http2(
-            proxy: normalizedProxy.isEmpty ? null : normalizedProxy,
-          );
+        : GenesisHttpTransportPool.http2();
     _configurationKey = configurationKey;
     _transport = transport;
     return transport;

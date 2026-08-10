@@ -45,18 +45,16 @@ void main() {
     }
   });
 
-  test('explicit proxy forces the three-connection HTTP/2 pool', () {
+  test('explicit proxy forces the HTTP/1.1 transport', () {
     final transport = factory.buildHttpTransport(
       debugProxy: '127.0.0.1:9090',
       useMock: false,
       httpEngine: 'http3',
     );
 
-    expect(transport, isA<GenesisHttpTransportPool>());
-    expect(
-      (transport! as GenesisHttpTransportPool).connectionCount,
-      genesisHttp2ConnectionCount,
-    );
+    final pool = transport! as GenesisHttpTransportPool;
+    expect(pool.connectionCount, genesisHttp1ConnectionCount);
+    expect(pool.debugUsesHttp1, isTrue);
   });
 
   test('invalid proxies degrade to the same direct configuration', () {
@@ -112,7 +110,7 @@ void main() {
     expect(identical(withScheme, withoutScheme), true);
   });
 
-  test('legacy io engine name still resolves to HTTP/2 Dio transport', () {
+  test('legacy io engine is HTTP/2 direct but HTTP/1.1 with proxy', () {
     final direct = factory.buildHttpTransport(
       debugProxy: '',
       useMock: false,
@@ -130,14 +128,12 @@ void main() {
       useMock: false,
       httpEngine: 'io',
     );
-    expect(proxied, isA<GenesisHttpTransportPool>());
-    expect(
-      (proxied! as GenesisHttpTransportPool).connectionCount,
-      genesisHttp2ConnectionCount,
-    );
+    final proxiedPool = proxied! as GenesisHttpTransportPool;
+    expect(proxiedPool.connectionCount, genesisHttp1ConnectionCount);
+    expect(proxiedPool.debugUsesHttp1, isTrue);
   });
 
-  test('dio engine creates Dio transport with or without proxy', () {
+  test('dio engine is HTTP/2 direct but HTTP/1.1 with proxy', () {
     final direct = factory.buildHttpTransport(
       debugProxy: '',
       useMock: false,
@@ -155,14 +151,12 @@ void main() {
       useMock: false,
       httpEngine: 'DIO',
     );
-    expect(proxied, isA<GenesisHttpTransportPool>());
-    expect(
-      (proxied! as GenesisHttpTransportPool).connectionCount,
-      genesisHttp2ConnectionCount,
-    );
+    final proxiedPool = proxied! as GenesisHttpTransportPool;
+    expect(proxiedPool.connectionCount, genesisHttp1ConnectionCount);
+    expect(proxiedPool.debugUsesHttp1, isTrue);
   });
 
-  test('http2 engine creates Dio HTTP/2 transport with or without proxy', () {
+  test('http2 engine is HTTP/2 direct but HTTP/1.1 with proxy', () {
     final direct = factory.buildHttpTransport(
       debugProxy: '',
       useMock: false,
@@ -180,11 +174,9 @@ void main() {
       useMock: false,
       httpEngine: 'HTTP2',
     );
-    expect(proxied, isA<GenesisHttpTransportPool>());
-    expect(
-      (proxied! as GenesisHttpTransportPool).connectionCount,
-      genesisHttp2ConnectionCount,
-    );
+    final proxiedPool = proxied! as GenesisHttpTransportPool;
+    expect(proxiedPool.connectionCount, genesisHttp1ConnectionCount);
+    expect(proxiedPool.debugUsesHttp1, isTrue);
   });
 
   test(
