@@ -590,13 +590,12 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 16));
 
-    expect(SystemChrome.latestStyle?.statusBarColor, const Color(0xFF757575));
+    expect(SystemChrome.latestStyle?.statusBarColor, Colors.transparent);
     expect(
       systemUiOverlayStyleCalls.where(
         (call) =>
             call['statusBarColor'] != null &&
-            call['statusBarColor'] != Colors.transparent.toARGB32() &&
-            call['statusBarColor'] != const Color(0xFF757575).toARGB32(),
+            call['statusBarColor'] != Colors.transparent.toARGB32(),
       ),
       isEmpty,
     );

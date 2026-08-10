@@ -98,11 +98,6 @@ class _GemWalletPageState extends State<GemWalletPage>
     statusBarIconBrightness: Brightness.dark,
     statusBarBrightness: Brightness.light,
   );
-  static const _purchaseSystemUiOverlayStyle = SystemUiOverlayStyle(
-    statusBarColor: Color(0xFF757575),
-    statusBarIconBrightness: Brightness.light,
-    statusBarBrightness: Brightness.dark,
-  );
 
   List<GemProduct>? _products;
   List<GemTaskGroup>? _taskGroups;

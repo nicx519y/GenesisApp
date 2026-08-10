@@ -125,22 +125,16 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     _billingPurchaseDialogShowing = true;
     if (mounted) _updateState(() {});
     final dialogState = _billingPurchaseDialogState!;
-    final systemUiOverlayStyle = GenesisSystemUiChrome.currentStyle;
     unawaited(
-      showGenesisGeneralDialog<void>(
+      showGeneralDialog<void>(
         context: context,
+        barrierColor: kGenesisModalBarrierColor,
         barrierDismissible: false,
-        modalSystemUiOverlayStyle: systemUiOverlayStyle,
-        restoreSystemUiOverlayStyle: systemUiOverlayStyle,
-        restoreSystemUiOverlayAfterFrame: true,
         pageBuilder: (dialogContext, animation, secondaryAnimation) {
-          return AnnotatedRegion<SystemUiOverlayStyle>(
-            value: _GemWalletPageState._purchaseSystemUiOverlayStyle,
-            child: Center(
-              child: GemBillingPurchaseDialog(
-                state: dialogState,
-                onConfirm: _dismissBillingPurchaseDialog,
-              ),
+          return Center(
+            child: GemBillingPurchaseDialog(
+              state: dialogState,
+              onConfirm: _dismissBillingPurchaseDialog,
             ),
           );
         },
