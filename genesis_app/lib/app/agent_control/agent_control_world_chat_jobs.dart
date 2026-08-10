@@ -352,12 +352,6 @@ Future<Map<String, Object?>> _runAgentWorldChat(
   if (aliases is List && aliases.isNotEmpty) {
     chatArgs['localMessageLocationIds'] = aliases.join(',');
   }
-  await _updateAgentUserPosition(
-    services,
-    wid: world.worldId,
-    locationId: locationId,
-    progress: progress,
-  );
   progress('进入 LocationChatPage', {
     'wid': world.worldId,
     'locationId': locationId,
@@ -639,13 +633,6 @@ Future<Map<String, Object?>> _runAgentWorldChatAcrossLocations(
           });
         }
       }
-
-      await _updateAgentUserPosition(
-        services,
-        wid: world.worldId,
-        locationId: locationId,
-        progress: progress,
-      );
 
       progress('进入 location', {
         'index': locationIndex + 1,

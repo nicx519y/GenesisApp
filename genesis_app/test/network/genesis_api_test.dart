@@ -752,52 +752,6 @@ void main() {
     expect(await sessionStore.readUid(), isNull);
   });
 
-  test('updateUserPosition only posts player scene', () async {
-    final apiTransport = _FakeTransport(
-      handler: (request) {
-        if (request.uri.path == '/api/session/set-player-scene') {
-          return const TransportResponse(
-            statusCode: 200,
-            headers: {'content-type': 'application/json'},
-            body: '{"err_no":0,"err_msg":"succ","data":{"ok":true}}',
-          );
-        }
-        return TransportResponse(
-          statusCode: 404,
-          headers: const {'content-type': 'application/json'},
-          body: jsonEncode({
-            'err_no': 404,
-            'err_msg': 'unexpected ${request.uri.path}',
-            'data': <String, Object?>{},
-          }),
-        );
-      },
-    );
-    final api = _apiWith(
-      apiTransport,
-      _FakeTransport(
-        handler: (_) => const TransportResponse(
-          statusCode: 200,
-          headers: {'content-type': 'application/json'},
-          body: '{"status":"ok"}',
-        ),
-      ),
-    );
-
-    final result = await api.updateUserPosition(
-      wid: 'w_1',
-      locationId: 'loc_1',
-    );
-
-    expect(result, 'ok');
-    expect(apiTransport.requests, hasLength(1));
-    expect(apiTransport.lastRequest!.method, 'POST');
-    expect(apiTransport.lastRequest!.uri.path, '/api/session/set-player-scene');
-    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
-      'location_id': 'loc_1',
-    });
-  });
-
   test(
     'v1 err_no 10001 triggers session expired callback with fixed message',
     () async {

@@ -104,7 +104,6 @@ extension _WorldPageLocationChat on _WorldPageState {
         _locationChatDescriptors[locationId] ??
         _locationChatDescriptors[pointId] ??
         _locationChatDescriptors[point.id.trim()];
-    unawaited(_updateUserPositionForLocation(locationId));
     await _showCachedLocationChat(
       syncedDescriptor?.copyWith(
             locationId: locationId,
@@ -139,16 +138,6 @@ extension _WorldPageLocationChat on _WorldPageState {
       action: 'world_tilemap_click',
       object1: widget.wid,
     );
-  }
-
-  Future<void> _updateUserPositionForLocation(String locationId) async {
-    try {
-      await AppServicesScope.of(
-        context,
-      ).api.updateUserPosition(wid: widget.wid, locationId: locationId);
-    } catch (_) {
-      // Position updates are opportunistic and must not delay opening chat.
-    }
   }
 
   Future<void> _showCachedLocationChat(

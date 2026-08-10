@@ -229,10 +229,6 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _ok(chars);
     }
 
-    if (method == 'POST' && apiPath == 'session/set-player-scene') {
-      return _ok({'ok': true});
-    }
-
     final pointMessagesMatch = RegExp(
       r'^points/([^/]+)/messages$',
     ).firstMatch(apiPath);

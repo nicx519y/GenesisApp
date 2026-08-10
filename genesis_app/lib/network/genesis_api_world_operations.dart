@@ -144,26 +144,6 @@ mixin _GenesisApiWorldOperations on _GenesisApiContext {
     return JoinedWorld(id: _stableInt(wid), wid: wid, name: resolvedUid);
   }
 
-  Future<String> updateUserPosition({
-    required String wid,
-    String? uid,
-    required String locationId,
-  }) async {
-    final resolvedLocationId = locationId.trim();
-    if (resolvedLocationId.isEmpty) return '';
-    final json = await _apiClient.post<Object?>(
-      'session/set-player-scene',
-      body: {'location_id': resolvedLocationId},
-    );
-    final map = asJsonMap(json);
-    if (!asBool(map['ok'], fallback: true)) {
-      throw ApiException(
-        message: asString(map['error'], fallback: 'set scene failed'),
-      );
-    }
-    return 'ok';
-  }
-
   Future<List<WorldMember>> getWorldMembers(String wid) async {
     final resolvedUid = await _ensureUid();
     final json = await _apiClient.get<Object?>(

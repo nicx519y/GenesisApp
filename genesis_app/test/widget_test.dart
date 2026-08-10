@@ -503,7 +503,6 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.userInfoCompleter,
     this.originListCompleter,
     this.worldListCompleter,
-    this.setPlayerSceneCompleter,
     this.worldMetricDefault = 0,
     this.worldCharacterMetricValue = 50,
     this.originMapUrl = '',
@@ -542,7 +541,6 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Completer<TransportResponse>? userInfoCompleter;
   final Completer<TransportResponse>? originListCompleter;
   final Completer<TransportResponse>? worldListCompleter;
-  final Completer<TransportResponse>? setPlayerSceneCompleter;
   final Object? worldMetricDefault;
   final Object? worldCharacterMetricValue;
   final String originMapUrl;
@@ -735,17 +733,6 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_str': 'success',
         'data': {'world_id': body['world_id'], 'char_id': 'char_1'},
-      });
-    }
-    if (request.method == 'POST' &&
-        request.uri.path.endsWith('/session/set-player-scene')) {
-      if (setPlayerSceneCompleter != null) {
-        return setPlayerSceneCompleter!.future;
-      }
-      return _jsonResponse({
-        'err_no': 0,
-        'err_str': 'success',
-        'data': {'ok': true},
       });
     }
     if (request.method == 'GET' &&
@@ -20896,61 +20883,6 @@ void main() {
 
     connectCompleter.complete();
     await tester.pumpAndSettle();
-  });
-
-  testWidgets('world location chat opens before position update completes', (
-    WidgetTester tester,
-  ) async {
-    final setPlayerSceneCompleter = Completer<TransportResponse>();
-    final transport = _RecordingV1ListTransport(
-      worldRelationStatus: 'joined',
-      setPlayerSceneCompleter: setPlayerSceneCompleter,
-    );
-    final chatroom = _FakeChatroomClient();
-    final services = await _testServices(
-      transport: transport,
-      useMock: false,
-      chatroom: chatroom,
-    );
-
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: services,
-        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Location (2)'));
-    await tester.pumpAndSettle();
-    final childRow = find.ancestor(
-      of: find.text('Child Location').last,
-      matching: find.byType(InkWell),
-    );
-    await tester.tap(childRow.last);
-    await tester.pump();
-    await tester.pump();
-
-    expect(
-      transport.requestsFor('/api/session/set-player-scene'),
-      hasLength(1),
-    );
-    expect(setPlayerSceneCompleter.isCompleted, false);
-    expect(_visibleText('Child Location (1)'), findsOneWidget);
-    expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
-
-    setPlayerSceneCompleter.complete(
-      TransportResponse(
-        statusCode: 200,
-        headers: const {'content-type': 'application/json'},
-        body: jsonEncode({
-          'err_no': 0,
-          'err_str': 'success',
-          'data': {'ok': true},
-        }),
-      ),
-    );
-    await tester.pump();
   });
 
   testWidgets(

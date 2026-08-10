@@ -2175,7 +2175,6 @@ World：
 - `GET /api/search`
 - `GET /api/characters`
 - `POST /api/tick`
-- `POST /api/session/set-player-scene`
 - `GET /api/points/{pointId}/messages`
 - `POST /api/points/{pointId}/messages/enqueue`
 - `GET /health`
