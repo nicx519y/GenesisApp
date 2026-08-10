@@ -30,6 +30,14 @@ class LocalMockGenesisTransport implements HttpTransport {
     );
   }
 
+  /// Adds one canonical V2 tick with a positive location cursor.
+  void seedChatroomV2TickMessage({
+    required String worldId,
+    required String locationId,
+  }) {
+    _state.seedChatroomV2TickMessage(worldId: worldId, locationId: locationId);
+  }
+
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     final path = request.uri.path;
@@ -221,10 +229,6 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _ok(chars);
     }
 
-    if (method == 'POST' && apiPath == 'session/set-player-scene') {
-      return _ok({'ok': true});
-    }
-
     final pointMessagesMatch = RegExp(
       r'^points/([^/]+)/messages$',
     ).firstMatch(apiPath);
@@ -294,6 +298,17 @@ class LocalMockGenesisTransport implements HttpTransport {
     if (method == 'GET' && path == 'aitown-chat/api/messages') {
       return _v1Ok(
         _state.chatroomHistoryMessages(
+          worldId: query['world_id'] ?? '',
+          locationId: query['location_id'] ?? '',
+          since: int.tryParse(query['since'] ?? ''),
+          limit: int.tryParse(query['limit'] ?? ''),
+        ),
+      );
+    }
+
+    if (method == 'GET' && path == 'aitown-chat/api/v2/messages') {
+      return _v1Ok(
+        _state.chatroomV2HistoryMessages(
           worldId: query['world_id'] ?? '',
           locationId: query['location_id'] ?? '',
           since: int.tryParse(query['since'] ?? ''),
@@ -1384,6 +1399,98 @@ class _MockState {
       'has_more': messages.length > page.length,
       'newest_message_id': newestId,
     };
+  }
+
+  Map<String, dynamic> chatroomV2HistoryMessages({
+    required String worldId,
+    required String locationId,
+    int? since,
+    int? limit,
+  }) {
+    final resolvedLocationId = locationId.trim();
+    final size = limit == null || limit <= 0 ? 20 : limit.clamp(1, 100).toInt();
+    final locationMessages = _chatroomMessagesForWorld(worldId)
+        .where(
+          (message) =>
+              message['location_id'] == resolvedLocationId &&
+              asInt(message['location_message_id']) > 0,
+        )
+        .toList(growable: false);
+    final newestId = locationMessages.fold<int>(0, (maxId, message) {
+      final id = asInt(message['location_message_id']);
+      return id > maxId ? id : maxId;
+    });
+    final messages =
+        locationMessages
+            .where((message) {
+              final id = asInt(message['location_message_id']);
+              return since == null || since <= 0 || id < since;
+            })
+            .toList(growable: false)
+          ..sort(
+            (a, b) => asInt(
+              b['location_message_id'],
+            ).compareTo(asInt(a['location_message_id'])),
+          );
+    final page = messages
+        .take(size)
+        .map(_chatroomV2ResponseMessage)
+        .toList(growable: false);
+    return <String, dynamic>{
+      'messages': page,
+      'has_more': messages.length > page.length,
+      'newest_message_id': newestId,
+    };
+  }
+
+  void seedChatroomV2TickMessage({
+    required String worldId,
+    required String locationId,
+  }) {
+    final resolvedWorldId = _resolveChatroomWorldId(worldId);
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty) return;
+    final alreadySeeded = _chatroomMessages.any(
+      (message) =>
+          message['world_id'] == resolvedWorldId &&
+          message['location_id'] == resolvedLocationId &&
+          message['type'] == 'tick' &&
+          message['v2_payload'] is Map,
+    );
+    if (alreadySeeded) return;
+    _chatroomMessages.add(
+      _newChatroomMessage(
+        worldId: resolvedWorldId,
+        locationId: resolvedLocationId,
+        conversationRoundId: ++_chatroomRoundSeq,
+        roundOrder: 1,
+        senderType: 'tick',
+        senderId: 'tick',
+        senderName: 'SubTick',
+        userId: '',
+        content: 'The mock timeline advanced.',
+        tickNo: 4,
+        subTickNo: 1,
+        businessType: 'tick',
+        v2Payload: <String, Object?>{
+          'current_time': 'Day 2, 10:00',
+          'tick_no': 4,
+          'sub_tick_no': 1,
+          'global': 'The mock timeline advanced.',
+          'story_events': <Map<String, Object?>>[
+            <String, Object?>{
+              'location_id': resolvedLocationId,
+              'timestamp': 'Day 2, 10:00',
+              'visibility': 'public',
+              'visible_to': null,
+              'text': 'The mock timeline advanced.',
+              'clue': '',
+            },
+          ],
+          'characters_moved': const <Map<String, Object?>>[],
+        },
+      ),
+    );
   }
 
   void seedChatroomTimelineMessages({
@@ -4491,6 +4598,11 @@ class _MockState {
     int subTickNo = 0,
     int? locationMessageId,
     String? createdAt,
+    String businessType = '',
+    String streamType = '',
+    String clientMsgId = '',
+    int minAppVersion = 0,
+    Map<String, Object?>? v2Payload,
   }) {
     final resolvedWorldId = _resolveChatroomWorldId(worldId);
     final messageId = ++_chatroomMessageSeq;
@@ -4519,6 +4631,11 @@ class _MockState {
       'message_type': messageType,
       'current_time': '',
       'created_at': createdAt ?? DateTime.now().toUtc().toIso8601String(),
+      if (businessType.isNotEmpty) 'type': businessType,
+      if (streamType.isNotEmpty) 'stream_type': streamType,
+      if (clientMsgId.isNotEmpty) 'client_msg_id': clientMsgId,
+      'min_app_version': minAppVersion,
+      if (v2Payload != null) 'v2_payload': v2Payload,
     };
   }
 
@@ -4526,11 +4643,57 @@ class _MockState {
     final copy = _deepCopyMap(message);
     copy.remove('world_id');
     copy.remove('round_order');
+    copy.remove('type');
+    copy.remove('stream_type');
+    copy.remove('v2_payload');
+    copy.remove('min_app_version');
     if (isChatroomTimelinePayloadSenderType(copy['sender_type']) &&
         copy['sender_type'] != chatroomUserEnterLocationSenderType) {
       copy['location_id'] = '';
     }
     return copy;
+  }
+
+  Map<String, dynamic> _chatroomV2ResponseMessage(
+    Map<String, dynamic> message,
+  ) {
+    final senderType = asString(message['sender_type']);
+    final senderId = asString(message['sender_id']);
+    final createdAt = asString(message['created_at']);
+    final storedPayload = message['v2_payload'];
+    final payload = storedPayload is Map
+        ? _deepCopyMap(asJsonMap(storedPayload))
+        : <String, dynamic>{'content': asString(message['content'])};
+    return <String, dynamic>{
+      'type': _chatroomV2BusinessType(senderType, senderId, message['type']),
+      'stream_type': asString(message['stream_type']),
+      'ts': asInt(
+        message['ts'],
+        fallback:
+            DateTime.tryParse(createdAt)?.millisecondsSinceEpoch ??
+            asInt(message['message_id']),
+      ),
+      'world_id': asString(message['world_id']),
+      'location_id': asString(message['location_id']),
+      if (asString(message['session_id']).isNotEmpty)
+        'session_id': asString(message['session_id']),
+      'global_message_id': asInt(message['global_message_id']),
+      'message_id': asInt(message['message_id']),
+      'location_message_id': asInt(message['location_message_id']),
+      'conversation_round_id': asInt(message['conversation_round_id']),
+      'sender_type': senderType,
+      'sender_id': senderId,
+      'sender_name': asString(message['sender_name']),
+      'user_id': asString(message['user_id']),
+      if (asString(message['client_msg_id']).isNotEmpty)
+        'client_msg_id': asString(message['client_msg_id']),
+      'message_type': asString(message['message_type'], fallback: 'text'),
+      'min_app_version': asInt(message['min_app_version']),
+      'created_at': createdAt,
+      'payload': payload,
+      'err_no': 0,
+      'err_msg': '',
+    };
   }
 
   Map<String, dynamic> _findV1WorldApply(String? applyId) {
@@ -4568,6 +4731,25 @@ class _MockState {
   }
 
   int _unixSeconds() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
+}
+
+String _chatroomV2BusinessType(
+  String senderType,
+  String senderId,
+  Object? storedType,
+) {
+  final normalizedSenderType = senderType.trim().toLowerCase();
+  if (normalizedSenderType == 'narrator') {
+    return const <String>{
+          'nar',
+          'nar_pic',
+        }.contains(senderId.trim().toLowerCase())
+        ? 'narrator'
+        : 'character';
+  }
+  final explicitType = asString(storedType).trim().toLowerCase();
+  if (explicitType.isNotEmpty) return explicitType;
+  return normalizedSenderType.isEmpty ? 'character' : normalizedSenderType;
 }
 
 Map<String, dynamic> _deepCopyMap(Map<String, dynamic> source) {

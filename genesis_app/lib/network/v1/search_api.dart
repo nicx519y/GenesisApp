@@ -5,7 +5,7 @@ class SearchV1Api extends V1ApiResource {
 
   /// GET /api/v1/search
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"keyword":"string","type":"","pn":1,"rn":20}
   /// ```
@@ -28,7 +28,7 @@ class SearchV1Api extends V1ApiResource {
 
   /// GET /api/v1/search/suggest
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"query":"string","type":"all","limit":10}
   /// ```

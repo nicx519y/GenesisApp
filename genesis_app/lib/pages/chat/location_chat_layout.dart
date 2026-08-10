@@ -90,16 +90,7 @@ extension _LocationChatLayout on _LocationChatPanelState {
   }
 
   void _handleComposerFocusChanged() {
-    if (_composerFocusNode.hasFocus) {
-      _scrollToBottomForComposerInput();
-    } else {
-      _deactivateComposerFocusBottomPin();
-    }
     if (mounted) _setLocationChatState(() {});
-  }
-
-  void _handleComposerInputTap() {
-    _scrollToBottomForComposerInput();
   }
 
   void _handleDraftTextChanged() {
@@ -113,14 +104,5 @@ extension _LocationChatLayout on _LocationChatPanelState {
     if ((_composerHeight - height).abs() > 0.5) {
       _setLocationChatState(() => _composerHeight = height);
     }
-    if (_initialBottomScrollPending) {
-      _scheduleInitialBottomScroll(complete: _messages.isNotEmpty);
-      return;
-    }
-    if (_composerFocusBottomPinActive) {
-      _scheduleComposerFocusBottomPin();
-      return;
-    }
-    _keepBottomAfterLayoutIfNeeded();
   }
 }

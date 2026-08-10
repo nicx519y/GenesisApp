@@ -115,7 +115,7 @@ Future<void> _ensureAgentChatroomReady(
   }
 }
 
-Future<ChatroomAck> _sendAgentMessageWithReconnect(
+Future<WorldChatroomMessage> _sendAgentMessageWithReconnect(
   WorldChatroomService service,
   String text, {
   required String clientMsgId,
@@ -124,11 +124,13 @@ Future<ChatroomAck> _sendAgentMessageWithReconnect(
   required ChatroomConnectionIdentity identity,
   required _AgentProgress progress,
 }) async {
+  late ChatroomSendHandle handle;
   try {
-    return await service
-        .sendMessage(text, clientMsgId: clientMsgId)
-        .timeout(const Duration(seconds: 30));
+    handle = service.sendMessage(text, clientMsgId: clientMsgId);
+    await handle.receipt.timeout(const Duration(seconds: 30));
   } catch (error) {
+    if (!_isRetriableAgentReceiptFailure(error)) rethrow;
+    service.cancelCanonicalMessageWait(clientMsgId, reason: error);
     progress('发送失败，重连 chatroom 后重试一次', {
       'error': error.toString(),
       'locationId': locationId,
@@ -145,15 +147,60 @@ Future<ChatroomAck> _sendAgentMessageWithReconnect(
       identity: identity,
       progress: progress,
     );
-    return service
-        .sendMessage(text, clientMsgId: clientMsgId)
-        .timeout(const Duration(seconds: 30));
+    try {
+      handle = service.sendMessage(text, clientMsgId: clientMsgId);
+      await handle.receipt.timeout(const Duration(seconds: 30));
+    } catch (error) {
+      service.cancelCanonicalMessageWait(clientMsgId, reason: error);
+      rethrow;
+    }
+  }
+  try {
+    try {
+      return await handle.canonicalMessage.timeout(const Duration(seconds: 5));
+    } on TimeoutException {
+      await service.refreshLatestMessages(
+        locationId: locationId,
+        limit: 60,
+        emitLatestFetched: false,
+      );
+      try {
+        return await handle.canonicalMessage.timeout(
+          const Duration(seconds: 5),
+        );
+      } on TimeoutException catch (error) {
+        throw AgentControlException(
+          code: 'message_echo_timeout',
+          message: 'Timed out while waiting for the canonical user message.',
+          details: {
+            'locationId': locationId,
+            'clientMsgId': clientMsgId,
+            'cause': error.toString(),
+          },
+        );
+      }
+    }
+  } finally {
+    service.cancelCanonicalMessageWait(clientMsgId);
   }
 }
 
+bool _isRetriableAgentReceiptFailure(Object error) {
+  if (error is TimeoutException || error is ChatroomProtocolException) {
+    return true;
+  }
+  if (error is! ChatroomFailureEvent) return false;
+  final code = error.code.trim().toLowerCase();
+  return code == 'ack_timeout' || code.endsWith('_send_failed');
+}
+
+@visibleForTesting
+bool isRetriableAgentReceiptFailureForTesting(Object error) =>
+    _isRetriableAgentReceiptFailure(error);
+
 Future<WorldChatroomMessage> _waitForAgentReply(
   WorldChatroomService service,
-  ChatroomAck ack, {
+  WorldChatroomMessage sentMessage, {
   required String locationId,
   required ChatroomConnectionIdentity identity,
   required Duration timeout,
@@ -163,7 +210,7 @@ Future<WorldChatroomMessage> _waitForAgentReply(
     final reply = _findReplyMessage(
       service.state.messagesByLocation[locationId] ??
           const <WorldChatroomMessage>[],
-      ack,
+      sentMessage,
       identity,
     );
     if (reply != null) return reply;
@@ -176,7 +223,7 @@ Future<WorldChatroomMessage> _waitForAgentReply(
     final refreshed = _findReplyMessage(
       service.state.messagesByLocation[locationId] ??
           const <WorldChatroomMessage>[],
-      ack,
+      sentMessage,
       identity,
     );
     if (refreshed != null) return refreshed;
@@ -187,7 +234,7 @@ Future<WorldChatroomMessage> _waitForAgentReply(
     message: 'Timed out while waiting for an AI reply.',
     details: {
       'locationId': locationId,
-      'conversationRoundId': ack.conversationRoundId,
+      'conversationRoundId': sentMessage.conversationRoundId,
       'timeoutSeconds': timeout.inSeconds,
     },
   );
@@ -195,12 +242,12 @@ Future<WorldChatroomMessage> _waitForAgentReply(
 
 WorldChatroomMessage? _findReplyMessage(
   List<WorldChatroomMessage> messages,
-  ChatroomAck ack,
+  WorldChatroomMessage sentMessage,
   ChatroomConnectionIdentity identity,
 ) {
   final candidates = messages
       .where((message) {
-        if (message.conversationRoundId != ack.conversationRoundId) {
+        if (message.conversationRoundId != sentMessage.conversationRoundId) {
           return false;
         }
         if (message.streaming) return false;

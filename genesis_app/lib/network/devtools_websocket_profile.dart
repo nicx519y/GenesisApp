@@ -72,6 +72,7 @@ class DevToolsWebSocketProfile {
         connectionId: _connectionId,
         sequence: sequence,
         messageType: payload.messageType,
+        globalMessageId: payload.globalMessageId,
         messageId: payload.messageId,
         locationMessageId: payload.locationMessageId,
       );
@@ -89,6 +90,8 @@ class DevToolsWebSocketProfile {
         'x-genesis-websocket-sequence': '$sequence',
         if (payload.messageType != null)
           'x-genesis-websocket-message-type': payload.messageType!,
+        if (payload.globalMessageId != null)
+          'x-genesis-websocket-global-msg-id': payload.globalMessageId!,
         if (payload.messageId != null)
           'x-genesis-websocket-msg-id': payload.messageId!,
         if (payload.locationMessageId != null)
@@ -177,6 +180,7 @@ Uri _profileUri(
   required String connectionId,
   required int sequence,
   required String? messageType,
+  required String? globalMessageId,
   required String? messageId,
   required String? locationMessageId,
 }) {
@@ -189,6 +193,7 @@ Uri _profileUri(
   final fragment = Uri(
     queryParameters: <String, String>{
       if (messageType != null) 'type': messageType,
+      if (globalMessageId != null) 'global_msg_id': globalMessageId,
       if (messageId != null) 'msg_id': messageId,
       if (locationMessageId != null) 'location_msg_id': locationMessageId,
       'connection': connectionId,
@@ -211,6 +216,7 @@ _WebSocketProfilePayload _profilePayload(String message) {
         '$kDevToolsWebSocketProfileMaxBodyBytes-byte profile limit]',
       ),
       messageType: null,
+      globalMessageId: null,
       messageId: null,
       locationMessageId: null,
     );
@@ -218,14 +224,28 @@ _WebSocketProfilePayload _profilePayload(String message) {
   String sanitized;
   var contentType = 'text/plain; charset=utf-8';
   String? messageType;
+  String? globalMessageId;
   String? messageId;
   String? locationMessageId;
   try {
     final decoded = jsonDecode(message);
     if (decoded is Map) {
       messageType = _profileField(decoded, 'type');
-      messageId = _profileField(decoded, 'msg_id');
-      locationMessageId = _profileField(decoded, 'location_msg_id');
+      globalMessageId = _profileIdField(
+        decoded,
+        fullName: 'global_message_id',
+        legacyName: 'global_msg_id',
+      );
+      messageId = _profileIdField(
+        decoded,
+        fullName: 'message_id',
+        legacyName: 'msg_id',
+      );
+      locationMessageId = _profileIdField(
+        decoded,
+        fullName: 'location_message_id',
+        legacyName: 'location_msg_id',
+      );
     }
     sanitized = jsonEncode(_redactJson(decoded));
     contentType = 'application/json; charset=utf-8';
@@ -236,6 +256,7 @@ _WebSocketProfilePayload _profilePayload(String message) {
     contentType: contentType,
     bodyBytes: _truncateUtf8(sanitized),
     messageType: messageType,
+    globalMessageId: globalMessageId,
     messageId: messageId,
     locationMessageId: locationMessageId,
   );
@@ -272,6 +293,17 @@ String? _profileField(Map<dynamic, dynamic> json, String key) {
   if (value is! String && value is! num && value is! bool) return null;
   final text = '$value'.trim();
   return text.isEmpty ? null : text;
+}
+
+String? _profileIdField(
+  Map<dynamic, dynamic> json, {
+  required String fullName,
+  required String legacyName,
+}) {
+  // A present V2 field is authoritative, including an invalid/null value.
+  // Only frames without that field may fall back to the legacy abbreviation.
+  if (json.containsKey(fullName)) return _profileField(json, fullName);
+  return _profileField(json, legacyName);
 }
 
 Object? _redactJson(Object? value) {
@@ -325,6 +357,7 @@ class _WebSocketProfilePayload {
     required this.contentType,
     required this.bodyBytes,
     required this.messageType,
+    required this.globalMessageId,
     required this.messageId,
     required this.locationMessageId,
   });
@@ -332,6 +365,7 @@ class _WebSocketProfilePayload {
   final String contentType;
   final List<int> bodyBytes;
   final String? messageType;
+  final String? globalMessageId;
   final String? messageId;
   final String? locationMessageId;
 }

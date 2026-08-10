@@ -1,6 +1,43 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatPanelConnection on _LocationChatPanelState {
+  Future<void> _closeChatroom() async {
+    final service = _service;
+    final ownsService = _ownsService;
+    _serviceGeneration++;
+    _service = null;
+    _sending = false;
+    _joinedLocation = false;
+    _awaitingAiResponse = false;
+    _awaitingAiResponseClientMsgId = '';
+    _awaitingAiResponseRoundId = '';
+
+    await _stateSubscription?.cancel();
+    await _failuresSubscription?.cancel();
+    await _balanceAlertSubscription?.cancel();
+    _stateSubscription = null;
+    _failuresSubscription = null;
+    _balanceAlertSubscription = null;
+
+    if (service == null) return;
+    final shouldLeave =
+        _joinedLocation ||
+        (service.state.joinedLocationId == widget.locationId &&
+            widget.isLeafLocation);
+    if (widget.leaveOnInactive && shouldLeave) {
+      try {
+        await service.leave();
+      } catch (_) {
+        // Route disposal must not wait on or surface leave failures.
+      }
+    }
+    if (!ownsService) return;
+    try {
+      await service.disconnect();
+    } catch (_) {}
+    await service.dispose();
+  }
+
   Future<void> _loadSelectedModelCodeFromCache() async {
     final generation = ++_selectedModelLoadGeneration;
     try {
@@ -171,6 +208,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   Future<void> _deactivateConnection() async {
     _sending = false;
     _awaitingAiResponse = false;
+    _awaitingAiResponseClientMsgId = '';
     _awaitingAiResponseRoundId = '';
     final wasJoinedLocation = _joinedLocation;
     _joinedLocation = false;
@@ -244,7 +282,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       _setLocationChatState(() {
         _messages.add(ChatMessageVm.system('WebSocket connection failed: $e'));
       });
-      _scrollToBottom();
     }
   }
 
@@ -268,7 +305,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       _setLocationChatState(() {
         _messages.add(ChatMessageVm.system('Join failed: $e'));
       });
-      _scrollToBottom();
     } finally {
       _joiningLocation = false;
     }
@@ -519,7 +555,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         !_joiningLocation) {
       unawaited(_joinLocation(service));
     }
-    final wasAtBottom = _isAtBottom();
+    final wasFollowingLatest =
+        _scrollCoordinator.shouldFollowLatest && _scrollCoordinator.isAtBottom;
     final previousSource =
         _chatroomState.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
@@ -537,8 +574,24 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     );
     final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);
     final olderLoadRendered = _olderLoadHasRenderedNewMessages();
-    final nextAwaitingAiResponse =
-        _awaitingAiResponse && !_hasCompletedAwaitedAiResponse(nextSource);
+    if (_awaitingAiResponse && _awaitingAiResponseRoundId.trim().isEmpty) {
+      final awaitedClientMsgId = _awaitingAiResponseClientMsgId.trim();
+      if (awaitedClientMsgId.isNotEmpty) {
+        for (final message in nextSource.reversed) {
+          if (message.clientMsgId.trim() != awaitedClientMsgId ||
+              !message.isCanonicalUserMessage) {
+            continue;
+          }
+          _awaitingAiResponseRoundId = message.conversationRoundId.trim();
+          break;
+        }
+      }
+    }
+    final nextAwaitingAiResponse = locationChatShouldAwaitAiResponseForTesting(
+      connected: state.connected,
+      awaiting: _awaitingAiResponse,
+      hasCompletedResponse: _hasCompletedAwaitedAiResponse(nextSource),
+    );
     final shouldRebuild =
         changedMessages ||
         changedHasMoreOlder ||
@@ -550,13 +603,19 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         _chatroomState = state;
         if (olderLoadRendered) _finishOlderMessagesLoading();
         _awaitingAiResponse = nextAwaitingAiResponse;
-        if (!nextAwaitingAiResponse) _awaitingAiResponseRoundId = '';
+        if (!nextAwaitingAiResponse) {
+          _awaitingAiResponseClientMsgId = '';
+          _awaitingAiResponseRoundId = '';
+        }
       });
     } else {
       _chatroomState = state;
       if (olderLoadRendered) _finishOlderMessagesLoading();
       _awaitingAiResponse = nextAwaitingAiResponse;
-      if (!nextAwaitingAiResponse) _awaitingAiResponseRoundId = '';
+      if (!nextAwaitingAiResponse) {
+        _awaitingAiResponseClientMsgId = '';
+        _awaitingAiResponseRoundId = '';
+      }
     }
     if (olderLoadRendered) _runDeferredVisibleMessageGapFillIfNeeded();
     _logPanelMetric(
@@ -585,16 +644,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       },
     );
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
-    if (changedMessages && _initialBottomScrollPending) {
-      _scheduleInitialBottomScroll(complete: nextSource.isNotEmpty);
-      return;
-    }
-    if (changedMessages && _composerFocusBottomPinActive) {
-      _clearUnseenIncomingCount();
-      if (!wasAtBottom) _scheduleComposerFocusBottomPin();
-      return;
-    }
-    if (changedMessages && wasAtBottom) {
+    if (changedMessages && wasFollowingLatest) {
       _clearUnseenIncomingCount();
     } else if (changedMessages &&
         previousLatestLocalId.isNotEmpty &&
@@ -719,13 +769,19 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         'maxScrollExtent': hasClients
             ? _scrollController.position.maxScrollExtent
             : 0,
-        'scrollCenterLocalId': _scrollCenterLocalId,
-        'isAtBottom': _isAtBottom(),
-        'initialBottomScrollPending': _initialBottomScrollPending,
-        'initialBottomScrollScheduled': _initialBottomScrollScheduled,
-        'composerFocusBottomPinActive': _composerFocusBottomPinActive,
-        'keepBottomAfterLayoutScheduled': _keepBottomAfterLayoutScheduled,
+        'viewportMode': _scrollCoordinator.mode.name,
+        'isAtBottom': _scrollCoordinator.isAtBottom,
+        'commandGeneration': _scrollCoordinator.commandGeneration,
       },
     );
   }
+}
+
+@visibleForTesting
+bool locationChatShouldAwaitAiResponseForTesting({
+  required bool connected,
+  required bool awaiting,
+  required bool hasCompletedResponse,
+}) {
+  return connected && awaiting && !hasCompletedResponse;
 }

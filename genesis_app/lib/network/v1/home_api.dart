@@ -5,7 +5,7 @@ class HomeV1Api extends V1ApiResource {
 
   /// GET /api/v1/home
   ///
-  /// 提交参数: 无
+  /// Request parameters: none
   ///
   /// Response:
   /// ```json
@@ -15,7 +15,7 @@ class HomeV1Api extends V1ApiResource {
 
   /// GET /api/v1/home/following
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"pn":1,"rn":10}
   /// ```

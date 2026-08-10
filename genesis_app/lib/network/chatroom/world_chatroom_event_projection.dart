@@ -33,10 +33,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           WorldChatroomMessage.fromTickAdvanceMessage(e),
         );
       case ChatroomAiStreamStart e:
-        _upsertMessage(
-          WorldChatroomMessage.fromAiStreamStart(e),
-          socketCurrentTime: e.currentTime,
-        );
+        _startStream(e);
       case ChatroomAiStreamChunk e:
         _appendStreamChunk(e);
       case ChatroomAiStreamEnd e:
@@ -132,19 +129,35 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
             persist: false,
           );
         }
-        _logChatroomSocketEvent(
-          'characters_moved without msg_id fetch start world=$_worldId',
-        );
-        unawaited(_scheduleLatestMessagesRefresh());
-        _logChatroomSocketEvent(
-          'characters_moved without msg_id fetch scheduled world=$_worldId',
-        );
+        final movedLocationId = event.locationId.trim();
+        if (movedLocationId.isNotEmpty) {
+          unawaited(
+            refreshLatestMessages(
+              locationId: movedLocationId,
+              limit: 20,
+              emitLatestFetched: false,
+            ),
+          );
+        } else {
+          unawaited(_scheduleLatestMessagesRefresh());
+        }
       case 'world_new_message':
         _logChatroomSocketEvent(
           'world_new_message fetch start location=${event.locationId} '
           'world=$_worldId',
         );
-        unawaited(_scheduleLatestMessagesRefresh());
+        final notificationLocationId = event.locationId.trim();
+        if (notificationLocationId.isNotEmpty) {
+          unawaited(
+            refreshLatestMessages(
+              locationId: notificationLocationId,
+              limit: 20,
+              emitLatestFetched: false,
+            ),
+          );
+        } else {
+          unawaited(_scheduleLatestMessagesRefresh());
+        }
         _logChatroomSocketEvent(
           'world_new_message fetch scheduled location=${event.locationId} '
           'world=$_worldId',

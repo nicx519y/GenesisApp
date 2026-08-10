@@ -200,17 +200,22 @@ extension _WorldChatroomConnection on WorldChatroomService {
     _heartbeatTimer = null;
     final session = _session;
     _session = null;
-    if (disconnect && session != null) {
-      try {
-        await session.disconnect();
-      } catch (_) {}
-    }
     await _eventSubscription?.cancel();
     await _failureSubscription?.cancel();
     await _errorSubscription?.cancel();
     _eventSubscription = null;
     _failureSubscription = null;
     _errorSubscription = null;
+    try {
+      await _eventQueue;
+    } catch (_) {}
+    _streamAccumulators.clear();
+    _clearProvisionalStreamMessages();
+    if (disconnect && session != null) {
+      try {
+        await session.disconnect();
+      } catch (_) {}
+    }
   }
 
   void _startHeartbeat() {

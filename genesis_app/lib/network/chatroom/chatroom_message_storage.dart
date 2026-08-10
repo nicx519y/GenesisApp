@@ -50,39 +50,61 @@ abstract class ChatroomMessageStorage {
 }
 
 class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
+  SqfliteChatroomMessageStorage({
+    this.databaseName = 'genesis_chatroom_messages.db',
+    DatabaseFactory? databaseFactoryOverride,
+    this.databasePath,
+  }) : _databaseFactory = databaseFactoryOverride;
+
+  final String databaseName;
+  final String? databasePath;
+  final DatabaseFactory? _databaseFactory;
   Database? _database;
 
   Future<Database> get _db async {
     final existing = _database;
     if (existing != null) return existing;
-    final databasePath = await getDatabasesPath();
-    final db = await openDatabase(
-      '$databasePath/genesis_chatroom_messages.db',
-      version: 3,
-      onCreate: (db, _) async {
-        await db.execute(_createChatroomMessagesSql);
-        await db.execute(_createChatroomMessagesIndexSql);
-        await db.execute(_createChatroomMessagesLocationUniqueSql);
-      },
-      onUpgrade: (db, oldVersion, _) async {
-        if (oldVersion < 2) {
-          await db.execute(
-            'ALTER TABLE chatroom_messages '
-            'ADD COLUMN global_msg_id INTEGER NOT NULL DEFAULT 0',
-          );
-          await db.execute(
-            'ALTER TABLE chatroom_messages '
-            'ADD COLUMN location_msg_id INTEGER NOT NULL DEFAULT 0',
-          );
-        }
-        if (oldVersion < 3) {
+    final factory = _databaseFactory ?? databaseFactory;
+    final path =
+        databasePath ?? '${await factory.getDatabasesPath()}/$databaseName';
+    final db = await factory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 4,
+        onCreate: (db, _) async {
+          await db.execute(_createChatroomMessagesSql);
           await db.execute(_createChatroomMessagesIndexSql);
           await db.execute(_createChatroomMessagesLocationUniqueSql);
-        }
-      },
+        },
+        onUpgrade: (db, oldVersion, _) async {
+          if (oldVersion < 2) {
+            await db.execute(
+              'ALTER TABLE chatroom_messages '
+              'ADD COLUMN global_msg_id INTEGER NOT NULL DEFAULT 0',
+            );
+            await db.execute(
+              'ALTER TABLE chatroom_messages '
+              'ADD COLUMN location_msg_id INTEGER NOT NULL DEFAULT 0',
+            );
+          }
+          if (oldVersion < 3) {
+            await db.execute(_createChatroomMessagesIndexSql);
+            await db.execute(_createChatroomMessagesLocationUniqueSql);
+          }
+          if (oldVersion < 4) {
+            await _deleteLegacySupplementalRows(db);
+          }
+        },
+      ),
     );
     _database = db;
     return db;
+  }
+
+  Future<void> close() async {
+    final database = _database;
+    _database = null;
+    await database?.close();
   }
 
   @override
@@ -482,6 +504,11 @@ List<Map<String, dynamic>> _sortMessageJson(
       .map((message) => Map<String, dynamic>.from(message))
       .toList(growable: false);
   sorted.sort((a, b) {
+    final aIsCursorlessNonOrdered = _isCursorlessNonOrderedJson(a);
+    final bIsCursorlessNonOrdered = _isCursorlessNonOrderedJson(b);
+    if (aIsCursorlessNonOrdered != bIsCursorlessNonOrdered) {
+      return aIsCursorlessNonOrdered ? -1 : 1;
+    }
     final aIsMessageIdOrdered = _isMessageIdOrderedSupplementalJson(a);
     final bIsMessageIdOrdered = _isMessageIdOrderedSupplementalJson(b);
     if (aIsMessageIdOrdered || bIsMessageIdOrdered) {
@@ -531,6 +558,11 @@ bool _isMessageIdOrderedSupplementalJson(Map<String, dynamic> message) {
   );
 }
 
+bool _isCursorlessNonOrderedJson(Map<String, dynamic> message) {
+  return _locationMessageId(message) <= 0 &&
+      !_isMessageIdOrderedSupplementalJson(message);
+}
+
 int _storageLocationMessageId(Map<String, dynamic> message) {
   return _isMessageIdOrderedSupplementalJson(message)
       ? 0
@@ -549,7 +581,10 @@ bool _messageIsBeforeLocationCursor(
         _messageId(message) < beforeWorldMessageId;
   }
   final locationMessageId = _locationMessageId(message);
-  if (locationMessageId <= 0) return true;
+  // Cursorless non-tick legacy timeline rows are display-only compatibility
+  // records. Returning them for every location page would repeat the same row
+  // indefinitely because they have no location cursor to advance.
+  if (locationMessageId <= 0) return false;
   return locationMessageId < beforeMessageId;
 }
 
@@ -565,7 +600,9 @@ bool _messageIsAtOrBeforeLocationCursor(
         _messageId(message) <= maxWorldMessageId;
   }
   final locationMessageId = _locationMessageId(message);
-  if (locationMessageId <= 0) return true;
+  // A location gap boundary cannot classify a cursorless non-tick legacy row
+  // as old or new, so retain it until ordinary cache pruning/clearing.
+  if (locationMessageId <= 0) return false;
   return locationMessageId <= maxLocationMessageId;
 }
 
@@ -605,3 +642,47 @@ int _messageSortValue(Map<String, dynamic> message) {
   final parsed = asDateTime(message['ts']) ?? asDateTime(message['created_at']);
   return parsed?.millisecondsSinceEpoch ?? _messageId(message);
 }
+
+Future<void> _deleteLegacySupplementalRows(DatabaseExecutor db) async {
+  final rows = await db.query(
+    'chatroom_messages',
+    columns: const <String>[
+      'owner_uid',
+      'world_id',
+      'location_id',
+      'location_msg_id',
+      'msg_id',
+      'raw_json',
+    ],
+    where: 'location_msg_id = 0',
+  );
+  for (final row in rows) {
+    Map<String, dynamic> message;
+    try {
+      message = asJsonMap(jsonDecode('${row['raw_json']}'));
+    } catch (_) {
+      continue;
+    }
+    final senderType = asString(message['sender_type']).trim().toLowerCase();
+    if (!_legacySupplementalSenderTypesToDelete.contains(senderType)) continue;
+    await db.delete(
+      'chatroom_messages',
+      where:
+          'owner_uid = ? AND world_id = ? AND location_id = ? '
+          'AND location_msg_id = ? AND msg_id = ?',
+      whereArgs: <Object?>[
+        row['owner_uid'],
+        row['world_id'],
+        row['location_id'],
+        row['location_msg_id'],
+        row['msg_id'],
+      ],
+    );
+  }
+}
+
+const Set<String> _legacySupplementalSenderTypesToDelete = <String>{
+  'tick',
+  'story_events',
+  'characters_moved',
+};

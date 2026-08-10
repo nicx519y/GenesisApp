@@ -247,7 +247,9 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
   }
 
   bool _isTickAdvanceWorldMessage(WorldChatroomMessage message) {
-    return message.senderType.trim().toLowerCase() == 'tick';
+    return message.senderType.trim().toLowerCase() == 'tick' &&
+        message.locationMessageId <= 0 &&
+        !message.isV2LocationTick;
   }
 
   bool _isLocationMessageGapFilled(

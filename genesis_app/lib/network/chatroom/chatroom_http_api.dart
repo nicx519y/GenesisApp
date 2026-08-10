@@ -31,8 +31,30 @@ class ChatroomHttpApi {
     return ChatroomWorldMessagesResponse.fromJson(data);
   }
 
-  /// GET /aitown-chat/api/messages
+  /// GET /aitown-chat/api/v2/messages
   Future<ChatroomMessageListResponse> getMessages({
+    required String worldId,
+    required String locationId,
+    int? since,
+    int? limit,
+  }) async {
+    final data = await _getMap(
+      'aitown-chat/api/v2/messages',
+      v1Query({
+        'world_id': _required(worldId, 'worldId'),
+        'location_id': _required(locationId, 'locationId'),
+        'since': since,
+        'limit': limit,
+      }),
+    );
+    return ChatroomMessageListResponse.fromV2Json(data);
+  }
+
+  /// GET /aitown-chat/api/messages
+  ///
+  /// Legacy compatibility/debug endpoint. New location history should use
+  /// [getMessages], whose cursor is `location_message_id`.
+  Future<ChatroomMessageListResponse> getLegacyMessages({
     required String worldId,
     required String locationId,
     int? since,

@@ -116,7 +116,9 @@ void main() {
 
     await recorder.recordFrame(
       direction: '<=',
-      message: '{"type":"ack","msg_id":501,"location_msg_id":201,"err_no":0}',
+      message:
+          '{"type":"ack","global_msg_id":901,"msg_id":501,'
+          '"location_msg_id":201,"err_no":0}',
     );
 
     expect(capturedProfile.requestMethod, 'WS_RECV');
@@ -124,6 +126,7 @@ void main() {
       Uri.splitQueryString(Uri.parse(capturedProfile.requestUri).fragment),
       {
         'type': 'ack',
+        'global_msg_id': '901',
         'msg_id': '501',
         'location_msg_id': '201',
         'connection': 'ws-test',
@@ -133,13 +136,81 @@ void main() {
     expect(capturedProfile.requestData.bodyBytes, isEmpty);
     expect(
       utf8.decode(capturedProfile.responseData.bodyBytes),
-      '{"type":"ack","msg_id":501,"location_msg_id":201,"err_no":0}',
+      '{"type":"ack","global_msg_id":901,"msg_id":501,'
+      '"location_msg_id":201,"err_no":0}',
+    );
+    expect(
+      capturedProfile.responseData.headers,
+      containsPair('x-genesis-websocket-global-msg-id', ['901']),
     );
     expect(
       capturedProfile.responseData.headers,
       containsPair('content-type', ['application/json; charset=utf-8']),
     );
     expect(capturedProfile.connectionInfo?['direction'], 'receive');
+  });
+
+  test('profiles V2 full message ids ahead of legacy aliases', () async {
+    late HttpClientRequestProfile capturedProfile;
+    final recorder = DevToolsWebSocketProfile(
+      Uri.parse('wss://api.worldo.ai/aitown-chat/ws?world_id=world-1'),
+      connectionId: 'ws-v2',
+      profileFactory:
+          ({
+            required requestStartTime,
+            required requestMethod,
+            required requestUri,
+          }) {
+            capturedProfile = HttpClientRequestProfile.profile(
+              requestStartTime: requestStartTime,
+              requestMethod: requestMethod,
+              requestUri: requestUri,
+            )!;
+            return capturedProfile;
+          },
+    );
+
+    await recorder.recordFrame(
+      direction: '<=',
+      message: jsonEncode({
+        'type': 'tick',
+        'stream_type': '',
+        'global_message_id': 90003,
+        'message_id': 503,
+        'location_message_id': 203,
+        // Conflicting aliases must not override the canonical V2 fields.
+        'global_msg_id': 1,
+        'msg_id': 2,
+        'location_msg_id': 3,
+        'payload': {'content': 'Time advances'},
+        'err_no': 0,
+        'err_msg': '',
+      }),
+    );
+
+    expect(
+      Uri.splitQueryString(Uri.parse(capturedProfile.requestUri).fragment),
+      {
+        'type': 'tick',
+        'global_msg_id': '90003',
+        'msg_id': '503',
+        'location_msg_id': '203',
+        'connection': 'ws-v2',
+        'frame': '1',
+      },
+    );
+    expect(
+      capturedProfile.responseData.headers,
+      containsPair('x-genesis-websocket-global-msg-id', ['90003']),
+    );
+    expect(
+      capturedProfile.responseData.headers,
+      containsPair('x-genesis-websocket-msg-id', ['503']),
+    );
+    expect(
+      capturedProfile.responseData.headers,
+      containsPair('x-genesis-websocket-location-msg-id', ['203']),
+    );
   });
 
   test('increments frame sequence and omits oversized payloads', () async {

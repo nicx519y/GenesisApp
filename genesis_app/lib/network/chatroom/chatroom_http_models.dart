@@ -1,10 +1,16 @@
 import '../json_utils.dart';
 import 'chatroom_message_type.dart';
+import 'chatroom_models.dart';
 import 'chatroom_timeline_payload.dart';
 
 class ChatroomHttpMessage {
   const ChatroomHttpMessage({
     this.rawJson = const <String, Object?>{},
+    this.businessType = '',
+    this.streamType = '',
+    this.ts,
+    this.worldId = '',
+    this.sessionId = '',
     required this.globalMessageId,
     required this.messageId,
     required this.locationMessageId,
@@ -19,10 +25,21 @@ class ChatroomHttpMessage {
     required this.content,
     this.messageType = chatroomTextMessageType,
     this.currentTime = '',
+    this.clientMsgId = '',
+    this.minAppVersion = 0,
+    this.payload = const <String, dynamic>{},
+    this.v2TickPayload,
+    this.errNo = 0,
+    this.errMsg = '',
     required this.createdAt,
   });
 
   final Map<String, Object?> rawJson;
+  final String businessType;
+  final String streamType;
+  final int? ts;
+  final String worldId;
+  final String sessionId;
   final int globalMessageId;
   final int messageId;
   final int locationMessageId;
@@ -37,9 +54,18 @@ class ChatroomHttpMessage {
   final String content;
   final String messageType;
   final String currentTime;
+  final String clientMsgId;
+  final int minAppVersion;
+  final Map<String, dynamic> payload;
+  final ChatroomV2TickPayload? v2TickPayload;
+  final int errNo;
+  final String errMsg;
   final DateTime? createdAt;
 
+  Map<String, dynamic> get rawPayload => payload;
+
   bool get isLocationSupplementalMessage =>
+      locationMessageId <= 0 &&
       isChatroomLocationSupplementalSenderType(senderType);
 
   ChatroomTimelinePayload? get timelinePayload {
@@ -100,6 +126,60 @@ class ChatroomHttpMessage {
       ),
       currentTime: asString(json['current_time']),
       createdAt: asDateTime(json['created_at']),
+    );
+  }
+
+  factory ChatroomHttpMessage.fromV2Json(Map<String, dynamic> json) {
+    return ChatroomHttpMessage.fromV2Message(
+      ChatroomV2Message.fromJson(json),
+      rawJson: Map<String, Object?>.from(json),
+    );
+  }
+
+  factory ChatroomHttpMessage.fromV2Message(
+    ChatroomV2Message message, {
+    Map<String, Object?>? rawJson,
+  }) {
+    final payload = Map<String, dynamic>.from(message.payload);
+    final tickPayload = _decodeV2TickPayload(message.type, payload);
+    final senderId = message.senderId;
+    final resolvedRawJson = rawJson ?? message.toJson();
+    final content = asString(
+      payload['content'],
+      fallback: tickPayload?.globalText ?? '',
+    );
+    return ChatroomHttpMessage(
+      rawJson: resolvedRawJson,
+      businessType: message.type,
+      streamType: message.streamType,
+      ts: message.ts,
+      worldId: message.worldId,
+      sessionId: message.sessionId,
+      globalMessageId: message.globalMessageId ?? 0,
+      messageId: message.messageId ?? 0,
+      locationMessageId: message.locationMessageId ?? 0,
+      locationId: message.locationId,
+      conversationRoundId: message.conversationRoundId ?? 0,
+      tickNo: tickPayload?.tickNo ?? 0,
+      subTickNo: tickPayload?.subTickNo ?? 0,
+      senderType: message.senderType,
+      senderId: senderId,
+      senderName: message.senderName,
+      userId: message.userId,
+      content: content,
+      messageType: resolveIncomingChatroomMessageType(
+        hasMessageTypeField: resolvedRawJson.containsKey('message_type'),
+        rawMessageType: message.messageType,
+        senderId: senderId,
+      ),
+      currentTime: tickPayload?.currentTime ?? '',
+      clientMsgId: message.clientMsgId,
+      minAppVersion: message.minAppVersion ?? 0,
+      payload: payload,
+      v2TickPayload: tickPayload,
+      errNo: message.errNo,
+      errMsg: message.errMsg,
+      createdAt: asDateTime(message.createdAt) ?? asDateTime(message.ts),
     );
   }
 }
@@ -239,6 +319,49 @@ class ChatroomMessageListResponse {
               message.messageId > previous ? message.messageId : previous,
         ),
       ),
+    );
+  }
+
+  factory ChatroomMessageListResponse.fromV2Json(Map<String, dynamic> json) {
+    final rawMessages = json['messages'] is List
+        ? asJsonList(json['messages'])
+        : const [];
+    final messages = rawMessages
+        .map((item) => ChatroomHttpMessage.fromV2Json(asJsonMap(item)))
+        .toList(growable: false);
+    return ChatroomMessageListResponse(
+      rawJson: Map<String, Object?>.from(json),
+      messages: messages,
+      hasMore: asBool(json['has_more']),
+      newestMessageId: asInt(
+        json['newest_message_id'],
+        fallback: messages.fold<int>(
+          0,
+          (previous, message) => message.locationMessageId > previous
+              ? message.locationMessageId
+              : previous,
+        ),
+      ),
+    );
+  }
+}
+
+ChatroomV2TickPayload? _decodeV2TickPayload(
+  String businessType,
+  Map<String, dynamic> payload,
+) {
+  if (businessType.trim().toLowerCase() != 'tick') return null;
+  try {
+    return ChatroomV2TickPayload.fromJson(payload);
+  } catch (_) {
+    return ChatroomV2TickPayload(
+      currentTime: asString(payload['current_time']),
+      tickNo: asInt(payload['tick_no']),
+      subTickNo: asInt(payload['sub_tick_no']),
+      globalText: '',
+      storyEvents: const <ChatroomV2StoryEvent>[],
+      charactersMoved: const <ChatroomV2CharacterMovement>[],
+      fallbackContent: asString(payload['content']),
     );
   }
 }

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/agent_control/agent_control_models.dart';
 import 'package:genesis_flutter_android/app/agent_control/agent_control_registry.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
@@ -186,6 +189,45 @@ void main() {
         locationId: 'loc-2',
       ),
       false,
+    );
+  });
+
+  test('agent retries only transport and ack timeout receipt failures', () {
+    expect(
+      isRetriableAgentReceiptFailureForTesting(TimeoutException('receipt')),
+      isTrue,
+    );
+    expect(
+      isRetriableAgentReceiptFailureForTesting(
+        const ChatroomProtocolException('chatroom is not connected'),
+      ),
+      isTrue,
+    );
+    expect(
+      isRetriableAgentReceiptFailureForTesting(
+        const ChatroomFailureEvent(code: 'ack_timeout', message: 'timeout'),
+      ),
+      isTrue,
+    );
+    expect(
+      isRetriableAgentReceiptFailureForTesting(
+        const ChatroomFailureEvent(
+          code: 'send_message_send_failed',
+          message: 'transport failed',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      isRetriableAgentReceiptFailureForTesting(
+        const ChatroomFailureEvent(
+          code: '3001',
+          message: 'business rejected',
+          sourceType: 'ack',
+          requestType: 'send_message',
+        ),
+      ),
+      isFalse,
     );
   });
 }

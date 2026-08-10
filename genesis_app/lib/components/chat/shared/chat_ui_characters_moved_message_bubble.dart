@@ -71,7 +71,7 @@ class _ChatCharactersMovedTitle extends StatelessWidget {
         Icon(Icons.directions_walk_rounded, size: 15, color: textColor),
         const SizedBox(width: 5),
         Text(
-          '人物去向',
+          'Character destinations',
           style: style.systemMessageTextStyle.copyWith(
             fontWeight: FontWeight.w600,
           ),

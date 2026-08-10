@@ -5,506 +5,557 @@ import '../../../ui/tokens/genesis_colors.dart';
 
 class ChatUiStyleConfig {
   const ChatUiStyleConfig({
-    // 聊天页面整体背景色。
+    // Overall chat page background color.
     required this.conversationBackgroundColor,
-    // 顶部聊天栏高度，不包含系统安全区。
+    // Top chat header height, excluding the system safe area.
     required this.headerHeight,
-    // 顶部聊天栏背景色。
+    // Top chat header background color.
     required this.headerBackgroundColor,
-    // 顶部聊天栏背景渐变；存在时优先于纯色背景。
+    // Top chat header background gradient; when set, it takes precedence over the solid background color.
     this.headerBackgroundGradient,
-    // 顶部聊天栏背景模糊半径。
+    // Top chat header backdrop blur radius.
     this.headerBackdropBlurSigma = 0,
-    // 顶部聊天栏主标题文字样式。
+    // Top chat header title text style.
     required this.headerTitleTextStyle,
-    // 顶部聊天栏副标题文字样式。
+    // Top chat header subtitle text style.
     required this.headerSubtitleTextStyle,
-    // 顶部标题左侧位置图标颜色。
+    // Color of the location icon to the left of the header title.
     required this.headerTitleIconColor,
-    // 顶部标题左侧位置图标尺寸。
+    // Size of the location icon to the left of the header title.
     required this.headerTitleIconSize,
-    // 顶部副标题状态图标颜色。
+    // Header subtitle status icon color.
     required this.headerStatusIconColor,
-    // 顶部副标题状态图标尺寸。
+    // Header subtitle status icon size.
     required this.headerStatusIconSize,
-    // 顶部右侧更多按钮图标尺寸。
+    // Size of the More button icon on the right side of the header.
     required this.headerMoreIconSize,
-    // 顶部左侧返回按钮图标尺寸。
+    // Size of the Back button icon on the left side of the header.
     required this.headerBackIconSize,
-    // 顶部标题图标和标题文字之间的间距。
+    // Spacing between the header title icon and title text.
     required this.headerTitleIconGap,
-    // 顶部标题和副标题之间的垂直间距。
+    // Vertical spacing between the header title and subtitle.
     required this.headerSubtitleTopGap,
-    // 顶部状态图标和副标题文字之间的间距。
+    // Spacing between the header status icon and subtitle text.
     required this.headerStatusIconGap,
-    // 隐藏更多按钮时右侧占位宽度，用来保持标题居中。
+    // Width reserved on the right when the More button is hidden, keeping the title centered.
     required this.headerTrailingPlaceholderWidth,
-    // 底部输入栏背景色。
+    // Bottom composer background color.
     required this.composerBackgroundColor,
-    // 底部输入栏背景渐变；存在时优先于纯色背景。
+    // Bottom composer background gradient; when set, it takes precedence over the solid background color.
     this.composerBackgroundGradient,
-    // 底部输入栏背景模糊半径。
+    // Bottom composer backdrop blur radius.
     this.composerBackdropBlurSigma = 0,
-    // 底部输入栏外边距。
+    // Bottom composer outer padding.
     required this.composerPadding,
-    // 输入栏图标按钮点击区域尺寸。
+    // Composer icon button hit-target size.
     required this.composerIconButtonSize,
-    // 输入栏图标视觉尺寸。
+    // Composer icon visual size.
     required this.composerIconSize,
-    // 输入栏图标颜色。
+    // Composer icon color.
     required this.composerIconColor,
-    // 是否显示输入框左侧的语音按钮。
+    // Whether to show the voice button to the left of the input field.
     required this.showComposerVoiceButton,
-    // 是否显示输入框右侧的表情按钮。
+    // Whether to show the sticker button to the right of the input field.
     required this.showComposerStickerButton,
-    // 是否显示输入框右侧的加号按钮。
+    // Whether to show the Add button to the right of the input field.
     required this.showComposerAddButton,
-    // 是否显示最右侧的发送按钮。
+    // Whether to show the Send button at the far right.
     required this.showComposerSendButton,
-    // 发送按钮宽度。
+    // Send button width.
     required this.composerSendButtonWidth,
-    // 发送按钮高度。
+    // Send button height.
     required this.composerSendButtonHeight,
-    // 发送按钮圆角。
+    // Send button border radius.
     required this.composerSendButtonBorderRadius,
-    // 发送按钮背景色。
+    // Send button background color.
     required this.composerSendButtonColor,
-    // 发送按钮禁用背景色。
+    // Disabled send button background color.
     required this.composerSendButtonDisabledColor,
-    // 发送按钮图标颜色。
+    // Send button icon color.
     required this.composerSendButtonIconColor,
-    // 发送按钮图标尺寸。
+    // Send button icon size.
     required this.composerSendButtonIconSize,
-    // 发送按钮 loading 圆环尺寸。
+    // Send button loading indicator size.
     required this.composerSendButtonLoadingSize,
-    // 发送按钮 loading 圆环线宽。
+    // Send button loading indicator stroke width.
     required this.composerSendButtonLoadingStrokeWidth,
-    // 语音按钮和输入框之间的间距。
+    // Spacing between the voice button and input field.
     required this.composerLeadingGap,
-    // 输入框右侧操作按钮之间的间距。
+    // Spacing between action buttons to the right of the input field.
     required this.composerActionGap,
-    // 输入框最小高度。
+    // Minimum input field height.
     required this.inputMinHeight,
-    // 输入框最小行数。
+    // Minimum number of input field lines.
     required this.inputMinLines,
-    // 输入框最大行数，超过后输入框内部滚动。
+    // Maximum number of input field lines; additional content scrolls inside the field.
     required this.inputMaxLines,
-    // 输入框单行文字高度。
+    // Single-line input text height.
     required this.inputLineHeight,
-    // 输入框文字左右内边距。
+    // Horizontal padding around input text.
     required this.inputHorizontalPadding,
-    // 输入框文字上下内边距。
+    // Vertical padding around input text.
     required this.inputVerticalPadding,
-    // 输入框背景色。
+    // Input field background color.
     required this.inputBackgroundColor,
-    // 输入框圆角。
+    // Input field border radius.
     required this.inputBorderRadius,
-    // 输入框文字样式。
+    // Input field text style.
     required this.inputTextStyle,
-    // 消息列表内边距。
+    // Message list padding.
     required this.messageListPadding,
-    // 没有顶部标题时保留的顶部高度。
+    // Top space reserved when there is no top title.
     required this.topTitleEmptyHeight,
-    // 顶部标题底部间距。
+    // Bottom spacing below the top title.
     required this.topTitleBottomPadding,
-    // 顶部标题文字样式。
+    // Top title text style.
     required this.topTitleTextStyle,
-    // 每条消息行底部间距。
+    // Bottom spacing for each message row.
     required this.rowBottomPadding,
-    // 自己消息气泡最大宽度占屏幕宽度的比例。
+    // Maximum width of the current user's message bubble as a fraction of screen width.
     required this.selfBubbleMaxWidthFactor,
-    // 对方消息气泡最大宽度占屏幕宽度的比例。
+    // Maximum width of another user's message bubble as a fraction of screen width.
     required this.otherBubbleMaxWidthFactor,
-    // loading/失败徽标和气泡之间的间距。
+    // Spacing between the loading or failure badge and the bubble.
     required this.badgeBubbleGap,
-    // 头像和气泡之间的间距。
+    // Spacing between the avatar and bubble.
     required this.avatarBubbleGap,
-    // 气泡远端和列表边缘之间保留的占位宽度。
+    // Space reserved between the far side of the bubble and the list edge.
     required this.avatarSideSpacerWidth,
-    // 发送者名字和气泡之间的垂直间距。
+    // Vertical spacing between the sender name and bubble.
     required this.senderNameBottomGap,
-    // 状态文字和气泡之间的垂直间距。
+    // Vertical spacing between status text and the bubble.
     required this.statusTextTopGap,
-    // 非 sending/failed 的状态文字样式。
+    // Status text style for states other than sending and failed.
     required this.statusTextStyle,
-    // 对方消息顶部发送者名字样式。
+    // Sender name style above another user's message.
     required this.senderNameTextStyle,
-    // 是否在对方气泡上方显示发送者名字。
+    // Whether to show the sender name above another user's bubble.
     required this.showSenderNameAboveOtherBubble,
-    // 消息气泡内边距。
+    // Message bubble padding.
     required this.bubblePadding,
-    // 消息气泡圆角。
+    // Message bubble border radius.
     required this.bubbleBorderRadius,
-    // 自己消息气泡颜色。
+    // Current user's message bubble color.
     required this.selfBubbleColor,
-    // 对方消息气泡颜色。
+    // Other user's message bubble color.
     required this.otherBubbleColor,
-    // 消息气泡文字样式。
+    // Message bubble text style.
     required this.bubbleTextStyle,
-    // 头像尺寸。
+    // Avatar size.
     required this.avatarSize,
-    // 头像圆角。
+    // Avatar border radius.
     required this.avatarBorderRadius,
-    // 自己头像渐变色。
+    // Current user's avatar gradient colors.
     required this.selfAvatarColors,
-    // 对方头像渐变色。
+    // Other user's avatar gradient colors.
     required this.otherAvatarColors,
-    // 头像内文字样式。
+    // Avatar text style.
     required this.avatarTextStyle,
-    // AI 标识尺寸。
+    // AI badge size.
     required this.aiBadgeSize,
-    // AI 标识颜色。
+    // AI badge color.
     required this.aiBadgeColor,
-    // sending loading 徽标尺寸。
+    // Sending indicator badge size.
     required this.sendingBadgeSize,
-    // sending loading 徽标内边距。
+    // Sending indicator badge padding.
     required this.sendingBadgePadding,
-    // sending loading 圆环线宽。
+    // Sending indicator stroke width.
     required this.sendingBadgeStrokeWidth,
-    // sending loading 圆环颜色。
+    // Sending indicator color.
     required this.sendingBadgeColor,
-    // failed 红色感叹号徽标尺寸。
+    // Failed red exclamation badge size.
     required this.failedBadgeSize,
-    // failed 红色感叹号徽标背景色。
+    // Failed red exclamation badge background color.
     required this.failedBadgeColor,
-    // failed 感叹号图标颜色。
+    // Failed exclamation icon color.
     required this.failedBadgeIconColor,
-    // failed 感叹号图标尺寸。
+    // Failed exclamation icon size.
     required this.failedBadgeIconSize,
-    // 日期分割线底部间距。
+    // Date divider bottom spacing.
     required this.dateDividerBottomPadding,
-    // 日期分割线文字样式。
+    // Date divider text style.
     required this.dateDividerTextStyle,
-    // 系统消息外边距。
+    // System message margin.
     required this.systemMessageMargin,
-    // 系统消息内边距。
+    // System message padding.
     required this.systemMessagePadding,
-    // 系统消息背景色。
+    // System message background color.
     required this.systemMessageBackgroundColor,
-    // 系统消息圆角。
+    // System message border radius.
     required this.systemMessageBorderRadius,
-    // 系统消息文字样式。
+    // System message text style.
     required this.systemMessageTextStyle,
   });
 
   static const standard = ChatUiStyleConfig(
-    conversationBackgroundColor: Color(0xFFEDEDED), // 聊天页面整体背景色。
-    headerHeight: 50, // 顶部聊天栏高度，不包含系统安全区。
-    headerBackgroundColor: Color(0xF5F2EFF2), // 顶部聊天栏背景色。
+    conversationBackgroundColor: Color(
+      0xFFEDEDED,
+    ), // Overall chat page background color.
+    headerHeight: 50, // Top chat header height, excluding the system safe area.
+    headerBackgroundColor: Color(
+      0xF5F2EFF2,
+    ), // Top chat header background color.
     headerBackgroundGradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [Color(0xF2111111), Color(0x00111111)],
-    ), // 顶部聊天栏背景渐变。
+    ), // Top chat header background gradient.
     headerTitleTextStyle: TextStyle(
-      fontSize: 16, // 顶部主标题字号。
-      fontWeight: FontWeight.w600, // 顶部主标题字重。
-      color: Colors.black, // 顶部主标题颜色。
+      fontSize: 16, // Header title font size.
+      fontWeight: FontWeight.w600, // Header title font weight.
+      color: Colors.black, // Header title color.
     ),
     headerSubtitleTextStyle: TextStyle(
-      fontSize: 16, // 顶部副标题字号。
-      fontWeight: FontWeight.w400, // 顶部副标题字重。
-      color: Colors.black87, // 顶部副标题颜色。
+      fontSize: 16, // Header subtitle font size.
+      fontWeight: FontWeight.w400, // Header subtitle font weight.
+      color: Colors.black87, // Header subtitle color.
     ),
-    headerTitleIconColor: Color(0xFF526A9F), // 顶部标题位置图标颜色。
-    headerTitleIconSize: 16, // 顶部标题位置图标尺寸。
-    headerStatusIconColor: Colors.black87, // 顶部副标题状态图标颜色。
-    headerStatusIconSize: 17, // 顶部副标题状态图标尺寸。
-    headerMoreIconSize: 17, // 顶部右侧更多按钮图标尺寸。
-    headerBackIconSize: 17, // 顶部左侧返回按钮图标尺寸。
-    headerTitleIconGap: 4, // 顶部标题图标和文字间距。
-    headerSubtitleTopGap: 4, // 顶部标题和副标题垂直间距。
-    headerStatusIconGap: 5, // 顶部状态图标和文字间距。
-    headerTrailingPlaceholderWidth: 48, // 隐藏更多按钮时右侧占位宽度。
-    composerBackgroundColor: Color(0xFAF1EFF1), // 底部输入栏背景色。
+    headerTitleIconColor: Color(0xFF526A9F), // Header location icon color.
+    headerTitleIconSize: 16, // Header location icon size.
+    headerStatusIconColor: Colors.black87, // Header subtitle status icon color.
+    headerStatusIconSize: 17, // Header subtitle status icon size.
+    headerMoreIconSize:
+        17, // Size of the More button icon on the right side of the header.
+    headerBackIconSize:
+        17, // Size of the Back button icon on the left side of the header.
+    headerTitleIconGap: 4, // Spacing between the header title icon and text.
+    headerSubtitleTopGap:
+        4, // Vertical spacing between the header title and subtitle.
+    headerStatusIconGap: 5, // Spacing between the header status icon and text.
+    headerTrailingPlaceholderWidth:
+        48, // Width reserved on the right when the More button is hidden.
+    composerBackgroundColor: Color(
+      0xFAF1EFF1,
+    ), // Bottom composer background color.
     composerBackgroundGradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [Color(0x00111111), Color(0xF2111111)],
-    ), // 底部输入栏背景渐变。
-    composerPadding: EdgeInsets.fromLTRB(10, 8, 10, 16), // 底部输入栏内边距。
-    composerIconButtonSize: 32, // 输入栏图标按钮点击区域尺寸。
-    composerIconSize: 30, // 输入栏图标视觉尺寸。
-    composerIconColor: Colors.black, // 输入栏图标颜色。
-    showComposerVoiceButton: false, // 是否显示输入框左侧语音按钮。
-    showComposerStickerButton: false, // 是否显示输入框右侧表情按钮。
-    showComposerAddButton: false, // 是否显示输入框右侧加号按钮。
-    showComposerSendButton: true, // 是否显示最右侧发送按钮。
-    composerSendButtonWidth: 64, // 发送按钮宽度。
-    composerSendButtonHeight: 36, // 发送按钮高度。
-    composerSendButtonBorderRadius: 8, // 发送按钮圆角。
-    composerSendButtonColor: GenesisColors.brand, // 发送按钮背景色。
-    composerSendButtonDisabledColor: GenesisColors.brandSoft, // 发送按钮禁用背景色。
-    composerSendButtonIconColor: Colors.white, // 发送按钮图标颜色。
-    composerSendButtonIconSize: 18, // 发送按钮图标尺寸。
-    composerSendButtonLoadingSize: 18, // 发送按钮 loading 圆环尺寸。
-    composerSendButtonLoadingStrokeWidth: 2, // 发送按钮 loading 圆环线宽。
-    composerLeadingGap: 12, // 语音按钮和输入框之间的间距。
-    composerActionGap: 10, // 输入框右侧按钮之间的间距。
-    inputMinHeight: 40, // 输入框最小高度。
-    inputMinLines: 1, // 输入框最小行数。
-    inputMaxLines: 10, // 输入框最大行数，超过后内部滚动。
-    inputLineHeight: 20, // 输入框单行文字高度。
-    inputHorizontalPadding: 14, // 输入框文字左右内边距。
-    inputVerticalPadding: 10, // 输入框文字上下内边距。
-    inputBackgroundColor: Colors.white, // 输入框背景色。
-    inputBorderRadius: 8, // 输入框圆角。
+    ), // Bottom composer background gradient.
+    composerPadding: EdgeInsets.fromLTRB(
+      10,
+      8,
+      10,
+      16,
+    ), // Bottom composer inner padding.
+    composerIconButtonSize: 32, // Composer icon button hit-target size.
+    composerIconSize: 30, // Composer icon visual size.
+    composerIconColor: Colors.black, // Composer icon color.
+    showComposerVoiceButton:
+        false, // Whether to show the voice button to the left of the input field.
+    showComposerStickerButton:
+        false, // Whether to show the sticker button to the right of the input field.
+    showComposerAddButton:
+        false, // Whether to show the Add button to the right of the input field.
+    showComposerSendButton:
+        true, // Whether to show the Send button at the far right.
+    composerSendButtonWidth: 64, // Send button width.
+    composerSendButtonHeight: 36, // Send button height.
+    composerSendButtonBorderRadius: 8, // Send button border radius.
+    composerSendButtonColor:
+        GenesisColors.brand, // Send button background color.
+    composerSendButtonDisabledColor:
+        GenesisColors.brandSoft, // Disabled send button background color.
+    composerSendButtonIconColor: Colors.white, // Send button icon color.
+    composerSendButtonIconSize: 18, // Send button icon size.
+    composerSendButtonLoadingSize: 18, // Send button loading indicator size.
+    composerSendButtonLoadingStrokeWidth:
+        2, // Send button loading indicator stroke width.
+    composerLeadingGap: 12, // Spacing between the voice button and input field.
+    composerActionGap:
+        10, // Spacing between buttons to the right of the input field.
+    inputMinHeight: 40, // Minimum input field height.
+    inputMinLines: 1, // Minimum number of input field lines.
+    inputMaxLines:
+        10, // Maximum number of input field lines; additional content scrolls internally.
+    inputLineHeight: 20, // Single-line input text height.
+    inputHorizontalPadding: 14, // Horizontal padding around input text.
+    inputVerticalPadding: 10, // Vertical padding around input text.
+    inputBackgroundColor: Colors.white, // Input field background color.
+    inputBorderRadius: 8, // Input field border radius.
     inputTextStyle: TextStyle(
-      color: Colors.black, // 输入框文字颜色。
-      fontSize: 14, // 输入框文字字号。
-      height: 20 / 14, // 输入框文字行高。
+      color: Colors.black, // Input field text color.
+      fontSize: 14, // Input field font size.
+      height: 20 / 14, // Input field text line height.
     ),
-    messageListPadding: EdgeInsets.fromLTRB(18, 18, 18, 12), // 消息列表内边距。
-    topTitleEmptyHeight: 16, // 没有顶部标题时保留的顶部高度。
-    topTitleBottomPadding: 16, // 顶部标题底部间距。
+    messageListPadding: EdgeInsets.fromLTRB(
+      18,
+      18,
+      18,
+      12,
+    ), // Message list padding.
+    topTitleEmptyHeight: 16, // Top space reserved when there is no top title.
+    topTitleBottomPadding: 16, // Bottom spacing below the top title.
     topTitleTextStyle: TextStyle(
-      fontSize: 14, // 顶部标题字号。
-      height: 1.2, // 顶部标题行高。
-      fontWeight: FontWeight.w600, // 顶部标题字重。
-      color: Colors.black87, // 顶部标题颜色。
+      fontSize: 14, // Top title font size.
+      height: 1.2, // Top title line height.
+      fontWeight: FontWeight.w600, // Top title font weight.
+      color: Colors.black87, // Top title color.
     ),
-    rowBottomPadding: 24, // 每条消息行底部间距。
-    selfBubbleMaxWidthFactor: 0.68, // 自己消息气泡最大宽度比例。
-    otherBubbleMaxWidthFactor: 0.72, // 对方消息气泡最大宽度比例。
-    badgeBubbleGap: 8, // loading/失败徽标和气泡之间的间距。
-    avatarBubbleGap: 10, // 头像和气泡之间的间距。
-    avatarSideSpacerWidth: 50, // 气泡远端和列表边缘之间保留的占位宽度。
-    senderNameBottomGap: 4, // 对方名字和气泡之间的垂直间距。
-    statusTextTopGap: 4, // 状态文字和气泡之间的垂直间距。
-    statusTextStyle: TextStyle(color: Colors.white70, fontSize: 11), // 状态文字样式。
+    rowBottomPadding: 24, // Bottom spacing for each message row.
+    selfBubbleMaxWidthFactor:
+        0.68, // Maximum width factor for the current user's message bubble.
+    otherBubbleMaxWidthFactor:
+        0.72, // Maximum width factor for another user's message bubble.
+    badgeBubbleGap:
+        8, // Spacing between the loading or failure badge and the bubble.
+    avatarBubbleGap: 10, // Spacing between the avatar and bubble.
+    avatarSideSpacerWidth:
+        50, // Space reserved between the far side of the bubble and the list edge.
+    senderNameBottomGap:
+        4, // Vertical spacing between the other user's name and bubble.
+    statusTextTopGap: 4, // Vertical spacing between status text and the bubble.
+    statusTextStyle: TextStyle(
+      color: Colors.white70,
+      fontSize: 11,
+    ), // Status text style.
     senderNameTextStyle: TextStyle(
-      color: Colors.white, // 对方名字文字颜色。
-      fontSize: 12, // 对方名字字号。
-      fontWeight: FontWeight.w400, // 对方名字字重。
+      color: Colors.white, // Other user's name text color.
+      fontSize: 12, // Other user's name font size.
+      fontWeight: FontWeight.w400, // Other user's name font weight.
     ),
-    showSenderNameAboveOtherBubble: true, // 是否在对方气泡上方显示发送者名字。
-    bubblePadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10), // 气泡内边距。
-    bubbleBorderRadius: 8, // 气泡圆角。
-    selfBubbleColor: Color(0xFF95EC69), // 自己消息气泡颜色。
-    otherBubbleColor: Colors.white, // 对方消息气泡颜色。
+    showSenderNameAboveOtherBubble:
+        true, // Whether to show the sender name above another user's bubble.
+    bubblePadding: EdgeInsets.symmetric(
+      horizontal: 12,
+      vertical: 10,
+    ), // Bubble padding.
+    bubbleBorderRadius: 8, // Bubble border radius.
+    selfBubbleColor: Color(0xFF95EC69), // Current user's message bubble color.
+    otherBubbleColor: Colors.white, // Other user's message bubble color.
     bubbleTextStyle: TextStyle(
-      color: Colors.black, // 气泡文字颜色。
-      fontSize: 14, // 气泡文字字号。
-      height: 20 / 14, // 气泡文字行高。
-      fontWeight: FontWeight.w400, // 气泡文字字重。
+      color: Colors.black, // Bubble text color.
+      fontSize: 14, // Bubble font size.
+      height: 20 / 14, // Bubble text line height.
+      fontWeight: FontWeight.w400, // Bubble font weight.
     ),
-    avatarSize: 40, // 头像尺寸。
-    avatarBorderRadius: GenesisAvatarRadii.user, // 头像圆角。
-    selfAvatarColors: [Color(0xFFFFE7B0), Color(0xFF9ED7FF)], // 自己头像渐变色。
-    otherAvatarColors: [Color(0xFFBFD7F2), Color(0xFF4F6D94)], // 对方头像渐变色。
+    avatarSize: 40, // Avatar size.
+    avatarBorderRadius: GenesisAvatarRadii.user, // Avatar border radius.
+    selfAvatarColors: [
+      Color(0xFFFFE7B0),
+      Color(0xFF9ED7FF),
+    ], // Current user's avatar gradient colors.
+    otherAvatarColors: [
+      Color(0xFFBFD7F2),
+      Color(0xFF4F6D94),
+    ], // Other user's avatar gradient colors.
     avatarTextStyle: TextStyle(
-      color: Colors.white, // 头像内文字颜色。
-      fontSize: 13, // 头像内文字字号。
-      fontWeight: FontWeight.w400, // 头像内文字字重。
+      color: Colors.white, // Avatar text color.
+      fontSize: 13, // Avatar font size.
+      fontWeight: FontWeight.w400, // Avatar font weight.
     ),
-    aiBadgeSize: 16, // AI 标识尺寸。
-    aiBadgeColor: Color(0xFFFF2442), // AI 标识颜色。
-    sendingBadgeSize: 22, // sending loading 徽标尺寸。
-    sendingBadgePadding: 2, // sending loading 徽标内边距。
-    sendingBadgeStrokeWidth: 2, // sending loading 圆环线宽。
-    sendingBadgeColor: Color(0xFF777777), // sending loading 圆环颜色。
-    failedBadgeSize: 22, // failed 红色感叹号徽标尺寸。
-    failedBadgeColor: Color(0xFFFF2442), // failed 红色感叹号徽标背景色。
-    failedBadgeIconColor: Colors.white, // failed 感叹号图标颜色。
-    failedBadgeIconSize: 17, // failed 感叹号图标尺寸。
-    dateDividerBottomPadding: 12, // 日期分割线底部间距。
+    aiBadgeSize: 16, // AI badge size.
+    aiBadgeColor: Color(0xFFFF2442), // AI badge color.
+    sendingBadgeSize: 22, // Sending indicator badge size.
+    sendingBadgePadding: 2, // Sending indicator badge padding.
+    sendingBadgeStrokeWidth: 2, // Sending indicator stroke width.
+    sendingBadgeColor: Color(0xFF777777), // Sending indicator color.
+    failedBadgeSize: 22, // Failed red exclamation badge size.
+    failedBadgeColor: Color(
+      0xFFFF2442,
+    ), // Failed red exclamation badge background color.
+    failedBadgeIconColor: Colors.white, // Failed exclamation icon color.
+    failedBadgeIconSize: 17, // Failed exclamation icon size.
+    dateDividerBottomPadding: 12, // Date divider bottom spacing.
     dateDividerTextStyle: TextStyle(
-      color: Color(0xFF777777), // 日期分割线文字颜色。
-      fontSize: 10, // 日期分割线文字字号。
-      fontWeight: FontWeight.w400, // 日期分割线文字字重。
+      color: Color(0xFF777777), // Date divider text color.
+      fontSize: 10, // Date divider font size.
+      fontWeight: FontWeight.w400, // Date divider font weight.
     ),
-    systemMessageMargin: EdgeInsets.only(bottom: 18), // 系统消息外边距。
+    systemMessageMargin: EdgeInsets.only(bottom: 18), // System message margin.
     systemMessagePadding: EdgeInsets.symmetric(
       horizontal: 12,
       vertical: 6,
-    ), // 系统消息内边距。
-    systemMessageBackgroundColor: Color(0xE6111111), // 系统消息背景色。
-    systemMessageBorderRadius: 8, // 系统消息圆角。
+    ), // System message padding.
+    systemMessageBackgroundColor: Color(
+      0xE6111111,
+    ), // System message background color.
+    systemMessageBorderRadius: 8, // System message border radius.
     systemMessageTextStyle: TextStyle(
       color: Colors.white,
       fontSize: 13,
-    ), // 系统消息文字样式。
+    ), // System message text style.
   );
 
-  // 聊天页面整体背景色。
+  // Overall chat page background color.
   final Color conversationBackgroundColor;
-  // 顶部聊天栏高度，不包含系统安全区。
+  // Top chat header height, excluding the system safe area.
   final double headerHeight;
-  // 顶部聊天栏背景色。
+  // Top chat header background color.
   final Color headerBackgroundColor;
-  // 顶部聊天栏背景渐变；存在时优先于纯色背景。
+  // Top chat header background gradient; when set, it takes precedence over the solid background color.
   final Gradient? headerBackgroundGradient;
-  // 顶部聊天栏背景模糊半径。
+  // Top chat header backdrop blur radius.
   final double headerBackdropBlurSigma;
-  // 顶部聊天栏主标题文字样式。
+  // Top chat header title text style.
   final TextStyle headerTitleTextStyle;
-  // 顶部聊天栏副标题文字样式。
+  // Top chat header subtitle text style.
   final TextStyle headerSubtitleTextStyle;
-  // 顶部标题左侧位置图标颜色。
+  // Color of the location icon to the left of the header title.
   final Color headerTitleIconColor;
-  // 顶部标题左侧位置图标尺寸。
+  // Size of the location icon to the left of the header title.
   final double headerTitleIconSize;
-  // 顶部副标题状态图标颜色。
+  // Header subtitle status icon color.
   final Color headerStatusIconColor;
-  // 顶部副标题状态图标尺寸。
+  // Header subtitle status icon size.
   final double headerStatusIconSize;
-  // 顶部右侧更多按钮图标尺寸。
+  // Size of the More button icon on the right side of the header.
   final double headerMoreIconSize;
-  // 顶部左侧返回按钮图标尺寸。
+  // Size of the Back button icon on the left side of the header.
   final double headerBackIconSize;
-  // 顶部标题图标和标题文字之间的间距。
+  // Spacing between the header title icon and title text.
   final double headerTitleIconGap;
-  // 顶部标题和副标题之间的垂直间距。
+  // Vertical spacing between the header title and subtitle.
   final double headerSubtitleTopGap;
-  // 顶部状态图标和副标题文字之间的间距。
+  // Spacing between the header status icon and subtitle text.
   final double headerStatusIconGap;
-  // 隐藏更多按钮时右侧占位宽度，用来保持标题居中。
+  // Width reserved on the right when the More button is hidden, keeping the title centered.
   final double headerTrailingPlaceholderWidth;
-  // 底部输入栏背景色。
+  // Bottom composer background color.
   final Color composerBackgroundColor;
-  // 底部输入栏背景渐变；存在时优先于纯色背景。
+  // Bottom composer background gradient; when set, it takes precedence over the solid background color.
   final Gradient? composerBackgroundGradient;
-  // 底部输入栏背景模糊半径。
+  // Bottom composer backdrop blur radius.
   final double composerBackdropBlurSigma;
-  // 底部输入栏外边距。
+  // Bottom composer outer padding.
   final EdgeInsets composerPadding;
-  // 输入栏图标按钮点击区域尺寸。
+  // Composer icon button hit-target size.
   final double composerIconButtonSize;
-  // 输入栏图标视觉尺寸。
+  // Composer icon visual size.
   final double composerIconSize;
-  // 输入栏图标颜色。
+  // Composer icon color.
   final Color composerIconColor;
-  // 是否显示输入框左侧的语音按钮。
+  // Whether to show the voice button to the left of the input field.
   final bool showComposerVoiceButton;
-  // 是否显示输入框右侧的表情按钮。
+  // Whether to show the sticker button to the right of the input field.
   final bool showComposerStickerButton;
-  // 是否显示输入框右侧的加号按钮。
+  // Whether to show the Add button to the right of the input field.
   final bool showComposerAddButton;
-  // 是否显示最右侧的发送按钮。
+  // Whether to show the Send button at the far right.
   final bool showComposerSendButton;
-  // 发送按钮宽度。
+  // Send button width.
   final double composerSendButtonWidth;
-  // 发送按钮高度。
+  // Send button height.
   final double composerSendButtonHeight;
-  // 发送按钮圆角。
+  // Send button border radius.
   final double composerSendButtonBorderRadius;
-  // 发送按钮背景色。
+  // Send button background color.
   final Color composerSendButtonColor;
-  // 发送按钮禁用背景色。
+  // Disabled send button background color.
   final Color composerSendButtonDisabledColor;
-  // 发送按钮图标颜色。
+  // Send button icon color.
   final Color composerSendButtonIconColor;
-  // 发送按钮图标尺寸。
+  // Send button icon size.
   final double composerSendButtonIconSize;
-  // 发送按钮 loading 圆环尺寸。
+  // Send button loading indicator size.
   final double composerSendButtonLoadingSize;
-  // 发送按钮 loading 圆环线宽。
+  // Send button loading indicator stroke width.
   final double composerSendButtonLoadingStrokeWidth;
-  // 语音按钮和输入框之间的间距。
+  // Spacing between the voice button and input field.
   final double composerLeadingGap;
-  // 输入框右侧操作按钮之间的间距。
+  // Spacing between action buttons to the right of the input field.
   final double composerActionGap;
-  // 输入框最小高度。
+  // Minimum input field height.
   final double inputMinHeight;
-  // 输入框最小行数。
+  // Minimum number of input field lines.
   final int inputMinLines;
-  // 输入框最大行数，超过后输入框内部滚动。
+  // Maximum number of input field lines; additional content scrolls inside the field.
   final int inputMaxLines;
-  // 输入框单行文字高度。
+  // Single-line input text height.
   final double inputLineHeight;
-  // 输入框文字左右内边距。
+  // Horizontal padding around input text.
   final double inputHorizontalPadding;
-  // 输入框文字上下内边距。
+  // Vertical padding around input text.
   final double inputVerticalPadding;
-  // 输入框背景色。
+  // Input field background color.
   final Color inputBackgroundColor;
-  // 输入框圆角。
+  // Input field border radius.
   final double inputBorderRadius;
-  // 输入框文字样式。
+  // Input field text style.
   final TextStyle inputTextStyle;
-  // 消息列表内边距。
+  // Message list padding.
   final EdgeInsets messageListPadding;
-  // 没有顶部标题时保留的顶部高度。
+  // Top space reserved when there is no top title.
   final double topTitleEmptyHeight;
-  // 顶部标题底部间距。
+  // Bottom spacing below the top title.
   final double topTitleBottomPadding;
-  // 顶部标题文字样式。
+  // Top title text style.
   final TextStyle topTitleTextStyle;
-  // 每条消息行底部间距。
+  // Bottom spacing for each message row.
   final double rowBottomPadding;
-  // 自己消息气泡最大宽度占屏幕宽度的比例。
+  // Maximum width of the current user's message bubble as a fraction of screen width.
   final double selfBubbleMaxWidthFactor;
-  // 对方消息气泡最大宽度占屏幕宽度的比例。
+  // Maximum width of another user's message bubble as a fraction of screen width.
   final double otherBubbleMaxWidthFactor;
-  // loading/失败徽标和气泡之间的间距。
+  // Spacing between the loading or failure badge and the bubble.
   final double badgeBubbleGap;
-  // 头像和气泡之间的间距。
+  // Spacing between the avatar and bubble.
   final double avatarBubbleGap;
-  // 气泡远端和列表边缘之间保留的占位宽度。
+  // Space reserved between the far side of the bubble and the list edge.
   final double avatarSideSpacerWidth;
-  // 发送者名字和气泡之间的垂直间距。
+  // Vertical spacing between the sender name and bubble.
   final double senderNameBottomGap;
-  // 状态文字和气泡之间的垂直间距。
+  // Vertical spacing between status text and the bubble.
   final double statusTextTopGap;
-  // 非 sending/failed 的状态文字样式。
+  // Status text style for states other than sending and failed.
   final TextStyle statusTextStyle;
-  // 对方消息顶部发送者名字样式。
+  // Sender name style above another user's message.
   final TextStyle senderNameTextStyle;
-  // 是否在对方气泡上方显示发送者名字。
+  // Whether to show the sender name above another user's bubble.
   final bool showSenderNameAboveOtherBubble;
-  // 消息气泡内边距。
+  // Message bubble padding.
   final EdgeInsets bubblePadding;
-  // 消息气泡圆角。
+  // Message bubble border radius.
   final double bubbleBorderRadius;
-  // 自己消息气泡颜色。
+  // Current user's message bubble color.
   final Color selfBubbleColor;
-  // 对方消息气泡颜色。
+  // Other user's message bubble color.
   final Color otherBubbleColor;
-  // 消息气泡文字样式。
+  // Message bubble text style.
   final TextStyle bubbleTextStyle;
-  // 头像尺寸。
+  // Avatar size.
   final double avatarSize;
-  // 头像圆角。
+  // Avatar border radius.
   final double avatarBorderRadius;
-  // 自己头像渐变色。
+  // Current user's avatar gradient colors.
   final List<Color> selfAvatarColors;
-  // 对方头像渐变色。
+  // Other user's avatar gradient colors.
   final List<Color> otherAvatarColors;
-  // 头像内文字样式。
+  // Avatar text style.
   final TextStyle avatarTextStyle;
-  // AI 标识尺寸。
+  // AI badge size.
   final double aiBadgeSize;
-  // AI 标识颜色。
+  // AI badge color.
   final Color aiBadgeColor;
-  // sending loading 徽标尺寸。
+  // Sending indicator badge size.
   final double sendingBadgeSize;
-  // sending loading 徽标内边距。
+  // Sending indicator badge padding.
   final double sendingBadgePadding;
-  // sending loading 圆环线宽。
+  // Sending indicator stroke width.
   final double sendingBadgeStrokeWidth;
-  // sending loading 圆环颜色。
+  // Sending indicator color.
   final Color sendingBadgeColor;
-  // failed 红色感叹号徽标尺寸。
+  // Failed red exclamation badge size.
   final double failedBadgeSize;
-  // failed 红色感叹号徽标背景色。
+  // Failed red exclamation badge background color.
   final Color failedBadgeColor;
-  // failed 感叹号图标颜色。
+  // Failed exclamation icon color.
   final Color failedBadgeIconColor;
-  // failed 感叹号图标尺寸。
+  // Failed exclamation icon size.
   final double failedBadgeIconSize;
-  // 日期分割线底部间距。
+  // Date divider bottom spacing.
   final double dateDividerBottomPadding;
-  // 日期分割线文字样式。
+  // Date divider text style.
   final TextStyle dateDividerTextStyle;
-  // 系统消息外边距。
+  // System message margin.
   final EdgeInsets systemMessageMargin;
-  // 系统消息内边距。
+  // System message padding.
   final EdgeInsets systemMessagePadding;
-  // 系统消息背景色。
+  // System message background color.
   final Color systemMessageBackgroundColor;
-  // 系统消息圆角。
+  // System message border radius.
   final double systemMessageBorderRadius;
-  // 系统消息文字样式。
+  // System message text style.
   final TextStyle systemMessageTextStyle;
 
   ChatUiStyleConfig copyWith({
@@ -639,12 +690,12 @@ class ChatUiStyleConfig {
     );
   }
 
-  // 输入框最大高度，由最大行数、行高和上下内边距共同计算。
+  // Maximum input field height, calculated from the maximum lines, line height, and vertical padding.
   double get inputMaxHeight {
     return inputLineHeight * inputMaxLines + inputVerticalPadding * 2;
   }
 
-  // 气泡单行文字高度，由字号和 TextStyle.height 共同计算。
+  // Single-line bubble text height, calculated from the font size and TextStyle.height.
   double get bubbleLineHeight {
     return (bubbleTextStyle.fontSize ?? 14) * (bubbleTextStyle.height ?? 1);
   }

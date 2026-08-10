@@ -36,13 +36,15 @@ class GoogleSignInService {
     debugPrint('[Auth][GoogleSignInService] signIn start');
     if (!kIsWeb && !Platform.isAndroid && !Platform.isIOS) {
       debugPrint('[Auth][GoogleSignInService] unsupported platform');
-      throw const _GoogleSignInFailure('当前平台不支持 Google 登录');
+      throw const _GoogleSignInFailure(
+        'Google sign-in is not supported on this platform',
+      );
     }
     final diagnostics = await _fetchSignInDiagnostics();
     final serverClientId = _resolveServerClientId(diagnostics);
     if (!kIsWeb && Platform.isAndroid && serverClientId.isEmpty) {
       throw const _GoogleSignInFailure(
-        '未找到 Google OAuth Web Client ID，请检查 Google 登录配置和 SHA-1。',
+        'Google OAuth Web Client ID was not found. Check the Google sign-in configuration and SHA-1.',
       );
     }
     if (!kIsWeb && Platform.isAndroid) {
@@ -56,7 +58,9 @@ class GoogleSignInService {
       debugPrint(
         '[Auth][GoogleSignInService] GoogleSignIn does not support authenticate on this client',
       );
-      throw const _GoogleSignInFailure('当前端不支持直接拉起 Google 登录');
+      throw const _GoogleSignInFailure(
+        'This client cannot launch Google sign-in directly',
+      );
     }
     debugPrint('[Auth][GoogleSignInService] launching authenticate');
     final account = await GoogleSignIn.instance.authenticate(
@@ -89,7 +93,9 @@ class GoogleSignInService {
         : const <String, Object?>{};
     final googleIdToken = (result['idToken'] ?? '').toString().trim();
     if (googleIdToken.isEmpty) {
-      throw const _GoogleSignInFailure('Google 未返回 idToken，请稍后重试');
+      throw const _GoogleSignInFailure(
+        'Google did not return an ID token. Please try again later.',
+      );
     }
     debugPrint('[Auth][GoogleSignInService] legacy Android sign-in success');
     return GoogleIdentitySession(
@@ -169,7 +175,7 @@ class GoogleSignInService {
         '[Auth][GoogleSignInService] idToken empty after authenticate',
       );
       throw const _GoogleSignInFailure(
-        'Google 未返回 idToken，请检查 Google OAuth 配置和 SHA-1。',
+        'Google did not return an ID token. Check the Google OAuth configuration and SHA-1.',
       );
     }
     return GoogleIdentitySession(

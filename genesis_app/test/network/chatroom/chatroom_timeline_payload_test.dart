@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 
 void main() {
-  test('recognizes timeline payload and supplemental sender types', () {
+  test('separates legacy timeline compatibility from world-id ordering', () {
     expect(isChatroomTimelinePayloadSenderType(' STORY_EVENTS '), isTrue);
     expect(isChatroomTimelinePayloadSenderType('tick'), isFalse);
     expect(isChatroomLocationSupplementalSenderType('tick'), isTrue);
@@ -21,13 +21,35 @@ void main() {
         'user_enter_location',
         locationMessageId: 0,
       ),
-      isTrue,
+      isFalse,
     );
     expect(
       isChatroomMessageIdOrderedSupplemental(
         'user_enter_location',
         locationMessageId: 1,
       ),
+      isFalse,
+    );
+    expect(
+      isChatroomMessageIdOrderedSupplemental(
+        'story_events',
+        locationMessageId: 0,
+      ),
+      isFalse,
+    );
+    expect(
+      isChatroomMessageIdOrderedSupplemental(
+        'characters_moved',
+        locationMessageId: 0,
+      ),
+      isFalse,
+    );
+    expect(
+      isChatroomMessageIdOrderedSupplemental('tick', locationMessageId: 0),
+      isTrue,
+    );
+    expect(
+      isChatroomMessageIdOrderedSupplemental('tick', locationMessageId: 29),
       isFalse,
     );
     expect(isChatroomLocationSupplementalSenderType('user'), isFalse);

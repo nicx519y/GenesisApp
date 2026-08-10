@@ -62,7 +62,6 @@ genesis_app/
 打开目标：
 
 - `_openChatForPoint` 只负责把 `WorldPoint` 转成 `_LocationChatPanelDescriptor`，并立即进入 `_showCachedLocationChat`。
-- `updateUserPosition(wid, locationId)` 是机会性副作用，必须 `unawaited`，不能阻塞 panel 打开。
 - `_showCachedLocationChat` 先切换 active id、安排当前 panel 进入 overlay，再异步 `_hydrateActiveLocationChatMessages` 从本地缓存补消息。
 - 首次打开未缓存 panel 时，先让 skeleton 过一帧，再把该 location 加入 `_cachedLocationChatIds`，等 `LocationChatPanel.onInitialContentReady` 回调后标记 ready。
 

@@ -19,7 +19,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"list":["校园","恋爱"]}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":["Campus","Romance"]}}
   /// ```
   Future<List<String>> hotTags() async {
     final data = await getMap('origin/hot_tags');
@@ -34,8 +34,8 @@ class OriginV1Api extends V1ApiResource {
 
   /// GET /api/v1/origin/my_launch_preset_characters
   ///
-  /// 返回当前登录用户过去 launch 指定 origin 时选择过、且当前仍存在的 preset
-  /// 角色。结果按 char_id 去重，并按最近 launch 时间倒序返回。
+  /// Returns preset characters that the current user previously selected when launching the specified origin and that still exist.
+  /// Results are deduplicated by char_id and sorted by the most recent launch time in descending order.
   Future<List<Map<String, dynamic>>> myLaunchPresetCharacters({
     required String originId,
   }) async {
@@ -53,7 +53,7 @@ class OriginV1Api extends V1ApiResource {
 
   /// GET /api/v1/origin/list
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"pn":1,"rn":10,"scene":"uid","uid":"string","tag":"string","keyword":"string"}
   /// ```
@@ -91,7 +91,7 @@ class OriginV1Api extends V1ApiResource {
 
   /// GET /api/v1/origin/detail
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"origin_id":"string"}
   /// ```
@@ -114,8 +114,8 @@ class OriginV1Api extends V1ApiResource {
 
   /// GET /api/v1/origin/map
   ///
-  /// `location_id=root` 返回 origin 主地图，其他值返回对应 location 地图。
-  /// definition_version 不为 2 时，服务端返回空对象。
+  /// `location_id=root` returns the main origin map; any other value returns the corresponding location map.
+  /// The server returns an empty object when definition_version is not 2.
   Future<Map<String, dynamic>> map({
     required String originId,
     required String locationId,
@@ -136,7 +136,7 @@ class OriginV1Api extends V1ApiResource {
 
   /// GET /api/v1/origin/info
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"origin_id":"string"}
   /// ```
@@ -159,9 +159,9 @@ class OriginV1Api extends V1ApiResource {
 
   /// POST /api/v1/origin/create
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
-  /// {"origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","characters":[],"locations":[]}
+  /// {"origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"Measures how much the character trusts the player","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","characters":[],"locations":[]}
   /// ```
   ///
   /// Response:
@@ -203,9 +203,9 @@ class OriginV1Api extends V1ApiResource {
 
   /// POST /api/v1/origin/update
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
-  /// {"origin_id":"string","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","characters":[],"locations":[],"update_notes":"string","deleted_char_ids":[],"deleted_location_ids":[]}
+  /// {"origin_id":"string","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"Measures how much the character trusts the player","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","characters":[],"locations":[],"update_notes":"string","deleted_char_ids":[],"deleted_location_ids":[]}
   /// ```
   ///
   /// Response:
@@ -255,7 +255,7 @@ class OriginV1Api extends V1ApiResource {
 
   /// POST /api/v1/origin/launch
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"origin_id":"string","preset_character_id":"string","custom_role":{}}
   /// ```
@@ -297,7 +297,7 @@ class OriginV1Api extends V1ApiResource {
 
   /// GET /api/v1/origin/versionlist
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"oid":"string"}
   /// ```
@@ -312,7 +312,7 @@ class OriginV1Api extends V1ApiResource {
 
   /// POST /api/v1/origin/publish
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"oid":"string","update_notes":"string"}
   /// ```
@@ -330,7 +330,7 @@ class OriginV1Api extends V1ApiResource {
 
   /// POST /api/v1/origin/del
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"oid":"string"}
   /// ```

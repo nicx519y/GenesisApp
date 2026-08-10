@@ -34,14 +34,15 @@ import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';
-import '../../utils/llm_stream_escape_decoder.dart';
+import 'location_chat_scroll_coordinator.dart';
+import 'message_parsers/location_chat_message_parsers.dart';
 
 part 'location_chat_panel_connection.dart';
 part 'location_chat_message_reconciler.dart';
 part 'location_chat_send_actions.dart';
 part 'location_chat_message_window.dart';
 part 'location_chat_identity.dart';
-part 'location_chat_scroll_actions.dart';
+part 'location_chat_panel_actions.dart';
 part 'location_chat_layout.dart';
 part 'location_chat_panel_widgets.dart';
 part 'location_chat_shared.dart';
@@ -253,7 +254,8 @@ class LocationChatPanel extends StatefulWidget {
 }
 
 class _LocationChatPanelState extends State<LocationChatPanel> {
-  final _scrollController = ScrollController();
+  late final LocationChatScrollCoordinator _scrollCoordinator;
+  ScrollController get _scrollController => _scrollCoordinator.controller;
   final _textController = TextEditingController();
   final _composerFocusNode = FocusNode();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
@@ -291,20 +293,13 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   Future<void>? _initialLatestMessagesRefresh;
   int _unseenIncomingCount = 0;
   int _clientMsgCounter = 0;
+  String _awaitingAiResponseClientMsgId = '';
   String _awaitingAiResponseRoundId = '';
-  bool _keepBottomAfterLayoutScheduled = false;
-  bool _initialBottomScrollPending = false;
-  bool _initialBottomScrollScheduled = false;
-  bool _initialBottomScrollShouldComplete = false;
-  bool _initialBottomScrollDidJump = false;
-  bool _composerFocusBottomPinActive = false;
-  bool _composerFocusBottomScheduled = false;
   final Set<String> _messageGapFillKeys = <String>{};
   final Set<int> _messageGapFillBeforeLocationMessageIds = <int>{};
   final Map<String, int> _messageGapFillAttempts = <String, int>{};
   final Set<String> _releasedMessageGapKeys = <String>{};
   bool _deferredVisibleMessageGapFill = false;
-  String _scrollCenterLocalId = '';
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
   bool _openingModelPage = false;
@@ -316,9 +311,15 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     setState(callback);
   }
 
+  void _handleViewportCoordinatorChanged() {
+    if (mounted) _setLocationChatState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    _scrollCoordinator = LocationChatScrollCoordinator()
+      ..addListener(_handleViewportCoordinatorChanged);
     final initialDraftText = widget.initialDraftText;
     if (initialDraftText.isNotEmpty) {
       _textController.text = initialDraftText;
@@ -334,9 +335,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _composerFocusNode.addListener(_handleComposerFocusChanged);
     _textController.addListener(_handleDraftTextChanged);
     _scrollController.addListener(_handleMessageListScroll);
+    _scrollCoordinator.enter();
     _prepareConnection();
     unawaited(_loadSelectedModelCodeFromCache());
-    _startInitialBottomScroll();
   }
 
   @override
@@ -352,7 +353,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     unawaited(_closeChatroom());
     widget.onDraftTextChanged?.call(_textController.text);
     _scrollController.removeListener(_handleMessageListScroll);
-    _scrollController.dispose();
+    _scrollCoordinator.removeListener(_handleViewportCoordinatorChanged);
+    _scrollCoordinator.dispose();
     _composerFocusNode.removeListener(_handleComposerFocusChanged);
     _composerFocusNode.dispose();
     _textController.removeListener(_handleDraftTextChanged);
@@ -371,7 +373,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId;
-    if (changedChatTarget ||
+    final becameActive = !oldWidget.active && widget.active;
+    final becameInactive = oldWidget.active && !widget.active;
+    final changedOpeningPreview =
         !listEquals(
           oldWidget.openingPreviewMessages,
           widget.openingPreviewMessages,
@@ -379,7 +383,13 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         !listEquals(
           oldWidget.openingPreviewEntities,
           widget.openingPreviewEntities,
-        )) {
+        );
+    if (widget.active && (changedChatTarget || becameActive)) {
+      _scrollCoordinator.enter();
+    } else if (becameInactive || (!widget.active && changedChatTarget)) {
+      _scrollCoordinator.deactivate();
+    }
+    if (changedChatTarget || changedOpeningPreview) {
       unawaited(
         _closeChatroom().then((_) {
           if (!mounted) return;
@@ -396,17 +406,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           _messageGapFillAttempts.clear();
           _releasedMessageGapKeys.clear();
           _deferredVisibleMessageGapFill = false;
-          _scrollCenterLocalId = '';
           _prepareConnection();
-          _startInitialBottomScroll();
         }),
       );
       return;
     }
-    if (!oldWidget.active && widget.active) {
+    if (becameActive) {
       _activateConnection();
-      _startInitialBottomScroll();
-    } else if (oldWidget.active && !widget.active) {
+    } else if (becameInactive) {
       unawaited(_deactivateConnection());
     }
   }
@@ -476,7 +483,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             sendLabel: 'Send',
             style: style,
             onHeightChanged: _handleComposerHeightChanged,
-            onInputTap: _handleComposerInputTap,
           )
         : _LocationChatMeasuredComposer(
             onHeightChanged: _handleComposerHeightChanged,
@@ -512,11 +518,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         composerHeight: composerHeight,
       ),
     );
-    final messageList = ChatAnchoredMessageList(
+    final messageList = LocationChatAnchoredMessageList(
       key: const ValueKey<String>('location-chat-message-list'),
-      controller: _scrollController,
+      coordinator: _scrollCoordinator,
       messages: _messages,
-      centerLocalId: _scrollCenterLocalId,
       topTitle: '',
       oldestEdgeNotice: _shouldShowOldestEdgeNotice()
           ? kAiContentDisclaimerText
@@ -565,7 +570,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                         Positioned.fill(
                           child: NotificationListener<ScrollNotification>(
                             onNotification:
-                                _handleMessageListScrollNotification,
+                                _scrollCoordinator.handleScrollNotification,
                             child: messageList,
                           ),
                         ),

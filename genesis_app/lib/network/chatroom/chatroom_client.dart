@@ -81,6 +81,9 @@ class ChatroomClient {
     if (signer != null) {
       headers = await signer(uri, headers);
     }
+    final protocolVersion = resolveChatroomProtocolVersion(
+      _caseInsensitiveHeaderValue(headers, 'x-app-version'),
+    );
     final connectStopwatch = Stopwatch()..start();
     final ChatroomSocket socket;
     try {
@@ -118,6 +121,7 @@ class ChatroomClient {
       userId: resolvedUserId,
       senderId: resolvedSenderId,
       senderName: resolvedSenderName,
+      protocolVersion: protocolVersion,
       heartbeatInterval: _heartbeatInterval,
       ackTimeout: _ackTimeout,
       autoHeartbeat: autoHeartbeat ?? _autoHeartbeat,
@@ -196,6 +200,7 @@ class ChatroomSession {
     required this.userId,
     required this.senderId,
     required this.senderName,
+    required this.protocolVersion,
     required Duration heartbeatInterval,
     required Duration ackTimeout,
     required bool autoHeartbeat,
@@ -220,13 +225,15 @@ class ChatroomSession {
   final String userId;
   final String senderId;
   final String senderName;
+  final ChatroomProtocolVersion protocolVersion;
   final bool _autoHeartbeat;
   final _events = StreamController<ChatroomEvent>.broadcast();
   final _errors = StreamController<ChatroomErrorEvent>.broadcast();
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
   final _streams = StreamController<ChatroomAiMessageStream>.broadcast();
   final _pendingAcks = <String, _PendingAck>{};
-  final _activeStreams = <int, ChatroomAiMessageStream>{};
+  final _activeStreams = <String, ChatroomAiMessageStream>{};
+  var _streamOrdinal = 0;
   late final StreamSubscription<String> _subscription;
   Timer? _heartbeatTimer;
   bool _heartbeatInFlight = false;
@@ -352,6 +359,13 @@ class ChatroomSession {
     if (resolvedLocationId.isEmpty) {
       throw const ChatroomProtocolException('locationId is required');
     }
+    if (protocolVersion == ChatroomProtocolVersion.v2) {
+      return _sendClientMessage('user_enter_location', <String, Object?>{
+        'client_msg_id': _newClientMessageId(),
+        'world_id': worldId,
+        'location_id': resolvedLocationId,
+      });
+    }
     return _sendClientJson(<String, Object?>{
       'type': 'user_enter_location',
       'ts': DateTime.now().millisecondsSinceEpoch,
@@ -444,7 +458,10 @@ class ChatroomSession {
   }
 
   ChatroomAiMessageStream? streamForMessage(int messageId) {
-    return _activeStreams[messageId];
+    final matches = _activeStreams.values
+        .where((stream) => stream.start.messageId == messageId)
+        .toList(growable: false);
+    return matches.length == 1 ? matches.single : null;
   }
 
   Future<void> close() async {
@@ -497,6 +514,33 @@ class ChatroomSession {
 
   Future<void> _sendClientMessage(String type, Map<String, Object?> fields) {
     _throwIfClosed();
+    if (protocolVersion == ChatroomProtocolVersion.v2) {
+      final requestedClientMsgId = '${fields['client_msg_id'] ?? ''}'.trim();
+      final clientMsgId = requestedClientMsgId.isEmpty
+          ? _newClientMessageId()
+          : requestedClientMsgId;
+      final payload = switch (type) {
+        'join' || 'user_enter_location' => <String, Object?>{
+          'location_id': fields['location_id'],
+        },
+        'send_message' => <String, Object?>{'content': fields['content']},
+        _ => const <String, Object?>{},
+      };
+      return _sendClientJson(
+        ChatroomV2Message(
+          type: type,
+          ts: DateTime.now().millisecondsSinceEpoch,
+          worldId:
+              type == 'join' ||
+                  type == 'send_message' ||
+                  type == 'user_enter_location'
+              ? worldId
+              : '',
+          clientMsgId: clientMsgId,
+          payload: Map<String, dynamic>.from(payload),
+        ).toJson(),
+      );
+    }
     final json = <String, Object?>{'type': type};
     for (final entry in fields.entries) {
       final value = entry.value;
@@ -526,19 +570,39 @@ class ChatroomSession {
           'Envelope exceeds the maximum frame size',
         );
       }
-      final envelope = ChatroomEnvelope.decode(raw);
-      final event = chatroomEventFromEnvelope(envelope);
+      late final ChatroomEvent event;
+      late final String incomingType;
+      late final String incomingLocationId;
+      late final Object debugPayload;
+      int? schemaVersion;
+      var eventId = '';
+      if (protocolVersion == ChatroomProtocolVersion.v2) {
+        final message = ChatroomV2Message.decode(raw);
+        event = chatroomEventFromV2Message(message);
+        incomingType = message.type;
+        incomingLocationId = message.locationId;
+        debugPayload = message.toJson();
+      } else {
+        final envelope = ChatroomEnvelope.decode(raw);
+        event = chatroomLegacyEventFromEnvelope(envelope);
+        incomingType = envelope.type;
+        incomingLocationId = envelope.locationId;
+        debugPayload = envelope.mergedPayload;
+        schemaVersion = envelope.schemaVersion;
+        eventId = envelope.eventId;
+      }
       _recordWebSocketDebug(
         action: 'receive',
-        locationId: envelope.locationId,
+        locationId: incomingLocationId,
         details: {
           'direction': 'in',
-          'type': envelope.type,
+          'type': incomingType,
           'eventType': chatroomEventType(event),
-          'schemaVersion': envelope.schemaVersion,
-          'eventId': envelope.eventId,
+          'protocolVersion': protocolVersion.name,
+          'schemaVersion': schemaVersion,
+          'eventId': eventId,
           'raw': raw,
-          'payload': envelope.mergedPayload,
+          'payload': debugPayload,
         },
       );
       _dispatchEvent(event);
@@ -576,6 +640,7 @@ class ChatroomSession {
       worldId: worldId,
       locationId: resolvedLocationId,
       details: <String, Object?>{
+        'protocolVersion': protocolVersion.name,
         ...details,
         'sessionLocationId': this.locationId,
         'joinedLocationId': _joined?.locationId,
@@ -587,6 +652,7 @@ class ChatroomSession {
         'worldId': worldId,
         'locationId': resolvedLocationId,
         'lastAction': action,
+        'protocolVersion': protocolVersion.name,
         'sessionLocationId': this.locationId,
         'joinedLocationId': _joined?.locationId,
         'pendingAckCount': _pendingAcks.length,
@@ -631,7 +697,11 @@ class ChatroomSession {
         pending?.completeError(failure);
         _emitFailure(failure);
       }
-    } else if (event is ChatroomUserMessage) {
+    } else if (event is ChatroomUserMessage &&
+        protocolVersion == ChatroomProtocolVersion.legacy) {
+      // Legacy servers may use the canonical user echo in place of an ACK.
+      // V2 send futures complete only from the receipt-only `type=ack` frame;
+      // canonical echo reconciliation belongs to the world service.
       final pending = event.clientMsgId.isEmpty
           ? null
           : _pendingAcks.remove(event.clientMsgId);
@@ -653,17 +723,19 @@ class ChatroomSession {
       );
     } else if (event is ChatroomAiStreamStart) {
       final stream = ChatroomAiMessageStream._(event);
-      _activeStreams[event.messageId] = stream;
+      final baseKey = event.identity.stableKey ?? 'cursorless';
+      _streamOrdinal += 1;
+      _activeStreams['$baseKey#$_streamOrdinal'] = stream;
       _streams.add(stream);
     } else if (event is ChatroomAiStreamChunk) {
       _streamForAiEvent(
-        locationId: event.locationId,
-        conversationRoundId: event.conversationRoundId,
+        event.identity,
+        sourceType: event.streamType,
       )?.addChunk(event);
     } else if (event is ChatroomAiStreamEnd) {
       final stream = _removeStreamForAiEvent(
-        locationId: event.locationId,
-        conversationRoundId: event.conversationRoundId,
+        event.identity,
+        sourceType: event.streamType,
       );
       stream?.complete(event);
     } else if (event is ChatroomErrorEvent) {
@@ -685,7 +757,10 @@ class ChatroomSession {
       final pending = _pendingAcks.remove(clientMsgId);
       return pending == null ? null : MapEntry(clientMsgId, pending);
     }
-    if (event.code != 3001 && event.code != 10001) return null;
+    if (protocolVersion == ChatroomProtocolVersion.v2 ||
+        (event.code != 3001 && event.code != 10001)) {
+      return null;
+    }
     final sendMessageEntries = _pendingAcks.entries
         .where((entry) => entry.value.requestType == 'send_message')
         .toList(growable: false);
@@ -786,65 +861,99 @@ class ChatroomSession {
 
   void _failMatchingStream(ChatroomErrorEvent error) {
     if (error.conversationRoundId.isEmpty && error.senderId.isEmpty) return;
-    final matches = _activeStreams.entries
-        .where((entry) {
-          final start = entry.value.start;
-          final roundMatches =
-              error.conversationRoundId.isEmpty ||
-              error.conversationRoundId == start.conversationRoundId;
-          final senderMatches =
-              error.senderId.isEmpty || error.senderId == start.senderId;
-          return roundMatches && senderMatches;
-        })
-        .toList(growable: false);
-
-    for (final match in matches) {
+    final matches = _matchingStreams(
+      ChatroomStreamIdentity(
+        conversationRoundId: error.conversationRoundId,
+        senderId: error.senderId,
+      ),
+    );
+    if (matches.length == 1) {
+      final match = matches.single;
       _activeStreams.remove(match.key);
       match.value.fail(error);
+    } else if (matches.length > 1) {
+      _emitStreamAmbiguity(
+        sourceType: error.sourceType,
+        identity: ChatroomStreamIdentity(
+          conversationRoundId: error.conversationRoundId,
+          senderId: error.senderId,
+        ),
+        candidateCount: matches.length,
+      );
     }
   }
 
-  ChatroomAiMessageStream? _streamForAiEvent({
-    required String locationId,
-    required String conversationRoundId,
+  ChatroomAiMessageStream? _streamForAiEvent(
+    ChatroomStreamIdentity identity, {
+    required String sourceType,
   }) {
-    final matches = _matchingStreams(
-      locationId: locationId,
-      conversationRoundId: conversationRoundId,
-    );
+    final matches = _matchingStreams(identity);
     if (matches.length == 1) return matches.single.value;
+    if (matches.length > 1) {
+      _emitStreamAmbiguity(
+        sourceType: sourceType,
+        identity: identity,
+        candidateCount: matches.length,
+      );
+    }
     return null;
   }
 
-  ChatroomAiMessageStream? _removeStreamForAiEvent({
-    required String locationId,
-    required String conversationRoundId,
+  ChatroomAiMessageStream? _removeStreamForAiEvent(
+    ChatroomStreamIdentity identity, {
+    required String sourceType,
   }) {
-    final matches = _matchingStreams(
-      locationId: locationId,
-      conversationRoundId: conversationRoundId,
-    );
+    final matches = _matchingStreams(identity);
     if (matches.length == 1) {
       return _activeStreams.remove(matches.single.key);
     }
+    if (matches.length > 1) {
+      _emitStreamAmbiguity(
+        sourceType: sourceType,
+        identity: identity,
+        candidateCount: matches.length,
+      );
+    }
     return null;
   }
 
-  List<MapEntry<int, ChatroomAiMessageStream>> _matchingStreams({
-    required String locationId,
-    required String conversationRoundId,
-  }) {
-    return _activeStreams.entries
-        .where((entry) {
-          final start = entry.value.start;
-          final locationMatches =
-              locationId.isNotEmpty && locationId == start.locationId;
-          final roundMatches =
-              conversationRoundId.isNotEmpty &&
-              conversationRoundId == start.conversationRoundId;
-          return locationMatches && roundMatches;
-        })
+  List<MapEntry<String, ChatroomAiMessageStream>> _matchingStreams(
+    ChatroomStreamIdentity incoming,
+  ) {
+    final scored = <(MapEntry<String, ChatroomAiMessageStream>, int)>[];
+    for (final entry in _activeStreams.entries) {
+      final candidate = entry.value.start.identity;
+      if (_streamIdentityConflicts(incoming, candidate)) continue;
+      scored.add((entry, _streamIdentityScore(incoming, candidate)));
+    }
+    if (scored.isEmpty) {
+      return const <MapEntry<String, ChatroomAiMessageStream>>[];
+    }
+    final highestScore = scored
+        .map((item) => item.$2)
+        .reduce((left, right) => left > right ? left : right);
+    return scored
+        .where((item) => item.$2 == highestScore)
+        .map((item) => item.$1)
         .toList(growable: false);
+  }
+
+  void _emitStreamAmbiguity({
+    required String sourceType,
+    required ChatroomStreamIdentity identity,
+    required int candidateCount,
+  }) {
+    _emitFailure(
+      ChatroomFailureEvent(
+        code: 'stream_ambiguous',
+        message: 'Ambiguous chatroom stream frame',
+        detail:
+            'world=${identity.worldId} location=${identity.locationId} '
+            'round=${identity.conversationRoundId} message=${identity.messageId} '
+            'sender=${identity.senderId} candidates=$candidateCount',
+        sourceType: sourceType,
+      ),
+    );
   }
 
   void _throwIfClosed() {
@@ -872,6 +981,68 @@ void _chatroomTelemetry(
   );
 }
 
+String _caseInsensitiveHeaderValue(Map<String, String> headers, String name) {
+  final normalizedName = name.toLowerCase();
+  for (final entry in headers.entries) {
+    if (entry.key.toLowerCase() == normalizedName) return entry.value;
+  }
+  return '';
+}
+
+bool _streamIdentityConflicts(
+  ChatroomStreamIdentity incoming,
+  ChatroomStreamIdentity candidate,
+) {
+  bool stringConflict(String left, String right) =>
+      left.isNotEmpty && right.isNotEmpty && left != right;
+  final sameConversationRound =
+      incoming.conversationRoundId.isNotEmpty &&
+      incoming.conversationRoundId == candidate.conversationRoundId;
+  return stringConflict(incoming.worldId, candidate.worldId) ||
+      stringConflict(incoming.locationId, candidate.locationId) ||
+      stringConflict(incoming.sessionId, candidate.sessionId) ||
+      stringConflict(
+        incoming.conversationRoundId,
+        candidate.conversationRoundId,
+      ) ||
+      stringConflict(incoming.senderId, candidate.senderId) ||
+      (!sameConversationRound &&
+          incoming.messageId > 0 &&
+          candidate.messageId > 0 &&
+          incoming.messageId != candidate.messageId);
+}
+
+int _streamIdentityScore(
+  ChatroomStreamIdentity incoming,
+  ChatroomStreamIdentity candidate,
+) {
+  var score = 0;
+  if (incoming.conversationRoundId.isNotEmpty &&
+      incoming.conversationRoundId == candidate.conversationRoundId) {
+    score += 64;
+  }
+  if (incoming.senderId.isNotEmpty && incoming.senderId == candidate.senderId) {
+    score += 32;
+  }
+  if (incoming.worldId.isNotEmpty && incoming.worldId == candidate.worldId) {
+    score += 16;
+  }
+  if (incoming.locationId.isNotEmpty &&
+      incoming.locationId == candidate.locationId) {
+    score += 16;
+  }
+  if (incoming.sessionId.isNotEmpty &&
+      incoming.sessionId == candidate.sessionId) {
+    score += 8;
+  }
+  if (incoming.messageId > 0 && incoming.messageId == candidate.messageId) {
+    // message_id is useful corroboration, but round+sender remain the primary
+    // V2 stream identity because message ids may be absent on stream frames.
+    score += 4;
+  }
+  return score;
+}
+
 class ChatroomAiMessageStream {
   ChatroomAiMessageStream._(this.start) {
     unawaited(_done.future.then<void>((_) {}, onError: (Object _) {}));
@@ -880,26 +1051,48 @@ class ChatroomAiMessageStream {
   final ChatroomAiStreamStart start;
   final _chunks = StreamController<ChatroomAiStreamChunk>.broadcast();
   final _done = Completer<ChatroomAiStreamEnd>();
-  final _buffer = StringBuffer();
+  final _pendingChunks = <int, ChatroomAiStreamChunk>{};
+  var _nextSequence = 1;
+  var _content = '';
+  String? _completedContent;
 
   Stream<ChatroomAiStreamChunk> get chunks => _chunks.stream;
 
   Future<ChatroomAiStreamEnd> get done => _done.future;
 
-  String get content => _buffer.toString();
+  String get content => _completedContent ?? _content;
 
   bool get isCompleted => _done.isCompleted;
 
   void addChunk(ChatroomAiStreamChunk chunk) {
     if (_done.isCompleted) return;
-    _buffer.write(chunk.chunk);
-    _chunks.add(chunk);
+    if (chunk.seq <= 0) {
+      _emitChunk(chunk);
+      return;
+    }
+    if (chunk.seq < _nextSequence || _pendingChunks.containsKey(chunk.seq)) {
+      return;
+    }
+    _pendingChunks[chunk.seq] = chunk;
+    while (true) {
+      final next = _pendingChunks.remove(_nextSequence);
+      if (next == null) break;
+      _emitChunk(next);
+      _nextSequence += 1;
+    }
   }
 
   void complete(ChatroomAiStreamEnd end) {
     if (_done.isCompleted) return;
+    _completedContent = end.content.isEmpty ? _content : end.content;
+    _pendingChunks.clear();
     _done.complete(end);
     unawaited(_chunks.close());
+  }
+
+  void _emitChunk(ChatroomAiStreamChunk chunk) {
+    _content = chunk.isDelta ? '$_content${chunk.chunk}' : chunk.chunk;
+    _chunks.add(chunk);
   }
 
   void fail(Object error) {

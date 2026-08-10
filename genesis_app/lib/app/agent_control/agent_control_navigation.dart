@@ -75,26 +75,6 @@ Future<void> _waitForAgentRouteFrame() async {
   await Future<void>.delayed(const Duration(milliseconds: 150));
 }
 
-Future<void> _updateAgentUserPosition(
-  AppServices services, {
-  required String wid,
-  required String locationId,
-  required _AgentProgress progress,
-}) async {
-  progress('更新用户位置到目标 location', {'wid': wid, 'locationId': locationId});
-  try {
-    await services.api
-        .updateUserPosition(wid: wid, locationId: locationId)
-        .timeout(const Duration(seconds: 15));
-  } catch (error) {
-    progress('更新用户位置失败，继续进入 location', {
-      'wid': wid,
-      'locationId': locationId,
-      'error': error.toString(),
-    });
-  }
-}
-
 Future<_AgentWorldChatTarget> _resolveAgentWorldChatTarget(
   AgentControlContext context,
   AgentControlRequest request, {
@@ -189,12 +169,6 @@ Future<_AgentWorldChatTarget> _resolveAgentWorldChatTarget(
   if (aliases is List && aliases.isNotEmpty) {
     chatArgs['localMessageLocationIds'] = aliases.join(',');
   }
-  await _updateAgentUserPosition(
-    services,
-    wid: world.worldId,
-    locationId: locationId,
-    progress: progress,
-  );
   progress('进入 LocationChatPage', {
     'wid': world.worldId,
     'locationId': locationId,

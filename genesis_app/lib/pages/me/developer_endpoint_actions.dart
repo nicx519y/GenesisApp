@@ -200,7 +200,9 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
     final host = _isUsingTestEndpointHost
         ? _DeveloperPageContentState._productionEndpointHost
         : _DeveloperPageContentState._testEndpointHost;
-    final successMessage = _isUsingTestEndpointHost ? '已切换到正式环境' : '已切换到测试环境';
+    final successMessage = _isUsingTestEndpointHost
+        ? 'Switched to production'
+        : 'Switched to test';
     _apiBaseUrlController.text = host;
     _gatewayApiBaseUrlController.text = host;
     _chatroomWsBaseUrlController.text = host;

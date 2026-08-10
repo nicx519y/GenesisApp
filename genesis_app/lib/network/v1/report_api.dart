@@ -5,9 +5,9 @@ class ReportV1Api extends V1ApiResource {
 
   /// POST /api/v1/report/create
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
-  /// {"target_type":"origin","target_id":"o_A1B2C3","content":"内容疑似违规"}
+  /// {"target_type":"origin","target_id":"o_A1B2C3","content":"The content may violate policy"}
   /// ```
   ///
   /// Response:

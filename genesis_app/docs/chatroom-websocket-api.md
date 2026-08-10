@@ -1,6 +1,192 @@
 # Chatroom WebSocket API
 
-本文档按 `/Users/ionix/Downloads/aitown-chat-ws(1).yaml`、`/Users/ionix/Downloads/2026-07-27-image-message-support.md` 与 `/Users/ionix/Downloads/0803接口.md` 更新，描述 AITown 聊天室 WebSocket `2.5.0` 最新协议，以及 Flutter 侧当前实现需要遵守的字段契约。
+本文档按 `/Users/ionix/Downloads/frontend-location-message-tick-debug(2).md`、`/Users/ionix/Downloads/aitown-chat-ws(1).yaml`、`/Users/ionix/Downloads/2026-07-27-image-message-support.md` 与 `/Users/ionix/Downloads/0803接口.md` 更新。V2 部分是新版客户端的权威契约；后半部分保留旧 WS 协议，供版本降级和本地适配使用。
+
+## V2 协议选择
+
+WebSocket Gateway 根据最终握手 Header `x-app-version` 为整条连接选择协议：
+
+| Header 值 | WS 协议 |
+| --- | --- |
+| 空值、非法版本、`<=0.3.3` | legacy |
+| 有效版本 `>0.3.3`，包括 `0.3.4-rc` | V2 |
+
+Flutter 在 Gateway signer 完成后，以不区分大小写的方式读取最终 Header。连接建立后，`ChatroomSession.protocolVersion` 固定不变；同一 socket 不混合解析 legacy 与 V2 envelope。
+
+风险与发布要求：
+
+- 不能只修改 Dart 包版本或请求头 provider；生产 Gateway signer 必须把真实安装包版本写入 `X-App-Version`。
+- `app-version` 与 `x-app-version` 不是同一个 Header。旧的 `app-version` 不会选择 V2。
+- 空值和拼写错误会静默选择 legacy，造成新版上行 payload 被当成旧结构。联调时必须同时检查握手 Header 和第一条 `join` 原始帧。
+- 安装包版本变化需要冷启动新建 socket。热重载或复用旧 session 不能证明 V2 已生效。
+- V2 HTTP `/aitown-chat/api/v2/messages` 不读取版本 Header，始终返回 V2 DTO；legacy HTTP `/aitown-chat/api/messages` 保持不变。
+
+## V2 统一 envelope
+
+```json
+{
+  "type": "user",
+  "stream_type": "",
+  "ts": 1786340797200,
+  "world_id": "world_001",
+  "location_id": "loc_2_2_2",
+  "session_id": "sess_001",
+  "global_message_id": 8703,
+  "message_id": 102,
+  "location_message_id": 30,
+  "conversation_round_id": 7360,
+  "sender_type": "user",
+  "sender_id": "char_1",
+  "sender_name": "Alice",
+  "user_id": "user_1",
+  "client_msg_id": "client_002",
+  "message_type": "text",
+  "min_app_version": 0,
+  "created_at": "2026-08-10 11:06:37",
+  "payload": {
+    "content": "Hello"
+  },
+  "err_no": 0,
+  "err_msg": ""
+}
+```
+
+字段规则：
+
+- `type` 是业务类型；落库内容使用 `user`、`character`、`narrator`、`tick` 等值。
+- `stream_type` 是独立路由轴，只允许 `""`、`llm_stream_start`、`llm_chunk`、`llm_stream_end`。解析时必须先路由 `stream_type`，再路由 `type`。
+- V2 ID 使用全称 `global_message_id/message_id/location_message_id`。旧别名只存在于 legacy adapter。
+- 元数据位于顶层，业务正文、Tick 内容和流式 `seq/content` 位于 `payload`。
+- `payload`、整数 `err_no` 和字符串 `err_msg` 是统一字段。未知扩展字段可以忽略，但 payload 非 object、未知 `stream_type` 或未知业务 `type` 是单帧协议错误。
+- Flutter 的共享 wire DTO 是 `ChatroomV2Message.fromJson/toJson`；HTTP 与 WS 应复用它，避免丢失 `type/stream_type/payload` 这三个持久化标记。
+
+## V2 客户端上行
+
+所有 V2 上行都包含 `type/stream_type/ts/client_msg_id/payload/err_no/err_msg`。`join`、`send_message` 和 `user_enter_location` 还包含 `world_id`。
+
+`join`：
+
+```json
+{
+  "type": "join",
+  "stream_type": "",
+  "ts": 1786340797000,
+  "world_id": "world_001",
+  "client_msg_id": "client_001",
+  "payload": {"location_id": "loc_2_2_2"},
+  "err_no": 0,
+  "err_msg": ""
+}
+```
+
+`send_message`：
+
+```json
+{
+  "type": "send_message",
+  "stream_type": "",
+  "ts": 1786340797001,
+  "world_id": "world_001",
+  "client_msg_id": "client_002",
+  "payload": {"content": "Hello"},
+  "err_no": 0,
+  "err_msg": ""
+}
+```
+
+`user_enter_location` 不返回 ACK，但仍生成 `client_msg_id`：
+
+```json
+{
+  "type": "user_enter_location",
+  "stream_type": "",
+  "ts": 1786340797002,
+  "world_id": "world_001",
+  "client_msg_id": "client_003",
+  "payload": {"location_id": "loc_2_2_2"},
+  "err_no": 0,
+  "err_msg": ""
+}
+```
+
+`heartbeat` 与 `leave` 不带 `world_id`，使用空 payload：
+
+```json
+{
+  "type": "heartbeat",
+  "stream_type": "",
+  "ts": 1786340797003,
+  "client_msg_id": "client_004",
+  "payload": {},
+  "err_no": 0,
+  "err_msg": ""
+}
+```
+
+## V2 ACK 与 canonical echo
+
+```json
+{
+  "type": "ack",
+  "stream_type": "",
+  "ts": 1786340797100,
+  "world_id": "world_001",
+  "session_id": "sess_001",
+  "client_msg_id": "client_002",
+  "payload": {},
+  "err_no": 0,
+  "err_msg": ""
+}
+```
+
+V2 ACK 只表示服务端收到并受理了对应命令。客户端内部 API 语义如下：
+
+- `ChatroomSession.sendMessage` 保持返回 `Future<ChatroomAck>`，该 Future 只由顶层 `client_msg_id` 匹配的 ACK 完成。
+- `ChatroomAck` 是 receipt-only；其可靠字段是 `clientMsgId/code/codeMsg/ts` 以及 session/world 等诊断字段。即使异常服务端 ACK 携带消息 ID，V2 adapter 也不把它们当成 canonical 元数据。
+- 随后 `type=user` 的广播才是可落库、带 message/location/round ID 的 canonical echo。它不能提前完成 V2 ACK Future。
+- UI/service 如需“已送达”和“已形成正式消息”两个阶段，应分别等待 ACK receipt 与 canonical echo；两者通过 `client_msg_id` 关联。
+- 只有明确的 legacy adapter 允许旧 `user_message` echo 代替缺失 ACK，或对无 `client_msg_id` 的特定旧错误码做唯一 pending-send 回退。
+
+## V2 内容与 Tick
+
+非流式内容按 `type` 路由：
+
+- `user` -> `ChatroomUserMessage`
+- `character` 或 `narrator` -> `ChatroomNarratorMessage`，同时保留原始 `businessType`
+- `tick` -> `ChatroomTickAdvanceMessage`
+
+普通 typed message 保留 `businessType/streamType/minAppVersion/rawPayload`。地点级 Tick 另暴露 `v2TickPayload` 与 `isV2LocationTick`；`ChatroomV2TickPayload` 保存 `current_time/tick_no/sub_tick_no/global/story_events/characters_moved`，也支持历史纯文本 `payload.content` 回退。`tick_no=0` 和 `sub_tick_no=0` 都是有效值，不能用正数判断字段是否存在。
+
+V2 只把地点级 `type=tick` 当作 canonical Tick：
+
+- `global_message_id`：LocationMessage 自身 ID
+- `message_id`：world 级消息 ID
+- `location_message_id`：地点分页游标
+- `conversation_round_id`：本次 Tick/P1I 对话轮次
+
+## V2 LLM 流与错误隔离
+
+LLM 流的外层 `type` 仍表示发送者业务类型，状态只看 `stream_type`。例如 `type=character, stream_type=llm_chunk` 必须解析为 chunk，而不是完整 character message。
+
+活跃流以 `world|location|conversation_round_id|sender_id` 为主要身份；session 用于进一步隔离，`message_id` 只作辅助，因为 V2 流帧允许缺少 ID：
+
+- chunk/end 提供的非空字段必须与 start 兼容。
+- 精确字段越多，匹配优先级越高；同 round 不同 sender 不得串流。
+- 缺少 round/message ID 时，只允许归并到唯一候选。
+- 多个候选同分时发出 `stream_ambiguous`，保留全部流且不写入任何候选，避免静默串流。
+- 正序 `seq` 被去重；乱序 chunk 暂存，直到缺口补齐后按序发布。stream end 的完整 `content` 是最终权威文本。
+
+任何单帧 JSON、字段、type 或 stream_type 解析错误只产生 `protocol_error`，不能关闭 socket，也不能阻止下一帧正常交付。
+
+## V2 保留的控制事件
+
+以下控制通知保留既有外层 `type` 与业务 payload：`tick_start`、`tick_done`、`world_change`、`user_location_change`、`world_new_message`、`map_updated`、`character_updated`、`new_user_join`、`balance_low`。`user_enter_location/story_events/characters_moved` 的既有通知/正式消息适配也继续存在。
+
+V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_message` 或 `characters_moved` 带 `location_id` 时只调用 `/aitown-chat/api/v2/messages` 刷新该地点；缺少地点时对当前世界的叶子地点做限并发 V2 刷新。这条 runtime 链路不调用 `/aitown-chat/internal/world/messages` 或 legacy `/aitown-chat/api/messages`。
+
+# Legacy WebSocket 适配附录
+
+以下章节描述 `x-app-version` 为空、非法或 `<=0.3.3` 时使用的旧协议。实现入口是 `chatroomLegacyEventFromEnvelope`；不要把旧别名或 ACK echo 回退扩散到 V2 路径。
 
 ## 1. 概览
 
@@ -209,7 +395,7 @@ Flutter 解析器忽略 envelope 和 `payload` 中未识别的扩展字段，但
 | `tick_done` | 外部 tick 服务调用 unlock 接口 | 用户可以发送消息 |
 | `world_change` | Tick 完成后世界发生变更 | 调用 `/api/v1/world/detail?world_id=xxx` 拉取世界详情 |
 | `user_location_change` | 玩家 join/leave 或收到 `tick_start` | 调用 `/aitown-chat/api/ulocation?world_id=xxx` 拉取玩家位置 |
-| `world_new_message` | 世界某地点产生新对话 | 调用 `/aitown-chat/api/messages?...` 拉取历史消息 |
+| `world_new_message` | 世界某地点产生新对话 | Flutter 忽略 legacy `detail_url`：有 `location_id` 时调用 `/aitown-chat/api/v2/messages` 刷新该地点，无地点时限并发刷新当前世界的叶子地点 |
 
 `SystemNotifyPayload`：
 
@@ -292,13 +478,13 @@ flat single-event 形态直接将同一组 `timestamp/visibility/visible_to/text
 
 `story_events.msg_id` 缺失、为 `0` 或负数时，该帧按 `protocol_error` 丢弃，不进入消息队列或持久化。typed payload 格式不合法时同样只丢弃该帧，WebSocket 连接保持可用。
 
-`characters_moved` 携带正数 `msg_id` 时直接作为正式消息处理；顶层 `location_id` 非空时进入该地点，为空时作为世界广播复制到所有叶子地点。兼容旧版仅有 `event_id/ts/world_id/payload` 的通知 envelope：typed payload 校验通过后，客户端先生成仅存在于内存的临时消息并立即加入所有叶子地点队列，同时触发 HTTP world messages 刷新；canonical 记录按归一化后的 movements payload 原位替换临时项并持久化。即使 HTTP 暂时失败，本次 WSS 消息仍会立即显示；`movements[]` typed payload 非法时，该帧按 `protocol_error` 丢弃，连接继续。
+`characters_moved` 携带正数 `msg_id` 时直接作为正式消息处理；顶层 `location_id` 非空时进入该地点，为空时作为世界广播复制到所有叶子地点。兼容旧版仅有 `event_id/ts/world_id/payload` 的通知 envelope：typed payload 校验通过后，客户端先生成仅存在于内存的临时消息并立即加入所有叶子地点队列，再通过 `/aitown-chat/api/v2/messages` 对有地点的通知刷新该地点、对无地点通知限并发刷新叶子地点；canonical 记录按归一化后的 movements payload 原位替换临时项并持久化。V2 地点聊天运行时不调用 internal world messages 或 legacy messages 接口。即使 HTTP 暂时失败，本次 WSS 消息仍会立即显示；`movements[]` typed payload 非法时，该帧按 `protocol_error` 丢弃，连接继续。
 
 HTTP 与 WebSocket 的合法 `characters_moved` 最终使用同一个气泡：标题为“人物去向”，每条 movement 显示“角色名 has gone to 地点名”。地点名可以点击；目标与当前地点不同时，客户端切换到目标地点聊天。V2 Tilemap 会在切换前登记目标地点，关闭目标聊天后重建到承载该地点的父级地图，并将视口聚焦到目标地点。
 
 ### 5.3 `tick_advance`
 
-世界时间推进消息。格式与普通内容消息一致，顶层 `current_time` 和 `payload.content` 值相同；`payload.tick_no` 是页面展示的 Tick 编号。历史消息接口中对应 `sender_type: "tick"`，并应携带 `tick_no`。
+世界时间推进消息。格式与普通内容消息一致，顶层 `current_time` 和 `payload.content` 值相同；`payload.tick_no` 是页面展示的 Tick 编号。历史消息接口中对应 `sender_type: "tick"`，并应携带 `tick_no`。只有该事件投影出的零 `location_msg_id` legacy Tick 继续以 world `msg_id` 作为 supplemental 排序和双游标边界；带正数地点游标的 Tick 与其他 canonical V2 消息完全一样按 `location_message_id` 处理。
 
 ```json
 {
@@ -497,7 +683,7 @@ Query：
 - `since`: integer，起始消息 ID，`0` 表示获取最新
 - `limit`: integer，默认 `20`，最大 `100`
 
-响应消息字段按当前 HTTP 文档的 `MessageDTO`：`global_message_id` 全局递增，`message_id` world 级别递增，`location_message_id` location 级别递增；`sender_type` 取值为 `user`、`character`、`narrator`、`npc`、`tick`、`user_enter_location`、`story_events` 或 `characters_moved`。`user_enter_location.content` 为纯文本入场文案；`story_events/characters_moved.content` 为 JSON 字符串。新版入场消息使用正数 `location_message_id`，参与地点连续窗口、补洞、分页、本地 key 和去重，并在地点聊天中显示现有入场气泡；旧 JSON content 与 `location_message_id=0` 记录继续兼容。`sub_tick_no` 为可选整数；正数时与 `tick_no` 组合显示，例如 `tick_no=4, sub_tick_no=1` 显示为 `Tick 4-1`。`message_type` 取值为 `text` 或 `image`，图片 URL 保存在 `content`。字段缺失时，旧 `sender_id=nar_pic` 消息兼容为 `image`，其他发送方按 `text`；字段存在但为空时按 `text`。只有 `image + nar_pic` 渲染图片，其他图片发送方和未知类型只存储、不渲染。`created_at` 格式为 `2006-01-02 15:04:05`。
+响应消息字段按当前 HTTP 文档的 `MessageDTO`：`global_message_id` 全局递增，`message_id` world 级别递增，`location_message_id` location 级别递增；`sender_type` 取值为 `user`、`character`、`narrator`、`npc`、`tick`、`user_enter_location`、`story_events` 或 `characters_moved`。`user_enter_location.content` 为纯文本入场文案；`story_events/characters_moved.content` 为 JSON 字符串。所有正数 `location_message_id` 均参与地点连续窗口、补洞、分页、本地 key 和去重。零游标 legacy 记录继续兼容入队和展示，但只有 `tick`（旧 `tick_advance` 投影）按 world `message_id` 排序并使用双游标分页/删除；零游标 `user_enter_location/story_events/characters_moved` 不参与 location continuity、gap 或分页边界。`sub_tick_no` 为可选整数；正数时与 `tick_no` 组合显示，例如 `tick_no=4, sub_tick_no=1` 显示为 `Tick 4-1`。`message_type` 取值为 `text` 或 `image`，图片 URL 保存在 `content`。字段缺失时，旧 `sender_id=nar_pic` 消息兼容为 `image`，其他发送方按 `text`；字段存在但为空时按 `text`。只有 `image + nar_pic` 渲染图片，其他图片发送方和未知类型只存储、不渲染。`created_at` 格式为 `2006-01-02 15:04:05`。
 
 响应：
 
@@ -632,7 +818,7 @@ Query：
 - `tick_advance` 会进入所有叶子地点的消息队列，Flutter 展示为系统时间推进提示；`sub_tick_no > 0` 时文案为 `Tick {tick_no}-{sub_tick_no} · {current_time}`，缺少子 Tick 时保持 `Tick {tick_no} · {current_time}`。历史消息里的 `sender_type: "tick"` 同样处理。
 - 新版 `user_enter_location` 下行先进入正式地点消息队列、缓存和现有入场气泡，再与旧通知形态一样通过 `/aitown-chat/api/ulocation` 刷新完整玩家位置快照；并发刷新由单 active + trailing 调度合并。
 - `story_events` 必须携带正数 `msg_id`，并复用正式消息队列、缓存和 message-id 去重；不创建无 ID 的瞬时消息。WS `payload` 与 HTTP `content` JSON 都兼容 grouped `paragraphs[]` 和 flat single-event，两者归一化后走同一气泡渲染。
-- `characters_moved` 有正数 `msg_id` 时直接使用正式消息队列、缓存和 message-id 去重；空 `location_id` 广播到所有叶子地点。旧版缺少 `msg_id` 的 envelope 会先以临时消息立即入队，再触发 HTTP canonical 消息同步并原位替换；最终与 HTTP 记录共用可点击地点的人物去向气泡。
+- `characters_moved` 有正数 `msg_id` 时直接使用正式消息队列、缓存和 message-id 去重；空 `location_id` 广播到所有叶子地点。旧版缺少 `msg_id` 的 envelope 会先以临时消息立即入队，再通过地点 V2 HTTP canonical 消息同步并原位替换；最终与 HTTP 记录共用可点击地点的人物去向气泡。
 - `map_updated` 只发布递增 revision；`character_updated` 当前仍为已识别的 no-op。
 - `llm_stream_start`、`llm_chunk`、`llm_stream_end` 在 Flutter 内部仍复用 `ChatroomAiMessageStream` 事件模型。
 - 原始帧通过 `developer.log(name: 'ChatroomSocketFrame')` 输出到 Flutter DevTools Logging。

@@ -25,6 +25,14 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
   }
 
   Future<void> _handleTickAdvanceMessage(WorldChatroomMessage message) async {
+    if (message.isV2LocationTick) {
+      _upsertMessage(
+        message,
+        socketCurrentTime: message.currentTime,
+        socketTickNo: message.tickNo,
+      );
+      return;
+    }
     final messages = _tickAdvanceLocationIds(message.locationId)
         .map((locationId) => message.copyWith(locationId: locationId))
         .toList(growable: false);
@@ -107,17 +115,20 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       'world history fetch start world=$_worldId limit=$limit '
       'locationCount=${_state.messagesByLocation.length}',
     );
-    final response = await _api.chatroomHttp.getWorldMessages(
-      worldId: _worldId,
-    );
+    final locationIds = _leafLocationIdsForCurrentWorld();
     final messages = <WorldChatroomMessage>[];
-    for (final location in response.locations) {
-      final locationId = location.locationId.trim();
-      if (locationId.isEmpty) continue;
-      messages.addAll(
-        await _mergeFetchedMessages(locationId, location.messages),
-      );
-    }
+    await _runLimited<String>(
+      locationIds,
+      _defaultLocationQueueInitConcurrency,
+      (locationId) async {
+        final fetched = await _fetchLatestLocationMessagesWithFailure(
+          locationId: locationId,
+          limit: limit,
+          emitLatestFetched: false,
+        );
+        messages.addAll(fetched);
+      },
+    );
     if (emitLatestFetched &&
         messages.isNotEmpty &&
         !_latestFetchedMessages.isClosed) {
@@ -125,7 +136,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     }
     _logChatroomHydrateMetric(
       'world history fetch done world=$_worldId '
-      'locations=${response.locations.length} loaded=${messages.length} '
+      'locations=${locationIds.length} loaded=${messages.length} '
       'elapsed=${stopwatch?.elapsedMilliseconds}ms',
     );
     _recordServiceQueueDebug(
@@ -133,7 +144,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       locationId: '',
       details: {
         'limit': limit,
-        'locations': response.locations.length,
+        'locations': locationIds.length,
         'loaded': messages.length,
         'emitLatestFetched': emitLatestFetched,
         'elapsedMs': stopwatch?.elapsedMilliseconds,
@@ -300,57 +311,233 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     return worldMessages;
   }
 
-  void _appendStreamChunk(ChatroomAiStreamChunk event) {
-    final key = _streamKey(event.locationId, event.conversationRoundId);
-    final existing = _state.streamMessagesByKey[key];
+  void _startStream(ChatroomAiStreamStart event) {
+    final key = _streamKey(
+      event.locationId,
+      event.conversationRoundId,
+      event.senderId,
+    );
+    if (key.isEmpty) return;
+    final message = WorldChatroomMessage.fromAiStreamStart(event);
+    final existing = _streamAccumulators[key];
     if (existing == null) {
-      _recordFailure(
-        ChatroomFailureEvent(
-          code: 'stream_missing',
-          message: 'Missing LLM stream start for ${event.conversationRoundId}',
-          sourceType: 'llm_chunk',
-        ),
+      _streamAccumulators[key] = _ChatroomStreamAccumulator(message: message);
+      _upsertMessage(
+        message,
+        persist: false,
         socketCurrentTime: event.currentTime,
       );
       return;
     }
+    existing.message = message.copyWith(content: existing.message.content);
     _upsertMessage(
-      existing.copyWith(
-        content: existing.content + event.chunk,
-        currentTime: event.currentTime.trim().isEmpty
-            ? existing.currentTime
-            : event.currentTime,
-      ),
+      existing.message,
+      persist: false,
+      socketCurrentTime: event.currentTime,
+    );
+  }
+
+  void _appendStreamChunk(ChatroomAiStreamChunk event) {
+    final key = _streamKey(
+      event.locationId,
+      event.conversationRoundId,
+      event.senderId,
+    );
+    if (key.isEmpty) return;
+    var accumulator = _streamAccumulators[key];
+    var createdAccumulator = false;
+    if (accumulator == null) {
+      final entity = _state.entitiesById[event.senderId];
+      final synthetic = WorldChatroomMessage(
+        globalMessageId: event.globalMessageId,
+        messageId: event.messageId,
+        locationMessageId: event.locationMessageId,
+        conversationRoundId: event.conversationRoundId,
+        roundOrder: 0,
+        locationId: event.locationId,
+        businessType: event.businessType.isEmpty
+            ? 'character'
+            : event.businessType,
+        streamType: event.streamType,
+        senderType: 'character',
+        senderId: event.senderId,
+        senderName: entity?.name ?? event.senderId,
+        content: '',
+        currentTime: event.currentTime,
+        createdAt: null,
+        streaming: true,
+        isLlmStreamMessage: true,
+        minAppVersion: event.minAppVersion ?? 0,
+        rawPayload: event.rawPayload,
+      );
+      accumulator = _ChatroomStreamAccumulator(
+        message: synthetic,
+        firstSequence: event.seq == 0 ? 0 : 1,
+      );
+      _streamAccumulators[key] = accumulator;
+      createdAccumulator = true;
+    }
+    final changed = accumulator.addChunk(event.seq, event.chunk);
+    _recordServiceQueueDebug(
+      action: changed ? 'streamChunkApplied' : 'streamChunkBuffered',
+      locationId: event.locationId,
+      details: {
+        'streamKey': key,
+        'seq': event.seq,
+        'nextSeq': accumulator.nextSequence,
+        'bufferedSeqs': accumulator.chunks.keys.toList(growable: false),
+      },
+    );
+    if (!changed) {
+      if (createdAccumulator) {
+        _upsertMessage(
+          accumulator.message,
+          persist: false,
+          socketCurrentTime: event.currentTime,
+        );
+      }
+      return;
+    }
+    accumulator.message = accumulator.message.copyWith(
+      currentTime: event.currentTime.trim().isEmpty
+          ? accumulator.message.currentTime
+          : event.currentTime,
+    );
+    _upsertMessage(
+      accumulator.message,
+      persist: false,
       socketCurrentTime: event.currentTime,
     );
   }
 
   void _finishStream(ChatroomAiStreamEnd event) {
-    final key = _streamKey(event.locationId, event.conversationRoundId);
-    final existing = _state.streamMessagesByKey[key];
-    if (existing == null) {
-      _recordFailure(
-        ChatroomFailureEvent(
-          code: 'stream_missing',
-          message: 'Missing LLM stream start for ${event.conversationRoundId}',
-          sourceType: 'llm_stream_end',
-        ),
-        socketCurrentTime: event.currentTime,
-      );
-      return;
-    }
+    final key = _streamKey(
+      event.locationId,
+      event.conversationRoundId,
+      event.senderId,
+    );
+    if (key.isEmpty) return;
+    final accumulator = _streamAccumulators.remove(key);
+    final existing =
+        accumulator?.message ??
+        _state.streamMessagesByKey[key] ??
+        WorldChatroomMessage(
+          messageId: event.messageId,
+          locationMessageId: event.locationMessageId,
+          conversationRoundId: event.conversationRoundId,
+          roundOrder: 0,
+          locationId: event.locationId,
+          businessType: event.businessType.isEmpty
+              ? 'character'
+              : event.businessType,
+          streamType: event.streamType,
+          senderType: 'character',
+          senderId: event.senderId,
+          senderName:
+              _state.entitiesById[event.senderId]?.name ?? event.senderId,
+          content: '',
+          createdAt: event.createdAt,
+          isLlmStreamMessage: true,
+          minAppVersion: event.minAppVersion ?? 0,
+          rawPayload: event.rawPayload,
+        );
+    _recordServiceQueueDebug(
+      action: 'streamEnd',
+      locationId: event.locationId,
+      details: {
+        'streamKey': key,
+        'finalMessageId': event.messageId,
+        'finalLocationMessageId': event.locationMessageId,
+        'usedAuthoritativeContent': event.content.trim().isNotEmpty,
+      },
+    );
+    _removeProvisionalStreamMessages(
+      key: key,
+      locationId: event.locationId,
+      conversationRoundId: event.conversationRoundId,
+      senderId: event.senderId,
+    );
     _upsertMessage(
       existing.copyWith(
+        globalMessageId: event.globalMessageId > 0
+            ? event.globalMessageId
+            : existing.globalMessageId,
+        messageId: event.messageId > 0 ? event.messageId : existing.messageId,
+        locationMessageId: event.locationMessageId > 0
+            ? event.locationMessageId
+            : existing.locationMessageId,
         content: event.content.trim().isEmpty
             ? existing.content
             : event.content,
         currentTime: event.currentTime.trim().isEmpty
             ? existing.currentTime
             : event.currentTime,
+        createdAt: event.createdAt ?? existing.createdAt,
+        streamType: event.streamType,
+        minAppVersion: event.minAppVersion ?? existing.minAppVersion,
+        rawPayload: event.rawPayload.isEmpty
+            ? existing.rawPayload
+            : event.rawPayload,
         streaming: false,
       ),
       socketCurrentTime: event.currentTime,
     );
+  }
+
+  void _removeProvisionalStreamMessages({
+    String key = '',
+    String locationId = '',
+    String conversationRoundId = '',
+    String senderId = '',
+    bool removeAll = false,
+  }) {
+    bool matches(WorldChatroomMessage message) {
+      if (!message.streaming) return false;
+      if (removeAll) return true;
+      return message.locationId.trim() == locationId.trim() &&
+          message.conversationRoundId.trim() == conversationRoundId.trim() &&
+          message.senderId.trim() == senderId.trim();
+    }
+
+    final worldMessages = _state.worldMessages
+        .where((message) => !matches(message))
+        .toList(growable: false);
+    final messagesByLocation = <String, List<WorldChatroomMessage>>{
+      for (final entry in _state.messagesByLocation.entries)
+        entry.key: List<WorldChatroomMessage>.unmodifiable(
+          entry.value.where((message) => !matches(message)),
+        ),
+    };
+    final streamMessagesByKey =
+        <String, WorldChatroomMessage>{..._state.streamMessagesByKey}
+          ..removeWhere(
+            (streamKey, message) =>
+                (key.isNotEmpty && streamKey == key) || matches(message),
+          );
+    final changed =
+        worldMessages.length != _state.worldMessages.length ||
+        streamMessagesByKey.length != _state.streamMessagesByKey.length ||
+        _state.messagesByLocation.entries.any(
+          (entry) =>
+              messagesByLocation[entry.key]?.length != entry.value.length,
+        );
+    if (!changed) return;
+    _setState(
+      _state.copyWith(
+        worldMessages: List<WorldChatroomMessage>.unmodifiable(worldMessages),
+        messagesByLocation:
+            Map<String, List<WorldChatroomMessage>>.unmodifiable(
+              messagesByLocation,
+            ),
+        streamMessagesByKey: Map<String, WorldChatroomMessage>.unmodifiable(
+          streamMessagesByKey,
+        ),
+      ),
+    );
+  }
+
+  void _clearProvisionalStreamMessages() {
+    _removeProvisionalStreamMessages(removeAll: true);
   }
 
   WorldChatroomState _stateWithSocketWorldProgress(
@@ -422,8 +609,12 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     final streamKeys = <String, WorldChatroomMessage>{
       ..._state.streamMessagesByKey,
     };
+    final resolvedMessages = <WorldChatroomMessage>[];
     var lastMessageId = _state.lastMessageId;
-    for (final message in messages) {
+    for (final incoming in messages) {
+      _completeCanonicalEcho(incoming);
+      final message = _mergeWithExistingMessage(worldMessages, incoming);
+      resolvedMessages.add(message);
       worldMessages = _upsertIntoList(worldMessages, message);
       if (_shouldStoreMessageInLocationQueue(message)) {
         byLocation[message.locationId] = _trimMessageList(
@@ -434,7 +625,11 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           _maxMessagesPerLocation,
         );
       }
-      final key = _streamKey(message.locationId, message.conversationRoundId);
+      final key = _streamKey(
+        message.locationId,
+        message.conversationRoundId,
+        message.senderId,
+      );
       if (message.streaming && key.isNotEmpty) {
         streamKeys[key] = message;
       } else {
@@ -457,7 +652,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         socketTickNo: resolvedSocketTickNo,
       ),
     );
-    final changedLocationIds = messages
+    final changedLocationIds = resolvedMessages
         .map((message) => message.locationId.trim())
         .where((locationId) => locationId.isNotEmpty)
         .toSet();
@@ -465,11 +660,11 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       _recordServiceQueueDebug(
         action: persist ? 'upsertPersist' : 'upsertState',
         locationId: locationId,
-        details: {'incoming': messages.length, 'persist': persist},
+        details: {'incoming': resolvedMessages.length, 'persist': persist},
       );
     }
     if (persist) {
-      for (final message in messages) {
+      for (final message in resolvedMessages) {
         unawaited(
           _persistMessage(message).catchError((Object error) {
             _recordFailure(
@@ -486,6 +681,15 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     }
   }
 
+  void _completeCanonicalEcho(WorldChatroomMessage message) {
+    final clientMsgId = message.clientMsgId.trim();
+    if (clientMsgId.isEmpty || !message.isCanonicalUserMessage) return;
+    final completer = _canonicalEchoCompleters.remove(clientMsgId);
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(message);
+    }
+  }
+
   List<WorldChatroomMessage> _upsertIntoList(
     List<WorldChatroomMessage> messages,
     WorldChatroomMessage message,
@@ -495,7 +699,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     for (final item in messages) {
       if (_sameMessage(item, message)) {
         if (!replaced) {
-          next.add(message);
+          next.add(_mergeSameMessage(item, message));
           replaced = true;
         }
       } else {
@@ -505,6 +709,73 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     if (!replaced) next.add(message);
     next.sort(_compareMessages);
     return List<WorldChatroomMessage>.unmodifiable(next);
+  }
+
+  WorldChatroomMessage _mergeWithExistingMessage(
+    List<WorldChatroomMessage> messages,
+    WorldChatroomMessage incoming,
+  ) {
+    for (final existing in messages) {
+      if (_sameMessage(existing, incoming)) {
+        return _mergeSameMessage(existing, incoming);
+      }
+    }
+    return incoming;
+  }
+
+  WorldChatroomMessage _mergeSameMessage(
+    WorldChatroomMessage existing,
+    WorldChatroomMessage incoming,
+  ) {
+    final existingIsAuthoritativeStreamEnd =
+        existing.isLlmStreamMessage && !existing.streaming;
+    final incomingIsCanonicalFinal =
+        !incoming.isLlmStreamMessage && !incoming.streaming;
+    if (!existingIsAuthoritativeStreamEnd ||
+        !incomingIsCanonicalFinal ||
+        !_sameStreamIdentity(existing, incoming)) {
+      return incoming;
+    }
+    return incoming.copyWith(
+      globalMessageId: existing.globalMessageId > 0
+          ? existing.globalMessageId
+          : incoming.globalMessageId,
+      messageId: existing.messageId > 0
+          ? existing.messageId
+          : incoming.messageId,
+      locationMessageId: existing.locationMessageId > 0
+          ? existing.locationMessageId
+          : incoming.locationMessageId,
+      conversationRoundId: existing.conversationRoundId,
+      content: existing.content,
+      currentTime: existing.currentTime.trim().isNotEmpty
+          ? existing.currentTime
+          : incoming.currentTime,
+      createdAt: existing.createdAt ?? incoming.createdAt,
+      streamType: existing.streamType,
+      isLlmStreamMessage: true,
+      minAppVersion: existing.minAppVersion > 0
+          ? existing.minAppVersion
+          : incoming.minAppVersion,
+      rawPayload: existing.rawPayload.isNotEmpty
+          ? existing.rawPayload
+          : incoming.rawPayload,
+    );
+  }
+
+  bool _sameStreamIdentity(
+    WorldChatroomMessage left,
+    WorldChatroomMessage right,
+  ) {
+    final locationId = left.locationId.trim();
+    final roundId = left.conversationRoundId.trim();
+    final senderId = left.senderId.trim();
+    return locationId.isNotEmpty &&
+        roundId.isNotEmpty &&
+        senderId.isNotEmpty &&
+        locationId == right.locationId.trim() &&
+        roundId == right.conversationRoundId.trim() &&
+        senderId == right.senderId.trim();
   }
 
   List<WorldChatroomMessage> _trimMessageList(
@@ -524,6 +795,10 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       return aClientMsgId == bClientMsgId;
     }
     if (_sameCanonicalAndTransientCharactersMovedMessage(a, b)) return true;
+    if ((a.isLlmStreamMessage || b.isLlmStreamMessage) &&
+        _sameStreamIdentity(a, b)) {
+      return true;
+    }
     if (a.locationId == b.locationId &&
         (isChatroomMessageIdOrderedSupplemental(
               a.senderType,
@@ -604,6 +879,16 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
 
   int _compareMessages(WorldChatroomMessage a, WorldChatroomMessage b) {
     if (a.locationId == b.locationId) {
+      final aIsCursorlessStream = _isCursorlessStreamMessage(a);
+      final bIsCursorlessStream = _isCursorlessStreamMessage(b);
+      if (aIsCursorlessStream != bIsCursorlessStream) {
+        return aIsCursorlessStream ? 1 : -1;
+      }
+      final aIsCursorlessNonOrdered = _isCursorlessNonOrderedMessage(a);
+      final bIsCursorlessNonOrdered = _isCursorlessNonOrderedMessage(b);
+      if (aIsCursorlessNonOrdered != bIsCursorlessNonOrdered) {
+        return aIsCursorlessNonOrdered ? -1 : 1;
+      }
       final aIsMessageIdOrdered = isChatroomMessageIdOrderedSupplemental(
         a.senderType,
         locationMessageId: a.locationMessageId,
@@ -651,6 +936,20 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     return a.messageId.compareTo(b.messageId);
   }
 
+  bool _isCursorlessStreamMessage(WorldChatroomMessage message) {
+    return message.locationMessageId <= 0 &&
+        message.isLlmStreamMessage &&
+        message.streaming;
+  }
+
+  bool _isCursorlessNonOrderedMessage(WorldChatroomMessage message) {
+    return message.locationMessageId <= 0 &&
+        !isChatroomMessageIdOrderedSupplemental(
+          message.senderType,
+          locationMessageId: message.locationMessageId,
+        );
+  }
+
   Map<String, List<WorldChatroomMessage>> _leafLocationMessageQueues(
     WorldDetail? world,
     Map<String, List<WorldChatroomMessage>> current,
@@ -689,7 +988,10 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
   bool _isLocationQueueMessage(WorldChatroomMessage message) {
     return _isTickAdvanceWorldMessage(message) ||
         message.locationMessageId > 0 ||
-        message.messageId > 0;
+        message.messageId > 0 ||
+        (message.isLlmStreamMessage &&
+            message.conversationRoundId.trim().isNotEmpty &&
+            message.senderId.trim().isNotEmpty);
   }
 
   bool _messageIsAtOrBeforeLocationCursor(
@@ -706,7 +1008,9 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           message.messageId > 0 &&
           message.messageId <= maxWorldMessageId;
     }
-    if (message.locationMessageId <= 0) return true;
+    // Cursorless non-tick legacy timeline records are display-only
+    // compatibility items and cannot be assigned to a location gap boundary.
+    if (message.locationMessageId <= 0) return false;
     return message.locationMessageId <= maxLocationMessageId;
   }
 }

@@ -5,9 +5,9 @@ class FeedbackV1Api extends V1ApiResource {
 
   /// POST /api/v1/feedback/create
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
-  /// {"content":"希望增加夜间模式"}
+  /// {"content":"Please add dark mode"}
   /// ```
   ///
   /// Response:

@@ -5,7 +5,7 @@ class DmV1Api extends V1ApiResource {
 
   /// GET /api/v1/direct_message/conversations
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"pn":1,"rn":20,"after_message_id":"string"}
   /// ```
@@ -30,7 +30,7 @@ class DmV1Api extends V1ApiResource {
 
   /// GET /api/v1/direct_message/list
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"peer_uid":"string","pn":1,"rn":20}
   /// ```
@@ -52,7 +52,7 @@ class DmV1Api extends V1ApiResource {
 
   /// POST /api/v1/direct_message/send
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"peer_uid":"string","content":"string"}
   /// ```
@@ -73,7 +73,7 @@ class DmV1Api extends V1ApiResource {
 
   /// POST /api/v1/direct_message/read
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"peer_uid":"string"}
   /// ```
@@ -98,7 +98,7 @@ class DmV1Api extends V1ApiResource {
 
   /// POST /api/v1/direct_message/block
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"target_uid":"string"}
   /// ```
@@ -113,7 +113,7 @@ class DmV1Api extends V1ApiResource {
 
   /// POST /api/v1/direct_message/unblock
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"target_uid":"string"}
   /// ```
@@ -128,7 +128,7 @@ class DmV1Api extends V1ApiResource {
 
   /// GET /api/v1/direct_message/blocks
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"pn":1,"rn":20}
   /// ```

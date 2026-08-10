@@ -14,9 +14,327 @@ class ChatroomProtocolException implements Exception {
   String toString() => 'ChatroomProtocolException: $message';
 }
 
+enum ChatroomProtocolVersion { legacy, v2 }
+
+/// Resolves the WebSocket wire contract selected by the gateway.
+///
+/// Missing or invalid versions intentionally stay on the legacy contract.
+/// Pre-release/build suffixes do not affect the numeric comparison, so
+/// `0.3.4-rc` is V2 while `0.3.3+9` is legacy.
+ChatroomProtocolVersion resolveChatroomProtocolVersion(String appVersion) {
+  final match = RegExp(
+    r'^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?$',
+  ).firstMatch(appVersion.trim());
+  if (match == null) return ChatroomProtocolVersion.legacy;
+  final parts = <int>[
+    int.parse(match.group(1)!),
+    int.parse(match.group(2)!),
+    int.parse(match.group(3)!),
+  ];
+  const boundary = <int>[0, 3, 3];
+  for (var index = 0; index < parts.length; index += 1) {
+    if (parts[index] > boundary[index]) return ChatroomProtocolVersion.v2;
+    if (parts[index] < boundary[index]) {
+      return ChatroomProtocolVersion.legacy;
+    }
+  }
+  return ChatroomProtocolVersion.legacy;
+}
+
+const Set<String> chatroomV2StreamTypes = <String>{
+  '',
+  'llm_stream_start',
+  'llm_chunk',
+  'llm_stream_end',
+};
+
+/// Lossless V2 wire DTO shared by WebSocket and HTTP message decoders.
+///
+/// This class intentionally keeps `type` and `streamType` as separate axes.
+/// It does not infer a canonical stored message from an ACK; callers must wait
+/// for the later canonical user echo when they need message IDs or round data.
+class ChatroomV2Message {
+  const ChatroomV2Message({
+    required this.type,
+    this.streamType = '',
+    this.ts,
+    this.worldId = '',
+    this.locationId = '',
+    this.sessionId = '',
+    this.globalMessageId,
+    this.messageId,
+    this.locationMessageId,
+    this.conversationRoundId,
+    this.senderType = '',
+    this.senderId = '',
+    this.senderName = '',
+    this.userId = '',
+    this.clientMsgId = '',
+    this.messageType = '',
+    this.minAppVersion,
+    this.createdAt = '',
+    this.payload = const <String, dynamic>{},
+    this.errNo = 0,
+    this.errMsg = '',
+  });
+
+  final String type;
+  final String streamType;
+  final int? ts;
+  final String worldId;
+  final String locationId;
+  final String sessionId;
+  final int? globalMessageId;
+  final int? messageId;
+  final int? locationMessageId;
+  final int? conversationRoundId;
+  final String senderType;
+  final String senderId;
+  final String senderName;
+  final String userId;
+  final String clientMsgId;
+  final String messageType;
+  final int? minAppVersion;
+  final String createdAt;
+  final Map<String, dynamic> payload;
+  final int errNo;
+  final String errMsg;
+
+  bool get isLlmStream => streamType.isNotEmpty;
+
+  factory ChatroomV2Message.fromJson(Map<String, dynamic> json) {
+    final type = asString(json['type']).trim();
+    if (type.isEmpty) {
+      throw const ChatroomProtocolException('V2 message type is required');
+    }
+    final streamType = asString(json['stream_type']).trim().toLowerCase();
+    if (!chatroomV2StreamTypes.contains(streamType)) {
+      throw ChatroomProtocolException('Unsupported stream_type: $streamType');
+    }
+    return ChatroomV2Message(
+      type: type,
+      streamType: streamType,
+      ts: json['ts'] == null ? null : asInt(json['ts']),
+      worldId: asString(json['world_id']),
+      locationId: asString(json['location_id']),
+      sessionId: asString(json['session_id']),
+      globalMessageId: json['global_message_id'] == null
+          ? null
+          : asInt(json['global_message_id']),
+      messageId: json['message_id'] == null ? null : asInt(json['message_id']),
+      locationMessageId: json['location_message_id'] == null
+          ? null
+          : asInt(json['location_message_id']),
+      conversationRoundId: json['conversation_round_id'] == null
+          ? null
+          : asInt(json['conversation_round_id']),
+      senderType: asString(json['sender_type']),
+      senderId: asString(json['sender_id']),
+      senderName: asString(json['sender_name']),
+      userId: asString(json['user_id']),
+      clientMsgId: asString(json['client_msg_id']),
+      messageType: asString(json['message_type']),
+      minAppVersion: json['min_app_version'] == null
+          ? null
+          : asInt(json['min_app_version']),
+      createdAt: asString(json['created_at']),
+      payload: _optionalJsonMap(json['payload']),
+      errNo: asInt(json['err_no']),
+      errMsg: asString(json['err_msg']),
+    );
+  }
+
+  factory ChatroomV2Message.decode(String input) {
+    try {
+      if (isChatroomFrameOversized(input)) {
+        throw const ChatroomProtocolException(
+          'Envelope exceeds the maximum frame size',
+        );
+      }
+      final decoded = jsonDecode(input);
+      if (decoded is! Map) {
+        throw const ChatroomProtocolException('Envelope is not a JSON object');
+      }
+      validateChatroomPayloadLimits(decoded, field: 'envelope');
+      return ChatroomV2Message.fromJson(asJsonMap(decoded));
+    } on ChatroomProtocolException {
+      rethrow;
+    } catch (error) {
+      throw ChatroomProtocolException('Invalid V2 JSON envelope', error: error);
+    }
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'type': type,
+      'stream_type': streamType,
+      if (ts != null) 'ts': ts,
+      if (worldId.isNotEmpty) 'world_id': worldId,
+      if (locationId.isNotEmpty) 'location_id': locationId,
+      if (sessionId.isNotEmpty) 'session_id': sessionId,
+      if (globalMessageId != null) 'global_message_id': globalMessageId,
+      if (messageId != null) 'message_id': messageId,
+      if (locationMessageId != null) 'location_message_id': locationMessageId,
+      if (conversationRoundId != null)
+        'conversation_round_id': conversationRoundId,
+      if (senderType.isNotEmpty) 'sender_type': senderType,
+      if (senderId.isNotEmpty) 'sender_id': senderId,
+      if (senderName.isNotEmpty) 'sender_name': senderName,
+      if (userId.isNotEmpty) 'user_id': userId,
+      if (clientMsgId.isNotEmpty) 'client_msg_id': clientMsgId,
+      if (messageType.isNotEmpty) 'message_type': messageType,
+      if (minAppVersion != null) 'min_app_version': minAppVersion,
+      if (createdAt.isNotEmpty) 'created_at': createdAt,
+      'payload': payload,
+      'err_no': errNo,
+      'err_msg': errMsg,
+    };
+  }
+
+  String encode() => jsonEncode(toJson());
+}
+
+class ChatroomV2StoryEvent {
+  const ChatroomV2StoryEvent({
+    required this.locationId,
+    required this.timestamp,
+    required this.visibility,
+    required this.visibleTo,
+    required this.text,
+    required this.clue,
+  });
+
+  final String locationId;
+  final String timestamp;
+  final String visibility;
+  final List<String>? visibleTo;
+  final String text;
+  final String clue;
+
+  factory ChatroomV2StoryEvent.fromJson(Map<String, dynamic> json) {
+    final rawVisibleTo = json['visible_to'];
+    return ChatroomV2StoryEvent(
+      locationId: asString(json['location_id']),
+      timestamp: asString(json['timestamp']),
+      visibility: asString(json['visibility']),
+      visibleTo: rawVisibleTo == null
+          ? null
+          : asJsonList(
+              rawVisibleTo,
+            ).map((value) => asString(value)).toList(growable: false),
+      text: asString(json['text']),
+      clue: asString(json['clue']),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'location_id': locationId,
+    'timestamp': timestamp,
+    'visibility': visibility,
+    'visible_to': visibleTo,
+    'text': text,
+    'clue': clue,
+  };
+}
+
+class ChatroomV2CharacterMovement {
+  const ChatroomV2CharacterMovement({
+    required this.characterId,
+    required this.oldLocationId,
+    required this.toLocationId,
+  });
+
+  final String characterId;
+  final String oldLocationId;
+  final String toLocationId;
+
+  factory ChatroomV2CharacterMovement.fromJson(Map<String, dynamic> json) {
+    return ChatroomV2CharacterMovement(
+      characterId: asString(json['char_id']),
+      oldLocationId: asString(json['old_loc_id']),
+      toLocationId: asString(json['to_loc_id']),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'char_id': characterId,
+    'old_loc_id': oldLocationId,
+    'to_loc_id': toLocationId,
+  };
+}
+
+class ChatroomV2TickPayload {
+  const ChatroomV2TickPayload({
+    required this.currentTime,
+    required this.tickNo,
+    required this.subTickNo,
+    required this.globalText,
+    required this.storyEvents,
+    required this.charactersMoved,
+    required this.fallbackContent,
+  });
+
+  final String currentTime;
+  final int tickNo;
+  final int subTickNo;
+  final String globalText;
+  final List<ChatroomV2StoryEvent> storyEvents;
+  final List<ChatroomV2CharacterMovement> charactersMoved;
+  final String fallbackContent;
+
+  bool get isFallback =>
+      fallbackContent.isNotEmpty &&
+      globalText.isEmpty &&
+      storyEvents.isEmpty &&
+      charactersMoved.isEmpty;
+
+  factory ChatroomV2TickPayload.fromJson(Map<String, dynamic> json) {
+    final rawStoryEvents = json['story_events'];
+    final rawCharactersMoved = json['characters_moved'];
+    if (rawStoryEvents != null && rawStoryEvents is! List) {
+      throw const ChatroomProtocolException(
+        'tick payload story_events must be an array',
+      );
+    }
+    if (rawCharactersMoved != null && rawCharactersMoved is! List) {
+      throw const ChatroomProtocolException(
+        'tick payload characters_moved must be an array',
+      );
+    }
+    return ChatroomV2TickPayload(
+      currentTime: asString(json['current_time']),
+      tickNo: asInt(json['tick_no']),
+      subTickNo: asInt(json['sub_tick_no']),
+      globalText: asString(json['global']),
+      storyEvents: (rawStoryEvents as List? ?? const <Object?>[])
+          .map((value) => ChatroomV2StoryEvent.fromJson(asJsonMap(value)))
+          .toList(growable: false),
+      charactersMoved: (rawCharactersMoved as List? ?? const <Object?>[])
+          .map(
+            (value) => ChatroomV2CharacterMovement.fromJson(asJsonMap(value)),
+          )
+          .toList(growable: false),
+      fallbackContent: asString(json['content']),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'current_time': currentTime,
+    'tick_no': tickNo,
+    'sub_tick_no': subTickNo,
+    'global': globalText,
+    'story_events': storyEvents.map((event) => event.toJson()).toList(),
+    'characters_moved': charactersMoved
+        .map((movement) => movement.toJson())
+        .toList(),
+    if (fallbackContent.isNotEmpty) 'content': fallbackContent,
+  };
+}
+
 class ChatroomEnvelope {
   const ChatroomEnvelope({
     required this.type,
+    this.streamType = '',
     this.schemaVersion,
     this.eventId = '',
     this.ts,
@@ -27,6 +345,10 @@ class ChatroomEnvelope {
     this.userId = '',
     this.senderId = '',
     this.senderName = '',
+    this.senderType = '',
+    this.messageType = '',
+    this.minAppVersion,
+    this.createdAt = '',
     this.errNo = '',
     this.errMsg = '',
     this.currentTime = '',
@@ -38,9 +360,11 @@ class ChatroomEnvelope {
     this.subTickNo,
     this.clientMsgId = '',
     this.broadcast,
+    this.wireProtocol = ChatroomProtocolVersion.legacy,
   });
 
   final String type;
+  final String streamType;
   final int? schemaVersion;
   final String eventId;
   final int? ts;
@@ -51,6 +375,10 @@ class ChatroomEnvelope {
   final String userId;
   final String senderId;
   final String senderName;
+  final String senderType;
+  final String messageType;
+  final int? minAppVersion;
+  final String createdAt;
   final String errNo;
   final String errMsg;
   final String currentTime;
@@ -62,10 +390,12 @@ class ChatroomEnvelope {
   final int? subTickNo;
   final String clientMsgId;
   final bool? broadcast;
+  final ChatroomProtocolVersion wireProtocol;
 
   factory ChatroomEnvelope.fromJson(Map<String, dynamic> json) {
     return ChatroomEnvelope(
       type: asString(json['type']),
+      streamType: asString(json['stream_type']),
       schemaVersion: json['schema_version'] == null
           ? null
           : asInt(json['schema_version']),
@@ -78,16 +408,26 @@ class ChatroomEnvelope {
       userId: asString(json['user_id']),
       senderId: asString(json['sender_id']),
       senderName: asString(json['sender_name']),
+      senderType: asString(json['sender_type']),
+      messageType: asString(json['message_type']),
+      minAppVersion: json['min_app_version'] == null
+          ? null
+          : asInt(json['min_app_version']),
+      createdAt: asString(json['created_at']),
       errNo: asString(json['err_no']),
       errMsg: asString(json['err_msg']),
       currentTime: _currentTime(json),
-      globalMsgId: json['global_msg_id'] == null
-          ? null
-          : asInt(json['global_msg_id']),
-      msgId: json['msg_id'] == null ? null : asInt(json['msg_id']),
-      locationMsgId: json['location_msg_id'] == null
-          ? null
-          : asInt(json['location_msg_id']),
+      globalMsgId: _optionalIntAlias(
+        json,
+        legacyKey: 'global_msg_id',
+        v2Key: 'global_message_id',
+      ),
+      msgId: _optionalIntAlias(json, legacyKey: 'msg_id', v2Key: 'message_id'),
+      locationMsgId: _optionalIntAlias(
+        json,
+        legacyKey: 'location_msg_id',
+        v2Key: 'location_message_id',
+      ),
       conversationRoundId: json['conversation_round_id'] == null
           ? null
           : asInt(json['conversation_round_id']),
@@ -99,6 +439,46 @@ class ChatroomEnvelope {
       broadcast: json.containsKey('broadcast')
           ? asBool(json['broadcast'])
           : null,
+      wireProtocol: _looksLikeV2Envelope(json)
+          ? ChatroomProtocolVersion.v2
+          : ChatroomProtocolVersion.legacy,
+    );
+  }
+
+  factory ChatroomEnvelope.fromV2Message(ChatroomV2Message message) {
+    return ChatroomEnvelope(
+      type: message.type,
+      streamType: message.streamType,
+      ts: message.ts,
+      payload: message.payload,
+      worldId: message.worldId,
+      sessionId: message.sessionId,
+      locationId: message.locationId,
+      userId: message.userId,
+      senderId: message.senderId,
+      senderName: message.senderName,
+      senderType: message.senderType,
+      messageType: message.messageType,
+      minAppVersion: message.minAppVersion,
+      createdAt: message.createdAt,
+      errNo: message.errNo.toString(),
+      errMsg: message.errMsg,
+      currentTime: _currentTime(message.payload),
+      globalMsgId: message.globalMessageId,
+      msgId: message.messageId,
+      locationMsgId: message.locationMessageId,
+      conversationRoundId: message.conversationRoundId,
+      tickNo: message.payload.containsKey('tick_no')
+          ? asInt(message.payload['tick_no'])
+          : null,
+      subTickNo: message.payload.containsKey('sub_tick_no')
+          ? asInt(message.payload['sub_tick_no'])
+          : null,
+      clientMsgId: message.clientMsgId,
+      broadcast: message.payload.containsKey('broadcast')
+          ? asBool(message.payload['broadcast'])
+          : null,
+      wireProtocol: ChatroomProtocolVersion.v2,
     );
   }
 
@@ -123,6 +503,9 @@ class ChatroomEnvelope {
   }
 
   String encode() {
+    if (wireProtocol == ChatroomProtocolVersion.v2) {
+      return toV2Message().encode();
+    }
     final json = <String, Object?>{
       'type': type,
       if (schemaVersion != null) 'schema_version': schemaVersion,
@@ -137,6 +520,32 @@ class ChatroomEnvelope {
     return jsonEncode(json);
   }
 
+  ChatroomV2Message toV2Message() {
+    return ChatroomV2Message(
+      type: type,
+      streamType: streamType,
+      ts: ts,
+      worldId: worldId,
+      locationId: locationId,
+      sessionId: sessionId,
+      globalMessageId: globalMsgId,
+      messageId: msgId,
+      locationMessageId: locationMsgId,
+      conversationRoundId: conversationRoundId,
+      senderType: senderType,
+      senderId: senderId,
+      senderName: senderName,
+      userId: userId,
+      clientMsgId: clientMsgId,
+      messageType: messageType,
+      minAppVersion: minAppVersion,
+      createdAt: createdAt,
+      payload: payload,
+      errNo: asInt(errNo),
+      errMsg: errMsg,
+    );
+  }
+
   Map<String, dynamic> get mergedPayload {
     final merged = <String, dynamic>{...payload};
 
@@ -149,12 +558,25 @@ class ChatroomEnvelope {
     if (userId.isNotEmpty) merged['user_id'] = userId;
     if (senderId.isNotEmpty) merged['sender_id'] = senderId;
     if (senderName.isNotEmpty) merged['sender_name'] = senderName;
+    if (senderType.isNotEmpty) merged['sender_type'] = senderType;
+    if (messageType.isNotEmpty) merged['message_type'] = messageType;
+    if (minAppVersion != null) merged['min_app_version'] = minAppVersion;
+    if (createdAt.isNotEmpty) merged['created_at'] = createdAt;
     if (errNo.isNotEmpty) merged['err_no'] = errNo;
     if (errMsg.isNotEmpty) merged['err_msg'] = errMsg;
     if (currentTime.isNotEmpty) merged['current_time'] = currentTime;
-    if (globalMsgId != null) merged['global_msg_id'] = globalMsgId;
-    if (msgId != null) merged['msg_id'] = msgId;
-    if (locationMsgId != null) merged['location_msg_id'] = locationMsgId;
+    if (globalMsgId != null) {
+      merged['global_msg_id'] = globalMsgId;
+      merged['global_message_id'] = globalMsgId;
+    }
+    if (msgId != null) {
+      merged['msg_id'] = msgId;
+      merged['message_id'] = msgId;
+    }
+    if (locationMsgId != null) {
+      merged['location_msg_id'] = locationMsgId;
+      merged['location_message_id'] = locationMsgId;
+    }
     if (conversationRoundId != null) {
       merged['conversation_round_id'] = conversationRoundId;
     }
@@ -317,9 +739,9 @@ class ChatroomAck extends ChatroomPayloadEvent {
     required super.codeMsg,
     required super.ts,
     this.globalMessageId = 0,
-    required this.messageId,
+    this.messageId = 0,
     this.locationMessageId = 0,
-    required this.conversationRoundId,
+    this.conversationRoundId = '',
     required this.clientMsgId,
     this.errorDetail = '',
   });
@@ -331,7 +753,20 @@ class ChatroomAck extends ChatroomPayloadEvent {
   final String clientMsgId;
   final String errorDetail;
 
+  /// V2 ACKs are receipts only and deliberately leave these fields empty.
+  bool get hasCanonicalMessageMetadata =>
+      globalMessageId > 0 ||
+      messageId > 0 ||
+      locationMessageId > 0 ||
+      conversationRoundId.isNotEmpty;
+
   factory ChatroomAck.fromPayload(Map<String, dynamic> payload) {
+    return ChatroomAck.fromLegacyPayload(payload);
+  }
+
+  /// Explicit adapter for the legacy ACK shape, whose receipt id lives in
+  /// payload and which may also contain canonical message metadata.
+  factory ChatroomAck.fromLegacyPayload(Map<String, dynamic> payload) {
     return ChatroomAck(
       sessionId: asString(payload['session_id']),
       worldId: _worldId(payload),
@@ -346,6 +781,20 @@ class ChatroomAck extends ChatroomPayloadEvent {
       conversationRoundId: asString(payload['conversation_round_id']),
       clientMsgId: asString(payload['client_msg_id']),
       errorDetail: asString(payload['err_detail']),
+    );
+  }
+
+  factory ChatroomAck.fromV2Message(ChatroomV2Message message) {
+    return ChatroomAck(
+      sessionId: message.sessionId,
+      worldId: message.worldId,
+      locationId: message.locationId,
+      userId: message.userId,
+      code: message.errNo,
+      codeMsg: message.errMsg,
+      ts: asDateTime(message.ts),
+      clientMsgId: message.clientMsgId,
+      errorDetail: asString(message.payload['err_detail']),
     );
   }
 }
@@ -385,6 +834,10 @@ sealed class ChatroomMessageEvent extends ChatroomPayloadEvent {
     required this.content,
     this.messageType = chatroomTextMessageType,
     required this.broadcast,
+    this.businessType = '',
+    this.streamType = '',
+    this.minAppVersion,
+    this.rawPayload = const <String, dynamic>{},
   });
 
   final int globalMessageId;
@@ -398,6 +851,10 @@ sealed class ChatroomMessageEvent extends ChatroomPayloadEvent {
   final String content;
   final String messageType;
   final bool broadcast;
+  final String businessType;
+  final String streamType;
+  final int? minAppVersion;
+  final Map<String, dynamic> rawPayload;
 }
 
 class ChatroomUserMessage extends ChatroomMessageEvent {
@@ -420,6 +877,10 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
     required super.content,
     super.messageType,
     required super.broadcast,
+    super.businessType,
+    super.streamType,
+    super.minAppVersion,
+    super.rawPayload,
     required this.currentTime,
     required this.clientMsgId,
     required this.createdAt,
@@ -452,6 +913,45 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
       broadcast: asBool(payload['broadcast']),
       clientMsgId: asString(payload['client_msg_id']),
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),
+    );
+  }
+
+  factory ChatroomUserMessage.fromV2Message(ChatroomV2Message message) {
+    final senderId = message.senderId;
+    return ChatroomUserMessage(
+      sessionId: message.sessionId,
+      worldId: message.worldId,
+      locationId: message.locationId,
+      userId: message.userId,
+      code: message.errNo,
+      codeMsg: message.errMsg,
+      ts: asDateTime(message.ts),
+      globalMessageId: message.globalMessageId ?? 0,
+      messageId: message.messageId ?? 0,
+      locationMessageId: message.locationMessageId ?? 0,
+      conversationRoundId: _stringId(message.conversationRoundId),
+      roundOrder: asInt(message.payload['round_order']),
+      senderType: message.senderType.isEmpty
+          ? message.type
+          : message.senderType,
+      senderId: senderId,
+      senderName: message.senderName,
+      content: asString(message.payload['content']),
+      messageType: resolveIncomingChatroomMessageType(
+        hasMessageTypeField: message.messageType.isNotEmpty,
+        rawMessageType: message.messageType,
+        senderId: senderId,
+      ),
+      broadcast: asBool(message.payload['broadcast']),
+      businessType: message.type,
+      streamType: message.streamType,
+      minAppVersion: message.minAppVersion,
+      rawPayload: message.payload,
+      currentTime: _currentTime(message.payload),
+      clientMsgId: message.clientMsgId,
+      createdAt: asDateTime(
+        message.createdAt.isEmpty ? message.ts : message.createdAt,
+      ),
     );
   }
 }
@@ -560,6 +1060,10 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
     required super.content,
     super.messageType,
     required super.broadcast,
+    super.businessType,
+    super.streamType,
+    super.minAppVersion,
+    super.rawPayload,
     required this.currentTime,
     required this.createdAt,
   });
@@ -597,6 +1101,45 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),
     );
   }
+
+  factory ChatroomNarratorMessage.fromV2Message(ChatroomV2Message message) {
+    final senderId = message.senderId;
+    final senderType = message.senderType.isEmpty
+        ? message.type
+        : message.senderType;
+    return ChatroomNarratorMessage(
+      sessionId: message.sessionId,
+      worldId: message.worldId,
+      locationId: message.locationId,
+      userId: message.userId,
+      code: message.errNo,
+      codeMsg: message.errMsg,
+      ts: asDateTime(message.ts),
+      globalMessageId: message.globalMessageId ?? 0,
+      messageId: message.messageId ?? 0,
+      locationMessageId: message.locationMessageId ?? 0,
+      conversationRoundId: _stringId(message.conversationRoundId),
+      roundOrder: asInt(message.payload['round_order']),
+      senderType: senderType,
+      senderId: senderId,
+      senderName: message.senderName.isEmpty ? 'AI' : message.senderName,
+      content: asString(message.payload['content']),
+      messageType: resolveIncomingChatroomMessageType(
+        hasMessageTypeField: message.messageType.isNotEmpty,
+        rawMessageType: message.messageType,
+        senderId: senderId,
+      ),
+      currentTime: _currentTime(message.payload),
+      broadcast: asBool(message.payload['broadcast']),
+      businessType: message.type,
+      streamType: message.streamType,
+      minAppVersion: message.minAppVersion,
+      rawPayload: message.payload,
+      createdAt: asDateTime(
+        message.createdAt.isEmpty ? message.ts : message.createdAt,
+      ),
+    );
+  }
 }
 
 class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
@@ -619,14 +1162,22 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
     required super.content,
     super.messageType,
     required super.broadcast,
+    super.businessType,
+    super.streamType,
+    super.minAppVersion,
+    super.rawPayload,
     required this.tickNo,
     required this.subTickNo,
     required this.currentTime,
+    this.v2TickPayload,
   });
 
   final int tickNo;
   final int subTickNo;
   final String currentTime;
+  final ChatroomV2TickPayload? v2TickPayload;
+
+  bool get isV2LocationTick => v2TickPayload != null;
 
   factory ChatroomTickAdvanceMessage.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
@@ -654,10 +1205,84 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
       currentTime: currentTime,
     );
   }
+
+  factory ChatroomTickAdvanceMessage.fromV2Message(ChatroomV2Message message) {
+    final tickPayload = ChatroomV2TickPayload.fromJson(message.payload);
+    final content = tickPayload.fallbackContent.isNotEmpty
+        ? tickPayload.fallbackContent
+        : (tickPayload.globalText.isNotEmpty
+              ? tickPayload.globalText
+              : tickPayload.currentTime);
+    return ChatroomTickAdvanceMessage(
+      sessionId: message.sessionId,
+      worldId: message.worldId,
+      locationId: message.locationId,
+      userId: message.userId,
+      code: message.errNo,
+      codeMsg: message.errMsg,
+      ts: asDateTime(message.ts),
+      globalMessageId: message.globalMessageId ?? 0,
+      messageId: message.messageId ?? 0,
+      locationMessageId: message.locationMessageId ?? 0,
+      conversationRoundId: _stringId(message.conversationRoundId),
+      roundOrder: asInt(message.payload['round_order']),
+      senderType: message.senderType.isEmpty ? 'tick' : message.senderType,
+      senderId: message.senderId.isEmpty ? 'tick' : message.senderId,
+      senderName: message.senderName.isEmpty ? 'SubTick' : message.senderName,
+      content: content,
+      messageType: resolveIncomingChatroomMessageType(
+        hasMessageTypeField: message.messageType.isNotEmpty,
+        rawMessageType: message.messageType,
+        senderId: message.senderId,
+      ),
+      broadcast: asBool(message.payload['broadcast']),
+      businessType: message.type,
+      streamType: message.streamType,
+      minAppVersion: message.minAppVersion,
+      rawPayload: message.payload,
+      tickNo: tickPayload.tickNo,
+      subTickNo: tickPayload.subTickNo,
+      currentTime: tickPayload.currentTime,
+      v2TickPayload: tickPayload,
+    );
+  }
+}
+
+class ChatroomStreamIdentity {
+  const ChatroomStreamIdentity({
+    this.worldId = '',
+    this.locationId = '',
+    this.sessionId = '',
+    this.messageId = 0,
+    this.conversationRoundId = '',
+    this.senderId = '',
+  });
+
+  final String worldId;
+  final String locationId;
+  final String sessionId;
+  final int messageId;
+  final String conversationRoundId;
+  final String senderId;
+
+  bool get hasStableMessageId => messageId > 0;
+  bool get hasStableRoundId => conversationRoundId.isNotEmpty;
+  bool get hasStableDiscriminator => hasStableMessageId || hasStableRoundId;
+
+  /// Returns a collision-resistant key when the server supplied a stable id.
+  /// Cursorless stream frames must use unique-candidate matching instead.
+  String? get stableKey {
+    if (!hasStableDiscriminator) return null;
+    final discriminator = hasStableRoundId
+        ? 'round:$conversationRoundId'
+        : 'message:$messageId';
+    return '$worldId|$locationId|$sessionId|$senderId|$discriminator';
+  }
 }
 
 class ChatroomAiStreamStart extends ChatroomEvent {
   const ChatroomAiStreamStart({
+    this.worldId = '',
     required this.sessionId,
     required this.locationId,
     this.globalMessageId = 0,
@@ -669,8 +1294,14 @@ class ChatroomAiStreamStart extends ChatroomEvent {
     required this.senderId,
     required this.senderName,
     required this.currentTime,
+    this.businessType = '',
+    this.streamType = 'llm_stream_start',
+    this.messageType = '',
+    this.minAppVersion,
+    this.rawPayload = const <String, dynamic>{},
   });
 
+  final String worldId;
   final String sessionId;
   final String locationId;
   final int globalMessageId;
@@ -682,6 +1313,20 @@ class ChatroomAiStreamStart extends ChatroomEvent {
   final String senderId;
   final String senderName;
   final String currentTime;
+  final String businessType;
+  final String streamType;
+  final String messageType;
+  final int? minAppVersion;
+  final Map<String, dynamic> rawPayload;
+
+  ChatroomStreamIdentity get identity => ChatroomStreamIdentity(
+    worldId: worldId,
+    locationId: locationId,
+    sessionId: sessionId,
+    messageId: messageId,
+    conversationRoundId: conversationRoundId,
+    senderId: senderId,
+  );
 
   factory ChatroomAiStreamStart.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
@@ -700,10 +1345,35 @@ class ChatroomAiStreamStart extends ChatroomEvent {
       currentTime: _currentTime(payload),
     );
   }
+
+  factory ChatroomAiStreamStart.fromV2Message(ChatroomV2Message message) {
+    return ChatroomAiStreamStart(
+      worldId: message.worldId,
+      sessionId: message.sessionId,
+      locationId: message.locationId,
+      globalMessageId: message.globalMessageId ?? 0,
+      messageId: message.messageId ?? 0,
+      locationMessageId: message.locationMessageId ?? 0,
+      conversationRoundId: _stringId(message.conversationRoundId),
+      roundOrder: asInt(message.payload['round_order']),
+      senderType: message.senderType.isEmpty
+          ? message.type
+          : message.senderType,
+      senderId: message.senderId,
+      senderName: message.senderName.isEmpty ? 'AI' : message.senderName,
+      currentTime: _currentTime(message.payload),
+      businessType: message.type,
+      streamType: message.streamType,
+      messageType: message.messageType,
+      minAppVersion: message.minAppVersion,
+      rawPayload: message.payload,
+    );
+  }
 }
 
 class ChatroomAiStreamChunk extends ChatroomEvent {
   const ChatroomAiStreamChunk({
+    this.worldId = '',
     required this.sessionId,
     required this.locationId,
     this.globalMessageId = 0,
@@ -715,8 +1385,14 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
     required this.chunk,
     required this.isDelta,
     required this.currentTime,
+    this.businessType = '',
+    this.streamType = 'llm_chunk',
+    this.messageType = '',
+    this.minAppVersion,
+    this.rawPayload = const <String, dynamic>{},
   });
 
+  final String worldId;
   final String sessionId;
   final String locationId;
   final int globalMessageId;
@@ -728,6 +1404,20 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
   final String chunk;
   final bool isDelta;
   final String currentTime;
+  final String businessType;
+  final String streamType;
+  final String messageType;
+  final int? minAppVersion;
+  final Map<String, dynamic> rawPayload;
+
+  ChatroomStreamIdentity get identity => ChatroomStreamIdentity(
+    worldId: worldId,
+    locationId: locationId,
+    sessionId: sessionId,
+    messageId: messageId,
+    conversationRoundId: conversationRoundId,
+    senderId: senderId,
+  );
 
   factory ChatroomAiStreamChunk.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
@@ -745,10 +1435,35 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
       currentTime: _currentTime(payload),
     );
   }
+
+  factory ChatroomAiStreamChunk.fromV2Message(ChatroomV2Message message) {
+    return ChatroomAiStreamChunk(
+      worldId: message.worldId,
+      sessionId: message.sessionId,
+      locationId: message.locationId,
+      globalMessageId: message.globalMessageId ?? 0,
+      messageId: message.messageId ?? 0,
+      locationMessageId: message.locationMessageId ?? 0,
+      conversationRoundId: _stringId(message.conversationRoundId),
+      senderId: message.senderId,
+      seq: asInt(message.payload['seq']),
+      chunk: asString(message.payload['content']),
+      isDelta:
+          !message.payload.containsKey('is_delta') ||
+          asBool(message.payload['is_delta']),
+      currentTime: _currentTime(message.payload),
+      businessType: message.type,
+      streamType: message.streamType,
+      messageType: message.messageType,
+      minAppVersion: message.minAppVersion,
+      rawPayload: message.payload,
+    );
+  }
 }
 
 class ChatroomAiStreamEnd extends ChatroomEvent {
   const ChatroomAiStreamEnd({
+    this.worldId = '',
     required this.sessionId,
     required this.locationId,
     this.globalMessageId = 0,
@@ -759,8 +1474,14 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
     required this.content,
     required this.createdAt,
     required this.currentTime,
+    this.businessType = '',
+    this.streamType = 'llm_stream_end',
+    this.messageType = '',
+    this.minAppVersion,
+    this.rawPayload = const <String, dynamic>{},
   });
 
+  final String worldId;
   final String sessionId;
   final String locationId;
   final int globalMessageId;
@@ -771,6 +1492,20 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
   final String content;
   final DateTime? createdAt;
   final String currentTime;
+  final String businessType;
+  final String streamType;
+  final String messageType;
+  final int? minAppVersion;
+  final Map<String, dynamic> rawPayload;
+
+  ChatroomStreamIdentity get identity => ChatroomStreamIdentity(
+    worldId: worldId,
+    locationId: locationId,
+    sessionId: sessionId,
+    messageId: messageId,
+    conversationRoundId: conversationRoundId,
+    senderId: senderId,
+  );
 
   factory ChatroomAiStreamEnd.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
@@ -785,6 +1520,29 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
       content: asString(payload['content']),
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),
       currentTime: _currentTime(payload),
+    );
+  }
+
+  factory ChatroomAiStreamEnd.fromV2Message(ChatroomV2Message message) {
+    return ChatroomAiStreamEnd(
+      worldId: message.worldId,
+      sessionId: message.sessionId,
+      locationId: message.locationId,
+      globalMessageId: message.globalMessageId ?? 0,
+      messageId: message.messageId ?? 0,
+      locationMessageId: message.locationMessageId ?? 0,
+      conversationRoundId: _stringId(message.conversationRoundId),
+      senderId: message.senderId,
+      content: asString(message.payload['content']),
+      createdAt: asDateTime(
+        message.createdAt.isEmpty ? message.ts : message.createdAt,
+      ),
+      currentTime: _currentTime(message.payload),
+      businessType: message.type,
+      streamType: message.streamType,
+      messageType: message.messageType,
+      minAppVersion: message.minAppVersion,
+      rawPayload: message.payload,
     );
   }
 }
@@ -1195,7 +1953,8 @@ class ChatroomMessageHandlers {
   }
 }
 
-ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
+/// Explicit entry point for adapting the pre-V2 wire contract.
+ChatroomEvent chatroomLegacyEventFromEnvelope(ChatroomEnvelope envelope) {
   switch (envelope.type) {
     case 'ack':
       return ChatroomAck.fromPayload(envelope.mergedPayload);
@@ -1237,6 +1996,70 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
     default:
       throw ChatroomProtocolException('Unsupported type: ${envelope.type}');
   }
+}
+
+/// Routes V2 on two independent axes: `stream_type` first, then business
+/// `type`. This prevents character/narrator stream frames from being mistaken
+/// for complete canonical messages.
+ChatroomEvent chatroomEventFromV2Message(ChatroomV2Message message) {
+  switch (message.streamType) {
+    case 'llm_stream_start':
+      return ChatroomAiStreamStart.fromV2Message(message);
+    case 'llm_chunk':
+      return ChatroomAiStreamChunk.fromV2Message(message);
+    case 'llm_stream_end':
+      return ChatroomAiStreamEnd.fromV2Message(message);
+    case '':
+      break;
+    default:
+      // `ChatroomV2Message.fromJson` rejects this earlier, but retain a guard
+      // for manually constructed DTOs.
+      throw ChatroomProtocolException(
+        'Unsupported stream_type: ${message.streamType}',
+      );
+  }
+
+  switch (message.type) {
+    case 'ack':
+      return ChatroomAck.fromV2Message(message);
+    case 'user':
+      return ChatroomUserMessage.fromV2Message(message);
+    case 'character':
+    case 'narrator':
+      return ChatroomNarratorMessage.fromV2Message(message);
+    case 'tick':
+      return ChatroomTickAdvanceMessage.fromV2Message(message);
+    case 'balance_low':
+    case 'tick_start':
+    case 'tick_done':
+    case 'world_change':
+    case 'user_location_change':
+    case 'world_new_message':
+    case 'map_updated':
+    case 'character_updated':
+    case 'user_enter_location':
+    case 'story_events':
+    case 'characters_moved':
+    case 'new_user_join':
+      return chatroomLegacyEventFromEnvelope(
+        ChatroomEnvelope.fromV2Message(message),
+      );
+    default:
+      throw ChatroomProtocolException('Unsupported V2 type: ${message.type}');
+  }
+}
+
+/// Compatibility router for callers that already decoded a generic envelope.
+/// New WebSocket and HTTP code should prefer the explicit V2 DTO entry point.
+ChatroomEvent chatroomEventFromEnvelope(
+  ChatroomEnvelope envelope, {
+  ChatroomProtocolVersion? protocolVersion,
+}) {
+  final resolvedVersion = protocolVersion ?? envelope.wireProtocol;
+  if (resolvedVersion == ChatroomProtocolVersion.v2) {
+    return chatroomEventFromV2Message(envelope.toV2Message());
+  }
+  return chatroomLegacyEventFromEnvelope(envelope);
 }
 
 String chatroomEventType(ChatroomEvent event) {
@@ -1282,6 +2105,31 @@ Map<String, dynamic> _optionalJsonMap(Object? value) {
   if (value == null) return const <String, dynamic>{};
   return asJsonMap(value);
 }
+
+int? _optionalIntAlias(
+  Map<String, dynamic> json, {
+  required String legacyKey,
+  required String v2Key,
+}) {
+  if (json.containsKey(legacyKey) && json[legacyKey] != null) {
+    return asInt(json[legacyKey]);
+  }
+  if (json.containsKey(v2Key) && json[v2Key] != null) {
+    return asInt(json[v2Key]);
+  }
+  return null;
+}
+
+bool _looksLikeV2Envelope(Map<String, dynamic> json) {
+  return json.containsKey('stream_type') ||
+      json.containsKey('global_message_id') ||
+      json.containsKey('message_id') ||
+      json.containsKey('location_message_id') ||
+      json.containsKey('min_app_version') ||
+      json.containsKey('created_at');
+}
+
+String _stringId(int? value) => value == null ? '' : value.toString();
 
 String _worldId(Map<String, dynamic> payload) {
   return asString(payload['world_id']);

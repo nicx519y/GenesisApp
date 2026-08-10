@@ -92,6 +92,7 @@ class WorldTickEventCardPage extends StatefulWidget {
     this.child,
     this.itemCount,
     this.itemBuilder,
+    this.alignLastItemToTop = false,
     required this.resetRevision,
     required this.hasTopEdgePage,
     required this.hasBottomEdgePage,
@@ -110,6 +111,7 @@ class WorldTickEventCardPage extends StatefulWidget {
   final Widget? child;
   final int? itemCount;
   final IndexedWidgetBuilder? itemBuilder;
+  final bool alignLastItemToTop;
   final int resetRevision;
   final bool hasTopEdgePage;
   final bool hasBottomEdgePage;
@@ -128,6 +130,7 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
   final ScrollController _scrollController = ScrollController(
     keepScrollOffset: false,
   );
+  final GlobalKey _lastItemCenterKey = GlobalKey();
   var _dragDeltaY = 0.0;
   var _dragStartedAtTop = true;
   var _dragStartedAtBottom = true;
@@ -255,6 +258,10 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final alignLastItemToTop =
+        widget.alignLastItemToTop &&
+        widget.itemBuilder != null &&
+        (widget.itemCount ?? 0) > 0;
     return Listener(
       onPointerDown: _handlePointerDown,
       onPointerMove: _handlePointerMove,
@@ -266,24 +273,27 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
           Positioned.fill(
             child: CustomScrollView(
               controller: _scrollController,
+              center: alignLastItemToTop ? _lastItemCenterKey : null,
               physics: WorldTickCardScrollPhysics(
                 allowLeadingOverscroll: widget.hasTopEdgePage,
                 allowTrailingOverscroll: widget.hasBottomEdgePage,
                 parent: AlwaysScrollableScrollPhysics(),
               ),
-              slivers: [
-                SliverPadding(
-                  padding: widget.padding,
-                  sliver: widget.itemBuilder == null
-                      ? SliverToBoxAdapter(child: widget.child)
-                      : SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            widget.itemBuilder!,
-                            childCount: widget.itemCount,
-                          ),
-                        ),
-                ),
-              ],
+              slivers: alignLastItemToTop
+                  ? _buildLastItemCenteredSlivers(context)
+                  : [
+                      SliverPadding(
+                        padding: widget.padding,
+                        sliver: widget.itemBuilder == null
+                            ? SliverToBoxAdapter(child: widget.child)
+                            : SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  widget.itemBuilder!,
+                                  childCount: widget.itemCount,
+                                ),
+                              ),
+                      ),
+                    ],
             ),
           ),
           _buildEdgeArrow(
@@ -301,6 +311,39 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
         ],
       ),
     );
+  }
+
+  List<Widget> _buildLastItemCenteredSlivers(BuildContext context) {
+    final itemBuilder = widget.itemBuilder!;
+    final itemCount = widget.itemCount!;
+    final resolvedPadding = widget.padding.resolve(Directionality.of(context));
+    return [
+      if (itemCount > 1)
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            resolvedPadding.left,
+            resolvedPadding.top,
+            resolvedPadding.right,
+            0,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => itemBuilder(context, itemCount - index - 2),
+              childCount: itemCount - 1,
+            ),
+          ),
+        ),
+      SliverPadding(
+        key: _lastItemCenterKey,
+        padding: EdgeInsets.fromLTRB(
+          resolvedPadding.left,
+          resolvedPadding.top,
+          resolvedPadding.right,
+          resolvedPadding.bottom,
+        ),
+        sliver: SliverToBoxAdapter(child: itemBuilder(context, itemCount - 1)),
+      ),
+    ];
   }
 }
 

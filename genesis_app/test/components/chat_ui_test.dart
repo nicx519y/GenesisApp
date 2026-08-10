@@ -5,12 +5,21 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/components/gems/memory_model_entry_button.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_message_image.dart';
 
 void main() {
+  LocationChatScrollCoordinator locationChatCoordinator(
+    ScrollController controller,
+  ) {
+    final coordinator = LocationChatScrollCoordinator(controller: controller);
+    addTearDown(coordinator.dispose);
+    return coordinator;
+  }
+
   List<ChatMessageVm> chatMessages(int start, int end) {
     return [
       for (var id = start; id <= end; id += 1)
@@ -261,7 +270,7 @@ void main() {
     expect(find.text('Alice entered the cafe'), findsOneWidget);
     expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
     expect(find.text('Old Station'), findsNothing);
-    expect(find.text('事件'), findsNWidgets(2));
+    expect(find.text('Event'), findsNWidgets(2));
     expect(find.byIcon(Icons.push_pin_rounded), findsNWidgets(2));
     expect(find.byIcon(Icons.lightbulb_outline_rounded), findsOneWidget);
     expect(find.text('Day 2, 10:15'), findsOneWidget);
@@ -312,12 +321,12 @@ void main() {
       (storyBubble.decoration as BoxDecoration).color,
       kLocationChatStyle.systemMessageBackgroundColor,
     );
-    final eventLabel = tester.widget<Text>(find.text('事件').first);
+    final eventLabel = tester.widget<Text>(find.text('Event').first);
     expect(
       eventLabel.style?.color,
       kLocationChatStyle.systemMessageTextStyle.color,
     );
-    expect(find.text('人物去向'), findsOneWidget);
+    expect(find.text('Character destinations'), findsOneWidget);
     expect(find.byIcon(Icons.directions_walk_rounded), findsNWidgets(3));
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
@@ -548,12 +557,12 @@ void main() {
     WidgetTester tester,
   ) async {
     const notice = 'Oldest edge notice';
+    final coordinator = locationChatCoordinator(ScrollController());
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ChatAnchoredMessageList(
-            controller: ScrollController(),
-            centerLocalId: '',
+          body: LocationChatAnchoredMessageList(
+            coordinator: coordinator,
             topTitle: '',
             oldestEdgeNotice: notice,
             oldestEdgeLoading: true,
@@ -572,6 +581,7 @@ void main() {
     'anchored message list does not scroll short notice and message content',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
       );
@@ -581,9 +591,8 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 640,
-              child: ChatAnchoredMessageList(
-                controller: controller,
-                centerLocalId: '',
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 topTitle: '',
                 oldestEdgeNotice: 'Oldest edge notice',
                 showDateDividers: false,
@@ -620,6 +629,7 @@ void main() {
     'anchored message list stays linear when only system messages precede center',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
       );
@@ -651,9 +661,8 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 640,
-              child: ChatAnchoredMessageList(
-                controller: controller,
-                centerLocalId: 'm1',
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 topTitle: '',
                 oldestEdgeNotice: 'Oldest edge notice',
                 showDateDividers: false,
@@ -685,6 +694,7 @@ void main() {
     'anchored message list does not scroll short content before center',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
       );
@@ -694,9 +704,8 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 640,
-              child: ChatAnchoredMessageList(
-                controller: controller,
-                centerLocalId: 'm2',
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 topTitle: '',
                 oldestEdgeNotice: 'Oldest edge notice',
                 showDateDividers: false,
@@ -733,6 +742,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final controller = ScrollController();
+    final coordinator = locationChatCoordinator(controller);
     final messages = chatMessages(1, 24);
     final style = ChatUiStyleConfig.standard.copyWith(
       messageListPadding: EdgeInsets.zero,
@@ -743,10 +753,9 @@ void main() {
         home: Scaffold(
           body: SizedBox(
             height: 360,
-            child: ChatAnchoredMessageList(
-              controller: controller,
+            child: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
               messages: messages,
-              centerLocalId: 'm10',
               topTitle: '',
               showDateDividers: false,
               style: style,
@@ -781,6 +790,7 @@ void main() {
     'anchored message list preserves position when last bubble grows away from bottom',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final messages = chatMessages(1, 24);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: EdgeInsets.zero,
@@ -791,10 +801,9 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 360,
-              child: ChatAnchoredMessageList(
-                controller: controller,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 messages: messages,
-                centerLocalId: '',
                 topTitle: '',
                 showDateDividers: false,
                 style: style,
@@ -807,19 +816,28 @@ void main() {
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
       controller.jumpTo(controller.position.maxScrollExtent - 120);
+      coordinator.deactivate();
       await tester.pump();
       final pixelsBefore = controller.position.pixels;
+      final observedOffsets = <double>[];
+      void recordOffset() => observedOffsets.add(controller.position.pixels);
+      controller.addListener(recordOffset);
 
       messages.last.text = List.filled(
         16,
         'streaming content keeps growing',
       ).join('\n');
       await tester.pumpWidget(build());
+      controller.removeListener(recordOffset);
 
       expect(controller.position.pixels, closeTo(pixelsBefore, 0.1));
       expect(
         controller.position.pixels,
         lessThan(controller.position.maxScrollExtent),
+      );
+      expect(
+        observedOffsets,
+        everyElement(inInclusiveRange(pixelsBefore - 0.1, pixelsBefore + 0.1)),
       );
     },
   );
@@ -828,10 +846,10 @@ void main() {
     'anchored message list skips geometry while a transform is unlaid out',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final listKey = GlobalKey();
       final messages = chatMessages(1, 24);
       var width = 360.0;
-      addTearDown(controller.dispose);
 
       Widget build() {
         return MaterialApp(
@@ -847,11 +865,10 @@ void main() {
                       key: ValueKey<double>(constraints.maxWidth),
                       alignment: Alignment.topLeft,
                       scale: 1,
-                      child: ChatAnchoredMessageList(
+                      child: LocationChatAnchoredMessageList(
                         key: listKey,
-                        controller: controller,
+                        coordinator: coordinator,
                         messages: messages,
-                        centerLocalId: 'm10',
                         topTitle: '',
                         showDateDividers: false,
                       ),
@@ -967,6 +984,7 @@ void main() {
     'anchored message list keeps center stable when history prepends',
     (WidgetTester tester) async {
       final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
       final style = ChatUiStyleConfig.standard.copyWith(
         messageListPadding: EdgeInsets.zero,
       );
@@ -976,10 +994,9 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               height: 360,
-              child: ChatAnchoredMessageList(
-                controller: controller,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
                 messages: messages,
-                centerLocalId: 'm21',
                 topTitle: '',
                 showDateDividers: false,
                 style: style,
@@ -992,6 +1009,7 @@ void main() {
       await tester.pumpWidget(build(chatMessages(21, 80)));
       await tester.pumpAndSettle();
       controller.jumpTo(0);
+      coordinator.deactivate();
       await tester.pumpAndSettle();
 
       final centerFinder = find.byKey(const ValueKey<String>('m21'));
@@ -1004,6 +1022,51 @@ void main() {
       expect(centerFinder, findsOneWidget);
       final after = tester.getTopLeft(centerFinder).dy;
       expect(after, closeTo(before, 1));
+    },
+  );
+
+  testWidgets(
+    'anchored message list keeps viewport stable when rolling window evicts head',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final coordinator = locationChatCoordinator(controller);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build(List<ChatMessageVm> messages) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: messages,
+                topTitle: '',
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build(chatMessages(1, 80)));
+      await tester.pumpAndSettle();
+      final retainedMessage = find.byKey(const ValueKey<String>('m30'));
+      await tester.ensureVisible(retainedMessage);
+      await tester.pumpAndSettle();
+      coordinator.deactivate();
+      expect(
+        controller.position.maxScrollExtent - controller.position.pixels,
+        greaterThan(24),
+      );
+      final before = tester.getTopLeft(retainedMessage).dy;
+
+      await tester.pumpWidget(build(chatMessages(2, 81)));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(before, 1));
     },
   );
 
@@ -2055,6 +2118,167 @@ void main() {
     expect(bubbleBox.left, closeTo(rowBox.left, 1));
     expect(bubbleBox.right, closeTo(rowBox.right, 1));
   });
+
+  testWidgets(
+    'composite tick renders every non-empty section in order and forwards actions',
+    (WidgetTester tester) async {
+      ChatCharacterMovementVm? tappedMovement;
+      ChatMessageVm? longPressedMessage;
+      final message = ChatMessageVm(
+        localId: 'tick-composite',
+        globalMessageId: 8702,
+        messageId: 101,
+        locationMessageId: 29,
+        roundId: '7359',
+        tickNo: 1,
+        subTickNo: 2,
+        senderId: 'tick',
+        senderName: 'SubTick',
+        text: '',
+        currentTime: 'Day 1, 13:50',
+        isMe: false,
+        status: 'sent',
+        senderType: 'tick',
+        timelinePayload: const ChatTickPayloadVm(
+          globalText: 'The promise-shaped key pulses.',
+          storyEvents: ChatStoryEventsPayloadVm(
+            locationId: 'loc_vault',
+            locationName: 'Vault',
+            paragraphs: [
+              ChatStoryEventParagraphVm(
+                timestamp: 'Day 1, 13:30',
+                text: 'Frost creeps toward Room 0.',
+                clue: 'It spells Elara.',
+                visibilityLabel: 'public',
+              ),
+            ],
+          ),
+          charactersMoved: ChatCharactersMovedPayloadVm(
+            movements: [
+              ChatCharacterMovementVm(
+                characterId: 'char_2',
+                characterName: 'Elara',
+                toLocationId: 'loc_room_0',
+                toLocationName: 'Room 0',
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              child: ChatMessageRow(
+                message: message,
+                showDateDivider: false,
+                style: kLocationChatStyle,
+                onMessageLongPressStart: (_, pressedMessage, _) {
+                  longPressedMessage = pressedMessage;
+                },
+                onCharactersMovedLocationTap: (movement) {
+                  tappedMovement = movement;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final header = find.text('Tick 1-2 · Day 1, 13:50');
+      final globalLabel = find.text('Global');
+      final globalText = find.text('The promise-shaped key pulses.');
+      final eventLabel = find.text('Event');
+      final eventText = find.text('Frost creeps toward Room 0.');
+      final movedLabel = find.text('Character destinations');
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
+        findsOneWidget,
+      );
+      expect(header, findsOneWidget);
+      expect(globalLabel, findsOneWidget);
+      expect(globalText, findsOneWidget);
+      expect(eventLabel, findsOneWidget);
+      expect(eventText, findsOneWidget);
+      expect(find.text('It spells Elara.'), findsOneWidget);
+      expect(movedLabel, findsOneWidget);
+      expect(find.text('Room 0'), findsOneWidget);
+      expect(
+        tester.getTopLeft(header).dy,
+        lessThan(tester.getTopLeft(globalLabel).dy),
+      );
+      expect(
+        tester.getTopLeft(globalText).dy,
+        lessThan(tester.getTopLeft(eventLabel).dy),
+      );
+      expect(
+        tester.getTopLeft(eventText).dy,
+        lessThan(tester.getTopLeft(movedLabel).dy),
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>(
+            'chat-character-movement-location-tick-composite-tick-0',
+          ),
+        ),
+      );
+      expect(tappedMovement?.toLocationId, 'loc_room_0');
+
+      await tester.longPress(
+        find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
+      );
+      await tester.pump();
+      expect(longPressedMessage, same(message));
+      expect(
+        chatTickMessageCopyText(message),
+        'Tick 1-2 · Day 1, 13:50\n'
+        'Global\n'
+        'The promise-shaped key pulses.\n'
+        'Event\n'
+        'Day 1, 13:30 · public\n'
+        'Frost creeps toward Room 0.\n'
+        'It spells Elara.\n'
+        'Character destinations\n'
+        'Elara has gone to Room 0',
+      );
+    },
+  );
+
+  testWidgets(
+    'composite tick omits empty sections and renders fallback content',
+    (WidgetTester tester) async {
+      final message = ChatMessageVm(
+        localId: 'tick-fallback',
+        senderId: 'tick',
+        senderName: 'SubTick',
+        text: 'Original tick content',
+        isMe: false,
+        status: 'sent',
+        senderType: 'tick',
+        timelinePayload: const ChatTickPayloadVm(
+          fallbackContent: 'Original tick content',
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatMessageRow(message: message, showDateDivider: false),
+          ),
+        ),
+      );
+
+      expect(find.text('Tick'), findsOneWidget);
+      expect(find.text('Original tick content'), findsOneWidget);
+      expect(find.text('Global'), findsNothing);
+      expect(find.text('Event'), findsNothing);
+      expect(find.text('Character destinations'), findsNothing);
+      expect(chatTickMessageCopyText(message), 'Tick\nOriginal tick content');
+    },
+  );
 
   testWidgets('chat composer grows with text up to ten lines', (
     WidgetTester tester,

@@ -503,7 +503,6 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.userInfoCompleter,
     this.originListCompleter,
     this.worldListCompleter,
-    this.setPlayerSceneCompleter,
     this.worldMetricDefault = 0,
     this.worldCharacterMetricValue = 50,
     this.originMapUrl = '',
@@ -542,7 +541,6 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Completer<TransportResponse>? userInfoCompleter;
   final Completer<TransportResponse>? originListCompleter;
   final Completer<TransportResponse>? worldListCompleter;
-  final Completer<TransportResponse>? setPlayerSceneCompleter;
   final Object? worldMetricDefault;
   final Object? worldCharacterMetricValue;
   final String originMapUrl;
@@ -737,31 +735,25 @@ class _RecordingV1ListTransport implements HttpTransport {
         'data': {'world_id': body['world_id'], 'char_id': 'char_1'},
       });
     }
-    if (request.method == 'POST' &&
-        request.uri.path.endsWith('/session/set-player-scene')) {
-      if (setPlayerSceneCompleter != null) {
-        return setPlayerSceneCompleter!.future;
-      }
-      return _jsonResponse({
-        'err_no': 0,
-        'err_str': 'success',
-        'data': {'ok': true},
-      });
-    }
     if (request.method == 'GET' &&
-        request.uri.path.endsWith('/aitown-chat/api/messages')) {
+        request.uri.path.endsWith('/aitown-chat/api/v2/messages')) {
       final pendingResponse = chatroomMessagesCompleter;
       if (pendingResponse != null) return pendingResponse.future;
       final locationId = request.uri.queryParameters['location_id'] ?? '';
       final since = int.tryParse(request.uri.queryParameters['since'] ?? '');
       final messages =
-          chatroomMessagesByLocation?[locationId] ??
-          const <Map<String, Object?>>[];
-      final filteredMessages = since == null
+          (chatroomMessagesByLocation?[locationId] ??
+                  const <Map<String, Object?>>[])
+              .map(
+                (message) =>
+                    _chatroomV2Message(message, fallbackLocationId: locationId),
+              )
+              .toList(growable: false);
+      final filteredMessages = since == null || since <= 0
           ? messages
           : messages
                 .where((message) {
-                  final id = message['msg_id'] ?? message['message_id'];
+                  final id = message['location_message_id'];
                   return id is int && id < since;
                 })
                 .toList(growable: false);
@@ -775,7 +767,7 @@ class _RecordingV1ListTransport implements HttpTransport {
             previous,
             message,
           ) {
-            final id = message['msg_id'] ?? message['message_id'];
+            final id = message['location_message_id'];
             return id is int && id > previous ? id : previous;
           }),
         },
@@ -930,6 +922,60 @@ class _RecordingV1ListTransport implements HttpTransport {
       headers: const {'content-type': 'application/json'},
       body: jsonEncode(body),
     );
+  }
+
+  Map<String, Object?> _chatroomV2Message(
+    Map<String, Object?> message, {
+    required String fallbackLocationId,
+  }) {
+    final senderType = '${message['sender_type'] ?? ''}'.trim();
+    final messageId = message['message_id'] ?? message['msg_id'] ?? 0;
+    final locationMessageId =
+        message['location_message_id'] ??
+        message['location_msg_id'] ??
+        messageId;
+    final rawPayload = message['payload'];
+    final payload = rawPayload is Map
+        ? Map<String, Object?>.from(rawPayload)
+        : <String, Object?>{
+            'content': message['content'] ?? '',
+            if (message.containsKey('current_time'))
+              'current_time': message['current_time'],
+            if (message.containsKey('tick_no')) 'tick_no': message['tick_no'],
+            if (message.containsKey('sub_tick_no'))
+              'sub_tick_no': message['sub_tick_no'],
+          };
+    final businessType = switch (senderType.toLowerCase()) {
+      'user' => 'user',
+      'narrator' => 'narrator',
+      'tick' => 'tick',
+      _ => 'character',
+    };
+    return <String, Object?>{
+      'type': message['type'] ?? businessType,
+      'stream_type': message['stream_type'] ?? '',
+      'ts': message['ts'],
+      'world_id': message['world_id'] ?? 'w_test_1',
+      'location_id': message['location_id'] ?? fallbackLocationId,
+      'session_id': message['session_id'] ?? '',
+      'global_message_id': message['global_message_id'] ?? messageId,
+      'message_id': messageId,
+      'location_message_id': locationMessageId,
+      'conversation_round_id': message['conversation_round_id'] ?? messageId,
+      'sender_type': senderType,
+      'sender_id': message['sender_id'] ?? '',
+      'sender_name': message['sender_name'] ?? '',
+      'user_id': message['user_id'] ?? '',
+      'client_msg_id': message['client_msg_id'] ?? '',
+      'message_type': message['message_type'] ?? 'text',
+      'min_app_version': message['min_app_version'] ?? 0,
+      'created_at': message['created_at'] is String
+          ? message['created_at']
+          : '',
+      'payload': payload,
+      'err_no': message['err_no'] ?? 0,
+      'err_msg': message['err_msg'] ?? '',
+    };
   }
 
   List<TransportRequest> requestsFor(String path) {
@@ -7430,17 +7476,22 @@ void main() {
           'data': {
             'messages': const <Object?>[
               {
+                'type': 'user',
+                'stream_type': '',
                 'global_message_id': 101,
                 'message_id': 101,
-                'location_msg_id': 101,
+                'location_message_id': 101,
                 'location_id': 'l_o_test_1',
                 'conversation_round_id': 101,
                 'sender_type': 'user',
                 'sender_id': 'u_opening_peer',
                 'sender_name': 'Opening Peer',
                 'user_id': 'u_opening_peer',
-                'content': 'message loaded after entering chat',
+                'message_type': 'text',
                 'created_at': '2026-07-30T08:00:00Z',
+                'payload': {'content': 'message loaded after entering chat'},
+                'err_no': 0,
+                'err_msg': '',
               },
             ],
             'has_more': false,
@@ -7456,7 +7507,10 @@ void main() {
       expect(chatroom.connectCount, 1);
       expect(chatroom.session.joinCount, 1);
       expect(transport.requestsFor('/api/v1/world/detail'), hasLength(1));
-      expect(transport.requestsFor('/aitown-chat/api/messages'), hasLength(1));
+      expect(
+        transport.requestsFor('/aitown-chat/api/v2/messages'),
+        hasLength(1),
+      );
     },
   );
 
@@ -16457,7 +16511,7 @@ void main() {
 
     final scrollable = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(
-      find.text('切换到正式环境'),
+      find.text('Switch to production'),
       180,
       scrollable: scrollable,
     );
@@ -16488,7 +16542,7 @@ void main() {
       endpointText('developer-chatroom-ws-base-url-field'),
       'wss://dev.hushie.ai',
     );
-    expect(find.text('切换到正式环境'), findsOneWidget);
+    expect(find.text('Switch to production'), findsOneWidget);
     await AppEndpointOverrideStore.clear();
   });
 
@@ -16537,7 +16591,7 @@ void main() {
 
       final scrollable = find.byType(Scrollable).first;
       await tester.scrollUntilVisible(
-        find.text('切换到测试环境'),
+        find.text('Switch to test'),
         180,
         scrollable: scrollable,
       );
@@ -16562,7 +16616,7 @@ void main() {
         tester.element(find.byType(DeveloperPageContent)),
       );
 
-      await tester.tap(find.text('切换到测试环境'));
+      await tester.tap(find.text('Switch to test'));
       await tester.pumpAndSettle();
 
       expect(find.text('Me page'), findsOneWidget);
@@ -18221,7 +18275,7 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
 
-      expect(find.text('1 条新消息'), findsOneWidget);
+      expect(find.text('1 new message'), findsOneWidget);
       expect(tester.getTopLeft(visibleMessage).dy, visibleMessageTop);
     },
   );
@@ -18292,7 +18346,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Fresh incoming at bottom'), findsOneWidget);
-    expect(find.text('1 条新消息'), findsNothing);
+    expect(find.text('1 new message'), findsNothing);
     expect(
       tester.getBottomLeft(find.text('Fresh incoming at bottom')).dy,
       lessThanOrEqualTo(tester.getTopLeft(find.byType(ChatComposer)).dy),
@@ -19863,7 +19917,7 @@ void main() {
     for (
       var attempt = 0;
       attempt < 10 &&
-          transport.requestsFor('/aitown-chat/api/messages').length < 2;
+          transport.requestsFor('/aitown-chat/api/v2/messages').length < 2;
       attempt += 1
     ) {
       await tester.runAsync(() async {
@@ -19874,7 +19928,9 @@ void main() {
 
     expect(chatroom.connectCount, 1);
     expect(chatroom.session.joinLocationId, isNull);
-    final messageRequests = transport.requestsFor('/aitown-chat/api/messages');
+    final messageRequests = transport.requestsFor(
+      '/aitown-chat/api/v2/messages',
+    );
     expect(
       messageRequests
           .map((request) => request.uri.queryParameters['location_id'])
@@ -19899,7 +19955,10 @@ void main() {
       locationId: 'l_w_test_1_second_child',
       limit: 20,
     );
-    expect(staleMessages, isEmpty);
+    // The v4 migration only removes ambiguous legacy supplemental records;
+    // ordinary cached messages remain available even when their location is
+    // not part of the currently rendered leaf set.
+    expect(staleMessages.map((message) => message['msg_id']), [1]);
     expect(childMessages.map((message) => message['msg_id']), [101]);
     expect(secondChildMessages.map((message) => message['msg_id']), [102]);
     expect(
@@ -20144,7 +20203,10 @@ void main() {
       }
 
       expect(chatroom.session.joinCount, 1);
-      expect(transport.requestsFor('/aitown-chat/api/messages'), hasLength(1));
+      expect(
+        transport.requestsFor('/aitown-chat/api/v2/messages'),
+        hasLength(1),
+      );
       expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
       expect(find.byType(LocationChatPanel), findsOneWidget);
 
@@ -20821,61 +20883,6 @@ void main() {
 
     connectCompleter.complete();
     await tester.pumpAndSettle();
-  });
-
-  testWidgets('world location chat opens before position update completes', (
-    WidgetTester tester,
-  ) async {
-    final setPlayerSceneCompleter = Completer<TransportResponse>();
-    final transport = _RecordingV1ListTransport(
-      worldRelationStatus: 'joined',
-      setPlayerSceneCompleter: setPlayerSceneCompleter,
-    );
-    final chatroom = _FakeChatroomClient();
-    final services = await _testServices(
-      transport: transport,
-      useMock: false,
-      chatroom: chatroom,
-    );
-
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: services,
-        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Location (2)'));
-    await tester.pumpAndSettle();
-    final childRow = find.ancestor(
-      of: find.text('Child Location').last,
-      matching: find.byType(InkWell),
-    );
-    await tester.tap(childRow.last);
-    await tester.pump();
-    await tester.pump();
-
-    expect(
-      transport.requestsFor('/api/session/set-player-scene'),
-      hasLength(1),
-    );
-    expect(setPlayerSceneCompleter.isCompleted, false);
-    expect(_visibleText('Child Location (1)'), findsOneWidget);
-    expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
-
-    setPlayerSceneCompleter.complete(
-      TransportResponse(
-        statusCode: 200,
-        headers: const {'content-type': 'application/json'},
-        body: jsonEncode({
-          'err_no': 0,
-          'err_str': 'success',
-          'data': {'ok': true},
-        }),
-      ),
-    );
-    await tester.pump();
   });
 
   testWidgets(
@@ -22981,6 +22988,10 @@ class _FakeChatroomSession implements ChatroomSession {
 
   @override
   final String senderName;
+
+  @override
+  final ChatroomProtocolVersion protocolVersion =
+      ChatroomProtocolVersion.legacy;
 
   final sentMessages = <String>[];
   final sentClientMsgIds = <String>[];

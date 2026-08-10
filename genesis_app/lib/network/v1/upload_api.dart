@@ -13,8 +13,8 @@ class UploadV1Api extends V1ApiResource {
 
   /// POST /api/v1/upload/image
   ///
-  /// 提交参数:
-  /// multipart/form-data，字段名 `file`。
+  /// Request parameters:
+  /// Uses multipart/form-data with the field name `file`.
   ///
   /// Response:
   /// ```json

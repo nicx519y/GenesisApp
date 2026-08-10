@@ -5,7 +5,7 @@ class FollowV1Api extends V1ApiResource {
 
   /// POST /api/v1/user/follow
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"target_uid":"string"}
   /// ```
@@ -20,7 +20,7 @@ class FollowV1Api extends V1ApiResource {
 
   /// POST /api/v1/user/unfollow
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"target_uid":"string"}
   /// ```
@@ -35,7 +35,7 @@ class FollowV1Api extends V1ApiResource {
 
   /// GET /api/v1/user/following
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"uid":"string","pn":1,"rn":10}
   /// ```
@@ -54,7 +54,7 @@ class FollowV1Api extends V1ApiResource {
 
   /// GET /api/v1/user/followers
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"uid":"string","pn":1,"rn":10}
   /// ```
@@ -87,7 +87,7 @@ class FollowV1Api extends V1ApiResource {
 
   /// POST /api/v1/users/relations/status
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"uids":["U_KALFO"]}
   /// ```
