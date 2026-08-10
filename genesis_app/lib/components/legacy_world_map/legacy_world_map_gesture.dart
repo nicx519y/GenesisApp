@@ -559,7 +559,7 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
                 child: _MapZoomButton(
                   key: const ValueKey<String>('world-map-zoom-in'),
                   iconAsset: legacyWorldMapZoomInIconAsset,
-                  label: '放大地图',
+                  label: 'Zoom in on map',
                   color: canZoomIn ? _enabledColor : _disabledColor,
                   onTap: canZoomIn ? onZoomIn : null,
                 ),
@@ -569,7 +569,7 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
                 child: _MapZoomButton(
                   key: const ValueKey<String>('world-map-zoom-out'),
                   iconAsset: legacyWorldMapZoomOutIconAsset,
-                  label: '缩小地图',
+                  label: 'Zoom out of map',
                   color: canZoomOut ? _enabledColor : _disabledColor,
                   onTap: canZoomOut ? onZoomOut : null,
                 ),

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../../network/api_client.dart';
 import '../../network/chatroom/chatroom_http_models.dart';
 import '../../network/http_transport.dart';
@@ -43,8 +45,10 @@ class LocationChatDebugHttp {
         : const <String, Object?>{};
     ChatroomMessageListResponse? parsed;
     try {
-      final data = handleV1ResponseErrNo(decoded);
-      parsed = ChatroomMessageListResponse.fromJson(asJsonMap(data));
+      parsed = parseLocationMessagesResponseForTesting(
+        uri: request.uri,
+        decoded: decoded,
+      );
     } catch (_) {
       parsed = null;
     }
@@ -54,8 +58,7 @@ class LocationChatDebugHttp {
     final query = request.uri.queryParameters;
     final worldId = asString(query['world_id']);
     final locationId = asString(query['location_id']);
-    final hasSince = asString(query['since']).trim().isNotEmpty;
-    final action = hasSince ? 'getMessagesOlder' : 'getMessagesLatest';
+    final action = locationMessagesActionForTesting(query);
     LocationChatDebugHub.record(
       source: 'http',
       action: action,
@@ -168,7 +171,29 @@ class LocationChatDebugHttp {
 
   static bool _isLocationMessagesRequest(TransportRequest request) {
     return request.method.toUpperCase() == 'GET' &&
-        request.uri.path.endsWith('/aitown-chat/api/messages');
+        (_isV2LocationMessagesRequest(request) ||
+            request.uri.path.endsWith('/aitown-chat/api/messages'));
+  }
+
+  static bool _isV2LocationMessagesRequest(TransportRequest request) {
+    return request.method.toUpperCase() == 'GET' &&
+        request.uri.path.endsWith('/aitown-chat/api/v2/messages');
+  }
+
+  @visibleForTesting
+  static ChatroomMessageListResponse parseLocationMessagesResponseForTesting({
+    required Uri uri,
+    required Object? decoded,
+  }) {
+    final dataJson = asJsonMap(handleV1ResponseErrNo(decoded));
+    return uri.path.endsWith('/aitown-chat/api/v2/messages')
+        ? ChatroomMessageListResponse.fromV2Json(dataJson)
+        : ChatroomMessageListResponse.fromJson(dataJson);
+  }
+
+  @visibleForTesting
+  static String locationMessagesActionForTesting(Map<String, String> query) {
+    return asInt(query['since']) > 0 ? 'getMessagesOlder' : 'getMessagesLatest';
   }
 
   static bool _isWorldMessagesRequest(TransportRequest request) {
@@ -199,9 +224,16 @@ class LocationChatDebugHttp {
       'tickNo': message.tickNo,
       'subTickNo': message.subTickNo,
       'senderType': message.senderType,
+      'type': message.businessType,
+      'streamType': message.streamType,
+      'stream_type': message.streamType,
       'senderId': message.senderId,
       'senderName': message.senderName,
       'userId': message.userId,
+      'clientMsgId': message.clientMsgId,
+      'messageType': message.messageType,
+      'minAppVersion': message.minAppVersion,
+      'payloadKeys': message.payload.keys.toList(growable: false),
       'contentPreview': _preview(message.content),
       'currentTime': message.currentTime,
       'createdAt': message.createdAt?.toIso8601String(),

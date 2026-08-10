@@ -5,7 +5,7 @@ class UserV1Api extends V1ApiResource {
 
   /// POST /api/v1/user/oauth/google
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"id_token":"string","nonce":"string","name":"string","avatar":"string"}
   /// ```
@@ -33,7 +33,7 @@ class UserV1Api extends V1ApiResource {
 
   /// POST /api/v1/user/oauth/apple
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"id_token":"string","nonce":"string","name":"string","avatar":"string"}
   /// ```
@@ -62,7 +62,7 @@ class UserV1Api extends V1ApiResource {
 
   /// POST /api/v1/user/logout
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {}
   /// ```
@@ -77,7 +77,7 @@ class UserV1Api extends V1ApiResource {
 
   /// POST /api/v1/user/delete
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {}
   /// ```
@@ -92,7 +92,7 @@ class UserV1Api extends V1ApiResource {
 
   /// GET /api/v1/user/info
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"uid":"string"}
   /// ```
@@ -110,7 +110,7 @@ class UserV1Api extends V1ApiResource {
 
   /// POST /api/v1/user/update
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"name":"string","avatar":"string","bio":"string"}
   /// ```
@@ -132,7 +132,7 @@ class UserV1Api extends V1ApiResource {
 
   /// POST /api/v1/user/block
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"target_uid":"string"}
   /// ```
@@ -147,7 +147,7 @@ class UserV1Api extends V1ApiResource {
 
   /// POST /api/v1/user/unblock
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"target_uid":"string"}
   /// ```
@@ -162,7 +162,7 @@ class UserV1Api extends V1ApiResource {
 
   /// GET /api/v1/user/blocks
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"pn":1,"rn":10}
   /// ```
@@ -177,7 +177,7 @@ class UserV1Api extends V1ApiResource {
 
   /// GET /api/v1/user/profile
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"uid":"string"}
   /// ```
@@ -192,7 +192,7 @@ class UserV1Api extends V1ApiResource {
 
   /// GET /api/v1/user/origins
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"uid":"string","pn":1,"rn":10}
   /// ```
@@ -211,7 +211,7 @@ class UserV1Api extends V1ApiResource {
 
   /// GET /api/v1/user/worlds
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"uid":"string","pn":1,"rn":10}
   /// ```

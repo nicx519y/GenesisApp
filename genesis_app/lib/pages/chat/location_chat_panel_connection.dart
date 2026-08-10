@@ -9,6 +9,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _sending = false;
     _joinedLocation = false;
     _awaitingAiResponse = false;
+    _awaitingAiResponseClientMsgId = '';
     _awaitingAiResponseRoundId = '';
 
     await _stateSubscription?.cancel();
@@ -207,6 +208,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   Future<void> _deactivateConnection() async {
     _sending = false;
     _awaitingAiResponse = false;
+    _awaitingAiResponseClientMsgId = '';
     _awaitingAiResponseRoundId = '';
     final wasJoinedLocation = _joinedLocation;
     _joinedLocation = false;
@@ -572,8 +574,24 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     );
     final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);
     final olderLoadRendered = _olderLoadHasRenderedNewMessages();
-    final nextAwaitingAiResponse =
-        _awaitingAiResponse && !_hasCompletedAwaitedAiResponse(nextSource);
+    if (_awaitingAiResponse && _awaitingAiResponseRoundId.trim().isEmpty) {
+      final awaitedClientMsgId = _awaitingAiResponseClientMsgId.trim();
+      if (awaitedClientMsgId.isNotEmpty) {
+        for (final message in nextSource.reversed) {
+          if (message.clientMsgId.trim() != awaitedClientMsgId ||
+              !message.isCanonicalUserMessage) {
+            continue;
+          }
+          _awaitingAiResponseRoundId = message.conversationRoundId.trim();
+          break;
+        }
+      }
+    }
+    final nextAwaitingAiResponse = locationChatShouldAwaitAiResponseForTesting(
+      connected: state.connected,
+      awaiting: _awaitingAiResponse,
+      hasCompletedResponse: _hasCompletedAwaitedAiResponse(nextSource),
+    );
     final shouldRebuild =
         changedMessages ||
         changedHasMoreOlder ||
@@ -585,13 +603,19 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         _chatroomState = state;
         if (olderLoadRendered) _finishOlderMessagesLoading();
         _awaitingAiResponse = nextAwaitingAiResponse;
-        if (!nextAwaitingAiResponse) _awaitingAiResponseRoundId = '';
+        if (!nextAwaitingAiResponse) {
+          _awaitingAiResponseClientMsgId = '';
+          _awaitingAiResponseRoundId = '';
+        }
       });
     } else {
       _chatroomState = state;
       if (olderLoadRendered) _finishOlderMessagesLoading();
       _awaitingAiResponse = nextAwaitingAiResponse;
-      if (!nextAwaitingAiResponse) _awaitingAiResponseRoundId = '';
+      if (!nextAwaitingAiResponse) {
+        _awaitingAiResponseClientMsgId = '';
+        _awaitingAiResponseRoundId = '';
+      }
     }
     if (olderLoadRendered) _runDeferredVisibleMessageGapFillIfNeeded();
     _logPanelMetric(
@@ -751,4 +775,13 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       },
     );
   }
+}
+
+@visibleForTesting
+bool locationChatShouldAwaitAiResponseForTesting({
+  required bool connected,
+  required bool awaiting,
+  required bool hasCompletedResponse,
+}) {
+  return connected && awaiting && !hasCompletedResponse;
 }

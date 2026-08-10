@@ -138,11 +138,7 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
           message.timelinePayload == null) {
         continue;
       }
-      if (resolveChatroomMessageRenderKind(
-            messageType: message.messageType,
-            senderId: message.senderId,
-          ) ==
-          ChatroomMessageRenderKind.hidden) {
+      if (!locationChatMessageHasRenderableBusinessContent(message)) {
         continue;
       }
       count += 1;
@@ -393,7 +389,10 @@ _VisibleLocationChatMessages _visibleLocationChatMessages(
   String locationId = '',
 }) {
   final renderableSource = source
-      .where((message) => !_isTickAdvanceMessage(message) || message.tickNo > 0)
+      .where(
+        (message) =>
+            !_isLegacyTickAdvanceMessage(message) || message.tickNo > 0,
+      )
       .toList(growable: false);
   if (renderableSource.length < 2) {
     return _VisibleLocationChatMessages(
@@ -509,7 +508,10 @@ List<WorldChatroomMessage> _visibleLocationChatMessagesWithSupplementals({
 
   for (final message in sorted) {
     if (message.locationMessageId <= 0 &&
-        isChatroomLocationSupplementalSenderType(message.senderType)) {
+        isChatroomMessageIdOrderedSupplemental(
+          message.senderType,
+          locationMessageId: message.locationMessageId,
+        )) {
       if (seenVisibleLocationMessage && !blockedByHiddenLocationAfterVisible) {
         visible.add(message);
       } else if (!seenLocationMessage) {
@@ -518,8 +520,21 @@ List<WorldChatroomMessage> _visibleLocationChatMessagesWithSupplementals({
       continue;
     }
 
+    // Cursorless legacy timeline notifications remain visible for backward
+    // compatibility, but they do not belong to either side of a location-ID
+    // gap and therefore must not influence the visible continuity window.
+    if (message.locationMessageId <= 0 &&
+        isChatroomLocationSupplementalSenderType(message.senderType)) {
+      visible.add(message);
+      continue;
+    }
+
     if (message.locationMessageId <= 0) {
-      if (!seenLocationMessage) {
+      if (_isCursorlessRuntimeStream(message) &&
+          seenVisibleLocationMessage &&
+          !blockedByHiddenLocationAfterVisible) {
+        visible.add(message);
+      } else if (!seenLocationMessage) {
         leadingCursorlessMessages.add(message);
       }
       continue;
@@ -553,9 +568,9 @@ List<WorldChatroomMessage> _collapseConsecutiveTickMessages(
   if (messages.length < 2) return messages;
   final collapsed = <WorldChatroomMessage>[];
   for (final message in messages) {
-    if (_isTickAdvanceMessage(message) &&
+    if (_isLegacyTickAdvanceMessage(message) &&
         collapsed.isNotEmpty &&
-        _isTickAdvanceMessage(collapsed.last)) {
+        _isLegacyTickAdvanceMessage(collapsed.last)) {
       collapsed[collapsed.length - 1] = message;
       continue;
     }
@@ -689,14 +704,25 @@ String _locationChatMessageGapKey(
   return '${locationId.trim()}\u001F${gap.lowerLocationMessageId}\u001F${gap.upperLocationMessageId}';
 }
 
-bool _isTickAdvanceMessage(WorldChatroomMessage message) {
-  return message.senderType.trim().toLowerCase() == 'tick';
+bool _isLegacyTickAdvanceMessage(WorldChatroomMessage message) {
+  return message.senderType.trim().toLowerCase() == 'tick' &&
+      !message.isV2LocationTick;
 }
 
 int _compareLocationChatRenderMessages(
   WorldChatroomMessage a,
   WorldChatroomMessage b,
 ) {
+  final aIsCursorlessStream = _isCursorlessRuntimeStream(a);
+  final bIsCursorlessStream = _isCursorlessRuntimeStream(b);
+  if (aIsCursorlessStream != bIsCursorlessStream) {
+    return aIsCursorlessStream ? 1 : -1;
+  }
+  final aIsCursorlessNonOrdered = _isCursorlessNonOrderedMessage(a);
+  final bIsCursorlessNonOrdered = _isCursorlessNonOrderedMessage(b);
+  if (aIsCursorlessNonOrdered != bIsCursorlessNonOrdered) {
+    return aIsCursorlessNonOrdered ? -1 : 1;
+  }
   if (isChatroomMessageIdOrderedSupplemental(
         a.senderType,
         locationMessageId: a.locationMessageId,
@@ -722,6 +748,20 @@ int _compareLocationChatRenderMessages(
   );
   if (byRound != 0) return byRound;
   return a.roundOrder.compareTo(b.roundOrder);
+}
+
+bool _isCursorlessRuntimeStream(WorldChatroomMessage message) {
+  return message.locationMessageId <= 0 &&
+      message.isLlmStreamMessage &&
+      message.streaming;
+}
+
+bool _isCursorlessNonOrderedMessage(WorldChatroomMessage message) {
+  return message.locationMessageId <= 0 &&
+      !isChatroomMessageIdOrderedSupplemental(
+        message.senderType,
+        locationMessageId: message.locationMessageId,
+      );
 }
 
 class _VisibleLocationChatMessages {

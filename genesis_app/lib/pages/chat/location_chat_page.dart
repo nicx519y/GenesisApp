@@ -293,6 +293,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   Future<void>? _initialLatestMessagesRefresh;
   int _unseenIncomingCount = 0;
   int _clientMsgCounter = 0;
+  String _awaitingAiResponseClientMsgId = '';
   String _awaitingAiResponseRoundId = '';
   final Set<String> _messageGapFillKeys = <String>{};
   final Set<int> _messageGapFillBeforeLocationMessageIds = <int>{};

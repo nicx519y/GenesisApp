@@ -1,4 +1,5 @@
 import '../../../components/chat/shared/chat_ui.dart';
+import '../../../network/chatroom/chatroom_message_type.dart';
 import '../../../network/chatroom/chatroom_timeline_payload.dart';
 import '../../../network/chatroom/world_chatroom_service.dart';
 import '../../../utils/genesis_ugc_text.dart';
@@ -13,6 +14,9 @@ LocationChatParsedMessage buildLocationChatParsedMessage({
   required String text,
   String imageUrl = '',
   ChatTimelinePayloadVm? timelinePayload,
+  int? tickNo,
+  int? subTickNo,
+  String? currentTime,
 }) {
   return LocationChatParsedMessage(
     source: message,
@@ -22,8 +26,8 @@ LocationChatParsedMessage buildLocationChatParsedMessage({
     messageId: message.messageId,
     locationMessageId: message.locationMessageId,
     roundId: message.conversationRoundId,
-    tickNo: message.tickNo,
-    subTickNo: message.subTickNo,
+    tickNo: tickNo ?? message.tickNo,
+    subTickNo: subTickNo ?? message.subTickNo,
     senderId: message.senderId,
     senderName: context.senderName(message),
     avatarUrl: context.avatarUrl(message),
@@ -31,7 +35,7 @@ LocationChatParsedMessage buildLocationChatParsedMessage({
     timelinePayload: timelinePayload,
     isPlayerControlledRole: context.isPlayerControlledRole(message),
     text: text,
-    currentTime: locationChatMessageCurrentTime(message),
+    currentTime: currentTime ?? locationChatMessageCurrentTime(message),
     isMe: context.isMine(message),
     status: message.streaming ? 'streaming' : 'sent',
     senderType: senderType,
@@ -79,6 +83,71 @@ String locationChatResolvedSenderType(WorldChatroomMessage message) {
   return senderType.isEmpty ? 'user' : senderType;
 }
 
+String locationChatBusinessType(WorldChatroomMessage message) {
+  final businessType = message.businessType.trim().toLowerCase();
+  if (businessType == 'ai') return 'character';
+  return businessType.isEmpty
+      ? locationChatResolvedSenderType(message)
+      : businessType;
+}
+
+bool locationChatMessageHasSupportedExplicitV2Envelope(
+  WorldChatroomMessage message,
+) {
+  if (!message.hasExplicitBusinessType) return true;
+  final messageType = normalizeChatroomMessageType(message.messageType);
+  if (messageType != chatroomTextMessageType &&
+      messageType != chatroomImageMessageType) {
+    return false;
+  }
+  return switch (locationChatBusinessType(message)) {
+    'user' ||
+    'character' ||
+    'system' ||
+    'narrator' ||
+    'tick' ||
+    chatroomUserEnterLocationSenderType ||
+    chatroomStoryEventsSenderType ||
+    chatroomCharactersMovedSenderType => true,
+    _ => false,
+  };
+}
+
+bool locationChatMessageHasRenderableBusinessContent(
+  WorldChatroomMessage message,
+) {
+  if (!locationChatMessageHasSupportedExplicitV2Envelope(message)) {
+    return false;
+  }
+  final businessType = locationChatBusinessType(message);
+  final messageType = normalizeChatroomMessageType(message.messageType);
+  if (businessType == 'tick') return true;
+  if (businessType == chatroomUserEnterLocationSenderType) {
+    return message.timelinePayload is ChatroomUserEnterLocationPayload;
+  }
+  if (businessType == chatroomStoryEventsSenderType) {
+    return message.timelinePayload is ChatroomStoryEventsPayload;
+  }
+  if (businessType == chatroomCharactersMovedSenderType) {
+    return message.timelinePayload is ChatroomCharactersMovedPayload;
+  }
+  if (businessType == 'narrator') {
+    return messageType == chatroomTextMessageType ||
+        messageType == chatroomImageMessageType;
+  }
+  if (businessType == 'user' ||
+      businessType == 'character' ||
+      businessType == 'system') {
+    return messageType == chatroomTextMessageType;
+  }
+  if (message.hasExplicitBusinessType) return false;
+  return resolveChatroomMessageRenderKind(
+        messageType: message.messageType,
+        senderId: message.senderId,
+      ) !=
+      ChatroomMessageRenderKind.hidden;
+}
+
 String locationChatMessageCurrentTime(WorldChatroomMessage message) {
   if (message.senderType.trim().toLowerCase() ==
       chatroomStoryEventsSenderType) {
@@ -123,5 +192,6 @@ String locationChatTimelineCopyText(ChatTimelinePayloadVm payload) {
                 '${movement.characterName} → ${movement.toLocationName}',
           )
           .join('\n'),
+    ChatTickPayloadVm event => event.copyText,
   };
 }

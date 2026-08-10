@@ -270,7 +270,7 @@ void main() {
     expect(find.text('Alice entered the cafe'), findsOneWidget);
     expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
     expect(find.text('Old Station'), findsNothing);
-    expect(find.text('事件'), findsNWidgets(2));
+    expect(find.text('Event'), findsNWidgets(2));
     expect(find.byIcon(Icons.push_pin_rounded), findsNWidgets(2));
     expect(find.byIcon(Icons.lightbulb_outline_rounded), findsOneWidget);
     expect(find.text('Day 2, 10:15'), findsOneWidget);
@@ -321,12 +321,12 @@ void main() {
       (storyBubble.decoration as BoxDecoration).color,
       kLocationChatStyle.systemMessageBackgroundColor,
     );
-    final eventLabel = tester.widget<Text>(find.text('事件').first);
+    final eventLabel = tester.widget<Text>(find.text('Event').first);
     expect(
       eventLabel.style?.color,
       kLocationChatStyle.systemMessageTextStyle.color,
     );
-    expect(find.text('人物去向'), findsOneWidget);
+    expect(find.text('Character destinations'), findsOneWidget);
     expect(find.byIcon(Icons.directions_walk_rounded), findsNWidgets(3));
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
@@ -2118,6 +2118,167 @@ void main() {
     expect(bubbleBox.left, closeTo(rowBox.left, 1));
     expect(bubbleBox.right, closeTo(rowBox.right, 1));
   });
+
+  testWidgets(
+    'composite tick renders every non-empty section in order and forwards actions',
+    (WidgetTester tester) async {
+      ChatCharacterMovementVm? tappedMovement;
+      ChatMessageVm? longPressedMessage;
+      final message = ChatMessageVm(
+        localId: 'tick-composite',
+        globalMessageId: 8702,
+        messageId: 101,
+        locationMessageId: 29,
+        roundId: '7359',
+        tickNo: 1,
+        subTickNo: 2,
+        senderId: 'tick',
+        senderName: 'SubTick',
+        text: '',
+        currentTime: 'Day 1, 13:50',
+        isMe: false,
+        status: 'sent',
+        senderType: 'tick',
+        timelinePayload: const ChatTickPayloadVm(
+          globalText: 'The promise-shaped key pulses.',
+          storyEvents: ChatStoryEventsPayloadVm(
+            locationId: 'loc_vault',
+            locationName: 'Vault',
+            paragraphs: [
+              ChatStoryEventParagraphVm(
+                timestamp: 'Day 1, 13:30',
+                text: 'Frost creeps toward Room 0.',
+                clue: 'It spells Elara.',
+                visibilityLabel: 'public',
+              ),
+            ],
+          ),
+          charactersMoved: ChatCharactersMovedPayloadVm(
+            movements: [
+              ChatCharacterMovementVm(
+                characterId: 'char_2',
+                characterName: 'Elara',
+                toLocationId: 'loc_room_0',
+                toLocationName: 'Room 0',
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              child: ChatMessageRow(
+                message: message,
+                showDateDivider: false,
+                style: kLocationChatStyle,
+                onMessageLongPressStart: (_, pressedMessage, _) {
+                  longPressedMessage = pressedMessage;
+                },
+                onCharactersMovedLocationTap: (movement) {
+                  tappedMovement = movement;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final header = find.text('Tick 1-2 · Day 1, 13:50');
+      final globalLabel = find.text('Global');
+      final globalText = find.text('The promise-shaped key pulses.');
+      final eventLabel = find.text('Event');
+      final eventText = find.text('Frost creeps toward Room 0.');
+      final movedLabel = find.text('Character destinations');
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
+        findsOneWidget,
+      );
+      expect(header, findsOneWidget);
+      expect(globalLabel, findsOneWidget);
+      expect(globalText, findsOneWidget);
+      expect(eventLabel, findsOneWidget);
+      expect(eventText, findsOneWidget);
+      expect(find.text('It spells Elara.'), findsOneWidget);
+      expect(movedLabel, findsOneWidget);
+      expect(find.text('Room 0'), findsOneWidget);
+      expect(
+        tester.getTopLeft(header).dy,
+        lessThan(tester.getTopLeft(globalLabel).dy),
+      );
+      expect(
+        tester.getTopLeft(globalText).dy,
+        lessThan(tester.getTopLeft(eventLabel).dy),
+      );
+      expect(
+        tester.getTopLeft(eventText).dy,
+        lessThan(tester.getTopLeft(movedLabel).dy),
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>(
+            'chat-character-movement-location-tick-composite-tick-0',
+          ),
+        ),
+      );
+      expect(tappedMovement?.toLocationId, 'loc_room_0');
+
+      await tester.longPress(
+        find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
+      );
+      await tester.pump();
+      expect(longPressedMessage, same(message));
+      expect(
+        chatTickMessageCopyText(message),
+        'Tick 1-2 · Day 1, 13:50\n'
+        'Global\n'
+        'The promise-shaped key pulses.\n'
+        'Event\n'
+        'Day 1, 13:30 · public\n'
+        'Frost creeps toward Room 0.\n'
+        'It spells Elara.\n'
+        'Character destinations\n'
+        'Elara has gone to Room 0',
+      );
+    },
+  );
+
+  testWidgets(
+    'composite tick omits empty sections and renders fallback content',
+    (WidgetTester tester) async {
+      final message = ChatMessageVm(
+        localId: 'tick-fallback',
+        senderId: 'tick',
+        senderName: 'SubTick',
+        text: 'Original tick content',
+        isMe: false,
+        status: 'sent',
+        senderType: 'tick',
+        timelinePayload: const ChatTickPayloadVm(
+          fallbackContent: 'Original tick content',
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatMessageRow(message: message, showDateDivider: false),
+          ),
+        ),
+      );
+
+      expect(find.text('Tick'), findsOneWidget);
+      expect(find.text('Original tick content'), findsOneWidget);
+      expect(find.text('Global'), findsNothing);
+      expect(find.text('Event'), findsNothing);
+      expect(find.text('Character destinations'), findsNothing);
+      expect(chatTickMessageCopyText(message), 'Tick\nOriginal tick content');
+    },
+  );
 
   testWidgets('chat composer grows with text up to ten lines', (
     WidgetTester tester,

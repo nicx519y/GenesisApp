@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/message_parsers/location_chat_message_parsers.dart';
@@ -97,6 +98,81 @@ void main() {
       expect(parsed.tickNo, 4);
       expect(parsed.subTickNo, 2);
       expect(parsed.currentTime, isEmpty);
+    });
+
+    test('projects every V2 tick section into one composite view model', () {
+      final parsed = const TickMessageParser().parse(
+        _message(
+          senderType: 'tick',
+          businessType: 'tick',
+          tickNo: 0,
+          subTickNo: 0,
+          currentTime: '',
+          v2TickPayload: const ChatroomV2TickPayload(
+            currentTime: 'Day 1, 13:50',
+            tickNo: 1,
+            subTickNo: 2,
+            globalText: 'The key pulses.',
+            storyEvents: [
+              ChatroomV2StoryEvent(
+                locationId: 'loc-2',
+                timestamp: 'Day 1, 13:30',
+                visibility: 'char_only',
+                visibleTo: ['char-1', 'char-2'],
+                text: 'Frost spreads.',
+                clue: 'It spells Elara.',
+              ),
+            ],
+            charactersMoved: [
+              ChatroomV2CharacterMovement(
+                characterId: 'char-1',
+                oldLocationId: 'loc-1',
+                toLocationId: 'loc-2',
+              ),
+            ],
+            fallbackContent: '',
+          ),
+        ),
+        context,
+      );
+
+      final payload = parsed.timelinePayload as ChatTickPayloadVm;
+      expect(parsed.tickNo, 1);
+      expect(parsed.subTickNo, 2);
+      expect(parsed.currentTime, 'Day 1, 13:50');
+      expect(payload.globalText, 'The key pulses.');
+      expect(payload.storyEvents?.locationName, 'Cafe');
+      expect(
+        payload.storyEvents?.paragraphs.single.visibilityLabel,
+        'Alice, Bob',
+      );
+      expect(payload.charactersMoved?.movements.single.characterName, 'Alice');
+      expect(payload.charactersMoved?.movements.single.toLocationName, 'Cafe');
+      expect(payload.fallbackContent, isEmpty);
+    });
+
+    test('preserves V2 fallback content without inventing empty sections', () {
+      final parsed = const TickMessageParser().parse(
+        _message(
+          senderType: 'tick',
+          businessType: 'tick',
+          v2TickPayload: const ChatroomV2TickPayload(
+            currentTime: '',
+            tickNo: 0,
+            subTickNo: 0,
+            globalText: '',
+            storyEvents: [],
+            charactersMoved: [],
+            fallbackContent: 'Original content',
+          ),
+        ),
+        context,
+      );
+
+      final payload = parsed.timelinePayload as ChatTickPayloadVm;
+      expect(payload.hasStructuredSections, isFalse);
+      expect(payload.fallbackContent, 'Original content');
+      expect(parsed.text, 'Original content');
     });
   });
 
@@ -263,6 +339,7 @@ void main() {
 
 WorldChatroomMessage _message({
   String senderType = 'user',
+  String businessType = '',
   String senderId = 'sender',
   String userId = '',
   String content = 'Message',
@@ -272,6 +349,7 @@ WorldChatroomMessage _message({
   bool streaming = false,
   bool isLlmStreamMessage = false,
   ChatroomTimelinePayload? timelinePayload,
+  ChatroomV2TickPayload? v2TickPayload,
 }) {
   return WorldChatroomMessage(
     globalMessageId: 100,
@@ -283,6 +361,7 @@ WorldChatroomMessage _message({
     subTickNo: subTickNo,
     locationId: 'loc-1',
     senderType: senderType,
+    businessType: businessType,
     userId: userId,
     senderId: senderId,
     senderName: 'Sender',
@@ -293,5 +372,6 @@ WorldChatroomMessage _message({
     streaming: streaming,
     isLlmStreamMessage: isLlmStreamMessage,
     timelinePayload: timelinePayload,
+    v2TickPayload: v2TickPayload,
   );
 }

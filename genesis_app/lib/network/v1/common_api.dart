@@ -11,7 +11,7 @@ class CommonV1Api extends V1ApiResource {
 
   /// POST /api/v1/common/upload
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"file":"binary","biz_type":"avatar"}
   /// ```
@@ -119,7 +119,7 @@ class CommonV1Api extends V1ApiResource {
 
   /// POST /api/v1/common/drafts
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"draft_type":"origin_create","draft_id":"string","draft_data":{}}
   /// ```
@@ -145,7 +145,7 @@ class CommonV1Api extends V1ApiResource {
 
   /// GET /api/v1/common/drafts
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"draft_type":"origin_create"}
   /// ```
@@ -160,7 +160,7 @@ class CommonV1Api extends V1ApiResource {
 
   /// POST /api/v1/common/drafts/del
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"draft_id":"string"}
   /// ```
@@ -175,7 +175,7 @@ class CommonV1Api extends V1ApiResource {
 
   /// POST /api/v1/common/devices/register
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"device_id":"d_xxx","platform":"android","package_name":"string","app_version":"string"}
   /// ```

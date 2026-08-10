@@ -269,7 +269,7 @@ App 侧暴露了这些 RPC：
 [5] 目标: 查询我的 world 列表 {"scene":"mine","limit":20}
 [7] 目标: 先进入 WorldPage {"wid":"w_LJDH53"}
 [11] 目标: 进入 LocationChatPage {"wid":"w_LJDH53","locationId":"loc_1_1_3","locationName":"Kessler's House"}
-[16] 目标: 发送消息并等待 ack {"turn":1,"total":100}
+[16] 目标: 发送消息并等待确认与正式回声 {"turn":1,"total":100}
 [17] 目标: 等待同一轮 AI 回复 {"turn":1,"conversationRoundId":"903"}
 ```
 
@@ -289,8 +289,8 @@ App 侧暴露了这些 RPC：
 10. 创建 `WorldChatroomService`，连接 world chatroom
 11. join 指定 location
 12. 刷新最近消息作为上下文
-13. 发送消息并等待 ack
-14. 根据 `conversationRoundId` 等待同一轮 AI 回复
+13. 发送消息，先等待 ACK receipt，再等待同 `client_msg_id` 的 canonical user echo
+14. 使用 canonical echo 中的 `conversationRoundId` 等待同一轮 AI 回复
 15. 用上一轮回复生成下一条消息，直到达到 `--count`
 
 ### 约束
@@ -328,12 +328,13 @@ chatroom websocket 可能在多轮消息后断开。当前实现会在每轮发�
 
 - 如果 chatroom 断开，会重新连接 world chatroom
 - 如果还没 join 当前 location，会重新 join
-- 如果发送消息时失败，会 disconnect 后重连并重试一次
+- 如果发送发生传输错误或 ACK 超时，会 disconnect 后重连并重试一次
+- 如果 ACK 返回限流、余额不足等业务错误，会立即失败，不会重连或重发
 
-如果后端返回 rate limit，CLI 会打印类似：
+如果传输中断或 ACK 超时，CLI 会打印类似：
 
 ```text
-目标: 发送失败，重连 chatroom 后重试一次 {"error":"ChatroomFailureEvent(send_message/ack 2010): Rate limit exceeded"}
+目标: 发送失败，重连 chatroom 后重试一次 {"error":"ChatroomProtocolException: ack_timeout"}
 ```
 
 如果重试仍失败，任务会失败并打印错误。

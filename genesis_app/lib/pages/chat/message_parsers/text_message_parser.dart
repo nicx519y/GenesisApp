@@ -5,7 +5,9 @@ import 'location_chat_message_parser.dart';
 import 'location_chat_parsed_message.dart';
 
 class TextMessageParser implements LocationChatMessageParser {
-  const TextMessageParser();
+  const TextMessageParser({this.senderType});
+
+  final String? senderType;
 
   @override
   LocationChatParsedMessage parse(
@@ -15,7 +17,7 @@ class TextMessageParser implements LocationChatMessageParser {
     return buildLocationChatParsedMessage(
       message: message,
       context: context,
-      senderType: locationChatResolvedSenderType(message),
+      senderType: senderType ?? locationChatResolvedSenderType(message),
       text: locationChatMessageDisplayText(message),
     );
   }

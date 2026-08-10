@@ -32,6 +32,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     _setLocationChatState(() {
       _sending = true;
       _awaitingAiResponse = true;
+      _awaitingAiResponseClientMsgId = clientMsgId;
       _awaitingAiResponseRoundId = '';
       _messages.add(localMessage);
       _hasDraftText = false;
@@ -75,6 +76,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       message.error = null;
       _sending = true;
       _awaitingAiResponse = true;
+      _awaitingAiResponseClientMsgId = clientMsgId;
       _awaitingAiResponseRoundId = '';
     });
     _recordPanelDebug(
@@ -94,47 +96,102 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     required ChatMessageVm localMessage,
     required String clientMsgId,
   }) async {
+    var receiptReceived = false;
     try {
-      final ack = await service.sendMessage(
+      final handle = service.sendMessage(
         localMessage.text,
         clientMsgId: clientMsgId,
       );
+      final receipt = await handle.receipt;
+      receiptReceived = true;
+      if (!mounted) {
+        service.cancelCanonicalMessageWait(clientMsgId);
+        return;
+      }
+      unawaited(_markRecentWorldChatLocation());
+      _setLocationChatState(() {
+        localMessage.status = 'sent';
+        _sending = false;
+      });
+      _recordPanelDebug(
+        action: 'sendReceipt',
+        details: {
+          'clientMsgId': receipt.clientMsgId,
+          'receivedAt': receipt.receivedAt?.toIso8601String(),
+        },
+      );
+
+      WorldChatroomMessage canonicalMessage;
+      try {
+        canonicalMessage = await handle.canonicalMessage.timeout(
+          const Duration(seconds: 5),
+        );
+      } on TimeoutException {
+        await service.refreshLatestMessages(
+          locationId: widget.locationId,
+          limit: 20,
+          emitLatestFetched: false,
+        );
+        canonicalMessage = await handle.canonicalMessage.timeout(
+          const Duration(seconds: 2),
+        );
+      }
       if (!mounted) return;
       GenesisTelemetry.collectLog(
         actionType: 'event',
         action: 'location_chat_send_message',
         object1: widget.worldId,
         object2: widget.locationId,
-        object3: ack.messageId,
+        object3: canonicalMessage.messageId,
       );
-      unawaited(_markRecentWorldChatLocation());
       _setLocationChatState(() {
-        localMessage.globalMessageId = ack.globalMessageId;
-        localMessage.messageId = ack.messageId;
-        localMessage.locationMessageId = ack.locationMessageId;
-        localMessage.roundId = ack.conversationRoundId;
-        localMessage.status = 'sent';
-        _awaitingAiResponseRoundId = ack.conversationRoundId.trim();
+        ChatMessageVm target = localMessage;
+        for (final message in _messages) {
+          if (message.clientMsgId.trim() == clientMsgId) {
+            target = message;
+            break;
+          }
+        }
+        target.globalMessageId = canonicalMessage.globalMessageId;
+        target.messageId = canonicalMessage.messageId;
+        target.locationMessageId = canonicalMessage.locationMessageId;
+        target.roundId = canonicalMessage.conversationRoundId;
+        target.status = 'sent';
+        _awaitingAiResponseRoundId = canonicalMessage.conversationRoundId
+            .trim();
         _sending = false;
+        final source =
+            service.state.messagesByLocation[widget.locationId] ??
+            const <WorldChatroomMessage>[];
+        if (_hasCompletedAwaitedAiResponse(source)) {
+          _awaitingAiResponse = false;
+          _awaitingAiResponseClientMsgId = '';
+          _awaitingAiResponseRoundId = '';
+        }
       });
       _recordPanelDebug(
-        action: 'sendAck',
+        action: 'sendCanonicalEcho',
         details: {
           'clientMsgId': clientMsgId,
-          'globalMessageId': ack.globalMessageId,
-          'messageId': ack.messageId,
-          'locationMessageId': ack.locationMessageId,
-          'roundId': ack.conversationRoundId,
+          'globalMessageId': canonicalMessage.globalMessageId,
+          'messageId': canonicalMessage.messageId,
+          'locationMessageId': canonicalMessage.locationMessageId,
+          'roundId': canonicalMessage.conversationRoundId,
         },
       );
     } catch (e) {
+      if (receiptReceived) {
+        service.cancelCanonicalMessageWait(clientMsgId, reason: e);
+      }
       if (!mounted) return;
-      final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-        failure: e,
-        localMessage: localMessage,
-        messages: _messages,
-        activeSendFailure: true,
-      );
+      final restoredDraft = receiptReceived
+          ? null
+          : recoverLocationChatDraftAfterRetriableAckFailure(
+              failure: e,
+              localMessage: localMessage,
+              messages: _messages,
+              activeSendFailure: true,
+            );
       _setLocationChatState(() {
         if (restoredDraft != null) {
           _hasDraftText = restoredDraft.trim().isNotEmpty;
@@ -142,11 +199,17 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             text: restoredDraft,
             selection: TextSelection.collapsed(offset: restoredDraft.length),
           );
-        } else {
+        } else if (!receiptReceived) {
           localMessage.status = 'failed';
+          localMessage.error = e.toString();
+        } else {
+          // The command was accepted. Keep the optimistic message as sent so
+          // a sync timeout cannot invite an accidental duplicate retry.
+          localMessage.status = 'sent';
           localMessage.error = e.toString();
         }
         _awaitingAiResponse = false;
+        _awaitingAiResponseClientMsgId = '';
         _awaitingAiResponseRoundId = '';
         _sending = false;
       });
@@ -154,6 +217,13 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         showGenesisToast(
           context,
           _locationChatDraftRestoreToastMessage(e),
+          duration: const Duration(seconds: 4),
+        );
+      }
+      if (receiptReceived) {
+        showGenesisToast(
+          context,
+          'Message sent, but syncing the server message timed out.',
           duration: const Duration(seconds: 4),
         );
       }

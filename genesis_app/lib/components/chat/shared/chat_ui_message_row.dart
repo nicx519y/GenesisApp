@@ -71,6 +71,7 @@ class ChatMessageRow extends StatelessWidget {
         message: message,
         style: style,
         onLongPressStart: onLongPressStart,
+        onLocationTap: onCharactersMovedLocationTap,
       );
     }
     if (message.isSystem) {

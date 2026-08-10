@@ -132,6 +132,8 @@ class WorldChatroomMessage {
     this.subTickNo = 0,
     required this.locationId,
     required this.senderType,
+    String businessType = '',
+    this.streamType = '',
     this.userId = '',
     required this.senderId,
     required this.senderName,
@@ -143,7 +145,11 @@ class WorldChatroomMessage {
     this.streaming = false,
     this.isLlmStreamMessage = false,
     this.timelinePayload,
-  }) : locationMessageId = locationMessageId ?? 0;
+    this.v2TickPayload,
+    this.minAppVersion = 0,
+    this.rawPayload = const <String, dynamic>{},
+  }) : locationMessageId = locationMessageId ?? 0,
+       _businessType = businessType;
 
   final int globalMessageId;
   final int messageId;
@@ -154,6 +160,8 @@ class WorldChatroomMessage {
   final int subTickNo;
   final String locationId;
   final String senderType;
+  final String _businessType;
+  final String streamType;
   final String userId;
   final String senderId;
   final String senderName;
@@ -165,6 +173,28 @@ class WorldChatroomMessage {
   final bool streaming;
   final bool isLlmStreamMessage;
   final ChatroomTimelinePayload? timelinePayload;
+  final ChatroomV2TickPayload? v2TickPayload;
+  final int minAppVersion;
+  final Map<String, dynamic> rawPayload;
+
+  String get businessType {
+    final explicit = _businessType.trim().toLowerCase();
+    if (explicit.isNotEmpty) return explicit;
+    return senderType.trim().toLowerCase();
+  }
+
+  /// Whether the protocol supplied a V2 business `type`, rather than this
+  /// model deriving one from the legacy `sender_type` field.
+  bool get hasExplicitBusinessType => _businessType.trim().isNotEmpty;
+
+  // A positive location cursor is authoritative even when a stored or
+  // fallback Tick has no decoded V2 payload.
+  bool get isV2LocationTick => businessType == 'tick' && locationMessageId > 0;
+
+  bool get isCanonicalUserMessage =>
+      businessType == 'user' &&
+      clientMsgId.trim().isNotEmpty &&
+      (globalMessageId > 0 || messageId > 0 || locationMessageId > 0);
 
   int get locationQueueMessageId => locationMessageId;
 
@@ -190,15 +220,20 @@ class WorldChatroomMessage {
       subTickNo: message.subTickNo,
       locationId: message.locationId,
       senderType: message.senderType,
+      businessType: message.businessType,
+      streamType: message.streamType,
       userId: message.userId,
       senderId: message.senderId,
       senderName: message.senderName,
-      clientMsgId: '',
+      clientMsgId: message.clientMsgId,
       content: message.content,
       messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.createdAt,
       timelinePayload: timelinePayload,
+      v2TickPayload: message.v2TickPayload,
+      minAppVersion: message.minAppVersion,
+      rawPayload: message.payload,
     );
   }
 
@@ -207,10 +242,22 @@ class WorldChatroomMessage {
     final senderType = asString(json['sender_type']);
     final locationId = asString(json['location_id']);
     final content = asString(json['content']);
+    final rawPayload = json['payload'] is Map
+        ? asJsonMap(json['payload'])
+        : const <String, dynamic>{};
+    final businessType = json.containsKey('type')
+        ? asString(json['type']).trim().toLowerCase()
+        : '';
     return WorldChatroomMessage(
-      globalMessageId: asInt(json['global_msg_id']),
-      messageId: asInt(json['msg_id']),
-      locationMessageId: asInt(json['location_msg_id']),
+      globalMessageId: asInt(
+        json['global_message_id'],
+        fallback: asInt(json['global_msg_id']),
+      ),
+      messageId: asInt(json['message_id'], fallback: asInt(json['msg_id'])),
+      locationMessageId: asInt(
+        json['location_message_id'],
+        fallback: asInt(json['location_msg_id']),
+      ),
       conversationRoundId: asString(
         json['conversation_round_id'],
         fallback: '${asInt(json['conversation_round_id'])}',
@@ -220,6 +267,8 @@ class WorldChatroomMessage {
       subTickNo: asInt(json['sub_tick_no']),
       locationId: locationId,
       senderType: senderType,
+      businessType: businessType,
+      streamType: asString(json['stream_type']),
       userId: asString(json['user_id']),
       senderId: senderId,
       senderName: asString(json['sender_name']),
@@ -231,7 +280,7 @@ class WorldChatroomMessage {
         senderId: senderId,
       ),
       currentTime: asString(json['current_time']),
-      createdAt: asDateTime(json['ts']),
+      createdAt: asDateTime(json['created_at']) ?? asDateTime(json['ts']),
       isLlmStreamMessage: asBool(json['is_llm_stream']),
       timelinePayload: _resolvedChatroomTimelinePayload(
         senderType: senderType,
@@ -240,6 +289,12 @@ class WorldChatroomMessage {
         locationId: locationId,
         content: content,
       ),
+      v2TickPayload: _storedV2TickPayload(
+        businessType: businessType,
+        rawPayload: rawPayload,
+      ),
+      minAppVersion: asInt(json['min_app_version']),
+      rawPayload: rawPayload,
     );
   }
 
@@ -254,6 +309,8 @@ class WorldChatroomMessage {
       roundOrder: message.roundOrder,
       locationId: message.locationId,
       senderType: message.senderType.isEmpty ? 'user' : message.senderType,
+      businessType: message.businessType,
+      streamType: message.streamType,
       userId: message.userId,
       senderId: message.senderId,
       senderName: message.senderName,
@@ -262,6 +319,8 @@ class WorldChatroomMessage {
       messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.createdAt ?? message.ts,
+      minAppVersion: message.minAppVersion ?? 0,
+      rawPayload: message.rawPayload,
     );
   }
 
@@ -310,6 +369,8 @@ class WorldChatroomMessage {
           senderType == 'narrator' && _senderIdIsNarrator(message.senderId)
           ? 'narrator'
           : 'character',
+      businessType: message.businessType,
+      streamType: message.streamType,
       userId: message.userId,
       senderId: message.senderId,
       senderName: message.senderName,
@@ -317,6 +378,8 @@ class WorldChatroomMessage {
       messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.createdAt ?? message.ts,
+      minAppVersion: message.minAppVersion ?? 0,
+      rawPayload: message.rawPayload,
     );
   }
 
@@ -335,6 +398,8 @@ class WorldChatroomMessage {
       subTickNo: message.subTickNo,
       locationId: message.locationId,
       senderType: 'tick',
+      businessType: message.businessType,
+      streamType: message.streamType,
       userId: message.userId,
       senderId: message.senderId,
       senderName: message.senderName,
@@ -342,6 +407,12 @@ class WorldChatroomMessage {
       messageType: message.messageType,
       currentTime: message.currentTime,
       createdAt: message.ts,
+      v2TickPayload: message.v2TickPayload,
+      minAppVersion: message.minAppVersion ?? 0,
+      rawPayload: message.rawPayload.isNotEmpty
+          ? message.rawPayload
+          : message.v2TickPayload?.toJson().cast<String, dynamic>() ??
+                const <String, dynamic>{},
     );
   }
 
@@ -405,6 +476,8 @@ class WorldChatroomMessage {
       tickNo: 0,
       locationId: event.locationId,
       senderType: event.senderType,
+      businessType: event.businessType,
+      streamType: event.streamType,
       userId: '',
       senderId: event.senderId,
       senderName: event.senderName,
@@ -413,6 +486,8 @@ class WorldChatroomMessage {
       createdAt: null,
       streaming: true,
       isLlmStreamMessage: true,
+      minAppVersion: event.minAppVersion ?? 0,
+      rawPayload: event.rawPayload,
     );
   }
 
@@ -426,6 +501,8 @@ class WorldChatroomMessage {
     int? subTickNo,
     String? locationId,
     String? senderType,
+    String? businessType,
+    String? streamType,
     String? userId,
     String? senderId,
     String? senderName,
@@ -437,6 +514,9 @@ class WorldChatroomMessage {
     bool? streaming,
     bool? isLlmStreamMessage,
     ChatroomTimelinePayload? timelinePayload,
+    ChatroomV2TickPayload? v2TickPayload,
+    int? minAppVersion,
+    Map<String, dynamic>? rawPayload,
   }) {
     return WorldChatroomMessage(
       globalMessageId: globalMessageId ?? this.globalMessageId,
@@ -448,6 +528,8 @@ class WorldChatroomMessage {
       subTickNo: subTickNo ?? this.subTickNo,
       locationId: locationId ?? this.locationId,
       senderType: senderType ?? this.senderType,
+      businessType: businessType ?? _businessType,
+      streamType: streamType ?? this.streamType,
       userId: userId ?? this.userId,
       senderId: senderId ?? this.senderId,
       senderName: senderName ?? this.senderName,
@@ -459,7 +541,22 @@ class WorldChatroomMessage {
       streaming: streaming ?? this.streaming,
       isLlmStreamMessage: isLlmStreamMessage ?? this.isLlmStreamMessage,
       timelinePayload: timelinePayload ?? this.timelinePayload,
+      v2TickPayload: v2TickPayload ?? this.v2TickPayload,
+      minAppVersion: minAppVersion ?? this.minAppVersion,
+      rawPayload: rawPayload ?? this.rawPayload,
     );
+  }
+}
+
+ChatroomV2TickPayload? _storedV2TickPayload({
+  required String businessType,
+  required Map<String, dynamic> rawPayload,
+}) {
+  if (businessType != 'tick' || rawPayload.isEmpty) return null;
+  try {
+    return ChatroomV2TickPayload.fromJson(rawPayload);
+  } catch (_) {
+    return null;
   }
 }
 

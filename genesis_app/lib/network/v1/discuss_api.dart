@@ -5,7 +5,7 @@ class DiscussV1Api extends V1ApiResource {
 
   /// GET /api/v1/discuss/list
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"biz_type":1,"biz_id":"ori_a1b2c3","pn":1,"rn":10}
   /// ```
@@ -28,7 +28,7 @@ class DiscussV1Api extends V1ApiResource {
 
   /// GET /api/v1/discuss/replies
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"root_discuss_id":"dis_X9KQ4M2A1B2C","pn":1,"rn":20}
   /// ```
@@ -50,7 +50,7 @@ class DiscussV1Api extends V1ApiResource {
 
   /// POST /api/v1/discuss/post
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"biz_type":1,"biz_id":"ori_a1b2c3","content":"first!","images":[],"root_discuss_id":"","parent_discuss_id":""}
   /// ```
@@ -82,7 +82,7 @@ class DiscussV1Api extends V1ApiResource {
 
   /// POST /api/v1/discuss/delete
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"discuss_id":"dis_X9KQ4M2A1B2C"}
   /// ```
@@ -97,7 +97,7 @@ class DiscussV1Api extends V1ApiResource {
 
   /// POST /api/v1/discuss/like
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"discuss_id":"dis_X9KQ4M2A1B2C"}
   /// ```
@@ -112,7 +112,7 @@ class DiscussV1Api extends V1ApiResource {
 
   /// POST /api/v1/discuss/unlike
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"discuss_id":"dis_X9KQ4M2A1B2C"}
   /// ```

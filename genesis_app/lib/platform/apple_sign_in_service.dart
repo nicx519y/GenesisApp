@@ -20,7 +20,9 @@ class AppleSignInService {
   static Future<AppleIdentitySession> signIn() async {
     debugPrint('[Auth][AppleSignInService] signIn start');
     if (!isSupportedPlatform) {
-      throw const _AppleSignInFailure('当前平台不支持 Apple 登录');
+      throw const _AppleSignInFailure(
+        'Apple sign-in is not supported on this platform',
+      );
     }
     final webAuthenticationOptions = _webAuthenticationOptions();
 
@@ -35,7 +37,9 @@ class AppleSignInService {
     );
     final identityToken = credential.identityToken?.trim() ?? '';
     if (identityToken.isEmpty) {
-      throw const _AppleSignInFailure('Apple 未返回 identityToken，请稍后重试');
+      throw const _AppleSignInFailure(
+        'Apple did not return an identity token. Please try again later.',
+      );
     }
 
     final session = AppleIdentitySession(
@@ -61,11 +65,15 @@ class AppleSignInService {
     final clientId = _webClientId.trim();
     final redirectUri = _webRedirectUri.trim();
     if (clientId.isEmpty || redirectUri.isEmpty) {
-      throw const _AppleSignInFailure('Android Apple 登录暂未配置');
+      throw const _AppleSignInFailure(
+        'Apple sign-in has not been configured for Android',
+      );
     }
     final uri = Uri.tryParse(redirectUri);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
-      throw const _AppleSignInFailure('Android Apple 登录回调地址配置无效');
+      throw const _AppleSignInFailure(
+        'The Apple sign-in callback URL for Android is invalid',
+      );
     }
     return WebAuthenticationOptions(clientId: clientId, redirectUri: uri);
   }

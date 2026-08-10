@@ -6,189 +6,189 @@ import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_typography.dart';
 
-// GenesisUiTheme 是 UI 组件库专用的 ThemeExtension。
-// Material 自带的 ThemeData 不知道 GenesisSearchField / GenesisBottomNavigation 等自定义组件，
-// 所以这些组件的颜色、字体、圆角、指示器尺寸都集中放在这里。
+// GenesisUiTheme is the ThemeExtension dedicated to the UI component library.
+// Material ThemeData does not know about custom components such as GenesisSearchField or GenesisBottomNavigation,
+// so their colors, typography, radii, and indicator dimensions are centralized here.
 class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
   const GenesisUiTheme({
-    // 页面标题样式，当前由 GenesisPageTitle 使用。
+    // Page title style, currently used by GenesisPageTitle.
     required this.pageTitleStyle,
-    // 通用正文样式，当前由 GenesisTabBar 的未选中标签等组件使用。
+    // General body style, currently used by components such as unselected GenesisTabBar labels.
     required this.bodyStyle,
-    // 强调正文样式，当前由 GenesisTabBar 的选中标签等组件使用。
+    // Emphasized body style, currently used by components such as selected GenesisTabBar labels.
     required this.bodyStrongStyle,
-    // 底部导航标签样式，当前由 GenesisBottomNavigationTile 使用。
+    // Bottom navigation label style, currently used by GenesisBottomNavigationTile.
     required this.tabLabelStyle,
-    // 搜索框背景色，当前由 GenesisSearchField 外层容器使用。
+    // Search field background color, currently used by the GenesisSearchField outer container.
     required this.searchBackgroundColor,
-    // 搜索框左侧搜索图标颜色。
+    // Color of the search icon on the left side of the search field.
     required this.searchIconColor,
-    // 搜索框 placeholder 文字样式。
+    // Search field placeholder text style.
     required this.searchHintStyle,
-    // 搜索框输入文字样式。
+    // Search field input text style.
     required this.searchTextStyle,
-    // 搜索框圆角。
+    // Search field border radius.
     required this.searchBorderRadius,
-    // 底部导航栏背景色。
+    // Bottom navigation bar background color.
     required this.bottomNavigationBackgroundColor,
-    // 底部导航普通 tab 选中颜色。
+    // Selected color for regular bottom navigation tabs.
     required this.bottomNavigationSelectedColor,
-    // 底部导航普通 tab 未选中颜色。
+    // Unselected color for regular bottom navigation tabs.
     required this.bottomNavigationUnselectedColor,
-    // 底部导航强调 tab 颜色，例如 Create 中间按钮。
+    // Color for prominent bottom navigation tabs, such as the center Create button.
     required this.bottomNavigationProminentColor,
-    // 二级 TabBar 选中标签颜色。
+    // Selected label color for the secondary TabBar.
     required this.tabSelectedColor,
-    // 二级 TabBar 未选中标签颜色。
+    // Unselected label color for the secondary TabBar.
     required this.tabUnselectedColor,
-    // 二级 TabBar 下划线指示器颜色。
+    // Underline indicator color for the secondary TabBar.
     required this.tabIndicatorColor,
-    // 二级 TabBar 下划线指示器宽度。
+    // Underline indicator width for the secondary TabBar.
     required this.tabIndicatorWidth,
-    // 二级 TabBar 下划线指示器高度。
+    // Underline indicator height for the secondary TabBar.
     required this.tabIndicatorHeight,
-    // 通用面板/按钮圆角，当前由 GenesisPrimaryButton 使用。
+    // General panel and button radius, currently used by GenesisPrimaryButton.
     required this.panelBorderRadius,
   });
 
-  // 浅色主题默认值。
-  // 这里是“改 UI 组件库整体视觉”的主入口；优先改这里，而不是去组件内部写死颜色。
+  // Default values for the light theme.
+  // This is the main entry point for changing the overall UI library appearance; update it here instead of hard-coding colors inside components.
   factory GenesisUiTheme.light() {
     return GenesisUiTheme(
-      // 页面标题使用全局标题 token。
+      // Use the global title token for page titles.
       pageTitleStyle: GenesisTypography.pageTitle,
-      // 普通正文使用全局正文 token。
+      // Use the global body token for regular body text.
       bodyStyle: GenesisTypography.body,
-      // 强调正文使用全局强调 token。
+      // Use the global emphasis token for emphasized body text.
       bodyStrongStyle: GenesisTypography.bodyStrong,
-      // 底部 tab 文案使用专门的小字号 token。
+      // Use the dedicated small-text token for bottom tab labels.
       tabLabelStyle: GenesisTypography.tabLabel,
-      // 搜索框默认浅灰背景。
+      // Use a light gray search field background by default.
       searchBackgroundColor: GenesisColors.surfaceInput,
-      // 搜索图标默认弱化灰色。
+      // Use a muted gray for the search icon by default.
       searchIconColor: GenesisColors.textDisabled,
-      // 搜索提示文案复用正文尺寸，但颜色弱化。
+      // Reuse the body text size for search hints, with a muted color.
       searchHintStyle: GenesisTypography.body.copyWith(
         color: GenesisColors.textDisabled,
         letterSpacing: 0,
       ),
-      // 搜索输入文字复用正文样式。
+      // Reuse the body style for search input text.
       searchTextStyle: GenesisTypography.body,
-      // 搜索框圆角使用输入框圆角 token。
+      // Use the input radius token for the search field.
       searchBorderRadius: GenesisRadii.input,
-      // 底部导航背景色。
+      // Bottom navigation background color.
       bottomNavigationBackgroundColor: GenesisColors.surfaceMuted,
-      // 底部导航选中态颜色。
+      // Bottom navigation selected-state color.
       bottomNavigationSelectedColor: GenesisColors.tabSelected,
-      // 底部导航未选中态颜色。
+      // Bottom navigation unselected-state color.
       bottomNavigationUnselectedColor: GenesisColors.tabUnselected,
-      // 底部导航突出项颜色，例如 Create。
+      // Bottom navigation prominent-item color, such as Create.
       bottomNavigationProminentColor: GenesisColors.create,
-      // 二级 tab 选中颜色。
+      // Secondary tab selected color.
       tabSelectedColor: GenesisColors.tabSelected,
-      // 二级 tab 未选中颜色。
+      // Secondary tab unselected color.
       tabUnselectedColor: GenesisColors.tabUnselected,
-      // 二级 tab 指示器使用状态红。
+      // Use the status red color for the secondary tab indicator.
       tabIndicatorColor: GenesisColors.danger,
-      // 二级 tab 指示器固定宽度，保持和现有视觉一致。
+      // Keep the secondary tab indicator at a fixed width to match the current design.
       tabIndicatorWidth: 34,
-      // 二级 tab 指示器高度。
+      // Secondary tab indicator height.
       tabIndicatorHeight: 3,
-      // 通用面板圆角。
+      // General panel border radius.
       panelBorderRadius: GenesisRadii.panel,
     );
   }
 
-  // GenesisPageTitle 的文字样式。
+  // Text style for GenesisPageTitle.
   final TextStyle pageTitleStyle;
-  // 通用正文样式。
+  // General body text style.
   final TextStyle bodyStyle;
-  // 通用强调正文样式。
+  // General emphasized body text style.
   final TextStyle bodyStrongStyle;
-  // 底部导航标签样式。
+  // Bottom navigation label style.
   final TextStyle tabLabelStyle;
-  // GenesisSearchField 背景色。
+  // Background color for GenesisSearchField.
   final Color searchBackgroundColor;
-  // GenesisSearchField 搜索图标颜色。
+  // Search icon color for GenesisSearchField.
   final Color searchIconColor;
-  // GenesisSearchField placeholder 样式。
+  // Placeholder style for GenesisSearchField.
   final TextStyle searchHintStyle;
-  // GenesisSearchField 输入文字样式。
+  // Input text style for GenesisSearchField.
   final TextStyle searchTextStyle;
-  // GenesisSearchField 外框圆角。
+  // Outer border radius for GenesisSearchField.
   final BorderRadius searchBorderRadius;
-  // GenesisBottomNavigation 背景色。
+  // Background color for GenesisBottomNavigation.
   final Color bottomNavigationBackgroundColor;
-  // GenesisBottomNavigation 普通项选中颜色。
+  // Selected color for regular GenesisBottomNavigation items.
   final Color bottomNavigationSelectedColor;
-  // GenesisBottomNavigation 普通项未选中颜色。
+  // Unselected color for regular GenesisBottomNavigation items.
   final Color bottomNavigationUnselectedColor;
-  // GenesisBottomNavigation prominent 项颜色。
+  // Color for prominent GenesisBottomNavigation items.
   final Color bottomNavigationProminentColor;
-  // GenesisTabBar 选中标签颜色。
+  // Selected label color for GenesisTabBar.
   final Color tabSelectedColor;
-  // GenesisTabBar 未选中标签颜色。
+  // Unselected label color for GenesisTabBar.
   final Color tabUnselectedColor;
-  // GenesisTabBar 指示器颜色。
+  // Indicator color for GenesisTabBar.
   final Color tabIndicatorColor;
-  // GenesisTabBar 指示器宽度。
+  // Indicator width for GenesisTabBar.
   final double tabIndicatorWidth;
-  // GenesisTabBar 指示器高度。
+  // Indicator height for GenesisTabBar.
   final double tabIndicatorHeight;
-  // GenesisPrimaryButton 等面板型组件圆角。
+  // Border radius for panel-like components such as GenesisPrimaryButton.
   final BorderRadius panelBorderRadius;
 
-  // 给组件读取主题的统一方法。
-  // 如果外层 MaterialApp 没有挂 GenesisUiTheme，则回退到 light 默认值，避免组件空指针。
+  // Unified theme accessor for components.
+  // Fall back to the light defaults when the outer MaterialApp does not provide GenesisUiTheme, avoiding null theme access.
   static GenesisUiTheme of(BuildContext context) {
     return Theme.of(context).extension<GenesisUiTheme>() ??
         GenesisUiTheme.light();
   }
 
   @override
-  // 用于局部覆盖部分样式，例如只改搜索框背景而不改其他组件。
+  // Used to override selected styles, such as changing only the search background without affecting other components.
   GenesisUiTheme copyWith({
-    // 覆盖页面标题样式。
+    // Override the page title style.
     TextStyle? pageTitleStyle,
-    // 覆盖普通正文样式。
+    // Override the regular body style.
     TextStyle? bodyStyle,
-    // 覆盖强调正文样式。
+    // Override the emphasized body style.
     TextStyle? bodyStrongStyle,
-    // 覆盖底部导航标签样式。
+    // Override the bottom navigation label style.
     TextStyle? tabLabelStyle,
-    // 覆盖搜索框背景色。
+    // Override the search field background color.
     Color? searchBackgroundColor,
-    // 覆盖搜索图标颜色。
+    // Override the search icon color.
     Color? searchIconColor,
-    // 覆盖搜索提示文案样式。
+    // Override the search hint style.
     TextStyle? searchHintStyle,
-    // 覆盖搜索输入文字样式。
+    // Override the search input text style.
     TextStyle? searchTextStyle,
-    // 覆盖搜索框圆角。
+    // Override the search field border radius.
     BorderRadius? searchBorderRadius,
-    // 覆盖底部导航背景色。
+    // Override the bottom navigation background color.
     Color? bottomNavigationBackgroundColor,
-    // 覆盖底部导航选中颜色。
+    // Override the bottom navigation selected color.
     Color? bottomNavigationSelectedColor,
-    // 覆盖底部导航未选中颜色。
+    // Override the bottom navigation unselected color.
     Color? bottomNavigationUnselectedColor,
-    // 覆盖底部导航突出项颜色。
+    // Override the bottom navigation prominent-item color.
     Color? bottomNavigationProminentColor,
-    // 覆盖二级 tab 选中颜色。
+    // Override the secondary tab selected color.
     Color? tabSelectedColor,
-    // 覆盖二级 tab 未选中颜色。
+    // Override the secondary tab unselected color.
     Color? tabUnselectedColor,
-    // 覆盖二级 tab 指示器颜色。
+    // Override the secondary tab indicator color.
     Color? tabIndicatorColor,
-    // 覆盖二级 tab 指示器宽度。
+    // Override the secondary tab indicator width.
     double? tabIndicatorWidth,
-    // 覆盖二级 tab 指示器高度。
+    // Override the secondary tab indicator height.
     double? tabIndicatorHeight,
-    // 覆盖通用面板圆角。
+    // Override the general panel border radius.
     BorderRadius? panelBorderRadius,
   }) {
     return GenesisUiTheme(
-      // 未传入时沿用当前主题值，保证 copyWith 只覆盖指定字段。
+      // Retain the current theme value when an argument is omitted so copyWith only changes specified fields.
       pageTitleStyle: pageTitleStyle ?? this.pageTitleStyle,
       bodyStyle: bodyStyle ?? this.bodyStyle,
       bodyStrongStyle: bodyStrongStyle ?? this.bodyStrongStyle,
@@ -219,105 +219,105 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
   }
 
   @override
-  // Flutter 主题切换/动画过渡时会调用 lerp。
-  // 所有颜色、字体、圆角、尺寸都要能插值，避免主题切换时突然跳变。
+  // Flutter calls lerp during theme changes and animated transitions.
+  // Interpolate all colors, typography, radii, and dimensions to avoid abrupt jumps during theme changes.
   GenesisUiTheme lerp(ThemeExtension<GenesisUiTheme>? other, double t) {
-    // 如果目标主题不是同类型，保持当前主题不变。
+    // Keep the current theme unchanged when the target theme has a different type.
     if (other is! GenesisUiTheme) return this;
     return GenesisUiTheme(
-      // 标题文字样式插值。
+      // Interpolate the title text style.
       pageTitleStyle: TextStyle.lerp(pageTitleStyle, other.pageTitleStyle, t)!,
-      // 正文文字样式插值。
+      // Interpolate the body text style.
       bodyStyle: TextStyle.lerp(bodyStyle, other.bodyStyle, t)!,
-      // 强调正文样式插值。
+      // Interpolate the emphasized body style.
       bodyStrongStyle: TextStyle.lerp(
         bodyStrongStyle,
         other.bodyStrongStyle,
         t,
       )!,
-      // 底部导航标签文字样式插值。
+      // Interpolate the bottom navigation label text style.
       tabLabelStyle: TextStyle.lerp(tabLabelStyle, other.tabLabelStyle, t)!,
-      // 搜索框背景色插值。
+      // Interpolate the search field background color.
       searchBackgroundColor: Color.lerp(
         searchBackgroundColor,
         other.searchBackgroundColor,
         t,
       )!,
-      // 搜索图标颜色插值。
+      // Interpolate the search icon color.
       searchIconColor: Color.lerp(searchIconColor, other.searchIconColor, t)!,
-      // 搜索提示文案样式插值。
+      // Interpolate the search hint style.
       searchHintStyle: TextStyle.lerp(
         searchHintStyle,
         other.searchHintStyle,
         t,
       )!,
-      // 搜索输入文字样式插值。
+      // Interpolate the search input text style.
       searchTextStyle: TextStyle.lerp(
         searchTextStyle,
         other.searchTextStyle,
         t,
       )!,
-      // 搜索框圆角插值。
+      // Interpolate the search field border radius.
       searchBorderRadius: BorderRadius.lerp(
         searchBorderRadius,
         other.searchBorderRadius,
         t,
       )!,
-      // 底部导航背景色插值。
+      // Interpolate the bottom navigation background color.
       bottomNavigationBackgroundColor: Color.lerp(
         bottomNavigationBackgroundColor,
         other.bottomNavigationBackgroundColor,
         t,
       )!,
-      // 底部导航选中颜色插值。
+      // Interpolate the bottom navigation selected color.
       bottomNavigationSelectedColor: Color.lerp(
         bottomNavigationSelectedColor,
         other.bottomNavigationSelectedColor,
         t,
       )!,
-      // 底部导航未选中颜色插值。
+      // Interpolate the bottom navigation unselected color.
       bottomNavigationUnselectedColor: Color.lerp(
         bottomNavigationUnselectedColor,
         other.bottomNavigationUnselectedColor,
         t,
       )!,
-      // 底部导航突出项颜色插值。
+      // Interpolate the bottom navigation prominent-item color.
       bottomNavigationProminentColor: Color.lerp(
         bottomNavigationProminentColor,
         other.bottomNavigationProminentColor,
         t,
       )!,
-      // 二级 tab 选中颜色插值。
+      // Interpolate the secondary tab selected color.
       tabSelectedColor: Color.lerp(
         tabSelectedColor,
         other.tabSelectedColor,
         t,
       )!,
-      // 二级 tab 未选中颜色插值。
+      // Interpolate the secondary tab unselected color.
       tabUnselectedColor: Color.lerp(
         tabUnselectedColor,
         other.tabUnselectedColor,
         t,
       )!,
-      // 二级 tab 指示器颜色插值。
+      // Interpolate the secondary tab indicator color.
       tabIndicatorColor: Color.lerp(
         tabIndicatorColor,
         other.tabIndicatorColor,
         t,
       )!,
-      // 二级 tab 指示器宽度插值。
+      // Interpolate the secondary tab indicator width.
       tabIndicatorWidth: lerpDouble(
         tabIndicatorWidth,
         other.tabIndicatorWidth,
         t,
       )!,
-      // 二级 tab 指示器高度插值。
+      // Interpolate the secondary tab indicator height.
       tabIndicatorHeight: lerpDouble(
         tabIndicatorHeight,
         other.tabIndicatorHeight,
         t,
       )!,
-      // 通用面板圆角插值。
+      // Interpolate the general panel border radius.
       panelBorderRadius: BorderRadius.lerp(
         panelBorderRadius,
         other.panelBorderRadius,

@@ -154,11 +154,21 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     return '';
   }
 
-  String _streamKey(String locationId, String conversationRoundId) {
+  String _streamKey(
+    String locationId,
+    String conversationRoundId,
+    String senderId,
+  ) {
     final location = locationId.trim();
     final round = conversationRoundId.trim();
-    if (location.isEmpty || round.isEmpty) return '';
-    return '$location|$round';
+    final sender = senderId.trim();
+    if (_worldId.trim().isEmpty ||
+        location.isEmpty ||
+        round.isEmpty ||
+        sender.isEmpty) {
+      return '';
+    }
+    return '$_worldId|$location|$round|$sender';
   }
 
   void _recordFailure(
@@ -238,6 +248,12 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     WorldChatroomMessage message,
   ) {
     return {
+      if (message.hasExplicitBusinessType) 'type': message.businessType,
+      'stream_type': message.streamType,
+      'world_id': _worldId,
+      'global_message_id': message.globalMessageId,
+      'message_id': message.messageId,
+      'location_message_id': message.locationMessageId,
       'global_msg_id': message.globalMessageId,
       'msg_id': message.messageId,
       'location_msg_id': message.locationMessageId,
@@ -254,7 +270,16 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
       'content': message.content,
       'message_type': message.messageType,
       'current_time': message.currentTime,
+      'min_app_version': message.minAppVersion,
+      'payload': message.rawPayload.isNotEmpty
+          ? message.rawPayload
+          : message.v2TickPayload?.toJson(),
+      // WorldChatroomMessage only contains successfully decoded messages, so
+      // the V2 business status is necessarily successful by this boundary.
+      'err_no': 0,
+      'err_msg': '',
       'is_llm_stream': message.isLlmStreamMessage,
+      'created_at': message.createdAt?.toIso8601String(),
       'ts': message.createdAt?.millisecondsSinceEpoch,
     };
   }
@@ -264,6 +289,13 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     String fallbackLocationId = '',
   }) {
     return {
+      if (message.businessType.trim().isNotEmpty) 'type': message.businessType,
+      'stream_type': message.streamType,
+      'world_id': message.worldId,
+      'session_id': message.sessionId,
+      'global_message_id': message.globalMessageId,
+      'message_id': message.messageId,
+      'location_message_id': message.locationMessageId,
       'global_msg_id': message.globalMessageId,
       'msg_id': message.messageId,
       'location_msg_id': message.locationMessageId,
@@ -278,11 +310,19 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
       'sender_id': message.senderId,
       'sender_name': message.senderName,
       'user_id': message.userId,
-      'client_msg_id': '',
+      'client_msg_id': message.clientMsgId,
       'content': message.content,
       'message_type': message.messageType,
       'current_time': message.currentTime,
-      'ts': message.createdAt?.millisecondsSinceEpoch,
+      'min_app_version': message.minAppVersion,
+      'payload': message.payload,
+      'err_no': message.errNo,
+      'err_msg': message.errMsg,
+      'created_at': asString(
+        message.rawJson['created_at'],
+        fallback: message.createdAt?.toIso8601String() ?? '',
+      ),
+      'ts': message.ts ?? message.createdAt?.millisecondsSinceEpoch,
     };
   }
 

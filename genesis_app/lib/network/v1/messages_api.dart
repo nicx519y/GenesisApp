@@ -8,7 +8,7 @@ class MessagesV1Api extends V1ApiResource {
 
   /// GET /api/v1/message/unread
   ///
-  /// 提交参数: 无
+  /// Request parameters: none
   ///
   /// Response:
   /// ```json
@@ -33,7 +33,7 @@ class MessagesV1Api extends V1ApiResource {
 
   /// GET /api/v1/message/notifications
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"block":"world_apply","pn":1,"rn":20}
   /// ```
@@ -55,7 +55,7 @@ class MessagesV1Api extends V1ApiResource {
 
   /// POST /api/v1/message/read
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"block":"world_apply"}
   /// {"notification_id":"ntf_AB12CD34"}
@@ -74,7 +74,7 @@ class MessagesV1Api extends V1ApiResource {
 
   /// GET /api/v1/messages/followers
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"pn":1,"rn":20}
   /// ```

@@ -104,7 +104,7 @@ class _ChatStoryEventParagraph extends StatelessWidget {
                   Icon(Icons.push_pin_rounded, size: 14, color: textColor),
                   const SizedBox(width: 4),
                   Text(
-                    '事件',
+                    'Event',
                     style: style.systemMessageTextStyle.copyWith(
                       fontWeight: FontWeight.w600,
                     ),

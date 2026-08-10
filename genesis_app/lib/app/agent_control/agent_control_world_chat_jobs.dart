@@ -173,7 +173,7 @@ Future<Map<String, Object?>> _agentWorldChatSend(
         chatroom.state.messagesByLocation[target.locationId] ??
         const <WorldChatroomMessage>[];
     final clientMsgId = 'agent-manual-${DateTime.now().microsecondsSinceEpoch}';
-    final ack = await _sendAgentMessageWithReconnect(
+    final sentMessage = await _sendAgentMessageWithReconnect(
       chatroom,
       text,
       clientMsgId: clientMsgId,
@@ -184,7 +184,7 @@ Future<Map<String, Object?>> _agentWorldChatSend(
     );
     final reply = await _waitForAgentReply(
       chatroom,
-      ack,
+      sentMessage,
       locationId: target.locationId,
       identity: identity,
       timeout: Duration(seconds: replyTimeoutSeconds),
@@ -198,8 +198,8 @@ Future<Map<String, Object?>> _agentWorldChatSend(
       'contextLimit': contextLimit,
       'sent': _messageExcerpt(text, limit: 240),
       'clientMsgId': clientMsgId,
-      'ackMessageId': ack.messageId,
-      'conversationRoundId': ack.conversationRoundId,
+      'sentMessageId': sentMessage.messageId,
+      'conversationRoundId': sentMessage.conversationRoundId,
       'replyMessageId': reply.messageId,
       'replySender': reply.senderName,
       'reply': _messageExcerpt(reply.content, limit: 500),
@@ -420,12 +420,12 @@ Future<Map<String, Object?>> _runAgentWorldChat(
       );
       final clientMsgId =
           'agent-${DateTime.now().microsecondsSinceEpoch}-$index';
-      progress('发送消息并等待 ack', {
+      progress('发送消息并等待确认与正式回声', {
         'turn': index + 1,
         'total': messageCount,
         'message': _messageExcerpt(text, limit: 80),
       });
-      final ack = await _sendAgentMessageWithReconnect(
+      final sentMessage = await _sendAgentMessageWithReconnect(
         chatroom,
         text,
         clientMsgId: clientMsgId,
@@ -438,11 +438,11 @@ Future<Map<String, Object?>> _runAgentWorldChat(
       progress('等待同一轮 AI 回复', {
         'turn': index + 1,
         'total': messageCount,
-        'conversationRoundId': ack.conversationRoundId,
+        'conversationRoundId': sentMessage.conversationRoundId,
       });
       final reply = await _waitForAgentReply(
         chatroom,
-        ack,
+        sentMessage,
         locationId: locationId,
         identity: identity,
         timeout: Duration(seconds: replyTimeoutSeconds),
@@ -461,8 +461,8 @@ Future<Map<String, Object?>> _runAgentWorldChat(
       transcript.add({
         'turn': index + 1,
         'sent': _messageExcerpt(text, limit: 80),
-        'ackMessageId': ack.messageId,
-        'conversationRoundId': ack.conversationRoundId,
+        'sentMessageId': sentMessage.messageId,
+        'conversationRoundId': sentMessage.conversationRoundId,
         'replyMessageId': reply.messageId,
         'replySender': reply.senderName,
         'reply': _messageExcerpt(lastReply, limit: 120),
@@ -687,14 +687,14 @@ Future<Map<String, Object?>> _runAgentWorldChatAcrossLocations(
         );
         final clientMsgId =
             'agent-${DateTime.now().microsecondsSinceEpoch}-$globalTurn';
-        progress('在当前 location 发送消息并等待 ack', {
+        progress('在当前 location 发送消息并等待确认与正式回声', {
           'turn': globalTurn,
           'locationTurn': turn + 1,
           'total': messageCount,
           'locationId': locationId,
           'message': _messageExcerpt(text, limit: 80),
         });
-        final ack = await _sendAgentMessageWithReconnect(
+        final sentMessage = await _sendAgentMessageWithReconnect(
           chatroom,
           text,
           clientMsgId: clientMsgId,
@@ -706,7 +706,7 @@ Future<Map<String, Object?>> _runAgentWorldChatAcrossLocations(
         sentCount += 1;
         final reply = await _waitForAgentReply(
           chatroom,
-          ack,
+          sentMessage,
           locationId: locationId,
           identity: identity,
           timeout: Duration(seconds: replyTimeoutSeconds),
@@ -723,8 +723,8 @@ Future<Map<String, Object?>> _runAgentWorldChatAcrossLocations(
           'locationId': locationId,
           'locationName': locationName,
           'sent': _messageExcerpt(text, limit: 80),
-          'ackMessageId': ack.messageId,
-          'conversationRoundId': ack.conversationRoundId,
+          'sentMessageId': sentMessage.messageId,
+          'conversationRoundId': sentMessage.conversationRoundId,
           'replyMessageId': reply.messageId,
           'replySender': reply.senderName,
           'reply': _messageExcerpt(lastReply, limit: 120),

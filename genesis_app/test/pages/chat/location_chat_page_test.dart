@@ -18,6 +18,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transpo
 import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/chat/message_parsers/location_chat_message_parsers.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
@@ -248,7 +249,11 @@ void main() {
       socket.serverLlmStreamStart(messageId: 21);
       await _pumpUntilLocationChatTest(
         tester,
-        () => service.state.streamMessagesByKey['location-current|21'] != null,
+        () =>
+            service
+                .state
+                .streamMessagesByKey['world-current|location-current|21|char-1'] !=
+            null,
       );
       expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
       final localIdsAfterStreamStart = tester
@@ -266,7 +271,10 @@ void main() {
       await _pumpUntilLocationChatTest(
         tester,
         () =>
-            service.state.streamMessagesByKey['location-current|21']?.content ==
+            service
+                .state
+                .streamMessagesByKey['world-current|location-current|21|char-1']
+                ?.content ==
             'streaming',
       );
       expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
@@ -345,6 +353,25 @@ void main() {
 
   test('selected model code is empty when cache has no model field', () {
     expect(selectedModelCodeFromUserInfo({'uid': 'u_1'}), isEmpty);
+  });
+
+  test('disconnected location chat clears an awaited AI response', () {
+    expect(
+      locationChatShouldAwaitAiResponseForTesting(
+        connected: true,
+        awaiting: true,
+        hasCompletedResponse: false,
+      ),
+      isTrue,
+    );
+    expect(
+      locationChatShouldAwaitAiResponseForTesting(
+        connected: false,
+        awaiting: true,
+        hasCompletedResponse: false,
+      ),
+      isFalse,
+    );
   });
 
   test(
@@ -962,11 +989,13 @@ void main() {
   });
 
   testWidgets(
-    'location chat only renders nar_pic images and hides unknown types',
+    'location chat renders every narrator image and hides other image types',
     (tester) async {
-      const visibleImage = 'assets/images/default_list_image.png';
-      final acceptedImage = WorldChatroomMessage.fromHttpMessage(
+      const narPicImage = 'assets/images/default_list_image.png';
+      const narImage = 'assets/images/map_default/root_default.webp';
+      final acceptedNarPicImage = WorldChatroomMessage.fromHttpMessage(
         ChatroomHttpMessage.fromJson({
+          'type': 'narrator',
           'global_message_id': 1,
           'message_id': 1,
           'location_msg_id': 1,
@@ -975,12 +1004,13 @@ void main() {
           'sender_type': 'narrator',
           'sender_id': 'nar_pic',
           'sender_name': 'Narrator',
-          'content': visibleImage,
+          'content': narPicImage,
           'message_type': 'image',
         }),
       );
-      final blockedImage = WorldChatroomMessage.fromHttpMessage(
+      final acceptedNarImage = WorldChatroomMessage.fromHttpMessage(
         ChatroomHttpMessage.fromJson({
+          'type': 'narrator',
           'global_message_id': 2,
           'message_id': 2,
           'location_msg_id': 2,
@@ -989,17 +1019,33 @@ void main() {
           'sender_type': 'narrator',
           'sender_id': 'nar',
           'sender_name': 'Narrator',
+          'content': narImage,
+          'message_type': 'image',
+        }),
+      );
+      final blockedCharacterImage = WorldChatroomMessage.fromHttpMessage(
+        ChatroomHttpMessage.fromJson({
+          'type': 'character',
+          'global_message_id': 3,
+          'message_id': 3,
+          'location_msg_id': 3,
+          'location_id': 'location-current',
+          'conversation_round_id': 3,
+          'sender_type': 'character',
+          'sender_id': 'char-1',
+          'sender_name': 'Alice',
           'content': 'https://cdn.example.com/blocked.png',
           'message_type': 'image',
         }),
       );
       final unknown = WorldChatroomMessage.fromHttpMessage(
         ChatroomHttpMessage.fromJson({
-          'global_message_id': 3,
-          'message_id': 3,
-          'location_msg_id': 3,
+          'type': 'narrator',
+          'global_message_id': 4,
+          'message_id': 4,
+          'location_msg_id': 4,
           'location_id': 'location-current',
-          'conversation_round_id': 3,
+          'conversation_round_id': 4,
           'sender_type': 'narrator',
           'sender_id': 'nar_pic',
           'sender_name': 'Narrator',
@@ -1009,11 +1055,12 @@ void main() {
       );
       final explicitText = WorldChatroomMessage.fromHttpMessage(
         ChatroomHttpMessage.fromJson({
-          'global_message_id': 4,
-          'message_id': 4,
-          'location_msg_id': 4,
+          'type': 'narrator',
+          'global_message_id': 5,
+          'message_id': 5,
+          'location_msg_id': 5,
           'location_id': 'location-current',
-          'conversation_round_id': 4,
+          'conversation_round_id': 5,
           'sender_type': 'narrator',
           'sender_id': 'nar_pic',
           'sender_name': 'Narrator',
@@ -1029,8 +1076,9 @@ void main() {
             locationId: 'location-current',
             active: false,
             openingPreviewMessages: [
-              acceptedImage,
-              blockedImage,
+              acceptedNarPicImage,
+              acceptedNarImage,
+              blockedCharacterImage,
               unknown,
               explicitText,
             ],
@@ -1039,11 +1087,18 @@ void main() {
       );
       await tester.pump();
 
-      expect(acceptedImage.messageType, 'image');
-      expect(blockedImage.messageType, 'image');
+      expect(acceptedNarPicImage.messageType, 'image');
+      expect(acceptedNarImage.messageType, 'image');
+      expect(blockedCharacterImage.messageType, 'image');
       expect(unknown.messageType, 'future_format');
       expect(explicitText.messageType, 'text');
-      expect(find.byType(ChatImageMessage), findsOneWidget);
+      expect(find.byType(ChatImageMessage), findsNWidgets(2));
+      expect(
+        tester
+            .widgetList<ChatImageMessage>(find.byType(ChatImageMessage))
+            .map((widget) => widget.message.imageUrl),
+        containsAll(<String>[narPicImage, narImage]),
+      );
       expect(find.text('Visible narrator text'), findsOneWidget);
       expect(find.text('https://cdn.example.com/blocked.png'), findsNothing);
       expect(find.text('https://cdn.example.com/future.bin'), findsNothing);
@@ -1157,14 +1212,14 @@ void main() {
       expect(find.text('Dh来到了okkk。'), findsOneWidget);
       expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
       expect(find.text('Old Station'), findsNothing);
-      expect(find.text('事件'), findsNWidgets(2));
+      expect(find.text('Event'), findsNWidgets(2));
       expect(find.text('Day 2, 10:15'), findsOneWidget);
       expect(find.text('public'), findsNWidgets(2));
       expect(find.text('Alice found a ticket.'), findsOneWidget);
       expect(find.text('The date is three years ago.'), findsOneWidget);
       expect(find.text('Day 2, 10:20'), findsOneWidget);
       expect(find.text('The platform became quiet.'), findsOneWidget);
-      expect(find.text('人物去向'), findsOneWidget);
+      expect(find.text('Character destinations'), findsOneWidget);
       expect(find.byIcon(Icons.directions_walk_rounded), findsNWidgets(3));
       expect(find.text('Alice'), findsNWidgets(2));
       expect(find.text('char-unknown'), findsOneWidget);
@@ -1176,6 +1231,190 @@ void main() {
       expect(find.text('{"broken":'), findsNothing);
       expect(find.text('sub_tick'), findsNothing);
       expect(find.byType(ChatAvatar), findsNothing);
+    },
+  );
+
+  testWidgets('location chat projects one V2 tick into one composite card', (
+    tester,
+  ) async {
+    ChatCharacterMovementVm? openedMovement;
+    const message = WorldChatroomMessage(
+      globalMessageId: 8702,
+      messageId: 101,
+      locationMessageId: 29,
+      conversationRoundId: '7359',
+      roundOrder: 0,
+      tickNo: 1,
+      subTickNo: 2,
+      locationId: 'location-current',
+      senderType: 'tick',
+      businessType: 'tick',
+      senderId: 'tick',
+      senderName: 'SubTick',
+      content: '',
+      currentTime: 'Day 1, 13:50',
+      createdAt: null,
+      v2TickPayload: ChatroomV2TickPayload(
+        currentTime: 'Day 1, 13:50',
+        tickNo: 1,
+        subTickNo: 2,
+        globalText: 'The promise-shaped key pulses.',
+        storyEvents: [
+          ChatroomV2StoryEvent(
+            locationId: 'location-current',
+            timestamp: 'Day 1, 13:30',
+            visibility: 'public',
+            visibleTo: null,
+            text: 'Frost creeps toward Room 0.',
+            clue: 'It spells Elara.',
+          ),
+        ],
+        charactersMoved: [
+          ChatroomV2CharacterMovement(
+            characterId: 'char-2',
+            oldLocationId: 'location-current',
+            toLocationId: 'loc-room',
+          ),
+        ],
+        fallbackContent: '',
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'world-current',
+          locationId: 'location-current',
+          active: false,
+          openingPreviewMessages: [message],
+          openingPreviewEntities: const [
+            WorldChatroomEntity(
+              id: 'char-2',
+              name: 'Elara',
+              avatarUrl: '',
+              type: WorldChatroomEntityType.character,
+              locationId: 'location-current',
+              isAi: true,
+            ),
+          ],
+          onCharactersMovedLocationTap: (movement) {
+            openedMovement = movement;
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(ChatTickMessageBubble), findsOneWidget);
+    expect(find.byType(ChatStoryEventsMessageBubble), findsNothing);
+    expect(find.byType(ChatCharactersMovedMessageBubble), findsNothing);
+    expect(find.text('Tick 1-2 · Day 1, 13:50'), findsOneWidget);
+    expect(find.text('Global'), findsOneWidget);
+    expect(find.text('The promise-shaped key pulses.'), findsOneWidget);
+    expect(find.text('Event'), findsOneWidget);
+    expect(find.text('Frost creeps toward Room 0.'), findsOneWidget);
+    expect(find.text('Character destinations'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
+        matching: find.text('Elara'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('loc-room'), findsOneWidget);
+
+    await tester.tap(find.text('loc-room'));
+    expect(openedMovement?.toLocationId, 'loc-room');
+
+    await tester.longPress(
+      find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Copy'), findsOneWidget);
+    expect(find.text('Report'), findsOneWidget);
+  });
+
+  testWidgets('location chat hides report for a zero-global-id V2 tick', (
+    tester,
+  ) async {
+    const message = WorldChatroomMessage(
+      messageId: 102,
+      locationMessageId: 30,
+      conversationRoundId: '7360',
+      roundOrder: 0,
+      locationId: 'location-current',
+      senderType: 'tick',
+      businessType: 'tick',
+      senderId: 'tick',
+      senderName: 'SubTick',
+      content: 'Original content',
+      createdAt: null,
+      v2TickPayload: ChatroomV2TickPayload(
+        currentTime: '',
+        tickNo: 0,
+        subTickNo: 0,
+        globalText: '',
+        storyEvents: [],
+        charactersMoved: [],
+        fallbackContent: 'Original content',
+      ),
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'world-current',
+          locationId: 'location-current',
+          active: false,
+          openingPreviewMessages: [message],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Original content'), findsOneWidget);
+    await tester.longPress(
+      find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Copy'), findsOneWidget);
+    expect(find.text('Report'), findsNothing);
+  });
+
+  testWidgets(
+    'location chat renders a positive-cursor tick without a typed payload',
+    (tester) async {
+      const message = WorldChatroomMessage(
+        messageId: 103,
+        locationMessageId: 31,
+        conversationRoundId: '7361',
+        roundOrder: 0,
+        tickNo: 0,
+        locationId: 'location-current',
+        senderType: 'tick',
+        businessType: 'tick',
+        senderId: 'tick',
+        senderName: 'SubTick',
+        content: 'Recovered fallback Tick',
+        createdAt: null,
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            active: false,
+            openingPreviewMessages: [message],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(message.v2TickPayload, isNull);
+      expect(message.isV2LocationTick, isTrue);
+      expect(find.byType(ChatTickMessageBubble), findsOneWidget);
+      expect(find.text('Tick · Recovered fallback Tick'), findsOneWidget);
     },
   );
 
@@ -1308,7 +1547,7 @@ void main() {
 
     expect(find.byType(ChatStoryEventsMessageBubble), findsNWidgets(2));
     expect(find.text('Tick 5-2 · Day 3, 08:30:00'), findsNothing);
-    expect(find.text('事件'), findsNWidgets(2));
+    expect(find.text('Event'), findsNWidgets(2));
     expect(find.byIcon(Icons.push_pin_rounded), findsNWidgets(2));
     expect(find.byIcon(Icons.lightbulb_outline_rounded), findsNWidgets(2));
     expect(find.text('public'), findsNWidgets(2));
@@ -1686,6 +1925,37 @@ void main() {
     );
   });
 
+  test('report action requires a remote message with a positive global id', () {
+    ChatMessageVm message({required bool isMe, required int globalId}) {
+      return ChatMessageVm(
+        localId: 'report-$isMe-$globalId',
+        globalMessageId: globalId,
+        senderId: isMe ? 'me' : 'peer',
+        senderName: isMe ? 'Me' : 'Peer',
+        text: 'message',
+        isMe: isMe,
+        status: 'sent',
+      );
+    }
+
+    expect(
+      locationChatMessageCanReportForTesting(
+        message(isMe: false, globalId: 90001),
+      ),
+      isTrue,
+    );
+    expect(
+      locationChatMessageCanReportForTesting(message(isMe: false, globalId: 0)),
+      isFalse,
+    );
+    expect(
+      locationChatMessageCanReportForTesting(
+        message(isMe: true, globalId: 90001),
+      ),
+      isFalse,
+    );
+  });
+
   test('message local id uses location message id as queue key', () {
     final first = _message(
       messageId: 1080,
@@ -1710,39 +1980,42 @@ void main() {
     );
   });
 
-  test('timeline messages use world message id as local key', () {
-    const first = WorldChatroomMessage(
-      messageId: 1080,
-      locationMessageId: 0,
-      conversationRoundId: '80',
-      roundOrder: 0,
-      locationId: 'loc-1',
-      senderType: 'story_events',
-      senderId: 'sub_tick',
-      senderName: 'sub_tick',
-      content: '{}',
-      createdAt: null,
-    );
-    const second = WorldChatroomMessage(
-      messageId: 1083,
-      locationMessageId: 83,
-      conversationRoundId: '80',
-      roundOrder: 0,
-      locationId: 'loc-1',
-      senderType: 'story_events',
-      senderId: 'sub_tick',
-      senderName: 'sub_tick',
-      content: '{}',
-      createdAt: null,
-    );
+  test(
+    'cursorless timeline uses message-id fallback while canonical uses location id',
+    () {
+      const first = WorldChatroomMessage(
+        messageId: 1080,
+        locationMessageId: 0,
+        conversationRoundId: '80',
+        roundOrder: 0,
+        locationId: 'loc-1',
+        senderType: 'story_events',
+        senderId: 'sub_tick',
+        senderName: 'sub_tick',
+        content: '{}',
+        createdAt: null,
+      );
+      const second = WorldChatroomMessage(
+        messageId: 1083,
+        locationMessageId: 83,
+        conversationRoundId: '80',
+        roundOrder: 0,
+        locationId: 'loc-1',
+        senderType: 'story_events',
+        senderId: 'sub_tick',
+        senderName: 'sub_tick',
+        content: '{}',
+        createdAt: null,
+      );
 
-    expect(locationChatMessageLocalIdForTesting(first), 'message-loc-1-1080');
-    expect(locationChatMessageLocalIdForTesting(second), 'message-loc-1-1083');
-    expect(
-      locationChatMessageLocalIdForTesting(first),
-      isNot(locationChatMessageLocalIdForTesting(second)),
-    );
-  });
+      expect(locationChatMessageLocalIdForTesting(first), 'message-loc-1-1080');
+      expect(locationChatMessageLocalIdForTesting(second), 'location-loc-1-83');
+      expect(
+        locationChatMessageLocalIdForTesting(first),
+        isNot(locationChatMessageLocalIdForTesting(second)),
+      );
+    },
+  );
 
   test('local hydrate ignores stale disposed provided chatroom services', () {
     final panelSource = _readLocationChatImplementationSource();
@@ -1835,7 +2108,7 @@ void main() {
   );
 
   test(
-    'visible location chat messages insert timeline events by world message id',
+    'cursorless non-tick timelines display without world-id interleaving',
     () {
       final source = [
         _message(messageId: 100, locationMessageId: 10, content: 'ten'),
@@ -1865,7 +2138,7 @@ void main() {
         visibleLocationChatMessagesForTesting(
           source,
         ).map((message) => message.messageId),
-        [100, 110, 120, 130, 135, 140],
+        [110, 130, 135, 100, 120, 140],
       );
       expect(oldestLocationChatMessageIdForTesting(source), 10);
     },
@@ -1911,7 +2184,7 @@ void main() {
     },
   );
 
-  test('timeline events respect the visible side of a location id gap', () {
+  test('only cursorless tick is assigned to a side of a location id gap', () {
     final source = [
       _message(messageId: 100, locationMessageId: 1, content: 'old one'),
       _message(
@@ -1919,6 +2192,12 @@ void main() {
         locationMessageId: 0,
         senderType: 'story_events',
         content: 'old-side event',
+      ),
+      _message(
+        messageId: 120,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'old-side tick',
       ),
       _message(messageId: 400, locationMessageId: 4, content: 'new four'),
       _message(
@@ -1934,7 +2213,7 @@ void main() {
       visibleLocationChatMessagesForTesting(
         source,
       ).map((message) => message.messageId),
-      [400, 410, 500],
+      [110, 410, 400, 500],
     );
     expect(locationChatMessageGapFillCursorForTesting(source), 4);
   });
@@ -2038,8 +2317,8 @@ void main() {
         source,
       ).map((message) => message.content),
       [
-        'Day 1, 20:00',
         'dirty record without location id',
+        'Day 1, 20:00',
         'first valid',
         'second valid',
       ],
@@ -2119,6 +2398,224 @@ void main() {
       ).map((message) => message.content),
       ['Tick 2'],
     );
+  });
+
+  test('canonical V2 ticks are neither filtered nor collapsed', () {
+    const emptyTickPayload = ChatroomV2TickPayload(
+      currentTime: '',
+      tickNo: 0,
+      subTickNo: 0,
+      globalText: '',
+      storyEvents: [],
+      charactersMoved: [],
+      fallbackContent: 'fallback',
+    );
+    final source = [
+      _message(
+        messageId: 10,
+        locationMessageId: 1,
+        content: 'first canonical tick',
+        senderType: 'tick',
+        businessType: 'tick',
+        tickNo: 0,
+        v2TickPayload: emptyTickPayload,
+      ),
+      _message(
+        messageId: 20,
+        locationMessageId: 2,
+        content: 'second canonical tick',
+        senderType: 'tick',
+        businessType: 'tick',
+        tickNo: 0,
+        v2TickPayload: emptyTickPayload,
+      ),
+    ];
+
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.messageId),
+      [10, 20],
+    );
+    expect(locationChatMessageGapFillCursorForTesting(source), 0);
+    expect(source.map(locationChatMessageLocalIdForTesting), [
+      'location-loc-1-1',
+      'location-loc-1-2',
+    ]);
+  });
+
+  test(
+    'positive-cursor ticks without typed payloads are not filtered or collapsed',
+    () {
+      final source = [
+        _message(
+          messageId: 30,
+          locationMessageId: 3,
+          content: 'first fallback tick',
+          senderType: 'tick',
+          businessType: 'tick',
+          tickNo: 0,
+        ),
+        _message(
+          messageId: 40,
+          locationMessageId: 4,
+          content: 'second fallback tick',
+          senderType: 'tick',
+          businessType: 'tick',
+          tickNo: 0,
+        ),
+      ];
+
+      expect(source.every((message) => message.v2TickPayload == null), isTrue);
+      expect(source.every((message) => message.isV2LocationTick), isTrue);
+      expect(
+        visibleLocationChatMessagesForTesting(
+          source,
+        ).map((message) => message.messageId),
+        [30, 40],
+      );
+    },
+  );
+
+  test('cursorless active stream stays after canonical location history', () {
+    final source = [
+      _message(messageId: 10, locationMessageId: 1, content: 'history 1'),
+      _message(messageId: 20, locationMessageId: 2, content: 'history 2'),
+      _message(
+        messageId: 0,
+        locationMessageId: 0,
+        content: 'direct stream',
+        senderType: 'character',
+        isLlmStreamMessage: true,
+        streaming: true,
+      ),
+    ];
+
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.content),
+      ['history 1', 'history 2', 'direct stream'],
+    );
+    expect(locationChatMessageGapFillCursorForTesting(source), 0);
+  });
+
+  test('business type selects tick and every V2 narrator image parser', () {
+    const emptyTickPayload = ChatroomV2TickPayload(
+      currentTime: '',
+      tickNo: 0,
+      subTickNo: 0,
+      globalText: '',
+      storyEvents: [],
+      charactersMoved: [],
+      fallbackContent: 'fallback',
+    );
+    final tick = _message(
+      messageId: 10,
+      locationMessageId: 1,
+      content: 'fallback',
+      senderType: 'character',
+      businessType: 'tick',
+      messageType: 'image',
+      senderId: 'nar',
+      v2TickPayload: emptyTickPayload,
+    );
+    final narratorImage = _message(
+      messageId: 20,
+      locationMessageId: 2,
+      content: 'https://cdn.example.com/narrator.webp',
+      senderType: 'narrator',
+      businessType: 'narrator',
+      messageType: 'image',
+      senderId: 'nar',
+    );
+    final characterImage = _message(
+      messageId: 30,
+      locationMessageId: 3,
+      content: 'https://cdn.example.com/character.webp',
+      senderType: 'narrator',
+      businessType: 'character',
+      messageType: 'image',
+      senderId: 'nar_pic',
+    );
+
+    expect(locationChatMessageParserForTesting(tick), isA<TickMessageParser>());
+    expect(
+      locationChatMessageParserForTesting(narratorImage),
+      isA<ImageMessageParser>(),
+    );
+    expect(locationChatMessageParserForTesting(characterImage), isNull);
+  });
+
+  test('explicit V2 business envelopes never fall back to legacy senders', () {
+    final unknownBusiness = _v2HttpWorldMessage(
+      type: 'future_business',
+      senderType: 'narrator',
+      senderId: 'nar',
+      messageType: 'text',
+    );
+    final legacyNarrator = WorldChatroomMessage.fromHttpMessage(
+      ChatroomHttpMessage.fromJson({
+        'global_message_id': 101,
+        'message_id': 51,
+        'location_message_id': 11,
+        'location_id': 'loc-1',
+        'conversation_round_id': 2,
+        'sender_type': 'narrator',
+        'sender_id': 'nar',
+        'sender_name': 'Narrator',
+        'content': 'Legacy narration',
+        'message_type': 'text',
+      }),
+    );
+
+    expect(unknownBusiness.hasExplicitBusinessType, isTrue);
+    expect(unknownBusiness.businessType, 'future_business');
+    expect(locationChatMessageParserForTesting(unknownBusiness), isNull);
+    expect(
+      locationChatMessageHasRenderableBusinessContent(unknownBusiness),
+      isFalse,
+    );
+    expect(legacyNarrator.hasExplicitBusinessType, isFalse);
+    expect(legacyNarrator.businessType, 'narrator');
+    expect(
+      locationChatMessageParserForTesting(legacyNarrator),
+      isA<NarratorMessageParser>(),
+    );
+    expect(legacyNarrator.copyWith().hasExplicitBusinessType, isFalse);
+  });
+
+  test('known V2 business types reject unknown message types from HTTP', () {
+    for (final businessType in const [
+      'user',
+      'character',
+      'system',
+      'narrator',
+      'tick',
+      chatroomUserEnterLocationSenderType,
+      chatroomStoryEventsSenderType,
+      chatroomCharactersMovedSenderType,
+    ]) {
+      final message = _v2HttpWorldMessage(
+        type: businessType,
+        senderType: businessType,
+        senderId: businessType == 'narrator' ? 'nar' : 'sender',
+        messageType: 'future_format',
+      );
+
+      expect(message.messageType, 'future_format', reason: businessType);
+      expect(message.hasExplicitBusinessType, isTrue, reason: businessType);
+      expect(
+        locationChatMessageParserForTesting(message),
+        isNull,
+        reason: businessType,
+      );
+      expect(
+        locationChatMessageHasRenderableBusinessContent(message),
+        isFalse,
+        reason: businessType,
+      );
+    }
   });
 
   test(
@@ -2255,9 +2752,13 @@ WorldChatroomMessage _message({
   required int locationMessageId,
   required String content,
   String senderType = 'user',
+  String businessType = '',
   int? tickNo,
   String? senderId,
+  String messageType = 'text',
   bool isLlmStreamMessage = false,
+  bool streaming = false,
+  ChatroomV2TickPayload? v2TickPayload,
 }) {
   return WorldChatroomMessage(
     messageId: messageId,
@@ -2267,11 +2768,48 @@ WorldChatroomMessage _message({
     tickNo: tickNo ?? (senderType == 'tick' ? messageId : 0),
     locationId: 'loc-1',
     senderType: senderType,
+    businessType: businessType,
     senderId: senderId ?? (senderType == 'tick' ? 'tick' : 'u_peer'),
     senderName: senderType == 'tick' ? 'Time' : 'Peer',
     content: content,
+    messageType: messageType,
     createdAt: null,
+    streaming: streaming,
     isLlmStreamMessage: isLlmStreamMessage,
+    v2TickPayload: v2TickPayload,
+  );
+}
+
+WorldChatroomMessage _v2HttpWorldMessage({
+  required String type,
+  required String senderType,
+  required String senderId,
+  required String messageType,
+}) {
+  return WorldChatroomMessage.fromHttpMessage(
+    ChatroomHttpMessage.fromV2Json({
+      'type': type,
+      'stream_type': '',
+      'ts': 1786340797000,
+      'world_id': 'world-1',
+      'session_id': 'session-1',
+      'global_message_id': 100,
+      'message_id': 50,
+      'location_message_id': 10,
+      'location_id': 'loc-1',
+      'conversation_round_id': 1,
+      'sender_type': senderType,
+      'sender_id': senderId,
+      'sender_name': 'Sender',
+      'user_id': '',
+      'client_msg_id': '',
+      'message_type': messageType,
+      'min_app_version': 0,
+      'created_at': '2026-08-10 11:06:37',
+      'payload': const <String, dynamic>{'content': 'Payload'},
+      'err_no': 0,
+      'err_msg': '',
+    }),
   );
 }
 

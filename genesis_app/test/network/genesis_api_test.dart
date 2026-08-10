@@ -2615,7 +2615,7 @@ void main() {
     () async {
       final apiTransport = _FakeTransport(
         handler: (request) {
-          if (request.uri.path == '/aitown-chat/api/messages') {
+          if (request.uri.path == '/aitown-chat/api/v2/messages') {
             return const TransportResponse(
               statusCode: 200,
               headers: {'content-type': 'application/json'},
@@ -2658,7 +2658,7 @@ void main() {
       );
 
       final request = apiTransport.lastRequest!;
-      expect(request.uri.path, '/aitown-chat/api/messages');
+      expect(request.uri.path, '/aitown-chat/api/v2/messages');
       expect(request.headers['X-App-ID'], 'hashed-app-id');
       expect(request.headers['X-Platform'], 'android');
       expect(request.headers['X-Device-ID'], 'test-device-id');

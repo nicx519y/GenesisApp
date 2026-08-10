@@ -937,7 +937,7 @@ class _NewIncomingMessageNotice extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(
-            '$count 条新消息',
+            '$count new ${count == 1 ? 'message' : 'messages'}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,

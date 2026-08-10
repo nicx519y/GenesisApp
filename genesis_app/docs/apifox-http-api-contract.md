@@ -45,7 +45,7 @@ Origin detail 增量核对时间：2026-08-05
 
 ## 总览
 
-本文档当前覆盖 52 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
+本文档当前覆盖 53 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -67,7 +67,8 @@ Origin detail 增量核对时间：2026-08-05
 | world | POST | `/api/v1/world/tick` | world owner 触发一次 tick |
 | chatroom | GET | `/aitown-chat/api/ulocation` | 获取角色位置列表 |
 | chatroom | GET | `/aitown-chat/internal/world/messages` | 获取世界最近消息 |
-| chatroom | GET | `/aitown-chat/api/messages` | 获取历史消息 |
+| chatroom | GET | `/aitown-chat/api/messages` | 获取旧协议历史消息（兼容/诊断） |
+| chatroom | GET | `/aitown-chat/api/v2/messages` | 获取 V2 地点历史消息 |
 | chatroom | POST | `/aitown-chat/internal/tick/lock` | 锁定 World |
 | chatroom | GET | `/aitown-chat/internal/tick/progress` | 轮询 Tick 进度 |
 | chatroom | POST | `/aitown-chat/internal/tick/unlock` | 解锁 World |
@@ -353,11 +354,11 @@ Origin detail 增量核对时间：2026-08-05
 - `characters`: `{ char_id, name }[]`
 - `initial_dialogue`: `{ char_id, char_name, name, content }[]`
 
-### ChatroomMessageDTO
+### ChatroomMessageDTO（旧协议）
 
 - `global_message_id`: integer，全局递增消息 ID
 - `message_id`: integer，world 级别递增消息 ID
-- `location_message_id`: integer，location 级别递增消息 ID；三类 location 时间线记录可能返回正数或 `0`。正数与普通消息一样参与 location 连续性、补洞和 `since` 游标；仅值为 `0` 时作为无 location cursor 的补充记录处理
+- `location_message_id`: integer，location 级别递增消息 ID；location 时间线记录可能返回正数或 `0`。正数与普通消息一样参与 location 连续性、补洞和 `since` 游标；零值记录没有 location cursor，必须按下述 legacy 兼容边界处理
 - `location_id`: string，地点 ID；世界级消息可能为空
 - `conversation_round_id`: integer，对话轮次 ID
 - `sender_type`: string，`user`、`character`、`narrator`、`npc`、`tick`、`user_enter_location`、`story_events` 或 `characters_moved`
@@ -380,13 +381,31 @@ location 时间线 payload：
   - 两种形态中的 `visibility` 均为 `public` 或 `char_only`；`char_only` 必须提供非空 `visible_to`
 - `characters_moved`: `{ movements }`，其中 `movements[]` 为 `{ char_id, to_loc_id }`
 
-这些记录均属于 location 本地消息队列。新版 `user_enter_location` 携带真实地点和正数 `location_message_id`，与普通地点消息一样维护连续窗口、补洞、`since` 分页、本地 key 和去重；遗留零值入场记录回退使用 world `message_id`。`story_events`、`characters_moved` 继续按 world `message_id` 排序和去重，正数 location ID 参与双游标连续性。服务端单地点响应中的 `location_id` 为空时，客户端使用请求的 `location_id` 分桶。
+这些记录均可进入 location 本地消息队列。任何带正数 `location_message_id` 的记录都按地点游标维护连续窗口、补洞、`since` 分页、本地 key 和去重。只有遗留零游标 `tick`（`tick_advance` 投影）按 world `message_id` 插入时间线，并在本地分页/旧区段删除时使用配套 world cursor；零游标 `user_enter_location/story_events/characters_moved` 仅作为可展示的兼容记录保留，并可按 `message_id` 后备去重，但不参与 location 连续性、gap、分页边界或 gap 区段删除。服务端单地点响应中的 `location_id` 为空时，客户端使用请求的 `location_id` 分桶。
 
 合法的 `characters_moved` 使用独立人物去向气泡，逐行显示“角色名 has gone to 地点名”；角色或地点名称无法从本地 world 缓存解析时回退到对应 ID。地点名可以点击：目标与当前地点不同时切换到目标地点聊天；V2 Tilemap 同步登记目标地点，使退出聊天后恢复到承载目标地点的父级地图。HTTP 与 WebSocket 来源使用完全相同的 VM、气泡和点击规则。
 
-旧版 WebSocket `characters_moved` envelope 若缺少 `msg_id`，客户端仍会先生成仅存在于内存的临时正式消息并立即加入所有叶子地点队列；随后请求 HTTP world messages，并用相同 movements payload 的 canonical `message_id/location_id` 原位替换、持久化该临时项。HTTP 暂时失败不会阻止本次 WSS 气泡显示。
+旧版 WebSocket `characters_moved` envelope 若缺少 `msg_id`，客户端仍会先生成仅存在于内存的临时正式消息并立即加入所有叶子地点队列；随后对有地点的通知请求该地点的 V2 messages，对无地点通知限并发刷新当前世界的叶子地点，并用相同 movements payload 的 canonical `message_id/location_id` 原位替换、持久化该临时项。V2 地点聊天运行时不调用 internal world messages 或 legacy messages 接口。HTTP 暂时失败不会阻止本次 WSS 气泡显示。
 
-`/aitown-chat/api/messages` 返回的 `user_enter_location` 会进入队列、缓存和地点连续性，并复用现有入场系统气泡。其他用户的新入场记录计入新消息提示，当前用户自己的记录仍按通用 self-message 规则排除。
+旧 `/aitown-chat/api/messages` 返回的 `user_enter_location` 会进入队列、缓存并复用现有入场系统气泡；只有正数 `location_message_id` 参与地点连续性，零游标记录仅展示。其他用户的新入场记录计入新消息提示，当前用户自己的记录仍按通用 self-message 规则排除。
+
+### ChatroomV2MessageDTO
+
+- `type*`: string，业务类型；持久化消息从 `sender_type` 派生。`sender_type=narrator` 时仅 `sender_id=nar/nar_pic` 保持 `narrator`，其他 sender 降级为 `character`；P1/P1I 地点内容为 `tick`
+- `stream_type*`: string，非流式消息为空；流式消息为 `llm_stream_start`、`llm_chunk` 或 `llm_stream_end`，与业务 `type` 独立
+- `ts*`: integer，毫秒时间戳
+- `world_id`、`location_id`、`session_id`: string，消息上下文 ID
+- `global_message_id`、`message_id`、`location_message_id`、`conversation_round_id`: integer，完整消息 ID；V2 不使用旧 WS 的缩写 ID 字段
+- `sender_type`、`sender_id`、`sender_name`、`user_id`: string，发送者元数据
+- `client_msg_id`: string，ACK 关联 ID，位于顶层
+- `message_type`: string，`text` 或 `image`
+- `min_app_version`: integer，消息最低客户端版本
+- `created_at`: string，服务端创建时间
+- `payload*`: object，业务字段容器；普通消息内容为 `payload.content`
+- `err_no*`: integer，业务错误码；成功为 `0`
+- `err_msg*`: string，业务错误信息
+
+`type=tick` 的合法 `payload` 使用 `{ current_time, tick_no, sub_tick_no, global, story_events, characters_moved }`。`story_events[]` 使用 `{ location_id, timestamp, visibility, visible_to, text, clue }`，`characters_moved[]` 使用 `{ char_id, old_loc_id, to_loc_id }`。历史纯文本或服务端无法结构化的 Tick 回退为 `{ content }`。客户端完整保留原始 `payload`，同时解析 typed Tick payload；一个 canonical Tick 只占用自己正数 `location_message_id` 对应的缓存/分页行，派生的 global、story 和 movement 气泡不再各自写入 SQLite 或推进游标。
 
 ### ChatroomNarratorLocationGroup
 
@@ -1274,6 +1293,8 @@ Query：
 
 获取指定世界最近 50 条消息，并按 `location_id` 分组返回。
 
+该接口保留给旧协议的 world 级恢复/诊断链路；location chat 页的 initial、older 和 gap 请求不直接依赖它，V2 地点历史统一走下述 per-location 接口。
+
 Query：
 
 - `world_id*`: string，世界实例 ID
@@ -1290,7 +1311,7 @@ Query：
 
 ### GET `/aitown-chat/api/messages`
 
-获取指定世界、指定地点的历史消息。`limit` 默认 20，最大 100。
+旧协议兼容/诊断接口。获取指定世界、指定地点的扁平历史消息；新 location chat 运行时不再以它作为 initial、older 或 gap 数据源。`limit` 默认 20，最大 100。
 
 Query：
 
@@ -1325,6 +1346,65 @@ Query：
   "current_time": "Day 1, 08:05",
   "tick_no": 3,
   "created_at": "2026-07-27 10:05:00"
+}
+```
+
+### GET `/aitown-chat/api/v2/messages`
+
+获取指定世界、指定地点的 V2 历史消息。HTTP V2 不读取 `x-app-version`，始终返回完整 V2 DTO；`limit` 默认 20，最大 100。
+
+Query：
+
+- `world_id*`: string，世界实例 ID
+- `location_id*`: string，地点 ID
+- `since`: integer，严格使用 `location_message_id` 的向前分页游标；`0` 表示获取最新页
+- `limit`: integer，默认 `20`，最大 `100`
+
+响应 `data`：
+
+- `messages`: `ChatroomV2MessageDTO[]`，按 `location_message_id` 倒序
+- `has_more`: boolean，是否还有更早的地点消息
+- `newest_message_id`: integer，当前请求地点最新的 `location_message_id`，不受 `since` 当前页影响
+
+下一页 `since` 必须使用本页最后一条消息的 `location_message_id`，不得改用 world `message_id`。示例：
+
+```json
+{
+  "err_no": 0,
+  "err_msg": "succ",
+  "data": {
+    "messages": [
+      {
+        "type": "tick",
+        "stream_type": "",
+        "ts": 1786340797000,
+        "world_id": "world_001",
+        "location_id": "loc_2_2_2",
+        "global_message_id": 8702,
+        "message_id": 101,
+        "location_message_id": 29,
+        "conversation_round_id": 7359,
+        "sender_type": "tick",
+        "sender_id": "tick",
+        "sender_name": "SubTick",
+        "message_type": "text",
+        "min_app_version": 0,
+        "created_at": "2026-08-10 11:06:37",
+        "payload": {
+          "current_time": "Day 1, 13:50",
+          "tick_no": 1,
+          "sub_tick_no": 2,
+          "global": "The promise-shaped key pulses.",
+          "story_events": [],
+          "characters_moved": []
+        },
+        "err_no": 0,
+        "err_msg": ""
+      }
+    ],
+    "has_more": false,
+    "newest_message_id": 29
+  }
 }
 ```
 
@@ -1970,7 +2050,7 @@ query：
 
 ## 当前代码对齐状态
 
-截至 2026-07-22，本文档覆盖的 49 个接口已完成主要 HTTP 契约对齐；Collect 已切换为 SQLite 持久化队列和 `events[]` 批量协议，其余接口继续按各自文档维护当前封装、本地 mock 与测试：
+截至 2026-08-10，本文档覆盖的 53 个接口已完成主要 HTTP 契约对齐；Collect 已切换为 SQLite 持久化队列和 `events[]` 批量协议，其余接口继续按各自文档维护当前封装、本地 mock 与测试：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
@@ -1992,8 +2072,9 @@ query：
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
 | `GET /aitown-chat/api/ulocation` | `ChatroomHttpApi.getUserLocations(worldId)` query 使用 `world_id`，响应消费 `locations[].characters[]`，角色字段为 `char_id/player_uid/player_username/name/location_id`；`WorldChatroomService` 用 `player_uid` 识别真实用户并刷新所在 location，本地 mock 从 world detail 角色列表生成同形状响应。 |
-| `GET /aitown-chat/internal/world/messages` | `ChatroomHttpApi.getWorldMessages(worldId)` query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；`WorldChatroomService.refreshLatestMessages(...)` 的 latest 刷新走该 world 级接口，再按响应 location 分桶写入本地队列；`ChatroomHttpMessage` 按新 DTO 解析 `global_message_id/message_id/location_message_id/message_type/current_time/tick_no/created_at`。字段缺失时，旧 `sender_id=nar_pic` 消息兼容为 `image`，其他发送方按 `text`；字段显式为空时按 `text`。 |
-| `GET /aitown-chat/api/messages` | `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)` query 使用 `world_id/location_id/since/limit`，响应直接消费扁平 `data.messages/has_more/newest_message_id`，不套 `locations[]`；用于单 location 的 latest、older 分页和补洞。新版 `user_enter_location.content` 为纯文本，客户端用 `sender_id/location_id/content` 构造入场气泡；旧 typed JSON content 继续兼容。`story_events/characters_moved` 继续解码各自 JSON payload。新版入场消息的正数 `location_message_id` 参与地点连续窗口、补洞、分页和去重；遗留零值记录按 world `message_id` 回退。响应内 `location_id` 为空时会回填请求地点；缓存分页使用 location/world 双边界避免漏载。每条消息仍消费 `message_type`；只有 `image + nar_pic` 渲染图片。本地 mock 返回同形状 DTO，并可显式注入三类时间线记录。 |
+| `GET /aitown-chat/internal/world/messages` | `ChatroomHttpApi.getWorldMessages(worldId)` 保留旧 world 级恢复/诊断能力，响应消费 `locations[].location_id/messages[]`；location chat 页的 initial、older 和 gap 不直接依赖该接口。旧 DTO 继续解析 `global_message_id/message_id/location_message_id/message_type/current_time/tick_no/created_at`。 |
+| `GET /aitown-chat/api/messages` | `ChatroomHttpApi.getLegacyMessages(worldId,locationId,since,limit)` 显式保留旧扁平消息接口，供兼容/诊断使用；旧 typed JSON timeline payload 和图片规则不变。零游标记录中仅 `tick` 保留 world-message 排序/双游标语义，`user_enter_location/story_events/characters_moved` 只兼容入队、展示与后备去重。 |
+| `GET /aitown-chat/api/v2/messages` | `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)` 已切换 V2 per-location 路径；共享 `ChatroomV2Message` 保留 `type/stream_type/ts`、完整 ID、sender、`client_msg_id/message_type/min_app_version/created_at`、原始 `payload` 和数字 `err_no`。`ChatroomHttpMessage` 额外暴露 `businessType/streamType/clientMsgId/minAppVersion/payload/v2TickPayload`。分页和 `newest_message_id` 均严格使用当前地点 `location_message_id`。合法/回退 Tick 均保留正游标；SQLite v4 定向清除旧的游标零 `tick/story_events/characters_moved` 行，新的 canonical Tick 只写一条缓存行。Local mock 支持相同路由、字段、倒序分页和地点 newest 语义。 |
 | `POST /aitown-chat/internal/tick/lock` | 已新增 `ChatroomHttpApi.lockWorld(worldId)`，按 Apifox 同时发送 query `world_id` 与 multipart form `world_id`，响应消费 `locked`。 |
 | `GET /aitown-chat/internal/tick/progress` | 已新增 `ChatroomHttpApi.tickProgress(worldId)`，响应消费 `progress/pending_messages/active_llm_calls`。 |
 | `POST /aitown-chat/internal/tick/unlock` | 已新增 `ChatroomHttpApi.unlockWorld(worldId)`，multipart form 发送 `world_id`，响应消费 `unlocked`。 |

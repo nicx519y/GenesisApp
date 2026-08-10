@@ -368,28 +368,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
   }
 
   LocationChatMessageParser? _parserForMessage(WorldChatroomMessage message) {
-    final timelineParser = switch (message.timelinePayload) {
-      ChatroomUserEnterLocationPayload() =>
-        const UserEnterLocationMessageParser(),
-      ChatroomStoryEventsPayload() => const StoryEventsMessageParser(),
-      ChatroomCharactersMovedPayload() => const CharactersMovedMessageParser(),
-      null => null,
-    };
-    if (timelineParser != null) return timelineParser;
-    if (isChatroomTimelinePayloadSenderType(message.senderType)) return null;
-    final renderKind = resolveChatroomMessageRenderKind(
-      messageType: message.messageType,
-      senderId: message.senderId,
-    );
-    if (renderKind == ChatroomMessageRenderKind.hidden) return null;
-    if (renderKind == ChatroomMessageRenderKind.image) {
-      return const ImageMessageParser();
-    }
-    return switch (locationChatResolvedSenderType(message)) {
-      'narrator' => const NarratorMessageParser(),
-      'tick' => const TickMessageParser(),
-      _ => const TextMessageParser(),
-    };
+    return locationChatMessageParserForTesting(message);
   }
 
   void _syncSenderIdentity(WorldChatroomService service) {
@@ -520,6 +499,53 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     }
     return false;
   }
+}
+
+@visibleForTesting
+LocationChatMessageParser? locationChatMessageParserForTesting(
+  WorldChatroomMessage message,
+) {
+  if (!locationChatMessageHasSupportedExplicitV2Envelope(message)) {
+    return null;
+  }
+  final businessType = locationChatBusinessType(message);
+  final normalizedMessageType = normalizeChatroomMessageType(
+    message.messageType,
+  );
+  switch (businessType) {
+    case 'tick':
+      return const TickMessageParser();
+    case chatroomUserEnterLocationSenderType:
+      return const UserEnterLocationMessageParser();
+    case chatroomStoryEventsSenderType:
+      return const StoryEventsMessageParser();
+    case chatroomCharactersMovedSenderType:
+      return const CharactersMovedMessageParser();
+    case 'narrator':
+      return switch (normalizedMessageType) {
+        chatroomTextMessageType => const NarratorMessageParser(),
+        chatroomImageMessageType => const ImageMessageParser(),
+        _ => null,
+      };
+    case 'user':
+    case 'character':
+    case 'system':
+      if (normalizedMessageType != chatroomTextMessageType) return null;
+      return TextMessageParser(senderType: businessType);
+  }
+  if (message.hasExplicitBusinessType) return null;
+  final renderKind = resolveChatroomMessageRenderKind(
+    messageType: message.messageType,
+    senderId: message.senderId,
+  );
+  if (renderKind == ChatroomMessageRenderKind.hidden) return null;
+  if (renderKind == ChatroomMessageRenderKind.image) {
+    return const ImageMessageParser();
+  }
+  return switch (locationChatResolvedSenderType(message)) {
+    'narrator' => const NarratorMessageParser(),
+    _ => const TextMessageParser(),
+  };
 }
 
 class _LocationChatTimelineVmCacheEntry {

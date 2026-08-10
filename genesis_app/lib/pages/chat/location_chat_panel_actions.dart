@@ -25,7 +25,7 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
         iconData: Icons.copy_outlined,
         onSelected: () => _copyMessageText(message),
       ),
-      if (!message.isMe)
+      if (locationChatMessageCanReportForTesting(message))
         GenesisActionMenuItem(
           label: 'Report',
           iconAsset: genesisReportIconAsset,
@@ -47,7 +47,9 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
   }
 
   Future<void> _copyMessageText(ChatMessageVm message) async {
-    final text = message.isTick ? _tickReportText(message) : message.text;
+    final text = message.isTick
+        ? chatTickMessageCopyText(message)
+        : message.text;
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
     showGenesisToast(context, 'Copied');
@@ -55,14 +57,6 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
 
   String _messageReportTargetId(ChatMessageVm message) {
     return locationChatMessageReportTargetIdForTesting(message);
-  }
-
-  String _tickReportText(ChatMessageVm message) {
-    final tick = message.tickNo > 0
-        ? 'Tick ${message.tickNo}${message.subTickNo > 0 ? '-${message.subTickNo}' : ''}'
-        : 'Tick';
-    final text = message.text.trim();
-    return text.isEmpty ? tick : '$tick · $text';
   }
 
   List<WorldChatroomEntity> _realUsersForCurrentLocation(
@@ -133,4 +127,9 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
     final nameKey = entity.name.trim().toLowerCase();
     return nameKey.isEmpty ? '' : 'name:$nameKey';
   }
+}
+
+@visibleForTesting
+bool locationChatMessageCanReportForTesting(ChatMessageVm message) {
+  return !message.isMe && message.globalMessageId > 0;
 }

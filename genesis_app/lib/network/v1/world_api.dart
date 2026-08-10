@@ -5,7 +5,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// GET /api/v1/world/list
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"pn":1,"rn":10,"scene":"uid","uid":"string","tag":"string","origin_id":"string","keyword":"string"}
   /// ```
@@ -41,7 +41,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// GET /api/v1/world/detail
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"world_id":"string"}
   /// ```
@@ -60,8 +60,8 @@ class WorldV1Api extends V1ApiResource {
 
   /// GET /api/v1/world/map
   ///
-  /// `location_id=root` 返回 world 主地图，其他值返回对应 location 地图。
-  /// definition_version 不为 2 时，服务端返回空对象。
+  /// `location_id=root` returns the main world map; any other value returns the corresponding location map.
+  /// The server returns an empty object when definition_version is not 2.
   Future<Map<String, dynamic>> map({
     required String worldId,
     required String locationId,
@@ -82,7 +82,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// GET /api/v1/world/info
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"world_id":"string"}
   /// ```
@@ -101,7 +101,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// GET /api/v1/world/origin_progress
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"uid":"u_a1b2c3","origin_id":"ori_a1b2c3"}
   /// ```
@@ -122,14 +122,14 @@ class WorldV1Api extends V1ApiResource {
 
   /// GET /api/v1/world/summary/latest
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"origin_id":"O_A1B2C3","world_id":"W_A1B2C3"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"world_id":"W_A1B2C3","origin_id":"O_A1B2C3","tick_no":12,"summary":"莲花殿在第十二个 tick 后恢复平静。","tick_time":1780000000,"created_at":1780000010}]}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"world_id":"W_A1B2C3","origin_id":"O_A1B2C3","tick_no":12,"summary":"Lotus Hall became peaceful again after the twelfth tick.","tick_time":1780000000,"created_at":1780000010}]}}
   /// ```
   Future<Map<String, dynamic>> summaryLatest({
     String? originId,
@@ -149,7 +149,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// GET /api/v1/world/tick/list
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"world_id":"string","pn":1,"rn":10}
   /// ```
@@ -175,9 +175,9 @@ class WorldV1Api extends V1ApiResource {
 
   /// POST /api/v1/world/apply
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
-  /// {"world_id":"string","message":"想加入这个世界"}
+  /// {"world_id":"string","message":"I would like to join this world"}
   /// ```
   ///
   /// Response:
@@ -196,7 +196,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// GET /api/v1/world/apply/list
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"pn":1,"rn":20,"world_id":"string","status":10}
   /// ```
@@ -219,7 +219,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// POST /api/v1/world/apply/review
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"apply_id":"apl_a1b2c3","action":"approve","review_msg":"string"}
   /// ```
@@ -242,7 +242,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// POST /api/v1/world/join
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"world_id":"string","preset_character_id":"char_1","custom_role":{}}
   /// ```
@@ -268,7 +268,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// POST /api/v1/world/tick
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"world_id":"string"}
   /// ```
@@ -283,7 +283,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// POST /api/v1/world/synclastorigin
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"wid":"string"}
   /// ```
@@ -298,7 +298,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// POST /api/v1/world/close
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"wid":"string"}
   /// ```
@@ -313,7 +313,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// POST /api/v1/world/delete
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"world_id":"string"}
   /// ```
@@ -332,7 +332,7 @@ class WorldV1Api extends V1ApiResource {
 
   /// POST /api/v1/world/del
   ///
-  /// 提交参数:
+  /// Request parameters:
   /// ```json
   /// {"wid":"string"}
   /// ```

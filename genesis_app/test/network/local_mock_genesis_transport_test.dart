@@ -58,6 +58,7 @@ void main() {
     expect(imageHistory.messages, hasLength(1));
     expect(imageHistory.messages.single.content, imageUrl);
     expect(imageHistory.messages.single.messageType, 'image');
+    expect(imageHistory.messages.single.businessType, 'narrator');
 
     final imageWorldMessages = await api.chatroomHttp.getWorldMessages(
       worldId: imageWorldId,
@@ -70,7 +71,7 @@ void main() {
     );
   });
 
-  test('local mock can seed flat supplemental chatroom history', () async {
+  test('local mock keeps legacy flat supplemental history explicit', () async {
     const worldId = 'w_timeline_message_contract_test';
     const locationId = 'loc_timeline_message_contract_test';
     LocalMockGenesisTransport.instance.seedChatroomTimelineMessages(
@@ -79,7 +80,7 @@ void main() {
     );
     final api = GenesisApi(useMock: true);
 
-    final history = await api.chatroomHttp.getMessages(
+    final history = await api.chatroomHttp.getLegacyMessages(
       worldId: worldId,
       locationId: locationId,
       since: 0,
@@ -126,6 +127,79 @@ void main() {
       bySenderType[chatroomCharactersMovedSenderType]?.timelinePayload,
       isA<ChatroomCharactersMovedPayload>(),
     );
+  });
+
+  test('local mock V2 history pages only by location message id', () async {
+    const worldId = 'w_v2_message_contract_test';
+    const locationId = 'loc_v2_message_contract_test';
+    LocalMockGenesisTransport.instance.seedChatroomV2TickMessage(
+      worldId: worldId,
+      locationId: locationId,
+    );
+    final api = GenesisApi(useMock: true);
+    await api.chatroomHttp.writeNarrator(
+      worldId: worldId,
+      tickId: 'tick_v2_message_contract_test',
+      locationGroups: const <ChatroomNarratorLocationGroup>[
+        ChatroomNarratorLocationGroup(
+          locationId: locationId,
+          locationName: 'V2 Mock Location',
+          locationSummary: '',
+          characters: <ChatroomNarratorCharacter>[],
+          initialDialogue: <ChatroomNarratorDialogueLine>[
+            ChatroomNarratorDialogueLine(
+              charId: 'nar',
+              charName: 'Narrator',
+              content: 'A newer narrator message.',
+            ),
+            ChatroomNarratorDialogueLine(
+              charId: 'c_mock_iris',
+              charName: 'Iris Vale',
+              content: 'Narrator rows from characters downgrade.',
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final newestPage = await api.chatroomHttp.getMessages(
+      worldId: worldId,
+      locationId: locationId,
+      since: 0,
+      limit: 1,
+    );
+    expect(newestPage.messages, hasLength(1));
+    expect(newestPage.hasMore, isTrue);
+    expect(newestPage.messages.single.businessType, 'character');
+    expect(newestPage.messages.single.senderType, 'narrator');
+    expect(
+      newestPage.messages.single.payload['content'],
+      'Narrator rows from characters downgrade.',
+    );
+    expect(
+      newestPage.newestMessageId,
+      newestPage.messages.single.locationMessageId,
+    );
+
+    final olderPage = await api.chatroomHttp.getMessages(
+      worldId: worldId,
+      locationId: locationId,
+      since: newestPage.messages.single.locationMessageId,
+      limit: 20,
+    );
+    expect(olderPage.messages, hasLength(2));
+    final narrator = olderPage.messages.first;
+    expect(narrator.businessType, 'narrator');
+    expect(narrator.senderId, 'nar');
+    final tick = olderPage.messages.last;
+    expect(tick.businessType, 'tick');
+    expect(tick.senderType, 'tick');
+    expect(tick.locationMessageId, greaterThan(0));
+    expect(tick.v2TickPayload?.tickNo, 4);
+    expect(tick.v2TickPayload?.subTickNo, 1);
+    expect(tick.v2TickPayload?.storyEvents.single.locationId, locationId);
+    expect(olderPage.hasMore, isFalse);
+    expect(olderPage.newestMessageId, newestPage.newestMessageId);
   });
 
   test('local mock persists Gem model selection per world', () async {

@@ -28,12 +28,13 @@ bool isChatroomMessageIdOrderedSupplemental(
   Object? value, {
   required int locationMessageId,
 }) {
-  final normalized = _normalizedType(value);
-  if (normalized == chatroomUserEnterLocationSenderType &&
-      locationMessageId > 0) {
-    return false;
-  }
-  return isChatroomLocationSupplementalSenderType(normalized);
+  // Every persisted V2 location message, including `type=tick`, participates
+  // in the canonical location cursor. Only the cursorless legacy
+  // `tick_advance` projection keeps world-message ordering semantics. The
+  // other cursorless legacy timeline records remain renderable compatibility
+  // items, but do not participate in location paging or gap boundaries.
+  if (locationMessageId > 0) return false;
+  return _normalizedType(value) == 'tick';
 }
 
 sealed class ChatroomTimelinePayload {

@@ -247,7 +247,9 @@ class _DeveloperEndpointHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actionText = isTestEnvironment ? '切换到正式环境' : '切换到测试环境';
+    final actionText = isTestEnvironment
+        ? 'Switch to production'
+        : 'Switch to test';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

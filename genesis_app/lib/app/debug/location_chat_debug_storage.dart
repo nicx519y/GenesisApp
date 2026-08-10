@@ -237,9 +237,21 @@ List<Map<String, Object?>> _storageDebugQueue(
           'location_message_id': _locationMessageId(message),
           'queueMsgId': _locationQueueMessageId(message),
           'locationId': asString(message['location_id']),
+          'type': asString(
+            message['type'],
+            fallback: asString(message['sender_type']),
+          ),
+          'streamType': asString(message['stream_type']),
           'senderType': asString(message['sender_type']),
           'senderId': asString(message['sender_id']),
           'clientMsgId': asString(message['client_msg_id']),
+          'conversationRoundId': asString(
+            message['conversation_round_id'],
+          ),
+          'minAppVersion': asInt(message['min_app_version']),
+          'payloadKeys': message['payload'] is Map
+              ? asJsonMap(message['payload']).keys.toList(growable: false)
+              : const <String>[],
           'contentPreview': _preview(asString(message['content'])),
           'subTickNo': asInt(message['sub_tick_no']),
           'currentTime': asString(message['current_time']),

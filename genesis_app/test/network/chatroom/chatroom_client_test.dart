@@ -1577,7 +1577,447 @@ void main() {
     await controller.disconnect();
     await controller.dispose();
   });
+
+  group('V2 WebSocket contract', () {
+    test('selects V2 only above the 0.3.3 version boundary', () {
+      expect(
+        resolveChatroomProtocolVersion(''),
+        ChatroomProtocolVersion.legacy,
+      );
+      expect(
+        resolveChatroomProtocolVersion('not-semver'),
+        ChatroomProtocolVersion.legacy,
+      );
+      expect(
+        resolveChatroomProtocolVersion('0.3.3+9'),
+        ChatroomProtocolVersion.legacy,
+      );
+      expect(
+        resolveChatroomProtocolVersion('0.3.4-rc'),
+        ChatroomProtocolVersion.v2,
+      );
+      expect(
+        resolveChatroomProtocolVersion('0.3.4'),
+        ChatroomProtocolVersion.v2,
+      );
+      expect(
+        resolveChatroomProtocolVersion('0.3.4+34'),
+        ChatroomProtocolVersion.v2,
+      );
+      expect(
+        resolveChatroomProtocolVersion('1.0.0'),
+        ChatroomProtocolVersion.v2,
+      );
+    });
+
+    test('V2 DTO retains every top-level field and payload', () {
+      final json = <String, dynamic>{
+        'type': 'character',
+        'stream_type': 'llm_chunk',
+        'ts': 1786340797400,
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'session_id': 'sess-1',
+        'global_message_id': 8703,
+        'message_id': 102,
+        'location_message_id': 30,
+        'conversation_round_id': 7360,
+        'sender_type': 'character',
+        'sender_id': 'char-2',
+        'sender_name': 'Elara',
+        'user_id': 'user-1',
+        'client_msg_id': 'client-2',
+        'message_type': 'text',
+        'min_app_version': 34,
+        'created_at': '2026-08-10 11:06:37',
+        'payload': <String, dynamic>{
+          'seq': 3,
+          'content': 'Hello',
+          'current_time': 'Day 1, 13:50',
+        },
+        'err_no': 0,
+        'err_msg': '',
+      };
+
+      final message = ChatroomV2Message.fromJson(json);
+
+      expect(message.toJson(), json);
+      expect(message.isLlmStream, true);
+      expect(message.streamType, 'llm_chunk');
+      expect(message.conversationRoundId, 7360);
+    });
+
+    test('unknown V2 business type is rejected as a single-frame error', () {
+      expect(
+        () => chatroomEventFromV2Message(
+          const ChatroomV2Message(
+            type: 'future_business',
+            payload: <String, dynamic>{},
+          ),
+        ),
+        throwsA(isA<ChatroomProtocolException>()),
+      );
+    });
+
+    test('routes stream_type before business type and decodes typed tick', () {
+      final chunk = chatroomEventFromV2Message(
+        ChatroomV2Message.fromJson(<String, dynamic>{
+          'type': 'narrator',
+          'stream_type': 'llm_chunk',
+          'payload': <String, dynamic>{'seq': 1, 'content': 'A'},
+          'err_no': 0,
+          'err_msg': '',
+        }),
+      );
+      expect(chunk, isA<ChatroomAiStreamChunk>());
+      expect((chunk as ChatroomAiStreamChunk).businessType, 'narrator');
+
+      final tick =
+          chatroomEventFromV2Message(
+                ChatroomV2Message.fromJson(<String, dynamic>{
+                  'type': 'tick',
+                  'stream_type': '',
+                  'world_id': 'world-1',
+                  'location_id': 'loc-1',
+                  'global_message_id': 8702,
+                  'message_id': 101,
+                  'location_message_id': 29,
+                  'conversation_round_id': 7359,
+                  'sender_type': 'tick',
+                  'sender_id': 'tick',
+                  'sender_name': 'SubTick',
+                  'message_type': 'text',
+                  'min_app_version': 0,
+                  'payload': <String, dynamic>{
+                    'current_time': 'Day 1, 13:50',
+                    'tick_no': 0,
+                    'sub_tick_no': 2,
+                    'global': 'The key pulses.',
+                    'story_events': <Object?>[],
+                    'characters_moved': <Object?>[],
+                  },
+                  'err_no': 0,
+                  'err_msg': '',
+                }),
+              )
+              as ChatroomTickAdvanceMessage;
+
+      expect(tick.isV2LocationTick, true);
+      expect(tick.v2TickPayload!.tickNo, 0);
+      expect(tick.v2TickPayload!.globalText, 'The key pulses.');
+      expect(tick.businessType, 'tick');
+      expect(tick.rawPayload['sub_tick_no'], 2);
+    });
+
+    test('sends exact V2 envelopes and treats ACK as receipt only', () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(
+        _FakeChatroomTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: _v2HandshakeSigner,
+      );
+      final session = await client.connect(
+        worldId: 'world-1',
+        locationId: 'loc-1',
+      );
+      expect(session.protocolVersion, ChatroomProtocolVersion.v2);
+
+      final joinFuture = session.join();
+      await _tick();
+      final join = socket.sentFrame('join');
+      expect(join, <String, Object?>{
+        'type': 'join',
+        'stream_type': '',
+        'ts': isA<int>(),
+        'world_id': 'world-1',
+        'client_msg_id': isA<String>(),
+        'payload': <String, Object?>{'location_id': 'loc-1'},
+        'err_no': 0,
+        'err_msg': '',
+      });
+      socket.serverV2Ack(join['client_msg_id']! as String);
+      await joinFuture;
+
+      final sendFuture = session.sendMessage('Hello', clientMsgId: 'client-2');
+      await _tick();
+      expect(socket.sentFrame('send_message'), <String, Object?>{
+        'type': 'send_message',
+        'stream_type': '',
+        'ts': isA<int>(),
+        'world_id': 'world-1',
+        'client_msg_id': 'client-2',
+        'payload': <String, Object?>{'content': 'Hello'},
+        'err_no': 0,
+        'err_msg': '',
+      });
+      socket.serverV2Ack(
+        'client-2',
+        extra: const <String, Object?>{
+          'global_message_id': 9001,
+          'message_id': 1001,
+          'location_message_id': 11,
+          'conversation_round_id': 201,
+        },
+      );
+      final receipt = await sendFuture;
+      expect(receipt.clientMsgId, 'client-2');
+      expect(receipt.hasCanonicalMessageMetadata, false);
+      expect(receipt.messageId, 0);
+
+      await session.sendUserEnterLocation(locationId: 'loc-2');
+      expect(socket.sentFrame('user_enter_location'), <String, Object?>{
+        'type': 'user_enter_location',
+        'stream_type': '',
+        'ts': isA<int>(),
+        'world_id': 'world-1',
+        'client_msg_id': isA<String>(),
+        'payload': <String, Object?>{'location_id': 'loc-2'},
+        'err_no': 0,
+        'err_msg': '',
+      });
+
+      await session.heartbeat();
+      expect(socket.sentFrame('heartbeat'), <String, Object?>{
+        'type': 'heartbeat',
+        'stream_type': '',
+        'ts': isA<int>(),
+        'client_msg_id': isA<String>(),
+        'payload': <String, Object?>{},
+        'err_no': 0,
+        'err_msg': '',
+      });
+
+      await session.leave();
+      expect(socket.sentFrame('leave'), <String, Object?>{
+        'type': 'leave',
+        'stream_type': '',
+        'ts': isA<int>(),
+        'client_msg_id': isA<String>(),
+        'payload': <String, Object?>{},
+        'err_no': 0,
+        'err_msg': '',
+      });
+      await session.disconnect();
+    });
+
+    test('canonical user echo does not complete the V2 ACK future', () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(
+        _FakeChatroomTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: _v2HandshakeSigner,
+      );
+      final session = await client.connect(worldId: 'world-1');
+      var completed = false;
+      final receiptFuture = session.sendMessage(
+        'Hello',
+        clientMsgId: 'client-echo',
+      );
+      unawaited(receiptFuture.then((_) => completed = true));
+      await _tick();
+      socket.serverFrame('user', <String, Object?>{
+        'stream_type': '',
+        'ts': 1786340797200,
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'global_message_id': 8703,
+        'message_id': 102,
+        'location_message_id': 30,
+        'conversation_round_id': 7360,
+        'sender_type': 'user',
+        'sender_id': 'char-1',
+        'sender_name': 'Alice',
+        'user_id': 'u_1',
+        'client_msg_id': 'client-echo',
+        'message_type': 'text',
+        'payload': <String, Object?>{'content': 'Hello'},
+        'err_no': 0,
+        'err_msg': '',
+      });
+      await _tick();
+      expect(completed, false);
+
+      socket.serverV2Ack('client-echo');
+      await receiptFuture;
+      expect(completed, true);
+      await session.disconnect();
+    });
+
+    test('bad V2 frame is isolated and the next frame is delivered', () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(
+        _FakeChatroomTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: _v2HandshakeSigner,
+      );
+      final session = await client.connect(worldId: 'world-1');
+      final failureFuture = session.failures.first;
+      final userFuture = session.events
+          .where((event) => event is ChatroomUserMessage)
+          .cast<ChatroomUserMessage>()
+          .first;
+
+      socket.serverRaw(
+        jsonEncode(<String, Object?>{
+          'type': 'character',
+          'stream_type': 'unsupported_stream',
+          'payload': <String, Object?>{},
+          'err_no': 0,
+          'err_msg': '',
+        }),
+      );
+      expect((await failureFuture).code, 'protocol_error');
+      socket.serverFrame('user', <String, Object?>{
+        'stream_type': '',
+        'payload': <String, Object?>{'content': 'still alive'},
+        'err_no': 0,
+        'err_msg': '',
+      });
+
+      expect((await userFuture).content, 'still alive');
+      expect(socket.closed, false);
+      await session.disconnect();
+    });
+
+    test(
+      'cursorless stream uses a unique candidate and orders chunks',
+      () async {
+        final socket = _FakeChatroomSocket();
+        final client = await _client(
+          _FakeChatroomTransport(socket),
+          autoHeartbeat: false,
+          handshakeHeaderSigner: _v2HandshakeSigner,
+        );
+        final session = await client.connect(worldId: 'world-1');
+        final streamFuture = session.streams.first;
+        socket.serverV2StreamFrame('llm_stream_start');
+        final stream = await streamFuture;
+        final sequences = <int>[];
+        final chunks = <String>[];
+        final subscription = stream.chunks.listen((chunk) {
+          sequences.add(chunk.seq);
+          chunks.add(chunk.chunk);
+        });
+
+        socket.serverV2StreamFrame('llm_chunk', seq: 2, content: 'B');
+        socket.serverV2StreamFrame('llm_chunk', seq: 1, content: 'A');
+        socket.serverV2StreamFrame('llm_chunk', seq: 1, content: 'duplicate');
+        socket.serverV2StreamFrame('llm_stream_end', content: 'AB');
+        await stream.done;
+        await _tick();
+
+        expect(sequences, <int>[1, 2]);
+        expect(chunks, <String>['A', 'B']);
+        expect(stream.content, 'AB');
+        await subscription.cancel();
+        await session.disconnect();
+      },
+    );
+
+    test('stream end may replace the start message id', () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(
+        _FakeChatroomTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: _v2HandshakeSigner,
+      );
+      final session = await client.connect(worldId: 'world-1');
+      final streamFuture = session.streams.first;
+      socket.serverV2StreamFrame(
+        'llm_stream_start',
+        conversationRoundId: 9,
+        messageId: 40,
+      );
+      final stream = await streamFuture;
+
+      socket.serverV2StreamFrame(
+        'llm_stream_end',
+        conversationRoundId: 9,
+        messageId: 41,
+        content: 'authoritative final',
+      );
+      final end = await stream.done;
+
+      expect(end.messageId, 41);
+      expect(stream.content, 'authoritative final');
+      await session.disconnect();
+    });
+
+    test(
+      'composite stream identity isolates sender and reports ambiguity',
+      () async {
+        final socket = _FakeChatroomSocket();
+        final client = await _client(
+          _FakeChatroomTransport(socket),
+          autoHeartbeat: false,
+          handshakeHeaderSigner: _v2HandshakeSigner,
+        );
+        final session = await client.connect(worldId: 'world-1');
+        final streamsFuture = session.streams.take(2).toList();
+        socket.serverV2StreamFrame(
+          'llm_stream_start',
+          senderId: 'char-a',
+          conversationRoundId: 7,
+        );
+        socket.serverV2StreamFrame(
+          'llm_stream_start',
+          senderId: 'char-b',
+          conversationRoundId: 7,
+        );
+        final streams = await streamsFuture;
+        final streamA = streams.singleWhere(
+          (stream) => stream.start.senderId == 'char-a',
+        );
+        final streamB = streams.singleWhere(
+          (stream) => stream.start.senderId == 'char-b',
+        );
+        socket.serverV2StreamFrame(
+          'llm_chunk',
+          senderId: 'char-a',
+          conversationRoundId: 7,
+          seq: 1,
+          content: 'A',
+        );
+        socket.serverV2StreamFrame(
+          'llm_chunk',
+          senderId: 'char-b',
+          conversationRoundId: 7,
+          seq: 1,
+          content: 'B',
+        );
+        await _tick();
+        expect(streamA.content, 'A');
+        expect(streamB.content, 'B');
+
+        final duplicateFuture = session.streams.first;
+        socket.serverV2StreamFrame(
+          'llm_stream_start',
+          senderId: 'char-a',
+          conversationRoundId: 7,
+        );
+        await duplicateFuture;
+        final ambiguityFuture = session.failures.firstWhere(
+          (failure) => failure.code == 'stream_ambiguous',
+        );
+        socket.serverV2StreamFrame(
+          'llm_chunk',
+          senderId: 'char-a',
+          conversationRoundId: 7,
+          seq: 2,
+          content: 'must-not-cross-wire',
+        );
+        expect((await ambiguityFuture).code, 'stream_ambiguous');
+        expect(streamA.content, 'A');
+        await session.disconnect();
+      },
+    );
+  });
 }
+
+Future<Map<String, String>> _v2HandshakeSigner(
+  Uri _,
+  Map<String, String> headers,
+) async => <String, String>{...headers, 'X-App-Version': '0.3.4-rc'};
 
 Future<ChatroomClient> _client(
   ChatroomSocketTransport transport, {
@@ -1737,6 +2177,51 @@ class _FakeChatroomSocket implements ChatroomSocket {
       'err_no': '',
       'err_msg': '',
       'payload': {'client_msg_id': clientMsgId},
+    });
+  }
+
+  void serverV2Ack(
+    String clientMsgId, {
+    Map<String, Object?> extra = const <String, Object?>{},
+  }) {
+    serverFrame('ack', <String, Object?>{
+      'stream_type': '',
+      'ts': 1786340797100,
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'client_msg_id': clientMsgId,
+      'payload': <String, Object?>{},
+      'err_no': 0,
+      'err_msg': '',
+      ...extra,
+    });
+  }
+
+  void serverV2StreamFrame(
+    String streamType, {
+    String senderId = 'char-1',
+    int? conversationRoundId,
+    int? messageId,
+    int? seq,
+    String content = '',
+  }) {
+    serverFrame('character', <String, Object?>{
+      'stream_type': streamType,
+      'ts': 1786340797400,
+      'world_id': 'world-1',
+      'location_id': 'loc-1',
+      if (conversationRoundId != null)
+        'conversation_round_id': conversationRoundId,
+      if (messageId != null) 'message_id': messageId,
+      'sender_type': 'character',
+      'sender_id': senderId,
+      'sender_name': senderId,
+      'payload': <String, Object?>{
+        if (seq != null) 'seq': seq,
+        if (content.isNotEmpty) 'content': content,
+      },
+      'err_no': 0,
+      'err_msg': '',
     });
   }
 

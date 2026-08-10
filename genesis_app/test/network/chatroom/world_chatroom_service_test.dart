@@ -50,6 +50,41 @@ void main() {
     expect(stored.isLlmStreamMessage, isTrue);
   });
 
+  test('positive-cursor tick is canonical without a decoded V2 payload', () {
+    const canonical = WorldChatroomMessage(
+      messageId: 10,
+      locationMessageId: 7,
+      conversationRoundId: '1',
+      roundOrder: 0,
+      tickNo: 0,
+      locationId: 'loc-1',
+      senderType: 'tick',
+      businessType: 'tick',
+      senderId: 'tick',
+      senderName: 'Time',
+      content: 'fallback',
+      createdAt: null,
+    );
+    const cursorless = WorldChatroomMessage(
+      messageId: 11,
+      locationMessageId: 0,
+      conversationRoundId: '1',
+      roundOrder: 0,
+      tickNo: 0,
+      locationId: 'loc-1',
+      senderType: 'tick',
+      businessType: 'tick',
+      senderId: 'tick',
+      senderName: 'Time',
+      content: 'legacy',
+      createdAt: null,
+    );
+
+    expect(canonical.v2TickPayload, isNull);
+    expect(canonical.isV2LocationTick, isTrue);
+    expect(cursorless.isV2LocationTick, isFalse);
+  });
+
   test(
     'WorldChatroomMessage normalizes stored message types and copies them',
     () {
@@ -61,7 +96,39 @@ void main() {
       });
 
       expect(stored.messageType, 'future_format');
-      expect(stored.copyWith(locationId: 'loc-2').messageType, 'future_format');
+      expect(stored.hasExplicitBusinessType, isFalse);
+      final copied = stored.copyWith(locationId: 'loc-2');
+      expect(copied.messageType, 'future_format');
+      expect(copied.hasExplicitBusinessType, isFalse);
+    },
+  );
+
+  test(
+    'stored V2 type remains explicit and restores its typed Tick payload',
+    () {
+      final stored = WorldChatroomMessage.fromStorageJson({
+        'type': 'tick',
+        'sender_type': 'tick',
+        'msg_id': 3,
+        'location_msg_id': 3,
+        'location_id': 'loc-1',
+        'message_type': 'text',
+        'created_at': '2026-08-10T10:00:00Z',
+        'ts': 1,
+        'payload': {
+          'current_time': 'Day 1',
+          'tick_no': 0,
+          'sub_tick_no': 0,
+          'global': 'A bell rings.',
+          'story_events': <Object?>[],
+          'characters_moved': <Object?>[],
+        },
+      });
+
+      expect(stored.hasExplicitBusinessType, isTrue);
+      expect(stored.businessType, 'tick');
+      expect(stored.v2TickPayload?.globalText, 'A bell rings.');
+      expect(stored.createdAt, DateTime.utc(2026, 8, 10, 10));
     },
   );
 
@@ -1101,7 +1168,7 @@ void main() {
   });
 
   test(
-    'chatroom message storage orders timeline payloads by world message id',
+    'cursorless non-tick timelines stay outside canonical location ordering',
     () async {
       final storage = MemoryChatroomMessageStorage();
       await storage.mergeMessages(
@@ -1146,62 +1213,56 @@ void main() {
       );
 
       expect(records.map((message) => message['msg_id']).toList(), [
-        100,
         110,
-        120,
         130,
+        100,
+        120,
       ]);
       expect(records.map((message) => message['location_msg_id']).toList(), [
-        10,
         0,
+        0,
+        10,
         11,
-        0,
       ]);
     },
   );
 
-  test(
-    'supplemental sender type does not collide with a positive location id',
-    () async {
-      final storage = MemoryChatroomMessageStorage();
-      await storage.mergeMessages(
-        ownerUid: 'user-1',
-        worldId: 'world-1',
-        locationId: 'loc-1',
-        messages: [
-          _storageMessageJson(
-            messageId: 100,
-            locationMessageId: 10,
-            locationId: 'loc-1',
-            content: 'ordinary',
-          ),
-          _storageMessageJson(
-            messageId: 110,
-            locationMessageId: 10,
-            locationId: 'loc-1',
-            content: '{}',
-            senderType: chatroomStoryEventsSenderType,
-          ),
-        ],
-      );
+  test('positive location id deduplicates regardless of sender type', () async {
+    final storage = MemoryChatroomMessageStorage();
+    await storage.mergeMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      messages: [
+        _storageMessageJson(
+          messageId: 100,
+          locationMessageId: 10,
+          locationId: 'loc-1',
+          content: 'ordinary',
+        ),
+        _storageMessageJson(
+          messageId: 110,
+          locationMessageId: 10,
+          locationId: 'loc-1',
+          content: '{}',
+          senderType: chatroomStoryEventsSenderType,
+        ),
+      ],
+    );
 
-      final records = await storage.loadLatestMessages(
-        ownerUid: 'user-1',
-        worldId: 'world-1',
-        locationId: 'loc-1',
-        limit: 20,
-      );
+    final records = await storage.loadLatestMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      limit: 20,
+    );
 
-      expect(records.map((message) => message['msg_id']).toList(), [100, 110]);
-      expect(records.map((message) => message['location_msg_id']).toList(), [
-        10,
-        10,
-      ]);
-    },
-  );
+    expect(records.map((message) => message['msg_id']).toList(), [110]);
+    expect(records.map((message) => message['location_msg_id']).toList(), [10]);
+  });
 
   test(
-    'chatroom message storage pages and deletes with dual cursor boundaries',
+    'only cursorless tick pages and deletes with dual cursor boundaries',
     () async {
       final storage = MemoryChatroomMessageStorage();
       await storage.mergeMessages(
@@ -1221,6 +1282,13 @@ void main() {
             locationId: 'loc-1',
             content: '{}',
             senderType: 'user_enter_location',
+          ),
+          _storageMessageJson(
+            messageId: 115,
+            locationMessageId: 0,
+            locationId: 'loc-1',
+            content: 'legacy tick',
+            senderType: 'tick',
           ),
           _storageMessageJson(
             messageId: 120,
@@ -1254,9 +1322,8 @@ void main() {
       );
       expect(older.map((message) => message['msg_id']).toList(), [
         100,
-        110,
+        115,
         120,
-        130,
       ]);
 
       await storage.deleteMessagesAtOrBefore(
@@ -1273,6 +1340,7 @@ void main() {
         limit: 20,
       );
       expect(remaining.map((message) => message['msg_id']).toList(), [
+        110,
         130,
         140,
       ]);
@@ -1387,7 +1455,7 @@ void main() {
   });
 
   test(
-    'flat HTTP timeline records join the requested location queue in order',
+    'flat cursorless timelines join the queue outside location ordering',
     () async {
       final socket = _FakeChatroomSocket();
       final http = _WorldChatroomHttpTransport()
@@ -1469,17 +1537,17 @@ void main() {
 
       final queue = service.state.messagesByLocation['loc-1']!;
       expect(queue.map((message) => message.messageId).toList(), [
-        100,
         110,
-        120,
         130,
         135,
+        100,
+        120,
         140,
       ]);
       expect(queue.map((message) => message.locationId), everyElement('loc-1'));
-      expect(queue[1].timelinePayload, isA<ChatroomUserEnterLocationPayload>());
-      expect(queue[3].timelinePayload, isA<ChatroomStoryEventsPayload>());
-      expect(queue[4].timelinePayload, isA<ChatroomCharactersMovedPayload>());
+      expect(queue[0].timelinePayload, isA<ChatroomUserEnterLocationPayload>());
+      expect(queue[1].timelinePayload, isA<ChatroomStoryEventsPayload>());
+      expect(queue[2].timelinePayload, isA<ChatroomCharactersMovedPayload>());
       expect(page.loadedCount, 6);
       final cached = await storage.loadLatestMessages(
         ownerUid: 'user-1',
@@ -1488,11 +1556,11 @@ void main() {
         limit: 20,
       );
       expect(cached.map((message) => message['msg_id']).toList(), [
-        100,
         110,
-        120,
         130,
         135,
+        100,
+        120,
         140,
       ]);
       await service.dispose();
@@ -1500,7 +1568,7 @@ void main() {
   );
 
   test(
-    'HTTP supplemental messages use message id even with a location id',
+    'V2 HTTP messages deduplicate by positive location message id',
     () async {
       final socket = _FakeChatroomSocket();
       final http = _WorldChatroomHttpTransport()
@@ -1538,12 +1606,12 @@ void main() {
         limit: 20,
       );
 
-      expect(page.loadedCount, 2);
+      expect(page.loadedCount, 1);
       expect(
         service.state.messagesByLocation['loc-1']!.map(
           (message) => message.messageId,
         ),
-        [100, 110],
+        [110],
       );
       final cached = await storage.loadLatestMessages(
         ownerUid: 'user-1',
@@ -1551,7 +1619,7 @@ void main() {
         locationId: 'loc-1',
         limit: 20,
       );
-      expect(cached.map((message) => message['location_msg_id']), [10, 10]);
+      expect(cached.map((message) => message['location_msg_id']), [10]);
       await service.dispose();
     },
   );
@@ -1820,7 +1888,7 @@ void main() {
   );
 
   test(
-    'initializeLeafLocationQueues discards old messages before large gaps',
+    'large-gap discard retains cursorless non-tick timeline records',
     () async {
       final socket = _FakeChatroomSocket();
       final http = _WorldChatroomHttpTransport()
@@ -1844,12 +1912,35 @@ void main() {
         locationId: 'loc-1',
         messages: [
           _storageMessageJson(
-            messageId: 1,
+            messageId: 100,
+            locationMessageId: 1,
             locationId: 'loc-1',
             content: 'old-1',
           ),
           _storageMessageJson(
-            messageId: 2,
+            messageId: 105,
+            locationMessageId: 0,
+            locationId: 'loc-1',
+            content: '{}',
+            senderType: 'user_enter_location',
+          ),
+          _storageMessageJson(
+            messageId: 110,
+            locationMessageId: 0,
+            locationId: 'loc-1',
+            content: 'legacy tick',
+            senderType: 'tick',
+          ),
+          _storageMessageJson(
+            messageId: 115,
+            locationMessageId: 0,
+            locationId: 'loc-1',
+            content: '{}',
+            senderType: 'story_events',
+          ),
+          _storageMessageJson(
+            messageId: 120,
+            locationMessageId: 2,
             locationId: 'loc-1',
             content: 'old-2',
           ),
@@ -1874,9 +1965,9 @@ void main() {
       expect(http.messageSinceByLocation['loc-1'], [0]);
       expect(
         service.state.messagesByLocation['loc-1']!
-            .map((message) => message.locationMessageId)
+            .map((message) => '${message.senderType}:${message.messageId}')
             .toList(),
-        [80, 81],
+        ['user_enter_location:105', 'story_events:115', 'user:80', 'user:81'],
       );
       final cached = await storage.loadLatestMessages(
         ownerUid: 'user-1',
@@ -1884,7 +1975,9 @@ void main() {
         locationId: 'loc-1',
         limit: 20,
       );
-      expect(cached.map((message) => message['location_msg_id']).toList(), [
+      expect(cached.map((message) => message['msg_id']).toList(), [
+        105,
+        115,
         80,
         81,
       ]);
@@ -2361,6 +2454,142 @@ void main() {
     await service.dispose();
   });
 
+  test('disconnect removes provisional stream records only', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      useV2Protocol: true,
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+    socket.serverV2Message(
+      type: 'character',
+      senderId: 'char-2',
+      senderName: 'Bob',
+      messageId: 101,
+      locationMessageId: 101,
+      roundId: 101,
+      content: 'keep me',
+    );
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-1',
+      messageId: 0,
+      locationMessageId: 0,
+      roundId: 102,
+      seq: 1,
+      content: 'remove me',
+    );
+    await _waitFor(
+      () =>
+          service.state.streamMessagesByKey.isNotEmpty &&
+          service.state.messagesByLocation['loc-1']?.any(
+                (message) => message.streaming,
+              ) ==
+              true,
+    );
+
+    await service.disconnect();
+
+    expect(service.state.streamMessagesByKey, isEmpty);
+    expect(
+      service.state.worldMessages.any((message) => message.streaming),
+      isFalse,
+    );
+    expect(
+      service.state.messagesByLocation.values
+          .expand((messages) => messages)
+          .any((message) => message.streaming),
+      isFalse,
+    );
+    expect(
+      service.state.messagesByLocation['loc-1']?.any(
+        (message) => message.content == 'keep me',
+      ),
+      isTrue,
+    );
+    await service.dispose();
+  });
+
+  test(
+    'socket reconnect clears provisional stream and accepts late final',
+    () async {
+      final firstSocket = _FakeChatroomSocket();
+      final secondSocket = _FakeChatroomSocket();
+      final transport = _SequencedChatroomTransport([
+        firstSocket,
+        secondSocket,
+      ]);
+      final service = await _service(
+        socketTransport: transport,
+        reconnectInterval: const Duration(milliseconds: 5),
+        useV2Protocol: true,
+      );
+      await service.connect(worldId: 'world-1', identity: _identity());
+      firstSocket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 102,
+        locationMessageId: 102,
+        roundId: 103,
+        seq: 1,
+        content: 'interrupted',
+      );
+      await _waitFor(() => service.state.streamMessagesByKey.isNotEmpty);
+
+      firstSocket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 102,
+        locationMessageId: 102,
+        roundId: 103,
+        seq: 2,
+        content: ' queued',
+      );
+      await firstSocket.serverClose();
+      await _waitFor(
+        () => transport.connectCount == 2 && service.state.connected,
+      );
+      expect(service.state.streamMessagesByKey, isEmpty);
+      expect(
+        service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.streaming,
+            ) ??
+            false,
+        isFalse,
+      );
+      expect(
+        service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.locationMessageId == 102,
+            ) ??
+            false,
+        isFalse,
+      );
+
+      secondSocket.serverV2Message(
+        type: 'character',
+        senderId: 'char-1',
+        senderName: 'Alice',
+        messageId: 103,
+        locationMessageId: 103,
+        roundId: 103,
+        content: 'late canonical final',
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.locationMessageId == 103,
+            ) ==
+            true,
+      );
+      final lateFinal = service.state.messagesByLocation['loc-1']!.singleWhere(
+        (message) => message.locationMessageId == 103,
+      );
+      expect(lateFinal.content, 'late canonical final');
+      expect(lateFinal.streaming, isFalse);
+      await service.dispose();
+    },
+  );
+
   test('heartbeat sends frames without ack timeout reconnects', () async {
     final firstSocket = _FakeChatroomSocket();
     final secondSocket = _FakeChatroomSocket();
@@ -2644,20 +2873,24 @@ void main() {
           },
         });
       }
-      await _waitFor(() => http.pendingWorldMessages.length == 1);
+      await _waitFor(() => http.pendingWorldMessages.length == 2);
       await _waitFor(
         () =>
             (service.state.messagesByLocation['loc-1'] ?? const []).length ==
             100,
       );
-      expect(http.worldMessagesRequests, 1);
+      expect(http.worldMessagesRequests, 0);
 
       http.pendingWorldMessages[0].complete();
-      await _waitFor(() => http.pendingWorldMessages.length == 2);
       http.pendingWorldMessages[1].complete();
-      await _waitFor(() => http.completedWorldMessages == 2);
+      await _waitFor(() => http.pendingWorldMessages.length == 4);
+      http.pendingWorldMessages[2].complete();
+      http.pendingWorldMessages[3].complete();
+      await _waitFor(() => http.completedWorldMessages == 4);
 
-      expect(http.worldMessagesRequests, 2);
+      expect(http.messagesRequests, 4);
+      expect(http.messagesRequestsByLocation['loc-1'], 2);
+      expect(http.messagesRequestsByLocation['loc-2'], 2);
       await service.dispose();
     },
   );
@@ -2957,7 +3190,12 @@ void main() {
         encodeChatroomTimelinePayload(loc1Message.timelinePayload!),
         encodeChatroomTimelinePayload(payload),
       );
-      await _waitFor(() => http.worldMessagesRequests == 1);
+      await _waitFor(
+        () =>
+            http.messagesRequestsByLocation['loc-1'] == 1 &&
+            http.messagesRequestsByLocation['loc-2'] == 1,
+      );
+      expect(http.worldMessagesRequests, 0);
       await service.dispose();
     },
   );
@@ -3004,14 +3242,21 @@ void main() {
 
       await _waitFor(
         () =>
-            http.worldMessagesRequests == 1 &&
-            service.state.messagesByLocation['loc-1']?.single.messageId == 235,
+            http.messagesRequestsByLocation['loc-1'] == 1 &&
+            http.messagesRequestsByLocation['loc-2'] == 1 &&
+            service.state.messagesByLocation['loc-1']?.any(
+                  (message) => message.messageId == 235,
+                ) ==
+                true,
       );
       expect(
-        service.state.messagesByLocation['loc-1']!.single.timelinePayload,
+        service.state.messagesByLocation['loc-1']!
+            .singleWhere((message) => message.messageId == 235)
+            .timelinePayload,
         isA<ChatroomCharactersMovedPayload>(),
       );
-      expect(http.messagesRequests, 0);
+      expect(http.worldMessagesRequests, 0);
+      expect(http.messagesRequests, 2);
       await service.dispose();
     },
   );
@@ -3106,7 +3351,7 @@ void main() {
       final merged = service.state.messagesByLocation['loc-1']!;
       expect(merged, hasLength(1));
       expect(merged.single.messageId, 232);
-      expect(merged.single.subTickNo, 1);
+      expect(merged.single.subTickNo, 0);
       expect(merged.single.senderName, 'HTTP sub tick');
       expect(merged.single.timelinePayload, isA<ChatroomStoryEventsPayload>());
       final cached = await storage.loadLatestMessages(
@@ -3325,114 +3570,648 @@ void main() {
     await service.dispose();
   });
 
-  test('llm stream updates are matched by location and round id', () async {
+  test('V2 send resolves receipt before canonical echo', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      ackTimeout: const Duration(milliseconds: 500),
+      useV2Protocol: true,
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    final handle = service.sendMessage(
+      'hello',
+      clientMsgId: 'client-ack-first',
+    );
+    var canonicalCompleted = false;
+    unawaited(
+      handle.canonicalMessage.then((_) {
+        canonicalCompleted = true;
+      }),
+    );
+    await _waitFor(() => socket.sentTypes.contains('send_message'));
+
+    socket.serverV2Ack(clientMsgId: handle.clientMsgId);
+    final receipt = await handle.receipt;
+    expect(receipt.clientMsgId, 'client-ack-first');
+    expect(canonicalCompleted, isFalse);
+
+    socket.serverV2Message(
+      type: 'user',
+      senderId: 'user-1',
+      senderName: 'Player One',
+      messageId: 70,
+      locationMessageId: 7,
+      roundId: 700,
+      content: 'hello',
+      clientMsgId: handle.clientMsgId,
+    );
+    final canonical = await handle.canonicalMessage;
+    expect(canonical.globalMessageId, 90070);
+    expect(canonical.messageId, 70);
+    expect(canonical.locationMessageId, 7);
+    expect(canonical.conversationRoundId, '700');
+    expect(canonical.clientMsgId, handle.clientMsgId);
+    await service.dispose();
+  });
+
+  test('V2 send accepts canonical echo before receipt', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      ackTimeout: const Duration(milliseconds: 500),
+      useV2Protocol: true,
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    final handle = service.sendMessage(
+      'echo first',
+      clientMsgId: 'client-echo-first',
+    );
+    var receiptCompleted = false;
+    unawaited(
+      handle.receipt.then((_) {
+        receiptCompleted = true;
+      }),
+    );
+    await _waitFor(() => socket.sentTypes.contains('send_message'));
+
+    socket.serverV2Message(
+      type: 'user',
+      senderId: 'user-1',
+      senderName: 'Player One',
+      messageId: 71,
+      locationMessageId: 8,
+      roundId: 701,
+      content: 'echo first',
+      clientMsgId: handle.clientMsgId,
+    );
+    final canonical = await handle.canonicalMessage;
+    expect(canonical.messageId, 71);
+    expect(receiptCompleted, isFalse);
+
+    socket.serverV2Ack(clientMsgId: handle.clientMsgId);
+    final receipt = await handle.receipt;
+    expect(receipt.clientMsgId, 'client-echo-first');
+    await service.dispose();
+  });
+
+  test(
+    'canonical echo wait can be cancelled without blocking late ingest',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        ackTimeout: const Duration(milliseconds: 500),
+        useV2Protocol: true,
+      );
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      final handle = service.sendMessage(
+        'late echo',
+        clientMsgId: 'client-cancel-echo',
+      );
+      await _waitFor(() => socket.sentTypes.contains('send_message'));
+      socket.serverV2Ack(clientMsgId: handle.clientMsgId);
+      await handle.receipt;
+
+      expect(
+        service.cancelCanonicalMessageWait(
+          handle.clientMsgId,
+          reason: TimeoutException('echo timeout'),
+        ),
+        isTrue,
+      );
+      await expectLater(
+        handle.canonicalMessage,
+        throwsA(isA<TimeoutException>()),
+      );
+      expect(service.cancelCanonicalMessageWait(handle.clientMsgId), isFalse);
+
+      socket.serverV2Message(
+        type: 'user',
+        senderId: 'user-1',
+        senderName: 'Player One',
+        messageId: 72,
+        locationMessageId: 9,
+        roundId: 702,
+        content: 'late echo',
+        clientMsgId: handle.clientMsgId,
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.messageId == 72,
+            ) ==
+            true,
+      );
+      await service.dispose();
+    },
+  );
+
+  test('canonical V2 tick stays in its own location queue', () async {
+    final socket = _FakeChatroomSocket();
+    final storage = _RecordingChatroomMessageStorage();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      messageStorage: storage,
+      useV2Protocol: true,
+    );
+    service.applyWorldSnapshot(_worldSnapshot());
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    socket.serverV2Tick(
+      messageId: 80,
+      locationMessageId: 18,
+      locationId: 'loc-1',
+      globalText: 'The bell rings.',
+    );
+    await _waitFor(
+      () =>
+          service.state.messagesByLocation['loc-1']?.any(
+            (message) => message.locationMessageId == 18,
+          ) ==
+          true,
+    );
+
+    final tick = service.state.messagesByLocation['loc-1']!.singleWhere(
+      (message) => message.locationMessageId == 18,
+    );
+    expect(tick.businessType, 'tick');
+    expect(tick.isV2LocationTick, isTrue);
+    expect(tick.tickNo, 0);
+    expect(tick.v2TickPayload?.globalText, 'The bell rings.');
+    expect(
+      service.state.messagesByLocation['loc-2']?.any(
+            (message) => message.locationMessageId == 18,
+          ) ??
+          false,
+      isFalse,
+    );
+    await _waitFor(() => storage.lastUpsertedMessage?['location_msg_id'] == 18);
+    final storedEnvelope = storage.lastUpsertedMessage!;
+    expect(storedEnvelope['type'], 'tick');
+    expect(storedEnvelope['stream_type'], '');
+    expect(storedEnvelope['world_id'], 'world-1');
+    expect(storedEnvelope['global_message_id'], 90080);
+    expect(storedEnvelope['message_id'], 80);
+    expect(storedEnvelope['location_message_id'], 18);
+    expect(storedEnvelope['conversation_round_id'], 800);
+    expect(storedEnvelope['client_msg_id'], '');
+    expect(storedEnvelope['message_type'], 'text');
+    expect(storedEnvelope['min_app_version'], 0);
+    expect(storedEnvelope['payload'], isA<Map<String, dynamic>>());
+    expect(storedEnvelope['err_no'], 0);
+    expect(storedEnvelope['err_msg'], '');
+    expect(storedEnvelope['created_at'], isA<String>());
+    expect(storedEnvelope['ts'], isA<int>());
+    final restored = WorldChatroomMessage.fromStorageJson(storedEnvelope);
+    expect(restored.hasExplicitBusinessType, isTrue);
+    expect(restored.v2TickPayload?.globalText, 'The bell rings.');
+    await service.dispose();
+  });
+
+  test('legacy socket persistence does not synthesize a V2 type', () async {
+    final socket = _FakeChatroomSocket();
+    final storage = _RecordingChatroomMessageStorage();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      messageStorage: storage,
+      refreshInitialSnapshotOnConnect: false,
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    socket.serverUserMessage(
+      messageId: 82,
+      roundId: 802,
+      content: 'legacy message',
+    );
+    await _waitFor(() => storage.lastUpsertedMessage?['msg_id'] == 82);
+
+    final storedEnvelope = storage.lastUpsertedMessage!;
+    expect(storedEnvelope, isNot(contains('type')));
+    final restored = WorldChatroomMessage.fromStorageJson(storedEnvelope);
+    expect(restored.businessType, 'user');
+    expect(restored.hasExplicitBusinessType, isFalse);
+    await service.dispose();
+  });
+
+  test('V2 HTTP persistence retains the diagnostic envelope fields', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _WorldChatroomHttpTransport()
+      ..messagesByLocation['loc-1'] = [
+        {
+          'type': 'narrator',
+          'stream_type': '',
+          'ts': 1786327200123,
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'session_id': 'session-http',
+          'global_message_id': 90083,
+          'message_id': 83,
+          'location_message_id': 20,
+          'conversation_round_id': 803,
+          'sender_type': 'narrator',
+          'sender_id': 'narrator',
+          'sender_name': 'Narrator',
+          'user_id': '',
+          'client_msg_id': 'client-http',
+          'message_type': 'image',
+          'min_app_version': 304,
+          'created_at': '2026-08-10 10:00:00',
+          'payload': {
+            'content': 'https://cdn.example.com/image.png',
+            'future_field': 'preserved',
+          },
+          'err_no': 23,
+          'err_msg': 'diagnostic',
+        },
+      ];
+    final storage = MemoryChatroomMessageStorage();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+      messageStorage: storage,
+      refreshInitialSnapshotOnConnect: false,
+      useV2Protocol: true,
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    await service.refreshLatestMessages(locationId: 'loc-1');
+    final storedEnvelope = (await storage.loadLatestMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      limit: 20,
+    )).single;
+    expect(storedEnvelope['type'], 'narrator');
+    expect(storedEnvelope['stream_type'], '');
+    expect(storedEnvelope['world_id'], 'world-1');
+    expect(storedEnvelope['session_id'], 'session-http');
+    expect(storedEnvelope['global_message_id'], 90083);
+    expect(storedEnvelope['message_id'], 83);
+    expect(storedEnvelope['location_message_id'], 20);
+    expect(storedEnvelope['conversation_round_id'], 803);
+    expect(storedEnvelope['client_msg_id'], 'client-http');
+    expect(storedEnvelope['message_type'], 'image');
+    expect(storedEnvelope['min_app_version'], 304);
+    expect(storedEnvelope['payload'], {
+      'content': 'https://cdn.example.com/image.png',
+      'future_field': 'preserved',
+    });
+    expect(storedEnvelope['err_no'], 23);
+    expect(storedEnvelope['err_msg'], 'diagnostic');
+    expect(storedEnvelope['created_at'], '2026-08-10 10:00:00');
+    expect(storedEnvelope['ts'], 1786327200123);
+    final restored = WorldChatroomMessage.fromStorageJson(storedEnvelope);
+    expect(restored.hasExplicitBusinessType, isTrue);
+    expect(restored.businessType, 'narrator');
+    expect(restored.clientMsgId, 'client-http');
+    expect(restored.rawPayload['future_field'], 'preserved');
+    await service.dispose();
+  });
+
+  test(
+    'positive-cursor tick without a typed payload does not fan out',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      socket.serverFrame('tick_advance', {
+        'ts': 1786327200000,
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'global_msg_id': 90081,
+        'msg_id': 81,
+        'location_msg_id': 19,
+        'conversation_round_id': 801,
+        'current_time': 'Day 8, 10:01',
+        'payload': <String, Object?>{
+          'content': 'Fallback Tick content',
+          'tick_no': 0,
+          'sub_tick_no': 0,
+        },
+      });
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.locationMessageId == 19,
+            ) ==
+            true,
+      );
+
+      final tick = service.state.messagesByLocation['loc-1']!.singleWhere(
+        (message) => message.locationMessageId == 19,
+      );
+      expect(tick.v2TickPayload, isNull);
+      expect(tick.isV2LocationTick, isTrue);
+      expect(tick.tickNo, 0);
+      expect(
+        service.state.messagesByLocation['loc-2']?.any(
+              (message) => message.locationMessageId == 19,
+            ) ??
+            false,
+        isFalse,
+      );
+      await service.dispose();
+    },
+  );
+
+  test('V2 streams order and deduplicate chunks and isolate senders', () async {
     final socket = _FakeChatroomSocket();
     final messageStorage = _RecordingChatroomMessageStorage();
     final service = await _service(
       socketTransport: _FakeChatroomTransport(socket),
       messageStorage: messageStorage,
+      useV2Protocol: true,
     );
 
     await service.connect(worldId: 'world-1', identity: _identity());
-    socket.serverFrame('llm_stream_start', {
-      'world_id': 'world-1',
-      'session_id': 'sess-1',
-      'location_id': 'loc-1',
-      'global_msg_id': 90010,
-      'msg_id': 10,
-      'location_msg_id': 10,
-      'conversation_round_id': 8,
-      'payload': {
-        'sender_id': 'char-1',
-        'sender_name': 'Alice',
-        'round_order': 1,
-      },
-    });
-    await _waitFor(
-      () => service.state.streamMessagesByKey.containsKey('loc-1|8'),
+    const firstKey = 'world-1|loc-1|8|char-1';
+    const secondKey = 'world-1|loc-1|8|char-2';
+    socket.serverV2StreamFrame(
+      streamType: 'llm_stream_start',
+      senderId: 'char-1',
+      senderName: 'Alice',
+      messageId: 10,
+      locationMessageId: 10,
+      roundId: 8,
     );
-    expect(
-      service.state.streamMessagesByKey['loc-1|8']?.globalMessageId,
-      90010,
+    socket.serverV2StreamFrame(
+      streamType: 'llm_stream_start',
+      senderId: 'char-2',
+      senderName: 'Bob',
+      messageId: 11,
+      locationMessageId: 11,
+      roundId: 8,
     );
-    expect(service.state.streamMessagesByKey['loc-1|8']?.locationMessageId, 10);
-
-    socket.serverFrame('llm_chunk', {
-      'world_id': 'world-1',
-      'session_id': 'sess-1',
-      'location_id': 'loc-2',
-      'global_msg_id': 90010,
-      'msg_id': 10,
-      'location_msg_id': 10,
-      'conversation_round_id': 8,
-      'payload': {
-        'sender_id': 'char-1',
-        'seq': 1,
-        'content': 'wrong',
-        'currentTime': 'Day 8, 09:10',
-      },
-    });
-    await _waitFor(() => service.state.lastFailure?.code == 'stream_missing');
-    expect(service.state.latestSocketCurrentTime, 'Day 8, 09:10');
-
-    socket.serverFrame('llm_chunk', {
-      'world_id': 'world-1',
-      'session_id': 'sess-1',
-      'location_id': 'loc-1',
-      'global_msg_id': 90010,
-      'msg_id': 10,
-      'location_msg_id': 10,
-      'conversation_round_id': 8,
-      'payload': {
-        'sender_id': 'char-1',
-        'seq': 1,
-        'content': 'hel',
-        'current_time': 'Day 8, 09:11',
-      },
-    });
     await _waitFor(
-      () => service.state.streamMessagesByKey['loc-1|8']?.content == 'hel',
+      () =>
+          service.state.streamMessagesByKey.containsKey(firstKey) &&
+          service.state.streamMessagesByKey.containsKey(secondKey),
+    );
+
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-1',
+      messageId: 10,
+      locationMessageId: 10,
+      roundId: 8,
+      seq: 2,
+      content: 'lo',
+    );
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-1',
+      messageId: 10,
+      locationMessageId: 10,
+      roundId: 8,
+      seq: 2,
+      content: 'duplicate',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(service.state.streamMessagesByKey[firstKey]?.content, isEmpty);
+
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-2',
+      messageId: 11,
+      locationMessageId: 11,
+      roundId: 8,
+      seq: 1,
+      content: 'other',
+    );
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-1',
+      messageId: 10,
+      locationMessageId: 10,
+      roundId: 8,
+      seq: 1,
+      content: 'hel',
+      currentTime: 'Day 8, 09:11',
+    );
+    await _waitFor(
+      () =>
+          service.state.streamMessagesByKey[firstKey]?.content == 'hello' &&
+          service.state.streamMessagesByKey[secondKey]?.content == 'other',
     );
     expect(service.state.latestSocketCurrentTime, 'Day 8, 09:11');
 
-    var streamEndStateCount = 0;
-    final streamEndSub = service.states.listen((_) {
-      streamEndStateCount += 1;
-    });
-    socket.serverFrame('llm_stream_end', {
-      'world_id': 'world-1',
-      'session_id': 'sess-1',
-      'location_id': 'loc-1',
-      'global_msg_id': 90010,
-      'msg_id': 10,
-      'location_msg_id': 10,
-      'conversation_round_id': 8,
-      'payload': {
-        'sender_id': 'char-1',
-        'content': 'hello',
-        'current_time': 'Day 8, 09:12',
-      },
-    });
-    await _waitFor(
-      () => !service.state.streamMessagesByKey.containsKey('loc-1|8'),
+    socket.serverV2StreamFrame(
+      streamType: 'llm_stream_end',
+      senderId: 'char-1',
+      messageId: 12,
+      locationMessageId: 12,
+      roundId: 8,
+      content: 'authoritative final',
+      currentTime: 'Day 8, 09:12',
     );
-    await streamEndSub.cancel();
+    await _waitFor(
+      () => !service.state.streamMessagesByKey.containsKey(firstKey),
+    );
+    expect(service.state.streamMessagesByKey, contains(secondKey));
 
     final message = service.state.messagesByLocation['loc-1']!.singleWhere(
-      (message) => message.conversationRoundId == '8',
+      (message) => message.locationMessageId == 12,
     );
-    expect(message.globalMessageId, 90010);
-    expect(message.locationMessageId, 10);
-    expect(message.content, 'hello');
+    expect(
+      service.state.messagesByLocation['loc-1']!.where(
+        (item) => item.locationMessageId == 10,
+      ),
+      isEmpty,
+    );
+    expect(
+      service.state.worldMessages.where(
+        (item) =>
+            item.locationId == 'loc-1' &&
+            item.conversationRoundId == '8' &&
+            item.senderId == 'char-1',
+      ),
+      hasLength(1),
+    );
+    expect(message.globalMessageId, 90012);
+    expect(message.content, 'authoritative final');
     expect(message.currentTime, 'Day 8, 09:12');
     expect(message.streaming, false);
     expect(message.isLlmStreamMessage, isTrue);
-    await _waitFor(() => messageStorage.lastUpsertedMessage != null);
+    await _waitFor(
+      () => messageStorage.lastUpsertedMessage?['location_msg_id'] == 12,
+    );
     expect(messageStorage.lastUpsertedMessage?['is_llm_stream'], isTrue);
+    final cachedAfterEnd = await messageStorage.loadLatestMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      limit: 20,
+    );
+    expect(
+      cachedAfterEnd.where((item) => item['location_msg_id'] == 10),
+      isEmpty,
+    );
     expect(service.state.latestSocketCurrentTime, 'Day 8, 09:12');
-    expect(streamEndStateCount, 1);
+
+    socket.serverV2Message(
+      type: 'character',
+      senderId: 'char-1',
+      senderName: 'Alice',
+      messageId: 12,
+      locationMessageId: 12,
+      roundId: 8,
+      content: 'authoritative',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    final deduplicated = service.state.messagesByLocation['loc-1']!
+        .where((item) => item.locationMessageId == 12)
+        .toList(growable: false);
+    expect(deduplicated, hasLength(1));
+    expect(deduplicated.single.globalMessageId, 90012);
+    expect(deduplicated.single.messageId, 12);
+    expect(deduplicated.single.content, 'authoritative final');
+    await _waitFor(
+      () =>
+          messageStorage.lastUpsertedMessage?['content'] ==
+          'authoritative final',
+    );
+    expect(messageStorage.lastUpsertedMessage?['msg_id'], 12);
+    expect(messageStorage.lastUpsertedMessage?['location_msg_id'], 12);
     await service.dispose();
   });
+
+  test(
+    'V2 direct chunk without ids enters queue and merges through final',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+      );
+      await service.connect(worldId: 'world-1', identity: _identity());
+      const streamKey = 'world-1|loc-1|9|char-1';
+
+      socket.serverV2Message(
+        type: 'character',
+        senderId: 'char-2',
+        senderName: 'Bob',
+        messageId: 89,
+        locationMessageId: 17,
+        roundId: 7,
+        content: 'existing history',
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.locationMessageId == 17,
+            ) ==
+            true,
+      );
+
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 0,
+        locationMessageId: 0,
+        roundId: 9,
+        seq: 1,
+        content: 'partial',
+      );
+      await _waitFor(
+        () =>
+            service.state.streamMessagesByKey[streamKey]?.content ==
+                'partial' &&
+            service.state.messagesByLocation['loc-1']?.any(
+                  (message) =>
+                      message.conversationRoundId == '9' &&
+                      message.senderId == 'char-1' &&
+                      message.streaming,
+                ) ==
+                true,
+      );
+      final transient = service.state.messagesByLocation['loc-1']!.singleWhere(
+        (message) =>
+            message.conversationRoundId == '9' && message.senderId == 'char-1',
+      );
+      expect(transient.globalMessageId, 0);
+      expect(transient.messageId, 0);
+      expect(transient.locationMessageId, 0);
+      expect(
+        service.state.messagesByLocation['loc-1']!.last.conversationRoundId,
+        '9',
+      );
+      expect(
+        service.state.messagesByLocation['loc-1']!.first.locationMessageId,
+        17,
+      );
+
+      socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        senderId: 'char-1',
+        messageId: 0,
+        locationMessageId: 0,
+        roundId: 9,
+        content: 'complete response',
+      );
+      await _waitFor(
+        () =>
+            !service.state.streamMessagesByKey.containsKey(streamKey) &&
+            service.state.messagesByLocation['loc-1']?.any(
+                  (message) =>
+                      message.conversationRoundId == '9' &&
+                      !message.streaming &&
+                      message.content == 'complete response',
+                ) ==
+                true,
+      );
+      expect(
+        service.state.messagesByLocation['loc-1']!.where(
+          (message) =>
+              message.conversationRoundId == '9' &&
+              message.senderId == 'char-1',
+        ),
+        hasLength(1),
+      );
+
+      socket.serverV2Message(
+        type: 'character',
+        senderId: 'char-1',
+        senderName: 'Alice',
+        messageId: 90,
+        locationMessageId: 19,
+        roundId: 9,
+        content: 'complete',
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.locationMessageId == 19,
+            ) ==
+            true,
+      );
+      final canonical = service.state.messagesByLocation['loc-1']!
+          .where(
+            (message) =>
+                message.conversationRoundId == '9' &&
+                message.senderId == 'char-1',
+          )
+          .toList(growable: false);
+      expect(canonical, hasLength(1));
+      expect(canonical.single.globalMessageId, 90090);
+      expect(canonical.single.messageId, 90);
+      expect(canonical.single.locationMessageId, 19);
+      expect(canonical.single.content, 'complete response');
+      expect(canonical.single.isLlmStreamMessage, isTrue);
+      expect(canonical.single.streaming, isFalse);
+      expect(
+        service.state.messagesByLocation['loc-1']!.last.locationMessageId,
+        19,
+      );
+      await service.dispose();
+    },
+  );
 }
 
 Future<WorldChatroomService> _service({
@@ -3443,6 +4222,7 @@ Future<WorldChatroomService> _service({
   Duration ackTimeout = const Duration(milliseconds: 20),
   ChatroomMessageStorage? messageStorage,
   bool refreshInitialSnapshotOnConnect = true,
+  bool useV2Protocol = false,
 }) async {
   final store = MemoryUserSessionStore();
   await store.saveUid('user-1');
@@ -3462,6 +4242,9 @@ Future<WorldChatroomService> _service({
     heartbeatInterval: heartbeatInterval,
     ackTimeout: ackTimeout,
     autoHeartbeat: false,
+    requestHeaderProvider: useV2Protocol
+        ? () async => const <String, String>{'X-App-Version': '0.3.4'}
+        : null,
   );
   return WorldChatroomService(
     api: api,
@@ -3583,6 +4366,39 @@ Map<String, dynamic> _httpMessageJson({
   };
 }
 
+Map<String, dynamic> _asV2HttpMessage(Map<String, dynamic> message) {
+  if (message.containsKey('type') && message['payload'] is Map) {
+    return Map<String, dynamic>.from(message);
+  }
+  final senderType = '${message['sender_type'] ?? ''}'.trim();
+  final content = '${message['content'] ?? ''}';
+  return <String, dynamic>{
+    'type': senderType.isEmpty ? 'user' : senderType,
+    'stream_type': '',
+    'ts': message['ts'],
+    'world_id': message['world_id'] ?? 'world-1',
+    'location_id': message['location_id'] ?? '',
+    'session_id': message['session_id'] ?? '',
+    'global_message_id': message['global_message_id'] ?? 0,
+    'message_id': message['message_id'] ?? 0,
+    'location_message_id':
+        message['location_message_id'] ?? message['location_msg_id'] ?? 0,
+    'conversation_round_id': message['conversation_round_id'] ?? 0,
+    'sender_type': senderType,
+    'sender_id': message['sender_id'] ?? '',
+    'sender_name': message['sender_name'] ?? '',
+    'user_id': message['user_id'] ?? '',
+    'client_msg_id': message['client_msg_id'] ?? '',
+    if (message.containsKey('message_type'))
+      'message_type': message['message_type'],
+    'min_app_version': message['min_app_version'] ?? 0,
+    'created_at': message['created_at'] ?? '',
+    'payload': <String, dynamic>{'content': content},
+    'err_no': 0,
+    'err_msg': '',
+  };
+}
+
 Map<String, dynamic> _storageMessageJson({
   required int messageId,
   required String locationId,
@@ -3695,7 +4511,7 @@ class _WorldChatroomHttpTransport implements HttpTransport {
         'data': {'locations': locations},
       });
     }
-    if (path.endsWith('/aitown-chat/api/messages')) {
+    if (path.endsWith('/aitown-chat/api/v2/messages')) {
       messagesRequests += 1;
       final locationId = request.uri.queryParameters['location_id'] ?? '';
       final since = int.tryParse(request.uri.queryParameters['since'] ?? '');
@@ -3732,6 +4548,7 @@ class _WorldChatroomHttpTransport implements HttpTransport {
             });
       final page = messages
           .take(requestedLimit <= 0 ? 20 : requestedLimit)
+          .map(_asV2HttpMessage)
           .toList(growable: false);
       return _json({
         'err_no': 0,
@@ -3739,13 +4556,14 @@ class _WorldChatroomHttpTransport implements HttpTransport {
         'data': {
           'messages': page,
           'has_more': messages.length > page.length,
-          'newest_message_id': messages.fold<int>(
-            0,
-            (previous, message) =>
-                (message['message_id'] as int? ?? 0) > previous
-                ? message['message_id'] as int
-                : previous,
-          ),
+          'newest_message_id': messages.fold<int>(0, (previous, message) {
+            final locationMessageId =
+                (message['location_message_id'] as int?) ??
+                (message['location_msg_id'] as int?) ??
+                (message['message_id'] as int?) ??
+                0;
+            return locationMessageId > previous ? locationMessageId : previous;
+          }),
         },
       });
     }
@@ -3872,19 +4690,14 @@ class _SequencedWorldMessagesHttpTransport extends _WorldChatroomHttpTransport {
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
-    if (!request.uri.path.endsWith('/aitown-chat/internal/world/messages')) {
+    if (!request.uri.path.endsWith('/aitown-chat/api/v2/messages')) {
       return super.send(request);
     }
-    worldMessagesRequests += 1;
     final completer = Completer<void>();
     pendingWorldMessages.add(completer);
     await completer.future;
     completedWorldMessages += 1;
-    return _json({
-      'err_no': 0,
-      'err_msg': 'succ',
-      'data': {'locations': <Map<String, Object?>>[]},
-    });
+    return super.send(request);
   }
 }
 
@@ -4075,6 +4888,137 @@ class _FakeChatroomSocket implements ChatroomSocket {
         'content': content,
         'created_at': 1717300000000 + messageId,
       },
+    });
+  }
+
+  void serverV2Ack({required String clientMsgId, int errNo = 0}) {
+    serverFrame('ack', {
+      'stream_type': '',
+      'ts': 1786327200000,
+      'world_id': 'world-1',
+      'location_id': '',
+      'session_id': 'sess-1',
+      'sender_type': '',
+      'sender_id': '',
+      'sender_name': '',
+      'user_id': 'user-1',
+      'client_msg_id': clientMsgId,
+      'message_type': '',
+      'min_app_version': 0,
+      'created_at': '',
+      'payload': <String, Object?>{},
+      'err_no': errNo,
+      'err_msg': errNo == 0 ? '' : 'rejected',
+    });
+  }
+
+  void serverV2Tick({
+    required int messageId,
+    required int locationMessageId,
+    required String locationId,
+    required String globalText,
+  }) {
+    serverFrame('tick', {
+      'stream_type': '',
+      'ts': 1786327200000,
+      'world_id': 'world-1',
+      'location_id': locationId,
+      'session_id': 'sess-1',
+      'global_message_id': messageId > 0 ? 90000 + messageId : 0,
+      'message_id': messageId,
+      'location_message_id': locationMessageId,
+      'conversation_round_id': 800,
+      'sender_type': 'tick',
+      'sender_id': 'tick',
+      'sender_name': 'Time',
+      'user_id': '',
+      'client_msg_id': '',
+      'message_type': 'text',
+      'min_app_version': 0,
+      'created_at': '2026-08-10 10:00:00',
+      'payload': <String, Object?>{
+        'current_time': 'Day 8, 10:00',
+        'tick_no': 0,
+        'sub_tick_no': 0,
+        'global': globalText,
+        'story_events': <Object?>[],
+        'characters_moved': <Object?>[],
+      },
+      'err_no': 0,
+      'err_msg': '',
+    });
+  }
+
+  void serverV2StreamFrame({
+    required String streamType,
+    required String senderId,
+    String senderName = '',
+    required int messageId,
+    required int locationMessageId,
+    required int roundId,
+    int? seq,
+    String content = '',
+    String currentTime = '',
+    String locationId = 'loc-1',
+  }) {
+    serverFrame('character', {
+      'stream_type': streamType,
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': locationId,
+      'global_message_id': messageId > 0 ? 90000 + messageId : 0,
+      'message_id': messageId,
+      'location_message_id': locationMessageId,
+      'conversation_round_id': roundId,
+      'sender_type': 'character',
+      'sender_id': senderId,
+      'sender_name': senderName,
+      'user_id': '',
+      'client_msg_id': '',
+      'message_type': 'text',
+      'min_app_version': 0,
+      'created_at': '2026-08-10 10:00:00',
+      'payload': <String, Object?>{
+        if (seq != null) 'seq': seq,
+        'content': content,
+        if (currentTime.isNotEmpty) 'current_time': currentTime,
+      },
+      'err_no': 0,
+      'err_msg': '',
+    });
+  }
+
+  void serverV2Message({
+    required String type,
+    required String senderId,
+    required String senderName,
+    required int messageId,
+    required int locationMessageId,
+    required int roundId,
+    required String content,
+    String clientMsgId = '',
+    String locationId = 'loc-1',
+  }) {
+    serverFrame(type, {
+      'stream_type': '',
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': locationId,
+      'global_message_id': 90000 + messageId,
+      'message_id': messageId,
+      'location_message_id': locationMessageId,
+      'conversation_round_id': roundId,
+      'sender_type': type,
+      'sender_id': senderId,
+      'sender_name': senderName,
+      'user_id': type == 'user' ? 'user-1' : '',
+      'client_msg_id': clientMsgId,
+      'message_type': 'text',
+      'min_app_version': 0,
+      'created_at': '2026-08-10 10:00:00',
+      'payload': <String, Object?>{'content': content},
+      'err_no': 0,
+      'err_msg': '',
     });
   }
 }

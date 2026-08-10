@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -52,6 +53,48 @@ class WorldChatroomOlderMessagesPage {
   final bool hasMore;
 }
 
+/// The transport-level acknowledgement for a submitted chat message.
+///
+/// V2 ACK frames intentionally do not contain canonical message ids. Those
+/// arrive on [ChatroomSendHandle.canonicalMessage] via the user echo.
+class ChatroomSendReceipt {
+  const ChatroomSendReceipt({
+    required this.clientMsgId,
+    required this.receivedAt,
+  });
+
+  final String clientMsgId;
+  final DateTime? receivedAt;
+
+  factory ChatroomSendReceipt.fromAck(
+    ChatroomAck ack, {
+    required String fallbackClientMsgId,
+  }) {
+    return ChatroomSendReceipt(
+      clientMsgId: ack.clientMsgId.trim().isEmpty
+          ? fallbackClientMsgId
+          : ack.clientMsgId.trim(),
+      receivedAt: ack.ts,
+    );
+  }
+}
+
+/// A two-stage V2 send operation.
+///
+/// [receipt] confirms that the server accepted the command. The authoritative
+/// ids and conversation round are available only from [canonicalMessage].
+class ChatroomSendHandle {
+  const ChatroomSendHandle({
+    required this.clientMsgId,
+    required this.receipt,
+    required this.canonicalMessage,
+  });
+
+  final String clientMsgId;
+  final Future<ChatroomSendReceipt> receipt;
+  final Future<WorldChatroomMessage> canonicalMessage;
+}
+
 enum GemBalanceAlertKind { insufficient, low }
 
 class GemBalanceAlert {
@@ -73,6 +116,28 @@ class _LocationMessageGap {
   final int upper;
 
   int get missingCount => upper - lower - 1;
+}
+
+class _ChatroomStreamAccumulator {
+  _ChatroomStreamAccumulator({required this.message, int firstSequence = 1})
+    : nextSequence = firstSequence;
+
+  WorldChatroomMessage message;
+  int nextSequence;
+  final SplayTreeMap<int, String> chunks = SplayTreeMap<int, String>();
+
+  bool addChunk(int sequence, String content) {
+    if (sequence < nextSequence || chunks.containsKey(sequence)) return false;
+    chunks[sequence] = content;
+    final contiguous = StringBuffer();
+    while (chunks.containsKey(nextSequence)) {
+      contiguous.write(chunks.remove(nextSequence));
+      nextSequence += 1;
+    }
+    if (contiguous.isEmpty) return false;
+    message = message.copyWith(content: '${message.content}$contiguous');
+    return true;
+  }
 }
 
 class WorldChatroomService {
@@ -126,6 +191,11 @@ class WorldChatroomService {
   int _transientCharactersMovedSequence = 0;
   final Map<String, Future<List<WorldChatroomMessage>>>
   _latestMessageFetchFutures = <String, Future<List<WorldChatroomMessage>>>{};
+  final Map<String, Completer<WorldChatroomMessage>> _canonicalEchoCompleters =
+      <String, Completer<WorldChatroomMessage>>{};
+  final Map<String, _ChatroomStreamAccumulator> _streamAccumulators =
+      <String, _ChatroomStreamAccumulator>{};
+  int _sendClientMessageSequence = 0;
   bool _heartbeatInFlight = false;
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
@@ -488,12 +558,72 @@ class WorldChatroomService {
     );
   }
 
-  Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) {
+  ChatroomSendHandle sendMessage(String text, {String? clientMsgId}) {
     final session = _session;
     if (session == null) {
       throw const ChatroomProtocolException('chatroom is not connected');
     }
-    return session.sendMessage(text, clientMsgId: clientMsgId);
+    final requestedClientMsgId = clientMsgId?.trim() ?? '';
+    final resolvedClientMsgId = requestedClientMsgId.isNotEmpty
+        ? requestedClientMsgId
+        : '${DateTime.now().microsecondsSinceEpoch}-${++_sendClientMessageSequence}';
+    final canonicalCompleter = _canonicalEchoCompleters.putIfAbsent(
+      resolvedClientMsgId,
+      Completer<WorldChatroomMessage>.new,
+    );
+    unawaited(
+      canonicalCompleter.future.then<void>(
+        (_) {},
+        onError: (Object _, StackTrace __) {},
+      ),
+    );
+    final receipt = session
+        .sendMessage(text, clientMsgId: resolvedClientMsgId)
+        .then(
+          (ack) => ChatroomSendReceipt.fromAck(
+            ack,
+            fallbackClientMsgId: resolvedClientMsgId,
+          ),
+        )
+        .catchError((Object error, StackTrace stackTrace) {
+          if (identical(
+            _canonicalEchoCompleters[resolvedClientMsgId],
+            canonicalCompleter,
+          )) {
+            _canonicalEchoCompleters.remove(resolvedClientMsgId);
+          }
+          if (!canonicalCompleter.isCompleted) {
+            canonicalCompleter.completeError(error, stackTrace);
+          }
+          Error.throwWithStackTrace(error, stackTrace);
+        });
+    return ChatroomSendHandle(
+      clientMsgId: resolvedClientMsgId,
+      receipt: receipt,
+      canonicalMessage: canonicalCompleter.future,
+    );
+  }
+
+  /// Stops waiting for a canonical user echo without affecting message
+  /// ingestion. A late echo will still be merged into the location queue.
+  bool cancelCanonicalMessageWait(String clientMsgId, {Object? reason}) {
+    final resolvedClientMsgId = clientMsgId.trim();
+    if (resolvedClientMsgId.isEmpty) return false;
+    final completer = _canonicalEchoCompleters.remove(resolvedClientMsgId);
+    if (completer == null) return false;
+    if (!completer.isCompleted) {
+      completer.completeError(
+        reason ??
+            ChatroomFailureEvent(
+              code: 'canonical_echo_cancelled',
+              message: 'Stopped waiting for the canonical user message',
+              clientMsgId: resolvedClientMsgId,
+              sourceType: 'send_message',
+              requestType: 'send_message',
+            ),
+      );
+    }
+    return true;
   }
 
   Future<WorldChatroomOlderMessagesPage> loadOlderMessages({
@@ -654,6 +784,16 @@ class WorldChatroomService {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    final disposeFailure = const ChatroomFailureEvent(
+      code: 'service_disposed',
+      message: 'Chatroom service was disposed',
+      sourceType: 'send_message',
+      requestType: 'send_message',
+    );
+    for (final completer in _canonicalEchoCompleters.values) {
+      if (!completer.isCompleted) completer.completeError(disposeFailure);
+    }
+    _canonicalEchoCompleters.clear();
     _userLocationsRefreshGeneration += 1;
     _userLocationsRefreshPending = false;
     _latestWorldMessagesRefreshPending = false;
