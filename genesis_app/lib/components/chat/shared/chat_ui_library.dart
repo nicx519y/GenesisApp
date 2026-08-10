@@ -48,12 +48,53 @@ const SystemUiOverlayStyle kChatWhiteSystemUiOverlayStyle =
       statusBarBrightness: Brightness.light,
     );
 
+const SystemUiOverlayStyle kChatTransparentLightSystemUiOverlayStyle =
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+    );
+
 const SystemUiOverlayStyle kChatDarkHeaderSystemUiOverlayStyle =
     SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
       statusBarBrightness: Brightness.dark,
     );
+
+class ChatEdgeToEdgeSystemUiLease {
+  ChatEdgeToEdgeSystemUiLease._(this._enabled);
+
+  static int _activeCount = 0;
+
+  final bool _enabled;
+  bool _released = false;
+
+  factory ChatEdgeToEdgeSystemUiLease.acquire() {
+    final enabled = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    if (enabled) {
+      _activeCount += 1;
+      if (_activeCount == 1) {
+        unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
+      }
+    }
+    return ChatEdgeToEdgeSystemUiLease._(enabled);
+  }
+
+  void release() {
+    if (_released) return;
+    _released = true;
+    if (!_enabled || _activeCount <= 0) return;
+    _activeCount -= 1;
+    if (_activeCount != 0) return;
+    unawaited(
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      ),
+    );
+  }
+}
 
 final ChatUiStyleConfig kChatWhiteHeaderStyle = ChatUiStyleConfig.standard
     .copyWith(headerBackgroundColor: Colors.white);
