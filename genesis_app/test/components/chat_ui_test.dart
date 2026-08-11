@@ -12,6 +12,17 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_message_image.dart';
 
 void main() {
+  test('private chat uses a transparent status bar with dark icons', () {
+    expect(
+      kChatTransparentLightSystemUiOverlayStyle.statusBarColor,
+      Colors.transparent,
+    );
+    expect(
+      kChatTransparentLightSystemUiOverlayStyle.statusBarIconBrightness,
+      Brightness.dark,
+    );
+  });
+
   LocationChatScrollCoordinator locationChatCoordinator(
     ScrollController controller,
   ) {
