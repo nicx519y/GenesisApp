@@ -250,9 +250,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   }
 
   String _latestMessageLocalId() {
-    final nonSystem = _messages.where((message) => !message.isSystem);
-    if (nonSystem.isEmpty) return '';
-    return nonSystem.last.localId;
+    final unreadCandidates = _messages.where(
+      (message) => message.status != 'system',
+    );
+    if (unreadCandidates.isEmpty) return '';
+    return unreadCandidates.last.localId;
   }
 
   bool _syncHasMoreOlderMessagesForSource(List<WorldChatroomMessage> source) {

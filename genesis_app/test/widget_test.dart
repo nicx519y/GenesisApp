@@ -512,6 +512,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.myLaunchPresetCharacters,
     this.myLaunchPresetCharactersCompleter,
     this.worldMapUrl = '',
+    this.worldLastChatLocationId,
     this.worldCharacters,
     this.worldLocations,
     this.worldSummaryLatestItems,
@@ -550,6 +551,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? myLaunchPresetCharacters;
   final Completer<TransportResponse>? myLaunchPresetCharactersCompleter;
   final String worldMapUrl;
+  final String? worldLastChatLocationId;
   final List<Map<String, Object?>>? worldCharacters;
   final List<Map<String, Object?>>? worldLocations;
   final List<Map<String, Object?>>? worldSummaryLatestItems;
@@ -1169,6 +1171,8 @@ class _RecordingV1ListTransport implements HttpTransport {
         'origin_version': '1',
         'origin_version_time': '2026-05-01T00:00:00Z',
         'definition_version': worldDefinitionVersion,
+        if (worldLastChatLocationId != null)
+          'last_chat_location_id': worldLastChatLocationId,
         'brief': 'World detail subtitle',
         'setting': 'World detail setting',
         'events': ['World detail loaded.'],
@@ -18532,6 +18536,56 @@ void main() {
       'location_id': 'l_w_test_1',
     });
   });
+
+  testWidgets('world Tilemap prefers the last chat location on first entry', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'anonymous',
+      worldDefinitionVersion: 2,
+      worldLastChatLocationId: 'l_w_test_1_child',
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tilemap = tester.widget<Tilemap>(find.byType(Tilemap));
+    expect(tilemap.preferredFocusLocationId, 'l_w_test_1_child');
+    expect(
+      transport
+          .requestsFor('/api/v1/world/map')
+          .single
+          .uri
+          .queryParameters['location_id'],
+      'l_w_test_1',
+    );
+  });
+
+  testWidgets(
+    'world Tilemap keeps its existing focus fallback without history',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'anonymous',
+        worldDefinitionVersion: 2,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Tilemap>(find.byType(Tilemap)).preferredFocusLocationId,
+        '',
+      );
+    },
+  );
 
   testWidgets('world detail sheet pauses Tilemap animations while open', (
     WidgetTester tester,

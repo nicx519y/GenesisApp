@@ -241,6 +241,7 @@ Origin detail 增量核对时间：2026-08-05
 - `origin_version`: string
 - `origin_version_time`: string
 - `definition_version*`: integer，地图定义版本；`1` 为旧版地图，`2` 为新版 2.5D 地图
+- `last_chat_location_id*`: string，`world/detail` 返回当前用户最后聊天的 location ID；没有记录时为空字符串，其他复用 `WorldInfo` 的端点不保证返回
 - `owner_uid`: string，创建者 uid，来自 `tbl_world.owner_uid`
 - `owner_name`: string，创建者姓名；用户不存在时为空串
 - `brief`: string
@@ -609,7 +610,7 @@ Query：
 
 ### GET `/api/v1/world/detail`
 
-返回单个 world 的完整详情：基本信息、统计信息、角色列表和 location。`info` 返回 `definition_version`，不返回 `tile_types`；主地图及 location 不返回 `map_json`，需要时调用 `/api/v1/world/map`。完整 tick 列表使用 `/api/v1/world/tick/list`。
+返回单个 world 的完整详情：基本信息、统计信息、角色列表和 location。`info` 返回 `definition_version` 和当前用户的 `last_chat_location_id`，不返回 `tile_types`；主地图及 location 不返回 `map_json`，需要时调用 `/api/v1/world/map`。完整 tick 列表使用 `/api/v1/world/tick/list`。
 
 Query：
 
@@ -2066,7 +2067,7 @@ query：
 | `GET /api/v1/user/followers` | 已新增 `FollowV1Api.followers(uid,pn,rn)`。 |
 | `GET /api/v1/world/list` | `WorldV1Api.list` query 已使用 `scene/tag/origin_id/uid/keyword/pn/rn`；自有数据只传 `scene=mine`，指定用户数据传 `scene=uid&uid=...`，标签数据传 `scene=tag&tag=...`；首页和个人 world 列表可消费 `list[].info + stats`。 |
 | `GET /api/v1/world/info` | 已新增 `WorldV1Api.info(worldId)` 与 `GenesisApi.getWorldInfo(wid)`，query 使用 `world_id`；响应消费 `info + stats`，不期待 `relation_status/characters/locations/ticks`。 |
-| `GET /api/v1/world/detail` | `WorldV1Api.detail` query 只使用 `world_id`；详情 mapper 消费 `info.definition_version`、`info.metric`、`relation_status` 与 `locations[].location_description/location_paragraph/location_timestamp/dialogue`；地图 JSON 按需通过 `/world/map` 获取，完整 tick 列表通过 `/world/tick/list` 获取。 |
+| `GET /api/v1/world/detail` | `WorldV1Api.detail` query 只使用 `world_id`；详情 mapper 消费 `info.definition_version`、`info.last_chat_location_id`、`info.metric`、`relation_status` 与 `locations[].location_description/location_paragraph/location_timestamp/dialogue`；World Tilemap 首次进入时优先聚焦最后聊天 location 的当前可见节点；地图 JSON 按需通过 `/world/map` 获取，完整 tick 列表通过 `/world/tick/list` 获取。 |
 | `GET /api/v1/world/map` | 已新增 `WorldV1Api.map(worldId,locationId)` 与 `GenesisApi.getWorldMap(...)`，query 使用 `world_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/shadow/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
 | `GET /api/v1/world/tick/list` | `WorldV1Api.tickList(worldId,pn,rn)` 与 `GenesisApi.getWorldTicks(wid,limit,offset)` 使用 `world_id/pn/rn`；服务端只返回 `status=50 (p2_done)` 的最新完成 tick，客户端完整保留 `sub_tick_no`、`tick_result.current_time`、段落可见性/线索/整数指标增量及 location groups。 |
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |

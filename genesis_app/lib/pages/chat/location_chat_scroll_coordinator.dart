@@ -6,7 +6,11 @@ import '../../components/chat/shared/chat_ui.dart';
 
 enum LocationChatViewportMode { initializing, followingLatest, detached }
 
-enum LocationChatBottomReason { sentMessage, unseenMessageNotice }
+enum LocationChatBottomReason {
+  sentMessage,
+  unseenMessageNotice,
+  composerFocus,
+}
 
 enum LocationChatBottomBehavior { jump, animate }
 

@@ -27,6 +27,7 @@ extension _WorldPageDetailSync on _WorldPageState {
     WorldDetail world, {
     bool clearInitialLoadError = false,
   }) {
+    _initialTilemapPreferredFocusLocationId ??= world.lastChatLocationId.trim();
     final canTrackWorldProgress = shouldConnectWorldChatroom(
       world.relationStatus,
     );

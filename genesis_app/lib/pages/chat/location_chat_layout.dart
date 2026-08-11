@@ -90,7 +90,14 @@ extension _LocationChatLayout on _LocationChatPanelState {
   }
 
   void _handleComposerFocusChanged() {
-    if (mounted) _setLocationChatState(() {});
+    if (!mounted) return;
+    if (_composerFocusNode.hasFocus) {
+      _scrollCoordinator.requestBottom(
+        reason: LocationChatBottomReason.composerFocus,
+        behavior: LocationChatBottomBehavior.jump,
+      );
+    }
+    _setLocationChatState(() {});
   }
 
   void _handleDraftTextChanged() {

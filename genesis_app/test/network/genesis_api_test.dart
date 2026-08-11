@@ -2003,6 +2003,7 @@ void main() {
               'world_name': 'World One',
               'origin_id': 'o_1',
               'definition_version': 2,
+              'last_chat_location_id': 'loc_1',
               'owner_uid': 'u_1',
               'owner_name': 'Tester',
               'metric': const <String, Object?>{
@@ -2077,6 +2078,12 @@ void main() {
     expect(world.relationStatus, 'owner');
     expect(world.metric['label'], 'Goal Progress');
     expect(world.definitionVersion, 2);
+    expect(world.lastChatLocationId, 'loc_1');
+    expect(world.copyWith().lastChatLocationId, 'loc_1');
+    expect(
+      world.copyWith(lastChatLocationId: 'loc_2').lastChatLocationId,
+      'loc_2',
+    );
     expect(world.latestNarrator, 'Narrator from tick result.');
     expect(tickResult['narrator'], 'Narrator from tick result.');
     expect(paragraph['location_id'], 'loc_1');
@@ -2085,6 +2092,31 @@ void main() {
       'name': 'Iris Vale',
       'delta': '+3 focus',
     });
+  });
+
+  test('getWorld defaults a missing last chat location to empty', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"info":{"world_id":"w_1","world_name":"World One"},"stats":{}}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final world = await api.getWorld('w_1');
+
+    expect(world.lastChatLocationId, '');
   });
 
   test('getWorldMap accepts empty data for legacy definitions', () async {

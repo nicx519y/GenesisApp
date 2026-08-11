@@ -144,9 +144,156 @@ void main() {
     );
   });
 
+  testWidgets('streaming messages preserve an unfocused detached viewport', (
+    tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('user-1');
+    await sessionStore.saveAuthToken('token-1');
+    final services = ServiceRegistry.build(
+      config: const AppConfig(useMock: true),
+      sessionStoreOverride: sessionStore,
+      chatroomMessagesOverride: MemoryChatroomMessageStorage(),
+    );
+    final socket = _LocationChatTestSocket();
+    final client = ChatroomClient(
+      wsBaseUrl: 'ws://localhost:8082/aitown-chat/ws',
+      sessionStore: sessionStore,
+      transport: _LocationChatTestTransport(socket),
+      autoHeartbeat: false,
+    );
+    final service = WorldChatroomService(
+      api: services.api,
+      client: client,
+      messageStorage: MemoryChatroomMessageStorage(),
+      refreshInitialSnapshotOnConnect: false,
+    );
+    await service.connect(
+      worldId: 'world-current',
+      identity: const ChatroomConnectionIdentity(
+        userId: 'user-1',
+        senderId: 'user-1',
+        senderName: 'Player One',
+      ),
+    );
+    for (var id = 1; id <= 20; id += 1) {
+      socket.serverUserMessage(messageId: id);
+    }
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => service.state.messagesByLocation['location-current']?.length == 20,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: service,
+            leaveOnInactive: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,
+      isFalse,
+    );
+
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey('location-chat-message-list')),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    position.jumpTo(position.maxScrollExtent - 300);
+    await tester.pump();
+    await tester.drag(scrollable, const Offset(0, 40));
+    await tester.pump();
+    expect(
+      tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey('location-chat-message-list')),
+          )
+          .coordinator
+          .mode,
+      LocationChatViewportMode.detached,
+    );
+    final viewportCoordinator = tester
+        .widget<LocationChatAnchoredMessageList>(
+          find.byKey(const ValueKey('location-chat-message-list')),
+        )
+        .coordinator;
+    expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+    expect(
+      position.maxScrollExtent - position.pixels,
+      greaterThan(LocationChatScrollCoordinator.bottomTolerance),
+    );
+    final pixelsBefore = position.pixels;
+    final localIdsBeforeStream = tester
+        .widget<LocationChatAnchoredMessageList>(
+          find.byKey(const ValueKey('location-chat-message-list')),
+        )
+        .messages
+        .map((message) => message.localId)
+        .toList(growable: false);
+    final observedOffsets = <double>[];
+    void recordOffset() => observedOffsets.add(position.pixels);
+    position.addListener(recordOffset);
+
+    socket.serverLlmStreamStart(messageId: 21);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          service
+              .state
+              .streamMessagesByKey['world-current|location-current|21|char-1'] !=
+          null,
+    );
+    expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+    final localIdsAfterStreamStart = tester
+        .widget<LocationChatAnchoredMessageList>(
+          find.byKey(const ValueKey('location-chat-message-list')),
+        )
+        .messages
+        .map((message) => message.localId)
+        .toList(growable: false);
+    expect(
+      localIdsAfterStreamStart.take(localIdsBeforeStream.length),
+      localIdsBeforeStream,
+    );
+    socket.serverLlmChunk(messageId: 21, content: 'streaming');
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          service
+              .state
+              .streamMessagesByKey['world-current|location-current|21|char-1']
+              ?.content ==
+          'streaming',
+    );
+    expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+    await tester.pump();
+    position.removeListener(recordOffset);
+
+    expect(position.pixels, closeTo(pixelsBefore, 0.1));
+    expect(
+      observedOffsets,
+      everyElement(inInclusiveRange(pixelsBefore - 0.1, pixelsBefore + 0.1)),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(service.dispose());
+  });
+
   testWidgets(
-    'streaming messages never visit bottom while viewport is away from bottom',
+    'composer focus follows latest before keyboard resize then streaming stays detached after user drag',
     (tester) async {
+      addTearDown(tester.view.resetViewInsets);
       final sessionStore = MemoryUserSessionStore();
       await sessionStore.saveUid('user-1');
       await sessionStore.saveAuthToken('token-1');
@@ -200,7 +347,169 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
-      await tester.tap(find.byType(TextField));
+
+      final textField = find.byType(TextField);
+      expect(tester.widget<TextField>(textField).focusNode?.hasFocus, isFalse);
+      final scrollable = find.descendant(
+        of: find.byKey(const ValueKey('location-chat-message-list')),
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(position.maxScrollExtent - 300);
+      await tester.pump();
+      await tester.drag(scrollable, const Offset(0, 40));
+      await tester.pump();
+
+      final viewportCoordinator = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey('location-chat-message-list')),
+          )
+          .coordinator;
+      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+      expect(
+        position.maxScrollExtent - position.pixels,
+        greaterThan(LocationChatScrollCoordinator.bottomTolerance),
+      );
+
+      await tester.tap(textField);
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        viewportCoordinator.mode,
+        LocationChatViewportMode.followingLatest,
+      );
+      expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        viewportCoordinator.mode,
+        LocationChatViewportMode.followingLatest,
+      );
+      expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+
+      await tester.drag(scrollable, const Offset(0, 300));
+      await tester.pump();
+      tester.view.resetViewInsets();
+      await tester.pump();
+      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+      expect(
+        position.maxScrollExtent - position.pixels,
+        greaterThan(LocationChatScrollCoordinator.bottomTolerance),
+      );
+      final pixelsBeforeStream = position.pixels;
+      final observedOffsets = <double>[];
+      void recordOffset() => observedOffsets.add(position.pixels);
+      position.addListener(recordOffset);
+
+      socket.serverUserMessage(messageId: 21);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.messagesByLocation['location-current']?.length == 21,
+      );
+      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+      expect(position.pixels, closeTo(pixelsBeforeStream, 0.1));
+
+      socket.serverLlmStreamStart(messageId: 22);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service
+                .state
+                .streamMessagesByKey['world-current|location-current|22|char-1'] !=
+            null,
+      );
+      socket.serverLlmChunk(messageId: 22, content: 'focused streaming');
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service
+                .state
+                .streamMessagesByKey['world-current|location-current|22|char-1']
+                ?.content ==
+            'focused streaming',
+      );
+      await tester.pump();
+      position.removeListener(recordOffset);
+
+      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+      expect(position.pixels, closeTo(pixelsBeforeStream, 0.1));
+      expect(
+        observedOffsets,
+        everyElement(
+          inInclusiveRange(pixelsBeforeStream - 0.1, pixelsBeforeStream + 0.1),
+        ),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(service.dispose());
+    },
+  );
+
+  testWidgets(
+    'canonical V2 tick shows unread notice while detached and stays pinned after notice tap',
+    (tester) async {
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('user-1');
+      await sessionStore.saveAuthToken('token-1');
+      final services = ServiceRegistry.build(
+        config: const AppConfig(useMock: true),
+        sessionStoreOverride: sessionStore,
+        chatroomMessagesOverride: MemoryChatroomMessageStorage(),
+      );
+      final socket = _LocationChatTestSocket();
+      final client = ChatroomClient(
+        wsBaseUrl: 'ws://localhost:8082/aitown-chat/ws',
+        sessionStore: sessionStore,
+        transport: _LocationChatTestTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: (_, headers) async => <String, String>{
+          ...headers,
+          'X-App-Version': '0.3.4',
+        },
+      );
+      final service = WorldChatroomService(
+        api: services.api,
+        client: client,
+        messageStorage: MemoryChatroomMessageStorage(),
+        refreshInitialSnapshotOnConnect: false,
+      );
+      await service.connect(
+        worldId: 'world-current',
+        identity: const ChatroomConnectionIdentity(
+          userId: 'user-1',
+          senderId: 'user-1',
+          senderName: 'Player One',
+        ),
+      );
+      for (var id = 1; id <= 20; id += 1) {
+        socket.serverV2UserMessage(messageId: id);
+      }
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.messagesByLocation['location-current']?.length == 20,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: service,
+              leaveOnInactive: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
       await tester.pump();
 
       final scrollable = find.descendant(
@@ -212,79 +521,77 @@ void main() {
       await tester.pump();
       await tester.drag(scrollable, const Offset(0, 40));
       await tester.pump();
-      expect(
-        tester
-            .widget<LocationChatAnchoredMessageList>(
-              find.byKey(const ValueKey('location-chat-message-list')),
-            )
-            .coordinator
-            .mode,
-        LocationChatViewportMode.detached,
-      );
-      await tester.tap(find.byType(TextField));
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.pump();
       final viewportCoordinator = tester
           .widget<LocationChatAnchoredMessageList>(
             find.byKey(const ValueKey('location-chat-message-list')),
           )
           .coordinator;
       expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
-      expect(
-        position.maxScrollExtent - position.pixels,
-        greaterThan(LocationChatScrollCoordinator.bottomTolerance),
-      );
-      final pixelsBefore = position.pixels;
-      final localIdsBeforeStream = tester
-          .widget<LocationChatAnchoredMessageList>(
-            find.byKey(const ValueKey('location-chat-message-list')),
-          )
-          .messages
-          .map((message) => message.localId)
-          .toList(growable: false);
-      final observedOffsets = <double>[];
-      void recordOffset() => observedOffsets.add(position.pixels);
-      position.addListener(recordOffset);
+      final pixelsBeforeTick = position.pixels;
 
-      socket.serverLlmStreamStart(messageId: 21);
+      socket.serverV2Tick(
+        messageId: 21,
+        locationMessageId: 21,
+        globalText: 'Detached canonical tick',
+      );
       await _pumpUntilLocationChatTest(
         tester,
         () =>
-            service
-                .state
-                .streamMessagesByKey['world-current|location-current|21|char-1'] !=
-            null,
+            service.state.messagesByLocation['location-current']?.any(
+              (message) =>
+                  message.locationMessageId == 21 && message.isV2LocationTick,
+            ) ==
+            true,
       );
-      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
-      final localIdsAfterStreamStart = tester
-          .widget<LocationChatAnchoredMessageList>(
-            find.byKey(const ValueKey('location-chat-message-list')),
-          )
-          .messages
-          .map((message) => message.localId)
-          .toList(growable: false);
-      expect(
-        localIdsAfterStreamStart.take(localIdsBeforeStream.length),
-        localIdsBeforeStream,
-      );
-      socket.serverLlmChunk(messageId: 21, content: 'streaming');
-      await _pumpUntilLocationChatTest(
-        tester,
-        () =>
-            service
-                .state
-                .streamMessagesByKey['world-current|location-current|21|char-1']
-                ?.content ==
-            'streaming',
-      );
-      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
       await tester.pump();
-      position.removeListener(recordOffset);
 
-      expect(position.pixels, closeTo(pixelsBefore, 0.1));
+      expect(position.pixels, closeTo(pixelsBeforeTick, 0.1));
+      expect(find.text('Detached canonical tick'), findsOneWidget);
+      expect(find.text('1 new message'), findsOneWidget);
       expect(
-        observedOffsets,
-        everyElement(inInclusiveRange(pixelsBefore - 0.1, pixelsBefore + 0.1)),
+        find.byKey(const ValueKey('location-chat-new-message-notice')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('location-chat-new-message-notice')),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        viewportCoordinator.mode,
+        LocationChatViewportMode.followingLatest,
+      );
+      expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+      expect(find.text('1 new message'), findsNothing);
+
+      socket.serverV2Tick(
+        messageId: 22,
+        locationMessageId: 22,
+        globalText: 'Bottom canonical tick',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.messagesByLocation['location-current']?.any(
+              (message) =>
+                  message.locationMessageId == 22 && message.isV2LocationTick,
+            ) ==
+            true,
+      );
+      await tester.pump();
+
+      expect(find.text('Bottom canonical tick'), findsOneWidget);
+      expect(
+        viewportCoordinator.mode,
+        LocationChatViewportMode.followingLatest,
+      );
+      expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+      expect(find.text('1 new message'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('location-chat-new-message-notice')),
+        findsNothing,
       );
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -2905,13 +3212,18 @@ class _LocationChatTestSocket implements ChatroomSocket {
   Future<void> send(String message) async {
     final frame = jsonDecode(message) as Map<String, dynamic>;
     if (frame['type'] != 'join') return;
+    final clientMsgId = '${frame['client_msg_id'] ?? ''}';
     scheduleMicrotask(() {
       _serverFrame('ack', {
+        'stream_type': '',
         'world_id': 'world-current',
         'session_id': 'session-1',
         'location_id': frame['location_id'],
         'user_id': 'user-1',
-        'payload': {'client_msg_id': frame['client_msg_id']},
+        'client_msg_id': clientMsgId,
+        'payload': {'client_msg_id': clientMsgId},
+        'err_no': 0,
+        'err_msg': '',
       });
     });
   }
@@ -2939,6 +3251,67 @@ class _LocationChatTestSocket implements ChatroomSocket {
         'content': 'message $messageId',
         'created_at': 1717300000000 + messageId,
       },
+    });
+  }
+
+  void serverV2UserMessage({required int messageId}) {
+    _serverFrame('user', {
+      'stream_type': '',
+      'ts': 1786327200000 + messageId,
+      'world_id': 'world-current',
+      'session_id': 'session-1',
+      'location_id': 'location-current',
+      'global_message_id': 90000 + messageId,
+      'message_id': messageId,
+      'location_message_id': messageId,
+      'conversation_round_id': messageId,
+      'sender_type': 'user',
+      'sender_id': 'user-1',
+      'sender_name': 'Player One',
+      'user_id': 'user-1',
+      'client_msg_id': '',
+      'message_type': 'text',
+      'min_app_version': 0,
+      'created_at': '2026-08-10 10:00:00',
+      'payload': <String, Object?>{'content': 'message $messageId'},
+      'err_no': 0,
+      'err_msg': '',
+    });
+  }
+
+  void serverV2Tick({
+    required int messageId,
+    required int locationMessageId,
+    required String globalText,
+  }) {
+    _serverFrame('tick', {
+      'stream_type': '',
+      'ts': 1786327200000 + messageId,
+      'world_id': 'world-current',
+      'session_id': 'session-1',
+      'location_id': 'location-current',
+      'global_message_id': 90000 + messageId,
+      'message_id': messageId,
+      'location_message_id': locationMessageId,
+      'conversation_round_id': messageId,
+      'sender_type': 'tick',
+      'sender_id': 'tick',
+      'sender_name': 'Time',
+      'user_id': '',
+      'client_msg_id': '',
+      'message_type': 'text',
+      'min_app_version': 0,
+      'created_at': '2026-08-10 10:00:00',
+      'payload': <String, Object?>{
+        'current_time': 'Day 8, 10:00',
+        'tick_no': 0,
+        'sub_tick_no': 0,
+        'global': globalText,
+        'story_events': <Object?>[],
+        'characters_moved': <Object?>[],
+      },
+      'err_no': 0,
+      'err_msg': '',
     });
   }
 
