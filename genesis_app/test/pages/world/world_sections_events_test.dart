@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
@@ -133,6 +134,66 @@ void main() {
     expect(find.text('Tick 0-1'), findsOneWidget);
     expect(find.text('Tick zero sub tick 1 body'), findsOneWidget);
   });
+
+  testWidgets(
+    'AI notice appears above the earliest event tick including zero',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WorldEventsSection(
+              world: _worldDetail(),
+              ticks: const [
+                {
+                  'tick_id': 'tick_0_1',
+                  'tick_no': 0,
+                  'sub_tick_no': 1,
+                  'tick_result': {
+                    'narrator': 'Earliest tick body',
+                    'paragraphs': <Object?>[],
+                  },
+                },
+                {
+                  'tick_id': 'tick_1_1',
+                  'tick_no': 1,
+                  'sub_tick_no': 1,
+                  'tick_result': {
+                    'narrator': 'Later tick body',
+                    'paragraphs': <Object?>[],
+                  },
+                },
+              ],
+              initialLoading: false,
+              loadingMore: false,
+              hasMore: false,
+              error: null,
+              latestRevision: 0,
+              targetTickNumber: null,
+              contentPadding: EdgeInsets.zero,
+              onLoadMore: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tick 1-1'), findsOneWidget);
+      expect(find.text(kAiContentDisclaimerText), findsNothing);
+
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, 300),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tick 0-1'), findsOneWidget);
+      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
+        lessThan(tester.getTopLeft(find.text('Tick 0-1')).dy),
+      );
+    },
+  );
 
   testWidgets(
     'events sheet renders non-empty paragraph clues like story events',

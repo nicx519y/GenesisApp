@@ -2003,6 +2003,7 @@ void main() {
               'world_name': 'World One',
               'origin_id': 'o_1',
               'definition_version': 2,
+              'sub_tick_no': 3,
               'last_chat_location_id': 'loc_1',
               'owner_uid': 'u_1',
               'owner_name': 'Tester',
@@ -2078,6 +2079,7 @@ void main() {
     expect(world.relationStatus, 'owner');
     expect(world.metric['label'], 'Goal Progress');
     expect(world.definitionVersion, 2);
+    expect(world.subTickNo, 3);
     expect(world.lastChatLocationId, 'loc_1');
     expect(world.copyWith().lastChatLocationId, 'loc_1');
     expect(

@@ -35,6 +35,7 @@ extension _WorldPageLayout on _WorldPageState {
             world: world,
             worldTime: world?.currentTime ?? '',
             tickIndex: world?.tickCount ?? -1,
+            subTickNo: world?.subTickNo ?? 0,
           ),
           map: ColoredBox(
             key: const ValueKey<String>('world-map-loading-background'),
@@ -79,12 +80,14 @@ extension _WorldPageLayout on _WorldPageState {
     WorldDetail? world,
     String worldTime = '',
     int tickIndex = -1,
+    int subTickNo = 0,
   }) {
     final title = world == null
         ? ''
         : (world.name.trim().isEmpty ? world.worldId : world.name.trim());
     final resolvedWorldTimeLabel = worldTimeLabel(
       tickIndex: tickIndex,
+      subTickNo: subTickNo,
       worldTime: worldTime,
     );
     return Positioned.fill(

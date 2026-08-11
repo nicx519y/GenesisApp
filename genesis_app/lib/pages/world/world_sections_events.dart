@@ -404,6 +404,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
               ticks.first,
               fallback: tickPageIndex + 1,
             );
+            final showsAiDisclaimer = tickPageIndex == 0 && !widget.hasMore;
             return WorldTickEventCardPage(
               key: ValueKey<String>('world-event-tick-$pageIdentity'),
               resetRevision: _tickCardResetRevisions[pageIdentity] ?? 0,
@@ -413,15 +414,15 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
               hasBottomEdgePage: index < _pageCount - 1,
               padding: widget.contentPadding,
               onTurnPage: _turnPage,
-              itemCount: ticks.length + (tickNumber == 1 ? 1 : 0),
+              itemCount: ticks.length + (showsAiDisclaimer ? 1 : 0),
               itemBuilder: (context, itemIndex) {
-                if (tickNumber == 1 && itemIndex == 0) {
+                if (showsAiDisclaimer && itemIndex == 0) {
                   return const AiContentDisclaimer(
                     padding: EdgeInsets.fromLTRB(10, 0, 10, 18),
                     textAlign: TextAlign.left,
                   );
                 }
-                final subTickIndex = itemIndex - (tickNumber == 1 ? 1 : 0);
+                final subTickIndex = itemIndex - (showsAiDisclaimer ? 1 : 0);
                 final tick = ticks[subTickIndex];
                 return WorldTickEventItem(
                   key: ValueKey<String>(

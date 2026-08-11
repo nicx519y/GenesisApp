@@ -2138,7 +2138,7 @@ void main() {
         'location_msg_id': 0,
         'conversation_round_id': 1348,
         'current_time': 'Day 45, 19:30',
-        'payload': {'content': 'Day 45, 19:30', 'tick_no': 7},
+        'payload': {'content': 'Day 45, 19:30', 'tick_no': 7, 'sub_tick_no': 3},
       });
 
       await _waitFor(
@@ -2162,12 +2162,15 @@ void main() {
         expect(message.senderId, 'tick');
         expect(message.senderName, 'Time');
         expect(message.tickNo, 7);
+        expect(message.subTickNo, 3);
         expect(message.content, 'Day 45, 19:30');
       }
       expect(service.state.latestSocketCurrentTime, 'Day 45, 19:30');
       expect(service.state.latestSocketTickNo, 7);
+      expect(service.state.latestSocketSubTickNo, 3);
       expect(service.state.world?.currentTime, 'Day 45, 19:30');
       expect(service.state.world?.tickCount, 7);
+      expect(service.state.world?.subTickNo, 3);
       expect(service.state.messagesByLocation.containsKey('loc-root'), isFalse);
       for (final locationId in const ['loc-1', 'loc-2']) {
         final records = await storage.loadLatestMessages(

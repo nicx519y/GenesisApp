@@ -350,6 +350,7 @@ extension _WorldPageLocationChat on _WorldPageState {
     if (currentWorld.worldId != nextWorld.worldId) return true;
     if (currentWorld.relationStatus != nextWorld.relationStatus) return true;
     if (currentWorld.tickCount != nextWorld.tickCount) return true;
+    if (currentWorld.subTickNo != nextWorld.subTickNo) return true;
     if (currentWorld.currentTime != nextWorld.currentTime) return true;
     if (currentWorld.isProgressing != nextWorld.isProgressing) return true;
     if (_worldPositionsSignature(currentWorld) !=

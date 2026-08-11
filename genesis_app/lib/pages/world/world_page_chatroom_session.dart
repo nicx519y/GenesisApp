@@ -204,8 +204,11 @@ extension _WorldPageChatroomSession on _WorldPageState {
         !_worldTickInProgress;
     final socketCurrentTime = state.latestSocketCurrentTime.trim();
     final socketTickNo = state.latestSocketTickNo;
+    final socketSubTickNo = state.latestSocketSubTickNo;
     final shouldApplySocketWorldProgress =
-        (socketCurrentTime.isNotEmpty || socketTickNo > 0) &&
+        (socketCurrentTime.isNotEmpty ||
+            socketTickNo > 0 ||
+            socketSubTickNo > 0) &&
         state.latestSocketCurrentTimeRevision >
             _lastAppliedChatroomWorldProgressRevision;
     final shouldApplyWorldSnapshot =
@@ -217,7 +220,9 @@ extension _WorldPageChatroomSession on _WorldPageState {
         ((socketTickNo > 0 &&
                 socketTickNo != worldBeforeSocketProgress.tickCount) ||
             (socketCurrentTime.isNotEmpty &&
-                socketCurrentTime != worldBeforeSocketProgress.currentTime));
+                socketCurrentTime != worldBeforeSocketProgress.currentTime) ||
+            (socketSubTickNo > 0 &&
+                socketSubTickNo != worldBeforeSocketProgress.subTickNo));
     if (shouldApplySocketWorldProgress) {
       _lastAppliedChatroomWorldProgressRevision =
           state.latestSocketCurrentTimeRevision;
@@ -264,6 +269,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       if (socketProgressChangesWorld && currentWorldDetail != null) {
         _world = currentWorldDetail.copyWith(
           tickCount: socketTickNo > 0 ? socketTickNo : null,
+          subTickNo: socketSubTickNo > 0 ? socketSubTickNo : null,
           currentTime: socketCurrentTime.isEmpty ? null : socketCurrentTime,
         );
         worldDetailChanged = true;

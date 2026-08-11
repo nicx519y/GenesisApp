@@ -173,10 +173,14 @@ class _WorldMapTimeLabel extends StatelessWidget {
   return (tick: tick, time: time);
 }
 
-String worldTimeLabel({required int tickIndex, required String worldTime}) {
+String worldTimeLabel({
+  required int tickIndex,
+  int subTickNo = 0,
+  required String worldTime,
+}) {
   final parts = <String>[];
   if (tickIndex >= 0) {
-    parts.add('Tick $tickIndex');
+    parts.add('Tick $tickIndex${subTickNo > 0 ? '-$subTickNo' : ''}');
   }
   final resolvedWorldTime = worldTime.trim();
   if (resolvedWorldTime.isNotEmpty) {

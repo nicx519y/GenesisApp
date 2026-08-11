@@ -18,6 +18,7 @@ class WorldChatroomState {
     this.reconnecting = false,
     this.latestSocketCurrentTime = '',
     this.latestSocketTickNo = 0,
+    this.latestSocketSubTickNo = 0,
     this.latestSocketCurrentTimeRevision = 0,
     this.latestNewUserJoin,
     this.latestNewUserJoinRevision = 0,
@@ -41,6 +42,7 @@ class WorldChatroomState {
   final bool reconnecting;
   final String latestSocketCurrentTime;
   final int latestSocketTickNo;
+  final int latestSocketSubTickNo;
   final int latestSocketCurrentTimeRevision;
   final ChatroomNewUserJoinEvent? latestNewUserJoin;
   final int latestNewUserJoinRevision;
@@ -64,6 +66,7 @@ class WorldChatroomState {
     bool? reconnecting,
     String? latestSocketCurrentTime,
     int? latestSocketTickNo,
+    int? latestSocketSubTickNo,
     int? latestSocketCurrentTimeRevision,
     ChatroomNewUserJoinEvent? latestNewUserJoin,
     int? latestNewUserJoinRevision,
@@ -89,6 +92,8 @@ class WorldChatroomState {
       latestSocketCurrentTime:
           latestSocketCurrentTime ?? this.latestSocketCurrentTime,
       latestSocketTickNo: latestSocketTickNo ?? this.latestSocketTickNo,
+      latestSocketSubTickNo:
+          latestSocketSubTickNo ?? this.latestSocketSubTickNo,
       latestSocketCurrentTimeRevision:
           latestSocketCurrentTimeRevision ??
           this.latestSocketCurrentTimeRevision,

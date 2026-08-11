@@ -70,6 +70,19 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
       fallback: world['owner_deleted'],
     ),
     tickCount: asInt(stats['tick_cnt']),
+    subTickNo: asInt(
+      world['sub_tick_no'],
+      fallback: asInt(
+        stats['sub_tick_no'],
+        fallback: asInt(
+          raw['sub_tick_no'],
+          fallback: latestWorldSubTickNo(
+            ticks,
+            tickNo: asInt(stats['tick_cnt']),
+          ),
+        ),
+      ),
+    ),
     connectCount: asInt(stats['connect_cnt']),
     characterCount: asInt(stats['character_cnt']),
     playerCount: asInt(stats['player_cnt']),

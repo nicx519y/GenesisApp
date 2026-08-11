@@ -240,7 +240,10 @@ class _ChatStoryEventVisibleRoleGroup extends StatelessWidget {
             fit: BoxFit.contain,
             excludeFromSemantics: true,
             colorFilter: iconAsset == userStatIconAsset
-                ? ColorFilter.mode(textColor, BlendMode.srcIn)
+                ? ColorFilter.mode(
+                    textColor.withValues(alpha: 1),
+                    BlendMode.srcIn,
+                  )
                 : null,
           ),
           const SizedBox(width: 4),

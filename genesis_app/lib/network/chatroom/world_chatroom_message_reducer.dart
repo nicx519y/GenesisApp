@@ -30,6 +30,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         message,
         socketCurrentTime: message.currentTime,
         socketTickNo: message.tickNo,
+        socketSubTickNo: message.subTickNo,
       );
       return;
     }
@@ -40,6 +41,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       messages.isEmpty ? [message] : messages,
       socketCurrentTime: message.currentTime,
       socketTickNo: message.tickNo,
+      socketSubTickNo: message.subTickNo,
     );
   }
 
@@ -544,20 +546,26 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     WorldChatroomState state, {
     String socketCurrentTime = '',
     int socketTickNo = 0,
+    int socketSubTickNo = 0,
   }) {
     final resolvedSocketCurrentTime = socketCurrentTime.trim();
     final resolvedSocketTickNo = socketTickNo > 0 ? socketTickNo : 0;
+    final resolvedSocketSubTickNo = socketSubTickNo > 0 ? socketSubTickNo : 0;
     final hasSocketWorldProgress =
-        resolvedSocketCurrentTime.isNotEmpty || resolvedSocketTickNo > 0;
+        resolvedSocketCurrentTime.isNotEmpty ||
+        resolvedSocketTickNo > 0 ||
+        resolvedSocketSubTickNo > 0;
     if (!hasSocketWorldProgress) return state;
     return state.copyWith(
       world: _worldWithSocketProgress(
         state.world,
         currentTime: resolvedSocketCurrentTime,
         tickNo: resolvedSocketTickNo,
+        subTickNo: resolvedSocketSubTickNo,
       ),
       latestSocketCurrentTime: resolvedSocketCurrentTime,
       latestSocketTickNo: resolvedSocketTickNo,
+      latestSocketSubTickNo: resolvedSocketSubTickNo,
       latestSocketCurrentTimeRevision:
           state.latestSocketCurrentTimeRevision + 1,
     );
@@ -567,14 +575,21 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     WorldDetail? world, {
     required String currentTime,
     required int tickNo,
+    int subTickNo = 0,
   }) {
     if (world == null) return null;
     final resolvedCurrentTime = currentTime.trim();
     final resolvedTickNo = tickNo > 0 ? tickNo : 0;
-    if (resolvedCurrentTime.isEmpty && resolvedTickNo <= 0) return world;
+    final resolvedSubTickNo = subTickNo > 0 ? subTickNo : 0;
+    if (resolvedCurrentTime.isEmpty &&
+        resolvedTickNo <= 0 &&
+        resolvedSubTickNo <= 0) {
+      return world;
+    }
     return world.copyWith(
       currentTime: resolvedCurrentTime.isEmpty ? null : resolvedCurrentTime,
       tickCount: resolvedTickNo > 0 ? resolvedTickNo : null,
+      subTickNo: resolvedSubTickNo > 0 ? resolvedSubTickNo : null,
     );
   }
 
@@ -583,12 +598,14 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     bool persist = true,
     String socketCurrentTime = '',
     int socketTickNo = 0,
+    int socketSubTickNo = 0,
   }) {
     _upsertMessages(
       [message],
       persist: persist,
       socketCurrentTime: socketCurrentTime,
       socketTickNo: socketTickNo,
+      socketSubTickNo: socketSubTickNo,
     );
   }
 
@@ -597,10 +614,12 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     bool persist = true,
     String socketCurrentTime = '',
     int socketTickNo = 0,
+    int socketSubTickNo = 0,
   }) {
     if (messages.isEmpty) return;
     final resolvedSocketCurrentTime = socketCurrentTime.trim();
     final resolvedSocketTickNo = socketTickNo > 0 ? socketTickNo : 0;
+    final resolvedSocketSubTickNo = socketSubTickNo > 0 ? socketSubTickNo : 0;
     var worldMessages = _state.worldMessages;
     final byLocation = _leafLocationMessageQueues(
       _state.world,
@@ -650,6 +669,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         ),
         socketCurrentTime: resolvedSocketCurrentTime,
         socketTickNo: resolvedSocketTickNo,
+        socketSubTickNo: resolvedSocketSubTickNo,
       ),
     );
     final changedLocationIds = resolvedMessages
