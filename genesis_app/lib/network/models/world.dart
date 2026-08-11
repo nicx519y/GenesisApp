@@ -70,6 +70,7 @@ class WorldDetail {
     required this.characterCount,
     required this.playerCount,
     required this.currentTime,
+    this.lastChatLocationId = '',
     this.mapImageUrl = '',
     required this.latestTickAt,
     required this.latestNarrator,
@@ -107,6 +108,7 @@ class WorldDetail {
   final int characterCount;
   final int playerCount;
   final String currentTime;
+  final String lastChatLocationId;
   final String mapImageUrl;
   final DateTime? latestTickAt;
   final String latestNarrator;
@@ -142,6 +144,7 @@ class WorldDetail {
     int? characterCount,
     int? playerCount,
     String? currentTime,
+    String? lastChatLocationId,
     String? mapImageUrl,
     DateTime? latestTickAt,
     String? latestNarrator,
@@ -192,6 +195,7 @@ class WorldDetail {
       characterCount: characterCount ?? this.characterCount,
       playerCount: playerCount ?? this.playerCount,
       currentTime: currentTime ?? this.currentTime,
+      lastChatLocationId: lastChatLocationId ?? this.lastChatLocationId,
       mapImageUrl: mapImageUrl ?? this.mapImageUrl,
       latestTickAt: latestTickAt ?? this.latestTickAt,
       latestNarrator: latestNarrator ?? this.latestNarrator,
@@ -264,6 +268,9 @@ class WorldDetail {
       characterCount: asInt(json['character_count']),
       playerCount: asInt(json['player_count']),
       currentTime: asString(json['current_time']),
+      lastChatLocationId: json['last_chat_location_id'] is String
+          ? asString(json['last_chat_location_id']).trim()
+          : '',
       mapImageUrl: worldMapUrl,
       latestTickAt: asDateTime(json['latest_tick_at']),
       latestNarrator: asString(json['latest_narrator']),

@@ -2804,8 +2804,17 @@ class _MockState {
 
   Map<String, dynamic> v1WorldContractDetail(String? worldId) {
     final world = _findV1World(worldId);
+    final contractItem = _v1WorldContractItem(world);
+    final info = asJsonMap(contractItem['info']);
     return {
-      ..._v1WorldContractItem(world),
+      ...contractItem,
+      'info': {
+        ...info,
+        'last_chat_location_id': asString(
+          world['last_chat_location_id'],
+          fallback: 'loc_gate',
+        ),
+      },
       'relation_status': _v1WorldRelationStatus(world),
       'characters': kMockV1Characters.map(_contractCharacter).toList(),
       'locations': kMockV1Locations.map(_contractLocation).toList(),

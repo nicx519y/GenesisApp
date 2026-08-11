@@ -10,6 +10,27 @@ import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 
 void main() {
+  test('WorldDetail parses last chat location compatibly', () {
+    expect(
+      WorldDetail.fromJson(const {
+        'world_id': 'w_1',
+        'last_chat_location_id': ' loc_1 ',
+      }).lastChatLocationId,
+      'loc_1',
+    );
+    expect(
+      WorldDetail.fromJson(const {
+        'world_id': 'w_1',
+        'last_chat_location_id': 123,
+      }).lastChatLocationId,
+      '',
+    );
+    expect(
+      WorldDetail.fromJson(const {'world_id': 'w_1'}).lastChatLocationId,
+      '',
+    );
+  });
+
   test('local mock chatroom messages preserve message_type', () async {
     final api = GenesisApi(useMock: true);
 
@@ -386,6 +407,7 @@ void main() {
 
     final worldDetail = await api.getWorld(world.wid);
     expect(worldDetail.definitionVersion, 2);
+    expect(worldDetail.lastChatLocationId, 'loc_gate');
     expect(worldDetail.locations.isNotEmpty, true);
     final worldMap = await api.getWorldMap(
       worldId: world.wid,
@@ -838,7 +860,19 @@ void main() {
     final world =
         (((worlds['list'] as List).first as Map)['info'] as Map)['world_id']
             as String;
+    expect(
+      (((worlds['list'] as List).first as Map)['info'] as Map).containsKey(
+        'last_chat_location_id',
+      ),
+      isFalse,
+    );
     final worldDetail = await api.v1.world.detail(worldId: world);
+    expect(((worldDetail['info'] as Map)['last_chat_location_id']), 'loc_gate');
+    final worldInfo = await api.v1.world.info(worldId: world);
+    expect(
+      (worldInfo['info'] as Map).containsKey('last_chat_location_id'),
+      isFalse,
+    );
     expect(
       ((worldDetail['stats'] as Map)['tick_cnt']),
       greaterThanOrEqualTo(1000),

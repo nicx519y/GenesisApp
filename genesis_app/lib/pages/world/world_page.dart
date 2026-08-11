@@ -104,6 +104,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   TilemapVisualMode _tilemapVisualMode = tilemapVisualModeController.value;
   late final Future<void> _tilemapVisualModeLoad;
   bool _tilemapVisualModeReady = false;
+  String? _initialTilemapPreferredFocusLocationId;
   final Set<String> _preloadedLocationMessageIds = <String>{};
   final Map<String, Future<void>> _preloadingLocationMessageFutures =
       <String, Future<void>>{};
@@ -536,6 +537,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           ),
           locationId: initialTilemapLocationId,
           locationNodes: listLocationNodes,
+          preferredFocusLocationId:
+              _initialTilemapPreferredFocusLocationId ?? '',
           recentChatLocationIds: recentMapLocationIds,
           animationsPaused: _worldBottomSheetOpen || mapPausedForLocationChat,
           reloadRevision: _tilemapReloadRevision,

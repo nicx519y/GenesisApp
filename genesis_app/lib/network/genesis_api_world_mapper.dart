@@ -74,6 +74,9 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     characterCount: asInt(stats['character_cnt']),
     playerCount: asInt(stats['player_cnt']),
     currentTime: asString(world['current_time']),
+    lastChatLocationId: world['last_chat_location_id'] is String
+        ? asString(world['last_chat_location_id']).trim()
+        : '',
     mapImageUrl: mapUrl,
     latestTickAt: _apiDateTime(lastTick['created_at'] ?? world['created_at']),
     latestNarrator: asString(lastTickResult['narrator']),
