@@ -6243,7 +6243,7 @@ void main() {
     expect(discussRequests.last.uri.queryParameters['biz_id'], 'o_test_1');
   });
 
-  testWidgets('Origin detail sheet keeps the map status bar style', (
+  testWidgets('Origin detail sheet keeps a transparent map status bar', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -6272,6 +6272,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.light,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, Colors.transparent);
     final styleCallCountBeforeDrag = systemUiOverlayStyleCalls.length;
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
@@ -6281,6 +6282,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.light,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, Colors.transparent);
     expect(systemUiOverlayStyleCalls, hasLength(styleCallCountBeforeDrag));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 720));
@@ -6290,15 +6292,8 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.light,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, Colors.transparent);
     expect(systemUiOverlayStyleCalls, hasLength(styleCallCountBeforeDrag));
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    expect(
-      systemUiOverlayStyleCalls.last['statusBarIconBrightness'],
-      Brightness.dark.toString(),
-    );
-    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('Origin detail empty discuss area opens post composer', (
@@ -19126,53 +19121,26 @@ void main() {
     },
   );
 
-  testWidgets('world detail status bar switches after map scrolls out', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    final systemUiOverlayStyleCalls = _captureSystemUiOverlayStyleCalls();
-    addTearDown(_clearPlatformChannelHandler);
-    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
-    await tester.pump();
-    systemUiOverlayStyleCalls.clear();
+  testWidgets(
+    'world detail keeps active location chat status bar transparent',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
 
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
-        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(
-      _pageStatusBarStyle(tester).statusBarIconBrightness,
-      Brightness.light,
-    );
-
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
-    await tester.pumpAndSettle();
-
-    expect(
-      _pageStatusBarStyle(tester).statusBarIconBrightness,
-      Brightness.dark,
-    );
-
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, 720));
-    await tester.pumpAndSettle();
-
-    expect(
-      _pageStatusBarStyle(tester).statusBarIconBrightness,
-      Brightness.light,
-    );
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    expect(
-      systemUiOverlayStyleCalls.last['statusBarIconBrightness'],
-      Brightness.dark.toString(),
-    );
-    await tester.pump(const Duration(seconds: 2));
-  });
+      expect(
+        _pageStatusBarStyle(tester).statusBarIconBrightness,
+        Brightness.light,
+      );
+      expect(_pageStatusBarStyle(tester).statusBarColor, Colors.transparent);
+    },
+  );
 
   testWidgets(
     'world page events load from paged tick list and request next page near edge',

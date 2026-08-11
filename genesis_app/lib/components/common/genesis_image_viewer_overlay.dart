@@ -20,11 +20,7 @@ typedef GenesisImageViewerPrecacheImage =
 GenesisImageViewerPrecacheImage? debugGenesisImageViewerPrecacheImage;
 
 const SystemUiOverlayStyle _kGenesisImageViewerSystemUiOverlayStyle =
-    SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-    );
+    kGenesisLightSystemUiOverlayStyle;
 
 ImageProvider<Object>? genesisImageViewerPreviewProvider(
   BuildContext context, {
@@ -93,8 +89,6 @@ Future<void> showGenesisImageViewer(
     context: context,
     barrierDismissible: false,
     barrierColor: Colors.transparent,
-    modalSystemUiOverlayStyle: _kGenesisImageViewerSystemUiOverlayStyle,
-    restoreSystemUiOverlayAfterFrame: true,
     transitionDuration: const Duration(milliseconds: 120),
     pageBuilder: (context, animation, secondaryAnimation) {
       return GenesisImageViewerOverlay(

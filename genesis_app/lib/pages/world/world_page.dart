@@ -375,7 +375,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _handleWorldBottomSheetSelectionChanged,
     );
     WorldDetailsStatusBarOverride.clearStyle();
-    GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     unawaited(_worldChatroomBalanceSub?.cancel());

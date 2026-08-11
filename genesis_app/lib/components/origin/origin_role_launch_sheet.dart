@@ -105,38 +105,33 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
 }) {
   return WorldDetailsStatusBarOverride.runWithStyle(
     systemUiOverlayStyle,
-    () => GenesisSystemUiChrome.runWithModalChrome(
-      Colors.white,
-      () => Navigator.of(context, rootNavigator: true).push(
-        PageRouteBuilder<OriginRoleLaunchSelection>(
-          opaque: false,
-          barrierDismissible: false,
-          barrierColor: kGenesisSubtleModalBarrierColor,
-          transitionDuration: Duration.zero,
-          reverseTransitionDuration: Duration.zero,
-          pageBuilder: (context, animation, secondaryAnimation) {
-            return AnnotatedRegion<SystemUiOverlayStyle>(
-              value: systemUiOverlayStyle,
-              child: Scaffold(
-                backgroundColor: Colors.transparent,
-                resizeToAvoidBottomInset: true,
-                body: OriginRoleLaunchSheet(
-                  characters: characters,
-                  initialCustomTab: initialCustomTab,
-                  initialLaunchedTab: initialLaunchedTab,
-                  onFillFromProfile: onFillFromProfile,
-                  resolveAvatarUrl: resolveAvatarUrl,
-                  launchedPresetRolesLoader: launchedPresetRolesLoader,
-                  initialLaunchedPresetRoles: initialLaunchedPresetRoles,
-                  onLaunch: onLaunch,
-                ),
+    () => Navigator.of(context, rootNavigator: true).push(
+      PageRouteBuilder<OriginRoleLaunchSelection>(
+        opaque: false,
+        barrierDismissible: false,
+        barrierColor: kGenesisSubtleModalBarrierColor,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: systemUiOverlayStyle,
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              resizeToAvoidBottomInset: true,
+              body: OriginRoleLaunchSheet(
+                characters: characters,
+                initialCustomTab: initialCustomTab,
+                initialLaunchedTab: initialLaunchedTab,
+                onFillFromProfile: onFillFromProfile,
+                resolveAvatarUrl: resolveAvatarUrl,
+                launchedPresetRolesLoader: launchedPresetRolesLoader,
+                initialLaunchedPresetRoles: initialLaunchedPresetRoles,
+                onLaunch: onLaunch,
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
-      modalOverrideStyle: systemUiOverlayStyle,
-      restoreOverrideStyle: systemUiOverlayStyle,
     ),
   );
 }

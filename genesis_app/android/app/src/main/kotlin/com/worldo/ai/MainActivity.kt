@@ -15,6 +15,7 @@ import android.webkit.MimeTypeMap
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.WindowCompat
 import com.google.android.gms.ads.identifier.AdvertisingIdClient
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -53,6 +54,7 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        WindowCompat.enableEdgeToEdge(window)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

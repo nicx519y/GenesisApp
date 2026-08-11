@@ -44,7 +44,6 @@ Future<bool> showDiscussPostComposer({
   final submitted = await showGenesisGeneralDialog<bool>(
     context: context,
     barrierColor: Colors.transparent,
-    systemBarColor: Colors.white,
     transitionDuration: Duration.zero,
     pageBuilder: (sheetContext, animation, secondaryAnimation) {
       return _DiscussComposerSheet(

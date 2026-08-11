@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../ui/system/genesis_system_ui.dart';
 import '../../utils/image_upload_processing.dart';
 import 'genesis_center_toast.dart';
 
@@ -187,46 +188,49 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(child: _buildBody()),
-            SizedBox(
-              height: 72,
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  IconButton(
-                    onPressed: _isSubmitting
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 30),
-                    color: Colors.white,
-                  ),
-                  const Spacer(),
-                  if (_isSubmitting)
-                    const SizedBox.square(
-                      dimension: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kGenesisLightSystemUiOverlayStyle,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(child: _buildBody()),
+              SizedBox(
+                height: 72,
+                child: Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, size: 30),
+                      color: Colors.white,
                     ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: _isSubmitting || _image == null
-                        ? null
-                        : _cropAndUpload,
-                    icon: const Icon(Icons.check, size: 30),
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 12),
-                ],
+                    const Spacer(),
+                    if (_isSubmitting)
+                      const SizedBox.square(
+                        dimension: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: _isSubmitting || _image == null
+                          ? null
+                          : _cropAndUpload,
+                      icon: const Icon(Icons.check, size: 30),
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

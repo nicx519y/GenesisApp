@@ -20,6 +20,7 @@ import 'package:genesis_flutter_android/pages/gems/gem_wallet_page.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/ui/system/genesis_system_ui.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 const _wrappingTaskDescription =
@@ -563,11 +564,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.widget<AppBar>(find.byType(AppBar)).systemOverlayStyle,
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      ),
+      kGenesisDefaultSystemUiOverlayStyle,
     );
     systemUiOverlayStyleCalls.clear();
 

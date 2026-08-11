@@ -65,17 +65,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String _myUid = '';
   String _myAvatarUrl = '';
   double _composerHeight = 0;
-  late final ChatEdgeToEdgeSystemUiLease _edgeToEdgeSystemUiLease;
-
   String get _peerUid => widget.peerUid.trim();
 
   @override
   void initState() {
     super.initState();
-    _edgeToEdgeSystemUiLease = ChatEdgeToEdgeSystemUiLease.acquire();
-    SystemChrome.setSystemUIOverlayStyle(
-      kChatTransparentLightSystemUiOverlayStyle,
-    );
     WidgetsBinding.instance.addObserver(this);
     _scrollController = _createScrollController();
     _messageStore = AppServicesScope.read(context).directMessageMessages;
@@ -135,7 +129,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _edgeToEdgeSystemUiLease.release();
     WidgetsBinding.instance.removeObserver(this);
     _poller.stop();
     _flushDraft();

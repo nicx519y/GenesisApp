@@ -15,6 +15,7 @@ import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/components/genesis_list_image.dart';
 import '../../../ui/components/genesis_safe_area.dart';
 import '../../../ui/components/genesis_static_network_image.dart';
+import '../../../ui/system/genesis_system_ui.dart';
 import '../../../ui/tokens/genesis_colors.dart';
 import '../../../ui/tokens/genesis_typography.dart';
 import '../../../ui/text/genesis_text_input_formatters.dart';
@@ -41,60 +42,11 @@ part 'chat_ui_media.dart';
 part 'chat_ui_bubbles.dart';
 part 'chat_ui_system_markdown.dart';
 
-const SystemUiOverlayStyle kChatWhiteSystemUiOverlayStyle =
-    SystemUiOverlayStyle(
-      statusBarColor: Colors.white,
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
-    );
-
 const SystemUiOverlayStyle kChatTransparentLightSystemUiOverlayStyle =
-    SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
-    );
+    kGenesisDefaultSystemUiOverlayStyle;
 
 const SystemUiOverlayStyle kChatDarkHeaderSystemUiOverlayStyle =
-    SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
-    );
-
-class ChatEdgeToEdgeSystemUiLease {
-  ChatEdgeToEdgeSystemUiLease._(this._enabled);
-
-  static int _activeCount = 0;
-
-  final bool _enabled;
-  bool _released = false;
-
-  factory ChatEdgeToEdgeSystemUiLease.acquire() {
-    final enabled = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    if (enabled) {
-      _activeCount += 1;
-      if (_activeCount == 1) {
-        unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
-      }
-    }
-    return ChatEdgeToEdgeSystemUiLease._(enabled);
-  }
-
-  void release() {
-    if (_released) return;
-    _released = true;
-    if (!_enabled || _activeCount <= 0) return;
-    _activeCount -= 1;
-    if (_activeCount != 0) return;
-    unawaited(
-      SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.manual,
-        overlays: SystemUiOverlay.values,
-      ),
-    );
-  }
-}
+    kGenesisLightStatusIconsSystemUiOverlayStyle;
 
 final ChatUiStyleConfig kChatWhiteHeaderStyle = ChatUiStyleConfig.standard
     .copyWith(headerBackgroundColor: Colors.white);

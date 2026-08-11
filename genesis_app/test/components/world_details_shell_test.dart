@@ -1,8 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
 
 void main() {
+  testWidgets(
+    'world details status bar stays transparent while icon brightness changes',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: WorldDetailsPageScaffold(
+            map: ColoredBox(color: Colors.green),
+            slivers: [SliverToBoxAdapter(child: SizedBox(height: 1200))],
+          ),
+        ),
+      );
+
+      SystemUiOverlayStyle pageStyle() => tester
+          .widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+            find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+          )
+          .last
+          .value;
+
+      expect(pageStyle().statusBarColor, Colors.transparent);
+      expect(pageStyle().statusBarIconBrightness, Brightness.light);
+
+      final scrollView = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView),
+      );
+      scrollView.controller!.jumpTo(500);
+      await tester.pump();
+
+      expect(pageStyle().statusBarColor, Colors.transparent);
+      expect(pageStyle().statusBarIconBrightness, Brightness.dark);
+
+      scrollView.controller!.jumpTo(0);
+      await tester.pump();
+
+      expect(pageStyle().statusBarColor, Colors.transparent);
+      expect(pageStyle().statusBarIconBrightness, Brightness.light);
+    },
+  );
+
   testWidgets('world details page scaffold owns one continuous scroll layout', (
     tester,
   ) async {

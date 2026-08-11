@@ -3,34 +3,60 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../ui/components/genesis_safe_area.dart';
+import '../ui/system/genesis_system_ui.dart';
 import 'world_map_interaction_notification.dart';
+
+@immutable
+class WorldDetailsStatusBarPresentation {
+  const WorldDetailsStatusBarPresentation({
+    required this.style,
+    required this.backgroundColor,
+  });
+
+  final SystemUiOverlayStyle style;
+  final Color backgroundColor;
+}
 
 class WorldDetailsStatusBarOverride {
   WorldDetailsStatusBarOverride._();
 
-  static final ValueNotifier<SystemUiOverlayStyle?> _style =
-      ValueNotifier<SystemUiOverlayStyle?>(null);
+  static final ValueNotifier<WorldDetailsStatusBarPresentation?> _presentation =
+      ValueNotifier<WorldDetailsStatusBarPresentation?>(null);
 
-  static ValueListenable<SystemUiOverlayStyle?> get listenable => _style;
+  static ValueListenable<WorldDetailsStatusBarPresentation?> get listenable =>
+      _presentation;
 
-  static void setStyle(SystemUiOverlayStyle style) {
-    _style.value = style;
+  static void setStyle(
+    SystemUiOverlayStyle style, {
+    Color backgroundColor = Colors.transparent,
+  }) {
+    _presentation.value = WorldDetailsStatusBarPresentation(
+      style: style,
+      backgroundColor: backgroundColor,
+    );
   }
 
   static void clearStyle() {
-    _style.value = null;
+    _presentation.value = null;
   }
 
   static Future<T> runWithStyle<T>(
     SystemUiOverlayStyle style,
-    Future<T> Function() action,
-  ) async {
-    final previousStyle = _style.value;
-    _style.value = style;
+    Future<T> Function() action, {
+    Color? backgroundColor,
+  }) async {
+    final previousPresentation = _presentation.value;
+    _presentation.value = WorldDetailsStatusBarPresentation(
+      style: style,
+      backgroundColor:
+          backgroundColor ??
+          previousPresentation?.backgroundColor ??
+          Colors.transparent,
+    );
     try {
       return await action();
     } finally {
-      _style.value = previousStyle;
+      _presentation.value = previousPresentation;
     }
   }
 }
@@ -92,17 +118,8 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
 
   static const _transparentStatusBarColor = Color(0x00FFFFFF);
   static const _whiteStatusBarColor = Color(0xFFFFFFFF);
-  static const _initialStatusBarStyle = SystemUiOverlayStyle(
-    statusBarColor: _transparentStatusBarColor,
-    statusBarIconBrightness: Brightness.light,
-    statusBarBrightness: Brightness.dark,
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    SystemChrome.setSystemUIOverlayStyle(_initialStatusBarStyle);
-  }
+  static const _initialStatusBarStyle =
+      kGenesisLightStatusIconsSystemUiOverlayStyle;
 
   @override
   void dispose() {
@@ -122,17 +139,9 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
   SystemUiOverlayStyle _statusBarStyle(double progress) {
     if (progress <= 0) return _initialStatusBarStyle;
     final useDarkIcons = progress >= 0.55;
-    return SystemUiOverlayStyle(
-      statusBarColor: Color.lerp(
-        _transparentStatusBarColor,
-        _whiteStatusBarColor,
-        progress,
-      ),
-      statusBarIconBrightness: useDarkIcons
-          ? Brightness.dark
-          : Brightness.light,
-      statusBarBrightness: useDarkIcons ? Brightness.light : Brightness.dark,
-    );
+    return useDarkIcons
+        ? kGenesisDefaultSystemUiOverlayStyle
+        : kGenesisLightStatusIconsSystemUiOverlayStyle;
   }
 
   @override
@@ -191,17 +200,19 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
                 mapHeight,
                 statusBarHeight,
               );
-              final overrideStyle =
+              final overridePresentation =
                   WorldDetailsStatusBarOverride.listenable.value;
               final statusBarColor =
-                  overrideStyle?.statusBarColor ??
+                  overridePresentation?.backgroundColor ??
                   Color.lerp(
                     _transparentStatusBarColor,
                     _whiteStatusBarColor,
                     statusBarProgress,
                   )!;
               return AnnotatedRegion<SystemUiOverlayStyle>(
-                value: overrideStyle ?? _statusBarStyle(statusBarProgress),
+                value:
+                    overridePresentation?.style ??
+                    _statusBarStyle(statusBarProgress),
                 child: _buildPanelShell(
                   mapHeight: mapHeight,
                   panelTopOverlap: panelTopOverlap,

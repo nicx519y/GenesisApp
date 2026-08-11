@@ -30,6 +30,7 @@ import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/system/genesis_system_ui.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
@@ -103,17 +104,9 @@ enum _OriginWorldPageRenderStage { framework, detailShell, content }
 class _OriginWorldPageState extends State<OriginWorldPage>
     with SingleTickerProviderStateMixin {
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
-      SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-      );
+      kGenesisLightStatusIconsSystemUiOverlayStyle;
   static const SystemUiOverlayStyle _transparentDarkStatusBarStyle =
-      SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-      );
+      kGenesisDefaultSystemUiOverlayStyle;
   late final TabController _tabController;
   OriginDetail? _origin;
   Object? _initialLoadError;
@@ -131,7 +124,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   String _launchedPresetRolesCacheKey = '';
   String _launchedPresetRolesPreloadScheduledForOriginId = '';
   bool _launching = false;
-  bool _preserveStatusBarDuringWorldHandoff = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
@@ -152,7 +144,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
     _tilemapVisualModeLoad = _loadTilemapVisualMode();
     _tabController = TabController(length: 2, vsync: this);
-    SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
     _scheduleInitialOriginLoadAfterFrameworkFrame();
   }
 
@@ -176,7 +167,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _showIntroPage = false;
       _detailSheetRaisedNotifier.value = false;
       _tabController.index = 0;
-      SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
       _scheduleInitialOriginLoadAfterFrameworkFrame();
     }
   }
@@ -196,9 +186,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   @override
   void dispose() {
-    if (!_preserveStatusBarDuringWorldHandoff) {
-      GenesisSystemUiChrome.applyDefault();
-    }
     _originLoadGeneration += 1;
     _locationChatBackgroundPreloader.dispose();
     _detailSheetRaisedNotifier.dispose();
@@ -488,11 +475,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _showIntroPage = nextShowsIntroPage;
       _detailSheetCollapseRequest += 1;
     });
-    SystemChrome.setSystemUIOverlayStyle(
-      nextShowsIntroPage
-          ? _transparentDarkStatusBarStyle
-          : _transparentStatusBarStyle,
-    );
   }
 
   Future<void> _showLaunchRoleSheet(
@@ -596,8 +578,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   void _enterLaunchedWorld(String worldId, {String initialLocationId = ''}) {
     final navigator = Navigator.of(context);
-    _preserveStatusBarDuringWorldHandoff = true;
-    SystemChrome.setSystemUIOverlayStyle(_transparentStatusBarStyle);
     openWorldFromMyWorldsRoot(
       navigator,
       arguments: {

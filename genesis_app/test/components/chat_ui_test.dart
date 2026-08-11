@@ -21,6 +21,10 @@ void main() {
       kChatTransparentLightSystemUiOverlayStyle.statusBarIconBrightness,
       Brightness.dark,
     );
+    expect(
+      kChatTransparentLightSystemUiOverlayStyle.systemStatusBarContrastEnforced,
+      isFalse,
+    );
   });
 
   LocationChatScrollCoordinator locationChatCoordinator(

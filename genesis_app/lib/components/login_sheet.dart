@@ -110,14 +110,10 @@ Future<bool> showLoginSheet({
   required BuildContext context,
   required Future<bool> Function(IdentityProvider provider) onLogin,
 }) async {
-  final systemUiOverlayStyle = GenesisSystemUiChrome.currentStyle;
   final loggedIn = await showGenesisModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    modalSystemUiOverlayStyle: systemUiOverlayStyle,
-    restoreSystemUiOverlayStyle: systemUiOverlayStyle,
-    restoreSystemUiOverlayAfterFrame: true,
     builder: (context) => LoginSheet(onLogin: onLogin),
   );
   return loggedIn == true;

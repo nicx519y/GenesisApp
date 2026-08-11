@@ -66,7 +66,8 @@ kotlin {
 }
 
 dependencies {
-    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.core:core:1.18.0")
+    implementation("androidx.core:core-splashscreen:1.2.0")
     implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.android.gms:play-services-auth:21.4.0")

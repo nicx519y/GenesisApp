@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_upload_progress_overlay.dart';
 import 'package:genesis_flutter_android/components/discuss/discuss_post_input.dart';
+import 'package:genesis_flutter_android/ui/system/genesis_system_ui.dart';
 import 'package:image/image.dart' as img;
 
 void main() {
@@ -32,7 +31,7 @@ void main() {
     expect(cappedProgress, greaterThan(0.09));
   });
 
-  testWidgets('keeps status bar white while composer opens and closes', (
+  testWidgets('keeps the global status bar transparent while composer opens', (
     WidgetTester tester,
   ) async {
     final calls = <Map<dynamic, dynamic>>[];
@@ -50,12 +49,15 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: DiscussPostInput(
-            bizId: 'o_test_1',
-            requireLogin: false,
-            imagePicker: (limit) async => const <DiscussPickedImage>[],
-            submitter: (content, images) async => <String, dynamic>{},
+        home: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: kGenesisDefaultSystemUiOverlayStyle,
+          child: Scaffold(
+            body: DiscussPostInput(
+              bizId: 'o_test_1',
+              requireLogin: false,
+              imagePicker: (limit) async => const <DiscussPickedImage>[],
+              submitter: (content, images) async => <String, dynamic>{},
+            ),
           ),
         ),
       ),
@@ -67,13 +69,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(calls, isNotEmpty);
-    expect(calls.last['statusBarColor'], Colors.white.toARGB32());
+    expect(calls.last['statusBarColor'], Colors.transparent.toARGB32());
     expect(calls.last['statusBarIconBrightness'], Brightness.dark.toString());
 
     await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();
 
-    expect(calls.last['statusBarColor'], Colors.white.toARGB32());
+    expect(calls.last['statusBarColor'], Colors.transparent.toARGB32());
     expect(calls.last['statusBarIconBrightness'], Brightness.dark.toString());
   });
 

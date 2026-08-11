@@ -11,7 +11,7 @@ const _secondImage = 'assets/images/map_default/l1_default.webp';
 const _thirdImage = 'assets/images/map_default/l2_default.webp';
 
 void main() {
-  testWidgets('viewer restores default status bar style after closing', (
+  testWidgets('viewer keeps the status bar transparent while icons change', (
     tester,
   ) async {
     final calls = <Map<dynamic, dynamic>>[];
@@ -27,7 +27,7 @@ void main() {
           .setMockMethodCallHandler(SystemChannels.platform, null);
     });
 
-    GenesisSystemUiChrome.applyDefault();
+    SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
     await tester.pump();
     calls.clear();
 
@@ -44,10 +44,10 @@ void main() {
         .toList(growable: false);
     expect(statusBarCalls, isNotEmpty);
     expect(
-      statusBarCalls.where(
-        (call) => call['statusBarColor'] == Colors.black.toARGB32(),
+      statusBarCalls.every(
+        (call) => call['statusBarColor'] == Colors.transparent.toARGB32(),
       ),
-      isEmpty,
+      isTrue,
     );
     expect(
       calls.any(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../system/genesis_system_ui.dart';
 import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_typography.dart';
@@ -27,6 +28,9 @@ abstract final class GenesisTheme {
       textTheme: GenesisTypography.textTheme,
       // Keep Material 3 enabled to avoid mixing legacy and current Material defaults.
       useMaterial3: true,
+      appBarTheme: const AppBarTheme(
+        systemOverlayStyle: kGenesisDefaultSystemUiOverlayStyle,
+      ),
       // The global default FilledButton style, also inherited by GenesisPrimaryButton.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(

@@ -306,7 +306,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   int _serviceGeneration = 0;
   int _selectedModelLoadGeneration = 0;
   ValueListenable<int>? _userInfoRevisionListenable;
-  ChatEdgeToEdgeSystemUiLease? _edgeToEdgeLease;
 
   void _setLocationChatState(VoidCallback callback) {
     setState(callback);
@@ -319,7 +318,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void initState() {
     super.initState();
-    _syncEdgeToEdgeLease();
     _scrollCoordinator = LocationChatScrollCoordinator()
       ..addListener(_handleViewportCoordinatorChanged);
     final initialDraftText = widget.initialDraftText;
@@ -344,7 +342,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   @override
   void dispose() {
-    _releaseEdgeToEdgeLease();
     _selectedModelLoadGeneration++;
     _timelineVmCache.clear();
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
@@ -368,9 +365,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.active != widget.active) {
-      _syncEdgeToEdgeLease();
-    }
     if (oldWidget.worldId != widget.worldId ||
         (!oldWidget.active && widget.active)) {
       unawaited(_loadSelectedModelCodeFromCache());
@@ -422,19 +416,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     } else if (becameInactive) {
       unawaited(_deactivateConnection());
     }
-  }
-
-  void _syncEdgeToEdgeLease() {
-    if (widget.active) {
-      _edgeToEdgeLease ??= ChatEdgeToEdgeSystemUiLease.acquire();
-      return;
-    }
-    _releaseEdgeToEdgeLease();
-  }
-
-  void _releaseEdgeToEdgeLease() {
-    _edgeToEdgeLease?.release();
-    _edgeToEdgeLease = null;
   }
 
   @override

@@ -15,6 +15,7 @@ import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/billing/billing_models.dart';
 import '../platform/privacy/app_tracking_transparency_service.dart';
+import '../ui/system/genesis_system_ui.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_feed_cache_store.dart';
 import 'home/home_page.dart';
@@ -51,12 +52,6 @@ class AppShellPage extends StatefulWidget {
 
 class _AppShellPageState extends State<AppShellPage>
     with WidgetsBindingObserver {
-  static const _systemUiOverlayStyle = SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-    statusBarBrightness: Brightness.light,
-  );
-
   late int _selectedIndex;
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
@@ -616,7 +611,7 @@ class _AppShellPageState extends State<AppShellPage>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: _systemUiOverlayStyle,
+      value: kGenesisDefaultSystemUiOverlayStyle,
       child: Scaffold(
         body: _buildBody(),
         bottomNavigationBar: ValueListenableBuilder<UnreadSummary>(

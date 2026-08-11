@@ -10,13 +10,14 @@ import 'app/config/app_endpoint_overrides.dart';
 import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/telemetry/genesis_telemetry.dart';
-import 'components/common/genesis_modal_routes.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
+import 'ui/system/genesis_system_ui.dart';
 
 export 'app/genesis_app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await GenesisSystemUi.initialize();
   final appStartedAt = DateTime.now();
   unawaited(
     SystemChrome.setPreferredOrientations(<DeviceOrientation>[
@@ -49,7 +50,6 @@ Future<void> main() async {
     AppStartupCoordinator.recordStartupFirstReport();
     final initialIndexFuture = _resolveInitialBottomTab(services);
     AppStartupCoordinator.configure(startedAt: appStartedAt);
-    GenesisSystemUiChrome.applyDefault();
     unawaited(
       initialIndexFuture.then(
         (initialIndex) =>

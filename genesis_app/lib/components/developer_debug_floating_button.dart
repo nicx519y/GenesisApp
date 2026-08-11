@@ -124,15 +124,11 @@ class _DeveloperDebugFloatingButtonState
         widget.navigatorKey.currentContext;
     if (navigatorContext == null) return;
     setState(() => _sheetOpen = true);
-    final systemUiOverlayStyle = GenesisSystemUiChrome.currentStyle;
     try {
       await showGenesisModalBottomSheet<void>(
         context: navigatorContext,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        modalSystemUiOverlayStyle: systemUiOverlayStyle,
-        restoreSystemUiOverlayStyle: systemUiOverlayStyle,
-        restoreSystemUiOverlayAfterFrame: true,
         builder: (_) => const FractionallySizedBox(
           heightFactor: 0.72,
           child: DeveloperPageSheet(),

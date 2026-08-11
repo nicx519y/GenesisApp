@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../components/developer_debug_floating_button.dart';
 import 'agent_control/agent_control_host.dart';
@@ -50,12 +51,15 @@ class GenesisApp extends StatelessWidget {
             return AppRouter.onGenerateRoute(settings);
           },
           builder: (context, child) {
-            return GenesisTelemetryTapRegion(
-              child: GenesisBottomSystemBarBoundary(
-                child: ForceUpgradeGate(
-                  child: DeveloperDebugFloatingButton(
-                    navigatorKey: genesisNavigatorKey,
-                    child: child ?? const SizedBox.shrink(),
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: kGenesisDefaultSystemUiOverlayStyle,
+              child: GenesisTelemetryTapRegion(
+                child: GenesisBottomSystemBarBoundary(
+                  child: ForceUpgradeGate(
+                    child: DeveloperDebugFloatingButton(
+                      navigatorKey: genesisNavigatorKey,
+                      child: child ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),
