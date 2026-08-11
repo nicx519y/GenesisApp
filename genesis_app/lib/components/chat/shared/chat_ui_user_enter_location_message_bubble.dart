@@ -20,8 +20,9 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
     }
     return ChatSystemMessage(
       text: payload.text,
-      fullWidth: true,
-      textAlign: TextAlign.left,
+      fullWidth: false,
+      useFullAvailableWidth: true,
+      textAlign: TextAlign.center,
       bubbleKey: ValueKey<String>(
         'chat-user-enter-location-message-${message.localId}',
       ),

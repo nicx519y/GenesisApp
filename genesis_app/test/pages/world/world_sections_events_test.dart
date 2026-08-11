@@ -197,6 +197,81 @@ void main() {
     },
   );
 
+  testWidgets('events sheet shows AI and user visible roles after event time', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorldEventsSection(
+            world: _worldDetail(
+              characters: const [
+                {'char_id': 'char_oracle', 'name': 'Oracle', 'player_uid': ''},
+                {
+                  'char_id': 'char_iris',
+                  'name': 'Iris',
+                  'player_uid': 'user_iris',
+                },
+              ],
+            ),
+            ticks: const [
+              {
+                'tick_id': 'tick_4_1',
+                'tick_no': 4,
+                'sub_tick_no': 1,
+                'tick_result': {
+                  'narrator': 'A signal reaches the harbor.',
+                  'paragraphs': <Object?>[
+                    {
+                      'location_id': 'loc_harbor',
+                      'timestamp': 'Day 4, 20:25',
+                      'visibility': 'char_only',
+                      'visible_to': ['char_oracle', 'char_iris'],
+                      'text': 'Only the visible roles hear the signal.',
+                    },
+                  ],
+                },
+              },
+            ],
+            initialLoading: false,
+            loadingMore: false,
+            hasMore: false,
+            error: null,
+            latestRevision: 0,
+            targetTickNumber: null,
+            contentPadding: EdgeInsets.zero,
+            onLoadMore: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Day 4, 20:25'), findsOneWidget);
+    expect(find.text('Oracle'), findsOneWidget);
+    expect(find.text('Iris'), findsOneWidget);
+    final aiIcon = find.byWidgetPredicate(
+      (widget) =>
+          widget is SvgPicture &&
+          widget.bytesLoader.toString().contains(characterStatIconAsset),
+    );
+    final userIcon = find.byWidgetPredicate(
+      (widget) =>
+          widget is SvgPicture &&
+          widget.bytesLoader.toString().contains(userStatIconAsset),
+    );
+    expect(aiIcon, findsOneWidget);
+    expect(userIcon, findsOneWidget);
+    expect(
+      tester.getCenter(find.text('Day 4, 20:25')).dy,
+      closeTo(tester.getCenter(find.text('Oracle')).dy, 2),
+    );
+    expect(
+      tester.getCenter(find.text('Oracle')).dx,
+      lessThan(tester.getCenter(find.text('Iris')).dx),
+    );
+  });
+
   testWidgets('latest sub-tick starts a 500 sub-tick page', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -250,7 +325,9 @@ void main() {
   });
 }
 
-WorldDetail _worldDetail() {
+WorldDetail _worldDetail({
+  List<Map<String, dynamic>> characters = const <Map<String, dynamic>>[],
+}) {
   return WorldDetail(
     id: 1,
     worldId: 'world_events_test',
@@ -286,7 +363,7 @@ WorldDetail _worldDetail() {
       characters: <OriginCharacter>[],
       locations: <OriginLocation>[],
     ),
-    characters: const <Map<String, dynamic>>[],
+    characters: characters,
     ticks: const <Map<String, dynamic>>[],
     locations: const <Map<String, dynamic>>[],
     characterPositions: const <Map<String, dynamic>>[],

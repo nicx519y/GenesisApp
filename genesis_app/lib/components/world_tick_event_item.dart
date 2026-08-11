@@ -12,6 +12,7 @@ class WorldTickEventItem extends StatelessWidget {
     this.subTickNumber = 0,
     required this.fallbackBody,
     this.locationsById = const <String, Map<String, dynamic>>{},
+    this.charactersById = const <String, Map<String, dynamic>>{},
     this.isLast = true,
     this.dateLabel,
     this.timeAgoLabel,
@@ -28,6 +29,7 @@ class WorldTickEventItem extends StatelessWidget {
   final int subTickNumber;
   final String fallbackBody;
   final Map<String, Map<String, dynamic>> locationsById;
+  final Map<String, Map<String, dynamic>> charactersById;
   final bool isLast;
   final String? dateLabel;
   final String? timeAgoLabel;
@@ -72,6 +74,7 @@ class WorldTickEventItem extends StatelessWidget {
             _TickParagraphRow(
               paragraph: paragraph,
               locationsById: locationsById,
+              charactersById: charactersById,
               stacked: stackedContent,
               labelStyle: contentLabelStyle,
               bodyStyle: contentTextStyle,
@@ -192,6 +195,7 @@ class _TickParagraphRow extends StatelessWidget {
   const _TickParagraphRow({
     required this.paragraph,
     required this.locationsById,
+    required this.charactersById,
     required this.stacked,
     this.labelStyle,
     this.bodyStyle,
@@ -202,6 +206,7 @@ class _TickParagraphRow extends StatelessWidget {
 
   final Map<String, dynamic> paragraph;
   final Map<String, Map<String, dynamic>> locationsById;
+  final Map<String, Map<String, dynamic>> charactersById;
   final bool stacked;
   final TextStyle? labelStyle;
   final TextStyle? bodyStyle;
@@ -229,6 +234,7 @@ class _TickParagraphRow extends StatelessWidget {
       paragraph,
       metricUnit: metricUnit,
     );
+    final visibleRoles = _visibleRoles(paragraph, charactersById);
 
     final label = _LocationLabel(
       text: name.isEmpty ? 'Location' : name,
@@ -242,6 +248,13 @@ class _TickParagraphRow extends StatelessWidget {
     final timestampText = timestamp.isEmpty
         ? null
         : _TimestampLabel(text: timestamp, style: timestampStyle);
+    final metadata = timestampText == null && visibleRoles.isEmpty
+        ? null
+        : _EventMetadata(
+            timestamp: timestampText,
+            visibleRoles: visibleRoles,
+            style: timestampStyle,
+          );
     final characterDetailsText = characterDetails.isEmpty
         ? null
         : _CharacterDetailsText(
@@ -257,10 +270,7 @@ class _TickParagraphRow extends StatelessWidget {
               children: [
                 label,
                 const SizedBox(height: 4),
-                if (timestampText != null) ...[
-                  timestampText,
-                  const SizedBox(height: 2),
-                ],
+                if (metadata != null) ...[metadata, const SizedBox(height: 2)],
                 bodyText,
                 if (clueText != null) ...[const SizedBox(height: 8), clueText],
                 if (characterDetailsText != null) ...[
@@ -277,8 +287,8 @@ class _TickParagraphRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (timestampText != null) ...[
-                        timestampText,
+                      if (metadata != null) ...[
+                        metadata,
                         const SizedBox(height: 2),
                       ],
                       bodyText,
@@ -437,6 +447,87 @@ class _TimestampLabel extends StatelessWidget {
   }
 }
 
+class _EventMetadata extends StatelessWidget {
+  const _EventMetadata({
+    required this.timestamp,
+    required this.visibleRoles,
+    this.style,
+  });
+
+  final Widget? timestamp;
+  final List<_VisibleRole> visibleRoles;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final aiNames = visibleRoles
+        .where((role) => role.isAi)
+        .map((role) => role.name)
+        .toList(growable: false);
+    final userNames = visibleRoles
+        .where((role) => !role.isAi)
+        .map((role) => role.name)
+        .toList(growable: false);
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        if (timestamp != null) timestamp!,
+        if (aiNames.isNotEmpty)
+          _VisibleRoleGroup(
+            iconAsset: characterStatIconAsset,
+            names: aiNames,
+            style: style,
+          ),
+        if (userNames.isNotEmpty)
+          _VisibleRoleGroup(
+            iconAsset: userStatIconAsset,
+            names: userNames,
+            style: style,
+          ),
+      ],
+    );
+  }
+}
+
+class _VisibleRoleGroup extends StatelessWidget {
+  const _VisibleRoleGroup({
+    required this.iconAsset,
+    required this.names,
+    this.style,
+  });
+
+  final String iconAsset;
+  final List<String> names;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedStyle = (style ?? _timestampStyle).copyWith(
+      fontWeight: FontWeight.w400,
+      color: const Color(0xFF444444),
+    );
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 240),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset(
+            iconAsset,
+            width: 12,
+            height: 12,
+            fit: BoxFit.contain,
+            excludeFromSemantics: true,
+          ),
+          const SizedBox(width: 4),
+          Flexible(child: Text(names.join(', '), style: resolvedStyle)),
+        ],
+      ),
+    );
+  }
+}
+
 DateTime? _tickDateTime(Object? value) {
   if (value is DateTime) return value;
   if (value is num) {
@@ -472,6 +563,40 @@ String _locationName(
   final location = locationsById[locationId];
   if (location == null) return '';
   return _mapString(location, const ['location_name', 'name']);
+}
+
+class _VisibleRole {
+  const _VisibleRole({required this.name, required this.isAi});
+
+  final String name;
+  final bool isAi;
+}
+
+List<_VisibleRole> _visibleRoles(
+  Map<String, dynamic> paragraph,
+  Map<String, Map<String, dynamic>> charactersById,
+) {
+  final visibility = _mapString(paragraph, const ['visibility']).toLowerCase();
+  if (visibility == 'public') return const <_VisibleRole>[];
+  final rawVisibleTo = paragraph['visible_to'] ?? paragraph['visibleTo'];
+  if (rawVisibleTo is! List) return const <_VisibleRole>[];
+  final roles = <_VisibleRole>[];
+  final seenNames = <String>{};
+  for (final rawRoleId in rawVisibleTo) {
+    final roleId = '$rawRoleId'.trim();
+    if (roleId.isEmpty) continue;
+    final character = charactersById[roleId];
+    if (character == null) continue;
+    final name = _mapString(character, const ['name']).trim();
+    if (name.isEmpty || !seenNames.add(name)) continue;
+    roles.add(
+      _VisibleRole(
+        name: name,
+        isAi: _mapString(character, const ['player_uid']).isEmpty,
+      ),
+    );
+  }
+  return roles;
 }
 
 class _CharacterDetailLine {

@@ -37,6 +37,7 @@ class ChatHeader extends StatelessWidget {
     final headerSidePadding = trailing == null
         ? style.headerTrailingPlaceholderWidth
         : _chatHeaderTrailingWidth;
+    final trailingInTitleRow = alignContentLeft && trailing != null;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -71,7 +72,9 @@ class ChatHeader extends StatelessWidget {
                   left: alignContentLeft
                       ? style.headerTrailingPlaceholderWidth
                       : 0,
-                  right: alignContentLeft ? headerSidePadding : 0,
+                  right: alignContentLeft && !trailingInTitleRow
+                      ? headerSidePadding
+                      : 0,
                   top: 0,
                   bottom: 0,
                   child: Column(
@@ -102,14 +105,35 @@ class ChatHeader extends StatelessWidget {
                               ),
                               SizedBox(width: style.headerTitleIconGap),
                             ],
-                            Flexible(
-                              child: Text(
-                                genesisDisplaySafeText(title),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: style.headerTitleTextStyle,
+                            if (alignContentLeft)
+                              Expanded(
+                                child: Text(
+                                  genesisDisplaySafeText(title),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: style.headerTitleTextStyle,
+                                ),
+                              )
+                            else
+                              Flexible(
+                                child: Text(
+                                  genesisDisplaySafeText(title),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: style.headerTitleTextStyle,
+                                ),
                               ),
-                            ),
+                            if (trailingInTitleRow)
+                              SizedBox(
+                                width: headerSidePadding,
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Transform.translate(
+                                    offset: const Offset(0, 2),
+                                    child: trailing,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -159,7 +183,7 @@ class ChatHeader extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null)
+                if (trailing != null && !trailingInTitleRow)
                   Align(
                     alignment: Alignment.centerRight,
                     child: SizedBox(

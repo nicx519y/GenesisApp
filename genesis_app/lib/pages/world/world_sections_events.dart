@@ -364,6 +364,11 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
       for (final location in widget.world.locations)
         worldMapString(location, const ['location_id', 'id']): location,
     }..remove('');
+    final charactersById = <String, Map<String, dynamic>>{
+      for (final character in widget.world.characters)
+        worldMapString(character, const ['char_id', 'character_id', 'id']):
+            character,
+    }..remove('');
     final fallbackBody = worldEventBody(widget.world);
     final metricUnit = worldMapString(widget.world.metric, const ['unit']);
     final visibleTickPages = _visibleTickPages;
@@ -427,6 +432,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
                   subTickNumber: worldEventSubTickNumber(tick),
                   fallbackBody: fallbackBody,
                   locationsById: locationsById,
+                  charactersById: charactersById,
                   dateLabel: worldTickParagraphTimestamp(tick),
                   stackedContent: true,
                   contentLabelStyle: _worldEventContentLabelStyle,

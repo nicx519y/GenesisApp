@@ -177,7 +177,7 @@ void main() {
 
     expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
     expect(find.byType(ChatOtherMessageBubble), findsOneWidget);
-    expect(find.byType(ChatSystemMessage), findsNWidgets(4));
+    expect(find.byType(ChatSystemMessage), findsNWidgets(3));
     expect(find.byType(ChatNarratorMessageBubble), findsOneWidget);
     expect(find.byType(ChatTickMessageBubble), findsOneWidget);
     expect(find.byType(ChatImageMessage), findsOneWidget);
@@ -297,6 +297,31 @@ void main() {
     );
 
     expect(find.text('Alice entered the cafe'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('Alice entered the cafe')).textAlign,
+      TextAlign.center,
+    );
+    final enterSystemMessage = tester.widget<ChatSystemMessage>(
+      find.ancestor(
+        of: find.text('Alice entered the cafe'),
+        matching: find.byType(ChatSystemMessage),
+      ),
+    );
+    expect(enterSystemMessage.fullWidth, isFalse);
+    expect(enterSystemMessage.useFullAvailableWidth, isTrue);
+    final enterBubbleRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('chat-user-enter-location-message-enter'),
+      ),
+    );
+    final enterRowRect = tester.getRect(
+      find.ancestor(
+        of: find.text('Alice entered the cafe'),
+        matching: find.byType(ChatMessageRow),
+      ),
+    );
+    expect(enterBubbleRect.width, lessThan(enterRowRect.width));
+    expect(enterBubbleRect.center.dx, closeTo(enterRowRect.center.dx, 1));
     expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
     expect(find.text('Old Station'), findsNothing);
     expect(find.text('Event'), findsNothing);
@@ -1271,14 +1296,20 @@ void main() {
         home: Scaffold(
           body: ChatHeader(
             title: 'Googleplex园区 (1)',
-            subtitle: 'Mark Zuckerberg',
+            subtitle:
+                'Mark Zuckerberg, Ada Lovelace, Grace Hopper, Alan Turing',
             connected: true,
             connecting: false,
             onBack: () {},
             alignContentLeft: true,
             style: kLocationChatStyle,
             subtitleIconAsset: locationChatCharacterIconAsset,
-            trailing: const SizedBox(width: 96),
+            trailing: MemoryModelEntryButton(
+              modelLabel: 'top_pick_v3_5',
+              darkHeader: true,
+              compact: true,
+              onTap: () {},
+            ),
           ),
         ),
       ),
@@ -1294,8 +1325,19 @@ void main() {
             ),
       ),
     );
+    final titleRect = tester.getRect(find.text('Googleplex园区 (1)'));
+    final subtitleRect = tester.getRect(
+      find.text('Mark Zuckerberg, Ada Lovelace, Grace Hopper, Alan Turing'),
+    );
+    final modelRect = tester.getRect(
+      find.byKey(const ValueKey('memory-model-entry')),
+    );
+    final headerRect = tester.getRect(find.byType(ChatHeader));
     expect(titleIconRect.left, closeTo(48, 1));
     expect(subtitleIconRect.left, closeTo(titleIconRect.left, 1));
+    expect(modelRect.right, closeTo(headerRect.right, 1));
+    expect(modelRect.center.dy, closeTo(titleRect.center.dy + 2, 1));
+    expect(subtitleRect.right, greaterThan(modelRect.left));
   });
 
   testWidgets('private chat style hides peer name', (
@@ -2344,6 +2386,23 @@ void main() {
       expect(find.text('Global'), findsNothing);
       expect(globalText, findsOneWidget);
       expect(find.byIcon(Icons.schedule_rounded), findsNothing);
+      final tickBubble = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('chat-tick-message-surface')),
+      );
+      final tickDecoration = tickBubble.decoration! as BoxDecoration;
+      expect(tickDecoration.color, const Color(0xF0182430));
+      expect(tickDecoration.borderRadius, BorderRadius.circular(8));
+      expect(tickDecoration.border, isNull);
+      final tickAccent = find.byKey(
+        const ValueKey<String>('chat-tick-message-accent'),
+      );
+      expect(tickAccent, findsOneWidget);
+      expect(
+        tester.widget<ColoredBox>(tickAccent).color,
+        const Color(0xFF709BC2),
+      );
+      expect(tester.getSize(tickAccent).width, 2);
+      expect(tester.widget<Text>(header).style?.color, const Color(0xFFC4DBEF));
       expect(
         find.descendant(
           of: find.byKey(const ValueKey<String>('chat-tick-global-section')),
@@ -2393,6 +2452,7 @@ void main() {
       expect(find.text('It spells Elara.'), findsOneWidget);
       expect(find.text('Character destinations'), findsNothing);
       expect(routeIcon, findsOneWidget);
+      expect(find.text('went to'), findsOneWidget);
       expect(find.text('Room 0'), findsOneWidget);
       expect(
         tester.getTopLeft(header).dy,
@@ -2431,7 +2491,7 @@ void main() {
         'Frost creeps toward Room 0.\n'
         'It spells Elara.\n'
         'Character destinations\n'
-        'Elara has gone to Room 0',
+        'Elara went to Room 0',
       );
     },
   );

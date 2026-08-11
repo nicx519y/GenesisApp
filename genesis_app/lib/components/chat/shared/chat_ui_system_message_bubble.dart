@@ -5,6 +5,7 @@ class ChatSystemMessage extends StatelessWidget {
     super.key,
     required this.text,
     this.fullWidth = false,
+    this.useFullAvailableWidth = false,
     this.singleLine = false,
     this.textAlign = TextAlign.center,
     this.leadingIconAsset,
@@ -15,6 +16,7 @@ class ChatSystemMessage extends StatelessWidget {
 
   final String text;
   final bool fullWidth;
+  final bool useFullAvailableWidth;
   final bool singleLine;
   final TextAlign textAlign;
   final String? leadingIconAsset;
@@ -27,7 +29,7 @@ class ChatSystemMessage extends StatelessWidget {
     final style = this.style ?? ChatUiStyleConfig.standard;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxBubbleWidth = fullWidth
+        final maxBubbleWidth = fullWidth || useFullAvailableWidth
             ? constraints.maxWidth
             : _normalBubbleMaxWidthForWidth(constraints.maxWidth, style);
         return Center(

@@ -10,11 +10,13 @@ class MemoryModelEntryButton extends StatelessWidget {
     required this.modelLabel,
     required this.onTap,
     this.darkHeader = false,
+    this.compact = false,
   });
 
   final String modelLabel;
   final VoidCallback onTap;
   final bool darkHeader;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -22,15 +24,17 @@ class MemoryModelEntryButton extends StatelessWidget {
     final background = darkHeader
         ? Colors.transparent
         : Colors.white.withValues(alpha: 0.9);
+    final borderRadius = compact ? 11.5 : 19.0;
+    final iconSize = compact ? 16.0 : 18.0;
     return Material(
       key: const ValueKey('memory-model-entry'),
       color: background,
-      borderRadius: BorderRadius.circular(19),
+      borderRadius: BorderRadius.circular(borderRadius),
       child: InkWell(
-        borderRadius: BorderRadius.circular(19),
+        borderRadius: BorderRadius.circular(borderRadius),
         onTap: onTap,
         child: Container(
-          height: 38,
+          height: compact ? 23 : 38,
           constraints: const BoxConstraints(
             minWidth: kMemoryModelEntryMinWidth,
             maxWidth: kMemoryModelEntryMaxWidth,
@@ -42,8 +46,8 @@ class MemoryModelEntryButton extends StatelessWidget {
             children: [
               SvgPicture.asset(
                 'assets/custom-icons/svg/arrow-change-svgrepo-com.svg',
-                width: 18,
-                height: 18,
+                width: iconSize,
+                height: iconSize,
                 colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn),
               ),
               const SizedBox(width: 5),

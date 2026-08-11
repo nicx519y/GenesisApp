@@ -68,6 +68,7 @@ class _ChatCharacterMovementRow extends StatelessWidget {
     required this.movement,
     required this.style,
     required this.onLocationTap,
+    this.usePastTenseDirection = false,
   });
 
   final String messageLocalId;
@@ -75,6 +76,7 @@ class _ChatCharacterMovementRow extends StatelessWidget {
   final ChatCharacterMovementVm movement;
   final ChatUiStyleConfig style;
   final ChatCharacterMovementTap? onLocationTap;
+  final bool usePastTenseDirection;
 
   @override
   Widget build(BuildContext context) {
@@ -87,9 +89,11 @@ class _ChatCharacterMovementRow extends StatelessWidget {
         onLocationTap != null &&
         movement.toLocationId.trim().isNotEmpty &&
         !movement.isDestinationCurrentLocation;
-    final directionText = movement.isDestinationCurrentLocation
-        ? 'has come to'
-        : 'has gone to';
+    final directionText = usePastTenseDirection
+        ? (movement.isDestinationCurrentLocation ? 'came to' : 'went to')
+        : (movement.isDestinationCurrentLocation
+              ? 'has come to'
+              : 'has gone to');
     return Wrap(
       key: ValueKey<String>('chat-character-movement-$messageLocalId-$index'),
       crossAxisAlignment: WrapCrossAlignment.center,

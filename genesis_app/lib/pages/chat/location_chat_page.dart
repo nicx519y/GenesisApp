@@ -504,6 +504,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   ? 'Model'
                   : _selectedModelCode,
               darkHeader: true,
+              compact: true,
               onTap: () => unawaited(_openMemoryModelPage()),
             )
           : null,
