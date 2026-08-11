@@ -111,6 +111,7 @@ typedef TilemapLocationNameResolver = String? Function(TilemapCell tile);
 typedef TilemapLocationAvatarsResolver =
     List<UserAvatar> Function(TilemapCell tile);
 typedef TilemapRecentChatResolver = bool Function(TilemapCell tile);
+typedef TilemapEventResolver = bool Function(TilemapCell tile);
 
 enum TilemapVisualMode { light, dark }
 

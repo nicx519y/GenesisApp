@@ -341,6 +341,8 @@ extension _WorldPageLocationChat on _WorldPageState {
     _mapBubbleMessagesReady = false;
     _recentChatLocationIds = const <String>{};
     _recentChatLocationPathIds = const <String>{};
+    _currentTickEventLocationIds = const <String>{};
+    _currentTickEventLocationPathIds = const <String>{};
     _scheduleLocationChatPrecache();
   }
 
@@ -532,6 +534,7 @@ extension _WorldPageLocationChat on _WorldPageState {
           _buildMapBubbleCandidates(chatroom.state, _world),
         );
         _applyRecentChatLocationSelection(chatroom.state, _world);
+        _applyCurrentTickEventSelection(chatroom.state, _world);
       }
       return;
     }
@@ -574,6 +577,7 @@ extension _WorldPageLocationChat on _WorldPageState {
             _buildMapBubbleCandidates(chatroom.state, _world),
           );
           _applyRecentChatLocationSelection(chatroom.state, _world);
+          _applyCurrentTickEventSelection(chatroom.state, _world);
         });
         _logLocationChatMetric(
           'map bubble messages ready locations=${expectedIds.length}',

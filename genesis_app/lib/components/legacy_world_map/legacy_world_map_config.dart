@@ -26,6 +26,7 @@ class LegacyWorldMapConfig {
     this.enableAvatarScaleReboundHint = false,
     this.recentChatLocationIds = const <String>{},
     this.recentChatMapLocationIds = const <String>{},
+    this.eventMapLocationIds = const <String>{},
   });
 
   final Key? implementationKey;
@@ -48,4 +49,5 @@ class LegacyWorldMapConfig {
   final bool enableAvatarScaleReboundHint;
   final Set<String> recentChatLocationIds;
   final Set<String> recentChatMapLocationIds;
+  final Set<String> eventMapLocationIds;
 }

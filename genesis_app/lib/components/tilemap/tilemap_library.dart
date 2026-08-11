@@ -388,6 +388,7 @@ class Tilemap extends StatefulWidget {
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
+    this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
@@ -415,6 +416,7 @@ class Tilemap extends StatefulWidget {
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
+    this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
@@ -441,6 +443,7 @@ class Tilemap extends StatefulWidget {
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
   final Set<String> recentChatLocationIds;
+  final Set<String> eventLocationIds;
   final bool animationsPaused;
   final int reloadRevision;
   final List<WorldMapMessageBubble> messageBubbles;
@@ -1475,6 +1478,17 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     return sceneId.isNotEmpty && recentLocationIds.contains(sceneId);
   }
 
+  bool _showEventForTile(TilemapCell tile) {
+    final eventLocationIds = widget.eventLocationIds;
+    if (eventLocationIds.isEmpty) return false;
+    final locationId = tile.locationId?.trim() ?? '';
+    if (locationId.isEmpty) return false;
+    if (eventLocationIds.contains(locationId)) return true;
+    final node = findWorldMapLocationNode(widget.locationNodes, locationId);
+    final sceneId = node?.point.sceneId.trim() ?? '';
+    return sceneId.isNotEmpty && eventLocationIds.contains(sceneId);
+  }
+
   List<UserAvatar> _locationAvatarsForTile(TilemapCell tile) {
     final locationId = tile.locationId?.trim() ?? '';
     if (locationId.isEmpty) return const <UserAvatar>[];
@@ -1822,6 +1836,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       locationNameForTile: _locationNameForTile,
       locationAvatarsForTile: _locationAvatarsForTile,
       showRecentChatForTile: _showRecentChatForTile,
+      showEventForTile: _showEventForTile,
       preferredFocusLocationId: _preferredVisibleFocusLocationId(config),
       messageBubbles: includeLiveContent
           ? widget.messageBubbles

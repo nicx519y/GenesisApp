@@ -5,8 +5,11 @@ import '../../icons/custom_icon_assets.dart';
 
 const Color kRecentChatMarkerColor = Color(0xFF338960);
 const Color kRecentChatMarkerBackgroundColor = Color(0xFFE8F5EF);
+const Color kWorldEventMarkerColor = Color(0xFFFF2442);
+const Color kWorldEventMarkerBackgroundColor = Color(0xFFFFF0F2);
 const double kRecentChatMapBadgeSize = 16;
 const double kRecentChatMapIconSize = 10;
+const double kWorldEventMapIconSize = 12;
 
 class RecentChatMapBadge extends StatelessWidget {
   const RecentChatMapBadge({super.key, this.badgeKey});
@@ -24,6 +27,37 @@ class RecentChatMapBadge extends StatelessWidget {
       child: const SizedBox.square(
         dimension: kRecentChatMapBadgeSize,
         child: Center(child: RecentChatIcon(size: kRecentChatMapIconSize)),
+      ),
+    );
+  }
+}
+
+class WorldEventMapBadge extends StatelessWidget {
+  const WorldEventMapBadge({super.key, this.badgeKey});
+
+  final Key? badgeKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: badgeKey,
+      decoration: const BoxDecoration(
+        color: kWorldEventMarkerBackgroundColor,
+        borderRadius: BorderRadius.all(Radius.circular(4)),
+      ),
+      child: SizedBox.square(
+        dimension: kRecentChatMapBadgeSize,
+        child: Center(
+          child: SvgPicture.asset(
+            eventsIconAsset,
+            width: kWorldEventMapIconSize,
+            height: kWorldEventMapIconSize,
+            colorFilter: const ColorFilter.mode(
+              kWorldEventMarkerColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        ),
       ),
     );
   }

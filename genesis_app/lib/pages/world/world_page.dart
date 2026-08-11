@@ -46,6 +46,7 @@ import 'world_models.dart';
 import 'world_page_result.dart';
 import 'world_recent_chat_location.dart';
 import 'world_sections.dart';
+import 'world_tick_event_locations.dart';
 import 'world_value_helpers.dart';
 
 part 'world_page_tabs.dart';
@@ -156,6 +157,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   var _currentUidRequested = false;
   Set<String> _recentChatLocationIds = const <String>{};
   Set<String> _recentChatLocationPathIds = const <String>{};
+  Set<String> _currentTickEventLocationIds = const <String>{};
+  Set<String> _currentTickEventLocationPathIds = const <String>{};
   var _locationChatDescriptorSignature = '';
   late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =
       ValueNotifier<WorldDetail?>(_world);
@@ -490,6 +493,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         ? worldPointsFromLocations(world.locations, avatarsByLocation)
         : points;
     final recentMapLocationIds = _recentChatLocationPathIds;
+    final eventMapLocationIds = _currentTickEventLocationPathIds;
     final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
       final preparingInitialTilemap =
@@ -523,6 +527,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           showPointsList: pointMode,
           recentChatLocationIds: _recentChatLocationIds,
           recentChatMapLocationIds: recentMapLocationIds,
+          eventMapLocationIds: eventMapLocationIds,
           initialZoomScale: pointMode ? 1 : 1.2,
           pointsListOuterScrollHandoff: false,
           overlayTop:
@@ -543,6 +548,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           preferredFocusLocationId:
               _initialTilemapPreferredFocusLocationId ?? '',
           recentChatLocationIds: recentMapLocationIds,
+          eventLocationIds: eventMapLocationIds,
           animationsPaused: _worldBottomSheetOpen || mapPausedForLocationChat,
           reloadRevision: _tilemapReloadRevision,
           visualModeToggleTop: topPadding + 6,

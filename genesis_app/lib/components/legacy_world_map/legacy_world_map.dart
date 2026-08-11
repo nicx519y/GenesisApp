@@ -51,6 +51,7 @@ class LegacyWorldMap extends StatefulWidget {
   bool get enableAvatarScaleReboundHint => config.enableAvatarScaleReboundHint;
   Set<String> get recentChatLocationIds => config.recentChatLocationIds;
   Set<String> get recentChatMapLocationIds => config.recentChatMapLocationIds;
+  Set<String> get eventMapLocationIds => config.eventMapLocationIds;
 
   @override
   State<LegacyWorldMap> createState() => _LegacyWorldMapState();
@@ -258,6 +259,11 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
                                           legacyWorldMapPointMatchesLocationIds(
                                             p,
                                             widget.recentChatMapLocationIds,
+                                          ),
+                                      showEventIcon:
+                                          legacyWorldMapPointMatchesLocationIds(
+                                            p,
+                                            widget.eventMapLocationIds,
                                           ),
                                       width: viewport.width,
                                       height: viewport.height,

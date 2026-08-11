@@ -224,6 +224,63 @@ void main() {
     );
   });
 
+  testWidgets('world map renders Event before Recent Message', (tester) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const <WorldPoint>[
+        WorldPoint(
+          id: 'point-1',
+          sceneId: 'location-1',
+          name: 'Gate',
+          type: WorldPointType.portal,
+          position: _pointPosition,
+          users: <UserAvatar>[],
+        ),
+      ],
+      eventMapLocationIds: const <String>{'location-1'},
+      recentChatMapLocationIds: const <String>{'location-1'},
+    );
+
+    final labelRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-label-point-1')),
+    );
+    final eventRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-event-icon')),
+    );
+    final recentRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-recent-chat-icon')),
+    );
+    final dotRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-dot')),
+    );
+
+    expect(eventRect.left, closeTo(labelRect.right + 3, 0.01));
+    expect(recentRect.left, closeTo(eventRect.right + 3, 0.01));
+    expect(eventRect.center.dy, closeTo(labelRect.center.dy, 0.01));
+    expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
+    expect(eventRect.size, const Size.square(16));
+    final eventBadge = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('world-map-event-icon')),
+    );
+    expect(
+      (eventBadge.decoration as BoxDecoration).color,
+      kWorldEventMarkerBackgroundColor,
+    );
+    final eventSvg = tester.widget<SvgPicture>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('world-map-event-icon')),
+        matching: find.byType(SvgPicture),
+      ),
+    );
+    expect(
+      eventSvg.colorFilter,
+      const ColorFilter.mode(kWorldEventMarkerColor, BlendMode.srcIn),
+    );
+    expect(eventSvg.width, kWorldEventMapIconSize);
+    expect(eventSvg.height, kWorldEventMapIconSize);
+  });
+
   testWidgets('world map renders generated avatar when avatar URL is empty', (
     tester,
   ) async {
@@ -2374,6 +2431,7 @@ Future<void> _pumpWorldMap(
   bool messageBubblePlaybackPaused = false,
   double initialZoomScale = 1,
   Set<String> recentChatMapLocationIds = const <String>{},
+  Set<String> eventMapLocationIds = const <String>{},
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -2411,6 +2469,7 @@ Future<void> _pumpWorldMap(
                   activeBubble: activeBubble,
                   initialZoomScale: initialZoomScale,
                   recentChatMapLocationIds: recentChatMapLocationIds,
+                  eventMapLocationIds: eventMapLocationIds,
                   onHorizontalPanStateChanged: onHorizontalPanStateChanged,
                   points:
                       points ??

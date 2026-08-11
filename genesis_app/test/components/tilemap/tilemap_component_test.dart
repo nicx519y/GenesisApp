@@ -1151,6 +1151,7 @@ void main() {
             onTileAction: (tile) async => tappedTile = tile,
             locationNameForTile: (_) => 'High School',
             showRecentChatForTile: (_) => true,
+            showEventForTile: (_) => true,
           ),
         ),
       ),
@@ -1168,6 +1169,17 @@ void main() {
       find.byKey(const ValueKey<String>('tilemap-recent-chat-icon')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-event-icon')),
+      findsOneWidget,
+    );
+    final eventRect = tester.getRect(
+      find.byKey(const ValueKey<String>('tilemap-event-icon')),
+    );
+    final recentRect = tester.getRect(
+      find.byKey(const ValueKey<String>('tilemap-recent-chat-icon')),
+    );
+    expect(eventRect.right, lessThan(recentRect.left));
     expect(
       find.byKey(const ValueKey<String>('tile-location-label-0-0')),
       findsOneWidget,
@@ -1222,10 +1234,8 @@ void main() {
       closeTo(tileRect.center.dy + tileRect.height / 8, 0.01),
     );
     expect(bubbleBodyRect.center.dx, closeTo(tileRect.center.dx, 0.01));
-    final recentChatBadgeRect = tester.getRect(
-      find.byKey(const ValueKey<String>('tilemap-recent-chat-icon')),
-    );
-    expect(recentChatBadgeRect.left - bubbleBodyRect.right, closeTo(3, 0.01));
+    expect(eventRect.left - bubbleBodyRect.right, closeTo(3, 0.01));
+    expect(recentRect.left - eventRect.right, closeTo(3, 0.01));
     await tester.tap(
       find.byKey(
         const ValueKey<String>('tile-location-bubble-body-High School'),

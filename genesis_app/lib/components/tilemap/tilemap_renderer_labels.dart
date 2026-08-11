@@ -6,6 +6,7 @@ class _TilemapLocationLabelData {
     required this.name,
     required this.avatars,
     required this.showRecentChat,
+    required this.showEvent,
     required this.verticalOverflow,
   });
 
@@ -13,15 +14,16 @@ class _TilemapLocationLabelData {
   final String name;
   final List<UserAvatar> avatars;
   final bool showRecentChat;
+  final bool showEvent;
   final double verticalOverflow;
 }
 
 const double _tilemapLocationLabelMaxWidth = 141;
 const double _tilemapLocationLabelHorizontalPadding = 3;
 const double _tilemapLocationLabelVerticalPadding = 4;
-const double _tilemapLocationRecentChatGap = 3;
-const double _tilemapLocationRecentChatExtraWidth =
-    _tilemapLocationRecentChatGap + kRecentChatMapBadgeSize;
+const double _tilemapLocationActivityIconGap = 3;
+const double _tilemapLocationActivityIconExtraWidth =
+    _tilemapLocationActivityIconGap + kRecentChatMapBadgeSize;
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
   color: Colors.white,
   fontSize: 12,
@@ -189,6 +191,7 @@ class _TilemapLocationBubble extends StatelessWidget {
     required this.name,
     required this.avatars,
     required this.showRecentChat,
+    required this.showEvent,
     required this.onLabelTap,
     required this.onAvatarTap,
     required this.anchor,
@@ -197,6 +200,7 @@ class _TilemapLocationBubble extends StatelessWidget {
   final String name;
   final List<UserAvatar> avatars;
   final bool showRecentChat;
+  final bool showEvent;
   final VoidCallback? onLabelTap;
   final VoidCallback? onAvatarTap;
   final Offset anchor;
@@ -204,6 +208,9 @@ class _TilemapLocationBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labelLayout = _tilemapLocationLabelLayout(context, name);
+    final activityIconCount = (showEvent ? 1 : 0) + (showRecentChat ? 1 : 0);
+    final activityIconsWidth =
+        activityIconCount * _tilemapLocationActivityIconExtraWidth;
     return Positioned(
       left: anchor.dx,
       top: anchor.dy,
@@ -220,10 +227,8 @@ class _TilemapLocationBubble extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (showRecentChat)
-                      const SizedBox(
-                        width: _tilemapLocationRecentChatExtraWidth,
-                      ),
+                    if (activityIconCount > 0)
+                      SizedBox(width: activityIconsWidth),
                     SizedBox(
                       width: labelLayout.bubbleWidth,
                       height: labelLayout.height,
@@ -288,16 +293,36 @@ class _TilemapLocationBubble extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (showRecentChat)
-                      const SizedBox(
-                        width: _tilemapLocationRecentChatExtraWidth,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: RecentChatMapBadge(
-                            badgeKey: ValueKey<String>(
-                              'tilemap-recent-chat-icon',
-                            ),
-                          ),
+                    if (activityIconCount > 0)
+                      SizedBox(
+                        width: activityIconsWidth,
+                        child: Row(
+                          children: [
+                            if (showEvent)
+                              const SizedBox(
+                                width: _tilemapLocationActivityIconExtraWidth,
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: WorldEventMapBadge(
+                                    badgeKey: ValueKey<String>(
+                                      'tilemap-event-icon',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (showRecentChat)
+                              const SizedBox(
+                                width: _tilemapLocationActivityIconExtraWidth,
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: RecentChatMapBadge(
+                                    badgeKey: ValueKey<String>(
+                                      'tilemap-recent-chat-icon',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                   ],

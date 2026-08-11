@@ -124,6 +124,8 @@ extension _WorldPageChatroomSession on _WorldPageState {
         _mapBubbleMessagesReady = false;
         _recentChatLocationIds = const <String>{};
         _recentChatLocationPathIds = const <String>{};
+        _currentTickEventLocationIds = const <String>{};
+        _currentTickEventLocationPathIds = const <String>{};
         _replaceMapBubbleCandidates(const <WorldMapBubbleCandidate>[]);
       });
       _handleWorldChatroomState(replacement.state);
@@ -230,7 +232,10 @@ extension _WorldPageChatroomSession on _WorldPageState {
     final deferMapVisuals = _worldBottomSheetOpen;
     List<WorldMapBubbleCandidate>? preparedMapBubbleCandidates;
     ({String locationId, Set<String> pathIds})? preparedRecentSelection;
+    ({Set<String> locationIds, Set<String> pathIds})?
+    preparedTickEventSelection;
     var hasPreparedRecentSelection = false;
+    var hasPreparedTickEventSelection = false;
     var mapVisualsChanged = false;
     if (deferMapVisuals) {
       _deferredBottomSheetMapChatroomState = state;
@@ -244,12 +249,19 @@ extension _WorldPageChatroomSession on _WorldPageState {
         currentWorld,
       );
       hasPreparedRecentSelection = true;
+      preparedTickEventSelection = _currentTickEventSelectionForState(
+        state,
+        currentWorld,
+      );
+      hasPreparedTickEventSelection = preparedTickEventSelection != null;
       mapVisualsChanged =
           !_sameMapBubbleCandidates(
             _mapBubbleCandidates,
             preparedMapBubbleCandidates,
           ) ||
-          !_sameRecentChatLocationSelection(preparedRecentSelection);
+          !_sameRecentChatLocationSelection(preparedRecentSelection) ||
+          (hasPreparedTickEventSelection &&
+              !_sameCurrentTickEventSelection(preparedTickEventSelection));
     }
     final shouldMutatePageState =
         shouldApplyWorldSnapshot ||
@@ -287,6 +299,11 @@ extension _WorldPageChatroomSession on _WorldPageState {
             _buildMapBubbleCandidates(state, resolvedWorld),
           );
           _applyRecentChatLocationSelection(state, resolvedWorld);
+        }
+        if (hasPreparedTickEventSelection) {
+          _applyCurrentTickEventSelectionValue(preparedTickEventSelection!);
+        } else {
+          _applyCurrentTickEventSelection(state, _world ?? currentWorld);
         }
       }
       if (newUserJoinNotice != null) {
@@ -380,6 +397,56 @@ extension _WorldPageChatroomSession on _WorldPageState {
     final world = _world;
     _replaceMapBubbleCandidates(_buildMapBubbleCandidates(state, world));
     _applyRecentChatLocationSelection(state, world);
+    _applyCurrentTickEventSelection(state, world);
+  }
+
+  bool _applyCurrentTickEventSelection(
+    WorldChatroomState state,
+    WorldDetail? world,
+  ) {
+    final selection = _currentTickEventSelectionForState(state, world);
+    if (selection == null) return false;
+    return _applyCurrentTickEventSelectionValue(selection);
+  }
+
+  bool _applyCurrentTickEventSelectionValue(
+    ({Set<String> locationIds, Set<String> pathIds}) selection,
+  ) {
+    if (_sameCurrentTickEventSelection(selection)) return false;
+    _currentTickEventLocationIds = selection.locationIds;
+    _currentTickEventLocationPathIds = selection.pathIds;
+    return true;
+  }
+
+  bool _sameCurrentTickEventSelection(
+    ({Set<String> locationIds, Set<String> pathIds}) selection,
+  ) {
+    return setEquals(_currentTickEventLocationIds, selection.locationIds) &&
+        setEquals(_currentTickEventLocationPathIds, selection.pathIds);
+  }
+
+  ({Set<String> locationIds, Set<String> pathIds})?
+  _currentTickEventSelectionForState(
+    WorldChatroomState state,
+    WorldDetail? world,
+  ) {
+    if (!_mapBubbleMessagesReady || world == null) return null;
+    final locationIds = worldCurrentTickEventLocationIds(
+      messagesByLocation: state.messagesByLocation,
+      tickNo: world.tickCount,
+      subTickNo: world.subTickNo,
+    );
+    if (locationIds == null) return null;
+    final pathIds = <String>{};
+    for (final locationId in locationIds) {
+      pathIds.addAll(
+        _locationPathIdsForLocationId(locationId, world.processedLocationTree),
+      );
+    }
+    return (
+      locationIds: locationIds,
+      pathIds: Set<String>.unmodifiable(pathIds),
+    );
   }
 
   ({String locationId, Set<String> pathIds})?
@@ -531,6 +598,8 @@ extension _WorldPageChatroomSession on _WorldPageState {
         _activeChatLocationId = '';
         _recentChatLocationIds = const <String>{};
         _recentChatLocationPathIds = const <String>{};
+        _currentTickEventLocationIds = const <String>{};
+        _currentTickEventLocationPathIds = const <String>{};
         _locationChatPageCache.clear();
         _replaceMapBubbleCandidates(const <WorldMapBubbleCandidate>[]);
       });

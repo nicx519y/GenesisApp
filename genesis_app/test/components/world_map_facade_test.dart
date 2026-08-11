@@ -73,6 +73,7 @@ void main() {
         visualModeToggleTop: 17,
         visualModeToggleRight: 12,
         recentChatLocationIds: const {'loc_1'},
+        eventLocationIds: const {'loc_event'},
         animationsPaused: true,
         onMapTap: () => tilemapMapTapCount += 1,
         onCurrentLocationsChanged: handleCurrentLocations,
@@ -92,6 +93,7 @@ void main() {
     expect(tilemap.visualModeToggleTop, 17);
     expect(tilemap.visualModeToggleRight, 12);
     expect(tilemap.recentChatLocationIds, const {'loc_1'});
+    expect(tilemap.eventLocationIds, const {'loc_event'});
     expect(tilemap.animationsPaused, isTrue);
     expect(tilemap.messageBubbles.single.content, 'Hello');
     expect(tilemap.messageBubblePlaybackPaused, isFalse);
