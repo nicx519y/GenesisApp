@@ -239,6 +239,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(
+        tester
+            .widget<Text>(find.text('A signal reaches the harbor.'))
+            .style
+            ?.color,
+        const Color(0xFF111111),
+      );
+      expect(
+        tester
+            .widget<Text>(find.text('The harbor lights answer in sequence.'))
+            .style
+            ?.color,
+        const Color(0xFF111111),
+      );
       expect(find.text('Follow the light toward the gate.'), findsOneWidget);
       expect(
         find.byWidgetPredicate(
@@ -254,6 +268,13 @@ void main() {
             .style
             ?.fontStyle,
         FontStyle.italic,
+      );
+      expect(
+        tester
+            .widget<Text>(find.text('Follow the light toward the gate.'))
+            .style
+            ?.color,
+        const Color(0xFF666666),
       );
     },
   );
@@ -311,6 +332,18 @@ void main() {
     expect(find.text('Day 4, 20:25'), findsOneWidget);
     expect(find.text('Oracle'), findsOneWidget);
     expect(find.text('Iris'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('Day 4, 20:25')).style?.color,
+      const Color(0xFF666666),
+    );
+    expect(
+      tester.widget<Text>(find.text('Oracle')).style?.color,
+      const Color(0xFF666666),
+    );
+    expect(
+      tester.widget<Text>(find.text('Iris')).style?.color,
+      const Color(0xFF666666),
+    );
     final aiIcon = find.byWidgetPredicate(
       (widget) =>
           widget is SvgPicture &&

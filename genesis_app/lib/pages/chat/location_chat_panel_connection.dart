@@ -564,6 +564,14 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final nextSource =
         state.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
+    final tickProgressStarted = _syncTickProgressState(
+      progressing: widget.worldTickInProgress || state.inputBlocked,
+      nextSource: nextSource,
+    );
+    _absorbHistoricalTickProgressBaseline(
+      nextSource,
+      connected: state.connected,
+    );
     final beforeVmCount = _messages.length;
     final reconcileStopwatch = _panelMetricsEnabled
         ? (Stopwatch()..start())
@@ -572,6 +580,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       nextSource,
       identityState: state,
     );
+    final tickProgressResolved = _resolveTickProgressMessageIfAvailable();
     final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);
     final olderLoadRendered = _olderLoadHasRenderedNewMessages();
     if (_awaitingAiResponse && _awaitingAiResponseRoundId.trim().isEmpty) {
@@ -596,6 +605,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         changedMessages ||
         changedHasMoreOlder ||
         olderLoadRendered ||
+        tickProgressStarted ||
+        tickProgressResolved ||
         _hasVisibleChatroomStateChange(_chatroomState, state) ||
         nextAwaitingAiResponse != _awaitingAiResponse;
     if (shouldRebuild) {

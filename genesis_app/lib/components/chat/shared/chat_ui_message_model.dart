@@ -84,6 +84,43 @@ sealed class ChatTimelinePayloadVm {
   const ChatTimelinePayloadVm();
 }
 
+class ChatTickProgressPayloadVm extends ChatTimelinePayloadVm {
+  const ChatTickProgressPayloadVm({
+    required this.title,
+    this.avatars = const <ChatTickProgressAvatarVm>[],
+  });
+
+  final String title;
+  final List<ChatTickProgressAvatarVm> avatars;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ChatTickProgressPayloadVm &&
+        other.title == title &&
+        listEquals(other.avatars, avatars);
+  }
+
+  @override
+  int get hashCode => Object.hash(title, Object.hashAll(avatars));
+}
+
+class ChatTickProgressAvatarVm {
+  const ChatTickProgressAvatarVm({required this.name, required this.url});
+
+  final String name;
+  final String url;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ChatTickProgressAvatarVm &&
+        other.name == name &&
+        other.url == url;
+  }
+
+  @override
+  int get hashCode => Object.hash(name, url);
+}
+
 class ChatUserEnterLocationPayloadVm extends ChatTimelinePayloadVm {
   const ChatUserEnterLocationPayloadVm({
     required this.characterId,

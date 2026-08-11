@@ -2303,6 +2303,74 @@ void main() {
   });
 
   testWidgets(
+    'tick progress uses the tick surface with title and avatars only',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatMessageRow(
+              message: ChatMessageVm(
+                localId: 'tick-progress',
+                senderId: 'tick',
+                senderName: 'Time',
+                text: '',
+                isMe: false,
+                status: 'progressing',
+                senderType: 'tick',
+                timelinePayload: const ChatTickProgressPayloadVm(
+                  title: 'Progressing the World',
+                  avatars: [
+                    ChatTickProgressAvatarVm(
+                      name: 'Guide',
+                      url: 'assets/images/default_list_image.png',
+                    ),
+                  ],
+                ),
+              ),
+              showDateDivider: false,
+              style: kLocationChatStyle,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-message-surface')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-message-accent')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Progressing the World'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey<String>('chat-tick-progress-title')),
+            )
+            .style
+            ?.fontSize,
+        13,
+      );
+      expect(
+        find.image(const AssetImage('assets/images/default_list_image.png')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Compressing recent memories'), findsNothing);
+      expect(find.textContaining('Advancing the world timeline'), findsNothing);
+      expect(
+        find.textContaining('Generating the next story beat'),
+        findsNothing,
+      );
+      expect(find.textContaining('Updating character locations'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'composite tick renders every non-empty section in order and forwards actions',
     (WidgetTester tester) async {
       ChatCharacterMovementVm? tappedMovement;
@@ -2341,6 +2409,12 @@ void main() {
               ChatCharacterMovementVm(
                 characterId: 'char_2',
                 characterName: 'Elara',
+                toLocationId: 'loc_room_0',
+                toLocationName: 'Room 0',
+              ),
+              ChatCharacterMovementVm(
+                characterId: 'char_3',
+                characterName: 'Lyra',
                 toLocationId: 'loc_room_0',
                 toLocationName: 'Room 0',
               ),
@@ -2452,6 +2526,7 @@ void main() {
       expect(find.text('It spells Elara.'), findsOneWidget);
       expect(find.text('Character destinations'), findsNothing);
       expect(routeIcon, findsOneWidget);
+      expect(find.text('Elara, Lyra'), findsOneWidget);
       expect(find.text('went to'), findsOneWidget);
       expect(find.text('Room 0'), findsOneWidget);
       expect(
@@ -2491,7 +2566,7 @@ void main() {
         'Frost creeps toward Room 0.\n'
         'It spells Elara.\n'
         'Character destinations\n'
-        'Elara went to Room 0',
+        'Elara, Lyra went to Room 0',
       );
     },
   );

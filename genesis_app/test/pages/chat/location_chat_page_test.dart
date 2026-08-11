@@ -35,6 +35,7 @@ String _readLocationChatImplementationSource() {
     'lib/pages/chat/location_chat_identity.dart',
     'lib/pages/chat/location_chat_panel_actions.dart',
     'lib/pages/chat/location_chat_layout.dart',
+    'lib/pages/chat/location_chat_tick_progress.dart',
     'lib/pages/chat/location_chat_panel_widgets.dart',
     'lib/pages/chat/location_chat_shared.dart',
   ].map((path) => File(path).readAsStringSync()).join('\n');
@@ -593,6 +594,332 @@ void main() {
       expect(find.text('1 new message'), findsNothing);
       expect(
         find.byKey(const ValueKey('location-chat-new-message-notice')),
+        findsNothing,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(service.dispose());
+    },
+  );
+
+  testWidgets(
+    'tick progress stays in the list until the canonical tick replaces its slot',
+    (tester) async {
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('user-1');
+      await sessionStore.saveAuthToken('token-1');
+      final services = ServiceRegistry.build(
+        config: const AppConfig(useMock: true),
+        sessionStoreOverride: sessionStore,
+        chatroomMessagesOverride: MemoryChatroomMessageStorage(),
+      );
+      final socket = _LocationChatTestSocket();
+      final client = ChatroomClient(
+        wsBaseUrl: 'ws://localhost:8082/aitown-chat/ws',
+        sessionStore: sessionStore,
+        transport: _LocationChatTestTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: (_, headers) async => <String, String>{
+          ...headers,
+          'X-App-Version': '0.3.4',
+        },
+      );
+      final service = WorldChatroomService(
+        api: services.api,
+        client: client,
+        messageStorage: MemoryChatroomMessageStorage(),
+        refreshInitialSnapshotOnConnect: false,
+      );
+      await service.connect(
+        worldId: 'world-current',
+        identity: const ChatroomConnectionIdentity(
+          userId: 'user-1',
+          senderId: 'user-1',
+          senderName: 'Player One',
+        ),
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: service,
+              leaveOnInactive: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      service.setInputBlocked(true);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find
+            .byKey(const ValueKey<String>('chat-tick-progress-content'))
+            .evaluate()
+            .isNotEmpty,
+      );
+
+      final progressTitle = find.textContaining('Progressing the World');
+      expect(progressTitle, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-progress-content')),
+        findsOneWidget,
+      );
+      final progressList = tester.widget<LocationChatAnchoredMessageList>(
+        find.byKey(const ValueKey<String>('location-chat-message-list')),
+      );
+      final progressSlotId = progressList.messages.last.localId;
+      expect(progressSlotId, contains('location-chat-tick-progress'));
+
+      service.setInputBlocked(false);
+      await tester.pump();
+      expect(progressTitle, findsOneWidget);
+
+      socket.serverV2Tick(
+        messageId: 1,
+        locationMessageId: 1,
+        globalText: 'The completed tick replaces progress.',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.messagesByLocation['location-current']?.any(
+              (message) => message.locationMessageId == 1,
+            ) ==
+            true,
+      );
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(progressTitle, findsNothing);
+      expect(
+        find.text('The completed tick replaces progress.'),
+        findsOneWidget,
+      );
+      final completedList = tester.widget<LocationChatAnchoredMessageList>(
+        find.byKey(const ValueKey<String>('location-chat-message-list')),
+      );
+      final completedTick = completedList.messages.last;
+      expect(completedTick.isTick, isTrue);
+      expect(completedList.messageLayoutId!(completedTick), progressSlotId);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(service.dispose());
+    },
+  );
+
+  testWidgets(
+    'world progress already running is shown when location chat opens',
+    (WidgetTester tester) async {
+      final harness = await _connectedLocationChatTestService();
+      final services = harness.services;
+      final service = harness.service;
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: service,
+              worldTickInProgress: true,
+              leaveOnInactive: false,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find
+            .byKey(const ValueKey<String>('chat-tick-progress-content'))
+            .evaluate()
+            .isNotEmpty,
+      );
+
+      expect(service.state.inputBlocked, isFalse);
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-progress-content')),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(service.dispose());
+    },
+  );
+
+  testWidgets(
+    'historical ticks hydrated after opening do not dismiss world progress',
+    (WidgetTester tester) async {
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('user-1');
+      await sessionStore.saveAuthToken('token-1');
+      final storage = MemoryChatroomMessageStorage();
+      await storage.upsertMessage(
+        ownerUid: 'user-1',
+        worldId: 'world-current',
+        locationId: 'location-current',
+        message: <String, dynamic>{
+          'global_message_id': 90001,
+          'message_id': 1,
+          'location_message_id': 1,
+          'location_id': 'location-current',
+          'conversation_round_id': 1,
+          'sender_type': 'tick',
+          'type': 'tick',
+          'sender_id': 'tick',
+          'sender_name': 'Time',
+          'content': '',
+          'payload': <String, dynamic>{
+            'current_time': 'Day 1, 08:00',
+            'tick_no': 1,
+            'sub_tick_no': 0,
+            'global': 'A completed historical tick.',
+            'story_events': <Object?>[],
+            'characters_moved': <Object?>[],
+          },
+          'created_at': '2026-08-01 08:00:00',
+        },
+      );
+      final services = ServiceRegistry.build(
+        config: const AppConfig(useMock: true),
+        sessionStoreOverride: sessionStore,
+        chatroomMessagesOverride: storage,
+      );
+      final service = WorldChatroomService(
+        api: services.api,
+        client: services.chatroom,
+        messageStorage: storage,
+        refreshInitialSnapshotOnConnect: false,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: service,
+              worldTickInProgress: true,
+              leaveOnInactive: false,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.messagesByLocation['location-current']?.isNotEmpty ==
+            true,
+      );
+      await tester.pump();
+
+      expect(find.text('A completed historical tick.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-progress-content')),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(service.dispose());
+    },
+  );
+
+  testWidgets('failed world progress removes the temporary tick card', (
+    WidgetTester tester,
+  ) async {
+    final harness = await _connectedLocationChatTestService();
+    final services = harness.services;
+    final service = harness.service;
+
+    Widget panel({required bool progressing, required int failureRevision}) {
+      return AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: service,
+            worldTickInProgress: progressing,
+            worldTickProgressFailureRevision: failureRevision,
+            leaveOnInactive: false,
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(panel(progressing: true, failureRevision: 0));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find
+          .byKey(const ValueKey<String>('chat-tick-progress-content'))
+          .evaluate()
+          .isNotEmpty,
+    );
+
+    await tester.pumpWidget(panel(progressing: false, failureRevision: 1));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('chat-tick-progress-content')),
+      findsNothing,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(service.dispose());
+  });
+
+  testWidgets(
+    'reactivating a cached location does not flash stale tick progress',
+    (WidgetTester tester) async {
+      final harness = await _connectedLocationChatTestService();
+      final services = harness.services;
+      final service = harness.service;
+
+      Widget panel({required bool active, required bool progressing}) {
+        return AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              key: const ValueKey<String>('cached-location-panel'),
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: service,
+              active: active,
+              worldTickInProgress: progressing,
+              leaveOnInactive: false,
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(panel(active: true, progressing: true));
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find
+            .byKey(const ValueKey<String>('chat-tick-progress-content'))
+            .evaluate()
+            .isNotEmpty,
+      );
+
+      await tester.pumpWidget(panel(active: false, progressing: true));
+      await tester.pump();
+      await tester.pumpWidget(panel(active: false, progressing: false));
+      await tester.pump();
+      await tester.pumpWidget(panel(active: true, progressing: false));
+
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-progress-content')),
         findsNothing,
       );
 
@@ -3247,6 +3574,44 @@ Future<void> _pumpUntilLocationChatTest(
     await tester.pump();
   }
   fail('Timed out pumping location chat test state.');
+}
+
+Future<({AppServices services, WorldChatroomService service})>
+_connectedLocationChatTestService() async {
+  final sessionStore = MemoryUserSessionStore();
+  await sessionStore.saveUid('user-1');
+  await sessionStore.saveAuthToken('token-1');
+  final services = ServiceRegistry.build(
+    config: const AppConfig(useMock: true),
+    sessionStoreOverride: sessionStore,
+    chatroomMessagesOverride: MemoryChatroomMessageStorage(),
+  );
+  final socket = _LocationChatTestSocket();
+  final client = ChatroomClient(
+    wsBaseUrl: 'ws://localhost:8082/aitown-chat/ws',
+    sessionStore: sessionStore,
+    transport: _LocationChatTestTransport(socket),
+    autoHeartbeat: false,
+    handshakeHeaderSigner: (_, headers) async => <String, String>{
+      ...headers,
+      'X-App-Version': '0.3.4',
+    },
+  );
+  final service = WorldChatroomService(
+    api: services.api,
+    client: client,
+    messageStorage: MemoryChatroomMessageStorage(),
+    refreshInitialSnapshotOnConnect: false,
+  );
+  await service.connect(
+    worldId: 'world-current',
+    identity: const ChatroomConnectionIdentity(
+      userId: 'user-1',
+      senderId: 'user-1',
+      senderName: 'Player One',
+    ),
+  );
+  return (services: services, service: service);
 }
 
 class _LocationChatTestTransport implements ChatroomSocketTransport {

@@ -118,6 +118,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _worldTickInProgress = false;
+  int _worldTickProgressFailureRevision = 0;
   bool _worldTickWaitOverlayRequested = false;
   bool _openEventsAfterTickDone = false;
   bool _eventsUnread = false;
@@ -180,6 +181,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     return WorldLocationChatRouterHost(
       worldId: widget.wid,
       chatroom: _worldChatroom,
+      worldTickInProgress: _worldTickInProgress,
+      worldTickProgressFailureRevision: _worldTickProgressFailureRevision,
       cache: _locationChatPageCache,
       onBack: _closeCachedLocationChat,
       onCharactersMovedLocationTap: (movement) =>
@@ -644,9 +647,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             ),
             if (canShowWorldTickProgress &&
                 _worldTickInProgress &&
-                (_worldTickWaitOverlayRequested ||
-                    _activeChatLocationId.isNotEmpty ||
-                    _locationChatPageCache.activeLocationId.isNotEmpty))
+                _worldTickWaitOverlayRequested &&
+                _activeChatLocationId.isEmpty &&
+                _locationChatPageCache.activeLocationId.isEmpty)
               Positioned.fill(
                 child: GenesisGenerationWaitOverlay(
                   title: _progressWaitTitle,

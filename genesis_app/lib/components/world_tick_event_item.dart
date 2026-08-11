@@ -317,7 +317,12 @@ class _ClueText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = style.color ?? const Color(0xFF444444);
+    const iconColor = Color(0xFF444444);
+    final textStyle = style.copyWith(
+      color: const Color(0xFF666666),
+      fontStyle: FontStyle.italic,
+      height: 1.35,
+    );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -327,16 +332,11 @@ class _ClueText extends StatelessWidget {
             clueIconAsset,
             width: 14,
             height: 14,
-            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
           ),
         ),
         const SizedBox(width: 5),
-        Expanded(
-          child: Text(
-            text,
-            style: style.copyWith(fontStyle: FontStyle.italic, height: 1.35),
-          ),
-        ),
+        Expanded(child: Text(text, style: textStyle)),
       ],
     );
   }
@@ -506,7 +506,7 @@ class _VisibleRoleGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolvedStyle = (style ?? _timestampStyle).copyWith(
       fontWeight: FontWeight.w400,
-      color: const Color(0xFF444444),
+      color: style?.color ?? const Color(0xFF444444),
     );
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 240),

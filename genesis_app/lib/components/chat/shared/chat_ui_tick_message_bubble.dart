@@ -67,20 +67,23 @@ class ChatTickMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final payload = message.timelinePayload;
-    if (payload is ChatTickPayloadVm) {
-      return _ChatCompositeTickMessageBubble(
+    final isProgress = payload is ChatTickProgressPayloadVm;
+    final Widget content;
+    final String transitionKey;
+    if (payload is ChatTickProgressPayloadVm) {
+      transitionKey = 'progress';
+      content = _ChatTickProgressContent(payload: payload);
+    } else if (payload is ChatTickPayloadVm) {
+      transitionKey = 'complete';
+      content = _ChatCompositeTickMessageContent(
         message: message,
         payload: payload,
         style: style,
-        onLongPressStart: onLongPressStart,
         onLocationTap: onLocationTap,
       );
-    }
-    return _ChatTickSurface(
-      style: style,
-      bubbleKey: const ValueKey('chat-tick-message-bubble'),
-      onLongPressStart: onLongPressStart,
-      child: _InlineMarkdownText(
+    } else {
+      transitionKey = 'plain';
+      content = _InlineMarkdownText(
         text: _tickAdvanceText(message),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -88,6 +91,31 @@ class ChatTickMessageBubble extends StatelessWidget {
         style: style.systemMessageTextStyle.copyWith(
           color: _tickMessageHeaderColor,
           fontWeight: FontWeight.w400,
+        ),
+      );
+    }
+    return _ChatTickSurface(
+      style: style,
+      bubbleKey: const ValueKey('chat-tick-message-bubble'),
+      onLongPressStart: isProgress ? null : onLongPressStart,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          layoutBuilder: (currentChild, previousChildren) {
+            return Stack(
+              alignment: Alignment.topLeft,
+              children: [
+                ...previousChildren,
+                if (currentChild != null) currentChild,
+              ],
+            );
+          },
+          child: KeyedSubtree(key: ValueKey(transitionKey), child: content),
         ),
       ),
     );
@@ -145,83 +173,144 @@ class _ChatTickSurface extends StatelessWidget {
   }
 }
 
-class _ChatCompositeTickMessageBubble extends StatelessWidget {
-  const _ChatCompositeTickMessageBubble({
+class _ChatCompositeTickMessageContent extends StatelessWidget {
+  const _ChatCompositeTickMessageContent({
     required this.message,
     required this.payload,
     required this.style,
-    required this.onLongPressStart,
     required this.onLocationTap,
   });
 
   final ChatMessageVm message;
   final ChatTickPayloadVm payload;
   final ChatUiStyleConfig style;
-  final GestureLongPressStartCallback? onLongPressStart;
   final ChatCharacterMovementTap? onLocationTap;
 
   @override
   Widget build(BuildContext context) {
     final storyEvents = payload.storyEvents;
     final charactersMoved = payload.charactersMoved;
+    final groupedMovements = charactersMoved == null
+        ? const <ChatCharacterMovementVm>[]
+        : _groupTickCharacterMovements(charactersMoved.movements);
     final showFallback =
         !payload.hasStructuredSections &&
         payload.fallbackContent.trim().isNotEmpty;
-    return _ChatTickSurface(
-      style: style,
-      bubbleKey: const ValueKey<String>('chat-tick-message-bubble'),
-      onLongPressStart: onLongPressStart,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _ChatTickHeader(message: message, style: style),
-          if (payload.hasGlobal) ...[
-            _ChatTickSectionDivider(style: style),
-            _ChatTickGlobalSection(text: payload.globalText, style: style),
-          ],
-          if (storyEvents != null && storyEvents.paragraphs.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            for (
-              var index = 0;
-              index < storyEvents.paragraphs.length;
-              index += 1
-            )
-              _ChatStoryEventParagraph(
-                messageLocalId: '${message.localId}-tick',
-                index: index,
-                paragraph: storyEvents.paragraphs[index],
-                style: style,
-                addTopSpacing: index > 0,
-              ),
-          ],
-          if (charactersMoved != null &&
-              charactersMoved.movements.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            for (
-              var index = 0;
-              index < charactersMoved.movements.length;
-              index += 1
-            ) ...[
-              if (index > 0) const SizedBox(height: 10),
-              _ChatCharacterMovementRow(
-                messageLocalId: '${message.localId}-tick',
-                index: index,
-                movement: charactersMoved.movements[index],
-                style: style,
-                onLocationTap: onLocationTap,
-                usePastTenseDirection: true,
-              ),
-            ],
-          ],
-          if (showFallback) ...[
-            const SizedBox(height: 10),
-            _InlineMarkdownText(
-              text: payload.fallbackContent,
-              textAlign: TextAlign.left,
-              style: style.systemMessageTextStyle.copyWith(height: 1.45),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ChatTickHeader(message: message, style: style),
+        if (payload.hasGlobal) ...[
+          _ChatTickSectionDivider(style: style),
+          _ChatTickGlobalSection(text: payload.globalText, style: style),
+        ],
+        if (storyEvents != null && storyEvents.paragraphs.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          for (var index = 0; index < storyEvents.paragraphs.length; index += 1)
+            _ChatStoryEventParagraph(
+              messageLocalId: '${message.localId}-tick',
+              index: index,
+              paragraph: storyEvents.paragraphs[index],
+              style: style,
+              addTopSpacing: index > 0,
+            ),
+        ],
+        if (groupedMovements.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          for (var index = 0; index < groupedMovements.length; index += 1) ...[
+            if (index > 0) const SizedBox(height: 10),
+            _ChatCharacterMovementRow(
+              messageLocalId: '${message.localId}-tick',
+              index: index,
+              movement: groupedMovements[index],
+              style: style,
+              onLocationTap: onLocationTap,
+              usePastTenseDirection: true,
             ),
           ],
         ],
+        if (showFallback) ...[
+          const SizedBox(height: 10),
+          _InlineMarkdownText(
+            text: payload.fallbackContent,
+            textAlign: TextAlign.left,
+            style: style.systemMessageTextStyle.copyWith(height: 1.45),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ChatTickProgressContent extends StatelessWidget {
+  const _ChatTickProgressContent({required this.payload});
+
+  final ChatTickProgressPayloadVm payload;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatars = payload.avatars
+        .map(
+          (avatar) =>
+              GenesisGenerationWaitAvatar(name: avatar.name, url: avatar.url),
+        )
+        .toList(growable: false);
+    return Column(
+      key: const ValueKey<String>('chat-tick-progress-content'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ChatTickProgressTitle(title: payload.title),
+        if (avatars.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Center(child: GenerationAvatarCarousel(avatars: avatars)),
+        ],
+      ],
+    );
+  }
+}
+
+class _ChatTickProgressTitle extends StatefulWidget {
+  const _ChatTickProgressTitle({required this.title});
+
+  final String title;
+
+  @override
+  State<_ChatTickProgressTitle> createState() => _ChatTickProgressTitleState();
+}
+
+class _ChatTickProgressTitleState extends State<_ChatTickProgressTitle> {
+  static const Duration _dotsInterval = Duration(milliseconds: 400);
+
+  Timer? _timer;
+  var _dotCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(_dotsInterval, (_) {
+      if (!mounted) return;
+      setState(() => _dotCount = _dotCount == 6 ? 1 : _dotCount + 1);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      key: const ValueKey<String>('chat-tick-progress-title'),
+      '${widget.title}${List.filled(_dotCount, '.').join()}',
+      textAlign: TextAlign.left,
+      style: const TextStyle(
+        color: _tickMessageHeaderColor,
+        fontSize: 13,
+        height: 1.2,
+        fontWeight: FontWeight.w600,
       ),
     );
   }
@@ -316,9 +405,38 @@ String _storyEventsCopyText(ChatStoryEventsPayloadVm event) {
 String _charactersMovedCopyText(ChatCharactersMovedPayloadVm event) {
   return [
     'Character destinations',
-    for (final movement in event.movements)
+    for (final movement in _groupTickCharacterMovements(event.movements))
       '${movement.characterName.trim()} '
           '${movement.isDestinationCurrentLocation ? 'came to' : 'went to'} '
           '${movement.toLocationName.trim()}',
   ].join('\n');
+}
+
+List<ChatCharacterMovementVm> _groupTickCharacterMovements(
+  List<ChatCharacterMovementVm> movements,
+) {
+  final movementsByDestination = <String, List<ChatCharacterMovementVm>>{};
+  for (final movement in movements) {
+    final destinationId = movement.toLocationId.trim();
+    movementsByDestination
+        .putIfAbsent(destinationId, () => <ChatCharacterMovementVm>[])
+        .add(movement);
+  }
+  final groupedMovements = <ChatCharacterMovementVm>[];
+  for (final group in movementsByDestination.values) {
+    final first = group.first;
+    groupedMovements.add(
+      ChatCharacterMovementVm(
+        characterId: first.characterId,
+        characterName: group
+            .map((movement) => movement.characterName.trim())
+            .where((name) => name.isNotEmpty)
+            .join(', '),
+        toLocationId: first.toLocationId,
+        toLocationName: first.toLocationName,
+        isDestinationCurrentLocation: first.isDestinationCurrentLocation,
+      ),
+    );
+  }
+  return List<ChatCharacterMovementVm>.unmodifiable(groupedMovements);
 }

@@ -20441,7 +20441,7 @@ void main() {
   );
 
   testWidgets(
-    'joined location chat shows progress wait overlay on tick start',
+    'joined location chat replaces the blocking overlay with a tick progress message',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'joined',
@@ -20497,7 +20497,7 @@ void main() {
 
       expect(
         find.byKey(const ValueKey('world-tick1-wait-dialog')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.textContaining('Progressing the World'), findsOneWidget);
       expect(
@@ -20507,6 +20507,10 @@ void main() {
           'Generating the next story beat\n'
           'Updating character locations',
         ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-progress-content')),
         findsOneWidget,
       );
       chatroom.session.emit(
@@ -20521,6 +20525,12 @@ void main() {
           broadcast: true,
         ),
       );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('chat-tick-progress-content')),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     },
   );

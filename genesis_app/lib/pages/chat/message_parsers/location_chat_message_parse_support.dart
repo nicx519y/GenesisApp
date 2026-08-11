@@ -172,6 +172,7 @@ bool locationChatTimelineStringIsSafe(String value) {
 
 String locationChatTimelineCopyText(ChatTimelinePayloadVm payload) {
   return switch (payload) {
+    ChatTickProgressPayloadVm() => '',
     ChatUserEnterLocationPayloadVm event => event.text,
     ChatStoryEventsPayloadVm event => [
       if (event.locationName.trim().isNotEmpty) event.locationName,

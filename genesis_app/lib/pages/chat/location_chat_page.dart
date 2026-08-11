@@ -44,6 +44,7 @@ part 'location_chat_message_window.dart';
 part 'location_chat_identity.dart';
 part 'location_chat_panel_actions.dart';
 part 'location_chat_layout.dart';
+part 'location_chat_tick_progress.dart';
 part 'location_chat_panel_widgets.dart';
 part 'location_chat_shared.dart';
 
@@ -204,6 +205,8 @@ class LocationChatPanel extends StatefulWidget {
     this.openingPreviewEntities = const <WorldChatroomEntity>[],
     this.service,
     this.connection,
+    this.worldTickInProgress = false,
+    this.worldTickProgressFailureRevision = 0,
     this.active = true,
     this.leaveOnInactive = true,
     this.onBack,
@@ -234,6 +237,8 @@ class LocationChatPanel extends StatefulWidget {
   final List<WorldChatroomEntity> openingPreviewEntities;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
+  final bool worldTickInProgress;
+  final int worldTickProgressFailureRevision;
   final bool active;
   final bool leaveOnInactive;
   final VoidCallback? onBack;
@@ -306,6 +311,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   int _serviceGeneration = 0;
   int _selectedModelLoadGeneration = 0;
   ValueListenable<int>? _userInfoRevisionListenable;
+  int _tickProgressGeneration = 0;
+  bool _tickProgressSessionActive = false;
+  bool _awaitingTickProgressMessage = false;
+  String _activeTickProgressSlotId = '';
+  Set<String> _tickProgressBaselineLocalIds = const <String>{};
+  int _tickProgressBaselineLocationMessageId = 0;
+  int _tickProgressBaselineMessageId = 0;
+  DateTime _tickProgressStartedAt = DateTime.fromMillisecondsSinceEpoch(0);
+  final Map<String, String> _tickProgressLayoutIdByMessageLocalId =
+      <String, String>{};
 
   void _setLocationChatState(VoidCallback callback) {
     setState(callback);
@@ -375,6 +390,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         oldWidget.locationId != widget.locationId;
     final becameActive = !oldWidget.active && widget.active;
     final becameInactive = oldWidget.active && !widget.active;
+    final worldTickProgressChanged =
+        oldWidget.worldTickInProgress != widget.worldTickInProgress;
+    final worldTickProgressFailed =
+        oldWidget.worldTickProgressFailureRevision !=
+        widget.worldTickProgressFailureRevision;
     final changedOpeningPreview =
         !listEquals(
           oldWidget.openingPreviewMessages,
@@ -388,6 +408,23 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       _scrollCoordinator.enter();
     } else if (becameInactive || (!widget.active && changedChatTarget)) {
       _scrollCoordinator.deactivate();
+    }
+    if (worldTickProgressChanged) {
+      final source =
+          _chatroomState.messagesByLocation[widget.locationId] ??
+          const <WorldChatroomMessage>[];
+      _syncTickProgressState(
+        progressing: widget.worldTickInProgress || _chatroomState.inputBlocked,
+        nextSource: source,
+      );
+    }
+    if (worldTickProgressFailed) {
+      _cancelTickProgressMessage();
+    }
+    if (becameActive &&
+        !widget.worldTickInProgress &&
+        !(widget.service?.state.inputBlocked ?? _chatroomState.inputBlocked)) {
+      _discardStaleTickProgressMessage();
     }
     if (changedChatTarget || changedOpeningPreview) {
       unawaited(
@@ -519,10 +556,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         composerHeight: composerHeight,
       ),
     );
+    final displayMessages = _locationChatDisplayMessages();
     final messageList = LocationChatAnchoredMessageList(
       key: const ValueKey<String>('location-chat-message-list'),
       coordinator: _scrollCoordinator,
-      messages: _messages,
+      messages: displayMessages,
+      messageLayoutId: _locationChatMessageLayoutId,
       topTitle: '',
       oldestEdgeNotice: _shouldShowOldestEdgeNotice()
           ? kAiContentDisclaimerText

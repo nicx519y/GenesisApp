@@ -245,6 +245,8 @@ class WorldLocationChatRouterHost extends StatefulWidget {
     required this.onPanelReady,
     required this.isMessageQueueInitializationCovered,
     required this.onCharactersMovedLocationTap,
+    this.worldTickInProgress = false,
+    this.worldTickProgressFailureRevision = 0,
     this.animateTransitions = true,
   });
 
@@ -255,6 +257,8 @@ class WorldLocationChatRouterHost extends StatefulWidget {
   final ValueChanged<String> onPanelReady;
   final bool Function(String locationId) isMessageQueueInitializationCovered;
   final ChatCharacterMovementTap onCharactersMovedLocationTap;
+  final bool worldTickInProgress;
+  final int worldTickProgressFailureRevision;
   final bool animateTransitions;
 
   @override
@@ -364,6 +368,9 @@ class WorldLocationChatRouterHostState
                   ),
                   worldId: widget.worldId,
                   chatroom: widget.chatroom,
+                  worldTickInProgress: widget.worldTickInProgress,
+                  worldTickProgressFailureRevision:
+                      widget.worldTickProgressFailureRevision,
                   descriptor: descriptor,
                   active: active,
                   renderBackgroundImage: visible,
@@ -406,6 +413,8 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.onDraftTextChanged,
     required this.messageQueueInitializationCovered,
     required this.onCharactersMovedLocationTap,
+    this.worldTickInProgress = false,
+    this.worldTickProgressFailureRevision = 0,
   });
 
   final String worldId;
@@ -419,6 +428,8 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   final ValueChanged<String> onDraftTextChanged;
   final bool messageQueueInitializationCovered;
   final ChatCharacterMovementTap onCharactersMovedLocationTap;
+  final bool worldTickInProgress;
+  final int worldTickProgressFailureRevision;
 
   @override
   Widget build(BuildContext context) {
@@ -440,6 +451,8 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             localMessageLocationIds: descriptor.localMessageLocationIds,
             recentChatLocationPathIds: descriptor.recentChatLocationPathIds,
             service: chatroom,
+            worldTickInProgress: worldTickInProgress,
+            worldTickProgressFailureRevision: worldTickProgressFailureRevision,
             active: active,
             leaveOnInactive: false,
             unauthorizedHandledByOwner: true,

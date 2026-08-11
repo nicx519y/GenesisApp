@@ -75,7 +75,7 @@ extension _WorldPageTickFlow on _WorldPageState {
         _openEventsAfterTickDone = false;
         _pendingProgressTickCount = null;
         _setWorldTickWaitOverlayRequested(false);
-        _markWorldTickIdle();
+        _markWorldTickFailed();
         if (_isWorldProgressInsufficientGems(error)) {
           unawaited(
             showGemBalancePrompt(
@@ -267,6 +267,15 @@ extension _WorldPageTickFlow on _WorldPageState {
       return;
     }
     _setWorldPageState(() => _worldActionRunning = false);
+  }
+
+  void _markWorldTickFailed() {
+    if (mounted) {
+      _setWorldPageState(() => _worldTickProgressFailureRevision += 1);
+    } else {
+      _worldTickProgressFailureRevision += 1;
+    }
+    _markWorldTickIdle();
   }
 
   void _markEventsUnread() {

@@ -398,14 +398,14 @@ const TextStyle _worldEventContentTextStyle = TextStyle(
   fontSize: 13,
   height: 1.6,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF444444),
+  color: Color(0xFF111111),
 );
 
 const TextStyle _worldEventContentTimestampStyle = TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: Color(0xFF666666),
 );
 
 String? worldTickParagraphTimestamp(Map<String, dynamic> tick) {

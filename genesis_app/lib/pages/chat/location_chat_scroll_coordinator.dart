@@ -181,6 +181,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.oldestEdgeNotice,
     this.oldestEdgeLoading = false,
     this.showDateDividers = true,
+    this.messageLayoutId,
     this.style,
   });
 
@@ -194,6 +195,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final String? oldestEdgeNotice;
   final bool oldestEdgeLoading;
   final bool showDateDividers;
+  final String Function(ChatMessageVm message)? messageLayoutId;
   final ChatUiStyleConfig? style;
 
   @override
@@ -254,9 +256,11 @@ class _LocationChatAnchoredMessageListState
   }
 
   List<String> _currentMessageLocalIds() {
-    return widget.messages
-        .map((message) => message.localId)
-        .toList(growable: false);
+    return widget.messages.map(_messageLayoutId).toList(growable: false);
+  }
+
+  String _messageLayoutId(ChatMessageVm message) {
+    return widget.messageLayoutId?.call(message) ?? message.localId;
   }
 
   bool _requiresAnchorRestore(List<String> previous, List<String> next) {
@@ -359,9 +363,7 @@ class _LocationChatAnchoredMessageListState
   }
 
   void _pruneMessageLayoutKeys() {
-    final retainedLocalIds = widget.messages
-        .map((message) => message.localId)
-        .toSet();
+    final retainedLocalIds = widget.messages.map(_messageLayoutId).toSet();
     _messageLayoutKeys.removeWhere(
       (localId, _) => !retainedLocalIds.contains(localId),
     );
@@ -408,14 +410,12 @@ class _LocationChatAnchoredMessageListState
     final previous = messageIndex == 0
         ? null
         : widget.messages[messageIndex - 1];
-    final layoutKey = _messageLayoutKeys.putIfAbsent(
-      current.localId,
-      GlobalKey.new,
-    );
+    final layoutId = _messageLayoutId(current);
+    final layoutKey = _messageLayoutKeys.putIfAbsent(layoutId, GlobalKey.new);
     return KeyedSubtree(
       key: layoutKey,
       child: ChatMessageRow(
-        key: ValueKey(current.localId),
+        key: ValueKey(layoutId),
         message: current,
         imageViewerMessages: widget.messages,
         style: style,

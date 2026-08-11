@@ -2003,7 +2003,6 @@ void main() {
               'world_name': 'World One',
               'origin_id': 'o_1',
               'definition_version': 2,
-              'sub_tick_no': 3,
               'last_chat_location_id': 'loc_1',
               'owner_uid': 'u_1',
               'owner_name': 'Tester',
@@ -2020,6 +2019,7 @@ void main() {
             },
             'stats': {
               'tick_cnt': 1,
+              'sub_tick_no': 3,
               'connect_cnt': 0,
               'character_cnt': 0,
               'player_cnt': 0,

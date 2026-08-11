@@ -274,10 +274,7 @@ class WorldDetail {
         fallback: json['owner_deleted'],
       ),
       tickCount: tickCount,
-      subTickNo: asInt(
-        json['sub_tick_no'],
-        fallback: latestWorldSubTickNo(ticks, tickNo: tickCount),
-      ),
+      subTickNo: asInt(json['sub_tick_no']),
       connectCount: asInt(json['connect_count']),
       characterCount: asInt(json['character_count']),
       playerCount: asInt(json['player_count']),
@@ -336,19 +333,6 @@ class WorldDetail {
           : const [],
     );
   }
-}
-
-int latestWorldSubTickNo(
-  Iterable<Map<String, dynamic>> ticks, {
-  required int tickNo,
-}) {
-  var latest = 0;
-  for (final tick in ticks) {
-    if (asInt(tick['tick_no']) != tickNo) continue;
-    final subTickNo = asInt(tick['sub_tick_no']);
-    if (subTickNo > latest) latest = subTickNo;
-  }
-  return latest;
 }
 
 const String worldSyntheticRootLocationId = '__world_root__';
