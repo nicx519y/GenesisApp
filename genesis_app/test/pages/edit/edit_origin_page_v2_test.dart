@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -37,7 +38,10 @@ void main() {
   testWidgets(
     'edit loads V2 foredit and publishes its Opening without clearing absent fields',
     (tester) async {
-      final transport = _EditOriginTransport();
+      final updateResponseCompleter = Completer<TransportResponse>();
+      final transport = _EditOriginTransport(
+        updateResponseCompleter: updateResponseCompleter,
+      );
       final services = await _editTestServices(transport);
 
       await tester.pumpWidget(
@@ -77,6 +81,11 @@ void main() {
       publishButton.onPressed!();
 
       await _waitForRequest(tester, transport, '/api/v2/origin/update');
+      await tester.pump();
+      expect(find.textContaining('Publishing your Worldo'), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/origin/info'), isEmpty);
+
+      transport.completeUpdate();
       await _waitForRequest(tester, transport, '/api/v1/origin/info');
       await tester.pump();
 
@@ -106,7 +115,7 @@ void main() {
   );
 
   testWidgets(
-    'character recommendation confirmation keeps exactly one selected',
+    'best role selection switches immediately and keeps one selected',
     (tester) async {
       final services = await _editTestServices(_EditOriginTransport());
       final repository = MemoryOriginDraftRepository(
@@ -155,34 +164,61 @@ void main() {
         isTrue,
       );
       expect(
+        tester.widget<OriginRoleSelectionMark>(ariCheckbox).style,
+        OriginRoleSelectionMarkStyle.star,
+      );
+      expect(
         tester.widget<OriginRoleSelectionMark>(bexCheckbox).selected,
         isFalse,
+      );
+      expect(find.text('Best role'), findsNWidgets(2));
+      expect(find.text('Recommend as the best role'), findsNothing);
+      expect(
+        tester.widget<Text>(find.text('Best role').first).style?.fontSize,
+        12,
+      );
+      expect(
+        tester
+            .widget<Icon>(
+              find.descendant(
+                of: ariCheckbox,
+                matching: find.byIcon(Icons.star_rounded),
+              ),
+            )
+            .size,
+        16,
+      );
+      expect(tester.getSize(ariCheckbox), const Size.square(16));
+      final bestRoleHitTarget = find.byKey(
+        const ValueKey('origin-character-best-role-hit-target-char_ari'),
+      );
+      expect(tester.getSize(bestRoleHitTarget).height, 32);
+      expect(
+        tester.getTopLeft(bestRoleHitTarget).dy,
+        tester.getTopLeft(ariCheckbox).dy,
+      );
+      final unselectedStar = tester.widget<Icon>(
+        find.descendant(
+          of: bexCheckbox,
+          matching: find.byIcon(Icons.star_border_rounded),
+        ),
+      );
+      expect(unselectedStar.size, 16);
+      expect(unselectedStar.color, const Color(0xFF999999));
+      final firstNameField = find.byType(TextField).first;
+      expect(
+        tester.getTopLeft(ariCheckbox).dy,
+        greaterThan(tester.getBottomLeft(firstNameField).dy),
+      );
+      expect(
+        tester.getTopLeft(ariCheckbox).dy,
+        closeTo(tester.getTopLeft(find.text('3 / 30').first).dy, 0.01),
       );
 
       await tester.ensureVisible(bexCheckbox);
       await tester.tap(bexCheckbox);
       await tester.pumpAndSettle();
-
-      expect(find.text('Recommend this character?'), findsOneWidget);
-      expect(
-        find.text('This will remove the recommendation from "Ari".'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<OriginRoleSelectionMark>(ariCheckbox).selected,
-        isTrue,
-      );
-      expect(
-        tester.widget<OriginRoleSelectionMark>(bexCheckbox).selected,
-        isFalse,
-      );
-
-      await tester.tap(bexCheckbox);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Recommend'));
-      await tester.pumpAndSettle();
+      expect(find.text('Recommend this character?'), findsNothing);
       expect(
         tester.widget<OriginRoleSelectionMark>(ariCheckbox).selected,
         isFalse,
@@ -260,6 +296,9 @@ Future<AppServices> _editTestServices(_EditOriginTransport transport) async {
 }
 
 class _EditOriginTransport implements HttpTransport {
+  _EditOriginTransport({this.updateResponseCompleter});
+
+  final Completer<TransportResponse>? updateResponseCompleter;
   final requests = <TransportRequest>[];
 
   @override
@@ -314,6 +353,9 @@ class _EditOriginTransport implements HttpTransport {
       };
     } else if (request.method == 'POST' &&
         request.uri.path == '/api/v2/origin/update') {
+      if (updateResponseCompleter != null) {
+        return updateResponseCompleter!.future;
+      }
       data = {
         'origin_id': 'o_edit_v2',
         'origin_version': '3',
@@ -331,6 +373,25 @@ class _EditOriginTransport implements HttpTransport {
         'stats': const <String, Object?>{},
       };
     }
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
+    );
+  }
+
+  void completeUpdate() {
+    updateResponseCompleter?.complete(
+      _response({
+        'origin_id': 'o_edit_v2',
+        'origin_version': '3',
+        'origin_version_time': 1780000000,
+        'origin_name': 'Edited V2 Origin',
+      }),
+    );
+  }
+
+  TransportResponse _response(Object data) {
     return TransportResponse(
       statusCode: 200,
       headers: const {'content-type': 'application/json'},

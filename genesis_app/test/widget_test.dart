@@ -2008,6 +2008,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
   _RecordingCreateOriginTransport({
     Map<String, List<int>> originInfoStatuses = const <String, List<int>>{},
     this.originInfoNames = const <String, String>{},
+    this.createResponseCompleter,
   }) : originInfoStatuses = originInfoStatuses.map(
          (key, value) => MapEntry(key, List<int>.of(value)),
        );
@@ -2015,6 +2016,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
   final requests = <TransportRequest>[];
   final Map<String, List<int>> originInfoStatuses;
   final Map<String, String> originInfoNames;
+  final Completer<TransportResponse>? createResponseCompleter;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -2040,6 +2042,9 @@ class _RecordingCreateOriginTransport implements HttpTransport {
     if (request.method == 'POST' &&
         request.uri.path == '/api/v2/origin/create') {
       final body = decodedBody(request);
+      if (createResponseCompleter != null) {
+        return createResponseCompleter!.future;
+      }
       data = {
         'origin_id': 'o_created_1',
         'origin_version': '1',
@@ -2151,6 +2156,25 @@ class _RecordingCreateOriginTransport implements HttpTransport {
       statusCode: 200,
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({'err_no': 0, 'err_str': 'success', 'data': data}),
+    );
+  }
+
+  void completeCreate({required String originName}) {
+    createResponseCompleter?.complete(
+      TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'origin_id': 'o_created_1',
+            'origin_version': '1',
+            'origin_version_time': 1770000000,
+            'origin_name': originName,
+          },
+        }),
+      ),
     );
   }
 
@@ -6649,6 +6673,102 @@ void main() {
       avatar.imageUrl,
       'https://cdn.example.com/avatar_1080x1080.jpg'
       '?x-oss-process=image/resize,w_720,image/format,webp',
+    );
+  });
+
+  testWidgets('Origin opening puts the recommended role first and marks it', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+      originCharacters: const [
+        {
+          'char_id': 'c_regular',
+          'type': 'ai',
+          'name': 'Regular role',
+          'identity': 'Guide',
+          'avatar': '',
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+        },
+        {
+          'char_id': 'c_recommended',
+          'type': 'ai',
+          'name': 'Recommended role',
+          'identity': 'Scout',
+          'avatar': '',
+          'is_recommend': 1,
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final recommendedRole = find.byKey(
+      const ValueKey<String>('origin-setup-role-c_recommended'),
+    );
+    final regularRole = find.byKey(
+      const ValueKey<String>('origin-setup-role-c_regular'),
+    );
+    expect(recommendedRole, findsOneWidget);
+    expect(regularRole, findsOneWidget);
+    expect(
+      tester.getTopLeft(recommendedRole).dx,
+      lessThan(tester.getTopLeft(regularRole).dx),
+    );
+    final recommendedMark = find.byKey(
+      const ValueKey<String>('origin-setup-role-recommended-c_recommended'),
+    );
+    expect(recommendedMark, findsOneWidget);
+    expect(tester.getSize(recommendedMark), const Size.square(22));
+    expect(
+      find.descendant(
+        of: recommendedMark,
+        matching: find.byIcon(Icons.star_rounded),
+      ),
+      findsOneWidget,
+    );
+    final markBackground = tester.widget<DecoratedBox>(
+      find.descendant(of: recommendedMark, matching: find.byType(DecoratedBox)),
+    );
+    final markDecoration = markBackground.decoration as BoxDecoration;
+    expect(markDecoration.color, const Color(0xCCFFFFFF));
+    expect(markDecoration.borderRadius, BorderRadius.circular(8));
+    final recommendedSelectSurface = find.byKey(
+      const ValueKey<String>('origin-setup-role-select-surface-c_recommended'),
+    );
+    final recommendedSelectLabel = find.descendant(
+      of: recommendedSelectSurface,
+      matching: find.text('Select to Launch'),
+    );
+    final recommendedMarkRect = tester.getRect(recommendedMark);
+    final recommendedSelectLabelRect = tester.getRect(recommendedSelectLabel);
+    expect(
+      recommendedMarkRect.right,
+      lessThan(recommendedSelectLabelRect.left),
+    );
+    expect(
+      recommendedMarkRect.center.dy,
+      closeTo(recommendedSelectLabelRect.center.dy, 0.01),
+    );
+    expect(
+      find.ancestor(of: recommendedMark, matching: recommendedSelectSurface),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-recommended-c_regular'),
+      ),
+      findsNothing,
     );
   });
 
@@ -15182,11 +15302,13 @@ void main() {
   testWidgets('create save posts v2 origin and polls until ready', (
     WidgetTester tester,
   ) async {
+    final createResponseCompleter = Completer<TransportResponse>();
     final transport = _RecordingCreateOriginTransport(
       originInfoStatuses: {
         'o_created_1': [20, 10],
       },
       originInfoNames: {'o_created_1': 'Crystal City'},
+      createResponseCompleter: createResponseCompleter,
     );
     await CreateOriginDraftStore.saveFinal(
       const CreateOriginDraft(
@@ -15267,6 +15389,11 @@ void main() {
       if (transport.requestsFor('/api/v2/origin/create').isNotEmpty) break;
       await tester.pump(const Duration(milliseconds: 10));
     }
+    await tester.pump();
+    expect(find.textContaining('Creating your Worldo'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/info'), isEmpty);
+
+    transport.completeCreate(originName: 'Crystal City');
     await tester.pumpAndSettle();
 
     final requests = transport.requestsFor('/api/v2/origin/create');

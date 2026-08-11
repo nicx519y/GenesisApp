@@ -119,7 +119,11 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       return const OriginSubmitResult(message: '', showMessage: false);
     }
     final api = AppServicesScope.read(context).api;
-    if (mounted) {
+    setState(() {
+      _submitStatus = OriginDraftSubmitStatus.checkingPending;
+      _generationWaitLines = originDraftGenerationWaitLines(draft);
+    });
+    try {
       final originatorName = await _readOriginatorName(context);
       if (!context.mounted) {
         return const OriginSubmitResult(message: '', showMessage: false);
@@ -130,29 +134,32 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
           originatorName: originatorName,
         ),
       );
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'create_worldo_submit_start',
+      );
+      final result = await api.createOriginV2(
+        payload: draft.toCreateOriginPayload(),
+      );
+      final originId = result.oid.trim();
+      if (originId.isEmpty) {
+        throw StateError('origin_id is missing from create response');
+      }
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'create_worldo_submit_success',
+        object1: originId,
+      );
+      await _pendingCoordinator.startCreating(
+        originId: originId,
+        originName: draft.basics.originName,
+        loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
+      );
+      return const OriginSubmitResult(message: '', showMessage: false);
+    } catch (_) {
+      if (mounted) setState(() => _submitStatus = OriginDraftSubmitStatus.idle);
+      rethrow;
     }
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'create_worldo_submit_start',
-    );
-    final result = await api.createOriginV2(
-      payload: draft.toCreateOriginPayload(),
-    );
-    final originId = result.oid.trim();
-    if (originId.isEmpty) {
-      throw StateError('origin_id is missing from create response');
-    }
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'create_worldo_submit_success',
-      object1: originId,
-    );
-    await _pendingCoordinator.startCreating(
-      originId: originId,
-      originName: draft.basics.originName,
-      loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
-    );
-    return OriginSubmitResult(message: '', showMessage: false);
   }
 
   void _resumePendingCreate() {

@@ -84,6 +84,7 @@ void main() {
       const ValueKey('origin-role-preset-recommended-preset_recommended'),
     );
     expect(recommendedMark, findsOneWidget);
+    expect(tester.getSize(recommendedMark), const Size.square(22));
     expect(
       find.descendant(
         of: recommendedMark,
@@ -91,14 +92,25 @@ void main() {
       ),
       findsOneWidget,
     );
+    final markBackground = tester.widget<DecoratedBox>(
+      find.descendant(of: recommendedMark, matching: find.byType(DecoratedBox)),
+    );
+    final markDecoration = markBackground.decoration as BoxDecoration;
+    expect(markDecoration.color, const Color(0xCCFFFFFF));
+    expect(markDecoration.borderRadius, BorderRadius.circular(8));
     final recommendedAvatar = find.descendant(
       of: recommendedTile,
       matching: find.byType(GenesisCharacterAvatar),
     );
     final avatarRect = tester.getRect(recommendedAvatar);
     final markRect = tester.getRect(recommendedMark);
-    expect(markRect.right, greaterThan(avatarRect.right));
-    expect(markRect.bottom, greaterThan(avatarRect.bottom));
+    expect(markRect.left, avatarRect.left + 4);
+    expect(markRect.bottom, avatarRect.bottom - 4);
+    expect(avatarRect.contains(markRect.topLeft), isTrue);
+    expect(
+      avatarRect.contains(markRect.bottomRight - const Offset(1, 1)),
+      isTrue,
+    );
     expect(
       find.byKey(
         const ValueKey('origin-role-preset-recommended-preset_regular_1'),

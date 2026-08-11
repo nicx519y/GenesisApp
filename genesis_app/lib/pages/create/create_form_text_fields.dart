@@ -89,6 +89,7 @@ class CreateTextFieldBlock extends StatefulWidget {
     this.showCounter = true,
     this.counterInside = false,
     this.note,
+    this.supportLeading,
     this.minLines = 1,
     this.maxLines,
     this.prefix,
@@ -114,6 +115,7 @@ class CreateTextFieldBlock extends StatefulWidget {
   final bool showCounter;
   final bool counterInside;
   final String? note;
+  final Widget? supportLeading;
   final int minLines;
   final int? maxLines;
   final Widget? prefix;
@@ -288,6 +290,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
             _CreateFieldSupportLine(
               note: widget.note,
               counter: _showsCounterOutside ? _counterText : null,
+              leading: widget.supportLeading,
             ),
           ],
           if (widget.visibilityBottomPadding > 0)
@@ -299,7 +302,8 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
 
   bool get _hasNote => widget.note?.trim().isNotEmpty == true;
 
-  bool get _hasSupportLine => _hasNote || _showsCounterOutside;
+  bool get _hasSupportLine =>
+      widget.supportLeading != null || _hasNote || _showsCounterOutside;
 
   bool get _showsCounterInside =>
       widget.counterInside && widget.maxLength != null && widget.showCounter;
@@ -330,26 +334,51 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
 }
 
 class _CreateFieldSupportLine extends StatelessWidget {
-  const _CreateFieldSupportLine({required this.note, required this.counter});
+  const _CreateFieldSupportLine({
+    required this.note,
+    required this.counter,
+    required this.leading,
+  });
 
   final String? note;
   final String? counter;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
     final normalizedNote = note?.trim() ?? '';
     final hasNote = normalizedNote.isNotEmpty;
-    if (!hasNote) {
+    if (!hasNote && leading == null) {
       return Align(
         alignment: Alignment.centerRight,
         child: _CreateFieldCounter(counter: counter ?? ''),
+      );
+    }
+    if (!hasNote && leading != null) {
+      return SizedBox(
+        height: 32,
+        child: Stack(
+          children: [
+            Align(alignment: Alignment.topLeft, child: leading),
+            if (counter != null)
+              Align(
+                alignment: Alignment.topRight,
+                child: _CreateFieldCounter(counter: counter!),
+              ),
+          ],
+        ),
       );
     }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: CreateFormNote(note: normalizedNote)),
+        if (leading != null) leading!,
+        if (leading != null && hasNote) const SizedBox(width: 12),
+        if (hasNote)
+          Expanded(child: CreateFormNote(note: normalizedNote))
+        else
+          const Spacer(),
         if (counter != null) ...[
           const SizedBox(width: 12),
           _CreateFieldCounter(counter: counter!),

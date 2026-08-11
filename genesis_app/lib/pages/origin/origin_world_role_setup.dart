@@ -64,7 +64,8 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   Widget build(BuildContext context) {
     const cardWidth = _OriginSetupRoleSection._cardWidth;
     const cardGap = 12.0;
-    final cardCount = widget.characters.length + 1;
+    final characters = originCharactersRecommendedFirst(widget.characters);
+    final cardCount = characters.length + 1;
     _cardStride = cardWidth + cardGap;
     return Padding(
       padding: const EdgeInsets.only(top: 10, bottom: 28),
@@ -98,7 +99,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
               separatorBuilder: (context, index) =>
                   const SizedBox(width: cardGap),
               itemBuilder: (context, index) {
-                if (index == widget.characters.length) {
+                if (index == characters.length) {
                   return SizedBox(
                     width: cardWidth,
                     child: _OriginSetupCustomRoleCard(
@@ -107,7 +108,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                     ),
                   );
                 }
-                final character = widget.characters[index];
+                final character = characters[index];
                 return SizedBox(
                   width: cardWidth,
                   child: _OriginSetupRoleCard(
@@ -393,19 +394,37 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                               ),
                               onTap: widget.launching ? null : widget.onSelect,
                               child: Center(
-                                child: Text(
-                                  widget.launching
-                                      ? 'Launching...'
-                                      : 'Select to Launch',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    height: 1,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white.withValues(
-                                      alpha: widget.launching ? 0.6 : 1,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (character.isRecommended) ...[
+                                      OriginRecommendedRoleMark(
+                                        badgeKey: ValueKey<String>(
+                                          'origin-setup-role-recommended-$stableId',
+                                        ),
+                                        showBackground: true,
+                                      ),
+                                      const SizedBox(width: 6),
+                                    ],
+                                    Flexible(
+                                      child: Text(
+                                        widget.launching
+                                            ? 'Launching...'
+                                            : 'Select to Launch',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          height: 1,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white.withValues(
+                                            alpha: widget.launching ? 0.6 : 1,
+                                          ),
+                                          decoration: TextDecoration.none,
+                                        ),
+                                      ),
                                     ),
-                                    decoration: TextDecoration.none,
-                                  ),
+                                  ],
                                 ),
                               ),
                             ),

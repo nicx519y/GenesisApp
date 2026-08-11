@@ -14,7 +14,7 @@ class _CharacterCard extends StatelessWidget {
   final OriginCharacterForm form;
   final FocusNode? nextFocusNode;
   final VoidCallback onChanged;
-  final Future<void> Function(bool recommended) onRecommendationChanged;
+  final ValueChanged<bool> onRecommendationChanged;
   final VoidCallback onDelete;
 
   @override
@@ -32,34 +32,55 @@ class _CharacterCard extends StatelessWidget {
             showFieldNotes: true,
             labelFontWeight: FontWeight.w400,
             nextFocusNode: nextFocusNode,
-          ),
-          const SizedBox(height: 17),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () =>
-                unawaited(onRecommendationChanged(!form.isRecommended)),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                OriginRoleSelectionMark(
-                  key: ValueKey('origin-character-recommended-${form.charId}'),
-                  selected: form.isRecommended,
-                  semanticLabel: 'Recommend as the best role',
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Recommend as the best role',
-                  style: TextStyle(
-                    color: Color(0xFF111111),
-                    fontSize: 14,
-                    height: 1.2,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
+            nameSupportLeading: _BestRoleSelector(
+              form: form,
+              onChanged: onRecommendationChanged,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BestRoleSelector extends StatelessWidget {
+  const _BestRoleSelector({required this.form, required this.onChanged});
+
+  final OriginCharacterForm form;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: ValueKey('origin-character-best-role-hit-target-${form.charId}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onChanged(!form.isRecommended),
+      child: SizedBox(
+        height: 32,
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OriginRoleSelectionMark(
+                key: ValueKey('origin-character-recommended-${form.charId}'),
+                selected: form.isRecommended,
+                semanticLabel: "Creator's best role for players to launch as",
+                style: OriginRoleSelectionMarkStyle.star,
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'Best role',
+                style: TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 12,
+                  height: 1.2,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

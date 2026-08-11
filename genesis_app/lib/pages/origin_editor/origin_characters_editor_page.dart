@@ -17,7 +17,6 @@ class _OriginCharactersEditorPageState
   final List<OriginCharacterForm> _forms = <OriginCharacterForm>[];
   String _uid = 'anonymous';
   bool _isSaving = false;
-  bool _recommendationPromptOpen = false;
 
   @override
   void initState() {
@@ -72,63 +71,12 @@ class _OriginCharactersEditorPageState
     setState(() {});
   }
 
-  Future<void> _setRecommended(int index, bool recommended) async {
+  void _setRecommended(int index, bool recommended) {
     if (index < 0 || index >= _forms.length) return;
     final targetForm = _forms[index];
-    if (!recommended) {
-      setState(() => targetForm.isRecommended = false);
-      return;
-    }
-
-    final previousIndex = _forms.indexWhere(
-      (form) => !identical(form, targetForm) && form.isRecommended,
-    );
-    if (previousIndex < 0) {
-      setState(() => targetForm.isRecommended = true);
-      return;
-    }
-    if (_recommendationPromptOpen) return;
-
-    FocusManager.instance.primaryFocus?.unfocus();
-    final previousForm = _forms[previousIndex];
-    final previousName = previousForm.name.text.trim().isEmpty
-        ? 'Character ${previousIndex + 1}'
-        : previousForm.name.text.trim();
-    _recommendationPromptOpen = true;
-    bool confirmed = false;
-    try {
-      confirmed =
-          await showGenesisActionBox<bool>(
-            context: context,
-            title: 'Recommend this character?',
-            titleContent: Text(
-              'This will remove the recommendation from "$previousName".',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF666666),
-                fontSize: 13,
-                height: 1.3,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            titleHeight: 112,
-            actions: const [
-              GenesisActionBoxAction<bool>(label: 'Recommend', value: true),
-            ],
-            cancelLabel: 'Cancel',
-          ) ==
-          true;
-    } finally {
-      _recommendationPromptOpen = false;
-    }
-    if (!mounted || !confirmed) return;
-    if (index >= _forms.length || !identical(_forms[index], targetForm)) return;
-
     setState(() {
       for (final form in _forms) {
-        form.isRecommended = identical(form, targetForm);
+        form.isRecommended = recommended && identical(form, targetForm);
       }
     });
   }

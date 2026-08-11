@@ -7,6 +7,7 @@ class _OriginCharactersSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sortedCharacters = originCharactersRecommendedFirst(characters);
     final characterAvatarUrls = characters
         .map((character) => _resolveAssetUrl(character.avatar).trim())
         .where((url) => url.isNotEmpty)
@@ -22,12 +23,12 @@ class _OriginCharactersSection extends StatelessWidget {
         if (characters.isEmpty)
           const Text('No characters', style: _mutedBodyTextStyle)
         else
-          for (int i = 0; i < characters.length; i++) ...[
+          for (int i = 0; i < sortedCharacters.length; i++) ...[
             _OriginCharacterRow(
-              character: characters[i],
+              character: sortedCharacters[i],
               imageUrls: characterAvatarUrls,
             ),
-            if (i != characters.length - 1) const SizedBox(height: 20),
+            if (i != sortedCharacters.length - 1) const SizedBox(height: 20),
           ],
       ],
     );
@@ -48,6 +49,9 @@ class _OriginCharacterRow extends StatelessWidget {
     final avatarUrl = _resolveAssetUrl(character.avatar);
 
     return Row(
+      key: ValueKey<String>(
+        'origin-character-row-${_characterStableId(character)}',
+      ),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _OriginCharacterPortrait(
@@ -55,6 +59,7 @@ class _OriginCharacterRow extends StatelessWidget {
           url: avatarUrl,
           name: character.name,
           imageUrls: imageUrls,
+          recommended: character.isRecommended,
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -102,16 +107,17 @@ class _OriginCharacterPortrait extends StatelessWidget {
     required this.url,
     required this.name,
     required this.imageUrls,
+    required this.recommended,
   });
 
   static const double _width = 86;
   static const double _borderRadius = GenesisAvatarRadii.character;
-  static const double _starSize = 20;
 
   final String characterId;
   final String url;
   final String name;
   final List<String> imageUrls;
+  final bool recommended;
 
   @override
   Widget build(BuildContext context) {
@@ -151,15 +157,16 @@ class _OriginCharacterPortrait extends StatelessWidget {
             child: image,
           ),
         ),
-        const Positioned(
-          top: -_starSize / 4 - 2,
-          right: -_starSize / 4 - 3,
-          child: Icon(
-            MyFlutterApp.redstarCharIcon,
-            size: _starSize,
-            color: Color(0xFFFF2442),
+        if (recommended)
+          Positioned(
+            right: -4,
+            bottom: -4,
+            child: OriginRecommendedRoleMark(
+              badgeKey: ValueKey<String>(
+                'origin-character-recommended-$characterId',
+              ),
+            ),
           ),
-        ),
       ],
     );
     if (resolvedUrl.isEmpty) return portrait;

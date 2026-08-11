@@ -241,7 +241,11 @@ class _EditOriginPageState extends State<EditOriginPage> {
     }
     final originId = draft.basics.originId.trim();
     final api = AppServicesScope.read(context).api;
-    if (mounted) {
+    setState(() {
+      _submitStatus = OriginDraftSubmitStatus.checkingPending;
+      _generationWaitLines = originDraftGenerationWaitLines(draft);
+    });
+    try {
       final originatorName = await _readOriginatorName(context);
       if (!context.mounted) {
         return const OriginSubmitResult(message: '', showMessage: false);
@@ -252,57 +256,60 @@ class _EditOriginPageState extends State<EditOriginPage> {
           originatorName: originatorName,
         ),
       );
-    }
-    final payload = draft.toCreateOriginPayload();
-    if (payload['init_location_group'] is! Map) {
-      throw StateError('A complete Opening is required to publish');
-    }
-    if (repository is MemoryOriginDraftRepository) {
-      payload['deleted_char_ids'] = repository.deletedCharacterIds(draft);
-      payload['deleted_location_ids'] = repository.deletedLocationIds(draft);
-      if (!_forEditIncludesSetting && !repository.worldLogicChanged(draft)) {
-        payload.remove('world_setting');
+      final payload = draft.toCreateOriginPayload();
+      if (payload['init_location_group'] is! Map) {
+        throw StateError('A complete Opening is required to publish');
       }
-      if (!_forEditIncludesEvents && !repository.storyEventsChanged(draft)) {
-        payload.remove('event_list');
-      }
-      final characters = payload['character_list'];
-      if (characters is List) {
-        for (final item in characters.whereType<Map>()) {
-          final character = asJsonMap(item);
-          final charId = asString(character['char_id']).trim();
-          if (_forEditCharacterIds.contains(charId) &&
-              !_forEditCharacterIdsWithBio.contains(charId) &&
-              asString(character['description']).trim().isEmpty) {
-            item.remove('description');
+      if (repository is MemoryOriginDraftRepository) {
+        payload['deleted_char_ids'] = repository.deletedCharacterIds(draft);
+        payload['deleted_location_ids'] = repository.deletedLocationIds(draft);
+        if (!_forEditIncludesSetting && !repository.worldLogicChanged(draft)) {
+          payload.remove('world_setting');
+        }
+        if (!_forEditIncludesEvents && !repository.storyEventsChanged(draft)) {
+          payload.remove('event_list');
+        }
+        final characters = payload['character_list'];
+        if (characters is List) {
+          for (final item in characters.whereType<Map>()) {
+            final character = asJsonMap(item);
+            final charId = asString(character['char_id']).trim();
+            if (_forEditCharacterIds.contains(charId) &&
+                !_forEditCharacterIdsWithBio.contains(charId) &&
+                asString(character['description']).trim().isEmpty) {
+              item.remove('description');
+            }
           }
         }
       }
+      payload['update_notes'] = normalizeGenesisUgcTextForSubmission(
+        _updateNotesController.text,
+      );
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'edit_worldo_submit_start',
+        object1: originId,
+      );
+      final result = await api.updateOriginV2(oid: originId, payload: payload);
+      final updatedOriginId = result.oid.trim();
+      if (updatedOriginId.isEmpty) {
+        throw StateError('origin_id is missing from publish response');
+      }
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'edit_worldo_submit_success',
+        object1: updatedOriginId,
+      );
+      await _pendingCoordinator.startPublishing(
+        originId: updatedOriginId,
+        originName: draft.basics.originName,
+        loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
+      );
+      return const OriginSubmitResult(message: '', showMessage: false);
+    } catch (_) {
+      if (mounted) setState(() => _submitStatus = OriginDraftSubmitStatus.idle);
+      rethrow;
     }
-    payload['update_notes'] = normalizeGenesisUgcTextForSubmission(
-      _updateNotesController.text,
-    );
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'edit_worldo_submit_start',
-      object1: originId,
-    );
-    final result = await api.updateOriginV2(oid: originId, payload: payload);
-    final updatedOriginId = result.oid.trim();
-    if (updatedOriginId.isEmpty) {
-      throw StateError('origin_id is missing from publish response');
-    }
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'edit_worldo_submit_success',
-      object1: updatedOriginId,
-    );
-    await _pendingCoordinator.startPublishing(
-      originId: updatedOriginId,
-      originName: draft.basics.originName,
-      loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
-    );
-    return OriginSubmitResult(message: '', showMessage: false);
   }
 
   void _syncSubmitStatus() {

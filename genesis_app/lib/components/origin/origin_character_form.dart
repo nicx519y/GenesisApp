@@ -155,6 +155,7 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.showPlaceholders = true,
     this.textFieldScrollPadding,
     this.nextFocusNode,
+    this.nameSupportLeading,
   });
 
   final OriginCharacterForm form;
@@ -188,6 +189,7 @@ class OriginCharacterFormFields extends StatelessWidget {
   final bool showPlaceholders;
   final EdgeInsets? textFieldScrollPadding;
   final FocusNode? nextFocusNode;
+  final Widget? nameSupportLeading;
 
   @override
   Widget build(BuildContext context) {
@@ -230,6 +232,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                     scrollPadding: textFieldScrollPadding,
                     focusNode: form.focusNodes.name,
                     nextFocusNode: form.focusNodes.identity,
+                    supportLeading: nameSupportLeading,
                     onChanged: (_) => onChanged(),
                   ),
                   if (!identityBelowAvatarRow) ...[

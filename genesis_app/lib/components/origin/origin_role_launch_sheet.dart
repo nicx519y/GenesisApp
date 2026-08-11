@@ -9,6 +9,7 @@ import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
 import '../world_details_shell.dart';
 import 'origin_character_form.dart';
+import 'origin_role_recommendation.dart';
 import 'origin_role_selection_mark.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/origin.dart';
@@ -599,10 +600,7 @@ class _PresetRoleGrid extends StatelessWidget {
       );
     }
 
-    final sortedCharacters = <OriginCharacter>[
-      ...characters.where((character) => character.isRecommended),
-      ...characters.where((character) => !character.isRecommended),
-    ];
+    final sortedCharacters = originCharactersRecommendedFirst(characters);
 
     return GridView.builder(
       padding: const EdgeInsets.only(top: 8),
@@ -673,10 +671,13 @@ class _PresetRoleTile extends StatelessWidget {
                   ),
                   if (character.isRecommended)
                     Positioned(
-                      right: -4,
-                      bottom: -4,
-                      child: _RecommendedRoleMark(
-                        characterId: _characterRoleId(character),
+                      left: 4,
+                      bottom: 4,
+                      child: OriginRecommendedRoleMark(
+                        badgeKey: ValueKey(
+                          'origin-role-preset-recommended-${_characterRoleId(character)}',
+                        ),
+                        showBackground: true,
                       ),
                     ),
                 ],
@@ -696,41 +697,6 @@ class _PresetRoleTile extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RecommendedRoleMark extends StatelessWidget {
-  const _RecommendedRoleMark({required this.characterId});
-
-  final String characterId;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Recommended role',
-      child: Container(
-        key: ValueKey('origin-role-preset-recommended-$characterId'),
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 5,
-              offset: Offset(0, 1),
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.star_rounded,
-          size: 22,
-          color: GenesisColors.brand,
         ),
       ),
     );
