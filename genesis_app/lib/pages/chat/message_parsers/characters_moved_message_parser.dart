@@ -53,6 +53,10 @@ class CharactersMovedMessageParser implements LocationChatMessageParser {
             characterName: context.characterName(movement.charId),
             toLocationId: movement.toLocationId.trim(),
             toLocationName: context.locationName(movement.toLocationId),
+            isDestinationCurrentLocation:
+                context.currentLocationId.trim().isNotEmpty &&
+                movement.toLocationId.trim() ==
+                    context.currentLocationId.trim(),
           ),
         )
         .toList(growable: false);

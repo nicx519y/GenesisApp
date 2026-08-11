@@ -129,7 +129,7 @@ class _ChatCompositeTickMessageBubble extends StatelessWidget {
                 _ChatTickGlobalSection(text: payload.globalText, style: style),
               ],
               if (storyEvents != null && storyEvents.paragraphs.isNotEmpty) ...[
-                _ChatTickSectionDivider(style: style),
+                const SizedBox(height: 20),
                 for (
                   var index = 0;
                   index < storyEvents.paragraphs.length;
@@ -140,19 +140,18 @@ class _ChatCompositeTickMessageBubble extends StatelessWidget {
                     index: index,
                     paragraph: storyEvents.paragraphs[index],
                     style: style,
-                    showTopDivider: index > 0,
+                    addTopSpacing: index > 0,
                   ),
               ],
               if (charactersMoved != null &&
                   charactersMoved.movements.isNotEmpty) ...[
-                _ChatTickSectionDivider(style: style),
-                _ChatCharactersMovedTitle(style: style),
-                const SizedBox(height: 7),
+                const SizedBox(height: 20),
                 for (
                   var index = 0;
                   index < charactersMoved.movements.length;
                   index += 1
-                )
+                ) ...[
+                  if (index > 0) const SizedBox(height: 10),
                   _ChatCharacterMovementRow(
                     messageLocalId: '${message.localId}-tick',
                     index: index,
@@ -160,9 +159,10 @@ class _ChatCompositeTickMessageBubble extends StatelessWidget {
                     style: style,
                     onLocationTap: onLocationTap,
                   ),
+                ],
               ],
               if (showFallback) ...[
-                _ChatTickSectionDivider(style: style),
+                const SizedBox(height: 10),
                 _InlineMarkdownText(
                   text: payload.fallbackContent,
                   textAlign: TextAlign.left,
@@ -185,25 +185,13 @@ class _ChatTickHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = style.systemMessageTextStyle.color ?? Colors.white;
     final currentTime = message.currentTime.trim();
-    return Row(
+    return Text(
       key: ValueKey<String>('chat-tick-header-${message.localId}'),
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Icon(Icons.schedule_rounded, size: 15, color: textColor),
-        const SizedBox(width: 5),
-        Flexible(
-          child: Text(
-            currentTime.isEmpty
-                ? _tickLabel(message)
-                : '${_tickLabel(message)} · ${genesisDisplaySafeText(currentTime)}',
-            style: style.systemMessageTextStyle.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
+      currentTime.isEmpty
+          ? _tickLabel(message)
+          : '${_tickLabel(message)} · ${genesisDisplaySafeText(currentTime)}',
+      style: style.systemMessageTextStyle.copyWith(fontWeight: FontWeight.w400),
     );
   }
 }
@@ -217,30 +205,16 @@ class _ChatTickGlobalSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = style.systemMessageTextStyle.color ?? Colors.white;
-    return Column(
+    return KeyedSubtree(
       key: const ValueKey<String>('chat-tick-global-section'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.public_rounded, size: 15, color: textColor),
-            const SizedBox(width: 5),
-            Text(
-              'Global',
-              style: style.systemMessageTextStyle.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+      child: _InlineMarkdownText(
+        text: text,
+        textAlign: TextAlign.left,
+        style: style.systemMessageTextStyle.copyWith(
+          color: textColor.withValues(alpha: 0.72),
+          fontStyle: FontStyle.italic,
         ),
-        const SizedBox(height: 7),
-        _InlineMarkdownText(
-          text: text,
-          textAlign: TextAlign.left,
-          style: style.systemMessageTextStyle.copyWith(height: 1.45),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -290,7 +264,8 @@ String _charactersMovedCopyText(ChatCharactersMovedPayloadVm event) {
   return [
     'Character destinations',
     for (final movement in event.movements)
-      '${movement.characterName.trim()} has gone to '
+      '${movement.characterName.trim()} '
+          '${movement.isDestinationCurrentLocation ? 'has come to' : 'has gone to'} '
           '${movement.toLocationName.trim()}',
   ].join('\n');
 }

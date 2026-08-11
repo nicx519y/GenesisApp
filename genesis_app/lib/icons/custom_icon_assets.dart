@@ -7,6 +7,9 @@ double customIconAssetRenderSize(String assetName, double baseSize) {
 
 const String copyStatIconAsset = 'assets/custom-icons/svg/copy_icon.svg';
 const String paragraphIconAsset = 'assets/custom-icons/svg/paragraph_icon.svg';
+const String eventsIconAsset = 'assets/custom-icons/svg/events.svg';
+const String clueIconAsset = 'assets/custom-icons/svg/clue.svg';
+const String routeIconAsset = 'assets/custom-icons/svg/route.svg';
 const String tickStatIconAsset = 'assets/custom-icons/svg/tick_icon.svg';
 const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
 const String launchIconAsset = 'assets/custom-icons/svg/launch_icon.svg';

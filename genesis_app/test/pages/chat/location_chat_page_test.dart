@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_controller.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
@@ -752,6 +754,7 @@ void main() {
         {'char_id': 'mateo', 'player_uid': 'u_me', 'name': 'Mateo Cruz'},
         {'char_id': 'iris', 'player_uid': 'u_me', 'name': 'Iris'},
         {'char_id': 'marcus', 'player_uid': 'u_other', 'name': 'Marcus'},
+        {'char_id': 'oracle', 'player_uid': '', 'name': 'Oracle'},
       ],
       characterPositions: const [],
     );
@@ -760,7 +763,15 @@ void main() {
       'mateo': 'Mateo Cruz',
       'iris': 'Iris',
       'marcus': 'Marcus',
+      'oracle': 'Oracle',
     });
+    final roleIsAiById = locationChatRoleIsAiByIdForTesting(
+      characters: const [
+        {'char_id': 'mateo', 'player_uid': 'u_me'},
+        {'char_id': 'oracle', 'player_uid': ''},
+      ],
+    );
+    expect(roleIsAiById, {'mateo': false, 'oracle': true});
     expect(
       locationChatStoryEventParagraphVmForTesting(
         const ChatroomStoryEventParagraph(
@@ -786,6 +797,31 @@ void main() {
         roleNamesById: roleNamesById,
       )?.visibilityLabel,
       'Mateo Cruz, Marcus, Iris',
+    );
+    expect(
+      locationChatStoryEventParagraphVmForTesting(
+        const ChatroomStoryEventParagraph(
+          timestamp: 'Day 2, 10:22',
+          visibility: 'char_only',
+          visibleTo: ['oracle', 'mateo'],
+          text: 'AI and player roles see this.',
+          clue: '',
+        ),
+        roleNamesById: roleNamesById,
+        roleIsAiById: roleIsAiById,
+      )?.visibleRoles,
+      const [
+        ChatStoryEventVisibleRoleVm(
+          roleId: 'oracle',
+          name: 'Oracle',
+          isAi: true,
+        ),
+        ChatStoryEventVisibleRoleVm(
+          roleId: 'mateo',
+          name: 'Mateo Cruz',
+          isAi: false,
+        ),
+      ],
     );
     expect(
       locationChatStoryEventParagraphVmForTesting(
@@ -1434,7 +1470,7 @@ void main() {
         subTickNo: 1,
         currentTime: 'Day 2, 00:09:15',
         payload: {
-          'location_id': 'loc-station',
+          'location_id': 'location-current',
           'location_name': 'Old Station',
           'paragraphs': [
             {
@@ -1519,15 +1555,23 @@ void main() {
       expect(find.text('Dh来到了okkk。'), findsOneWidget);
       expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
       expect(find.text('Old Station'), findsNothing);
-      expect(find.text('Event'), findsNWidgets(2));
+      expect(find.text('Event'), findsNothing);
       expect(find.text('Day 2, 10:15'), findsOneWidget);
-      expect(find.text('public'), findsNWidgets(2));
+      expect(find.text('public'), findsNothing);
       expect(find.text('Alice found a ticket.'), findsOneWidget);
       expect(find.text('The date is three years ago.'), findsOneWidget);
       expect(find.text('Day 2, 10:20'), findsOneWidget);
       expect(find.text('The platform became quiet.'), findsOneWidget);
-      expect(find.text('Character destinations'), findsOneWidget);
-      expect(find.byIcon(Icons.directions_walk_rounded), findsNWidgets(3));
+      expect(find.text('Character destinations'), findsNothing);
+      expect(find.byIcon(Icons.directions_walk_rounded), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SvgPicture &&
+              widget.bytesLoader.toString().contains(routeIconAsset),
+        ),
+        findsNWidgets(2),
+      );
       expect(find.text('Alice'), findsNWidgets(2));
       expect(find.text('char-unknown'), findsOneWidget);
       expect(find.text('has gone to'), findsNWidgets(2));
@@ -1616,11 +1660,13 @@ void main() {
     expect(find.byType(ChatStoryEventsMessageBubble), findsNothing);
     expect(find.byType(ChatCharactersMovedMessageBubble), findsNothing);
     expect(find.text('Tick 1-2 · Day 1, 13:50'), findsOneWidget);
-    expect(find.text('Global'), findsOneWidget);
+    expect(find.text('Global'), findsNothing);
     expect(find.text('The promise-shaped key pulses.'), findsOneWidget);
-    expect(find.text('Event'), findsOneWidget);
+    expect(find.text('Event'), findsNothing);
+    expect(find.text('location-current'), findsNothing);
+    expect(find.text('public'), findsNothing);
     expect(find.text('Frost creeps toward Room 0.'), findsOneWidget);
-    expect(find.text('Character destinations'), findsOneWidget);
+    expect(find.text('Character destinations'), findsNothing);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
@@ -1721,7 +1767,7 @@ void main() {
       expect(message.v2TickPayload, isNull);
       expect(message.isV2LocationTick, isTrue);
       expect(find.byType(ChatTickMessageBubble), findsOneWidget);
-      expect(find.text('Tick · Recovered fallback Tick'), findsOneWidget);
+      expect(find.text('Tick 0 · Recovered fallback Tick'), findsOneWidget);
     },
   );
 
@@ -1854,10 +1900,25 @@ void main() {
 
     expect(find.byType(ChatStoryEventsMessageBubble), findsNWidgets(2));
     expect(find.text('Tick 5-2 · Day 3, 08:30:00'), findsNothing);
-    expect(find.text('Event'), findsNWidgets(2));
-    expect(find.byIcon(Icons.push_pin_rounded), findsNWidgets(2));
-    expect(find.byIcon(Icons.lightbulb_outline_rounded), findsNWidgets(2));
-    expect(find.text('public'), findsNWidgets(2));
+    expect(find.text('Event'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(eventsIconAsset),
+      ),
+      findsNWidgets(2),
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(clueIconAsset),
+      ),
+      findsNWidgets(2),
+    );
+    expect(find.text('public'), findsNothing);
+    expect(find.text('location-current'), findsNothing);
     expect(find.text('Day 3, 08:29:00'), findsOneWidget);
     expect(find.text('HTTP event body.'), findsOneWidget);
     expect(find.text('HTTP event clue.'), findsOneWidget);

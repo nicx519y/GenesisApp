@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
@@ -177,7 +179,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Follow the light toward the gate.'), findsOneWidget);
-      expect(find.byIcon(Icons.lightbulb_outline_rounded), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SvgPicture &&
+              widget.bytesLoader.toString().contains(clueIconAsset),
+        ),
+        findsOneWidget,
+      );
       expect(
         tester
             .widget<Text>(find.text('Follow the light toward the gate.'))

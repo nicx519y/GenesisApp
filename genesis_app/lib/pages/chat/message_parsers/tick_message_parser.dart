@@ -70,7 +70,13 @@ class TickMessageParser implements LocationChatMessageParser {
       return null;
     }
     final paragraphs = <ChatStoryEventParagraphVm>[];
+    final currentLocationId = context.currentLocationId.trim();
     for (final event in events) {
+      final eventLocationId = event.locationId.trim();
+      if (currentLocationId.isNotEmpty &&
+          eventLocationId != currentLocationId) {
+        continue;
+      }
       final visibleTo = event.visibleTo ?? const <String>[];
       if (!locationChatTimelineStringIsSafe(event.locationId) ||
           !locationChatTimelineStringIsSafe(event.timestamp) ||
@@ -84,15 +90,24 @@ class TickMessageParser implements LocationChatMessageParser {
       final visibility = event.visibility.trim().toLowerCase();
       if (visibility != 'public' && visibility != 'char_only') continue;
       if (visibility == 'char_only' && visibleTo.isEmpty) continue;
+      final visibleRoles = visibility == 'public'
+          ? const <ChatStoryEventVisibleRoleVm>[]
+          : _visibleRoles(visibleTo, context);
       final visibilityLabel = visibility == 'public'
           ? 'public'
-          : _visibleRoleNames(visibleTo, context);
+          : visibleRoles.map((role) => role.name).join(', ');
+      final locationId = eventLocationId;
       paragraphs.add(
         ChatStoryEventParagraphVm(
           timestamp: normalizeGenesisUgcTextForDisplay(event.timestamp),
           text: normalizeGenesisUgcTextForDisplay(event.text),
           clue: normalizeGenesisUgcTextForDisplay(event.clue),
           visibilityLabel: normalizeGenesisUgcTextForDisplay(visibilityLabel),
+          visibleRoles: List<ChatStoryEventVisibleRoleVm>.unmodifiable(
+            visibleRoles,
+          ),
+          locationId: locationId,
+          locationName: context.locationName(locationId),
         ),
       );
     }
@@ -105,18 +120,24 @@ class TickMessageParser implements LocationChatMessageParser {
     );
   }
 
-  String _visibleRoleNames(
+  List<ChatStoryEventVisibleRoleVm> _visibleRoles(
     List<String> roleIds,
     LocationChatMessageParseContext context,
   ) {
-    final names = <String>[];
-    final seen = <String>{};
+    final roles = <ChatStoryEventVisibleRoleVm>[];
+    final seenNames = <String>{};
     for (final roleId in roleIds) {
       final name = context.roleName(roleId).trim();
-      if (name.isEmpty || !seen.add(name)) continue;
-      names.add(name);
+      if (name.isEmpty || !seenNames.add(name)) continue;
+      roles.add(
+        ChatStoryEventVisibleRoleVm(
+          roleId: roleId.trim(),
+          name: name,
+          isAi: context.roleIsAi(roleId) ?? false,
+        ),
+      );
     }
-    return names.join(', ');
+    return roles;
   }
 
   ChatCharactersMovedPayloadVm? _charactersMovedViewModel(
@@ -142,6 +163,9 @@ class TickMessageParser implements LocationChatMessageParser {
           characterName: context.characterName(characterId),
           toLocationId: toLocationId,
           toLocationName: context.locationName(toLocationId),
+          isDestinationCurrentLocation:
+              context.currentLocationId.trim().isNotEmpty &&
+              toLocationId == context.currentLocationId.trim(),
         ),
       );
     }

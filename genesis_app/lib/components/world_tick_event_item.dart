@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
+import '../icons/custom_icon_assets.dart';
 import '../utils/genesis_timestamp_formatter.dart';
 
 class WorldTickEventItem extends StatelessWidget {
@@ -311,7 +313,12 @@ class _ClueText extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 2),
-          child: Icon(Icons.lightbulb_outline_rounded, size: 14, color: color),
+          child: SvgPicture.asset(
+            clueIconAsset,
+            width: 14,
+            height: 14,
+            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+          ),
         ),
         const SizedBox(width: 5),
         Expanded(

@@ -41,6 +41,18 @@ class StoryEventsMessageParser implements LocationChatMessageParser {
         payload.paragraphs.length > chatroomMaxCollectionItems) {
       return null;
     }
+    final payloadLocationId = payload.locationId.trim();
+    final currentLocationId = context.currentLocationId.trim();
+    if (currentLocationId.isNotEmpty &&
+        payloadLocationId != currentLocationId) {
+      return null;
+    }
+    final payloadLocationName = normalizeGenesisUgcTextForDisplay(
+      payload.locationName,
+    ).trim();
+    final resolvedLocationName = payloadLocationName.isNotEmpty
+        ? payloadLocationName
+        : context.locationName(payloadLocationId);
     final paragraphs = <ChatStoryEventParagraphVm>[];
     for (final paragraph in payload.paragraphs) {
       if (!locationChatTimelineStringIsSafe(paragraph.timestamp) ||
@@ -57,18 +69,16 @@ class StoryEventsMessageParser implements LocationChatMessageParser {
         parseLocationChatStoryEventParagraph(
           paragraph,
           roleName: context.roleName,
+          roleIsAi: context.roleIsAi,
+          locationId: payloadLocationId,
+          locationName: resolvedLocationName,
         ),
       );
     }
     if (paragraphs.isEmpty) return null;
-    final payloadLocationName = normalizeGenesisUgcTextForDisplay(
-      payload.locationName,
-    ).trim();
     return ChatStoryEventsPayloadVm(
-      locationId: payload.locationId.trim(),
-      locationName: payloadLocationName.isNotEmpty
-          ? payloadLocationName
-          : context.locationName(payload.locationId),
+      locationId: payloadLocationId,
+      locationName: resolvedLocationName,
       paragraphs: List<ChatStoryEventParagraphVm>.unmodifiable(paragraphs),
     );
   }
@@ -77,9 +87,13 @@ class StoryEventsMessageParser implements LocationChatMessageParser {
 ChatStoryEventParagraphVm parseLocationChatStoryEventParagraph(
   ChatroomStoryEventParagraph paragraph, {
   required String Function(String id) roleName,
+  required bool? Function(String id) roleIsAi,
+  String locationId = '',
+  String locationName = '',
 }) {
   final visibility = paragraph.visibility.trim().toLowerCase();
   String visibilityLabel;
+  final visibleRoles = <ChatStoryEventVisibleRoleVm>[];
   if (visibility == 'public') {
     visibilityLabel = 'public';
   } else if (visibility == 'char_only') {
@@ -89,6 +103,13 @@ ChatStoryEventParagraphVm parseLocationChatStoryEventParagraph(
       final name = roleName(visibleId).trim();
       if (name.isEmpty || !seenNames.add(name)) continue;
       matchingNames.add(name);
+      visibleRoles.add(
+        ChatStoryEventVisibleRoleVm(
+          roleId: visibleId.trim(),
+          name: name,
+          isAi: roleIsAi(visibleId) ?? false,
+        ),
+      );
     }
     visibilityLabel = matchingNames.join(', ');
   } else {
@@ -99,5 +120,8 @@ ChatStoryEventParagraphVm parseLocationChatStoryEventParagraph(
     text: normalizeGenesisUgcTextForDisplay(paragraph.text),
     clue: normalizeGenesisUgcTextForDisplay(paragraph.clue),
     visibilityLabel: normalizeGenesisUgcTextForDisplay(visibilityLabel),
+    visibleRoles: List<ChatStoryEventVisibleRoleVm>.unmodifiable(visibleRoles),
+    locationId: locationId,
+    locationName: locationName,
   );
 }

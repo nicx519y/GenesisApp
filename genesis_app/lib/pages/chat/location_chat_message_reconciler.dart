@@ -19,6 +19,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       currentSenderIds: _mySenderIdKeys,
     );
     final baseParseContext = LocationChatMessageParseContext(
+      currentLocationId: widget.locationId,
       isMine: (message) =>
           _isMineMessage(message, identityState: resolvedIdentityState),
       senderName: (message) => _messageSenderDisplayName(
@@ -34,6 +35,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       characterName: timelineIdentityIndex.characterName,
       locationName: timelineIdentityIndex.locationName,
       roleName: timelineIdentityIndex.roleName,
+      roleIsAi: timelineIdentityIndex.roleIsAi,
     );
     final retainedTimelineCacheKeys = <String>{};
     final visibleSource = <LocationChatParsedMessage>[];
@@ -565,6 +567,7 @@ class _LocationChatTimelineIdentityIndex {
     required this.characterNamesById,
     required this.locationNamesById,
     required this.roleNamesById,
+    required this.roleIsAiById,
     required this.revision,
   });
 
@@ -644,15 +647,22 @@ class _LocationChatTimelineIdentityIndex {
       characters: characters,
       characterPositions: characterPositions,
     );
+    final roleIsAiById = _locationChatRoleIsAiById(
+      characters: characters,
+      characterPositions: characterPositions,
+      entitiesById: state.entitiesById,
+    );
     final revision = Object.hashAll(<Object?>[
       ...characterNamesById.entries.expand((entry) => [entry.key, entry.value]),
       ...locationNamesById.entries.expand((entry) => [entry.key, entry.value]),
       ...roleNamesById.entries.expand((entry) => [entry.key, entry.value]),
+      ...roleIsAiById.entries.expand((entry) => [entry.key, entry.value]),
     ]);
     return _LocationChatTimelineIdentityIndex._(
       characterNamesById: characterNamesById,
       locationNamesById: locationNamesById,
       roleNamesById: roleNamesById,
+      roleIsAiById: roleIsAiById,
       revision: revision,
     );
   }
@@ -660,6 +670,7 @@ class _LocationChatTimelineIdentityIndex {
   final Map<String, String> characterNamesById;
   final Map<String, String> locationNamesById;
   final Map<String, String> roleNamesById;
+  final Map<String, bool> roleIsAiById;
   final int revision;
 
   String characterName(String characterId) {
@@ -674,6 +685,10 @@ class _LocationChatTimelineIdentityIndex {
 
   String roleName(String roleId) {
     return roleNamesById[_chatroomIdentityKey(roleId)] ?? '';
+  }
+
+  bool? roleIsAi(String roleId) {
+    return roleIsAiById[_chatroomIdentityKey(roleId)];
   }
 }
 
@@ -789,6 +804,44 @@ Map<String, String> _locationChatRoleNamesById({
   return result;
 }
 
+Map<String, bool> _locationChatRoleIsAiById({
+  required Iterable<Map<String, dynamic>> characters,
+  required Iterable<Map<String, dynamic>> characterPositions,
+  required Map<String, WorldChatroomEntity> entitiesById,
+}) {
+  final result = <String, bool>{};
+  for (final candidate in <Map<String, dynamic>>[
+    ...characters,
+    ...characterPositions,
+  ]) {
+    final rawCharacter = candidate['character'];
+    final character = rawCharacter is Map
+        ? _stringKeyMap(rawCharacter)
+        : candidate;
+    final characterId = _firstMapString(character, const [
+      'character_id',
+      'char_id',
+      'id',
+    ]).trim();
+    final key = _chatroomIdentityKey(characterId);
+    if (key.isEmpty) continue;
+    if (!character.containsKey('player_uid') && result.containsKey(key)) {
+      continue;
+    }
+    result[key] = _firstMapString(character, const ['player_uid']).isEmpty;
+  }
+  for (final entry in entitiesById.entries) {
+    final keys = <String>{
+      _chatroomIdentityKey(entry.key),
+      _chatroomIdentityKey(entry.value.id),
+    }..remove('');
+    for (final key in keys) {
+      result.putIfAbsent(key, () => entry.value.isAi);
+    }
+  }
+  return result;
+}
+
 @visibleForTesting
 Map<String, String> locationChatCurrentRoleNamesByIdForTesting({
   required Iterable<String> currentUserIds,
@@ -805,13 +858,30 @@ Map<String, String> locationChatCurrentRoleNamesByIdForTesting({
 }
 
 @visibleForTesting
+Map<String, bool> locationChatRoleIsAiByIdForTesting({
+  required Iterable<Map<String, dynamic>> characters,
+  Iterable<Map<String, dynamic>> characterPositions =
+      const <Map<String, dynamic>>[],
+  Map<String, WorldChatroomEntity> entitiesById =
+      const <String, WorldChatroomEntity>{},
+}) {
+  return _locationChatRoleIsAiById(
+    characters: characters,
+    characterPositions: characterPositions,
+    entitiesById: entitiesById,
+  );
+}
+
+@visibleForTesting
 ChatStoryEventParagraphVm? locationChatStoryEventParagraphVmForTesting(
   ChatroomStoryEventParagraph paragraph, {
   required Map<String, String> roleNamesById,
+  Map<String, bool> roleIsAiById = const <String, bool>{},
 }) {
   return parseLocationChatStoryEventParagraph(
     paragraph,
     roleName: (id) => roleNamesById[_chatroomIdentityKey(id)] ?? '',
+    roleIsAi: (id) => roleIsAiById[_chatroomIdentityKey(id)],
   );
 }
 

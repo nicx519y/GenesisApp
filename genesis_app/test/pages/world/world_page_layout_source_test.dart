@@ -46,6 +46,9 @@ void main() {
   );
   final originWorldPageSource = File('lib/pages/origin/origin_world_page.dart');
   final worldModelsSource = File('lib/pages/world/world_models.dart');
+  final worldConstantsSource = File(
+    'lib/pages/world/world_constants.dart',
+  ).readAsStringSync();
   final worldSectionsSource = [
     'lib/pages/world/world_sections.dart',
     'lib/pages/world/world_sections_loading_detail.dart',
@@ -171,6 +174,10 @@ void main() {
     expect(tags, contains("label: 'Detail'"));
     expect(tags, contains('worldDetailIconAsset'));
     expect(tags, contains("label: 'Events'"));
+    expect(
+      worldConstantsSource,
+      contains('assets/custom-icons/svg/events.svg'),
+    );
     expect(tags, contains("label: 'Status'"));
     expect(tags, isNot(contains("label: 'Cast'")));
     expect(tags, isNot(contains("label: 'Map'")));

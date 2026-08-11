@@ -7,16 +7,26 @@ import 'package:genesis_flutter_android/pages/chat/message_parsers/location_chat
 
 void main() {
   final context = LocationChatMessageParseContext(
+    currentLocationId: 'loc-2',
     isMine: (message) => message.senderId == 'me',
     senderName: (message) => 'resolved:${message.senderName}',
     avatarUrl: (message) => 'avatar:${message.senderId}',
     isPlayerControlledRole: (message) => message.userId == 'player',
     characterName: (id) => id == 'char-1' ? 'Alice' : id,
-    locationName: (id) => id == 'loc-2' ? 'Cafe' : id,
+    locationName: (id) => switch (id) {
+      'loc-2' => 'Cafe',
+      'loc-3' => 'Tower',
+      _ => id,
+    },
     roleName: (id) => switch (id) {
       'char-1' => 'Alice',
       'char-2' => 'Bob',
       _ => '',
+    },
+    roleIsAi: (id) => switch (id) {
+      'char-1' => true,
+      'char-2' => false,
+      _ => null,
     },
   );
 
@@ -122,6 +132,14 @@ void main() {
                 text: 'Frost spreads.',
                 clue: 'It spells Elara.',
               ),
+              ChatroomV2StoryEvent(
+                locationId: 'loc-3',
+                timestamp: 'Day 1, 13:35',
+                visibility: 'public',
+                visibleTo: null,
+                text: 'The tower bell rings.',
+                clue: '',
+              ),
             ],
             charactersMoved: [
               ChatroomV2CharacterMovement(
@@ -143,11 +161,31 @@ void main() {
       expect(payload.globalText, 'The key pulses.');
       expect(payload.storyEvents?.locationName, 'Cafe');
       expect(
-        payload.storyEvents?.paragraphs.single.visibilityLabel,
+        payload.storyEvents?.paragraphs.first.visibilityLabel,
         'Alice, Bob',
+      );
+      expect(payload.storyEvents?.paragraphs.first.visibleRoles, const [
+        ChatStoryEventVisibleRoleVm(
+          roleId: 'char-1',
+          name: 'Alice',
+          isAi: true,
+        ),
+        ChatStoryEventVisibleRoleVm(roleId: 'char-2', name: 'Bob', isAi: false),
+      ]);
+      expect(payload.storyEvents?.paragraphs, hasLength(1));
+      expect(payload.storyEvents?.paragraphs.single.locationName, 'Cafe');
+      expect(
+        payload.storyEvents?.paragraphs.any(
+          (event) => event.locationName == 'Tower',
+        ),
+        isFalse,
       );
       expect(payload.charactersMoved?.movements.single.characterName, 'Alice');
       expect(payload.charactersMoved?.movements.single.toLocationName, 'Cafe');
+      expect(
+        payload.charactersMoved?.movements.single.isDestinationCurrentLocation,
+        isTrue,
+      );
       expect(payload.fallbackContent, isEmpty);
     });
 
@@ -236,6 +274,7 @@ void main() {
       final payload = parsed?.timelinePayload as ChatStoryEventsPayloadVm?;
       expect(payload?.locationName, 'Cafe');
       expect(payload?.paragraphs.single.visibilityLabel, 'Alice, Bob');
+      expect(payload?.paragraphs.single.locationName, 'Cafe');
       expect(parsed?.text, contains('An event.'));
       expect(parsed?.text, contains('A clue.'));
     });
@@ -301,6 +340,7 @@ void main() {
       final payload = parsed?.timelinePayload as ChatCharactersMovedPayloadVm?;
       expect(payload?.movements.single.characterName, 'Alice');
       expect(payload?.movements.single.toLocationName, 'Cafe');
+      expect(payload?.movements.single.isDestinationCurrentLocation, isTrue);
       expect(parsed?.text, 'Alice → Cafe');
     });
 

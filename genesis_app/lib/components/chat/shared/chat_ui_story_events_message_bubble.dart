@@ -41,7 +41,7 @@ class ChatStoryEventsMessageBubble extends StatelessWidget {
                   index: index,
                   paragraph: payload.paragraphs[index],
                   style: style,
-                  showTopDivider: index > 0,
+                  addTopSpacing: index > 0,
                 ),
             ],
           ),
@@ -57,14 +57,14 @@ class _ChatStoryEventParagraph extends StatelessWidget {
     required this.index,
     required this.paragraph,
     required this.style,
-    required this.showTopDivider,
+    required this.addTopSpacing,
   });
 
   final String messageLocalId;
   final int index;
   final ChatStoryEventParagraphVm paragraph;
   final ChatUiStyleConfig style;
-  final bool showTopDivider;
+  final bool addTopSpacing;
 
   @override
   Widget build(BuildContext context) {
@@ -73,23 +73,13 @@ class _ChatStoryEventParagraph extends StatelessWidget {
       color: textColor.withValues(alpha: 0.72),
       fontSize: (style.systemMessageTextStyle.fontSize ?? 12) - 1,
     );
+    final isPublic = paragraph.visibilityLabel.trim().toLowerCase() == 'public';
     return Container(
       key: ValueKey<String>(
         'chat-story-event-paragraph-$messageLocalId-$index',
       ),
       width: double.infinity,
-      padding: EdgeInsets.only(top: showTopDivider ? 10 : 0),
-      margin: EdgeInsets.only(top: showTopDivider ? 10 : 0),
-      decoration: showTopDivider
-          ? BoxDecoration(
-              border: Border(
-                top: BorderSide(
-                  color: (style.systemMessageTextStyle.color ?? Colors.white)
-                      .withValues(alpha: 0.16),
-                ),
-              ),
-            )
-          : null,
+      margin: EdgeInsets.only(top: addTopSpacing ? 10 : 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -101,13 +91,14 @@ class _ChatStoryEventParagraph extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.push_pin_rounded, size: 14, color: textColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Event',
-                    style: style.systemMessageTextStyle.copyWith(
-                      fontWeight: FontWeight.w600,
+                  SvgPicture.asset(
+                    eventsIconAsset,
+                    key: ValueKey<String>(
+                      'chat-story-event-icon-$messageLocalId-$index',
                     ),
+                    width: 14,
+                    height: 14,
+                    colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
                   ),
                 ],
               ),
@@ -119,24 +110,25 @@ class _ChatStoryEventParagraph extends StatelessWidget {
                   ),
                   style: metadataStyle,
                 ),
-              if (paragraph.visibilityLabel.trim().isNotEmpty)
-                _ChatStoryEventVisibilityBadge(
+              if (!isPublic && paragraph.visibilityLabel.trim().isNotEmpty)
+                _ChatStoryEventVisibility(
                   key: ValueKey<String>(
                     'chat-story-event-visibility-$messageLocalId-$index',
                   ),
                   label: paragraph.visibilityLabel,
+                  visibleRoles: paragraph.visibleRoles,
                   style: style,
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           _InlineMarkdownText(
             text: paragraph.text,
             textAlign: TextAlign.left,
             style: style.systemMessageTextStyle.copyWith(height: 1.45),
           ),
           if (paragraph.clue.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 5),
             Row(
               key: ValueKey<String>(
                 'chat-story-event-clue-$messageLocalId-$index',
@@ -145,10 +137,11 @@ class _ChatStoryEventParagraph extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.lightbulb_outline_rounded,
-                    size: 14,
-                    color: textColor,
+                  child: SvgPicture.asset(
+                    clueIconAsset,
+                    width: 14,
+                    height: 14,
+                    colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
                   ),
                 ),
                 const SizedBox(width: 5),
@@ -157,6 +150,7 @@ class _ChatStoryEventParagraph extends StatelessWidget {
                     text: paragraph.clue,
                     textAlign: TextAlign.left,
                     style: style.systemMessageTextStyle.copyWith(
+                      color: textColor.withValues(alpha: 0.72),
                       fontStyle: FontStyle.italic,
                       height: 1.35,
                     ),
@@ -171,45 +165,90 @@ class _ChatStoryEventParagraph extends StatelessWidget {
   }
 }
 
-class _ChatStoryEventVisibilityBadge extends StatelessWidget {
-  const _ChatStoryEventVisibilityBadge({
+class _ChatStoryEventVisibility extends StatelessWidget {
+  const _ChatStoryEventVisibility({
     super.key,
     required this.label,
+    required this.visibleRoles,
     required this.style,
   });
 
   final String label;
+  final List<ChatStoryEventVisibleRoleVm> visibleRoles;
   final ChatUiStyleConfig style;
 
   @override
   Widget build(BuildContext context) {
     final textColor = style.systemMessageTextStyle.color ?? Colors.white;
     final badgeColor = textColor.withValues(alpha: 0.72);
-    final isPublic = label.trim().toLowerCase() == 'public';
-    return Container(
+    final aiNames = visibleRoles
+        .where((role) => role.isAi)
+        .map((role) => role.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    final userNames = visibleRoles
+        .where((role) => !role.isAi)
+        .map((role) => role.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList();
+    if (aiNames.isEmpty && userNames.isEmpty && label.trim().isNotEmpty) {
+      userNames.add(label.trim());
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 5,
+      children: [
+        if (aiNames.isNotEmpty)
+          _ChatStoryEventVisibleRoleGroup(
+            iconAsset: locationChatCharacterIconAsset,
+            names: aiNames,
+            textColor: badgeColor,
+          ),
+        if (userNames.isNotEmpty)
+          _ChatStoryEventVisibleRoleGroup(
+            iconAsset: userStatIconAsset,
+            names: userNames,
+            textColor: badgeColor,
+          ),
+      ],
+    );
+  }
+}
+
+class _ChatStoryEventVisibleRoleGroup extends StatelessWidget {
+  const _ChatStoryEventVisibleRoleGroup({
+    required this.iconAsset,
+    required this.names,
+    required this.textColor,
+  });
+
+  final String iconAsset;
+  final List<String> names;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 240),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        border: Border.all(color: textColor.withValues(alpha: 0.28)),
-        borderRadius: BorderRadius.circular(5),
-      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isPublic ? Icons.public_rounded : Icons.lock_outline_rounded,
-            size: 12,
-            color: badgeColor,
+          SvgPicture.asset(
+            iconAsset,
+            width: 12,
+            height: 12,
+            fit: BoxFit.contain,
+            excludeFromSemantics: true,
+            colorFilter: iconAsset == userStatIconAsset
+                ? ColorFilter.mode(textColor, BlendMode.srcIn)
+                : null,
           ),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
-              genesisDisplaySafeText(label),
+              genesisDisplaySafeText(names.join(', ')),
               softWrap: true,
-              style: style.systemMessageTextStyle.copyWith(
-                color: badgeColor,
-                fontSize: (style.systemMessageTextStyle.fontSize ?? 12) - 1,
-              ),
+              style: TextStyle(color: textColor, fontSize: 12),
             ),
           ),
         ],

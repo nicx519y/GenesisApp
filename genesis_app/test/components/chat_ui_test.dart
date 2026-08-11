@@ -153,6 +153,7 @@ void main() {
               characterName: 'Alice',
               toLocationId: 'loc_cafe',
               toLocationName: 'Cafe',
+              isDestinationCurrentLocation: true,
             ),
           ],
         ),
@@ -225,6 +226,18 @@ void main() {
               text: 'Alice found a ticket.',
               clue: 'The date is three years ago.',
               visibilityLabel: 'Mateo, Iris',
+              visibleRoles: [
+                ChatStoryEventVisibleRoleVm(
+                  roleId: 'char_mateo',
+                  name: 'Mateo',
+                  isAi: true,
+                ),
+                ChatStoryEventVisibleRoleVm(
+                  roleId: 'char_iris',
+                  name: 'Iris',
+                  isAi: false,
+                ),
+              ],
             ),
             ChatStoryEventParagraphVm(
               timestamp: 'Day 2, 10:20',
@@ -250,6 +263,7 @@ void main() {
               characterName: 'Alice',
               toLocationId: 'loc_cafe',
               toLocationName: 'Cafe',
+              isDestinationCurrentLocation: true,
             ),
             ChatCharacterMovementVm(
               characterId: 'char_bob',
@@ -285,15 +299,56 @@ void main() {
     expect(find.text('Alice entered the cafe'), findsOneWidget);
     expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
     expect(find.text('Old Station'), findsNothing);
-    expect(find.text('Event'), findsNWidgets(2));
-    expect(find.byIcon(Icons.push_pin_rounded), findsNWidgets(2));
-    expect(find.byIcon(Icons.lightbulb_outline_rounded), findsOneWidget);
+    expect(find.text('Event'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(eventsIconAsset),
+      ),
+      findsNWidgets(2),
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(clueIconAsset),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Day 2, 10:15'), findsOneWidget);
-    expect(find.text('Mateo, Iris'), findsOneWidget);
+    expect(find.text('Mateo'), findsOneWidget);
+    expect(find.text('Iris'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(
+              locationChatCharacterIconAsset,
+            ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(userStatIconAsset),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Alice found a ticket.'), findsOneWidget);
     expect(find.text('The date is three years ago.'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.text('The date is three years ago.'))
+          .textSpan
+          ?.style
+          ?.color,
+      Colors.white.withValues(alpha: 0.72),
+    );
     expect(find.text('Day 2, 10:20'), findsOneWidget);
-    expect(find.text('public'), findsOneWidget);
+    expect(find.text('public'), findsNothing);
     expect(find.text('The platform became quiet.'), findsOneWidget);
     expect(find.text('Day 2, 10:15 · Mateo, Iris'), findsNothing);
     expect(find.text('Day 2, 10:20 · public'), findsNothing);
@@ -336,18 +391,62 @@ void main() {
       (storyBubble.decoration as BoxDecoration).color,
       kLocationChatStyle.systemMessageBackgroundColor,
     );
-    final eventLabel = tester.widget<Text>(find.text('Event').first);
+    expect(find.text('Character destinations'), findsNothing);
+    expect(find.byIcon(Icons.directions_walk_rounded), findsNothing);
     expect(
-      eventLabel.style?.color,
-      kLocationChatStyle.systemMessageTextStyle.color,
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(routeIconAsset),
+      ),
+      findsNWidgets(2),
     );
-    expect(find.text('Character destinations'), findsOneWidget);
-    expect(find.byIcon(Icons.directions_walk_rounded), findsNWidgets(3));
     expect(find.text('Alice'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
-    expect(find.text('has gone to'), findsNWidgets(2));
+    expect(find.text('has come to'), findsOneWidget);
+    expect(find.text('has gone to'), findsOneWidget);
     expect(find.text('Cafe'), findsOneWidget);
     expect(find.text('Harbor'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('Alice')).style?.fontWeight,
+      FontWeight.w400,
+    );
+    expect(
+      tester.widget<Text>(find.text('Cafe')).style?.fontWeight,
+      FontWeight.w400,
+    );
+    final firstMovement = find.byKey(
+      const ValueKey<String>('chat-character-movement-moved-0'),
+    );
+    final secondMovement = find.byKey(
+      const ValueKey<String>('chat-character-movement-moved-1'),
+    );
+    expect(
+      tester.getTopLeft(secondMovement).dy -
+          tester.getBottomLeft(firstMovement).dy,
+      closeTo(10, 0.01),
+    );
+    expect(
+      tester
+          .widget<Container>(
+            find.byKey(
+              const ValueKey<String>('chat-story-event-paragraph-story-1'),
+            ),
+          )
+          .margin,
+      const EdgeInsets.only(top: 10),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('chat-story-events-message-story'),
+        ),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is SizedBox && widget.height == 5,
+        ),
+      ),
+      findsNWidgets(3),
+    );
     expect(find.text('Alice → Cafe'), findsNothing);
     final movedBubble = tester.widget<Container>(
       find.byKey(const ValueKey('chat-characters-moved-message-moved')),
@@ -2134,6 +2233,33 @@ void main() {
     expect(bubbleBox.right, closeTo(rowBox.right, 1));
   });
 
+  testWidgets('tick system message includes zero tick number', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'tick-zero-one',
+              senderId: 'tick',
+              senderName: 'Time',
+              text: 'Day 1, 20:25',
+              isMe: false,
+              status: 'sent',
+              senderType: 'tick',
+              tickNo: 0,
+              subTickNo: 1,
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Tick 0-1 · Day 1, 20:25'), findsOneWidget);
+  });
+
   testWidgets(
     'composite tick renders every non-empty section in order and forwards actions',
     (WidgetTester tester) async {
@@ -2203,34 +2329,82 @@ void main() {
       );
 
       final header = find.text('Tick 1-2 · Day 1, 13:50');
-      final globalLabel = find.text('Global');
       final globalText = find.text('The promise-shaped key pulses.');
-      final eventLabel = find.text('Event');
       final eventText = find.text('Frost creeps toward Room 0.');
-      final movedLabel = find.text('Character destinations');
+      final routeIcon = find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(routeIconAsset),
+      );
       expect(
         find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
         findsOneWidget,
       );
       expect(header, findsOneWidget);
-      expect(globalLabel, findsOneWidget);
+      expect(find.text('Global'), findsNothing);
       expect(globalText, findsOneWidget);
-      expect(eventLabel, findsOneWidget);
+      expect(find.byIcon(Icons.schedule_rounded), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('chat-tick-global-section')),
+          matching: find.byIcon(Icons.public_rounded),
+        ),
+        findsNothing,
+      );
+      expect(tester.widget<Text>(header).style?.fontWeight, FontWeight.w400);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('chat-tick-global-section')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is SvgPicture &&
+                widget.bytesLoader.toString().contains(paragraphIconAsset),
+          ),
+        ),
+        findsNothing,
+      );
+      expect(
+        tester.widget<Text>(globalText).textSpan?.style?.color,
+        Colors.white.withValues(alpha: 0.72),
+      );
+      expect(
+        tester.widget<Text>(globalText).textSpan?.style?.fontStyle,
+        FontStyle.italic,
+      );
+      expect(find.text('Event'), findsNothing);
+      expect(find.text('Vault'), findsNothing);
+      expect(find.text('public'), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SvgPicture &&
+              widget.bytesLoader.toString().contains(eventsIconAsset),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
+          matching: find.byType(Divider),
+        ),
+        findsOneWidget,
+      );
       expect(eventText, findsOneWidget);
       expect(find.text('It spells Elara.'), findsOneWidget);
-      expect(movedLabel, findsOneWidget);
+      expect(find.text('Character destinations'), findsNothing);
+      expect(routeIcon, findsOneWidget);
       expect(find.text('Room 0'), findsOneWidget);
       expect(
         tester.getTopLeft(header).dy,
-        lessThan(tester.getTopLeft(globalLabel).dy),
+        lessThan(tester.getTopLeft(globalText).dy),
       );
       expect(
         tester.getTopLeft(globalText).dy,
-        lessThan(tester.getTopLeft(eventLabel).dy),
+        lessThan(tester.getTopLeft(eventText).dy),
       );
       expect(
         tester.getTopLeft(eventText).dy,
-        lessThan(tester.getTopLeft(movedLabel).dy),
+        lessThan(tester.getTopLeft(routeIcon).dy),
       );
 
       await tester.tap(
@@ -2286,12 +2460,12 @@ void main() {
         ),
       );
 
-      expect(find.text('Tick'), findsOneWidget);
+      expect(find.text('Tick 0'), findsOneWidget);
       expect(find.text('Original tick content'), findsOneWidget);
       expect(find.text('Global'), findsNothing);
       expect(find.text('Event'), findsNothing);
       expect(find.text('Character destinations'), findsNothing);
-      expect(chatTickMessageCopyText(message), 'Tick\nOriginal tick content');
+      expect(chatTickMessageCopyText(message), 'Tick 0\nOriginal tick content');
     },
   );
 

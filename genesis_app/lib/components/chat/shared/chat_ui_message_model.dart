@@ -137,12 +137,18 @@ class ChatStoryEventParagraphVm {
     required this.text,
     required this.clue,
     required this.visibilityLabel,
+    this.visibleRoles = const <ChatStoryEventVisibleRoleVm>[],
+    this.locationId = '',
+    this.locationName = '',
   });
 
   final String timestamp;
   final String text;
   final String clue;
   final String visibilityLabel;
+  final List<ChatStoryEventVisibleRoleVm> visibleRoles;
+  final String locationId;
+  final String locationName;
 
   @override
   bool operator ==(Object other) {
@@ -150,11 +156,45 @@ class ChatStoryEventParagraphVm {
         other.timestamp == timestamp &&
         other.text == text &&
         other.clue == clue &&
-        other.visibilityLabel == visibilityLabel;
+        other.visibilityLabel == visibilityLabel &&
+        listEquals(other.visibleRoles, visibleRoles) &&
+        other.locationId == locationId &&
+        other.locationName == locationName;
   }
 
   @override
-  int get hashCode => Object.hash(timestamp, text, clue, visibilityLabel);
+  int get hashCode => Object.hash(
+    timestamp,
+    text,
+    clue,
+    visibilityLabel,
+    Object.hashAll(visibleRoles),
+    locationId,
+    locationName,
+  );
+}
+
+class ChatStoryEventVisibleRoleVm {
+  const ChatStoryEventVisibleRoleVm({
+    required this.roleId,
+    required this.name,
+    required this.isAi,
+  });
+
+  final String roleId;
+  final String name;
+  final bool isAi;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ChatStoryEventVisibleRoleVm &&
+        other.roleId == roleId &&
+        other.name == name &&
+        other.isAi == isAi;
+  }
+
+  @override
+  int get hashCode => Object.hash(roleId, name, isAi);
 }
 
 class ChatCharactersMovedPayloadVm extends ChatTimelinePayloadVm {
@@ -178,12 +218,14 @@ class ChatCharacterMovementVm {
     required this.characterName,
     required this.toLocationId,
     required this.toLocationName,
+    this.isDestinationCurrentLocation = false,
   });
 
   final String characterId;
   final String characterName;
   final String toLocationId;
   final String toLocationName;
+  final bool isDestinationCurrentLocation;
 
   @override
   bool operator ==(Object other) {
@@ -191,12 +233,18 @@ class ChatCharacterMovementVm {
         other.characterId == characterId &&
         other.characterName == characterName &&
         other.toLocationId == toLocationId &&
-        other.toLocationName == toLocationName;
+        other.toLocationName == toLocationName &&
+        other.isDestinationCurrentLocation == isDestinationCurrentLocation;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(characterId, characterName, toLocationId, toLocationName);
+  int get hashCode => Object.hash(
+    characterId,
+    characterName,
+    toLocationId,
+    toLocationName,
+    isDestinationCurrentLocation,
+  );
 }
 
 typedef ChatMessageLongPressStart =

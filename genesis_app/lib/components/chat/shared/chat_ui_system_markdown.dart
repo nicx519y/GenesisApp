@@ -162,7 +162,7 @@ String _tickAdvanceText(ChatMessageVm message) {
 }
 
 String _tickLabel(ChatMessageVm message) {
-  if (message.tickNo <= 0) return 'Tick';
+  if (message.tickNo < 0) return 'Tick';
   final subTick = message.subTickNo > 0 ? '-${message.subTickNo}' : '';
   return 'Tick ${message.tickNo}$subTick';
 }

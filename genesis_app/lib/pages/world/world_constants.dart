@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../components/world_details_shell.dart';
 
-const String worldSectionEventsIconAsset =
-    'assets/custom-icons/svg/world_tab_events.svg';
+const String worldSectionEventsIconAsset = 'assets/custom-icons/svg/events.svg';
 const String worldSectionStatusIconAsset =
     'assets/custom-icons/svg/world_tab_status.svg';
 const String worldSectionCastIconAsset =
