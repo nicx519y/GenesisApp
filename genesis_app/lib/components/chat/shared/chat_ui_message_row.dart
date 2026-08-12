@@ -25,6 +25,9 @@ class ChatMessageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
+    if (message.isAiContentDisclaimer) {
+      return ChatAiContentDisclaimerMessageBubble(message: message);
+    }
     final onLongPressStart = onMessageLongPressStart == null
         ? null
         : (LongPressStartDetails details) =>

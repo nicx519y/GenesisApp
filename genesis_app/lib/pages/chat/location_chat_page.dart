@@ -13,7 +13,6 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
-import '../../components/ai_content_disclaimer.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/gems/gem_balance_prompt.dart';
@@ -63,6 +62,15 @@ const double _locationChatOlderMessagesTriggerExtent = 180;
 const Duration _locationChatOlderMessagesIdleDelay = Duration(milliseconds: 80);
 const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
+
+@visibleForTesting
+bool locationChatShouldShowAiContentDisclaimerForTesting({
+  required bool initialContentReady,
+  required bool hasMoreOlderMessages,
+  required bool loadingOlderMessages,
+}) {
+  return initialContentReady && !hasMoreOlderMessages && !loadingOlderMessages;
+}
 
 class LocationChatPage extends StatefulWidget {
   const LocationChatPage({
@@ -292,13 +300,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _hasDraftText = false;
   bool _loadingOlderMessages = false;
   Timer? _olderMessagesLoadIdleTimer;
-  int _loadingOlderBeforeLocationMessageId = 0;
+  bool _showOlderMessagesLoading = false;
   bool _hasMoreOlderMessages = true;
   bool _olderMessagesExhaustedByRemote = false;
   bool _olderMessagesExhaustedByCursorlessContent = false;
   bool _initialContentReadyNotified = false;
   Future<void>? _initialLatestMessagesRefresh;
-  int _unseenIncomingCount = 0;
+  final Set<String> _unseenIncomingMessageLocalIds = <String>{};
+  int get _unseenIncomingCount => _unseenIncomingMessageLocalIds.length;
   int _clientMsgCounter = 0;
   final Set<String> _messageGapFillKeys = <String>{};
   final Set<int> _messageGapFillBeforeLocationMessageIds = <int>{};
@@ -322,6 +331,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   DateTime _tickProgressStartedAt = DateTime.fromMillisecondsSinceEpoch(0);
   final Map<String, String> _tickProgressLayoutIdByMessageLocalId =
       <String, String>{};
+  final ChatMessageVm _aiContentDisclaimerMessage =
+      ChatMessageVm.aiContentDisclaimer();
 
   bool get _sendAwaitingResponse {
     final state = _service?.state ?? _chatroomState;
@@ -329,6 +340,13 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       widget.locationId,
     );
   }
+
+  bool get _shouldShowAiContentDisclaimer =>
+      locationChatShouldShowAiContentDisclaimerForTesting(
+        initialContentReady: _initialContentReadyNotified,
+        hasMoreOlderMessages: _hasMoreOlderMessages,
+        loadingOlderMessages: _loadingOlderMessages,
+      );
 
   void _setLocationChatState(VoidCallback callback) {
     setState(callback);
@@ -443,6 +461,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     }
     if (changedChatTarget || changedOpeningPreview) {
       _cancelOlderMessagesLoadSchedule();
+      _initialContentReadyNotified = false;
       unawaited(
         _closeChatroom().then((_) {
           if (!mounted) return;
@@ -452,6 +471,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             _olderMessagesExhaustedByCursorlessContent = false;
           }
           _loadingOlderMessages = false;
+          _showOlderMessagesLoading = false;
           _initialContentReadyNotified = false;
           _initialLatestMessagesRefresh = null;
           _messageGapFillKeys.clear();
@@ -585,9 +605,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       messages: displayMessages,
       messageLayoutId: _locationChatMessageLayoutId,
       topTitle: '',
-      oldestEdgeNotice: kAiContentDisclaimerText,
-      oldestEdgeNoticeRequiresSecondScroll: true,
-      oldestEdgeLoading: _loadingOlderMessages,
+      oldestEdgeLoading: _showOlderMessagesLoading,
+      onOldestEdgeLoadingCollapsed: _handleOlderMessagesLoadingCollapsed,
       onMessageLongPressStart: _showMessageActionMenu,
       onFailedMessageTap: (message) => unawaited(_retryFailedMessage(message)),
       onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap == null

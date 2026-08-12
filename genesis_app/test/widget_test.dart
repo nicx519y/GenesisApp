@@ -22248,17 +22248,12 @@ void main() {
     expect(firstMessageTop, greaterThan(headerBottom));
     expect(firstMessageTop, lessThan(composerTop));
     expect(position.minScrollExtent, 0);
-    expect(position.maxScrollExtent, greaterThan(0));
-    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
-
-    expect(find.text(kAiContentDisclaimerText), findsOneWidget);
-    expect(
-      tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
-      lessThanOrEqualTo(headerBottom),
-    );
+    expect(position.maxScrollExtent, 0);
+    expect(position.pixels, 0);
+    expect(find.text(kAiContentDisclaimerText), findsNothing);
   });
 
-  testWidgets('location opening tick reveals the AI notice above it', (
+  testWidgets('location opening tick includes the AI disclaimer first bubble', (
     WidgetTester tester,
   ) async {
     addTearDown(() {
@@ -22309,20 +22304,11 @@ void main() {
     final position = tester.state<ScrollableState>(scrollable).position;
 
     expect(position.minScrollExtent, 0);
-    expect(position.maxScrollExtent, greaterThan(0));
-    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
-    expect(
-      noticeTop,
-      lessThanOrEqualTo(tester.getBottomLeft(find.byType(ChatHeader)).dy),
-    );
-
-    await tester.drag(scrollable, const Offset(0, 800));
-    await tester.pumpAndSettle();
-
+    expect(position.maxScrollExtent, 0);
     expect(position.pixels, 0);
     expect(
-      tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
-      greaterThan(tester.getTopLeft(scrollable).dy),
+      noticeTop,
+      greaterThanOrEqualTo(tester.getBottomLeft(find.byType(ChatHeader)).dy),
     );
   });
 
@@ -22409,7 +22395,7 @@ void main() {
   });
 
   testWidgets(
-    'location chat first user message after tick-only does not jump',
+    'location chat first user message retains the disclaimer and tick',
     (WidgetTester tester) async {
       addTearDown(() {
         tester.view.resetPhysicalSize();
@@ -22475,11 +22461,9 @@ void main() {
       final noticeFinder = find.text(kAiContentDisclaimerText);
       expect(noticeFinder, findsOneWidget);
       const tickBubbleKey = ValueKey('chat-tick-message-bubble');
-      final tickTop = tester.getTopLeft(find.byKey(tickBubbleKey)).dy;
       var position = tester.state<ScrollableState>(scrollable).position;
-      final oldestMessageExtent = position.maxScrollExtent;
-      expect(oldestMessageExtent, greaterThan(0));
-      expect(position.pixels, closeTo(oldestMessageExtent, 0.1));
+      expect(position.maxScrollExtent, 0);
+      expect(position.pixels, 0);
 
       final firstUser = message(
         messageId: 2,
@@ -22492,14 +22476,23 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       position = tester.state<ScrollableState>(scrollable).position;
-      expect(position.maxScrollExtent, closeTo(oldestMessageExtent, 0.1));
-      expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
-      expect(tester.getTopLeft(find.byKey(tickBubbleKey)).dy, tickTop);
+      expect(position.maxScrollExtent, 0);
+      expect(position.pixels, 0);
+      expect(noticeFinder, findsOneWidget);
+      expect(find.byKey(tickBubbleKey), findsOneWidget);
       expect(find.text('first message'), findsOneWidget);
+      expect(
+        tester.getTopLeft(noticeFinder).dy,
+        lessThan(tester.getTopLeft(find.byKey(tickBubbleKey)).dy),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(tickBubbleKey)).dy,
+        lessThan(tester.getTopLeft(find.text('first message')).dy),
+      );
     },
   );
 
-  testWidgets('long location opening stops before revealing AI notice', (
+  testWidgets('long location opening has no artificial disclaimer stop', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -22544,20 +22537,8 @@ void main() {
     await tester.drag(scrollable, const Offset(0, 5000));
     await tester.pumpAndSettle();
 
-    expect(position.pixels, greaterThan(0));
-    expect(
-      tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
-      lessThanOrEqualTo(tester.getBottomLeft(find.byType(ChatHeader)).dy),
-    );
-
-    await tester.drag(scrollable, const Offset(0, 300));
-    await tester.pumpAndSettle();
-
     expect(position.pixels, 0);
-    expect(
-      tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
-      greaterThan(tester.getBottomLeft(find.byType(ChatHeader)).dy),
-    );
+    expect(find.text(kAiContentDisclaimerText), findsNothing);
   });
 
   testWidgets('location chat shows new message notice when not at bottom', (

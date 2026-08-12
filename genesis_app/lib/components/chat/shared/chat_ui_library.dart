@@ -39,6 +39,7 @@ part 'chat_ui_image_message_bubble.dart';
 part 'chat_ui_user_enter_location_message_bubble.dart';
 part 'chat_ui_story_events_message_bubble.dart';
 part 'chat_ui_characters_moved_message_bubble.dart';
+part 'chat_ui_ai_content_disclaimer_message_bubble.dart';
 part 'chat_ui_media.dart';
 part 'chat_ui_bubbles.dart';
 part 'chat_ui_system_markdown.dart';

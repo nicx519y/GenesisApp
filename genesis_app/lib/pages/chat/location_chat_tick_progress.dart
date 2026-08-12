@@ -113,10 +113,12 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
 
   List<ChatMessageVm> _locationChatDisplayMessages() {
     // Keep every canonical Tick in `_messages` for cursor and unread state;
-    // collapse only the projection handed to the message list.
-    final displayMessages = _collapseConsecutiveLocationChatTicksForDisplay(
-      _messages,
-    );
+    // collapse only the projection handed to the message list. The disclaimer
+    // is display-only and never enters the canonical or persisted queues.
+    final projectedMessages = _locationChatProjectedMessages();
+    final displayMessages = _shouldShowAiContentDisclaimer
+        ? <ChatMessageVm>[_aiContentDisclaimerMessage, ...projectedMessages]
+        : projectedMessages;
     if (!_awaitingTickProgressMessage || _activeTickProgressSlotId.isEmpty) {
       return displayMessages;
     }
@@ -137,6 +139,10 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
         ),
       ),
     ];
+  }
+
+  List<ChatMessageVm> _locationChatProjectedMessages() {
+    return _collapseConsecutiveLocationChatTicksForDisplay(_messages);
   }
 
   String _locationChatMessageLayoutId(ChatMessageVm message) {

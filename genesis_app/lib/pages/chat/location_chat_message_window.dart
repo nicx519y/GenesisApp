@@ -70,12 +70,15 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     if (service == null) return;
     final beforeLocationMessageId = _earliestLoadedLocationMessageId();
     if (beforeLocationMessageId <= 0) {
-      _hasMoreOlderMessages = false;
+      _setLocationChatState(() {
+        _olderMessagesExhaustedByCursorlessContent = true;
+        _hasMoreOlderMessages = false;
+      });
       return;
     }
     _setLocationChatState(() {
       _loadingOlderMessages = true;
-      _loadingOlderBeforeLocationMessageId = beforeLocationMessageId;
+      _showOlderMessagesLoading = true;
     });
     _recordPanelDebug(
       action: 'loadOlderStart',
@@ -92,15 +95,6 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       if (page.loadedCount > 0 && mounted) {
         _syncFromServiceState(service);
       }
-      if (page.loadedCount > 0 &&
-          mounted &&
-          _loadingOlderMessages &&
-          !_olderLoadHasRenderedNewMessages()) {
-        _setLocationChatState(() {
-          _finishOlderMessagesLoading();
-        });
-        _runDeferredVisibleMessageGapFillIfNeeded();
-      }
       _recordPanelDebug(
         action: 'loadOlderDone',
         details: {
@@ -109,12 +103,9 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
           'hasMore': page.hasMore,
         },
       );
-      if (page.loadedCount <= 0 && mounted) {
-        _setLocationChatState(() {
-          _finishOlderMessagesLoading();
-        });
-        _runDeferredVisibleMessageGapFillIfNeeded();
-      } else if (page.loadedCount <= 0) {
+      if (mounted) {
+        _setLocationChatState(() => _showOlderMessagesLoading = false);
+      } else {
         _finishOlderMessagesLoading();
       }
     } catch (error) {
@@ -128,41 +119,22 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       // Up-scroll history loading is opportunistic; connection failures are
       // surfaced by the chatroom service failure stream when appropriate.
       if (mounted) {
-        _setLocationChatState(() {
-          _finishOlderMessagesLoading();
-        });
-        _runDeferredVisibleMessageGapFillIfNeeded();
+        _setLocationChatState(() => _showOlderMessagesLoading = false);
       } else {
         _finishOlderMessagesLoading();
       }
     }
   }
 
-  bool _olderLoadHasRenderedNewMessages() {
-    if (!_loadingOlderMessages || _loadingOlderBeforeLocationMessageId <= 0) {
-      return false;
-    }
-    final oldestRenderedLocationMessageId = _oldestRenderedLocationMessageId();
-    return oldestRenderedLocationMessageId > 0 &&
-        oldestRenderedLocationMessageId < _loadingOlderBeforeLocationMessageId;
-  }
-
-  int _oldestRenderedLocationMessageId() {
-    var oldest = 0;
-    for (final message in _messages) {
-      if (message.isSystem || message.locationMessageId <= 0) {
-        continue;
-      }
-      if (oldest == 0 || message.locationMessageId < oldest) {
-        oldest = message.locationMessageId;
-      }
-    }
-    return oldest;
+  void _handleOlderMessagesLoadingCollapsed() {
+    if (!_loadingOlderMessages || _showOlderMessagesLoading) return;
+    _setLocationChatState(_finishOlderMessagesLoading);
+    _runDeferredVisibleMessageGapFillIfNeeded();
   }
 
   void _finishOlderMessagesLoading() {
     _loadingOlderMessages = false;
-    _loadingOlderBeforeLocationMessageId = 0;
+    _showOlderMessagesLoading = false;
   }
 
   int _earliestLoadedLocationMessageId() {
@@ -172,12 +144,12 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     return _oldestLocationMessageId(source);
   }
 
-  int _newIncomingTailMessageCount(
+  Set<String> _newIncomingTailMessageLocalIds(
     List<WorldChatroomMessage> previous,
     List<WorldChatroomMessage> next,
   ) {
     final previousKeys = previous.map(_messageDedupKey).toSet();
-    var count = 0;
+    final localIds = <String>{};
     for (final message in next) {
       if (previousKeys.contains(_messageDedupKey(message))) continue;
       if (_isMineMessage(message)) continue;
@@ -188,9 +160,29 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       if (!locationChatMessageHasRenderableBusinessContent(message)) {
         continue;
       }
-      count += 1;
+      localIds.add(locationChatMessageLocalId(message));
     }
-    return count;
+    return localIds;
+  }
+
+  void _syncUnseenIncomingRenderedMessages(
+    Set<String> incomingMessageLocalIds,
+  ) {
+    final renderedIncomingLocalIds = _locationChatProjectedMessages()
+        .where((message) => !message.isMe && message.status != 'system')
+        .map((message) => message.localId)
+        .toSet();
+    final nextUnseenLocalIds = _unseenIncomingMessageLocalIds.intersection(
+      renderedIncomingLocalIds,
+    )..addAll(incomingMessageLocalIds.intersection(renderedIncomingLocalIds));
+    if (setEquals(nextUnseenLocalIds, _unseenIncomingMessageLocalIds)) {
+      return;
+    }
+    _setLocationChatState(() {
+      _unseenIncomingMessageLocalIds
+        ..clear()
+        ..addAll(nextUnseenLocalIds);
+    });
   }
 
   String _messageDedupKey(WorldChatroomMessage message) {

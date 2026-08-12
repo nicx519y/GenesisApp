@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/components/gems/memory_model_entry_button.dart';
@@ -10,6 +11,18 @@ import 'package:genesis_flutter_android/ui/components/genesis_static_network_ima
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_message_image.dart';
+
+class _JumpRecordingScrollController extends ScrollController {
+  int jumpToCallCount = 0;
+
+  @override
+  void jumpTo(double value) {
+    jumpToCallCount += 1;
+    super.jumpTo(value);
+  }
+
+  void resetJumpToCallCount() => jumpToCallCount = 0;
+}
 
 void main() {
   test('private chat uses a transparent status bar with dark icons', () {
@@ -71,6 +84,7 @@ void main() {
         status: 'sent',
       ),
       ChatMessageVm.system('System message'),
+      ChatMessageVm.aiContentDisclaimer(),
       ChatMessageVm(
         localId: 'narrator',
         senderId: 'nar',
@@ -178,6 +192,7 @@ void main() {
     expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
     expect(find.byType(ChatOtherMessageBubble), findsOneWidget);
     expect(find.byType(ChatSystemMessage), findsNWidgets(3));
+    expect(find.byType(ChatAiContentDisclaimerMessageBubble), findsOneWidget);
     expect(find.byType(ChatNarratorMessageBubble), findsOneWidget);
     expect(find.byType(ChatTickMessageBubble), findsOneWidget);
     expect(find.byType(ChatImageMessage), findsOneWidget);
@@ -186,6 +201,46 @@ void main() {
     expect(find.byType(ChatCharactersMovedMessageBubble), findsOneWidget);
     expect(find.byType(ChatOtherMessageBubble), findsOneWidget);
   });
+
+  testWidgets(
+    'AI content disclaimer uses its dedicated non-interactive bubble',
+    (WidgetTester tester) async {
+      var longPressCount = 0;
+      final message = ChatMessageVm.aiContentDisclaimer();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatMessageRow(
+              message: message,
+              showDateDivider: false,
+              onMessageLongPressStart: (_, _, _) => longPressCount += 1,
+            ),
+          ),
+        ),
+      );
+
+      expect(message.isAiContentDisclaimer, isTrue);
+      expect(message.isSystem, isTrue);
+      expect(find.byType(ChatAiContentDisclaimerMessageBubble), findsOneWidget);
+      expect(find.byType(AiContentDisclaimer), findsOneWidget);
+      expect(find.byType(ChatSystemMessage), findsNothing);
+      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'chat-ai-content-disclaimer-message-'
+            'location-chat-ai-content-disclaimer',
+          ),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.longPress(find.text(kAiContentDisclaimerText));
+      await tester.pump();
+      expect(longPressCount, 0);
+    },
+  );
 
   testWidgets('timeline event bubbles render typed display fields', (
     WidgetTester tester,
@@ -1318,6 +1373,457 @@ void main() {
       expect(centerFinder, findsOneWidget);
       final after = tester.getTopLeft(centerFinder).dy;
       expect(after, closeTo(before, 1));
+    },
+  );
+
+  testWidgets(
+    'history waits for the loading collapse before prepending without a jump',
+    (WidgetTester tester) async {
+      final controller = _JumpRecordingScrollController();
+      final coordinator = locationChatCoordinator(controller);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+      var collapseCount = 0;
+
+      Widget build({
+        required List<ChatMessageVm> messages,
+        required bool loading,
+      }) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: messages,
+                topTitle: '',
+                oldestEdgeLoading: loading,
+                onOldestEdgeLoadingCollapsed: () => collapseCount += 1,
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(
+        build(messages: chatMessages(21, 80), loading: false),
+      );
+      await tester.pumpAndSettle();
+      controller.jumpTo(0);
+      coordinator.deactivate();
+      await tester.pump();
+      controller.resetJumpToCallCount();
+
+      final retainedMessage = find.byKey(const ValueKey<String>('m21'));
+      final prependedMessage = find.byKey(const ValueKey<String>('m1'));
+      final baselineTop = tester.getTopLeft(retainedMessage).dy;
+
+      await tester.pumpWidget(
+        build(messages: chatMessages(21, 80), loading: true),
+      );
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration * 0.5);
+      final expandingTop = tester.getTopLeft(retainedMessage).dy;
+      expect(expandingTop, greaterThan(baselineTop));
+
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration * 0.5);
+      final expandedTop = tester.getTopLeft(retainedMessage).dy;
+      expect(expandedTop, greaterThan(expandingTop));
+
+      await tester.pumpWidget(
+        build(messages: chatMessages(1, 80), loading: false),
+      );
+      expect(prependedMessage, findsNothing);
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration * 0.5);
+      expect(prependedMessage, findsNothing);
+      final collapsingTop = tester.getTopLeft(retainedMessage).dy;
+      expect(collapsingTop, lessThan(expandedTop));
+      expect(collapsingTop, greaterThan(baselineTop));
+
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration * 0.5);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(prependedMessage, findsNothing);
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
+
+      await tester.pump();
+      expect(prependedMessage, findsOneWidget);
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
+      expect(controller.jumpToCallCount, 0);
+      expect(collapseCount, 1);
+    },
+  );
+
+  testWidgets(
+    'AI disclaimer is a normal anchored first row without a second-scroll stop',
+    (WidgetTester tester) async {
+      final controller = _JumpRecordingScrollController();
+      final coordinator = locationChatCoordinator(controller);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build(List<ChatMessageVm> messages) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: coordinator.handleScrollNotification,
+                child: LocationChatAnchoredMessageList(
+                  coordinator: coordinator,
+                  messages: messages,
+                  topTitle: '',
+                  showDateDividers: false,
+                  style: style,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      final ordinaryMessages = chatMessages(1, 30);
+      await tester.pumpWidget(build(ordinaryMessages));
+      await tester.pumpAndSettle();
+      controller.jumpTo(120);
+      coordinator.deactivate();
+      await tester.pump();
+      controller.resetJumpToCallCount();
+
+      final retainedMessage = find.byKey(const ValueKey<String>('m1'));
+      final baselineTop = tester.getTopLeft(retainedMessage).dy;
+      await tester.pumpWidget(
+        build([ChatMessageVm.aiContentDisclaimer(), ...ordinaryMessages]),
+      );
+
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
+      expect(controller.jumpToCallCount, 0);
+      expect(coordinator.oldestMessageStopOffset, isNull);
+
+      final scrollable = find.byType(Scrollable).first;
+      await tester.drag(scrollable, const Offset(0, 2000));
+      await tester.pumpAndSettle();
+
+      expect(controller.position.pixels, 0);
+      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'history layout transaction ignores a simultaneous live tail append',
+    (WidgetTester tester) async {
+      final controller = _JumpRecordingScrollController();
+      final coordinator = locationChatCoordinator(controller);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build({
+        required List<ChatMessageVm> messages,
+        required bool loading,
+      }) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: messages,
+                topTitle: '',
+                oldestEdgeLoading: loading,
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(
+        build(messages: chatMessages(21, 80), loading: false),
+      );
+      await tester.pumpAndSettle();
+      controller.jumpTo(0);
+      coordinator.deactivate();
+      await tester.pump();
+      controller.resetJumpToCallCount();
+
+      final retainedMessage = find.byKey(const ValueKey<String>('m21'));
+      final baselineTop = tester.getTopLeft(retainedMessage).dy;
+
+      await tester.pumpWidget(
+        build(messages: chatMessages(21, 80), loading: true),
+      );
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration);
+      await tester.pumpWidget(
+        build(messages: chatMessages(1, 81), loading: false),
+      );
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(find.byKey(const ValueKey<String>('m1')), findsNothing);
+
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey<String>('m1')), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('m81')), findsOneWidget);
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
+      expect(controller.jumpToCallCount, 0);
+    },
+  );
+
+  testWidgets(
+    'history layout transaction survives a replaced display boundary row',
+    (WidgetTester tester) async {
+      final controller = _JumpRecordingScrollController();
+      final coordinator = locationChatCoordinator(controller);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+      final initialMessages = <ChatMessageVm>[
+        ChatMessageVm(
+          localId: 'tick-old',
+          senderId: 'tick',
+          senderName: 'Time',
+          text: 'Old Tick',
+          isMe: false,
+          status: 'sent',
+          senderType: 'tick',
+        ),
+        ...chatMessages(22, 80),
+      ];
+      final nextMessages = <ChatMessageVm>[
+        ...chatMessages(1, 20),
+        ChatMessageVm(
+          localId: 'tick-new',
+          senderId: 'tick',
+          senderName: 'Time',
+          text: 'New Tick',
+          isMe: false,
+          status: 'sent',
+          senderType: 'tick',
+        ),
+        ...chatMessages(22, 80),
+      ];
+
+      Widget build({
+        required List<ChatMessageVm> messages,
+        required bool loading,
+      }) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: messages,
+                topTitle: '',
+                oldestEdgeLoading: loading,
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build(messages: initialMessages, loading: false));
+      await tester.pumpAndSettle();
+      controller.jumpTo(0);
+      coordinator.deactivate();
+      await tester.pump();
+      controller.resetJumpToCallCount();
+
+      final retainedMessage = find.byKey(const ValueKey<String>('m22'));
+      final baselineTop = tester.getTopLeft(retainedMessage).dy;
+
+      await tester.pumpWidget(build(messages: initialMessages, loading: true));
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration);
+      await tester.pumpWidget(build(messages: nextMessages, loading: false));
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey<String>('tick-old')), findsNothing);
+      expect(find.byKey(const ValueKey<String>('tick-new')), findsOneWidget);
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
+      expect(controller.jumpToCallCount, 0);
+    },
+  );
+
+  testWidgets(
+    'later history prepend stays anchored after the loading transaction',
+    (WidgetTester tester) async {
+      final controller = _JumpRecordingScrollController();
+      final coordinator = locationChatCoordinator(controller);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build({
+        required List<ChatMessageVm> messages,
+        required bool loading,
+      }) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: messages,
+                topTitle: '',
+                oldestEdgeLoading: loading,
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(
+        build(messages: chatMessages(21, 80), loading: false),
+      );
+      await tester.pumpAndSettle();
+      controller.jumpTo(0);
+      coordinator.deactivate();
+      await tester.pump();
+
+      final retainedMessage = find.byKey(const ValueKey<String>('m21'));
+      final baselineTop = tester.getTopLeft(retainedMessage).dy;
+
+      await tester.pumpWidget(
+        build(messages: chatMessages(21, 80), loading: true),
+      );
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration);
+      await tester.pumpWidget(
+        build(messages: chatMessages(11, 80), loading: false),
+      );
+      await tester.pump(locationChatOldestEdgeLoadingAnimationDuration);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
+      controller.resetJumpToCallCount();
+
+      await tester.pumpWidget(
+        build(messages: chatMessages(1, 80), loading: false),
+      );
+
+      expect(find.byKey(const ValueKey<String>('m1')), findsOneWidget);
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
+      expect(controller.jumpToCallCount, 0);
+    },
+  );
+
+  testWidgets(
+    'history prepend without a painted loading state corrects before paint',
+    (WidgetTester tester) async {
+      final controller = _JumpRecordingScrollController();
+      final coordinator = locationChatCoordinator(controller);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build(List<ChatMessageVm> messages) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: messages,
+                topTitle: '',
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build(chatMessages(21, 80)));
+      await tester.pumpAndSettle();
+      controller.jumpTo(0);
+      coordinator.deactivate();
+      await tester.pump();
+      controller.resetJumpToCallCount();
+
+      final retainedMessage = find.byKey(const ValueKey<String>('m21'));
+      final baselineTop = tester.getTopLeft(retainedMessage).dy;
+
+      await tester.pumpWidget(build(chatMessages(1, 80)));
+
+      expect(find.byKey(const ValueKey<String>('m1')), findsOneWidget);
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
+      expect(controller.jumpToCallCount, 0);
+    },
+  );
+
+  testWidgets(
+    'detached anchor survives a later height change above the viewport',
+    (WidgetTester tester) async {
+      final controller = _JumpRecordingScrollController();
+      final coordinator = locationChatCoordinator(controller);
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build(List<ChatMessageVm> messages) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: messages,
+                topTitle: '',
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      final shortHistory = <ChatMessageVm>[
+        ChatMessageVm(
+          localId: 'history-changing-height',
+          senderId: 'peer',
+          senderName: 'Peer',
+          text: 'short history',
+          isMe: false,
+          status: 'sent',
+        ),
+        ...chatMessages(21, 80),
+      ];
+      final tallHistory = <ChatMessageVm>[
+        ChatMessageVm(
+          localId: 'history-changing-height',
+          senderId: 'peer',
+          senderName: 'Peer',
+          text: List<String>.filled(20, 'history expanded').join('\n'),
+          isMe: false,
+          status: 'sent',
+        ),
+        ...chatMessages(21, 80),
+      ];
+
+      await tester.pumpWidget(build(shortHistory));
+      await tester.pumpAndSettle();
+      controller.jumpTo(80);
+      coordinator.deactivate();
+      await tester.pump();
+      controller.resetJumpToCallCount();
+
+      final retainedMessage = find.byKey(const ValueKey<String>('m21'));
+      final baselineTop = tester.getTopLeft(retainedMessage).dy;
+
+      await tester.pumpWidget(build(tallHistory));
+
+      expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
+      expect(controller.jumpToCallCount, 0);
     },
   );
 
