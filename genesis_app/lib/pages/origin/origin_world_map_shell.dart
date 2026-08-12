@@ -330,7 +330,9 @@ class _OriginBottomLaunchBarLoading extends StatelessWidget {
     return ClipRect(
       key: const ValueKey<String>('origin-bottom-launch-loading'),
       child: DecoratedBox(
-        decoration: const BoxDecoration(color: Color(0xE6EDEDED)),
+        decoration: const BoxDecoration(
+          color: originWorldDetailSheetBackgroundColor,
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 13),
           child: GenesisBottomSafePadding(

@@ -5765,7 +5765,7 @@ void main() {
         tester.getSize(
           find.byKey(const ValueKey<String>('origin-loading-role-card')),
         ),
-        const Size(288, 381),
+        const Size(240, 333),
       );
       expect(
         tester.getSize(
@@ -6097,6 +6097,110 @@ void main() {
       lessThan(81),
     );
     expect(find.text('Opening line 79'), findsNothing);
+  });
+
+  testWidgets('origin opening shows Worldo brief above opening location', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport(
+      originTicks: const <Map<String, Object?>>[
+        <String, Object?>{
+          'tick_no': 1,
+          'tick_result': <String, Object?>{
+            'location_groups': <Map<String, Object?>>[
+              <String, Object?>{
+                'location_id': 'l_o_test_1',
+                'initial_dialogue': <Map<String, Object?>>[
+                  <String, Object?>{
+                    'char_id': 'c_o_test_1',
+                    'char_name': 'Detail Character',
+                    'content': 'Opening line 1',
+                  },
+                  <String, Object?>{
+                    'char_id': 'c_o_test_1',
+                    'char_name': 'Detail Character',
+                    'content': 'Opening line 2',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final brief = find.byKey(
+      const ValueKey<String>('origin-opening-worldo-brief'),
+    );
+    final openingLocation = find.byKey(
+      const ValueKey<String>('origin-opening-location'),
+    );
+    expect(brief, findsOneWidget);
+    final briefTitle = tester.widget<Text>(find.text('Worldo Brief'));
+    expect(briefTitle.style?.fontSize, 16);
+    expect(
+      find.descendant(of: brief, matching: find.byIcon(MyFlutterApp.eye)),
+      findsNothing,
+    );
+    expect(find.text('Origin detail subtitle'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(
+              const ValueKey<String>('origin-opening-worldo-brief-body'),
+            ),
+          )
+          .style
+          ?.fontSize,
+      14,
+    );
+    expect(openingLocation, findsOneWidget);
+    expect(
+      (tester.widget<Padding>(openingLocation).padding as EdgeInsets).bottom,
+      8,
+    );
+    expect(
+      tester.getTopLeft(brief).dy,
+      lessThan(tester.getTopLeft(openingLocation).dy),
+    );
+    final openingDialogueFinder = find.byKey(
+      const ValueKey<String>('origin-opening-dialogue'),
+    );
+    final openingDialogue = tester.widget<SliverPadding>(openingDialogueFinder);
+    expect((openingDialogue.padding as EdgeInsets).bottom, 24);
+    final openingList = tester.widget<SliverList>(
+      find.descendant(
+        of: openingDialogueFinder,
+        matching: find.byType(SliverList),
+      ),
+    );
+    final openingDelegate = openingList.delegate as SliverChildBuilderDelegate;
+    final buildContext = tester.element(
+      find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
+    );
+    final firstOpeningRow =
+        openingDelegate.builder(buildContext, 0) as ChatMessageRow;
+    final lastOpeningRow =
+        openingDelegate.builder(
+              buildContext,
+              openingDelegate.estimatedChildCount! - 1,
+            )
+            as ChatMessageRow;
+    expect(firstOpeningRow.style?.rowBottomPadding, 24);
+    expect(lastOpeningRow.style?.rowBottomPadding, 0);
   });
 
   testWidgets(
@@ -7294,7 +7398,7 @@ void main() {
       const ValueKey<String>('origin-setup-role-portrait-$roleId'),
     );
     expect(portrait, findsOneWidget);
-    expect(tester.getSize(portrait).width, 288);
+    expect(tester.getSize(portrait).width, 240);
     final setupAvatarFinder = find.descendant(
       of: portrait,
       matching: find.byType(GenesisStaticNetworkImage),
@@ -7343,8 +7447,8 @@ void main() {
     final cardBodyToggle = find.byKey(
       const ValueKey<String>('origin-setup-role-card-body-toggle-$roleId'),
     );
-    expect(tester.getSize(roleToggle), const Size(288, 48));
-    expect(tester.getSize(cardBodyToggle), const Size(288, 288));
+    expect(tester.getSize(roleToggle), const Size(240, 48));
+    expect(tester.getSize(cardBodyToggle), const Size(240, 240));
     expect(
       find.ancestor(
         of: roleToggle,
@@ -7413,7 +7517,7 @@ void main() {
       const ValueKey<String>('origin-setup-role-details-$roleId'),
     );
     expect(details, findsOneWidget);
-    expect(tester.getSize(details), const Size(288, 288));
+    expect(tester.getSize(details), const Size(240, 240));
     expect(
       find.descendant(of: details, matching: find.text('Name')),
       findsNothing,
@@ -7445,7 +7549,7 @@ void main() {
     final detailIdentity = tester.widget<Text>(
       find.descendant(of: details, matching: find.text('Guide')),
     );
-    expect(identityLabel.style?.fontSize, 11);
+    expect(identityLabel.style?.fontSize, 13);
     expect(detailIdentity.style?.fontSize, 13);
     expect(identityLabel.textAlign, TextAlign.start);
     expect(detailIdentity.textAlign, TextAlign.start);

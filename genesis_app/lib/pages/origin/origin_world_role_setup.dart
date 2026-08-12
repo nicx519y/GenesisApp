@@ -8,7 +8,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
     required this.onCustomizeRole,
   });
 
-  static const double _cardWidth = 288;
+  static const double _cardWidth = 240;
   static const double _buttonHeight = 93;
   static const double _toggleAreaHeight = 48;
 
@@ -68,7 +68,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final cardCount = characters.length + 1;
     _cardStride = cardWidth + cardGap;
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 28),
+      padding: const EdgeInsets.only(bottom: 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -86,7 +86,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           SizedBox(
             height: cardWidth + _OriginSetupRoleSection._buttonHeight,
             child: ListView.separated(
@@ -603,7 +603,7 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
               label,
               textAlign: TextAlign.start,
               style: const TextStyle(
-                fontSize: 11,
+                fontSize: 13,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
                 color: Color(0x99FFFFFF),

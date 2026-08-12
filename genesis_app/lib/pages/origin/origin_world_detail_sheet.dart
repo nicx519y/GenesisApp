@@ -415,6 +415,7 @@ class _OriginDetailDraggableSheetState
                         else ...[
                           if (initialDialoguePreview != null)
                             ..._originInitialDialogueSlivers(
+                              widget.origin,
                               initialDialoguePreview,
                             ),
                           SliverToBoxAdapter(
