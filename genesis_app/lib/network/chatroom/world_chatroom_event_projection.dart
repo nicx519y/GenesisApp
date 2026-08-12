@@ -50,6 +50,8 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
             message: e.message,
           ),
         );
+      case ChatroomWaitingConversationRound e:
+        _handleWaitingConversationRound(e);
       case ChatroomJoined():
       case ChatroomDisconnected():
         break;
@@ -63,6 +65,22 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           );
         }
     }
+  }
+
+  void _handleWaitingConversationRound(ChatroomWaitingConversationRound event) {
+    if (!event.ok) return;
+    final locationId = event.locationId.trim();
+    final conversationRoundId = event.conversationRoundId.trim();
+    if (locationId.isEmpty || conversationRoundId.isEmpty) return;
+    final current = _state.waitingConversationRoundIdsByLocation;
+    if (current[locationId] == conversationRoundId) return;
+    _setState(
+      _state.copyWith(
+        waitingConversationRoundIdsByLocation: Map<String, String>.unmodifiable(
+          <String, String>{...current, locationId: conversationRoundId},
+        ),
+      ),
+    );
   }
 
   void _handleNewUserJoin(ChatroomNewUserJoinEvent event) {

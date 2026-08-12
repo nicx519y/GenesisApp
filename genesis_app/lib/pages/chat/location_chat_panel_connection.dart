@@ -680,7 +680,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         previous.joining != next.joining ||
         previous.connected != next.connected ||
         previous.reconnecting != next.reconnecting ||
-        previous.inputBlocked != next.inputBlocked) {
+        previous.inputBlocked != next.inputBlocked ||
+        previous.waitingConversationRoundIdsByLocation[widget.locationId] !=
+            next.waitingConversationRoundIdsByLocation[widget.locationId]) {
       return true;
     }
     return !_sameCurrentLocationEntities(previous, next);

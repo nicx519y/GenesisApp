@@ -3618,6 +3618,219 @@ void main() {
     await service.dispose();
   });
 
+  test(
+    'V2 waiting conversation round locks until matching character final',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+      );
+      await service.connect(worldId: 'world-1', identity: _identity());
+
+      socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 301);
+      await _waitFor(
+        () =>
+            service.state.waitingConversationRoundIdsByLocation['loc-1'] ==
+            '301',
+      );
+
+      socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 301);
+      socket.serverWaitingConversationRound(locationId: 'loc-2', roundId: 401);
+      await _waitFor(
+        () => service.state.waitingConversationRoundIdsByLocation.length == 2,
+      );
+
+      socket.serverV2Message(
+        type: 'user_enter_location',
+        senderId: 'char-1',
+        senderName: 'Character One',
+        messageId: 299,
+        locationMessageId: 299,
+        roundId: 301,
+        content: 'Character One entered',
+      );
+      socket.serverV2Message(
+        type: 'narrator',
+        senderId: 'nar',
+        senderName: 'Narrator',
+        messageId: 300,
+        locationMessageId: 300,
+        roundId: 301,
+        content: 'same round narrator message',
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.locationMessageId == 300,
+            ) ==
+            true,
+      );
+      expect(
+        service.state.waitingConversationRoundIdsByLocation,
+        <String, String>{'loc-1': '301', 'loc-2': '401'},
+      );
+
+      socket.serverV2StreamFrame(
+        streamType: 'llm_stream_start',
+        senderId: 'char-1',
+        messageId: 301,
+        locationMessageId: 301,
+        roundId: 301,
+      );
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        senderId: 'char-1',
+        messageId: 301,
+        locationMessageId: 301,
+        roundId: 301,
+        seq: 1,
+        content: 'still streaming',
+      );
+      socket.serverV2Message(
+        type: 'character',
+        senderId: 'char-2',
+        senderName: 'Other',
+        messageId: 302,
+        locationMessageId: 302,
+        roundId: 999,
+        content: 'different round',
+      );
+      await _waitFor(
+        () =>
+            service.state.streamMessagesByKey.isNotEmpty &&
+            service.state.messagesByLocation['loc-1']?.any(
+                  (message) => message.conversationRoundId == '999',
+                ) ==
+                true,
+      );
+      expect(
+        service.state.waitingConversationRoundIdsByLocation,
+        <String, String>{'loc-1': '301', 'loc-2': '401'},
+      );
+
+      socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        senderId: 'char-1',
+        messageId: 303,
+        locationMessageId: 303,
+        roundId: 301,
+        content: 'complete response',
+      );
+      await _waitFor(
+        () => !service.state.waitingConversationRoundIdsByLocation.containsKey(
+          'loc-1',
+        ),
+      );
+      expect(
+        service.state.waitingConversationRoundIdsByLocation,
+        <String, String>{'loc-2': '401'},
+      );
+
+      socket.serverWaitingConversationRound(locationId: 'loc-2', roundId: 402);
+      await _waitFor(
+        () =>
+            service.state.waitingConversationRoundIdsByLocation['loc-2'] ==
+            '402',
+      );
+      socket.serverV2Message(
+        type: 'user',
+        senderId: 'user-1',
+        senderName: 'Player One',
+        messageId: 304,
+        locationMessageId: 304,
+        roundId: 402,
+        content: 'user message does not unlock',
+        locationId: 'loc-2',
+      );
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-2']?.any(
+              (message) => message.locationMessageId == 304,
+            ) ==
+            true,
+      );
+      expect(
+        service.state.waitingConversationRoundIdsByLocation['loc-2'],
+        '402',
+      );
+
+      socket.serverWaitingConversationRound(
+        locationId: 'loc-error',
+        roundId: 501,
+        errNo: 5000,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        service.state.waitingConversationRoundIdsByLocation,
+        isNot(contains('loc-error')),
+      );
+
+      await service.disconnect();
+      expect(service.state.waitingConversationRoundIdsByLocation, isEmpty);
+      await service.dispose();
+    },
+  );
+
+  test('V2 waiting conversation round survives automatic reconnect', () async {
+    final firstSocket = _FakeChatroomSocket();
+    final secondSocket = _FakeChatroomSocket();
+    final transport = _SequencedChatroomTransport([firstSocket, secondSocket]);
+    final service = await _service(
+      socketTransport: transport,
+      reconnectInterval: const Duration(milliseconds: 5),
+      refreshInitialSnapshotOnConnect: false,
+      useV2Protocol: true,
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    firstSocket.serverWaitingConversationRound(
+      locationId: 'loc-1',
+      roundId: 601,
+    );
+    await _waitFor(
+      () =>
+          service.state.waitingConversationRoundIdsByLocation['loc-1'] == '601',
+    );
+    await firstSocket.serverClose();
+    await _waitFor(
+      () => transport.connectCount == 2 && service.state.connected,
+    );
+    expect(service.state.waitingConversationRoundIdsByLocation['loc-1'], '601');
+
+    secondSocket.serverV2Message(
+      type: 'character',
+      senderId: 'char-1',
+      senderName: 'Alice',
+      messageId: 601,
+      locationMessageId: 601,
+      roundId: 601,
+      content: 'response after reconnect',
+    );
+    await _waitFor(
+      () => service.state.waitingConversationRoundIdsByLocation.isEmpty,
+    );
+    await service.dispose();
+  });
+
+  test('disposing clears a V2 waiting conversation round', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      refreshInitialSnapshotOnConnect: false,
+      useV2Protocol: true,
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+    socket.serverWaitingConversationRound(locationId: 'loc-1', roundId: 701);
+    await _waitFor(
+      () =>
+          service.state.waitingConversationRoundIdsByLocation['loc-1'] == '701',
+    );
+
+    await service.dispose();
+    expect(service.state.waitingConversationRoundIdsByLocation, isEmpty);
+  });
+
   test('V2 send accepts canonical echo before receipt', () async {
     final socket = _FakeChatroomSocket();
     final service = await _service(
@@ -4912,6 +5125,24 @@ class _FakeChatroomSocket implements ChatroomSocket {
       'payload': <String, Object?>{},
       'err_no': errNo,
       'err_msg': errNo == 0 ? '' : 'rejected',
+    });
+  }
+
+  void serverWaitingConversationRound({
+    required String locationId,
+    required int roundId,
+    int errNo = 0,
+  }) {
+    serverFrame('waiting_conversation_round', {
+      'stream_type': '',
+      'ts': 1785890000000,
+      'world_id': 'world-1',
+      'location_id': locationId,
+      'session_id': 'sess-1',
+      'conversation_round_id': roundId,
+      'payload': <String, Object?>{},
+      'err_no': errNo,
+      'err_msg': errNo == 0 ? '' : 'waiting rejected',
     });
   }
 

@@ -6,7 +6,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     if (service == null ||
         _chatroomState.joinedLocationId != widget.locationId ||
         _chatroomState.inputBlocked ||
-        _awaitingAiResponse ||
+        _sendAwaitingResponse ||
         _sending) {
       return;
     }
@@ -64,7 +64,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         service == null ||
         _chatroomState.joinedLocationId != widget.locationId ||
         _chatroomState.inputBlocked ||
-        _awaitingAiResponse ||
+        _sendAwaitingResponse ||
         _sending) {
       return;
     }

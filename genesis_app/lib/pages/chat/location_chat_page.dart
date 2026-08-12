@@ -322,6 +322,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   final Map<String, String> _tickProgressLayoutIdByMessageLocalId =
       <String, String>{};
 
+  String get _serverWaitingConversationRoundId {
+    final state = _service?.state ?? _chatroomState;
+    return state.waitingConversationRoundIdsByLocation[widget.locationId]
+            ?.trim() ??
+        '';
+  }
+
+  bool get _sendAwaitingResponse =>
+      _awaitingAiResponse || _serverWaitingConversationRoundId.isNotEmpty;
+
   void _setLocationChatState(VoidCallback callback) {
     setState(callback);
   }
@@ -513,7 +523,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                 joined &&
                 _hasDraftText &&
                 !_sending &&
-                !_awaitingAiResponse &&
+                !_sendAwaitingResponse &&
                 !inputBlocked,
             sending: false,
             onSend: _send,

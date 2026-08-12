@@ -1,6 +1,6 @@
 # Chatroom WebSocket API
 
-本文档按 `/Users/ionix/Downloads/frontend-location-message-tick-debug(2).md`、`/Users/ionix/Downloads/aitown-chat-ws(1).yaml`、`/Users/ionix/Downloads/2026-07-27-image-message-support.md` 与 `/Users/ionix/Downloads/0803接口.md` 更新。V2 部分是新版客户端的权威契约；后半部分保留旧 WS 协议，供版本降级和本地适配使用。
+本文档按 `/Users/ionix/Downloads/frontend-location-message-tick-debug(2).md`、`/Users/ionix/Downloads/aitown-chat-ws(1).yaml`、`/Users/ionix/Downloads/2026-07-27-image-message-support.md`、`/Users/ionix/Downloads/0803接口.md` 与 `/Users/ionix/Downloads/waiting-conversation-round-client-guide.md` 更新。V2 部分是新版客户端的权威契约；后半部分保留旧 WS 协议，供版本降级和本地适配使用。
 
 ## V2 协议选择
 
@@ -183,6 +183,26 @@ LLM 流的外层 `type` 仍表示发送者业务类型，状态只看 `stream_ty
 以下控制通知保留既有外层 `type` 与业务 payload：`tick_start`、`tick_done`、`world_change`、`user_location_change`、`world_new_message`、`map_updated`、`character_updated`、`new_user_join`、`balance_low`。`user_enter_location/story_events/characters_moved` 的既有通知/正式消息适配也继续存在。
 
 V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_message` 或 `characters_moved` 带 `location_id` 时只调用 `/aitown-chat/api/v2/messages` 刷新该地点；缺少地点时对当前世界的叶子地点做限并发 V2 刷新。这条 runtime 链路不调用 `/aitown-chat/internal/world/messages` 或 legacy `/aitown-chat/api/messages`。
+
+### `waiting_conversation_round`
+
+`user_enter_location` 自动触发免费 P3 时，Chat 服务在请求 P3 前发送以下 V2-only 控制事件：
+
+```json
+{
+  "type": "waiting_conversation_round",
+  "stream_type": "",
+  "ts": 1785890000000,
+  "world_id": "world_001",
+  "location_id": "loc_001",
+  "conversation_round_id": 301,
+  "payload": {},
+  "err_no": 0,
+  "err_msg": ""
+}
+```
+
+客户端按 `location_id` 保存等待中的 `conversation_round_id`，并同时禁用该地点的 Send 按钮和发送/重试入口。该事件不渲染气泡、不写入消息缓存，也没有超时或独立 unlock 事件。只有 `sender_type=character`、同地点、同 round 且 `streaming=false` 的完整消息可以解锁；`llm_stream_start`、`llm_chunk`、其他 sender type、其他地点或其他 round 均不解锁。用户主动发送后建立的 conversation 等待锁使用相同解锁规则。同地点重复事件幂等，新 round 替换旧 round；自动重连保留等待状态，显式断开清除。
 
 # Legacy WebSocket 适配附录
 

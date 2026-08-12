@@ -1011,6 +1011,130 @@ void main() {
   });
 
   test(
+    'only a completed character message for the exact location and round unlocks',
+    () {
+      WorldChatroomMessage message({
+        String senderType = 'character',
+        String locationId = 'loc-1',
+        String roundId = '301',
+        bool streaming = false,
+      }) {
+        return _message(
+          messageId: 301,
+          locationMessageId: 301,
+          content: 'response',
+          senderType: senderType,
+          locationId: locationId,
+          conversationRoundId: roundId,
+          streaming: streaming,
+        );
+      }
+
+      bool completes(WorldChatroomMessage candidate) {
+        return locationChatMessageCompletesAwaitedCharacterRoundForTesting(
+          candidate,
+          locationId: 'loc-1',
+          conversationRoundId: '301',
+        );
+      }
+
+      expect(completes(message()), isTrue);
+      expect(completes(message(streaming: true)), isFalse);
+      expect(completes(message(senderType: 'user_enter_location')), isFalse);
+      expect(completes(message(senderType: 'narrator')), isFalse);
+      expect(completes(message(locationId: 'loc-2')), isFalse);
+      expect(completes(message(roundId: '302')), isFalse);
+    },
+  );
+
+  testWidgets(
+    'server waiting round disables send until matching character response completes',
+    (WidgetTester tester) async {
+      final harness = await _connectedLocationChatTestService();
+      final services = harness.services;
+      final service = harness.service;
+      final socket = harness.socket;
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: service,
+              leaveOnInactive: false,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => service.state.joinedLocationId == 'location-current',
+      );
+
+      final composerFinder = find.byType(ChatComposer);
+      final composer = tester.widget<ChatComposer>(composerFinder);
+      composer.controller.text = 'draft while the server responds';
+      await tester.pump();
+      expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isTrue);
+
+      socket.serverWaitingConversationRound(roundId: 301);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service
+                .state
+                .waitingConversationRoundIdsByLocation['location-current'] ==
+            '301',
+      );
+      await tester.pump();
+      expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isFalse);
+
+      await tester.widget<ChatComposer>(composerFinder).onSend();
+      expect(socket.sendMessageCount, 0);
+      expect(composer.controller.text, 'draft while the server responds');
+
+      socket.serverV2StreamFrame(
+        streamType: 'llm_stream_start',
+        roundId: 301,
+        messageId: 301,
+      );
+      socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        roundId: 301,
+        messageId: 301,
+        seq: 1,
+        content: 'partial response',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => service.state.streamMessagesByKey.isNotEmpty,
+      );
+      expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isFalse);
+
+      socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        roundId: 301,
+        messageId: 302,
+        content: 'complete response',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => !service.state.waitingConversationRoundIdsByLocation.containsKey(
+          'location-current',
+        ),
+      );
+      await tester.pump();
+      expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isTrue);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(service.dispose());
+    },
+  );
+
+  test(
     'selected role aliases historical character messages to current user',
     () {
       const characters = <Map<String, dynamic>>[
@@ -3518,6 +3642,8 @@ WorldChatroomMessage _message({
   required String content,
   String senderType = 'user',
   String businessType = '',
+  String locationId = 'loc-1',
+  String? conversationRoundId,
   int? tickNo,
   String? senderId,
   String messageType = 'text',
@@ -3528,10 +3654,10 @@ WorldChatroomMessage _message({
   return WorldChatroomMessage(
     messageId: messageId,
     locationMessageId: locationMessageId,
-    conversationRoundId: '$messageId',
+    conversationRoundId: conversationRoundId ?? '$messageId',
     roundOrder: 0,
     tickNo: tickNo ?? (senderType == 'tick' ? messageId : 0),
-    locationId: 'loc-1',
+    locationId: locationId,
     senderType: senderType,
     businessType: businessType,
     senderId: senderId ?? (senderType == 'tick' ? 'tick' : 'u_peer'),
@@ -3646,7 +3772,13 @@ Future<void> _pumpUntilLocationChatTest(
   fail('Timed out pumping location chat test state.');
 }
 
-Future<({AppServices services, WorldChatroomService service})>
+Future<
+  ({
+    AppServices services,
+    WorldChatroomService service,
+    _LocationChatTestSocket socket,
+  })
+>
 _connectedLocationChatTestService() async {
   final sessionStore = MemoryUserSessionStore();
   await sessionStore.saveUid('user-1');
@@ -3681,7 +3813,7 @@ _connectedLocationChatTestService() async {
       senderName: 'Player One',
     ),
   );
-  return (services: services, service: service);
+  return (services: services, service: service, socket: socket);
 }
 
 class _LocationChatTestTransport implements ChatroomSocketTransport {
@@ -3700,6 +3832,10 @@ class _LocationChatTestTransport implements ChatroomSocketTransport {
 
 class _LocationChatTestSocket implements ChatroomSocket {
   final _messages = StreamController<String>.broadcast();
+  final List<Map<String, dynamic>> _sentFrames = <Map<String, dynamic>>[];
+
+  int get sendMessageCount =>
+      _sentFrames.where((frame) => frame['type'] == 'send_message').length;
 
   @override
   Stream<String> get messages => _messages.stream;
@@ -3707,6 +3843,7 @@ class _LocationChatTestSocket implements ChatroomSocket {
   @override
   Future<void> send(String message) async {
     final frame = jsonDecode(message) as Map<String, dynamic>;
+    _sentFrames.add(frame);
     if (frame['type'] != 'join') return;
     final clientMsgId = '${frame['client_msg_id'] ?? ''}';
     scheduleMicrotask(() {
@@ -3805,6 +3942,54 @@ class _LocationChatTestSocket implements ChatroomSocket {
         'global': globalText,
         'story_events': <Object?>[],
         'characters_moved': <Object?>[],
+      },
+      'err_no': 0,
+      'err_msg': '',
+    });
+  }
+
+  void serverWaitingConversationRound({required int roundId}) {
+    _serverFrame('waiting_conversation_round', {
+      'stream_type': '',
+      'ts': 1785890000000,
+      'world_id': 'world-current',
+      'session_id': 'session-1',
+      'location_id': 'location-current',
+      'conversation_round_id': roundId,
+      'payload': <String, Object?>{},
+      'err_no': 0,
+      'err_msg': '',
+    });
+  }
+
+  void serverV2StreamFrame({
+    required String streamType,
+    required int roundId,
+    required int messageId,
+    int? seq,
+    String content = '',
+  }) {
+    _serverFrame('character', {
+      'stream_type': streamType,
+      'ts': 1785890000000 + messageId,
+      'world_id': 'world-current',
+      'session_id': 'session-1',
+      'location_id': 'location-current',
+      'global_message_id': 90000 + messageId,
+      'message_id': messageId,
+      'location_message_id': messageId,
+      'conversation_round_id': roundId,
+      'sender_type': 'character',
+      'sender_id': 'char-1',
+      'sender_name': 'Alice',
+      'user_id': '',
+      'client_msg_id': '',
+      'message_type': 'text',
+      'min_app_version': 0,
+      'created_at': '2026-08-12 10:00:00',
+      'payload': <String, Object?>{
+        if (seq != null) 'seq': seq,
+        'content': content,
       },
       'err_no': 0,
       'err_msg': '',

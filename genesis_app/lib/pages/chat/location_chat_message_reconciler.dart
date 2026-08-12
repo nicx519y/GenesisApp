@@ -493,14 +493,40 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     if (!_awaitingAiResponse) return false;
     if (awaitedRoundId.isEmpty) return false;
     for (final message in source.reversed) {
-      if (!_currentLocationIds().contains(message.locationId)) continue;
-      if (message.conversationRoundId != awaitedRoundId) continue;
-      if (_isMineMessage(message)) continue;
-      if (locationChatResolvedSenderType(message) == 'user') continue;
-      return !message.streaming;
+      if (_locationChatMessageCompletesAwaitedCharacterRound(
+        message,
+        locationId: widget.locationId,
+        conversationRoundId: awaitedRoundId,
+      )) {
+        return true;
+      }
     }
     return false;
   }
+}
+
+bool _locationChatMessageCompletesAwaitedCharacterRound(
+  WorldChatroomMessage message, {
+  required String locationId,
+  required String conversationRoundId,
+}) {
+  return message.locationId.trim() == locationId.trim() &&
+      message.conversationRoundId.trim() == conversationRoundId.trim() &&
+      message.senderType.trim().toLowerCase() == 'character' &&
+      !message.streaming;
+}
+
+@visibleForTesting
+bool locationChatMessageCompletesAwaitedCharacterRoundForTesting(
+  WorldChatroomMessage message, {
+  required String locationId,
+  required String conversationRoundId,
+}) {
+  return _locationChatMessageCompletesAwaitedCharacterRound(
+    message,
+    locationId: locationId,
+    conversationRoundId: conversationRoundId,
+  );
 }
 
 @visibleForTesting

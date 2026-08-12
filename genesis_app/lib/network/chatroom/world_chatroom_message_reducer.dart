@@ -628,6 +628,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     final streamKeys = <String, WorldChatroomMessage>{
       ..._state.streamMessagesByKey,
     };
+    Map<String, String>? waitingConversationRoundIdsByLocation;
     final resolvedMessages = <WorldChatroomMessage>[];
     var lastMessageId = _state.lastMessageId;
     for (final incoming in messages) {
@@ -658,6 +659,21 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           message.messageId > lastMessageId) {
         lastMessageId = message.messageId;
       }
+      final waitingRounds =
+          waitingConversationRoundIdsByLocation ??
+          _state.waitingConversationRoundIdsByLocation;
+      final locationId = message.locationId.trim();
+      final awaitedRoundId = waitingRounds[locationId];
+      final senderType = message.senderType.trim().toLowerCase();
+      if (awaitedRoundId != null &&
+          awaitedRoundId == message.conversationRoundId.trim() &&
+          senderType == 'character' &&
+          !message.streaming) {
+        waitingConversationRoundIdsByLocation ??= <String, String>{
+          ..._state.waitingConversationRoundIdsByLocation,
+        };
+        waitingConversationRoundIdsByLocation.remove(locationId);
+      }
     }
     _setState(
       _stateWithSocketWorldProgress(
@@ -665,6 +681,12 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           worldMessages: worldMessages,
           messagesByLocation: byLocation,
           streamMessagesByKey: streamKeys,
+          waitingConversationRoundIdsByLocation:
+              waitingConversationRoundIdsByLocation == null
+              ? _state.waitingConversationRoundIdsByLocation
+              : Map<String, String>.unmodifiable(
+                  waitingConversationRoundIdsByLocation,
+                ),
           lastMessageId: lastMessageId,
         ),
         socketCurrentTime: resolvedSocketCurrentTime,

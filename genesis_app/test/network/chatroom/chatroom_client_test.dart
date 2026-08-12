@@ -1647,6 +1647,62 @@ void main() {
       expect(message.conversationRoundId, 7360);
     });
 
+    test('routes the V2 waiting conversation round control event', () {
+      final event = chatroomEventFromV2Message(
+        ChatroomV2Message.fromJson(<String, dynamic>{
+          'type': 'waiting_conversation_round',
+          'stream_type': '',
+          'ts': 1785890000000,
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'conversation_round_id': 301,
+          'payload': <String, dynamic>{},
+          'err_no': 0,
+          'err_msg': '',
+        }),
+      );
+
+      expect(event, isA<ChatroomWaitingConversationRound>());
+      final waiting = event as ChatroomWaitingConversationRound;
+      expect(waiting.worldId, 'world-1');
+      expect(waiting.locationId, 'loc-1');
+      expect(waiting.conversationRoundId, '301');
+      expect(waiting.ok, isTrue);
+      expect(chatroomEventType(waiting), 'waiting_conversation_round');
+    });
+
+    test('rejects malformed or legacy waiting conversation round events', () {
+      expect(
+        () => chatroomEventFromV2Message(
+          const ChatroomV2Message(
+            type: 'waiting_conversation_round',
+            conversationRoundId: 301,
+          ),
+        ),
+        throwsA(isA<ChatroomProtocolException>()),
+      );
+      expect(
+        () => chatroomEventFromV2Message(
+          const ChatroomV2Message(
+            type: 'waiting_conversation_round',
+            locationId: 'loc-1',
+          ),
+        ),
+        throwsA(isA<ChatroomProtocolException>()),
+      );
+      expect(
+        () => chatroomLegacyEventFromEnvelope(
+          ChatroomEnvelope.fromJson(<String, dynamic>{
+            'type': 'waiting_conversation_round',
+            'location_id': 'loc-1',
+            'conversation_round_id': 301,
+            'payload': <String, dynamic>{},
+          }),
+        ),
+        throwsA(isA<ChatroomProtocolException>()),
+      );
+    });
+
     test('unknown V2 business type is rejected as a single-frame error', () {
       expect(
         () => chatroomEventFromV2Message(

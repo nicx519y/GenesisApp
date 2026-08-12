@@ -408,6 +408,8 @@ location 时间线 payload：
 
 `type=tick` 的合法 `payload` 使用 `{ current_time, tick_no, sub_tick_no, global, story_events, characters_moved }`。`story_events[]` 使用 `{ location_id, timestamp, visibility, visible_to, text, clue }`，`characters_moved[]` 使用 `{ char_id, old_loc_id, to_loc_id }`。历史纯文本或服务端无法结构化的 Tick 回退为 `{ content }`。客户端完整保留原始 `payload`，同时解析 typed Tick payload；一个 canonical Tick 只占用自己正数 `location_message_id` 对应的缓存/分页行，派生的 global、story 和 movement 气泡不再各自写入 SQLite 或推进游标。
 
+V2 WebSocket 额外支持 `type=waiting_conversation_round` 控制事件：`stream_type=""`，顶层携带 `world_id/location_id/conversation_round_id`，`payload={}`。客户端按地点禁用 Send 按钮和发送/重试入口，直到 `sender_type=character`、同地点、同 round 且 `streaming=false` 的完整消息到达；流式 start/chunk、其他 sender type、其他地点或其他 round 均不解锁。用户主动发送后建立的 conversation 等待锁使用相同解锁规则。该控制事件不渲染、不落库、无超时和独立 unlock；自动重连期间保留，显式断开时清除。该事件只向最终握手 `x-app-version` 为有效语义版本且 `>0.3.3` 的 V2 客户端发送。
+
 ### ChatroomNarratorLocationGroup
 
 - `location_id*`: string
