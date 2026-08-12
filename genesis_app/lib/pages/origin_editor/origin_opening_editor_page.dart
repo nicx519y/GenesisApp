@@ -16,8 +16,6 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   List<_OpeningLocationOption> _options = const <_OpeningLocationOption>[];
   final List<_OpeningDialogueItem> _dialogueItems = <_OpeningDialogueItem>[];
   _OpeningLocationOption? _selectedOption;
-  String? _editingDialogueItemId;
-  String? _editingDialogueOriginalContent;
   int _nextDialogueItemId = 0;
   bool _loading = true;
   bool _isSaving = false;
@@ -158,8 +156,6 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   }
 
   void _clearDialogueItems() {
-    _editingDialogueItemId = null;
-    _editingDialogueOriginalContent = null;
     for (final item in _dialogueItems) {
       item.dispose();
     }
@@ -169,56 +165,8 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   void _removeDialogueItem(_OpeningDialogueItem item) {
     setState(() {
       if (_dialogueItems.remove(item)) {
-        if (_editingDialogueItemId == item.id) {
-          _editingDialogueItemId = null;
-          _editingDialogueOriginalContent = null;
-        }
         item.dispose();
       }
-    });
-  }
-
-  void _beginDialogueItemEdit(_OpeningDialogueItem item) {
-    if (item.type == _OpeningDialogueType.image ||
-        _editingDialogueItemId == item.id) {
-      return;
-    }
-    setState(() {
-      _editingDialogueItemId = item.id;
-      _editingDialogueOriginalContent = item.controller.text;
-    });
-  }
-
-  void _finishDialogueItemEdit(_OpeningDialogueItem item) {
-    if (_editingDialogueItemId != item.id) return;
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
-      _editingDialogueItemId = null;
-      _editingDialogueOriginalContent = null;
-    });
-  }
-
-  void _cancelDialogueItemEdit() {
-    final editingId = _editingDialogueItemId;
-    if (editingId == null) return;
-    _OpeningDialogueItem? editingItem;
-    for (final item in _dialogueItems) {
-      if (item.id == editingId) {
-        editingItem = item;
-        break;
-      }
-    }
-    FocusManager.instance.primaryFocus?.unfocus();
-    if (editingItem != null) {
-      final originalContent = _editingDialogueOriginalContent ?? '';
-      editingItem.controller.value = TextEditingValue(
-        text: originalContent,
-        selection: TextSelection.collapsed(offset: originalContent.length),
-      );
-    }
-    setState(() {
-      _editingDialogueItemId = null;
-      _editingDialogueOriginalContent = null;
     });
   }
 
@@ -275,16 +223,6 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   @override
   Widget build(BuildContext context) {
     final selected = _selectedOption;
-    _OpeningDialogueItem? editingItem;
-    final editingId = _editingDialogueItemId;
-    if (editingId != null) {
-      for (final item in _dialogueItems) {
-        if (item.id == editingId) {
-          editingItem = item;
-          break;
-        }
-      }
-    }
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
@@ -393,12 +331,9 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                             _OpeningDialogueEditor(
                               items: _dialogueItems,
                               characters: selected.characters,
-                              editingItemId: _editingDialogueItemId,
                               onAddNarrator: _addNarrator,
                               onAddCharacter: _addCharacter,
                               onAddImage: _addImage,
-                              onBeginEdit: _beginDialogueItemEdit,
-                              onFinishEdit: _finishDialogueItemEdit,
                               onDelete: _removeDialogueItem,
                               onChanged: () => setState(() {}),
                             ),
@@ -420,14 +355,6 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
               ),
             ),
           ),
-          if (editingItem != null)
-            Positioned.fill(
-              child: _OpeningDialogueOutsideTapBarrier(
-                targetKey: editingItem.editorKey,
-                deleteKey: editingItem.deleteKey,
-                onTapOutside: _cancelDialogueItemEdit,
-              ),
-            ),
         ],
       ),
     );
