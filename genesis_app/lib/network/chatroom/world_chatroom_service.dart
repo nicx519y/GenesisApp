@@ -30,6 +30,8 @@ const _maxLocationMessageGapFillAttempts = 3;
 const _defaultLocationQueueInitConcurrency = 4;
 const _transientCharactersMovedMessageIdBase = 0x10000000000000;
 const _transientCharactersMovedRoundPrefix = 'ws-event:';
+const _closedConversationRoundRetention = Duration(minutes: 5);
+const conversationRoundFallbackTimeout = Duration(seconds: 30);
 
 bool get _chatroomHydrateMetricsEnabled => kDebugMode || kProfileMode;
 
@@ -147,12 +149,14 @@ class WorldChatroomService {
     required ChatroomMessageStorage messageStorage,
     Duration heartbeatInterval = const Duration(seconds: 2),
     Duration reconnectInterval = const Duration(seconds: 5),
+    Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
     bool refreshInitialSnapshotOnConnect = true,
   }) : _api = api,
        _client = client,
        _messageStorage = messageStorage,
        _heartbeatInterval = heartbeatInterval,
        _reconnectInterval = reconnectInterval,
+       _conversationRoundTimeout = conversationRoundTimeout,
        _refreshInitialSnapshotOnConnect = refreshInitialSnapshotOnConnect;
 
   final GenesisApi _api;
@@ -160,6 +164,7 @@ class WorldChatroomService {
   final ChatroomMessageStorage _messageStorage;
   final Duration _heartbeatInterval;
   final Duration _reconnectInterval;
+  final Duration _conversationRoundTimeout;
   final bool _refreshInitialSnapshotOnConnect;
   final _states = StreamController<WorldChatroomState>.broadcast();
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
@@ -196,9 +201,13 @@ class WorldChatroomService {
   final Map<String, _ChatroomStreamAccumulator> _streamAccumulators =
       <String, _ChatroomStreamAccumulator>{};
   int _sendClientMessageSequence = 0;
+  int _conversationRoundGeneration = 0;
   bool _heartbeatInFlight = false;
   Timer? _heartbeatTimer;
   Timer? _reconnectTimer;
+  final Map<String, Timer> _conversationRoundTimers = <String, Timer>{};
+  final Map<String, DateTime> _closedConversationRoundExpirations =
+      <String, DateTime>{};
   StreamSubscription<ChatroomEvent>? _eventSubscription;
   StreamSubscription<ChatroomFailureEvent>? _failureSubscription;
   StreamSubscription<ChatroomErrorEvent>? _errorSubscription;
@@ -223,6 +232,274 @@ class WorldChatroomService {
     _throwIfDisposed();
     if (_state.inputBlocked == blocked) return;
     _setState(_state.copyWith(inputBlocked: blocked));
+  }
+
+  void _startSubmittingConversationRound({
+    required String locationId,
+    required String clientMsgId,
+  }) {
+    final resolvedLocationId = locationId.trim();
+    final resolvedClientMsgId = clientMsgId.trim();
+    if (resolvedLocationId.isEmpty || resolvedClientMsgId.isEmpty) return;
+    final existing =
+        _state.conversationRoundStatesByLocation[resolvedLocationId];
+    if (existing != null) {
+      if (existing.clientMsgId == resolvedClientMsgId) return;
+      throw const ChatroomProtocolException(
+        'a conversation round is already active for this location',
+      );
+    }
+    final startedAt = DateTime.now();
+    final roundState = ConversationRoundState(
+      phase: ConversationRoundPhase.submitting,
+      clientMsgId: resolvedClientMsgId,
+      startedAt: startedAt,
+      deadlineAt: startedAt.add(_conversationRoundTimeout),
+      generation: ++_conversationRoundGeneration,
+    );
+    _replaceConversationRoundState(resolvedLocationId, roundState);
+    _scheduleConversationRoundTimeout(resolvedLocationId, roundState);
+  }
+
+  void _markConversationRoundAccepted({
+    required String locationId,
+    required String clientMsgId,
+  }) {
+    final resolvedLocationId = locationId.trim();
+    final current =
+        _state.conversationRoundStatesByLocation[resolvedLocationId];
+    if (current == null || current.clientMsgId != clientMsgId.trim()) return;
+    if (current.phase != ConversationRoundPhase.submitting) return;
+    _replaceConversationRoundState(
+      resolvedLocationId,
+      current.copyWith(phase: ConversationRoundPhase.awaitingRound),
+    );
+  }
+
+  void _bindWaitingConversationRound({
+    required String locationId,
+    required String conversationRoundId,
+  }) {
+    final resolvedLocationId = locationId.trim();
+    final resolvedRoundId = conversationRoundId.trim();
+    if (resolvedLocationId.isEmpty || resolvedRoundId.isEmpty) return;
+    if (_isRecentlyClosedConversationRound(
+      resolvedLocationId,
+      resolvedRoundId,
+    )) {
+      return;
+    }
+    final current =
+        _state.conversationRoundStatesByLocation[resolvedLocationId];
+    if (current != null &&
+        (current.conversationRoundId.isEmpty ||
+            current.conversationRoundId == resolvedRoundId)) {
+      if (current.phase == ConversationRoundPhase.processing &&
+          current.conversationRoundId == resolvedRoundId) {
+        return;
+      }
+      _replaceConversationRoundState(
+        resolvedLocationId,
+        current.copyWith(
+          phase: ConversationRoundPhase.processing,
+          conversationRoundId: resolvedRoundId,
+        ),
+      );
+      return;
+    }
+
+    // A server-started round (for example automatic P3) has no local send.
+    // If it replaces an older round, its own 30-second window starts now.
+    final startedAt = DateTime.now();
+    final roundState = ConversationRoundState(
+      phase: ConversationRoundPhase.processing,
+      conversationRoundId: resolvedRoundId,
+      startedAt: startedAt,
+      deadlineAt: startedAt.add(_conversationRoundTimeout),
+      generation: ++_conversationRoundGeneration,
+    );
+    _replaceConversationRoundState(resolvedLocationId, roundState);
+    _scheduleConversationRoundTimeout(resolvedLocationId, roundState);
+  }
+
+  void _bindCanonicalConversationRound(WorldChatroomMessage message) {
+    if (!message.isCanonicalUserMessage) return;
+    final locationId = message.locationId.trim();
+    final clientMsgId = message.clientMsgId.trim();
+    final conversationRoundId = message.conversationRoundId.trim();
+    if (locationId.isEmpty ||
+        clientMsgId.isEmpty ||
+        conversationRoundId.isEmpty) {
+      return;
+    }
+    final current = _state.conversationRoundStatesByLocation[locationId];
+    if (current == null ||
+        current.clientMsgId != clientMsgId ||
+        current.conversationRoundId.isNotEmpty) {
+      return;
+    }
+    _replaceConversationRoundState(
+      locationId,
+      current.copyWith(
+        phase: ConversationRoundPhase.processing,
+        conversationRoundId: conversationRoundId,
+      ),
+    );
+  }
+
+  void _completeConversationRound({
+    required String locationId,
+    required String conversationRoundId,
+  }) {
+    final resolvedLocationId = locationId.trim();
+    final resolvedRoundId = conversationRoundId.trim();
+    final current =
+        _state.conversationRoundStatesByLocation[resolvedLocationId];
+    if (resolvedRoundId.isEmpty) return;
+    _rememberClosedConversationRound(resolvedLocationId, resolvedRoundId);
+    if (current == null || current.conversationRoundId != resolvedRoundId) {
+      return;
+    }
+    _clearConversationRound(
+      resolvedLocationId,
+      expectedGeneration: current.generation,
+      action: 'conversationRoundEnded',
+    );
+  }
+
+  void _failSubmittingConversationRound({
+    required String locationId,
+    required String clientMsgId,
+  }) {
+    final resolvedLocationId = locationId.trim();
+    final current =
+        _state.conversationRoundStatesByLocation[resolvedLocationId];
+    if (current == null || current.clientMsgId != clientMsgId.trim()) return;
+    _clearConversationRound(
+      resolvedLocationId,
+      expectedGeneration: current.generation,
+      action: 'conversationRoundSendFailed',
+    );
+  }
+
+  void _completeLegacyCharacterRound(WorldChatroomMessage message) {
+    if (_session?.protocolVersion != ChatroomProtocolVersion.legacy ||
+        message.streaming ||
+        message.senderType.trim().toLowerCase() != 'character') {
+      return;
+    }
+    _completeConversationRound(
+      locationId: message.locationId,
+      conversationRoundId: message.conversationRoundId,
+    );
+  }
+
+  void _replaceConversationRoundState(
+    String locationId,
+    ConversationRoundState roundState,
+  ) {
+    final next = <String, ConversationRoundState>{
+      ..._state.conversationRoundStatesByLocation,
+      locationId: roundState,
+    };
+    _setState(
+      _state.copyWith(
+        conversationRoundStatesByLocation:
+            Map<String, ConversationRoundState>.unmodifiable(next),
+      ),
+    );
+  }
+
+  void _scheduleConversationRoundTimeout(
+    String locationId,
+    ConversationRoundState roundState,
+  ) {
+    _conversationRoundTimers.remove(locationId)?.cancel();
+    final remaining = roundState.deadlineAt.difference(DateTime.now());
+    _conversationRoundTimers[locationId] = Timer(
+      remaining.isNegative ? Duration.zero : remaining,
+      () {
+        final current = _state.conversationRoundStatesByLocation[locationId];
+        if (current == null || current.generation != roundState.generation) {
+          return;
+        }
+        _clearConversationRound(
+          locationId,
+          expectedGeneration: roundState.generation,
+          action: 'conversationRoundTimedOut',
+        );
+      },
+    );
+  }
+
+  void _clearConversationRound(
+    String locationId, {
+    required int expectedGeneration,
+    required String action,
+  }) {
+    final current = _state.conversationRoundStatesByLocation[locationId];
+    if (current == null || current.generation != expectedGeneration) return;
+    _rememberClosedConversationRound(locationId, current.conversationRoundId);
+    _conversationRoundTimers.remove(locationId)?.cancel();
+    final next = <String, ConversationRoundState>{
+      ..._state.conversationRoundStatesByLocation,
+    }..remove(locationId);
+    _setState(
+      _state.copyWith(
+        conversationRoundStatesByLocation:
+            Map<String, ConversationRoundState>.unmodifiable(next),
+      ),
+    );
+    _recordServiceQueueDebug(
+      action: action,
+      locationId: locationId,
+      details: <String, Object?>{
+        'clientMsgId': current.clientMsgId,
+        'conversationRoundId': current.conversationRoundId,
+        'elapsedMs': DateTime.now()
+            .difference(current.startedAt)
+            .inMilliseconds,
+      },
+    );
+  }
+
+  void _clearAllConversationRounds() {
+    for (final timer in _conversationRoundTimers.values) {
+      timer.cancel();
+    }
+    _conversationRoundTimers.clear();
+    _closedConversationRoundExpirations.clear();
+    if (_state.conversationRoundStatesByLocation.isEmpty) return;
+    _setState(
+      _state.copyWith(
+        conversationRoundStatesByLocation:
+            const <String, ConversationRoundState>{},
+      ),
+    );
+  }
+
+  bool _isRecentlyClosedConversationRound(
+    String locationId,
+    String conversationRoundId,
+  ) {
+    final now = DateTime.now();
+    _closedConversationRoundExpirations.removeWhere(
+      (_, expiresAt) => !expiresAt.isAfter(now),
+    );
+    final expiresAt =
+        _closedConversationRoundExpirations['$locationId:$conversationRoundId'];
+    return expiresAt?.isAfter(now) ?? false;
+  }
+
+  void _rememberClosedConversationRound(
+    String locationId,
+    String conversationRoundId,
+  ) {
+    final resolvedLocationId = locationId.trim();
+    final resolvedRoundId = conversationRoundId.trim();
+    if (resolvedLocationId.isEmpty || resolvedRoundId.isEmpty) return;
+    _closedConversationRoundExpirations['$resolvedLocationId:$resolvedRoundId'] =
+        DateTime.now().add(_closedConversationRoundRetention);
   }
 
   void applyWorldSnapshot(WorldDetail world) {
@@ -547,6 +824,7 @@ class WorldChatroomService {
     _reconnectTimer = null;
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
+    _clearAllConversationRounds();
     await _detachSession(disconnect: true);
     _setState(
       _state.copyWith(
@@ -554,7 +832,6 @@ class WorldChatroomService {
         joining: false,
         joinedLocationId: '',
         reconnecting: false,
-        waitingConversationRoundIdsByLocation: const <String, String>{},
       ),
     );
   }
@@ -568,6 +845,11 @@ class WorldChatroomService {
     final resolvedClientMsgId = requestedClientMsgId.isNotEmpty
         ? requestedClientMsgId
         : '${DateTime.now().microsecondsSinceEpoch}-${++_sendClientMessageSequence}';
+    final roundLocationId = _state.joinedLocationId.trim();
+    _startSubmittingConversationRound(
+      locationId: roundLocationId,
+      clientMsgId: resolvedClientMsgId,
+    );
     final canonicalCompleter = _canonicalEchoCompleters.putIfAbsent(
       resolvedClientMsgId,
       Completer<WorldChatroomMessage>.new,
@@ -578,15 +860,41 @@ class WorldChatroomService {
         onError: (Object _, StackTrace __) {},
       ),
     );
-    final receipt = session
-        .sendMessage(text, clientMsgId: resolvedClientMsgId)
-        .then(
-          (ack) => ChatroomSendReceipt.fromAck(
+    late final Future<ChatroomAck> ackFuture;
+    try {
+      ackFuture = session.sendMessage(text, clientMsgId: resolvedClientMsgId);
+    } catch (error, stackTrace) {
+      _failSubmittingConversationRound(
+        locationId: roundLocationId,
+        clientMsgId: resolvedClientMsgId,
+      );
+      if (identical(
+        _canonicalEchoCompleters[resolvedClientMsgId],
+        canonicalCompleter,
+      )) {
+        _canonicalEchoCompleters.remove(resolvedClientMsgId);
+      }
+      if (!canonicalCompleter.isCompleted) {
+        canonicalCompleter.completeError(error, stackTrace);
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    final receipt = ackFuture
+        .then((ack) {
+          _markConversationRoundAccepted(
+            locationId: roundLocationId,
+            clientMsgId: resolvedClientMsgId,
+          );
+          return ChatroomSendReceipt.fromAck(
             ack,
             fallbackClientMsgId: resolvedClientMsgId,
-          ),
-        )
+          );
+        })
         .catchError((Object error, StackTrace stackTrace) {
+          _failSubmittingConversationRound(
+            locationId: roundLocationId,
+            clientMsgId: resolvedClientMsgId,
+          );
           if (identical(
             _canonicalEchoCompleters[resolvedClientMsgId],
             canonicalCompleter,
@@ -784,13 +1092,7 @@ class WorldChatroomService {
 
   Future<void> dispose() async {
     if (_disposed) return;
-    if (_state.waitingConversationRoundIdsByLocation.isNotEmpty) {
-      _setState(
-        _state.copyWith(
-          waitingConversationRoundIdsByLocation: const <String, String>{},
-        ),
-      );
-    }
+    _clearAllConversationRounds();
     _disposed = true;
     final disposeFailure = const ChatroomFailureEvent(
       code: 'service_disposed',

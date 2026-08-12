@@ -186,7 +186,7 @@ V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_mess
 
 ### `waiting_conversation_round`
 
-`user_enter_location` 自动触发免费 P3 时，Chat 服务在请求 P3 前发送以下 V2-only 控制事件：
+普通 `send_message` 或 `user_enter_location` 自动触发 P3 时，Chat 服务在处理本轮消息前发送以下 V2-only 控制事件：
 
 ```json
 {
@@ -202,7 +202,27 @@ V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_mess
 }
 ```
 
-客户端按 `location_id` 保存等待中的 `conversation_round_id`，并同时禁用该地点的 Send 按钮和发送/重试入口。该事件不渲染气泡、不写入消息缓存，也没有超时或独立 unlock 事件。只有 `sender_type=character`、同地点、同 round 且 `streaming=false` 的完整消息可以解锁；`llm_stream_start`、`llm_chunk`、其他 sender type、其他地点或其他 round 均不解锁。用户主动发送后建立的 conversation 等待锁使用相同解锁规则。同地点重复事件幂等，新 round 替换旧 round；自动重连保留等待状态，显式断开清除。
+客户端按 `location_id` 保存等待中的 `conversation_round_id`，并同时禁用该地点的 Send 按钮和发送/重试入口。该事件不渲染气泡、不写入消息缓存。用户主动发送从调用 `send_message` 时立即锁定并启动 30 秒兜底；服务端主动 P3 从收到 waiting 时锁定并启动兜底。同一轮重复 waiting 不重置截止时间。
+
+### `end_conversation_round`
+
+本轮所有普通消息完成后，服务端发送字段与 waiting 对称的结束事件：
+
+```json
+{
+  "type": "end_conversation_round",
+  "stream_type": "",
+  "ts": 1785890001000,
+  "world_id": "world_001",
+  "location_id": "loc_001",
+  "conversation_round_id": 301,
+  "payload": {},
+  "err_no": 0,
+  "err_msg": ""
+}
+```
+
+只有 `err_no=0`、同地点且同 `conversation_round_id` 的 end 可以正常解锁并取消兜底。Character、Narrator、Tick 和 `llm_stream_end` 都不再结束 V2 conversation round。其他地点、旧 round、重复或错误 end 均幂等忽略。30 秒仍未收到匹配 end 时客户端异常兜底解锁；旧 Timer 必须通过 generation 校验，不能清除后续新 round。自动重连保留原绝对截止时间，显式断开或销毁 Service 时清除。
 
 # Legacy WebSocket 适配附录
 

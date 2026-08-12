@@ -1,5 +1,40 @@
 part of 'world_chatroom_service.dart';
 
+enum ConversationRoundPhase { submitting, awaitingRound, processing }
+
+class ConversationRoundState {
+  const ConversationRoundState({
+    required this.phase,
+    required this.startedAt,
+    required this.deadlineAt,
+    required this.generation,
+    this.clientMsgId = '',
+    this.conversationRoundId = '',
+  });
+
+  final ConversationRoundPhase phase;
+  final String clientMsgId;
+  final String conversationRoundId;
+  final DateTime startedAt;
+  final DateTime deadlineAt;
+  final int generation;
+
+  ConversationRoundState copyWith({
+    ConversationRoundPhase? phase,
+    String? clientMsgId,
+    String? conversationRoundId,
+  }) {
+    return ConversationRoundState(
+      phase: phase ?? this.phase,
+      clientMsgId: clientMsgId ?? this.clientMsgId,
+      conversationRoundId: conversationRoundId ?? this.conversationRoundId,
+      startedAt: startedAt,
+      deadlineAt: deadlineAt,
+      generation: generation,
+    );
+  }
+}
+
 class WorldChatroomState {
   const WorldChatroomState({
     this.world,
@@ -10,7 +45,8 @@ class WorldChatroomState {
     this.worldMessages = const <WorldChatroomMessage>[],
     this.messagesByLocation = const <String, List<WorldChatroomMessage>>{},
     this.streamMessagesByKey = const <String, WorldChatroomMessage>{},
-    this.waitingConversationRoundIdsByLocation = const <String, String>{},
+    this.conversationRoundStatesByLocation =
+        const <String, ConversationRoundState>{},
     this.lastMessageId = 0,
     this.connected = false,
     this.joining = false,
@@ -35,7 +71,16 @@ class WorldChatroomState {
   final List<WorldChatroomMessage> worldMessages;
   final Map<String, List<WorldChatroomMessage>> messagesByLocation;
   final Map<String, WorldChatroomMessage> streamMessagesByKey;
-  final Map<String, String> waitingConversationRoundIdsByLocation;
+  final Map<String, ConversationRoundState> conversationRoundStatesByLocation;
+
+  /// Compatibility/debug view of server-confirmed active rounds. Submitting
+  /// sends that have not received a round id yet are intentionally omitted.
+  Map<String, String> get waitingConversationRoundIdsByLocation =>
+      Map<String, String>.unmodifiable(<String, String>{
+        for (final entry in conversationRoundStatesByLocation.entries)
+          if (entry.value.conversationRoundId.trim().isNotEmpty)
+            entry.key: entry.value.conversationRoundId,
+      });
   final int lastMessageId;
   final bool connected;
   final bool joining;
@@ -60,7 +105,7 @@ class WorldChatroomState {
     List<WorldChatroomMessage>? worldMessages,
     Map<String, List<WorldChatroomMessage>>? messagesByLocation,
     Map<String, WorldChatroomMessage>? streamMessagesByKey,
-    Map<String, String>? waitingConversationRoundIdsByLocation,
+    Map<String, ConversationRoundState>? conversationRoundStatesByLocation,
     int? lastMessageId,
     bool? connected,
     bool? joining,
@@ -86,9 +131,9 @@ class WorldChatroomState {
       worldMessages: worldMessages ?? this.worldMessages,
       messagesByLocation: messagesByLocation ?? this.messagesByLocation,
       streamMessagesByKey: streamMessagesByKey ?? this.streamMessagesByKey,
-      waitingConversationRoundIdsByLocation:
-          waitingConversationRoundIdsByLocation ??
-          this.waitingConversationRoundIdsByLocation,
+      conversationRoundStatesByLocation:
+          conversationRoundStatesByLocation ??
+          this.conversationRoundStatesByLocation,
       lastMessageId: lastMessageId ?? this.lastMessageId,
       connected: connected ?? this.connected,
       joining: joining ?? this.joining,

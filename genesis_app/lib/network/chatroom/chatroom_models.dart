@@ -858,6 +858,51 @@ class ChatroomWaitingConversationRound extends ChatroomPayloadEvent {
   }
 }
 
+/// V2-only control event announcing that a conversation round reached a
+/// terminal state. Its routing fields intentionally mirror
+/// [ChatroomWaitingConversationRound].
+class ChatroomEndConversationRound extends ChatroomPayloadEvent {
+  const ChatroomEndConversationRound({
+    required super.sessionId,
+    required super.worldId,
+    required super.locationId,
+    required super.userId,
+    required super.code,
+    required super.codeMsg,
+    required super.ts,
+    required this.conversationRoundId,
+  });
+
+  final String conversationRoundId;
+
+  factory ChatroomEndConversationRound.fromV2Message(
+    ChatroomV2Message message,
+  ) {
+    final locationId = message.locationId.trim();
+    final conversationRoundId = _stringId(message.conversationRoundId);
+    if (locationId.isEmpty) {
+      throw const ChatroomProtocolException(
+        'end_conversation_round location_id is required',
+      );
+    }
+    if (conversationRoundId.isEmpty) {
+      throw const ChatroomProtocolException(
+        'end_conversation_round conversation_round_id is required',
+      );
+    }
+    return ChatroomEndConversationRound(
+      sessionId: message.sessionId,
+      worldId: message.worldId,
+      locationId: locationId,
+      userId: message.userId,
+      code: message.errNo,
+      codeMsg: message.errMsg,
+      ts: asDateTime(message.ts),
+      conversationRoundId: conversationRoundId,
+    );
+  }
+}
+
 sealed class ChatroomMessageEvent extends ChatroomPayloadEvent {
   const ChatroomMessageEvent({
     required super.sessionId,
@@ -1925,6 +1970,7 @@ class ChatroomMessageHandlers {
     this.onFailure,
     this.onBalanceLow,
     this.onWaitingConversationRound,
+    this.onEndConversationRound,
     this.onWorldNotification,
     this.onStoryEventsMessage,
     this.onCharactersMovedMessage,
@@ -1946,6 +1992,8 @@ class ChatroomMessageHandlers {
   final void Function(ChatroomBalanceLow event)? onBalanceLow;
   final void Function(ChatroomWaitingConversationRound event)?
   onWaitingConversationRound;
+  final void Function(ChatroomEndConversationRound event)?
+  onEndConversationRound;
   final void Function(ChatroomWorldNotification event)? onWorldNotification;
   final void Function(ChatroomStoryEventsMessage event)? onStoryEventsMessage;
   final void Function(ChatroomCharactersMovedMessage event)?
@@ -1976,6 +2024,8 @@ class ChatroomMessageHandlers {
         onBalanceLow?.call(e);
       case ChatroomWaitingConversationRound e:
         onWaitingConversationRound?.call(e);
+      case ChatroomEndConversationRound e:
+        onEndConversationRound?.call(e);
       case ChatroomWorldNotification e:
         onWorldNotification?.call(e);
       case ChatroomStoryEventsMessage e:
@@ -2080,6 +2130,8 @@ ChatroomEvent chatroomEventFromV2Message(ChatroomV2Message message) {
       return ChatroomTickAdvanceMessage.fromV2Message(message);
     case 'waiting_conversation_round':
       return ChatroomWaitingConversationRound.fromV2Message(message);
+    case 'end_conversation_round':
+      return ChatroomEndConversationRound.fromV2Message(message);
     case 'balance_low':
     case 'tick_start':
     case 'tick_done':
@@ -2129,6 +2181,8 @@ String chatroomEventType(ChatroomEvent event) {
       return 'balance_low';
     case ChatroomWaitingConversationRound():
       return 'waiting_conversation_round';
+    case ChatroomEndConversationRound():
+      return 'end_conversation_round';
     case ChatroomWorldNotification e:
       return e.eventType;
     case ChatroomStoryEventsMessage():

@@ -31,9 +31,6 @@ extension _LocationChatSendActions on _LocationChatPanelState {
 
     _setLocationChatState(() {
       _sending = true;
-      _awaitingAiResponse = true;
-      _awaitingAiResponseClientMsgId = clientMsgId;
-      _awaitingAiResponseRoundId = '';
       _messages.add(localMessage);
       _hasDraftText = false;
       _textController.clear();
@@ -75,9 +72,6 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       message.status = 'sending';
       message.error = null;
       _sending = true;
-      _awaitingAiResponse = true;
-      _awaitingAiResponseClientMsgId = clientMsgId;
-      _awaitingAiResponseRoundId = '';
     });
     _recordPanelDebug(
       action: 'retrySend',
@@ -157,17 +151,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         target.locationMessageId = canonicalMessage.locationMessageId;
         target.roundId = canonicalMessage.conversationRoundId;
         target.status = 'sent';
-        _awaitingAiResponseRoundId = canonicalMessage.conversationRoundId
-            .trim();
         _sending = false;
-        final source =
-            service.state.messagesByLocation[widget.locationId] ??
-            const <WorldChatroomMessage>[];
-        if (_hasCompletedAwaitedAiResponse(source)) {
-          _awaitingAiResponse = false;
-          _awaitingAiResponseClientMsgId = '';
-          _awaitingAiResponseRoundId = '';
-        }
       });
       _recordPanelDebug(
         action: 'sendCanonicalEcho',
@@ -208,9 +192,6 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           localMessage.status = 'sent';
           localMessage.error = e.toString();
         }
-        _awaitingAiResponse = false;
-        _awaitingAiResponseClientMsgId = '';
-        _awaitingAiResponseRoundId = '';
         _sending = false;
       });
       if (restoredDraft != null && _shouldShowDraftRestoreToast(e)) {
