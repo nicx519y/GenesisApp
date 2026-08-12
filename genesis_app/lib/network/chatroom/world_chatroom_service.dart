@@ -679,7 +679,7 @@ class WorldChatroomService {
       },
     );
     if (ownerUid.isNotEmpty && _worldId.isNotEmpty) {
-      final localMessages = await _messageStorage.loadMessagesBefore(
+      final localMessageJson = await _messageStorage.loadMessagesBefore(
         ownerUid: ownerUid,
         worldId: _worldId,
         locationId: resolvedLocationId,
@@ -687,7 +687,8 @@ class WorldChatroomService {
         beforeWorldMessageId: beforeWorldMessageId,
         limit: limit,
       );
-      for (final json in localMessages) {
+      final localMessages = <WorldChatroomMessage>[];
+      for (final json in localMessageJson) {
         final message = WorldChatroomMessage.fromStorageJson(json);
         final key = loadedMessageKey(
           senderType: message.senderType,
@@ -695,8 +696,12 @@ class WorldChatroomService {
           messageId: message.messageId,
         );
         if (key.isNotEmpty) loadedMessageKeys.add(key);
-        _upsertMessage(message, persist: false);
+        localMessages.add(message);
       }
+      // A cached history page is one logical update. Publishing every row
+      // separately makes the chat reconcile and rebuild the growing list up
+      // to [limit] times during a single upward pagination request.
+      _upsertMessages(localMessages, persist: false);
     }
 
     final response = await _api.chatroomHttp.getMessages(

@@ -88,7 +88,10 @@ class ChatOldestEdgeContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normalizedNotice = notice?.trim() ?? '';
-    if (loading) {
+    if (normalizedNotice.isEmpty) {
+      if (!loading) {
+        return _ChatTopTitle(name: topTitle, style: style);
+      }
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -96,28 +99,17 @@ class ChatOldestEdgeContent extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(
               20,
-              topTitle.trim().isEmpty ? 0 : 4,
+              topTitle.trim().isNotEmpty ? 4 : 0,
               20,
               16,
             ),
-            child: SizedBox.square(
-              dimension: style.sendingBadgeSize,
-              child: Padding(
-                padding: EdgeInsets.all(style.sendingBadgePadding),
-                child: CircularProgressIndicator(
-                  strokeWidth: style.sendingBadgeStrokeWidth,
-                  color: style.sendingBadgeColor,
-                ),
-              ),
-            ),
+            child: _ChatOldestEdgeLoadingIndicator(style: style),
           ),
         ],
       );
     }
-    if (normalizedNotice.isEmpty) {
-      return _ChatTopTitle(name: topTitle, style: style);
-    }
-    return Column(
+
+    final content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _ChatTopTitle(name: topTitle, style: style),
@@ -131,6 +123,44 @@ class ChatOldestEdgeContent extends StatelessWidget {
           ),
         ),
       ],
+    );
+    if (!loading) return content;
+
+    // History loading must not change the height of the oldest-edge content.
+    // Otherwise the currently visible messages move once when loading starts
+    // and again when it finishes.
+    return Stack(
+      children: [
+        content,
+        Positioned(
+          key: const ValueKey('chat-oldest-edge-loading-overlay'),
+          right: 20,
+          bottom: 0,
+          child: IgnorePointer(
+            child: _ChatOldestEdgeLoadingIndicator(style: style),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChatOldestEdgeLoadingIndicator extends StatelessWidget {
+  const _ChatOldestEdgeLoadingIndicator({required this.style});
+
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: style.sendingBadgeSize,
+      child: Padding(
+        padding: EdgeInsets.all(style.sendingBadgePadding),
+        child: CircularProgressIndicator(
+          strokeWidth: style.sendingBadgeStrokeWidth,
+          color: style.sendingBadgeColor,
+        ),
+      ),
     );
   }
 }

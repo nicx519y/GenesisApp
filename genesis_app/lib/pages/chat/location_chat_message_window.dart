@@ -2,7 +2,10 @@ part of 'location_chat_page.dart';
 
 extension _LocationChatMessageWindow on _LocationChatPanelState {
   void _handleMessageListScroll() {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients) {
+      _cancelOlderMessagesLoadSchedule();
+      return;
+    }
     if (_unseenIncomingCount > 0 && _scrollCoordinator.isAtBottom) {
       _clearUnseenIncomingCount();
     }
@@ -10,14 +13,58 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
         !widget.isLeafLocation ||
         _loadingOlderMessages ||
         !_hasMoreOlderMessages) {
+      _cancelOlderMessagesLoadSchedule();
+      return;
+    }
+    if (!_scrollCoordinator.isDetached) {
+      _cancelOlderMessagesLoadSchedule();
       return;
     }
     final position = _scrollController.position;
-    if (position.extentBefore > 180) return;
+    if (position.extentBefore > _locationChatOlderMessagesTriggerExtent) {
+      _cancelOlderMessagesLoadSchedule();
+      return;
+    }
+    _scheduleOlderMessagesLoadWhenIdle();
+  }
+
+  void _scheduleOlderMessagesLoadWhenIdle() {
+    _olderMessagesLoadIdleTimer?.cancel();
+    _olderMessagesLoadIdleTimer = Timer(
+      _locationChatOlderMessagesIdleDelay,
+      _loadOlderMessagesIfScrollIdle,
+    );
+  }
+
+  void _loadOlderMessagesIfScrollIdle() {
+    _olderMessagesLoadIdleTimer = null;
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.isScrollingNotifier.value) {
+      _scheduleOlderMessagesLoadWhenIdle();
+      return;
+    }
+    if (!locationChatShouldLoadOlderMessagesForTesting(
+      active: widget.active,
+      isLeafLocation: widget.isLeafLocation,
+      loading: _loadingOlderMessages,
+      hasMore: _hasMoreOlderMessages,
+      detached: _scrollCoordinator.isDetached,
+      extentBefore: position.extentBefore,
+      isScrolling: false,
+    )) {
+      return;
+    }
     unawaited(_loadOlderMessages());
   }
 
+  void _cancelOlderMessagesLoadSchedule() {
+    _olderMessagesLoadIdleTimer?.cancel();
+    _olderMessagesLoadIdleTimer = null;
+  }
+
   Future<void> _loadOlderMessages() async {
+    _cancelOlderMessagesLoadSchedule();
     if (_loadingOlderMessages) return;
     final service = _service;
     if (service == null) return;
@@ -167,6 +214,25 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       message.roundOrder,
     ].join(':');
   }
+}
+
+@visibleForTesting
+bool locationChatShouldLoadOlderMessagesForTesting({
+  required bool active,
+  required bool isLeafLocation,
+  required bool loading,
+  required bool hasMore,
+  required bool detached,
+  required double extentBefore,
+  required bool isScrolling,
+}) {
+  return active &&
+      isLeafLocation &&
+      !loading &&
+      hasMore &&
+      detached &&
+      !isScrolling &&
+      extentBefore <= _locationChatOlderMessagesTriggerExtent;
 }
 
 String _mapString(Map<String, dynamic>? map, String key) {
@@ -354,32 +420,6 @@ int locationChatMessageGapFillCursorForTesting(
 @visibleForTesting
 int oldestLocationChatMessageIdForTesting(List<WorldChatroomMessage> source) {
   return _oldestLocationMessageId(source);
-}
-
-@visibleForTesting
-bool shouldShowLocationChatOldestEdgeNoticeForTesting(
-  List<WorldChatroomMessage> source, {
-  Set<int> renderedLocationMessageIds = const <int>{},
-  Set<String> releasedGapKeys = const <String>{},
-  String locationId = 'loc-1',
-  bool hasMoreOlderMessages = false,
-  bool loadingOlderMessages = false,
-  bool hasPendingGapFill = false,
-}) {
-  if (hasMoreOlderMessages || loadingOlderMessages || hasPendingGapFill) {
-    return false;
-  }
-  final renderWindow = _visibleLocationChatMessages(
-    source,
-    renderedLocationMessageIds: renderedLocationMessageIds,
-    releasedGapKeys: releasedGapKeys,
-    locationId: locationId,
-  );
-  if (renderWindow.gaps.isNotEmpty) return false;
-  return _visibleWindowContainsOldestLocationMessage(
-    source: source,
-    visible: renderWindow.messages,
-  );
 }
 
 _VisibleLocationChatMessages _visibleLocationChatMessages(
@@ -577,18 +617,6 @@ List<WorldChatroomMessage> _collapseConsecutiveTickMessages(
     collapsed.add(message);
   }
   return collapsed;
-}
-
-bool _visibleWindowContainsOldestLocationMessage({
-  required List<WorldChatroomMessage> source,
-  required List<WorldChatroomMessage> visible,
-}) {
-  final oldestLocationMessageId = _oldestLocationMessageId(source);
-  if (oldestLocationMessageId <= 0) return true;
-  for (final message in visible) {
-    if (message.locationMessageId == oldestLocationMessageId) return true;
-  }
-  return false;
 }
 
 int _oldestLocationMessageId(List<WorldChatroomMessage> messages) {

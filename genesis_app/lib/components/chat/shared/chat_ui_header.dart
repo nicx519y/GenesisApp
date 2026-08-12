@@ -124,14 +124,11 @@ class ChatHeader extends StatelessWidget {
                                 ),
                               ),
                             if (trailingInTitleRow)
-                              SizedBox(
-                                width: headerSidePadding,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Transform.translate(
-                                    offset: const Offset(0, 2),
-                                    child: trailing,
-                                  ),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Transform.translate(
+                                  offset: const Offset(0, 2),
+                                  child: trailing,
                                 ),
                               ),
                           ],

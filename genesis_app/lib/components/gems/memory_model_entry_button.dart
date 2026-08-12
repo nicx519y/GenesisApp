@@ -26,6 +26,21 @@ class MemoryModelEntryButton extends StatelessWidget {
         : Colors.white.withValues(alpha: 0.9);
     final borderRadius = compact ? 11.5 : 19.0;
     final iconSize = compact ? 16.0 : 18.0;
+    final labelStyle = TextStyle(
+      fontSize: 12,
+      height: 16 / 12,
+      fontWeight: FontWeight.w400,
+      color: foreground,
+    );
+    final labelPainter = TextPainter(
+      text: TextSpan(text: modelLabel, style: labelStyle),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final buttonWidth = (20 + iconSize + 5 + labelPainter.width)
+        .clamp(kMemoryModelEntryMinWidth, kMemoryModelEntryMaxWidth)
+        .toDouble();
     return Material(
       key: const ValueKey('memory-model-entry'),
       color: background,
@@ -33,38 +48,32 @@ class MemoryModelEntryButton extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(borderRadius),
         onTap: onTap,
-        child: Container(
+        child: SizedBox(
+          width: buttonWidth,
           height: compact ? 23 : 38,
-          constraints: const BoxConstraints(
-            minWidth: kMemoryModelEntryMinWidth,
-            maxWidth: kMemoryModelEntryMaxWidth,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SvgPicture.asset(
-                'assets/custom-icons/svg/arrow-change-svgrepo-com.svg',
-                width: iconSize,
-                height: iconSize,
-                colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn),
-              ),
-              const SizedBox(width: 5),
-              Flexible(
-                child: Text(
-                  modelLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 16 / 12,
-                    fontWeight: FontWeight.w400,
-                    color: foreground,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SvgPicture.asset(
+                  'assets/custom-icons/svg/arrow-change-svgrepo-com.svg',
+                  width: iconSize,
+                  height: iconSize,
+                  colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn),
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    modelLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: labelStyle,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

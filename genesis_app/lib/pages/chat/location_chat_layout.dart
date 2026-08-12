@@ -10,21 +10,6 @@ extension _LocationChatLayout on _LocationChatPanelState {
     return math.max(_locationChatEdgeSwipeWidth, edgePadding);
   }
 
-  bool _shouldShowOldestEdgeNotice() {
-    final source =
-        _chatroomState.messagesByLocation[widget.locationId] ??
-        const <WorldChatroomMessage>[];
-    return shouldShowLocationChatOldestEdgeNoticeForTesting(
-      source,
-      renderedLocationMessageIds: _renderedLocationMessageIds(),
-      releasedGapKeys: _releasedMessageGapKeys,
-      locationId: widget.locationId,
-      hasMoreOlderMessages: _hasMoreOlderMessages,
-      loadingOlderMessages: _loadingOlderMessages,
-      hasPendingGapFill: _messageGapFillKeys.isNotEmpty,
-    );
-  }
-
   void _handleEdgeSwipeBackStart(DragStartDetails details) {
     _edgeSwipeBackDragDistance = 0;
     _edgeSwipeBackTriggered = false;

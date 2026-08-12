@@ -1455,6 +1455,53 @@ void main() {
   });
 
   test(
+    'loadOlderMessages publishes cached history as one state update',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = const <Map<String, dynamic>>[]
+        ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+      final storage = MemoryChatroomMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        messages: [
+          for (var id = 1; id <= 20; id += 1)
+            _storageMessageJson(
+              messageId: id,
+              locationId: 'loc-1',
+              content: 'cached-$id',
+            ),
+        ],
+      );
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        messageStorage: storage,
+      );
+      await service.connect(worldId: 'world-1', identity: _identity());
+      var stateUpdateCount = 0;
+      final stateSubscription = service.states.listen((_) {
+        stateUpdateCount += 1;
+      });
+
+      final page = await service.loadOlderMessages(
+        locationId: 'loc-1',
+        beforeMessageId: 21,
+        limit: 20,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(page.loadedCount, 20);
+      expect(service.state.messagesByLocation['loc-1'], hasLength(20));
+      expect(stateUpdateCount, 1);
+      await stateSubscription.cancel();
+      await service.dispose();
+    },
+  );
+
+  test(
     'flat cursorless timelines join the queue outside location ordering',
     () async {
       final socket = _FakeChatroomSocket();

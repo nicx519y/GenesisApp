@@ -59,6 +59,8 @@ const double _locationChatEdgeSwipeWidth = 24;
 const double _locationChatEdgeSwipeTriggerDistance = 64;
 const double _locationChatEdgeSwipeTriggerVelocity = 450;
 const int _locationChatMessageGapMaxAttempts = 3;
+const double _locationChatOlderMessagesTriggerExtent = 180;
+const Duration _locationChatOlderMessagesIdleDelay = Duration(milliseconds: 80);
 const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
 
@@ -290,6 +292,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _awaitingAiResponse = false;
   bool _hasDraftText = false;
   bool _loadingOlderMessages = false;
+  Timer? _olderMessagesLoadIdleTimer;
   int _loadingOlderBeforeLocationMessageId = 0;
   bool _hasMoreOlderMessages = true;
   bool _olderMessagesExhaustedByRemote = false;
@@ -308,6 +311,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
   bool _openingModelPage = false;
+  late bool _retainModelEntryInHeader;
   int _serviceGeneration = 0;
   int _selectedModelLoadGeneration = 0;
   ValueListenable<int>? _userInfoRevisionListenable;
@@ -337,12 +341,15 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   }
 
   void _handleViewportCoordinatorChanged() {
-    if (mounted) _setLocationChatState(() {});
+    if (!mounted) return;
+    _setLocationChatState(() {});
+    _handleMessageListScroll();
   }
 
   @override
   void initState() {
     super.initState();
+    _retainModelEntryInHeader = widget.active;
     _scrollCoordinator = LocationChatScrollCoordinator()
       ..addListener(_handleViewportCoordinatorChanged);
     final initialDraftText = widget.initialDraftText;
@@ -367,6 +374,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   @override
   void dispose() {
+    _cancelOlderMessagesLoadSchedule();
     _selectedModelLoadGeneration++;
     _timelineVmCache.clear();
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
@@ -390,6 +398,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.active) {
+      _retainModelEntryInHeader = true;
+    }
     if (oldWidget.worldId != widget.worldId ||
         (!oldWidget.active && widget.active)) {
       unawaited(_loadSelectedModelCodeFromCache());
@@ -437,6 +448,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       _discardStaleTickProgressMessage();
     }
     if (changedChatTarget || changedOpeningPreview) {
+      _cancelOlderMessagesLoadSchedule();
       unawaited(
         _closeChatroom().then((_) {
           if (!mounted) return;
@@ -545,14 +557,20 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
       showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
       showMoreButton: widget.showMoreButton,
-      trailing: widget.active
-          ? MemoryModelEntryButton(
-              modelLabel: _selectedModelCode.isEmpty
-                  ? 'Model'
-                  : _selectedModelCode,
-              darkHeader: true,
-              compact: true,
-              onTap: () => unawaited(_openMemoryModelPage()),
+      trailing: _retainModelEntryInHeader
+          ? ExcludeSemantics(
+              excluding: !widget.active,
+              child: IgnorePointer(
+                ignoring: !widget.active,
+                child: MemoryModelEntryButton(
+                  modelLabel: _selectedModelCode.isEmpty
+                      ? 'Model'
+                      : _selectedModelCode,
+                  darkHeader: true,
+                  compact: true,
+                  onTap: () => unawaited(_openMemoryModelPage()),
+                ),
+              ),
             )
           : null,
       style: style,
@@ -573,9 +591,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       messages: displayMessages,
       messageLayoutId: _locationChatMessageLayoutId,
       topTitle: '',
-      oldestEdgeNotice: _shouldShowOldestEdgeNotice()
-          ? kAiContentDisclaimerText
-          : null,
+      oldestEdgeNotice: kAiContentDisclaimerText,
+      oldestEdgeNoticeRequiresSecondScroll: true,
       oldestEdgeLoading: _loadingOlderMessages,
       onMessageLongPressStart: _showMessageActionMenu,
       onFailedMessageTap: (message) => unawaited(_retryFailedMessage(message)),

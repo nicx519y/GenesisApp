@@ -147,6 +147,66 @@ void main() {
     );
   });
 
+  test('chat scroll physics preserves a detached viewport on head prepend', () {
+    const physics = LocationChatBottomAnchoringScrollPhysics(
+      shouldFollowLatest: _returnFalse,
+      shouldPreservePrependAnchor: _returnTrue,
+    );
+    final oldPosition = FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: 500,
+      pixels: 180,
+      viewportDimension: 300,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+    final newPosition = FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: 760,
+      pixels: 180,
+      viewportDimension: 300,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+
+    expect(
+      physics.adjustPositionForNewDimensions(
+        oldPosition: oldPosition,
+        newPosition: newPosition,
+        isScrolling: false,
+        velocity: 0,
+      ),
+      440,
+    );
+  });
+
+  test('older history waits until upward scrolling is idle', () {
+    expect(
+      locationChatShouldLoadOlderMessagesForTesting(
+        active: true,
+        isLeafLocation: true,
+        loading: false,
+        hasMore: true,
+        detached: true,
+        extentBefore: 120,
+        isScrolling: true,
+      ),
+      isFalse,
+    );
+    expect(
+      locationChatShouldLoadOlderMessagesForTesting(
+        active: true,
+        isLeafLocation: true,
+        loading: false,
+        hasMore: true,
+        detached: true,
+        extentBefore: 120,
+        isScrolling: false,
+      ),
+      isTrue,
+    );
+  });
+
   testWidgets('streaming messages preserve an unfocused detached viewport', (
     tester,
   ) async {
@@ -1715,6 +1775,46 @@ void main() {
 
     expect(find.byKey(const ValueKey('memory-model-entry')), findsNothing);
   });
+
+  testWidgets(
+    'location chat retains the model entry width while becoming inactive',
+    (tester) async {
+      tester.view.physicalSize = const Size(393, 852);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      Widget panel({required bool active}) {
+        return MaterialApp(
+          home: LocationChatPanel(
+            key: const ValueKey<String>('retained-model-entry-panel'),
+            worldId: 'world-current',
+            locationId: 'location-current',
+            locationName: 'The Wisteria Terrace With A Long Name',
+            active: active,
+            leaveOnInactive: false,
+          ),
+        );
+      }
+
+      await tester.pumpWidget(panel(active: true));
+      await tester.pump();
+      final title = find.text('The Wisteria Terrace With A Long Name (0)');
+      final modelEntry = find.byKey(const ValueKey('memory-model-entry'));
+      final activeTitleRect = tester.getRect(title);
+      final activeModelRect = tester.getRect(modelEntry);
+
+      await tester.pumpWidget(panel(active: false));
+      await tester.pump();
+
+      expect(modelEntry, findsOneWidget);
+      expect(tester.getRect(title), activeTitleRect);
+      expect(tester.getRect(modelEntry), activeModelRect);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
 
   testWidgets('WebSocket and HTTP narrator nar_pic messages render as images', (
     tester,
@@ -3571,69 +3671,6 @@ void main() {
       [10, 20, 40, 50],
     );
   });
-
-  test(
-    'oldest edge notice waits for rendered window to include oldest message',
-    () {
-      final source = [
-        _message(messageId: 10, locationMessageId: 1, content: 'old 1'),
-        _message(messageId: 20, locationMessageId: 2, content: 'old 2'),
-        _message(messageId: 40, locationMessageId: 4, content: 'new 4'),
-        _message(messageId: 50, locationMessageId: 5, content: 'new 5'),
-      ];
-
-      expect(
-        shouldShowLocationChatOldestEdgeNoticeForTesting(
-          source,
-          renderedLocationMessageIds: const {4, 5},
-        ),
-        isFalse,
-      );
-      expect(
-        shouldShowLocationChatOldestEdgeNoticeForTesting(
-          source,
-          renderedLocationMessageIds: const {1, 2},
-          releasedGapKeys: const {'loc-1\u001F2\u001F4'},
-        ),
-        isTrue,
-      );
-    },
-  );
-
-  test(
-    'oldest edge notice waits while older loading or gap fill is active',
-    () {
-      final source = [
-        _message(messageId: 10, locationMessageId: 1, content: 'old 1'),
-        _message(messageId: 20, locationMessageId: 2, content: 'old 2'),
-      ];
-
-      expect(
-        shouldShowLocationChatOldestEdgeNoticeForTesting(
-          source,
-          renderedLocationMessageIds: const {1, 2},
-          loadingOlderMessages: true,
-        ),
-        isFalse,
-      );
-      expect(
-        shouldShowLocationChatOldestEdgeNoticeForTesting(
-          source,
-          renderedLocationMessageIds: const {1, 2},
-          hasPendingGapFill: true,
-        ),
-        isFalse,
-      );
-      expect(
-        shouldShowLocationChatOldestEdgeNoticeForTesting(
-          source,
-          renderedLocationMessageIds: const {1, 2},
-          hasMoreOlderMessages: true,
-        ),
-        isFalse,
-      );
-    },
-  );
 }
 
 WorldChatroomMessage _message({

@@ -692,10 +692,162 @@ void main() {
     expect(titleRect.right, lessThanOrEqualTo(modelRect.left + 1));
   });
 
-  testWidgets('anchored message list shows loading instead of oldest notice', (
+  testWidgets('anchored message list keeps oldest notice while loading', (
     WidgetTester tester,
   ) async {
     const notice = 'Oldest edge notice';
+    final coordinator = locationChatCoordinator(ScrollController());
+    Widget build({required bool loading}) {
+      return MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 640,
+            child: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
+              topTitle: '',
+              oldestEdgeNotice: notice,
+              oldestEdgeLoading: loading,
+              showDateDividers: false,
+              messages: chatMessages(1, 5),
+            ),
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(build(loading: false));
+    await tester.pumpAndSettle();
+    coordinator.deactivate();
+    final noticeSize = tester.getSize(find.byType(ChatOldestEdgeContent));
+    final firstMessage = find.byKey(const ValueKey<String>('m1'));
+    final firstMessageTop = tester.getTopLeft(firstMessage).dy;
+
+    await tester.pumpWidget(build(loading: true));
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text(notice), findsOneWidget);
+    expect(tester.getSize(find.byType(ChatOldestEdgeContent)), noticeSize);
+    expect(tester.getTopLeft(firstMessage).dy, firstMessageTop);
+  });
+
+  testWidgets(
+    'anchored message list stops at the oldest message before the notice',
+    (WidgetTester tester) async {
+      final coordinator = locationChatCoordinator(ScrollController());
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 640,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: coordinator.handleScrollNotification,
+                child: LocationChatAnchoredMessageList(
+                  coordinator: coordinator,
+                  topTitle: '',
+                  oldestEdgeNotice: 'Oldest edge notice',
+                  oldestEdgeNoticeRequiresSecondScroll: true,
+                  showDateDividers: false,
+                  messages: chatMessages(1, 30),
+                  style: style,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollable = find.byType(Scrollable).first;
+      final scrollableRect = tester.getRect(scrollable);
+      final position = coordinator.controller.position;
+      expect(position.maxScrollExtent, greaterThan(scrollableRect.height));
+      expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+
+      await tester.drag(scrollable, const Offset(0, 2000));
+      await tester.pumpAndSettle();
+
+      expect(position.pixels, greaterThan(0));
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('m1'))).dy,
+        closeTo(scrollableRect.top + 18, 1),
+      );
+      expect(
+        tester.getBottomLeft(find.text('Oldest edge notice')).dy,
+        lessThanOrEqualTo(scrollableRect.top + 18),
+      );
+
+      await tester.drag(scrollable, const Offset(0, 300));
+      await tester.pumpAndSettle();
+
+      expect(position.pixels, 0);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('m1'))).dy,
+        closeTo(
+          tester.getBottomLeft(find.text('Oldest edge notice')).dy + 16,
+          1,
+        ),
+      );
+    },
+  );
+
+  testWidgets('short messages start at their top with the notice just above', (
+    WidgetTester tester,
+  ) async {
+    final coordinator = locationChatCoordinator(ScrollController());
+    final style = ChatUiStyleConfig.standard.copyWith(
+      messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 640,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: coordinator.handleScrollNotification,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                topTitle: '',
+                oldestEdgeNotice: 'Oldest edge notice',
+                oldestEdgeNoticeRequiresSecondScroll: true,
+                showDateDividers: false,
+                messages: chatMessages(1, 3),
+                style: style,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scrollable = find.byType(Scrollable).first;
+    final scrollableRect = tester.getRect(scrollable);
+    final position = coordinator.controller.position;
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(position.maxScrollExtent, lessThan(scrollableRect.height / 2));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('m1'))).dy,
+      closeTo(scrollableRect.top + 18, 1),
+    );
+
+    await tester.drag(scrollable, const Offset(0, 300));
+    await tester.pumpAndSettle();
+
+    expect(position.pixels, 0);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('m1'))).dy,
+      closeTo(tester.getBottomLeft(find.text('Oldest edge notice')).dy + 16, 1),
+    );
+  });
+
+  testWidgets('notice is shown directly when there are no messages', (
+    WidgetTester tester,
+  ) async {
     final coordinator = locationChatCoordinator(ScrollController());
     await tester.pumpWidget(
       MaterialApp(
@@ -703,17 +855,22 @@ void main() {
           body: LocationChatAnchoredMessageList(
             coordinator: coordinator,
             topTitle: '',
-            oldestEdgeNotice: notice,
-            oldestEdgeLoading: true,
+            oldestEdgeNotice: 'Oldest edge notice',
+            oldestEdgeNoticeRequiresSecondScroll: true,
             showDateDividers: false,
             messages: const [],
           ),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text(notice), findsNothing);
+    expect(coordinator.controller.position.maxScrollExtent, 0);
+    expect(find.text('Oldest edge notice'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Oldest edge notice')).dy,
+      greaterThanOrEqualTo(tester.getTopLeft(find.byType(Scrollable).first).dy),
+    );
   });
 
   testWidgets(
@@ -1338,6 +1495,49 @@ void main() {
     expect(modelRect.right, closeTo(headerRect.right, 1));
     expect(modelRect.center.dy, closeTo(titleRect.center.dy + 2, 1));
     expect(subtitleRect.right, greaterThan(modelRect.left));
+  });
+
+  testWidgets('location chat title uses the model entry intrinsic width', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatHeader(
+            title: 'The Wisteria Terrace With A Long Name (1)',
+            subtitle: '',
+            connected: true,
+            connecting: false,
+            onBack: () {},
+            showSubtitle: false,
+            alignContentLeft: true,
+            style: kLocationChatStyle,
+            trailing: MemoryModelEntryButton(
+              modelLabel: 'M',
+              darkHeader: true,
+              compact: true,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final titleRect = tester.getRect(
+      find.text('The Wisteria Terrace With A Long Name (1)'),
+    );
+    final modelRect = tester.getRect(
+      find.byKey(const ValueKey('memory-model-entry')),
+    );
+
+    expect(modelRect.width, kMemoryModelEntryMinWidth);
+    expect(titleRect.right, closeTo(modelRect.left, 0.01));
+    expect(titleRect.width, closeTo(393 - 48 - 16 - 4 - 82, 0.01));
   });
 
   testWidgets('private chat style hides peer name', (

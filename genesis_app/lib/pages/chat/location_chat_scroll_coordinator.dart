@@ -21,6 +21,7 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
       _ownsController = controller == null;
 
   static const double bottomTolerance = 24;
+  static const double oldestMessageStopTolerance = 1;
   static const Duration bottomAnimationDuration = Duration(milliseconds: 220);
 
   final ScrollController controller;
@@ -29,12 +30,18 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   LocationChatViewportMode _mode = LocationChatViewportMode.initializing;
   int _commandGeneration = 0;
   bool _entryRevealScheduled = false;
+  double? _oldestMessageStopOffset;
+  bool _userDragActive = false;
+  bool _stopAtOldestMessageForCurrentDrag = false;
   bool _disposed = false;
 
   LocationChatViewportMode get mode => _mode;
   bool get isDetached => _mode == LocationChatViewportMode.detached;
   bool get shouldFollowLatest => !isDetached;
   int get commandGeneration => _commandGeneration;
+  double? get oldestMessageStopOffset => _oldestMessageStopOffset;
+  bool get shouldStopAtOldestMessage =>
+      _userDragActive && _stopAtOldestMessageForCurrentDrag;
 
   bool get isAtBottom {
     if (!controller.hasClients) return true;
@@ -92,6 +99,19 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   }
 
   bool handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _userDragActive = true;
+      final stopOffset = _oldestMessageStopOffset;
+      _stopAtOldestMessageForCurrentDrag =
+          stopOffset != null &&
+          notification.metrics.pixels > stopOffset + oldestMessageStopTolerance;
+    } else if (notification is UserScrollNotification &&
+        notification.direction == ScrollDirection.idle) {
+      _userDragActive = false;
+      _stopAtOldestMessageForCurrentDrag = false;
+    }
+
     final userDriven =
         notification is UserScrollNotification &&
             notification.direction != ScrollDirection.idle ||
@@ -110,6 +130,23 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
           : LocationChatViewportMode.detached,
     );
     return false;
+  }
+
+  void setOldestMessageStopOffset(double? value) {
+    if (_disposed) return;
+    final normalized = value?.clamp(0.0, double.infinity).toDouble();
+    if (normalized == null && _oldestMessageStopOffset == null) return;
+    if (normalized != null &&
+        _oldestMessageStopOffset != null &&
+        (normalized - _oldestMessageStopOffset!).abs() <
+            precisionErrorTolerance) {
+      return;
+    }
+    _oldestMessageStopOffset = normalized;
+    if (normalized == null) {
+      _userDragActive = false;
+      _stopAtOldestMessageForCurrentDrag = false;
+    }
   }
 
   void restoreAnchor({
@@ -179,6 +216,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.onCharactersMovedLocationTap,
     this.keyboardDismissBehavior,
     this.oldestEdgeNotice,
+    this.oldestEdgeNoticeRequiresSecondScroll = false,
     this.oldestEdgeLoading = false,
     this.showDateDividers = true,
     this.messageLayoutId,
@@ -193,6 +231,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final ChatCharacterMovementTap? onCharactersMovedLocationTap;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
   final String? oldestEdgeNotice;
+  final bool oldestEdgeNoticeRequiresSecondScroll;
   final bool oldestEdgeLoading;
   final bool showDateDividers;
   final String Function(ChatMessageVm message)? messageLayoutId;
@@ -206,8 +245,12 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
 class _LocationChatAnchoredMessageListState
     extends State<LocationChatAnchoredMessageList> {
   final Map<String, GlobalKey> _messageLayoutKeys = <String, GlobalKey>{};
+  final GlobalKey _scrollViewportKey = GlobalKey();
   late List<String> _messageLocalIds;
   int _anchorRestoreGeneration = 0;
+  int _prependAnchorGeneration = 0;
+  bool _preservePrependAnchor = false;
+  bool _oldestMessageStopLayoutScheduled = false;
 
   @override
   void initState() {
@@ -220,13 +263,18 @@ class _LocationChatAnchoredMessageListState
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     final previousLocalIds = _messageLocalIds;
     final nextLocalIds = _currentMessageLocalIds();
+    final preservePrependAnchor =
+        widget.coordinator.isDetached &&
+        _isPureHeadPrepend(previousLocalIds, nextLocalIds);
     final shouldRestoreAnchor =
         widget.coordinator.isDetached &&
+        !preservePrependAnchor &&
         _requiresAnchorRestore(previousLocalIds, nextLocalIds);
     final anchor = shouldRestoreAnchor
         ? _visibleRetainedAnchor(previousLocalIds, nextLocalIds.toSet())
         : null;
     final commandGeneration = widget.coordinator.commandGeneration;
+    _preservePrependAnchor = preservePrependAnchor;
     _messageLocalIds = nextLocalIds;
     super.didUpdateWidget(oldWidget);
     _pruneMessageLayoutKeys();
@@ -235,6 +283,14 @@ class _LocationChatAnchoredMessageListState
     final anchorGeneration = _anchorRestoreGeneration;
     if (widget.coordinator.mode == LocationChatViewportMode.initializing) {
       _scheduleInitialViewportLayout();
+    }
+    _prependAnchorGeneration += 1;
+    final prependGeneration = _prependAnchorGeneration;
+    if (preservePrependAnchor) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || prependGeneration != _prependAnchorGeneration) return;
+        _preservePrependAnchor = false;
+      });
     }
     if (anchor == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -277,6 +333,15 @@ class _LocationChatAnchoredMessageListState
     return true;
   }
 
+  bool _isPureHeadPrepend(List<String> previous, List<String> next) {
+    if (previous.isEmpty || next.length <= previous.length) return false;
+    final addedCount = next.length - previous.length;
+    for (var index = 0; index < previous.length; index += 1) {
+      if (previous[index] != next[index + addedCount]) return false;
+    }
+    return true;
+  }
+
   ({String localId, double top})? _visibleRetainedAnchor(
     List<String> previousLocalIds,
     Set<String> retainedLocalIds,
@@ -309,6 +374,8 @@ class _LocationChatAnchoredMessageListState
   @override
   void dispose() {
     _anchorRestoreGeneration += 1;
+    _prependAnchorGeneration += 1;
+    widget.coordinator.setOldestMessageStopOffset(null);
     _messageLayoutKeys.clear();
     super.dispose();
   }
@@ -320,15 +387,33 @@ class _LocationChatAnchoredMessageListState
         widget.topTitle.trim().isNotEmpty ||
         (widget.oldestEdgeNotice?.trim().isNotEmpty ?? false) ||
         widget.oldestEdgeLoading;
+    final requiresSecondScroll =
+        widget.oldestEdgeNoticeRequiresSecondScroll &&
+        hasOldestEdgeContent &&
+        widget.messages.isNotEmpty;
+    _scheduleOldestMessageStopLayout(
+      enabled: requiresSecondScroll,
+      topPadding: style.messageListPadding.top,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final minHeight = constraints.hasBoundedHeight
             ? constraints.maxHeight
             : 0.0;
+        final messageViewportHeight =
+            minHeight > style.messageListPadding.vertical
+            ? minHeight - style.messageListPadding.vertical
+            : 0.0;
         return SingleChildScrollView(
+          key: _scrollViewportKey,
           controller: widget.coordinator.controller,
           physics: LocationChatBottomAnchoringScrollPhysics(
             shouldFollowLatest: () => widget.coordinator.shouldFollowLatest,
+            shouldPreservePrependAnchor: () => _preservePrependAnchor,
+            oldestMessageStopOffset: () =>
+                widget.coordinator.oldestMessageStopOffset,
+            shouldStopAtOldestMessage: () =>
+                widget.coordinator.shouldStopAtOldestMessage,
           ),
           keyboardDismissBehavior:
               widget.keyboardDismissBehavior ??
@@ -347,12 +432,30 @@ class _LocationChatAnchoredMessageListState
                       loading: widget.oldestEdgeLoading,
                       style: style,
                     ),
-                  for (
-                    var index = 0;
-                    index < widget.messages.length;
-                    index += 1
-                  )
-                    _buildMessageRow(index, style),
+                  if (requiresSecondScroll)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: messageViewportHeight,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (
+                            var index = 0;
+                            index < widget.messages.length;
+                            index += 1
+                          )
+                            _buildMessageRow(index, style),
+                        ],
+                      ),
+                    )
+                  else
+                    for (
+                      var index = 0;
+                      index < widget.messages.length;
+                      index += 1
+                    )
+                      _buildMessageRow(index, style),
                 ],
               ),
             ),
@@ -360,6 +463,37 @@ class _LocationChatAnchoredMessageListState
         );
       },
     );
+  }
+
+  void _scheduleOldestMessageStopLayout({
+    required bool enabled,
+    required double topPadding,
+  }) {
+    if (!enabled) {
+      widget.coordinator.setOldestMessageStopOffset(null);
+      return;
+    }
+    if (_oldestMessageStopLayoutScheduled) return;
+    _oldestMessageStopLayoutScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _oldestMessageStopLayoutScheduled = false;
+      if (!mounted || widget.messages.isEmpty) return;
+      final viewportBounds = _globalBounds(
+        _scrollViewportKey.currentContext?.findRenderObject(),
+      );
+      final firstMessageBounds = _messageBounds(
+        _messageLayoutId(widget.messages.first),
+      );
+      if (viewportBounds == null || firstMessageBounds == null) return;
+      final controller = widget.coordinator.controller;
+      if (!controller.hasClients) return;
+      final stopOffset =
+          controller.position.pixels +
+          firstMessageBounds.top -
+          viewportBounds.top -
+          topPadding;
+      widget.coordinator.setOldestMessageStopOffset(stopOffset);
+    });
   }
 
   void _pruneMessageLayoutKeys() {
@@ -434,16 +568,39 @@ class LocationChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
   const LocationChatBottomAnchoringScrollPhysics({
     super.parent,
     required this.shouldFollowLatest,
+    this.shouldPreservePrependAnchor,
+    this.oldestMessageStopOffset,
+    this.shouldStopAtOldestMessage,
   });
 
   final ValueGetter<bool> shouldFollowLatest;
+  final ValueGetter<bool>? shouldPreservePrependAnchor;
+  final ValueGetter<double?>? oldestMessageStopOffset;
+  final ValueGetter<bool>? shouldStopAtOldestMessage;
 
   @override
   LocationChatBottomAnchoringScrollPhysics applyTo(ScrollPhysics? ancestor) {
     return LocationChatBottomAnchoringScrollPhysics(
       parent: buildParent(ancestor),
       shouldFollowLatest: shouldFollowLatest,
+      shouldPreservePrependAnchor: shouldPreservePrependAnchor,
+      oldestMessageStopOffset: oldestMessageStopOffset,
+      shouldStopAtOldestMessage: shouldStopAtOldestMessage,
     );
+  }
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    final stopOffset = oldestMessageStopOffset?.call();
+    if (stopOffset != null &&
+        (shouldStopAtOldestMessage?.call() ?? false) &&
+        value < stopOffset &&
+        position.pixels >=
+            stopOffset -
+                LocationChatScrollCoordinator.oldestMessageStopTolerance) {
+      return value - stopOffset;
+    }
+    return super.applyBoundaryConditions(position, value);
   }
 
   @override
@@ -454,6 +611,14 @@ class LocationChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
     required double velocity,
   }) {
     if (!shouldFollowLatest()) {
+      if (shouldPreservePrependAnchor?.call() ?? false) {
+        final extentDelta =
+            newPosition.maxScrollExtent - oldPosition.maxScrollExtent;
+        return (oldPosition.pixels + extentDelta).clamp(
+          newPosition.minScrollExtent,
+          newPosition.maxScrollExtent,
+        );
+      }
       return newPosition.pixels.clamp(
         newPosition.minScrollExtent,
         newPosition.maxScrollExtent,

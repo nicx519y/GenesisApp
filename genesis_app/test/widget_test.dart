@@ -22135,144 +22135,139 @@ void main() {
     },
   );
 
-  testWidgets(
-    'location chat short content sits between header and composer without scrolling',
-    (WidgetTester tester) async {
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
+  testWidgets('location opening preview starts at its oldest message', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: LocationChatPanel(
-            worldId: 'world-1',
-            locationId: 'castle',
-            locationName: 'Castle',
-            active: false,
-            openingPreviewMessages: [
-              for (var i = 1; i <= 3; i += 1)
-                WorldChatroomMessage(
-                  messageId: i,
-                  locationMessageId: i,
-                  conversationRoundId: '$i',
-                  roundOrder: 0,
-                  tickNo: 0,
-                  locationId: 'castle',
-                  senderType: 'user',
-                  senderId: 'u_peer',
-                  senderName: 'Peer',
-                  content: 'short location chat message $i',
-                  createdAt: null,
-                ),
-            ],
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-
-      final scrollable = find
-          .descendant(
-            of: find.byKey(
-              const ValueKey<String>('location-chat-message-list'),
-            ),
-            matching: find.byType(Scrollable),
-          )
-          .first;
-      final headerBottom = tester.getBottomLeft(find.byType(ChatHeader)).dy;
-      final composerTop = tester.getTopLeft(find.byType(ChatComposer)).dy;
-      final firstMessageTop = tester
-          .getTopLeft(find.text('short location chat message 1'))
-          .dy;
-      final position = tester.state<ScrollableState>(scrollable).position;
-
-      expect(tester.getTopLeft(scrollable).dy, lessThan(headerBottom));
-      expect(firstMessageTop, greaterThan(headerBottom));
-      expect(firstMessageTop, lessThan(composerTop));
-      expect(position.minScrollExtent, 0);
-      expect(position.maxScrollExtent, 0);
-
-      await tester.drag(scrollable, const Offset(0, -80));
-      await tester.pump();
-
-      expect(position.pixels, 0);
-      expect(
-        tester.getTopLeft(find.text('short location chat message 1')).dy,
-        firstMessageTop,
-      );
-    },
-  );
-
-  testWidgets(
-    'location chat tick-only viewport shows notice without scrolling',
-    (WidgetTester tester) async {
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: LocationChatPanel(
-            worldId: 'world-1',
-            locationId: 'castle',
-            locationName: 'Castle',
-            active: false,
-            openingPreviewMessages: [
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'world-1',
+          locationId: 'castle',
+          locationName: 'Castle',
+          active: false,
+          openingPreviewMessages: [
+            for (var i = 1; i <= 3; i += 1)
               WorldChatroomMessage(
-                messageId: 1,
-                locationMessageId: 0,
-                conversationRoundId: '1',
+                messageId: i,
+                locationMessageId: i,
+                conversationRoundId: '$i',
                 roundOrder: 0,
-                tickNo: 1,
+                tickNo: 0,
                 locationId: 'castle',
-                senderType: 'tick',
-                senderId: 'tick',
-                senderName: 'Time',
-                content: 'Tick 1',
-                currentTime: 'Match Day, 14:00',
+                senderType: 'user',
+                senderId: 'u_peer',
+                senderName: 'Peer',
+                content: 'short location chat message $i',
                 createdAt: null,
               ),
-            ],
-          ),
+          ],
         ),
-      );
-      await tester.pump();
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
 
-      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey<String>('location-chat-message-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final headerBottom = tester.getBottomLeft(find.byType(ChatHeader)).dy;
+    final composerTop = tester.getTopLeft(find.byType(ChatComposer)).dy;
+    final firstMessageTop = tester
+        .getTopLeft(find.text('short location chat message 1'))
+        .dy;
+    final position = tester.state<ScrollableState>(scrollable).position;
 
-      final scrollable = find
-          .descendant(
-            of: find.byKey(
-              const ValueKey<String>('location-chat-message-list'),
+    expect(tester.getTopLeft(scrollable).dy, lessThan(headerBottom));
+    expect(firstMessageTop, greaterThan(headerBottom));
+    expect(firstMessageTop, lessThan(composerTop));
+    expect(position.minScrollExtent, 0);
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+
+    expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+    expect(
+      tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
+      lessThanOrEqualTo(headerBottom),
+    );
+  });
+
+  testWidgets('location opening tick reveals the AI notice above it', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'world-1',
+          locationId: 'castle',
+          locationName: 'Castle',
+          active: false,
+          openingPreviewMessages: [
+            WorldChatroomMessage(
+              messageId: 1,
+              locationMessageId: 0,
+              conversationRoundId: '1',
+              roundOrder: 0,
+              tickNo: 1,
+              locationId: 'castle',
+              senderType: 'tick',
+              senderId: 'tick',
+              senderName: 'Time',
+              content: 'Tick 1',
+              currentTime: 'Match Day, 14:00',
+              createdAt: null,
             ),
-            matching: find.byType(Scrollable),
-          )
-          .first;
-      final noticeTop = tester
-          .getTopLeft(find.text(kAiContentDisclaimerText))
-          .dy;
-      final position = tester.state<ScrollableState>(scrollable).position;
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
 
-      expect(position.minScrollExtent, 0);
-      expect(position.maxScrollExtent, 0);
+    expect(find.text(kAiContentDisclaimerText), findsOneWidget);
 
-      await tester.drag(scrollable, const Offset(0, -80));
-      await tester.pump();
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey<String>('location-chat-message-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final noticeTop = tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy;
+    final position = tester.state<ScrollableState>(scrollable).position;
 
-      expect(position.pixels, 0);
-      expect(
-        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
-        noticeTop,
-      );
-    },
-  );
+    expect(position.minScrollExtent, 0);
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+    expect(
+      noticeTop,
+      lessThanOrEqualTo(tester.getBottomLeft(find.byType(ChatHeader)).dy),
+    );
+
+    await tester.drag(scrollable, const Offset(0, 800));
+    await tester.pumpAndSettle();
+
+    expect(position.pixels, 0);
+    expect(
+      tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
+      greaterThan(tester.getTopLeft(scrollable).dy),
+    );
+  });
 
   testWidgets('location chat short content stays fixed while typing', (
     WidgetTester tester,
@@ -22338,7 +22333,8 @@ void main() {
         .getTopLeft(find.text('interactive short message 1'))
         .dy;
     var position = tester.state<ScrollableState>(scrollable).position;
-    expect(position.maxScrollExtent, 0);
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
 
     await tester.tap(find.byType(TextField).last);
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
@@ -22347,8 +22343,8 @@ void main() {
     await tester.pump();
 
     position = tester.state<ScrollableState>(scrollable).position;
-    expect(position.pixels, 0);
-    expect(position.maxScrollExtent, 0);
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
     expect(
       tester.getTopLeft(find.text('interactive short message 1')).dy,
       firstMessageTop,
@@ -22424,7 +22420,9 @@ void main() {
       const tickBubbleKey = ValueKey('chat-tick-message-bubble');
       final tickTop = tester.getTopLeft(find.byKey(tickBubbleKey)).dy;
       var position = tester.state<ScrollableState>(scrollable).position;
-      expect(position.maxScrollExtent, 0);
+      final oldestMessageExtent = position.maxScrollExtent;
+      expect(oldestMessageExtent, greaterThan(0));
+      expect(position.pixels, closeTo(oldestMessageExtent, 0.1));
 
       final firstUser = message(
         messageId: 2,
@@ -22437,14 +22435,14 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       position = tester.state<ScrollableState>(scrollable).position;
-      expect(position.pixels, 0);
-      expect(position.maxScrollExtent, 0);
+      expect(position.maxScrollExtent, closeTo(oldestMessageExtent, 0.1));
+      expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
       expect(tester.getTopLeft(find.byKey(tickBubbleKey)).dy, tickTop);
       expect(find.text('first message'), findsOneWidget);
     },
   );
 
-  testWidgets('location chat first render starts at message list bottom', (
+  testWidgets('long location opening stops before revealing AI notice', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -22485,6 +22483,24 @@ void main() {
     final position = tester.state<ScrollableState>(scrollable).position;
     expect(position.maxScrollExtent, greaterThan(240));
     expect(position.pixels, closeTo(position.maxScrollExtent, 1));
+
+    await tester.drag(scrollable, const Offset(0, 5000));
+    await tester.pumpAndSettle();
+
+    expect(position.pixels, greaterThan(0));
+    expect(
+      tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
+      lessThanOrEqualTo(tester.getBottomLeft(find.byType(ChatHeader)).dy),
+    );
+
+    await tester.drag(scrollable, const Offset(0, 300));
+    await tester.pumpAndSettle();
+
+    expect(position.pixels, 0);
+    expect(
+      tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
+      greaterThan(tester.getBottomLeft(find.byType(ChatHeader)).dy),
+    );
   });
 
   testWidgets('location chat shows new message notice when not at bottom', (

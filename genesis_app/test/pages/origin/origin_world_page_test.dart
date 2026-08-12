@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
@@ -329,6 +330,77 @@ void main() {
       expect(avatar.imageUrl, avatarAsset);
       expect(find.byType(ChatAvatar), findsOneWidget);
       expect(find.byType(ChatImageMessage), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'origin opening preview reveals AI notice above its first message',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final messages = originLocationOpeningPreviewMessagesForTesting(
+        [
+          {
+            'tick_no': 1,
+            'tick_result': {
+              'current_time': 'Day 1, 08:30',
+              'location_groups': [
+                {
+                  'location_id': 'loc_1',
+                  'initial_dialogue': [
+                    {
+                      'char_id': 'nar',
+                      'char_name': 'Narrator',
+                      'content': 'The location wakes.',
+                    },
+                    {
+                      'char_id': 'char_1',
+                      'char_name': 'Sam',
+                      'content': 'Opening line.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+        const ['loc_1'],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'origin-preview',
+            locationId: 'loc_1',
+            active: false,
+            openingPreviewMessages: messages,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byKey(const ValueKey<String>('location-chat-message-list')),
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+      expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+      expect(
+        tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
+        lessThanOrEqualTo(tester.getBottomLeft(find.byType(ChatHeader)).dy),
+      );
+
+      await tester.drag(scrollable, const Offset(0, 300));
+      await tester.pumpAndSettle();
+
+      expect(position.pixels, 0);
+      expect(
+        tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
+        greaterThan(tester.getBottomLeft(find.byType(ChatHeader)).dy),
+      );
     },
   );
 
