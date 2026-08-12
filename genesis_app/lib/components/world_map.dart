@@ -37,6 +37,7 @@ class WorldMapTilemapOptions {
     this.recentChatLocationIds = const <String>{},
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
+    this.locationImageFlowPaused = false,
     this.reloadRevision = 0,
     this.restorationController,
     this.onMapTap,
@@ -58,6 +59,7 @@ class WorldMapTilemapOptions {
   final Set<String> recentChatLocationIds;
   final Set<String> eventLocationIds;
   final bool animationsPaused;
+  final bool locationImageFlowPaused;
   final int reloadRevision;
   final TilemapRestorationController? restorationController;
   final VoidCallback? onMapTap;
@@ -122,6 +124,7 @@ class WorldMap extends StatelessWidget {
         recentChatLocationIds: tilemap.recentChatLocationIds,
         eventLocationIds: tilemap.eventLocationIds,
         animationsPaused: tilemap.animationsPaused,
+        locationImageFlowPaused: tilemap.locationImageFlowPaused,
         reloadRevision: tilemap.reloadRevision,
         messageBubbles: common.messageBubbles,
         messageBubblePlaybackPaused:
@@ -148,6 +151,7 @@ class WorldMap extends StatelessWidget {
         recentChatLocationIds: tilemap.recentChatLocationIds,
         eventLocationIds: tilemap.eventLocationIds,
         animationsPaused: tilemap.animationsPaused,
+        locationImageFlowPaused: tilemap.locationImageFlowPaused,
         reloadRevision: tilemap.reloadRevision,
         messageBubbles: common.messageBubbles,
         messageBubblePlaybackPaused: common.messageBubblePlaybackPaused,

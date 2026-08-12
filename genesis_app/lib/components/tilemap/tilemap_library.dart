@@ -390,6 +390,7 @@ class Tilemap extends StatefulWidget {
     this.recentChatLocationIds = const <String>{},
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
+    this.locationImageFlowPaused = false,
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
@@ -418,6 +419,7 @@ class Tilemap extends StatefulWidget {
     this.recentChatLocationIds = const <String>{},
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
+    this.locationImageFlowPaused = false,
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
@@ -445,6 +447,7 @@ class Tilemap extends StatefulWidget {
   final Set<String> recentChatLocationIds;
   final Set<String> eventLocationIds;
   final bool animationsPaused;
+  final bool locationImageFlowPaused;
   final int reloadRevision;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
@@ -1856,6 +1859,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       waitForVisibleTileImageFrames: widget.tileImageLoader == null,
       isForeground: foreground,
       animationsPaused: widget.animationsPaused,
+      locationImageFlowPaused: widget.locationImageFlowPaused,
       visualMode: _visualMode,
       fogControlPoints: _fogControlPoints,
       blendFogWithShadowTiles: _blendFogWithShadowTiles,

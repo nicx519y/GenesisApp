@@ -5,7 +5,11 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.origin,
     required this.minChildSize,
     required this.collapseRequest,
+    required this.expandRequest,
+    required this.autoExpansionPending,
     required this.onRaisedChanged,
+    required this.onFullyExpanded,
+    required this.onAutoExpansionInterrupted,
     required this.onOriginChanged,
     required this.launching,
     required this.onSelectRole,
@@ -17,7 +21,11 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final OriginDetail origin;
   final double minChildSize;
   final int collapseRequest;
+  final int expandRequest;
+  final bool autoExpansionPending;
   final ValueChanged<bool> onRaisedChanged;
+  final VoidCallback onFullyExpanded;
+  final VoidCallback onAutoExpansionInterrupted;
   final VoidCallback onOriginChanged;
   final bool launching;
   final Future<void> Function(OriginCharacter character) onSelectRole;
@@ -34,13 +42,21 @@ class _OriginDetailDraggableSheetState
   static const double _topOverlayTopOffset = 8.0;
   static const double _expandedTopOverlayGap = 20.0;
   static const double _extentUpdateEpsilon = 0.001;
+  static const int _extentSettleFrameCount = 2;
   static const _snapAnimationDuration = Duration(milliseconds: 260);
 
   late final DraggableScrollableController _sheetController;
+  final Completer<void> _sheetReady = Completer<void>();
   ScrollController? _sheetScrollController;
   late _OriginInitialDialoguePreview? _initialDialoguePreview;
   var _isFullyExpanded = false;
   var _isRaised = false;
+  var _extentCommandGeneration = 0;
+  var _sheetReadyCheckScheduled = false;
+  var _autoExpansionInterruptionScheduled = false;
+  var _autoExpansionPaintCompletionScheduled = false;
+  Timer? _extentSettleTimer;
+  Completer<void>? _extentSettleCompleter;
 
   double get _minChildSize => widget.minChildSize.clamp(0.08, 0.42).toDouble();
 
@@ -65,6 +81,9 @@ class _OriginDetailDraggableSheetState
     super.initState();
     _sheetController = DraggableScrollableController();
     _initialDialoguePreview = _originFirstInitialDialoguePreview(widget.origin);
+    if (widget.expandRequest > 0) {
+      _expandToMaxChildSize();
+    }
   }
 
   @override
@@ -80,35 +99,166 @@ class _OriginDetailDraggableSheetState
     }
     if (oldWidget.collapseRequest != widget.collapseRequest) {
       _collapseToMinChildSize();
+    } else if (oldWidget.expandRequest != widget.expandRequest) {
+      _expandToMaxChildSize();
     }
   }
 
   @override
   void dispose() {
+    _extentCommandGeneration += 1;
+    _cancelExtentSettleWait();
+    if (!_sheetReady.isCompleted) {
+      _sheetReady.complete();
+    }
     _sheetController.dispose();
     super.dispose();
   }
 
   void _collapseToMinChildSize() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_sheetController.isAttached) return;
-      final scrollController = _sheetScrollController;
-      if (scrollController != null && scrollController.hasClients) {
-        scrollController.jumpTo(0);
-      }
-      final targetExtent = _minChildSize;
-      if ((_sheetController.size - targetExtent).abs() <=
-          _extentUpdateEpsilon) {
+    _cancelExtentSettleWait();
+    final commandGeneration = ++_extentCommandGeneration;
+    unawaited(
+      _animateToRequestedExtent(
+        commandGeneration: commandGeneration,
+        expanded: false,
+      ),
+    );
+  }
+
+  void _expandToMaxChildSize() {
+    _cancelExtentSettleWait();
+    final commandGeneration = ++_extentCommandGeneration;
+    unawaited(
+      _animateToRequestedExtent(
+        commandGeneration: commandGeneration,
+        expanded: true,
+      ),
+    );
+  }
+
+  Future<void> _animateToRequestedExtent({
+    required int commandGeneration,
+    required bool expanded,
+  }) async {
+    final isAutomaticExpansion = expanded && widget.autoExpansionPending;
+    await _sheetReady.future;
+    if (!_isExtentCommandCurrent(commandGeneration) ||
+        !_sheetController.isAttached) {
+      _reportInterruptedAutomaticExpansion(isAutomaticExpansion);
+      return;
+    }
+
+    final scrollController = _sheetScrollController;
+    if (scrollController != null && scrollController.hasClients) {
+      scrollController.jumpTo(0);
+    }
+    if (!mounted) return;
+    final targetExtent = expanded ? _expandedChildSize(context) : _minChildSize;
+    if ((_sheetController.size - targetExtent).abs() > _extentUpdateEpsilon) {
+      unawaited(
+        _sheetController
+            .animateTo(
+              targetExtent,
+              duration: _snapAnimationDuration,
+              curve: Curves.easeOutCubic,
+            )
+            .catchError((Object error, StackTrace stackTrace) {
+              if (_isExtentCommandCurrent(commandGeneration)) {
+                debugPrint(
+                  '[OriginWorldPage] detail sheet extent animation '
+                  'interrupted: $error\n$stackTrace',
+                );
+              }
+            }),
+      );
+      await _waitForExtentAnimation();
+    }
+
+    if (!_isExtentCommandCurrent(commandGeneration) ||
+        !_sheetController.isAttached ||
+        !mounted) {
+      _reportInterruptedAutomaticExpansion(isAutomaticExpansion);
+      return;
+    }
+    for (var frame = 0; frame < _extentSettleFrameCount; frame += 1) {
+      _jumpToCurrentRequestedExtent(expanded: expanded);
+      await _waitForNextFrame();
+      if (!_isExtentCommandCurrent(commandGeneration) ||
+          !_sheetController.isAttached ||
+          !mounted) {
+        _reportInterruptedAutomaticExpansion(isAutomaticExpansion);
         return;
       }
-      unawaited(
-        _sheetController.animateTo(
-          targetExtent,
-          duration: _snapAnimationDuration,
-          curve: Curves.easeOutCubic,
-        ),
-      );
+    }
+    _jumpToCurrentRequestedExtent(expanded: expanded);
+  }
+
+  Future<void> _waitForExtentAnimation() {
+    _cancelExtentSettleWait();
+    final completer = Completer<void>();
+    _extentSettleCompleter = completer;
+    _extentSettleTimer = Timer(_snapAnimationDuration, () {
+      if (!identical(_extentSettleCompleter, completer)) return;
+      _extentSettleTimer = null;
+      _extentSettleCompleter = null;
+      completer.complete();
     });
+    return completer.future;
+  }
+
+  void _cancelExtentSettleWait() {
+    _extentSettleTimer?.cancel();
+    _extentSettleTimer = null;
+    final completer = _extentSettleCompleter;
+    _extentSettleCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+  }
+
+  void _reportInterruptedAutomaticExpansion(bool isAutomaticExpansion) {
+    if (!isAutomaticExpansion ||
+        !mounted ||
+        !widget.autoExpansionPending ||
+        _autoExpansionInterruptionScheduled) {
+      return;
+    }
+    _autoExpansionInterruptionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoExpansionInterruptionScheduled = false;
+      if (!mounted || !widget.autoExpansionPending) return;
+      widget.onAutoExpansionInterrupted();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _jumpToCurrentRequestedExtent({required bool expanded}) {
+    if (!mounted || !_sheetController.isAttached) return;
+    final targetExtent = expanded ? _expandedChildSize(context) : _minChildSize;
+    if ((_sheetController.size - targetExtent).abs() <= _extentUpdateEpsilon) {
+      return;
+    }
+    _sheetController.jumpTo(targetExtent);
+  }
+
+  Future<void> _waitForNextFrame() {
+    final completer = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) => completer.complete());
+    WidgetsBinding.instance.ensureVisualUpdate();
+    return completer.future;
+  }
+
+  bool _isExtentCommandCurrent(int commandGeneration) {
+    return mounted && commandGeneration == _extentCommandGeneration;
+  }
+
+  bool _handleSheetScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _extentCommandGeneration += 1;
+      _cancelExtentSettleWait();
+      _reportInterruptedAutomaticExpansion(widget.autoExpansionPending);
+    }
+    return false;
   }
 
   bool _handleSheetNotification(DraggableScrollableNotification notification) {
@@ -127,8 +277,38 @@ class _OriginDetailDraggableSheetState
         object1: widget.origin.oid,
       );
     }
+    if (isFullyExpanded) {
+      _scheduleAutomaticExpansionCompletionAfterPaint();
+    }
     _isFullyExpanded = isFullyExpanded;
     return false;
+  }
+
+  void _scheduleAutomaticExpansionCompletionAfterPaint() {
+    if (!widget.autoExpansionPending ||
+        _autoExpansionPaintCompletionScheduled) {
+      return;
+    }
+    final commandGeneration = _extentCommandGeneration;
+    _autoExpansionPaintCompletionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoExpansionPaintCompletionScheduled = false;
+      if (!mounted || !widget.autoExpansionPending) return;
+      if (!_isExtentCommandCurrent(commandGeneration) ||
+          !_sheetController.isAttached ||
+          !_isAtExpandedExtent()) {
+        _reportInterruptedAutomaticExpansion(true);
+        return;
+      }
+      widget.onFullyExpanded();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  bool _isAtExpandedExtent() {
+    if (!mounted || !_sheetController.isAttached) return false;
+    return (_sheetController.size - _expandedChildSize(context)).abs() <=
+        _extentUpdateEpsilon;
   }
 
   void _syncRaisedStateAfterBuild() {
@@ -146,6 +326,32 @@ class _OriginDetailDraggableSheetState
     widget.onRaisedChanged(isRaised);
   }
 
+  void _handleSheetScrollControllerReady(ScrollController scrollController) {
+    _sheetScrollController = scrollController;
+    _scheduleSheetReadyCheck();
+  }
+
+  void _scheduleSheetReadyCheck() {
+    if (_sheetReady.isCompleted || _sheetReadyCheckScheduled) return;
+    _sheetReadyCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sheetReadyCheckScheduled = false;
+      if (!mounted) {
+        if (!_sheetReady.isCompleted) _sheetReady.complete();
+        return;
+      }
+      final scrollController = _sheetScrollController;
+      if (_sheetController.isAttached &&
+          scrollController != null &&
+          scrollController.hasClients) {
+        _sheetReady.complete();
+        return;
+      }
+      _scheduleSheetReadyCheck();
+      WidgetsBinding.instance.ensureVisualUpdate();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final minChildSize = _minChildSize;
@@ -154,61 +360,85 @@ class _OriginDetailDraggableSheetState
         .clamp(minChildSize, maxChildSize)
         .toDouble();
     final initialDialoguePreview = _initialDialoguePreview;
-    return NotificationListener<DraggableScrollableNotification>(
-      onNotification: _handleSheetNotification,
-      child: DraggableScrollableSheet(
-        controller: _sheetController,
-        initialChildSize: initialChildSize,
-        minChildSize: minChildSize,
-        maxChildSize: maxChildSize,
-        snap: true,
-        snapAnimationDuration: _snapAnimationDuration,
-        builder: (context, scrollController) {
-          _sheetScrollController = scrollController;
-          return DecoratedBox(
-            key: const ValueKey<String>('origin-detail-sheet-surface'),
-            decoration: BoxDecoration(
-              color: originWorldDetailSheetBackgroundColor,
-              borderRadius: GenesisRadii.sheet,
-            ),
-            child: ClipRRect(
-              borderRadius: GenesisRadii.sheet,
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(overscroll: false),
-                child: CustomScrollView(
-                  controller: scrollController,
-                  key: PageStorageKey<String>(
-                    'origin-detail-bottom-sheet-${widget.origin.oid}',
-                  ),
-                  physics: const ClampingScrollPhysics(),
-                  slivers: [
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: const _OriginSheetHeaderDelegate(topPadding: 0),
-                    ),
-                    if (initialDialoguePreview != null)
-                      ..._originInitialDialogueSlivers(initialDialoguePreview),
-                    SliverToBoxAdapter(
-                      child: _OriginSetupRoleSection(
-                        characters: widget.origin.characters,
-                        launching: widget.launching,
-                        onSelectRole: widget.onSelectRole,
-                        onCustomizeRole: widget.onCustomizeRole,
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: _OriginBottomLaunchBar.heightFor(context),
-                      ),
-                    ),
-                  ],
+    return IgnorePointer(
+      ignoring: widget.autoExpansionPending,
+      child: NotificationListener<DraggableScrollableNotification>(
+        onNotification: _handleSheetNotification,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _handleSheetScrollNotification,
+          child: DraggableScrollableSheet(
+            controller: _sheetController,
+            initialChildSize: initialChildSize,
+            minChildSize: minChildSize,
+            maxChildSize: maxChildSize,
+            snap: true,
+            snapAnimationDuration: _snapAnimationDuration,
+            builder: (context, scrollController) {
+              _handleSheetScrollControllerReady(scrollController);
+              return DecoratedBox(
+                key: const ValueKey<String>('origin-detail-sheet-surface'),
+                decoration: BoxDecoration(
+                  color: originWorldDetailSheetBackgroundColor,
+                  borderRadius: GenesisRadii.sheet,
                 ),
-              ),
-            ),
-          );
-        },
+                child: ClipRRect(
+                  borderRadius: GenesisRadii.sheet,
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(overscroll: false),
+                    child: CustomScrollView(
+                      controller: scrollController,
+                      key: PageStorageKey<String>(
+                        'origin-detail-bottom-sheet-${widget.origin.oid}',
+                      ),
+                      physics: const ClampingScrollPhysics(),
+                      slivers: [
+                        SliverPersistentHeader(
+                          pinned: true,
+                          delegate: const _OriginSheetHeaderDelegate(
+                            topPadding: 0,
+                          ),
+                        ),
+                        if (widget.autoExpansionPending)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: KeyedSubtree(
+                              key: const ValueKey<String>(
+                                'origin-opening-sheet-tombstone',
+                              ),
+                              child: initialDialoguePreview != null
+                                  ? const _OriginInitialDialogueLoadingContent()
+                                  : const _OriginRoleSetupLoadingContent(),
+                            ),
+                          )
+                        else ...[
+                          if (initialDialoguePreview != null)
+                            ..._originInitialDialogueSlivers(
+                              initialDialoguePreview,
+                            ),
+                          SliverToBoxAdapter(
+                            child: _OriginSetupRoleSection(
+                              characters: widget.origin.characters,
+                              launching: widget.launching,
+                              onSelectRole: widget.onSelectRole,
+                              onCustomizeRole: widget.onCustomizeRole,
+                            ),
+                          ),
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: _OriginBottomLaunchBar.heightFor(context),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

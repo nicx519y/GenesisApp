@@ -610,6 +610,9 @@ void main() {
         ((((origins['list'] as List)[0] as Map)['info'] as Map)['origin_name']);
     final secondOriginName =
         ((((origins['list'] as List)[1] as Map)['info'] as Map)['origin_name']);
+    final secondOriginId =
+        ((((origins['list'] as List)[1] as Map)['info'] as Map)['origin_id'])
+            as String;
     expect(firstOriginName, isNot(secondOriginName));
     final laterOrigins = await api.v1.origin.list(pn: 2, rn: 10);
     final laterOrigin =
@@ -642,6 +645,9 @@ void main() {
       throwsA(isA<ApiException>().having((error) => error.code, 'code', 20101)),
     );
     final detail = await api.v1.origin.detail(oid: origin);
+    expect(detail['show_opening_sheet'], isTrue);
+    final secondDetail = await api.v1.origin.detail(originId: secondOriginId);
+    expect(secondDetail['show_opening_sheet'], isFalse);
     final detailInfo = detail['info'] as Map;
     expect(detailInfo['origin_id'], origin);
     expect(detailInfo['metric'], isA<Map>());

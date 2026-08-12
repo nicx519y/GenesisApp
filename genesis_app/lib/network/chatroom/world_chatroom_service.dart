@@ -554,6 +554,7 @@ class WorldChatroomService {
         joining: false,
         joinedLocationId: '',
         reconnecting: false,
+        waitingConversationRoundIdsByLocation: const <String, String>{},
       ),
     );
   }
@@ -783,6 +784,13 @@ class WorldChatroomService {
 
   Future<void> dispose() async {
     if (_disposed) return;
+    if (_state.waitingConversationRoundIdsByLocation.isNotEmpty) {
+      _setState(
+        _state.copyWith(
+          waitingConversationRoundIdsByLocation: const <String, String>{},
+        ),
+      );
+    }
     _disposed = true;
     final disposeFailure = const ChatroomFailureEvent(
       code: 'service_disposed',

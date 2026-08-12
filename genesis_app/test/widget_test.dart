@@ -526,6 +526,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.hotTagsCompleter,
     this.originDefinitionVersion = 1,
     this.worldDefinitionVersion = 1,
+    this.originShowOpeningSheet = false,
   });
 
   final requests = <TransportRequest>[];
@@ -565,6 +566,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Completer<TransportResponse>? hotTagsCompleter;
   final int originDefinitionVersion;
   final int worldDefinitionVersion;
+  final bool originShowOpeningSheet;
   int _worldDetailRequestIndex = 0;
   int _tickLockStatusRequestIndex = 0;
 
@@ -1072,6 +1074,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   Map<String, Object?> _originDetail(String oid) {
     final fallback = oid.isEmpty ? 'o_test_1' : oid;
     return {
+      'show_opening_sheet': originShowOpeningSheet,
       'info': {
         'origin_id': fallback,
         'origin_name': 'Origin detail $fallback',
@@ -5949,7 +5952,7 @@ void main() {
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
   });
 
-  testWidgets('origin detail sheet pauses Tilemap animations while raised', (
+  testWidgets('origin detail sheet only pauses Tilemap location image flow', (
     WidgetTester tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -5968,18 +5971,32 @@ void main() {
     await tester.pumpAndSettle();
 
     Tilemap currentTilemap() => tester.widget<Tilemap>(find.byType(Tilemap));
+    TickerMode currentTilemapTickerMode() => tester.widget<TickerMode>(
+      find
+          .descendant(
+            of: find.byType(Tilemap),
+            matching: find.byType(TickerMode),
+          )
+          .first,
+    );
     final sheet = find.byKey(
       const ValueKey<String>('origin-detail-sheet-surface'),
     );
     expect(currentTilemap().animationsPaused, isFalse);
+    expect(currentTilemap().locationImageFlowPaused, isFalse);
+    expect(currentTilemapTickerMode().enabled, isTrue);
 
     await tester.drag(sheet, const Offset(0, -500));
     await tester.pumpAndSettle();
-    expect(currentTilemap().animationsPaused, isTrue);
+    expect(currentTilemap().animationsPaused, isFalse);
+    expect(currentTilemap().locationImageFlowPaused, isTrue);
+    expect(currentTilemapTickerMode().enabled, isTrue);
 
     await tester.drag(sheet, const Offset(0, 700));
     await tester.pumpAndSettle();
     expect(currentTilemap().animationsPaused, isFalse);
+    expect(currentTilemap().locationImageFlowPaused, isFalse);
+    expect(currentTilemapTickerMode().enabled, isTrue);
   });
 
   testWidgets('origin detail sheet avoids live blur while scrolling', (
@@ -6570,6 +6587,395 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('Origin detail show_opening_sheet expands once per page entry', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport(originShowOpeningSheet: true);
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final draggableSheet = find.byType(DraggableScrollableSheet);
+    final sheetSurface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    final sheet = tester.widget<DraggableScrollableSheet>(draggableSheet);
+    final viewportHeight = tester.view.physicalSize.height;
+    expect(
+      tester.getTopLeft(sheetSurface).dy,
+      closeTo(viewportHeight * (1 - sheet.maxChildSize), 1),
+    );
+    expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(1));
+
+    await tester.drag(sheetSurface, const Offset(0, 900));
+    await tester.pumpAndSettle();
+    final collapsedTop = viewportHeight * (1 - sheet.minChildSize);
+    expect(tester.getTopLeft(sheetSurface).dy, closeTo(collapsedTop, 1));
+
+    final navigator = Navigator.of(
+      tester.element(find.byType(OriginWorldPage)),
+    );
+    unawaited(
+      navigator.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Covering page')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    navigator.pop();
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(1));
+    expect(tester.getTopLeft(sheetSurface).dy, closeTo(collapsedTop, 1));
+
+    final dynamic originPageState = tester.state(find.byType(OriginWorldPage));
+    originPageState.reassemble();
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(2));
+    expect(tester.getTopLeft(sheetSurface).dy, closeTo(collapsedTop, 1));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(3));
+    final reenteredSheet = tester.widget<DraggableScrollableSheet>(
+      draggableSheet,
+    );
+    expect(
+      tester.getTopLeft(sheetSurface).dy,
+      closeTo(viewportHeight * (1 - reenteredSheet.maxChildSize), 1),
+    );
+  });
+
+  testWidgets(
+    'Origin Tilemap waits until automatic opening sheet expansion finishes',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originShowOpeningSheet: true,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+
+      final sheetSurface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      final tombstone = find.byKey(
+        const ValueKey<String>('origin-opening-sheet-tombstone'),
+      );
+      for (
+        var frame = 0;
+        frame < 10 && sheetSurface.evaluate().isEmpty;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(sheetSurface, findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>('origin-opening-sheet-map-background'),
+        ),
+        findsOneWidget,
+      );
+      expect(tombstone, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+        findsNothing,
+      );
+      expect(find.byType(Tilemap), findsNothing);
+      expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
+
+      await tester.pump(const Duration(milliseconds: 130));
+
+      expect(find.byType(Tilemap), findsNothing);
+      expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
+
+      final sheet = tester.widget<DraggableScrollableSheet>(
+        find.byType(DraggableScrollableSheet),
+      );
+      final expandedTop = 780 * (1 - sheet.maxChildSize);
+      var paintedFullyExpandedTombstone = false;
+      for (var frame = 0; frame < 30; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final isFullyExpanded =
+            (tester.getTopLeft(sheetSurface).dy - expandedTop).abs() <= 1;
+        if (isFullyExpanded && tombstone.evaluate().isNotEmpty) {
+          paintedFullyExpandedTombstone = true;
+          break;
+        }
+      }
+
+      expect(paintedFullyExpandedTombstone, isTrue);
+      expect(tombstone, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+        findsNothing,
+      );
+      expect(find.byType(Tilemap), findsNothing);
+
+      await tester.pump();
+
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        closeTo(780 * (1 - sheet.maxChildSize), 1),
+      );
+      expect(tombstone, findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+        findsOneWidget,
+      );
+      expect(find.byType(Tilemap), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'Origin opening sheet interruption immediately reveals real content',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originShowOpeningSheet: true,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+
+      final sheetSurface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      final tombstone = find.byKey(
+        const ValueKey<String>('origin-opening-sheet-tombstone'),
+      );
+      for (
+        var frame = 0;
+        frame < 10 && sheetSurface.evaluate().isEmpty;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+      expect(tombstone, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+        findsNothing,
+      );
+      expect(find.byType(Tilemap), findsNothing);
+
+      final sheetContext = tester.element(sheetSurface);
+      ScrollStartNotification(
+        metrics: FixedScrollMetrics(
+          minScrollExtent: 0,
+          maxScrollExtent: 100,
+          pixels: 0,
+          viewportDimension: 100,
+          axisDirection: AxisDirection.down,
+          devicePixelRatio: 1,
+        ),
+        context: sheetContext,
+        dragDetails: DragStartDetails(),
+      ).dispatch(sheetContext);
+      await tester.pump();
+      await tester.pump();
+
+      expect(tombstone, findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+        findsOneWidget,
+      );
+      expect(find.byType(Tilemap), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'Origin opening sheet recovers when its ticker animation cannot advance',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originShowOpeningSheet: true,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: TickerMode(
+              enabled: false,
+              child: OriginWorldPage(oid: 'o_test_1', originId: 0),
+            ),
+          ),
+        ),
+      );
+
+      final sheetSurface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      for (
+        var frame = 0;
+        frame < 10 && sheetSurface.evaluate().isEmpty;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+      expect(sheetSurface, findsOneWidget);
+      expect(find.byType(Tilemap), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 300));
+      for (var frame = 0; frame < 3; frame += 1) {
+        await tester.pump();
+      }
+
+      final sheet = tester.widget<DraggableScrollableSheet>(
+        find.byType(DraggableScrollableSheet),
+      );
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        closeTo(780 * (1 - sheet.maxChildSize), 1),
+      );
+      expect(find.byType(Tilemap), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'Origin entry still expands when a newer detail request wins the race',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final originDetailCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        originDetailCompleter: originDetailCompleter,
+        originShowOpeningSheet: true,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+
+      expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(1));
+      final dynamic originPageState = tester.state(
+        find.byType(OriginWorldPage),
+      );
+      originPageState.reassemble();
+      await tester.pump();
+      expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(2));
+
+      originDetailCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._originDetail('o_test_1'),
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      final sheetSurface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      final sheet = tester.widget<DraggableScrollableSheet>(
+        find.byType(DraggableScrollableSheet),
+      );
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        closeTo(780 * (1 - sheet.maxChildSize), 1),
+      );
+    },
+  );
+
+  testWidgets('Origin detail auto expansion settles after viewport changes', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport(originShowOpeningSheet: true);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+
+    final sheetSurface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    for (
+      var frame = 0;
+      frame < 10 && sheetSurface.evaluate().isEmpty;
+      frame += 1
+    ) {
+      await tester.pump();
+    }
+    expect(sheetSurface, findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 80));
+
+    tester.view.physicalSize = const Size(360, 900);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final draggableSheet = tester.widget<DraggableScrollableSheet>(
+      find.byType(DraggableScrollableSheet),
+    );
+    expect(
+      tester.getTopLeft(sheetSurface).dy,
+      closeTo(900 * (1 - draggableSheet.maxChildSize), 1),
+    );
   });
 
   testWidgets('Origin detail sheet records each full expansion once', (

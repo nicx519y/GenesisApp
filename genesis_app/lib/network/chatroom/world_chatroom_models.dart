@@ -10,6 +10,7 @@ class WorldChatroomState {
     this.worldMessages = const <WorldChatroomMessage>[],
     this.messagesByLocation = const <String, List<WorldChatroomMessage>>{},
     this.streamMessagesByKey = const <String, WorldChatroomMessage>{},
+    this.waitingConversationRoundIdsByLocation = const <String, String>{},
     this.lastMessageId = 0,
     this.connected = false,
     this.joining = false,
@@ -34,6 +35,7 @@ class WorldChatroomState {
   final List<WorldChatroomMessage> worldMessages;
   final Map<String, List<WorldChatroomMessage>> messagesByLocation;
   final Map<String, WorldChatroomMessage> streamMessagesByKey;
+  final Map<String, String> waitingConversationRoundIdsByLocation;
   final int lastMessageId;
   final bool connected;
   final bool joining;
@@ -58,6 +60,7 @@ class WorldChatroomState {
     List<WorldChatroomMessage>? worldMessages,
     Map<String, List<WorldChatroomMessage>>? messagesByLocation,
     Map<String, WorldChatroomMessage>? streamMessagesByKey,
+    Map<String, String>? waitingConversationRoundIdsByLocation,
     int? lastMessageId,
     bool? connected,
     bool? joining,
@@ -83,6 +86,9 @@ class WorldChatroomState {
       worldMessages: worldMessages ?? this.worldMessages,
       messagesByLocation: messagesByLocation ?? this.messagesByLocation,
       streamMessagesByKey: streamMessagesByKey ?? this.streamMessagesByKey,
+      waitingConversationRoundIdsByLocation:
+          waitingConversationRoundIdsByLocation ??
+          this.waitingConversationRoundIdsByLocation,
       lastMessageId: lastMessageId ?? this.lastMessageId,
       connected: connected ?? this.connected,
       joining: joining ?? this.joining,
