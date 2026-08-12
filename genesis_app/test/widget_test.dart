@@ -11360,9 +11360,12 @@ void main() {
       expect(find.text('Empty Hall'), findsOneWidget);
       expect(find.text('Hidden L1'), findsNothing);
       expect(find.text('Hidden L2'), findsNothing);
-      expect(find.text('Mira'), findsOneWidget);
       final locationOption = find.byKey(
         const ValueKey<String>('opening-location-option-location_opening_1'),
+      );
+      expect(
+        find.descendant(of: locationOption, matching: find.text('Mira')),
+        findsOneWidget,
       );
       expect(
         find.descendant(
@@ -11447,7 +11450,7 @@ void main() {
                   find.byKey(const ValueKey<String>('opening-dialogue-title')),
                 )
                 .dy,
-        closeTo(20, 0.01),
+        closeTo(16, 0.01),
       );
       final characterAddButton = find.byKey(
         const ValueKey<String>('opening-add-character-char_opening_1'),
@@ -12661,6 +12664,7 @@ void main() {
             name: 'Tff',
             identity: 'Guide',
             personality: 'Calm',
+            isRecommend: 1,
           ),
         ],
         locations: <LocationDraft>[
@@ -12705,6 +12709,49 @@ void main() {
     expect(find.textContaining('World Logic:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
     expect(find.text('1 characters: Tff'), findsOneWidget);
+    expect(find.text('Best role: Tff'), findsOneWidget);
+    final charactersTitle = find.text('Characters (>=1)');
+    final charactersCompleted = find.byKey(
+      const ValueKey<String>('section-completed-Characters (>=1)'),
+    );
+    final charactersChevron = find.byKey(
+      const ValueKey<String>('section-chevron-Characters (>=1)'),
+    );
+    expect(
+      tester.getTopRight(charactersChevron).dx,
+      closeTo(
+        tester
+            .getTopRight(
+              find.byKey(
+                const ValueKey<String>('section-content-Characters (>=1)'),
+              ),
+            )
+            .dx,
+        0.01,
+      ),
+    );
+    expect(
+      tester.getTopLeft(charactersCompleted).dx -
+          tester.getTopRight(charactersTitle).dx,
+      closeTo(6, 0.01),
+    );
+    expect(
+      tester.getTopRight(find.text('1 characters: Tff')).dx,
+      greaterThan(tester.getTopLeft(charactersChevron).dx),
+    );
+    final bestRoleSummary = tester.widget<Text>(
+      find.byKey(
+        const ValueKey<String>('section-summary-line-Characters (>=1)-1'),
+      ),
+    );
+    final bestRoleSpans = (bestRoleSummary.textSpan! as TextSpan).children!;
+    expect((bestRoleSpans.first as TextSpan).text, 'Best role:');
+    expect(
+      (bestRoleSpans.first as TextSpan).style?.color,
+      const Color(0xFF999999),
+    );
+    expect((bestRoleSpans.last as TextSpan).text, ' Tff');
+    expect(bestRoleSummary.style?.color, const Color(0xFF444444));
     expect(find.text('L1 · Region : 1'), findsOneWidget);
     expect(find.text('L2 · Building : 1'), findsOneWidget);
     expect(find.text('L3 · Room : 1'), findsOneWidget);
@@ -12713,7 +12760,51 @@ void main() {
     expect(find.text('Narrator : 1'), findsOneWidget);
     expect(find.text('Image : 0'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
+    await tester.drag(find.byType(ListView), const Offset(0, -240));
+    await tester.pump();
     expect(find.text('2 events'), findsOneWidget);
+  });
+
+  testWidgets('characters summary hides Best role when none is selected', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const characterName =
+        'Optional Character With A Name That Must Wrap Completely';
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[
+          CharacterDraft(
+            charId: 'char_optional_best_role',
+            name: characterName,
+            identity: 'Guide',
+            personality: 'Calm',
+          ),
+        ],
+        locations: <LocationDraft>[],
+        storyEvents: <StoryEventDraft>[],
+        basicsSaved: false,
+        charactersSaved: true,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
+    await tester.pumpAndSettle();
+
+    final characterSummary = find.text('1 characters: $characterName');
+    expect(characterSummary, findsOneWidget);
+    final summaryText = tester.widget<Text>(characterSummary);
+    expect(summaryText.maxLines, isNull);
+    expect(summaryText.softWrap, isTrue);
+    expect(summaryText.overflow, isNull);
+    expect(tester.getSize(characterSummary).height, greaterThan(20));
+    expect(find.textContaining('Best role:'), findsNothing);
   });
 
   testWidgets('create origin back action can discard the local draft', (

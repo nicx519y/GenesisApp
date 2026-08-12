@@ -11,6 +11,7 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_selection_mark.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
@@ -22,6 +23,7 @@ import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.d
 import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
+import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/platform/platform_services.dart';
 
@@ -234,6 +236,171 @@ void main() {
       expect(saved.characters.map((item) => item.isRecommend).toList(), [0, 1]);
     },
   );
+
+  testWidgets('opening best role selection syncs to characters', (
+    tester,
+  ) async {
+    final services = await _editTestServices(_EditOriginTransport());
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[
+          CharacterDraft(
+            charId: 'char_ari',
+            name: 'Ari',
+            identity: 'Guide',
+            personality: 'Calm',
+            isRecommend: 1,
+          ),
+          CharacterDraft(
+            charId: 'char_bex',
+            name: 'Bex',
+            identity: 'Scout',
+            personality: 'Bold',
+          ),
+        ],
+        locations: <LocationDraft>[
+          LocationDraft(locationId: 'loc_hall', level: 3, name: 'Hall'),
+        ],
+        storyEvents: <StoryEventDraft>[],
+        basicsSaved: false,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: OriginOpeningEditorPage(repository: repository),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Best role'), findsOneWidget);
+    final ariMark = find.byKey(
+      const ValueKey<String>('opening-best-role-mark-char_ari'),
+    );
+    final bexMark = find.byKey(
+      const ValueKey<String>('opening-best-role-mark-char_bex'),
+    );
+    expect(ariMark, findsOneWidget);
+    expect(bexMark, findsNothing);
+    expect(
+      find.descendant(of: ariMark, matching: find.byIcon(Icons.star_rounded)),
+      findsOneWidget,
+    );
+    final ariAvatar = find.byKey(
+      const ValueKey<String>('opening-best-role-avatar-char_ari'),
+    );
+    expect(tester.widget<GenesisCharacterAvatar>(ariAvatar).size, 82);
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(
+                const ValueKey<String>('opening-best-role-char_ari'),
+              ),
+              matching: find.text('Ari'),
+            ),
+          )
+          .style
+          ?.fontSize,
+      12,
+    );
+    expect(
+      tester.getTopLeft(ariMark).dx,
+      closeTo(tester.getTopLeft(ariAvatar).dx + 4, 0.01),
+    );
+    expect(
+      tester.getBottomLeft(ariMark).dy,
+      closeTo(tester.getBottomLeft(ariAvatar).dy - 4, 0.01),
+    );
+    final selectedCard = tester.widget<SizedBox>(
+      find.byKey(const ValueKey<String>('opening-best-role-card-char_ari')),
+    );
+    expect(selectedCard.width, 104);
+    expect(selectedCard.height, 116);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('opening-best-role-char_bex')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(ariMark, findsNothing);
+    expect(bexMark, findsOneWidget);
+
+    final saved = await repository.loadDraft();
+    expect(saved.characters.map((item) => item.isRecommend).toList(), [0, 1]);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(home: EditCharactersPage(repository: repository)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<OriginRoleSelectionMark>(
+            find.byKey(
+              const ValueKey<String>('origin-character-recommended-char_ari'),
+            ),
+          )
+          .selected,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<OriginRoleSelectionMark>(
+            find.byKey(
+              const ValueKey<String>('origin-character-recommended-char_bex'),
+            ),
+          )
+          .selected,
+      isTrue,
+    );
+  });
+
+  testWidgets('opening best role change marks Characters as modified', (
+    tester,
+  ) async {
+    final transport = _EditOriginTransport();
+    final services = await _editTestServices(transport);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: EditOriginPage(originId: 'o_edit_v2')),
+      ),
+    );
+    await _waitForRequest(tester, transport, '/api/v2/origin/foredit');
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -180));
+    await tester.pump();
+    await tester.tap(find.text('Opening'));
+    await tester.pumpAndSettle();
+    final bestRole = find.byKey(
+      const ValueKey<String>('opening-best-role-char_mira'),
+    );
+    await tester.ensureVisible(bestRole);
+    await tester.pumpAndSettle();
+    await tester.tap(bestRole);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('section-modified-Characters (>=1)')),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 11));
+  });
 }
 
 Future<void> _waitForRequest(

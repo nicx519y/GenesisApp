@@ -11,6 +11,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/origin/origin_character_form.dart';
+import '../../components/origin/origin_role_recommendation.dart';
 import '../../components/origin/origin_role_selection_mark.dart';
 import '../../components/page_header.dart';
 import '../../components/world_location_list.dart';
@@ -263,15 +264,12 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   }
 
   Future<void> _openSection(Widget page) async {
-    final changed = await Navigator.of(
+    await Navigator.of(
       context,
     ).push<bool>(MaterialPageRoute<bool>(builder: (_) => page));
-    if (mounted) {
-      _clearInputFocus();
-    }
-    if (changed == true) {
-      await _reloadDraft();
-    }
+    if (!mounted) return;
+    _clearInputFocus();
+    await _reloadDraft();
   }
 
   void _clearInputFocus() {
@@ -532,7 +530,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   summary: _charactersSummary(_draft),
                                   completed: _draft.charactersSaved,
                                   modified: _charactersModified(_draft),
-                                  summaryWrap: true,
+                                  wrapFirstSummaryLine: true,
                                   onTap: () => _openSection(
                                     widget.charactersPageBuilder(
                                       widget.repository,
@@ -689,12 +687,20 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final characters = draft.characters
         .where(_characterDraftHasContent)
         .toList(growable: false);
-    if (characters.isEmpty) return '0 characters';
     final names = characters
         .map((item) => _singleLineSummaryText(item.name))
         .where((name) => name.isNotEmpty)
         .join(', ');
-    return '${characters.length} characters: $names';
+    final bestRoleName = characters
+        .where((item) => item.isRecommended)
+        .map((item) => _singleLineSummaryText(item.name))
+        .where((name) => name.isNotEmpty)
+        .firstOrNull;
+    final characterSummary = characters.isEmpty
+        ? '0 characters'
+        : '${characters.length} characters: $names';
+    if (bestRoleName == null) return characterSummary;
+    return '$characterSummary\nBest role: $bestRoleName';
   }
 
   String _locationsSummary(CreateOriginDraft draft) {

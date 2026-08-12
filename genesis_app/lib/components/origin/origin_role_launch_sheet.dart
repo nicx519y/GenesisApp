@@ -690,7 +690,7 @@ class _PresetRoleTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 height: 1.1,
                 fontWeight: FontWeight.w400,
                 color: Color(0xFF111111),
@@ -807,7 +807,7 @@ class _LaunchedPresetRoleTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, height: 1.1),
+              style: const TextStyle(fontSize: 12, height: 1.1),
             ),
             const SizedBox(height: 2),
             Text(
