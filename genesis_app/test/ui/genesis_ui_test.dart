@@ -31,6 +31,41 @@ void main() {
     expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, isNull);
   });
 
+  test('GenesisTheme disables Material state effects', () {
+    final theme = GenesisTheme.light();
+    const pressed = <WidgetState>{WidgetState.pressed};
+    expect(theme.splashFactory, NoSplash.splashFactory);
+    expect(theme.splashColor, Colors.transparent);
+    expect(theme.highlightColor, Colors.transparent);
+    expect(theme.hoverColor, Colors.transparent);
+    expect(theme.focusColor, Colors.transparent);
+    for (final style in <ButtonStyle?>[
+      theme.filledButtonTheme.style,
+      theme.textButtonTheme.style,
+      theme.outlinedButtonTheme.style,
+      theme.elevatedButtonTheme.style,
+      theme.iconButtonTheme.style,
+    ]) {
+      expect(style?.splashFactory, NoSplash.splashFactory);
+      expect(style?.overlayColor?.resolve(pressed), Colors.transparent);
+    }
+    expect(
+      theme.checkboxTheme.overlayColor?.resolve(pressed),
+      Colors.transparent,
+    );
+    expect(theme.radioTheme.overlayColor?.resolve(pressed), Colors.transparent);
+    expect(
+      theme.switchTheme.overlayColor?.resolve(pressed),
+      Colors.transparent,
+    );
+    expect(theme.floatingActionButtonTheme.splashColor, Colors.transparent);
+    expect(theme.tabBarTheme.splashFactory, NoSplash.splashFactory);
+    expect(
+      theme.tabBarTheme.overlayColor?.resolve(pressed),
+      Colors.transparent,
+    );
+  });
+
   test('GenesisTypography keeps text styles on the system font path', () {
     for (final style in <TextStyle>[
       GenesisTypography.pageTitle,
