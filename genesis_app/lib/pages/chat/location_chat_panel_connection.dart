@@ -8,9 +8,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _service = null;
     _sending = false;
     _joinedLocation = false;
-    _awaitingAiResponse = false;
-    _awaitingAiResponseClientMsgId = '';
-    _awaitingAiResponseRoundId = '';
 
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
@@ -207,9 +204,6 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
 
   Future<void> _deactivateConnection() async {
     _sending = false;
-    _awaitingAiResponse = false;
-    _awaitingAiResponseClientMsgId = '';
-    _awaitingAiResponseRoundId = '';
     final wasJoinedLocation = _joinedLocation;
     _joinedLocation = false;
     _joiningLocation = false;
@@ -583,50 +577,21 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final tickProgressResolved = _resolveTickProgressMessageIfAvailable();
     final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);
     final olderLoadRendered = _olderLoadHasRenderedNewMessages();
-    if (_awaitingAiResponse && _awaitingAiResponseRoundId.trim().isEmpty) {
-      final awaitedClientMsgId = _awaitingAiResponseClientMsgId.trim();
-      if (awaitedClientMsgId.isNotEmpty) {
-        for (final message in nextSource.reversed) {
-          if (message.clientMsgId.trim() != awaitedClientMsgId ||
-              !message.isCanonicalUserMessage) {
-            continue;
-          }
-          _awaitingAiResponseRoundId = message.conversationRoundId.trim();
-          break;
-        }
-      }
-    }
-    final nextAwaitingAiResponse = locationChatShouldAwaitAiResponseForTesting(
-      connected: state.connected,
-      awaiting: _awaitingAiResponse,
-      hasCompletedResponse: _hasCompletedAwaitedAiResponse(nextSource),
-    );
     final shouldRebuild =
         changedMessages ||
         changedHasMoreOlder ||
         olderLoadRendered ||
         tickProgressStarted ||
         tickProgressResolved ||
-        _hasVisibleChatroomStateChange(_chatroomState, state) ||
-        nextAwaitingAiResponse != _awaitingAiResponse;
+        _hasVisibleChatroomStateChange(_chatroomState, state);
     if (shouldRebuild) {
       _setLocationChatState(() {
         _chatroomState = state;
         if (olderLoadRendered) _finishOlderMessagesLoading();
-        _awaitingAiResponse = nextAwaitingAiResponse;
-        if (!nextAwaitingAiResponse) {
-          _awaitingAiResponseClientMsgId = '';
-          _awaitingAiResponseRoundId = '';
-        }
       });
     } else {
       _chatroomState = state;
       if (olderLoadRendered) _finishOlderMessagesLoading();
-      _awaitingAiResponse = nextAwaitingAiResponse;
-      if (!nextAwaitingAiResponse) {
-        _awaitingAiResponseClientMsgId = '';
-        _awaitingAiResponseRoundId = '';
-      }
     }
     if (olderLoadRendered) _runDeferredVisibleMessageGapFillIfNeeded();
     _logPanelMetric(
@@ -681,8 +646,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         previous.connected != next.connected ||
         previous.reconnecting != next.reconnecting ||
         previous.inputBlocked != next.inputBlocked ||
-        previous.waitingConversationRoundIdsByLocation[widget.locationId] !=
-            next.waitingConversationRoundIdsByLocation[widget.locationId]) {
+        previous.conversationRoundStatesByLocation[widget.locationId] !=
+            next.conversationRoundStatesByLocation[widget.locationId]) {
       return true;
     }
     return !_sameCurrentLocationEntities(previous, next);
@@ -772,7 +737,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       hasMoreOlderMessages: _hasMoreOlderMessages,
       loadingOlderMessages: _loadingOlderMessages,
       unseenIncomingCount: _unseenIncomingCount,
-      awaitingAiResponse: _awaitingAiResponse,
+      awaitingAiResponse: _sendAwaitingResponse,
       scroll: {
         'hasClients': hasClients,
         'pixels': hasClients ? _scrollController.position.pixels : 0,
@@ -788,13 +753,4 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       },
     );
   }
-}
-
-@visibleForTesting
-bool locationChatShouldAwaitAiResponseForTesting({
-  required bool connected,
-  required bool awaiting,
-  required bool hasCompletedResponse,
-}) {
-  return connected && awaiting && !hasCompletedResponse;
 }

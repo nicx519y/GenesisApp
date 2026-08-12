@@ -289,7 +289,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _joiningLocation = false;
   bool _sending = false;
   bool _handlingUnauthorizedFailure = false;
-  bool _awaitingAiResponse = false;
   bool _hasDraftText = false;
   bool _loadingOlderMessages = false;
   Timer? _olderMessagesLoadIdleTimer;
@@ -301,8 +300,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   Future<void>? _initialLatestMessagesRefresh;
   int _unseenIncomingCount = 0;
   int _clientMsgCounter = 0;
-  String _awaitingAiResponseClientMsgId = '';
-  String _awaitingAiResponseRoundId = '';
   final Set<String> _messageGapFillKeys = <String>{};
   final Set<int> _messageGapFillBeforeLocationMessageIds = <int>{};
   final Map<String, int> _messageGapFillAttempts = <String, int>{};
@@ -326,15 +323,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   final Map<String, String> _tickProgressLayoutIdByMessageLocalId =
       <String, String>{};
 
-  String get _serverWaitingConversationRoundId {
+  bool get _sendAwaitingResponse {
     final state = _service?.state ?? _chatroomState;
-    return state.waitingConversationRoundIdsByLocation[widget.locationId]
-            ?.trim() ??
-        '';
+    return state.conversationRoundStatesByLocation.containsKey(
+      widget.locationId,
+    );
   }
-
-  bool get _sendAwaitingResponse =>
-      _awaitingAiResponse || _serverWaitingConversationRoundId.isNotEmpty;
 
   void _setLocationChatState(VoidCallback callback) {
     setState(callback);

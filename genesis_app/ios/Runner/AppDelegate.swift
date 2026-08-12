@@ -18,6 +18,7 @@ import UniformTypeIdentifiers
   private let gatewayKeyTag = "com.worldo.ai.gateway-device-key.v1".data(using: .utf8)!
   private let prefs = UserDefaults.standard
   private var pendingDiscussImagePickerResult: FlutterResult?
+  private var pendingDiscussImagePickerNormalizeForUpload = false
   private var httpProtocolProbes: [UUID: GenesisHttpProtocolProbe] = [:]
 
   override func application(
@@ -229,14 +230,23 @@ import UniformTypeIdentifiers
       case "pickImages":
         let args = call.arguments as? [String: Any]
         let limit = max(1, args?["limit"] as? Int ?? 6)
-        self.pickDiscussImages(limit: limit, result: result)
+        let normalizeForUpload = args?["normalizeForUpload"] as? Bool ?? false
+        self.pickDiscussImages(
+          limit: limit,
+          normalizeForUpload: normalizeForUpload,
+          result: result
+        )
       default:
         result(FlutterMethodNotImplemented)
       }
     }
   }
 
-  private func pickDiscussImages(limit: Int, result: @escaping FlutterResult) {
+  private func pickDiscussImages(
+    limit: Int,
+    normalizeForUpload: Bool,
+    result: @escaping FlutterResult
+  ) {
     guard #available(iOS 14, *) else {
       result(FlutterError(code: "unsupported_ios", message: "PHPicker requires iOS 14 or later.", details: nil))
       return
@@ -251,6 +261,7 @@ import UniformTypeIdentifiers
     }
 
     pendingDiscussImagePickerResult = result
+    pendingDiscussImagePickerNormalizeForUpload = normalizeForUpload
 
     var config = PHPickerConfiguration(photoLibrary: .shared())
     config.filter = .images
@@ -268,7 +279,9 @@ import UniformTypeIdentifiers
     guard let result = pendingDiscussImagePickerResult else {
       return
     }
+    let normalizeForUpload = pendingDiscussImagePickerNormalizeForUpload
     pendingDiscussImagePickerResult = nil
+    pendingDiscussImagePickerNormalizeForUpload = false
 
     guard !results.isEmpty else {
       result([])
@@ -282,7 +295,10 @@ import UniformTypeIdentifiers
 
     for (index, item) in results.enumerated() {
       group.enter()
-      saveDiscussPickedImage(item.itemProvider) { path, error in
+      saveDiscussPickedImage(
+        item.itemProvider,
+        normalizeForUpload: normalizeForUpload
+      ) { path, error in
         lock.lock()
         if let path = path {
           paths[index] = path
@@ -308,16 +324,29 @@ import UniformTypeIdentifiers
   @available(iOS 14, *)
   private func saveDiscussPickedImage(
     _ provider: NSItemProvider,
+    normalizeForUpload: Bool,
     completion: @escaping (String?, String?) -> Void
   ) {
-    loadDiscussUIImageRepresentation(provider) { [weak self] path, error in
+    if normalizeForUpload,
+       provider.hasItemConformingToTypeIdentifier(UTType.gif.identifier) {
+      completion(nil, "GIF images are not supported.")
+      return
+    }
+
+    loadDiscussUIImageRepresentation(
+      provider,
+      normalizeForUpload: normalizeForUpload
+    ) { [weak self] path, error in
       if let path = path {
         completion(path, nil)
         return
       }
 
       NSLog("Discuss UIImage representation failed: \(error ?? "unknown error")")
-      self?.loadDiscussImageDataRepresentation(provider) { dataPath, dataError in
+      self?.loadDiscussImageDataRepresentation(
+        provider,
+        normalizeForUpload: normalizeForUpload
+      ) { dataPath, dataError in
         if let dataPath = dataPath {
           completion(dataPath, nil)
         } else {
@@ -330,6 +359,7 @@ import UniformTypeIdentifiers
   @available(iOS 14, *)
   private func loadDiscussImageDataRepresentation(
     _ provider: NSItemProvider,
+    normalizeForUpload: Bool,
     completion: @escaping (String?, String?) -> Void
   ) {
     var remaining = provider.registeredTypeIdentifiers.filter { identifier in
@@ -349,7 +379,10 @@ import UniformTypeIdentifiers
       provider.loadDataRepresentation(forTypeIdentifier: identifier) { [weak self] data, error in
         if let data = data,
            let image = UIImage(data: data),
-           let path = self?.writeDiscussJPEGImage(image) {
+           let path = self?.writeDiscussImage(
+             image,
+             normalizeForUpload: normalizeForUpload
+           ) {
           completion(path, nil)
         } else {
           let message = error?.localizedDescription ?? "Cannot load data representation of type \(identifier)."
@@ -364,6 +397,7 @@ import UniformTypeIdentifiers
 
   private func loadDiscussUIImageRepresentation(
     _ provider: NSItemProvider,
+    normalizeForUpload: Bool,
     completion: @escaping (String?, String?) -> Void
   ) {
     guard provider.canLoadObject(ofClass: UIImage.self) else {
@@ -373,7 +407,10 @@ import UniformTypeIdentifiers
 
     provider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
       guard let image = object as? UIImage,
-            let path = self?.writeDiscussJPEGImage(image) else {
+            let path = self?.writeDiscussImage(
+              image,
+              normalizeForUpload: normalizeForUpload
+            ) else {
         completion(nil, error?.localizedDescription ?? "Cannot load UIImage representation.")
         return
       }
@@ -381,11 +418,130 @@ import UniformTypeIdentifiers
     }
   }
 
+  private func writeDiscussImage(
+    _ image: UIImage,
+    normalizeForUpload: Bool
+  ) -> String? {
+    if normalizeForUpload {
+      return writeNormalizedDiscussImage(image)
+    }
+    return writeDiscussJPEGImage(image)
+  }
+
   private func writeDiscussJPEGImage(_ image: UIImage) -> String? {
     guard let data = image.jpegData(compressionQuality: 0.92) else {
       return nil
     }
     return writeDiscussImageData(data, extension: "jpg")
+  }
+
+  private func writeNormalizedDiscussImage(_ image: UIImage) -> String? {
+    guard let normalized = normalizedDiscussImage(image),
+          let cgImage = normalized.cgImage else {
+      return nil
+    }
+    if discussImageHasTransparentPixels(cgImage) {
+      guard let data = normalized.pngData() else {
+        return nil
+      }
+      return writeDiscussImageData(data, extension: "png")
+    }
+    guard let data = normalized.jpegData(compressionQuality: 0.90) else {
+      return nil
+    }
+    return writeDiscussImageData(data, extension: "jpg")
+  }
+
+  private func normalizedDiscussImage(_ image: UIImage) -> UIImage? {
+    let width = max(1, Int((image.size.width * image.scale).rounded()))
+    let height = max(1, Int((image.size.height * image.scale).rounded()))
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    format.opaque = false
+    let renderer = UIGraphicsImageRenderer(
+      size: CGSize(width: CGFloat(width), height: CGFloat(height)),
+      format: format
+    )
+    return renderer.image { _ in
+      image.draw(
+        in: CGRect(
+          x: 0,
+          y: 0,
+          width: CGFloat(width),
+          height: CGFloat(height)
+        )
+      )
+    }
+  }
+
+  private func discussImageHasTransparentPixels(_ image: CGImage) -> Bool {
+    switch image.alphaInfo {
+    case .none, .noneSkipFirst, .noneSkipLast:
+      return false
+    default:
+      break
+    }
+
+    let width = image.width
+    let height = image.height
+    guard width > 0, height > 0 else {
+      return false
+    }
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    let bitmapInfo = CGBitmapInfo.byteOrder32Big.rawValue
+      | CGImageAlphaInfo.premultipliedLast.rawValue
+    let rowsPerChunk = 64
+
+    var startY = 0
+    while startY < height {
+      let chunkHeight = min(rowsPerChunk, height - startY)
+      guard let chunk = image.cropping(
+        to: CGRect(
+          x: 0,
+          y: CGFloat(startY),
+          width: CGFloat(width),
+          height: CGFloat(chunkHeight)
+        )
+      ) else {
+        return true
+      }
+      var pixels = [UInt8](repeating: 0, count: width * chunkHeight * 4)
+      let rendered = pixels.withUnsafeMutableBytes { buffer -> Bool in
+        guard let context = CGContext(
+          data: buffer.baseAddress,
+          width: width,
+          height: chunkHeight,
+          bitsPerComponent: 8,
+          bytesPerRow: width * 4,
+          space: colorSpace,
+          bitmapInfo: bitmapInfo
+        ) else {
+          return false
+        }
+        context.draw(
+          chunk,
+          in: CGRect(
+            x: 0,
+            y: 0,
+            width: CGFloat(width),
+            height: CGFloat(chunkHeight)
+          )
+        )
+        return true
+      }
+      if !rendered {
+        return true
+      }
+      var alphaIndex = 3
+      while alphaIndex < pixels.count {
+        if pixels[alphaIndex] < 255 {
+          return true
+        }
+        alphaIndex += 4
+      }
+      startY += chunkHeight
+    }
+    return false
   }
 
   private func writeDiscussImageData(_ data: Data, extension fileExtension: String) -> String? {

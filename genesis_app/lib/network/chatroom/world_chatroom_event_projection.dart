@@ -52,6 +52,8 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         );
       case ChatroomWaitingConversationRound e:
         _handleWaitingConversationRound(e);
+      case ChatroomEndConversationRound e:
+        _handleEndConversationRound(e);
       case ChatroomJoined():
       case ChatroomDisconnected():
         break;
@@ -69,17 +71,17 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
 
   void _handleWaitingConversationRound(ChatroomWaitingConversationRound event) {
     if (!event.ok) return;
-    final locationId = event.locationId.trim();
-    final conversationRoundId = event.conversationRoundId.trim();
-    if (locationId.isEmpty || conversationRoundId.isEmpty) return;
-    final current = _state.waitingConversationRoundIdsByLocation;
-    if (current[locationId] == conversationRoundId) return;
-    _setState(
-      _state.copyWith(
-        waitingConversationRoundIdsByLocation: Map<String, String>.unmodifiable(
-          <String, String>{...current, locationId: conversationRoundId},
-        ),
-      ),
+    _bindWaitingConversationRound(
+      locationId: event.locationId,
+      conversationRoundId: event.conversationRoundId,
+    );
+  }
+
+  void _handleEndConversationRound(ChatroomEndConversationRound event) {
+    if (!event.ok) return;
+    _completeConversationRound(
+      locationId: event.locationId,
+      conversationRoundId: event.conversationRoundId,
     );
   }
 
