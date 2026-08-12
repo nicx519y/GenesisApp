@@ -33,6 +33,9 @@ pubspec.lock
 .pub/
 /build/
 /coverage/
+.gradle-local/
+flutter_*.png
+devtools_options.yaml
 
 # Symbolication related
 app.*.symbols
