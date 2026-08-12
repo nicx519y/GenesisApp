@@ -40,13 +40,12 @@ import 'world_bottom_sheet.dart';
 import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_location_chat_host.dart';
+import 'world_detail_map_activity_locations.dart';
 import 'world_map_bubble_candidates.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_page_result.dart';
-import 'world_recent_chat_location.dart';
 import 'world_sections.dart';
-import 'world_tick_event_locations.dart';
 import 'world_value_helpers.dart';
 
 part 'world_page_tabs.dart';
@@ -157,7 +156,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   var _currentUidRequested = false;
   Set<String> _recentChatLocationIds = const <String>{};
   Set<String> _recentChatLocationPathIds = const <String>{};
-  Set<String> _currentTickEventLocationIds = const <String>{};
   Set<String> _currentTickEventLocationPathIds = const <String>{};
   var _locationChatDescriptorSignature = '';
   late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =

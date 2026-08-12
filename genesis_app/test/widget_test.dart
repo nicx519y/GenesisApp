@@ -19526,6 +19526,63 @@ void main() {
     expect(transport.requestsFor('/api/v1/world/map'), isEmpty);
   });
 
+  testWidgets(
+    'world map activity paths come directly from world detail L3 fields',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'anonymous',
+        worldDefinitionVersion: 1,
+        worldLastChatLocationId: 'loc_l3',
+        worldLocations: const <Map<String, Object?>>[
+          {
+            'location_id': 'loc_l1',
+            'location_pid': '',
+            'location_name': 'L1',
+            'location_paragraph': '',
+            'x_percent': 30,
+            'y_percent': 30,
+          },
+          {
+            'location_id': 'loc_l2',
+            'location_pid': 'loc_l1',
+            'location_name': 'L2',
+            'location_paragraph': '',
+            'x_percent': 40,
+            'y_percent': 40,
+          },
+          {
+            'location_id': 'loc_l3',
+            'location_pid': 'loc_l2',
+            'location_name': 'L3',
+            'location_paragraph': 'Current Tick event.',
+            'x_percent': 50,
+            'y_percent': 50,
+          },
+        ],
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      expect(worldMap.legacy.recentChatMapLocationIds, const <String>{
+        'loc_l1',
+        'loc_l2',
+        'loc_l3',
+      });
+      expect(worldMap.legacy.eventMapLocationIds, const <String>{
+        'loc_l1',
+        'loc_l2',
+        'loc_l3',
+      });
+    },
+  );
+
   testWidgets('world page loading map does not show fallback background', (
     WidgetTester tester,
   ) async {

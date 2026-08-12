@@ -426,7 +426,7 @@ void main() {
     expect(chatroom, contains('_deferredBottomSheetMapChatroomState = state'));
     expect(chatroom, contains('if (deferMapVisuals)'));
     expect(chatroom, contains('_sameMapBubbleCandidates('));
-    expect(chatroom, contains('_sameRecentChatLocationSelection('));
+    expect(chatroom, isNot(contains('_sameRecentChatLocationSelection(')));
     expect(sheets, contains('_applyDeferredBottomSheetMapChatroomState();'));
   });
 

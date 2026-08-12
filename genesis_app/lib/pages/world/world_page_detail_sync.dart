@@ -48,6 +48,7 @@ extension _WorldPageDetailSync on _WorldPageState {
       _sectionsWorldNotifier.value = world;
       if (clearInitialLoadError) _initialLoadError = null;
       _syncLocationChatDescriptors(world);
+      _applyWorldDetailMapActivityLocations(world);
       _replaceMapBubbleCandidates(
         _buildMapBubbleCandidates(_worldChatroom?.state, world),
       );
@@ -60,6 +61,32 @@ extension _WorldPageDetailSync on _WorldPageState {
     } else if (_worldTickInProgress) {
       _markWorldTickIdle();
     }
+  }
+
+  void _applyWorldDetailMapActivityLocations(WorldDetail world) {
+    final recentLocationId = world.lastChatLocationId.trim();
+    _recentChatLocationIds = recentLocationId.isEmpty
+        ? const <String>{}
+        : Set<String>.unmodifiable(<String>{recentLocationId});
+    _recentChatLocationPathIds = recentLocationId.isEmpty
+        ? const <String>{}
+        : Set<String>.unmodifiable(
+            _locationPathIdsForLocationId(
+              recentLocationId,
+              world.processedLocationTree,
+            ),
+          );
+
+    final eventLocationIds = worldDetailEventLocationIds(world.locations);
+    final eventLocationPathIds = <String>{};
+    for (final locationId in eventLocationIds) {
+      eventLocationPathIds.addAll(
+        _locationPathIdsForLocationId(locationId, world.processedLocationTree),
+      );
+    }
+    _currentTickEventLocationPathIds = Set<String>.unmodifiable(
+      eventLocationPathIds,
+    );
   }
 
   List<GenesisGenerationWaitAvatar> _progressWaitAvatarsFromWorld(

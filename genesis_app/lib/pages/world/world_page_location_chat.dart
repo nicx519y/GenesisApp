@@ -339,21 +339,27 @@ extension _WorldPageLocationChat on _WorldPageState {
       (locationId, _) => !descriptors.containsKey(locationId),
     );
     _mapBubbleMessagesReady = false;
-    _recentChatLocationIds = const <String>{};
-    _recentChatLocationPathIds = const <String>{};
-    _currentTickEventLocationIds = const <String>{};
-    _currentTickEventLocationPathIds = const <String>{};
     _scheduleLocationChatPrecache();
   }
 
   bool _shouldApplyChatroomWorldSnapshot(WorldDetail nextWorld) {
     final currentWorld = _world;
     if (currentWorld == null) return true;
+    if (identical(currentWorld, nextWorld)) return false;
     if (currentWorld.worldId != nextWorld.worldId) return true;
     if (currentWorld.relationStatus != nextWorld.relationStatus) return true;
     if (currentWorld.tickCount != nextWorld.tickCount) return true;
     if (currentWorld.subTickNo != nextWorld.subTickNo) return true;
     if (currentWorld.currentTime != nextWorld.currentTime) return true;
+    if (currentWorld.lastChatLocationId != nextWorld.lastChatLocationId) {
+      return true;
+    }
+    if (!setEquals(
+      worldDetailEventLocationIds(currentWorld.locations),
+      worldDetailEventLocationIds(nextWorld.locations),
+    )) {
+      return true;
+    }
     if (currentWorld.isProgressing != nextWorld.isProgressing) return true;
     if (_worldPositionsSignature(currentWorld) !=
         _worldPositionsSignature(nextWorld)) {
@@ -533,8 +539,6 @@ extension _WorldPageLocationChat on _WorldPageState {
         _replaceMapBubbleCandidates(
           _buildMapBubbleCandidates(chatroom.state, _world),
         );
-        _applyRecentChatLocationSelection(chatroom.state, _world);
-        _applyCurrentTickEventSelection(chatroom.state, _world);
       }
       return;
     }
@@ -576,8 +580,6 @@ extension _WorldPageLocationChat on _WorldPageState {
           _replaceMapBubbleCandidates(
             _buildMapBubbleCandidates(chatroom.state, _world),
           );
-          _applyRecentChatLocationSelection(chatroom.state, _world);
-          _applyCurrentTickEventSelection(chatroom.state, _world);
         });
         _logLocationChatMetric(
           'map bubble messages ready locations=${expectedIds.length}',

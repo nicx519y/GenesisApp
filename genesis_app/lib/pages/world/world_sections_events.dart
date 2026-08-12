@@ -324,7 +324,9 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
       return;
     }
     _animatingPage = true;
-    setState(() => _bumpTickCardResetRevisionAt(target));
+    setState(
+      () => _bumpTickCardResetRevisionAt(target, alignLatestSubTick: delta < 0),
+    );
     unawaited(
       _pageController
           .animateToPage(

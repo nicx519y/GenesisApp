@@ -417,6 +417,63 @@ void main() {
     );
     expect(find.textContaining('Sub tick').evaluate().length, lessThan(500));
   });
+
+  testWidgets('previous tick opens at its latest sub-tick', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 320,
+            child: WorldEventsSection(
+              world: _worldDetail(),
+              ticks: [
+                for (var index = 1; index <= 500; index += 1)
+                  {
+                    'tick_id': 'tick_3_$index',
+                    'tick_no': 3,
+                    'sub_tick_no': index,
+                    'tick_result': {
+                      'narrator': 'Previous sub tick $index body',
+                      'paragraphs': <Object?>[],
+                    },
+                  },
+                {
+                  'tick_id': 'tick_4_1',
+                  'tick_no': 4,
+                  'sub_tick_no': 1,
+                  'tick_result': {
+                    'narrator': 'Latest tick body',
+                    'paragraphs': <Object?>[],
+                  },
+                },
+              ],
+              initialLoading: false,
+              loadingMore: false,
+              hasMore: false,
+              error: null,
+              latestRevision: 0,
+              targetTickNumber: null,
+              contentPadding: EdgeInsets.zero,
+              onLoadMore: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Latest tick body'), findsOneWidget);
+
+    await tester.drag(find.byType(CustomScrollView).last, const Offset(0, 300));
+    await tester.pumpAndSettle();
+
+    const latestPreviousSubTickKey = ValueKey<String>(
+      'world-event-tick-item-id:tick_3_500:sub:500',
+    );
+    expect(find.text('Previous sub tick 500 body'), findsOneWidget);
+    expect(find.text('Previous sub tick 1 body'), findsNothing);
+    expect(tester.getTopLeft(find.byKey(latestPreviousSubTickKey)).dy, 0);
+  });
 }
 
 WorldDetail _worldDetail({

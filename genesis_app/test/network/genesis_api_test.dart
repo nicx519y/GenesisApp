@@ -2039,6 +2039,7 @@ void main() {
                 'location_name': 'Gate',
                 'location_summary': '',
                 'location_description': 'Gate fallback description.',
+                'location_paragraph': 'Current Tick event.',
               },
             ],
             'ticks': [
@@ -2083,6 +2084,7 @@ void main() {
     expect(apiTransport.lastRequest!.uri.queryParameters['world_id'], 'w_1');
     expect(location['location_summary'], '');
     expect(location['location_description'], 'Gate fallback description.');
+    expect(location['location_paragraph'], 'Current Tick event.');
     expect(world.relationStatus, 'owner');
     expect(world.metric['label'], 'Goal Progress');
     expect(world.definitionVersion, 2);

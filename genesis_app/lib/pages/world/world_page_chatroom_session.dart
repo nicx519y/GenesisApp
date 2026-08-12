@@ -122,10 +122,6 @@ extension _WorldPageChatroomSession on _WorldPageState {
         _preloadedLocationMessageIds.clear();
         _preloadingLocationMessageFutures.clear();
         _mapBubbleMessagesReady = false;
-        _recentChatLocationIds = const <String>{};
-        _recentChatLocationPathIds = const <String>{};
-        _currentTickEventLocationIds = const <String>{};
-        _currentTickEventLocationPathIds = const <String>{};
         _replaceMapBubbleCandidates(const <WorldMapBubbleCandidate>[]);
       });
       _handleWorldChatroomState(replacement.state);
@@ -231,11 +227,6 @@ extension _WorldPageChatroomSession on _WorldPageState {
     }
     final deferMapVisuals = _worldBottomSheetOpen;
     List<WorldMapBubbleCandidate>? preparedMapBubbleCandidates;
-    ({String locationId, Set<String> pathIds})? preparedRecentSelection;
-    ({Set<String> locationIds, Set<String> pathIds})?
-    preparedTickEventSelection;
-    var hasPreparedRecentSelection = false;
-    var hasPreparedTickEventSelection = false;
     var mapVisualsChanged = false;
     if (deferMapVisuals) {
       _deferredBottomSheetMapChatroomState = state;
@@ -244,24 +235,10 @@ extension _WorldPageChatroomSession on _WorldPageState {
         state,
         currentWorld,
       );
-      preparedRecentSelection = _recentChatLocationSelectionForState(
-        state,
-        currentWorld,
+      mapVisualsChanged = !_sameMapBubbleCandidates(
+        _mapBubbleCandidates,
+        preparedMapBubbleCandidates,
       );
-      hasPreparedRecentSelection = true;
-      preparedTickEventSelection = _currentTickEventSelectionForState(
-        state,
-        currentWorld,
-      );
-      hasPreparedTickEventSelection = preparedTickEventSelection != null;
-      mapVisualsChanged =
-          !_sameMapBubbleCandidates(
-            _mapBubbleCandidates,
-            preparedMapBubbleCandidates,
-          ) ||
-          !_sameRecentChatLocationSelection(preparedRecentSelection) ||
-          (hasPreparedTickEventSelection &&
-              !_sameCurrentTickEventSelection(preparedTickEventSelection));
     }
     final shouldMutatePageState =
         shouldApplyWorldSnapshot ||
@@ -274,6 +251,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       if (world != null && shouldApplyWorldSnapshot) {
         _world = world;
         _syncLocationChatDescriptors(world);
+        _applyWorldDetailMapActivityLocations(world);
         shouldSyncRelationStatus = true;
         worldDetailChanged = true;
       }
@@ -290,20 +268,13 @@ extension _WorldPageChatroomSession on _WorldPageState {
         _sectionsWorldNotifier.value = _world;
       }
       if (!deferMapVisuals) {
-        if (preparedMapBubbleCandidates != null && hasPreparedRecentSelection) {
+        if (preparedMapBubbleCandidates != null) {
           _replaceMapBubbleCandidates(preparedMapBubbleCandidates);
-          _applyRecentChatLocationSelectionValue(preparedRecentSelection);
         } else {
           final resolvedWorld = _world ?? currentWorld;
           _replaceMapBubbleCandidates(
             _buildMapBubbleCandidates(state, resolvedWorld),
           );
-          _applyRecentChatLocationSelection(state, resolvedWorld);
-        }
-        if (hasPreparedTickEventSelection) {
-          _applyCurrentTickEventSelectionValue(preparedTickEventSelection!);
-        } else {
-          _applyCurrentTickEventSelection(state, _world ?? currentWorld);
         }
       }
       if (newUserJoinNotice != null) {
@@ -360,138 +331,12 @@ extension _WorldPageChatroomSession on _WorldPageState {
     );
   }
 
-  bool _applyRecentChatLocationSelection(
-    WorldChatroomState state,
-    WorldDetail? world,
-  ) {
-    final selection = _recentChatLocationSelectionForState(state, world);
-    return _applyRecentChatLocationSelectionValue(selection);
-  }
-
-  bool _applyRecentChatLocationSelectionValue(
-    ({String locationId, Set<String> pathIds})? selection,
-  ) {
-    if (_sameRecentChatLocationSelection(selection)) return false;
-    _recentChatLocationIds = selection == null
-        ? const <String>{}
-        : Set<String>.unmodifiable([selection.locationId]);
-    _recentChatLocationPathIds = selection?.pathIds ?? const <String>{};
-    return true;
-  }
-
-  bool _sameRecentChatLocationSelection(
-    ({String locationId, Set<String> pathIds})? selection,
-  ) {
-    final nextLocationIds = selection == null
-        ? const <String>{}
-        : <String>{selection.locationId};
-    final nextPathIds = selection?.pathIds ?? const <String>{};
-    return setEquals(_recentChatLocationIds, nextLocationIds) &&
-        setEquals(_recentChatLocationPathIds, nextPathIds);
-  }
-
   void _applyDeferredBottomSheetMapChatroomState() {
     final state = _deferredBottomSheetMapChatroomState;
     _deferredBottomSheetMapChatroomState = null;
     if (state == null) return;
     final world = _world;
     _replaceMapBubbleCandidates(_buildMapBubbleCandidates(state, world));
-    _applyRecentChatLocationSelection(state, world);
-    _applyCurrentTickEventSelection(state, world);
-  }
-
-  bool _applyCurrentTickEventSelection(
-    WorldChatroomState state,
-    WorldDetail? world,
-  ) {
-    final selection = _currentTickEventSelectionForState(state, world);
-    if (selection == null) return false;
-    return _applyCurrentTickEventSelectionValue(selection);
-  }
-
-  bool _applyCurrentTickEventSelectionValue(
-    ({Set<String> locationIds, Set<String> pathIds}) selection,
-  ) {
-    if (_sameCurrentTickEventSelection(selection)) return false;
-    _currentTickEventLocationIds = selection.locationIds;
-    _currentTickEventLocationPathIds = selection.pathIds;
-    return true;
-  }
-
-  bool _sameCurrentTickEventSelection(
-    ({Set<String> locationIds, Set<String> pathIds}) selection,
-  ) {
-    return setEquals(_currentTickEventLocationIds, selection.locationIds) &&
-        setEquals(_currentTickEventLocationPathIds, selection.pathIds);
-  }
-
-  ({Set<String> locationIds, Set<String> pathIds})?
-  _currentTickEventSelectionForState(
-    WorldChatroomState state,
-    WorldDetail? world,
-  ) {
-    if (!_mapBubbleMessagesReady || world == null) return null;
-    final locationIds = worldCurrentTickEventLocationIds(
-      messagesByLocation: state.messagesByLocation,
-      tickNo: world.tickCount,
-      subTickNo: world.subTickNo,
-    );
-    if (locationIds == null) return null;
-    final pathIds = <String>{};
-    for (final locationId in locationIds) {
-      pathIds.addAll(
-        _locationPathIdsForLocationId(locationId, world.processedLocationTree),
-      );
-    }
-    return (
-      locationIds: locationIds,
-      pathIds: Set<String>.unmodifiable(pathIds),
-    );
-  }
-
-  ({String locationId, Set<String> pathIds})?
-  _recentChatLocationSelectionForState(
-    WorldChatroomState state,
-    WorldDetail? world,
-  ) {
-    if (world == null) return null;
-    final leafDescriptors = <String, WorldLocationChatPanelDescriptor>{
-      for (final descriptor in _locationChatDescriptors.values)
-        if (descriptor.isLeafLocation &&
-            descriptor.locationId.trim().isNotEmpty)
-          descriptor.locationId.trim(): descriptor,
-    };
-    final fallbackLeafLocationIds = world.processedLocationTree.flattened
-        .where((node) => node.children.isEmpty)
-        .map((node) => node.id);
-    final latestLocationId = latestChatLocationIdFromMessages(
-      allLocationsLoaded: _mapBubbleMessagesReady,
-      messagesByLocation: state.messagesByLocation,
-      allowedLocationIds: leafDescriptors.isNotEmpty
-          ? leafDescriptors.keys
-          : fallbackLeafLocationIds,
-    );
-    if (latestLocationId.isEmpty) return null;
-    final descriptorPath =
-        leafDescriptors[latestLocationId]?.recentChatLocationPathIds ??
-        const <String>[];
-    if (descriptorPath.isNotEmpty) {
-      return (
-        locationId: latestLocationId,
-        pathIds: Set<String>.unmodifiable(
-          worldOrderedNonEmptyStrings([...descriptorPath, latestLocationId]),
-        ),
-      );
-    }
-    return (
-      locationId: latestLocationId,
-      pathIds: Set<String>.unmodifiable(
-        _locationPathIdsForLocationId(
-          latestLocationId,
-          world.processedLocationTree,
-        ),
-      ),
-    );
   }
 
   WorldNewUserJoinNotice _newUserJoinNoticeFromEvent(
@@ -596,10 +441,6 @@ extension _WorldPageChatroomSession on _WorldPageState {
     if (mounted) {
       _setWorldPageState(() {
         _activeChatLocationId = '';
-        _recentChatLocationIds = const <String>{};
-        _recentChatLocationPathIds = const <String>{};
-        _currentTickEventLocationIds = const <String>{};
-        _currentTickEventLocationPathIds = const <String>{};
         _locationChatPageCache.clear();
         _replaceMapBubbleCandidates(const <WorldMapBubbleCandidate>[]);
       });
