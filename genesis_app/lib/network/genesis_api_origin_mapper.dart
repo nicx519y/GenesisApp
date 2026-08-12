@@ -380,6 +380,7 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
       origin['started_at'],
       fallback: asString(origin['start_time']),
     ),
+    showOpeningSheet: asBool(raw['show_opening_sheet']),
     copyCount: asInt(stats['copy_cnt']),
     interactCount: asInt(stats['connect_cnt']),
     discussCount: asInt(stats['discuss_cnt']),

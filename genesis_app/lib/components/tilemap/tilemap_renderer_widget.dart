@@ -24,6 +24,7 @@ class TilemapRenderer extends StatefulWidget {
     this.waitForVisibleTileImageFrames = true,
     this.isForeground = true,
     this.animationsPaused = false,
+    this.locationImageFlowPaused = false,
     this.visualMode = tilemapDefaultVisualMode,
     this.fogControlPoints = tilemapDefaultFogControlPoints,
     this.blendFogWithShadowTiles = tilemapDefaultBlendFogWithShadowTiles,
@@ -58,6 +59,7 @@ class TilemapRenderer extends StatefulWidget {
   final bool waitForVisibleTileImageFrames;
   final bool isForeground;
   final bool animationsPaused;
+  final bool locationImageFlowPaused;
   final TilemapVisualMode visualMode;
   final List<TilemapFogControlPoint> fogControlPoints;
   final bool blendFogWithShadowTiles;
@@ -164,12 +166,15 @@ class _TilemapRendererState extends State<TilemapRenderer>
     }
     final animationsPausedChanged =
         oldWidget.animationsPaused != widget.animationsPaused;
+    final locationImageFlowPausedChanged =
+        oldWidget.locationImageFlowPaused != widget.locationImageFlowPaused;
     if (oldWidget.isForeground != widget.isForeground ||
         animationsPausedChanged) {
       _restartProgressiveTileMountSchedule();
     }
     if (oldWidget.showLocationImageFlow != widget.showLocationImageFlow ||
-        animationsPausedChanged) {
+        animationsPausedChanged ||
+        locationImageFlowPausedChanged) {
       _syncLocationImageFlowAnimation();
     }
     if (oldWidget.locationImageFlowDurationSeconds !=
@@ -184,7 +189,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
   }
 
   void _syncLocationImageFlowAnimation() {
-    if (widget.animationsPaused) {
+    if (widget.animationsPaused || widget.locationImageFlowPaused) {
       _locationImageFlowController.stop();
       return;
     }

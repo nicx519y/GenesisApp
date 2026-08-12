@@ -126,6 +126,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   bool _launching = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
+  int _detailSheetExpandRequest = 0;
+  bool _entryDetailResponsePending = true;
+  bool _waitingForOpeningSheetExpansion = false;
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
     false,
   );
@@ -165,6 +168,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _currentTilemapLocationIds = const <String>{};
       _locationChatBackgroundPreloader.preload(const <Object?>[]);
       _showIntroPage = false;
+      _detailSheetExpandRequest = 0;
+      _entryDetailResponsePending = true;
+      _waitingForOpeningSheetExpansion = false;
       _detailSheetRaisedNotifier.value = false;
       _tabController.index = 0;
       _scheduleInitialOriginLoadAfterFrameworkFrame();
@@ -252,9 +258,17 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           isInitial ||
           _origin == null ||
           _renderStage != _OriginWorldPageRenderStage.content;
+      final handlesEntryDetailResponse = _entryDetailResponsePending;
       setState(() {
         _origin = origin;
         _initialLoadError = null;
+        if (handlesEntryDetailResponse) {
+          _entryDetailResponsePending = false;
+          if (origin.showOpeningSheet) {
+            _detailSheetExpandRequest += 1;
+            _waitingForOpeningSheetExpansion = true;
+          }
+        }
         if (shouldStageInitialContent) {
           _renderStage = _OriginWorldPageRenderStage.detailShell;
           _contentMountScheduled = false;
@@ -893,58 +907,68 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final locationCount = listLocationNodes.isNotEmpty
         ? _originLeafLocationNodeCount(listLocationNodes)
         : listPoints.length;
-    final Widget map = ValueListenableBuilder<bool>(
-      valueListenable: _detailSheetRaisedNotifier,
-      builder: (context, detailSheetRaised, _) => WorldMap.origin(
-        definitionVersion: origin.definitionVersion,
-        originId: origin.oid,
-        common: WorldMapCommonConfig(
-          locationNodes: locationNodes,
-          drillExitTop: topPadding + 68,
-          messageBubbles: _activeChatLocation == null
-              ? _originMapMessageBubbles(origin)
-              : const <WorldMapMessageBubble>[],
-          messageBubblePlaybackPaused: _activeChatLocation != null,
-          onMapTap: () => _recordWorldoMapClick(origin),
-          onPointTap: (point) => _openChatForPoint(origin, point),
-        ),
-        legacy: LegacyWorldMapConfig(
-          implementationKey: PageStorageKey<String>('origin-map-${origin.oid}'),
-          points: points,
-          listPoints: listPoints,
-          listLocationNodes: listLocationNodes,
-          mapImageUrl: mapImageUrl,
-          dimmed: _showIntroPage,
-          showPointsList: _showIntroPage,
-          pointsListBuilder: _showIntroPage
-              ? (context) => _OriginIntroList(
-                  origin: origin,
-                  topPadding: topPadding + 8 + 48,
-                  onOriginChanged: _refreshOriginDetail,
-                )
-              : null,
-          initialZoomScale: _showIntroPage ? 1 : 1.2,
-          enableAvatarScaleReboundHint: true,
-          pointsListOuterScrollHandoff: false,
-          overlayTop: topPadding + 8 + 48,
-        ),
-        tilemap: WorldMapTilemapOptions(
-          implementationKey: PageStorageKey<String>(
-            'origin-tilemap-${origin.oid}',
-          ),
-          locationId: initialTilemapLocationId,
-          locationNodes: listLocationNodes,
-          preferredFocusLocationId:
-              origin.initLocationGroup?.locationId.trim() ?? '',
-          showVisualModeToggle: !_showIntroPage,
-          animationsPaused: detailSheetRaised,
-          visualModeToggleTop: topPadding + 8,
-          visualModeToggleRight: 12,
-          onMapTap: () => _recordWorldoTilemapClick(origin),
-          onCurrentLocationsChanged: _handleCurrentTilemapLocationsChanged,
-        ),
-      ),
-    );
+    final deferTilemapRendering =
+        origin.definitionVersion == 2 && _waitingForOpeningSheetExpansion;
+    final Widget map = deferTilemapRendering
+        ? ColoredBox(
+            key: const ValueKey<String>('origin-opening-sheet-map-background'),
+            color: _tilemapLoadingBackgroundColor,
+          )
+        : ValueListenableBuilder<bool>(
+            valueListenable: _detailSheetRaisedNotifier,
+            builder: (context, detailSheetRaised, _) => WorldMap.origin(
+              definitionVersion: origin.definitionVersion,
+              originId: origin.oid,
+              common: WorldMapCommonConfig(
+                locationNodes: locationNodes,
+                drillExitTop: topPadding + 68,
+                messageBubbles: _activeChatLocation == null
+                    ? _originMapMessageBubbles(origin)
+                    : const <WorldMapMessageBubble>[],
+                messageBubblePlaybackPaused: _activeChatLocation != null,
+                onMapTap: () => _recordWorldoMapClick(origin),
+                onPointTap: (point) => _openChatForPoint(origin, point),
+              ),
+              legacy: LegacyWorldMapConfig(
+                implementationKey: PageStorageKey<String>(
+                  'origin-map-${origin.oid}',
+                ),
+                points: points,
+                listPoints: listPoints,
+                listLocationNodes: listLocationNodes,
+                mapImageUrl: mapImageUrl,
+                dimmed: _showIntroPage,
+                showPointsList: _showIntroPage,
+                pointsListBuilder: _showIntroPage
+                    ? (context) => _OriginIntroList(
+                        origin: origin,
+                        topPadding: topPadding + 8 + 48,
+                        onOriginChanged: _refreshOriginDetail,
+                      )
+                    : null,
+                initialZoomScale: _showIntroPage ? 1 : 1.2,
+                enableAvatarScaleReboundHint: true,
+                pointsListOuterScrollHandoff: false,
+                overlayTop: topPadding + 8 + 48,
+              ),
+              tilemap: WorldMapTilemapOptions(
+                implementationKey: PageStorageKey<String>(
+                  'origin-tilemap-${origin.oid}',
+                ),
+                locationId: initialTilemapLocationId,
+                locationNodes: listLocationNodes,
+                preferredFocusLocationId:
+                    origin.initLocationGroup?.locationId.trim() ?? '',
+                showVisualModeToggle: !_showIntroPage,
+                locationImageFlowPaused: detailSheetRaised,
+                visualModeToggleTop: topPadding + 8,
+                visualModeToggleRight: 12,
+                onMapTap: () => _recordWorldoTilemapClick(origin),
+                onCurrentLocationsChanged:
+                    _handleCurrentTilemapLocationsChanged,
+              ),
+            ),
+          );
 
     return PopScope(
       canPop: _activeChatLocation == null,
@@ -957,13 +981,19 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         mapOverlay: _buildPersistentMapOverlay(
           topPadding,
           locationCount: locationCount,
+          tabsInteractive: !_waitingForOpeningSheetExpansion,
         ),
         bottomSheetOverlayBuilder: (minChildSize) =>
             _OriginDetailDraggableSheet(
               origin: origin,
               minChildSize: minChildSize,
               collapseRequest: _detailSheetCollapseRequest,
+              expandRequest: _detailSheetExpandRequest,
+              autoExpansionPending: _waitingForOpeningSheetExpansion,
               onRaisedChanged: _handleDetailSheetRaisedChanged,
+              onFullyExpanded: _handleOpeningSheetFullyExpanded,
+              onAutoExpansionInterrupted:
+                  _handleOpeningSheetExpansionInterrupted,
               onOriginChanged: _refreshOriginDetail,
               launching: _launching,
               onSelectRole: (character) =>
@@ -985,5 +1015,15 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void _handleDetailSheetRaisedChanged(bool raised) {
     if (!mounted || _detailSheetRaisedNotifier.value == raised) return;
     _detailSheetRaisedNotifier.value = raised;
+  }
+
+  void _handleOpeningSheetFullyExpanded() {
+    if (!mounted || !_waitingForOpeningSheetExpansion) return;
+    setState(() => _waitingForOpeningSheetExpansion = false);
+  }
+
+  void _handleOpeningSheetExpansionInterrupted() {
+    if (!mounted || !_waitingForOpeningSheetExpansion) return;
+    setState(() => _waitingForOpeningSheetExpansion = false);
   }
 }

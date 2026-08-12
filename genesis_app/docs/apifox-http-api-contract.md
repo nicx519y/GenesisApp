@@ -949,6 +949,7 @@ Apifox 可选 Header：
 
 响应 `data`：
 
+- `show_opening_sheet*`: boolean；为 `true` 时，客户端首次进入 Origin 详情页后自动将包含 Opening 内容的详情 sheet 完全展开；同一页面内的后续详情刷新不重复展开
 - `info*`: `OriginDetailInfo`
 - `stats*`: `OriginStats`
 - `init_location_group*`: `OriginInitLocationGroup|null`
@@ -2085,7 +2086,7 @@ query：
 | `GET /api/v1/origin/hot_tags` | 已新增 `OriginV1Api.hotTags`，响应消费 `data.list` 字符串数组；`OriginPage` 固定首个 `For you` tab，其余 tabs 来自热门标签接口并缓存在本地，本地 mock 返回同形状数据。 |
 | `GET /api/v1/origin/my_launch_preset_characters` | 已新增 `OriginV1Api.myLaunchPresetCharacters(originId)` 与 `GenesisApi.getMyLaunchPresetCharacters(originId)`，query 使用 `origin_id`，响应映射为 `OriginMyLaunchPresetCharacter` 列表并保留 `ImageResource`；请求复用共享 runtime/auth/Gateway header 链路；本地 mock 会在 `/origin/launch` 使用 preset 角色时记录并按当前 origin 角色定义返回去重历史。 |
 | `GET /api/v1/origin/info` | 已新增 `OriginV1Api.info(originId)` 与 `GenesisApi.getOriginInfo(oid)`，query 使用 `origin_id`；响应消费 `info + stats`，不期待 `characters/locations/ticks`。 |
-| `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 使用必填 `origin_id`；详情 mapper 保留新版 `OriginDetailInfo`、完整 stats、nullable 顶层 `init_location_group`、`characters[].is_recommend`、location 层级/时间/总结/2.5D `x/y`、ImageResource sidecar，以及 tick 的 `sub_tick_no/current_time/visibility/visible_to/clue/character_deltas`。本接口不依赖 `location_description`，也不为新版 tick 人工补 `location_groups`；旧响应实际携带这些字段时仍可兼容读取。详情 Opening、location chat 预览和 launch 初始地点优先使用顶层 group；`nar_pic/image` 作为图片消息展示。 |
+| `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 使用必填 `origin_id`；详情 mapper 保留顶层 boolean `show_opening_sheet`、新版 `OriginDetailInfo`、完整 stats、nullable 顶层 `init_location_group`、`characters[].is_recommend`、location 层级/时间/总结/2.5D `x/y`、ImageResource sidecar，以及 tick 的 `sub_tick_no/current_time/visibility/visible_to/clue/character_deltas`。`show_opening_sheet=true` 时，Origin 详情页首次加载后自动完全展开 Opening sheet；旧响应缺少该字段时按 `false` 处理。本接口不依赖 `location_description`，也不为新版 tick 人工补 `location_groups`；旧响应实际携带这些字段时仍可兼容读取。详情 Opening、location chat 预览和 launch 初始地点优先使用顶层 group；`nar_pic/image` 作为图片消息展示。 |
 | `GET /api/v1/origin/map` | 已新增 `OriginV1Api.map(originId,locationId)` 与 `GenesisApi.getOriginMap(...)`，query 使用 `origin_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/shadow/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
 | `GET /api/v2/origin/foredit` | `OriginV2Api.forEdit(originId)` 使用 `origin_id` query，并按嵌套 `OriginDetail` 消费；`characters[].is_recommend` 以 `0/1` integer 回填角色推荐状态。`EditOriginPage` 直接从该响应回填 Basics、Characters、Locations、Opening 和兼容 tick Opening，不再追加请求 `/api/v1/origin/detail`。新契约未返回的旧平级 `setting/events` 仅在响应实际包含或用户明确修改时随 V2 update 提交；`Character` 未返回旧 `bio/description` 时，未编辑的空 Biography 也不随 update 回写，避免普通编辑把服务端已有值清空。 |
 | `POST /api/v1/origin/create` | 当前 `OriginV1Api.create` 已发送 `origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/characters/locations`，但尚未暴露新契约中的 `definition_version/map_url/tile_types`；高层 `GenesisApi.createOrigin` 已兼容轻量 `OriginUpsertResp`。 |

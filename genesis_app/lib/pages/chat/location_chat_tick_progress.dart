@@ -112,11 +112,16 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
   }
 
   List<ChatMessageVm> _locationChatDisplayMessages() {
+    // Keep every canonical Tick in `_messages` for cursor and unread state;
+    // collapse only the projection handed to the message list.
+    final displayMessages = _collapseConsecutiveLocationChatTicksForDisplay(
+      _messages,
+    );
     if (!_awaitingTickProgressMessage || _activeTickProgressSlotId.isEmpty) {
-      return _messages;
+      return displayMessages;
     }
     return <ChatMessageVm>[
-      ..._messages,
+      ...displayMessages,
       ChatMessageVm(
         localId: _activeTickProgressSlotId,
         senderId: 'tick',
@@ -160,4 +165,21 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
         .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
         .toList(growable: false);
   }
+}
+
+List<ChatMessageVm> _collapseConsecutiveLocationChatTicksForDisplay(
+  List<ChatMessageVm> messages,
+) {
+  if (messages.length < 2) return messages;
+  List<ChatMessageVm>? collapsed;
+  for (var index = 1; index < messages.length; index += 1) {
+    final message = messages[index];
+    if (message.isTick && messages[index - 1].isTick) {
+      collapsed ??= messages.sublist(0, index);
+      collapsed[collapsed.length - 1] = message;
+      continue;
+    }
+    collapsed?.add(message);
+  }
+  return collapsed ?? messages;
 }

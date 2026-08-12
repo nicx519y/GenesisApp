@@ -2014,6 +2014,76 @@ void main() {
     expect(find.text('Report'), findsOneWidget);
   });
 
+  testWidgets(
+    'location chat only displays the last tick in each consecutive run',
+    (tester) async {
+      WorldChatroomMessage tickMessage(int id, String text) {
+        return _message(
+          messageId: id,
+          locationMessageId: id,
+          content: text,
+          senderType: 'tick',
+          businessType: 'tick',
+          tickNo: id,
+          v2TickPayload: ChatroomV2TickPayload(
+            currentTime: '',
+            tickNo: id,
+            subTickNo: 0,
+            globalText: text,
+            storyEvents: const [],
+            charactersMoved: const [],
+            fallbackContent: '',
+          ),
+        );
+      }
+
+      final source = [
+        tickMessage(1, 'First tick in run one'),
+        tickMessage(2, 'Last tick in run one'),
+        _message(
+          messageId: 3,
+          locationMessageId: 3,
+          content: 'Message between tick runs',
+        ),
+        tickMessage(4, 'First tick in run two'),
+        tickMessage(5, 'Last tick in run two'),
+      ];
+      expect(
+        visibleLocationChatMessagesForTesting(
+          source,
+        ).map((message) => message.messageId),
+        [1, 2, 3, 4, 5],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'loc-1',
+            active: false,
+            openingPreviewMessages: source,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final messageList = tester.widget<LocationChatAnchoredMessageList>(
+        find.byKey(const ValueKey('location-chat-message-list')),
+      );
+      expect(messageList.messages.map((message) => message.messageId), [
+        2,
+        3,
+        5,
+      ]);
+      expect(find.byType(ChatTickMessageBubble), findsNWidgets(2));
+      expect(find.text('First tick in run one'), findsNothing);
+      expect(find.text('Last tick in run one'), findsOneWidget);
+      expect(find.text('Message between tick runs'), findsOneWidget);
+      expect(find.text('First tick in run two'), findsNothing);
+      expect(find.text('Last tick in run two'), findsOneWidget);
+    },
+  );
+
   testWidgets('location chat hides report for a zero-global-id V2 tick', (
     tester,
   ) async {

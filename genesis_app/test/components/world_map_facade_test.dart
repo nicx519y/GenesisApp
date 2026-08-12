@@ -74,6 +74,7 @@ void main() {
         visualModeToggleRight: 12,
         recentChatLocationIds: const {'loc_1'},
         animationsPaused: true,
+        locationImageFlowPaused: true,
         onMapTap: () => tilemapMapTapCount += 1,
         onCurrentLocationsChanged: handleCurrentLocations,
       ),
@@ -93,6 +94,7 @@ void main() {
     expect(tilemap.visualModeToggleRight, 12);
     expect(tilemap.recentChatLocationIds, const {'loc_1'});
     expect(tilemap.animationsPaused, isTrue);
+    expect(tilemap.locationImageFlowPaused, isTrue);
     expect(tilemap.messageBubbles.single.content, 'Hello');
     expect(tilemap.messageBubblePlaybackPaused, isFalse);
     tilemap.onCurrentLocationsChanged?.call('origin:o_1:root', const {'loc_1'});

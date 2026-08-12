@@ -224,6 +224,58 @@ void main() {
     expect(animation.value, isNot(closeTo(pausedValue, 0.000001)));
   });
 
+  testWidgets('locationImageFlowPaused only stops location image flow', (
+    tester,
+  ) async {
+    final paused = ValueNotifier<bool>(false);
+    addTearDown(paused.dispose);
+    final config = TilemapConfig.fromTiles(
+      id: 'location-image-flow-only-paused',
+      width: 1,
+      height: 1,
+      tileTypes: const {'tile': 'https://progressive.test/flow-only.png'},
+      tiles: const [
+        TilemapCell(x: 0, y: 0, type: 'tile', locationId: 'location'),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ValueListenableBuilder<bool>(
+        valueListenable: paused,
+        builder: (context, value, _) => _rendererHarness(
+          config: config,
+          locationImageFlowPaused: value,
+          showLocationImageFlow: true,
+          locationNameForTile: (_) => 'Location',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    TilemapRenderer renderer() =>
+        tester.widget<TilemapRenderer>(find.byType(TilemapRenderer));
+    final dynamic flowWidget = tester.widget(
+      find.byKey(const ValueKey<String>('tile-location-image-flow-0-0')),
+    );
+    final animation = flowWidget.animation as Animation<double>;
+    expect(renderer().animationsPaused, isFalse);
+    expect(animation.value, greaterThan(0));
+
+    paused.value = true;
+    await tester.pump();
+    final pausedValue = animation.value;
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(renderer().animationsPaused, isFalse);
+    expect(renderer().locationImageFlowPaused, isTrue);
+    expect(animation.value, closeTo(pausedValue, 0.000001));
+
+    paused.value = false;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(animation.value, isNot(closeTo(pausedValue, 0.000001)));
+  });
+
   testWidgets('a config generation cannot reveal stale queued tiles', (
     tester,
   ) async {
@@ -338,6 +390,7 @@ Widget _rendererHarness({
   required TilemapConfig config,
   VoidCallback? onViewportReady,
   bool animationsPaused = false,
+  bool locationImageFlowPaused = false,
   bool isForeground = true,
   String preferredFocusLocationId = '',
   double devicePixelRatio = 1,
@@ -363,6 +416,7 @@ Widget _rendererHarness({
             blendFogWithShadowTiles: false,
             onViewportReady: onViewportReady,
             animationsPaused: animationsPaused,
+            locationImageFlowPaused: locationImageFlowPaused,
             isForeground: isForeground,
             preferredFocusLocationId: preferredFocusLocationId,
             locationNameForTile: locationNameForTile,
