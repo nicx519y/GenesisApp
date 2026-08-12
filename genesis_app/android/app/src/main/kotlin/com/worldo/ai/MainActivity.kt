@@ -4,6 +4,12 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.ImageDecoder
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -49,6 +55,7 @@ class MainActivity : FlutterActivity() {
     private val gatewayKeyAlias = "genesis_gateway_device_key_v1"
     private var pendingDiscussImagePickerResult: MethodChannel.Result? = null
     private var pendingDiscussImagePickerLimit = 0
+    private var pendingDiscussImagePickerNormalizeForUpload = false
     private var pendingGoogleSignInResult: MethodChannel.Result? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -181,7 +188,9 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "pickImages" -> {
                     val limit = maxOf(1, call.argument<Int>("limit") ?: 6)
-                    pickDiscussImages(limit, result)
+                    val normalizeForUpload =
+                        call.argument<Boolean>("normalizeForUpload") ?: false
+                    pickDiscussImages(limit, normalizeForUpload, result)
                 }
                 else -> result.notImplemented()
             }
@@ -343,7 +352,11 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun pickDiscussImages(limit: Int, result: MethodChannel.Result) {
+    private fun pickDiscussImages(
+        limit: Int,
+        normalizeForUpload: Boolean,
+        result: MethodChannel.Result,
+    ) {
         if (pendingDiscussImagePickerResult != null) {
             result.error("picker_active", "An image picker is already active.", null)
             return
@@ -351,6 +364,7 @@ class MainActivity : FlutterActivity() {
 
         pendingDiscussImagePickerResult = result
         pendingDiscussImagePickerLimit = limit
+        pendingDiscussImagePickerNormalizeForUpload = normalizeForUpload
 
         val request = PickVisualMediaRequest.Builder()
             .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -366,6 +380,7 @@ class MainActivity : FlutterActivity() {
         } catch (error: Exception) {
             pendingDiscussImagePickerResult = null
             pendingDiscussImagePickerLimit = 0
+            pendingDiscussImagePickerNormalizeForUpload = false
             result.error("picker_unavailable", error.message ?: "Cannot open image picker.", null)
         }
     }
@@ -383,8 +398,10 @@ class MainActivity : FlutterActivity() {
 
         val result = pendingDiscussImagePickerResult ?: return
         val limit = pendingDiscussImagePickerLimit
+        val normalizeForUpload = pendingDiscussImagePickerNormalizeForUpload
         pendingDiscussImagePickerResult = null
         pendingDiscussImagePickerLimit = 0
+        pendingDiscussImagePickerNormalizeForUpload = false
 
         if (resultCode != Activity.RESULT_OK || data == null) {
             result.success(emptyList<String>())
@@ -397,15 +414,24 @@ class MainActivity : FlutterActivity() {
             return
         }
 
-        val paths = uris.mapIndexedNotNull { index, uri ->
-            runCatching { saveDiscussPickedImage(uri, index) }.getOrNull()
-        }
-        if (paths.isEmpty()) {
-            result.error("image_copy_failed", "Selected images could not be copied.", null)
-            return
-        }
-
-        result.success(paths)
+        Thread {
+            val paths = uris.mapIndexedNotNull { index, uri ->
+                runCatching {
+                    saveDiscussPickedImage(uri, index, normalizeForUpload)
+                }.getOrNull()
+            }
+            runOnUiThread {
+                if (paths.isEmpty()) {
+                    result.error(
+                        "image_copy_failed",
+                        "Selected images could not be processed.",
+                        null,
+                    )
+                } else {
+                    result.success(paths)
+                }
+            }
+        }.start()
     }
 
     private fun handleGoogleSignInResult(resultCode: Int, data: Intent?) {
@@ -453,8 +479,16 @@ class MainActivity : FlutterActivity() {
         return uris
     }
 
-    private fun saveDiscussPickedImage(uri: Uri, index: Int): String {
+    private fun saveDiscussPickedImage(
+        uri: Uri,
+        index: Int,
+        normalizeForUpload: Boolean,
+    ): String {
         val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
+        if (normalizeForUpload) {
+            require(!isGifImage(uri, mimeType)) { "GIF images are not supported." }
+            return saveNormalizedDiscussImage(uri, index)
+        }
         val extension = MimeTypeMap.getSingleton()
             .getExtensionFromMimeType(mimeType)
             ?.takeIf { it.isNotBlank() }
@@ -471,6 +505,115 @@ class MainActivity : FlutterActivity() {
         }
 
         return file.absolutePath
+    }
+
+    private fun saveNormalizedDiscussImage(uri: Uri, index: Int): String {
+        val decoded = decodeDiscussImage(uri)
+        val hasTransparency = bitmapHasTransparentPixels(decoded)
+        val extension = if (hasTransparency) "png" else "jpg"
+        val format = if (hasTransparency) {
+            Bitmap.CompressFormat.PNG
+        } else {
+            Bitmap.CompressFormat.JPEG
+        }
+        val quality = if (hasTransparency) 100 else 90
+        val dir = File(cacheDir, "discuss_image_picker")
+        if (!dir.exists()) dir.mkdirs()
+        val file = File(
+            dir,
+            "discuss_${System.currentTimeMillis()}_$index.$extension",
+        )
+
+        try {
+            FileOutputStream(file).use { output ->
+                check(decoded.compress(format, quality, output)) {
+                    "Selected image could not be encoded."
+                }
+            }
+        } finally {
+            decoded.recycle()
+        }
+        return file.absolutePath
+    }
+
+    private fun decodeDiscussImage(uri: Uri): Bitmap {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val source = ImageDecoder.createSource(contentResolver, uri)
+            return ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            }
+        }
+
+        val bitmap = contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "Cannot open selected image." }
+            requireNotNull(BitmapFactory.decodeStream(input)) {
+                "Selected image could not be decoded."
+            }
+        }
+        val orientation = runCatching {
+            contentResolver.openInputStream(uri).use { input ->
+                requireNotNull(input) { "Cannot open selected image metadata." }
+                ExifInterface(input).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL,
+                )
+            }
+        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+        return applyExifOrientation(bitmap, orientation)
+    }
+
+    private fun applyExifOrientation(bitmap: Bitmap, orientation: Int): Bitmap {
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.setScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                matrix.setRotate(90f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                matrix.setRotate(-90f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+            else -> return bitmap
+        }
+        val oriented = Bitmap.createBitmap(
+            bitmap,
+            0,
+            0,
+            bitmap.width,
+            bitmap.height,
+            matrix,
+            true,
+        )
+        if (oriented !== bitmap) bitmap.recycle()
+        return oriented
+    }
+
+    private fun bitmapHasTransparentPixels(bitmap: Bitmap): Boolean {
+        if (!bitmap.hasAlpha()) return false
+        val row = IntArray(bitmap.width)
+        for (y in 0 until bitmap.height) {
+            bitmap.getPixels(row, 0, bitmap.width, 0, y, bitmap.width, 1)
+            if (row.any { pixel -> Color.alpha(pixel) < 255 }) return true
+        }
+        return false
+    }
+
+    private fun isGifImage(uri: Uri, mimeType: String): Boolean {
+        if (mimeType.equals("image/gif", ignoreCase = true)) return true
+        return runCatching {
+            contentResolver.openInputStream(uri).use { input ->
+                requireNotNull(input)
+                val header = ByteArray(6)
+                if (input.read(header) != header.size) return@use false
+                val signature = header.toString(Charsets.US_ASCII)
+                signature == "GIF87a" || signature == "GIF89a"
+            }
+        }.getOrDefault(false)
     }
 
     private fun buildSignInDiagnostics(): Map<String, Any> {

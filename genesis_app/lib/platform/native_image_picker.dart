@@ -32,8 +32,14 @@ class GenesisImagePickResult {
   final bool rejectedUnsupportedGif;
 }
 
-Future<List<DiscussPickedImage>> pickGenesisImages({required int limit}) async {
-  final result = await pickGenesisImageResult(limit: limit);
+Future<List<DiscussPickedImage>> pickGenesisImages({
+  required int limit,
+  bool normalizeForUpload = false,
+}) async {
+  final result = await pickGenesisImageResult(
+    limit: limit,
+    normalizeForUpload: normalizeForUpload,
+  );
   if (result.rejectedUnsupportedGif) {
     throw const UnsupportedGifImageException();
   }
@@ -42,8 +48,12 @@ Future<List<DiscussPickedImage>> pickGenesisImages({required int limit}) async {
 
 Future<GenesisImagePickResult> pickGenesisImageResult({
   required int limit,
+  bool normalizeForUpload = false,
 }) async {
-  final picked = await pickGenesisImageFiles(limit: limit);
+  final picked = await pickGenesisImageFiles(
+    limit: limit,
+    normalizeForUpload: normalizeForUpload,
+  );
   final images = <DiscussPickedImage>[];
   Object? readError;
   StackTrace? readStackTrace;
@@ -88,21 +98,20 @@ Future<GenesisImagePickResult> pickGenesisImageResult({
   );
 }
 
-Future<List<XFile>> pickGenesisImageFiles({required int limit}) async {
+Future<List<XFile>> pickGenesisImageFiles({
+  required int limit,
+  bool normalizeForUpload = false,
+}) async {
+  if (normalizeForUpload && (Platform.isAndroid || Platform.isIOS)) {
+    return _pickNativeImageFiles(limit: limit, normalizeForUpload: true);
+  }
   if (limit <= 1) {
     final file = await _pickSingleImageFile();
     return file == null ? const <XFile>[] : <XFile>[file];
   }
   if (Platform.isAndroid || Platform.isIOS) {
     try {
-      final paths = await _nativeDiscussImagePickerChannel
-          .invokeListMethod<String>('pickImages', <String, Object>{
-            'limit': limit,
-          });
-      return (paths ?? const <String>[])
-          .where((path) => path.trim().isNotEmpty)
-          .map((path) => XFile(path))
-          .toList(growable: false);
+      return _pickNativeImageFiles(limit: limit);
     } on MissingPluginException {
       return ImagePicker().pickMultiImage(limit: limit);
     }
@@ -111,20 +120,45 @@ Future<List<XFile>> pickGenesisImageFiles({required int limit}) async {
   return ImagePicker().pickMultiImage(limit: limit);
 }
 
+Future<List<XFile>> _pickNativeImageFiles({
+  required int limit,
+  bool normalizeForUpload = false,
+}) async {
+  final paths = await _nativeDiscussImagePickerChannel.invokeListMethod<String>(
+    'pickImages',
+    genesisNativeImagePickerArguments(
+      limit: limit,
+      normalizeForUpload: normalizeForUpload,
+    ),
+  );
+  return (paths ?? const <String>[])
+      .where((path) => path.trim().isNotEmpty)
+      .map((path) => XFile(path))
+      .toList(growable: false);
+}
+
+@visibleForTesting
+Map<String, Object> genesisNativeImagePickerArguments({
+  required int limit,
+  required bool normalizeForUpload,
+}) {
+  return <String, Object>{
+    'limit': limit,
+    'normalizeForUpload': normalizeForUpload,
+  };
+}
+
 Future<XFile?> _pickSingleImageFile() async {
   if (!Platform.isIOS) {
     return ImagePicker().pickImage(source: ImageSource.gallery);
   }
 
   try {
-    final paths = await _nativeDiscussImagePickerChannel
-        .invokeListMethod<String>('pickImages', const <String, Object>{
-          'limit': 1,
-        });
+    final paths = await _pickNativeImageFiles(limit: 1);
     String? path;
-    for (final item in paths ?? const <String>[]) {
-      if (item.trim().isNotEmpty) {
-        path = item;
+    for (final item in paths) {
+      if (item.path.trim().isNotEmpty) {
+        path = item.path;
         break;
       }
     }

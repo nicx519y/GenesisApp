@@ -233,7 +233,10 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
 
   Future<void> _pickCropAndUpload(BuildContext context) async {
     try {
-      final picked = await pickGenesisImages(limit: 1);
+      final picked = await pickGenesisImages(
+        limit: 1,
+        normalizeForUpload: widget.uploadOriginalImage,
+      );
       if (picked.isEmpty) return;
       final image = picked.first;
       if (!context.mounted) return;
