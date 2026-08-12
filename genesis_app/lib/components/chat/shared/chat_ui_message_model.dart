@@ -1,5 +1,9 @@
 part of 'chat_ui_library.dart';
 
+const String chatAiContentDisclaimerSenderType = 'ai_disclaimer';
+const String chatAiContentDisclaimerMessageLocalId =
+    'location-chat-ai-content-disclaimer';
+
 class ChatMessageVm {
   ChatMessageVm({
     required this.localId,
@@ -36,6 +40,22 @@ class ChatMessageVm {
     );
   }
 
+  factory ChatMessageVm.aiContentDisclaimer({
+    String localId = chatAiContentDisclaimerMessageLocalId,
+    String text = kAiContentDisclaimerText,
+  }) {
+    return ChatMessageVm(
+      localId: localId,
+      senderId: '',
+      senderName: '',
+      text: text,
+      isMe: false,
+      status: 'system',
+      senderType: chatAiContentDisclaimerSenderType,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+    );
+  }
+
   final String localId;
   String clientMsgId;
   int globalMessageId;
@@ -58,7 +78,11 @@ class ChatMessageVm {
   String? error;
   final DateTime createdAt;
 
-  bool get isSystem => senderType == 'system' || isNarrator || isTick;
+  bool get isSystem =>
+      senderType == 'system' || isAiContentDisclaimer || isNarrator || isTick;
+
+  bool get isAiContentDisclaimer =>
+      senderType == chatAiContentDisclaimerSenderType;
 
   bool get isNarrator => senderType == 'narrator';
 

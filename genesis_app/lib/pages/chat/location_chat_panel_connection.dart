@@ -576,24 +576,19 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     );
     final tickProgressResolved = _resolveTickProgressMessageIfAvailable();
     final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);
-    final olderLoadRendered = _olderLoadHasRenderedNewMessages();
     final shouldRebuild =
         changedMessages ||
         changedHasMoreOlder ||
-        olderLoadRendered ||
         tickProgressStarted ||
         tickProgressResolved ||
         _hasVisibleChatroomStateChange(_chatroomState, state);
     if (shouldRebuild) {
       _setLocationChatState(() {
         _chatroomState = state;
-        if (olderLoadRendered) _finishOlderMessagesLoading();
       });
     } else {
       _chatroomState = state;
-      if (olderLoadRendered) _finishOlderMessagesLoading();
     }
-    if (olderLoadRendered) _runDeferredVisibleMessageGapFillIfNeeded();
     _logPanelMetric(
       'state received source ${previousSource.length}->${nextSource.length} '
       'vm $beforeVmCount->${_messages.length} changed=$changedMessages '
@@ -622,18 +617,13 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
     if (changedMessages && wasFollowingLatest) {
       _clearUnseenIncomingCount();
-    } else if (changedMessages &&
-        previousLatestLocalId.isNotEmpty &&
-        _latestMessageLocalId() != previousLatestLocalId) {
-      final newIncomingCount = _newIncomingTailMessageCount(
-        previousSource,
-        nextSource,
-      );
-      if (newIncomingCount > 0) {
-        _setLocationChatState(() {
-          _unseenIncomingCount += newIncomingCount;
-        });
-      }
+    } else if (changedMessages) {
+      final incomingMessageLocalIds =
+          previousLatestLocalId.isNotEmpty &&
+              _latestMessageLocalId() != previousLatestLocalId
+          ? _newIncomingTailMessageLocalIds(previousSource, nextSource)
+          : const <String>{};
+      _syncUnseenIncomingRenderedMessages(incomingMessageLocalIds);
     }
   }
 
@@ -688,7 +678,12 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
 
   void _notifyInitialContentReady() {
     if (_initialContentReadyNotified || !mounted) return;
-    _initialContentReadyNotified = true;
+    _setLocationChatState(() {
+      if (!_hasMoreOlderMessages && _earliestLoadedLocationMessageId() <= 0) {
+        _olderMessagesExhaustedByCursorlessContent = true;
+      }
+      _initialContentReadyNotified = true;
+    });
     _logPanelMetric(
       'initialContentReady scheduled vmCount=${_messages.length}',
     );

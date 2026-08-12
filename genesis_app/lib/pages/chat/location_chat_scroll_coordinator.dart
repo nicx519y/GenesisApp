@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter/rendering.dart' show BoxParentData, ScrollDirection;
 
 import '../../components/chat/shared/chat_ui.dart';
 
@@ -13,6 +13,11 @@ enum LocationChatBottomReason {
 }
 
 enum LocationChatBottomBehavior { jump, animate }
+
+const locationChatOldestEdgeLoadingAnimationDuration = Duration(
+  milliseconds: 220,
+);
+const _locationChatLayoutCorrectionExtentSignal = 0.001;
 
 /// Owns every programmatic scroll-position change for location chat.
 class LocationChatScrollCoordinator extends ChangeNotifier {
@@ -218,6 +223,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.oldestEdgeNotice,
     this.oldestEdgeNoticeRequiresSecondScroll = false,
     this.oldestEdgeLoading = false,
+    this.onOldestEdgeLoadingCollapsed,
     this.showDateDividers = true,
     this.messageLayoutId,
     this.style,
@@ -233,6 +239,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final String? oldestEdgeNotice;
   final bool oldestEdgeNoticeRequiresSecondScroll;
   final bool oldestEdgeLoading;
+  final VoidCallback? onOldestEdgeLoadingCollapsed;
   final bool showDateDividers;
   final String Function(ChatMessageVm message)? messageLayoutId;
   final ChatUiStyleConfig? style;
@@ -243,63 +250,199 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
 }
 
 class _LocationChatAnchoredMessageListState
-    extends State<LocationChatAnchoredMessageList> {
+    extends State<LocationChatAnchoredMessageList>
+    with SingleTickerProviderStateMixin {
+  final GlobalKey _messageContentKey = GlobalKey();
   final Map<String, GlobalKey> _messageLayoutKeys = <String, GlobalKey>{};
   final GlobalKey _scrollViewportKey = GlobalKey();
+  late final AnimationController _oldestEdgeLoadingController;
+  late final Animation<double> _oldestEdgeLoadingAnimation;
+  late List<ChatMessageVm> _renderedMessages;
+  List<ChatMessageVm>? _pendingMessages;
   late List<String> _messageLocalIds;
-  int _anchorRestoreGeneration = 0;
-  int _prependAnchorGeneration = 0;
-  bool _preservePrependAnchor = false;
+  int _historyCommitGeneration = 0;
+  bool _loadingCollapsePending = false;
+  bool _historyCommitScheduled = false;
   bool _oldestMessageStopLayoutScheduled = false;
+  bool _detachedAnchorSnapshotScheduled = false;
+  double _layoutCorrectionExtentSignal = 0;
+  ({String localId, double contentOffset})? _detachedLayoutAnchor;
 
   @override
   void initState() {
     super.initState();
-    _messageLocalIds = _currentMessageLocalIds();
+    _renderedMessages = List<ChatMessageVm>.of(widget.messages);
+    _messageLocalIds = _currentMessageLocalIds(_renderedMessages);
+    _oldestEdgeLoadingController = AnimationController(
+      vsync: this,
+      duration: locationChatOldestEdgeLoadingAnimationDuration,
+      value: widget.oldestEdgeLoading ? 1 : 0,
+    )..addStatusListener(_handleOldestEdgeLoadingStatus);
+    _oldestEdgeLoadingAnimation = CurvedAnimation(
+      parent: _oldestEdgeLoadingController,
+      curve: Curves.easeInOutCubic,
+      reverseCurve: Curves.easeInOutCubic,
+    );
+    widget.coordinator.addListener(_handleCoordinatorChanged);
     _scheduleInitialViewportLayout();
+    _scheduleDetachedAnchorSnapshot();
   }
 
   @override
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
-    final previousLocalIds = _messageLocalIds;
-    final nextLocalIds = _currentMessageLocalIds();
-    final preservePrependAnchor =
-        widget.coordinator.isDetached &&
-        _isPureHeadPrepend(previousLocalIds, nextLocalIds);
-    final shouldRestoreAnchor =
-        widget.coordinator.isDetached &&
-        !preservePrependAnchor &&
-        _requiresAnchorRestore(previousLocalIds, nextLocalIds);
-    final anchor = shouldRestoreAnchor
-        ? _visibleRetainedAnchor(previousLocalIds, nextLocalIds.toSet())
-        : null;
-    final commandGeneration = widget.coordinator.commandGeneration;
-    _preservePrependAnchor = preservePrependAnchor;
-    _messageLocalIds = nextLocalIds;
     super.didUpdateWidget(oldWidget);
-    _pruneMessageLayoutKeys();
+    if (oldWidget.coordinator != widget.coordinator) {
+      oldWidget.coordinator.removeListener(_handleCoordinatorChanged);
+      widget.coordinator.addListener(_handleCoordinatorChanged);
+      _detachedLayoutAnchor = null;
+      _scheduleDetachedAnchorSnapshot();
+    }
+    final loadingStarted =
+        !oldWidget.oldestEdgeLoading && widget.oldestEdgeLoading;
+    final loadingEnded =
+        oldWidget.oldestEdgeLoading && !widget.oldestEdgeLoading;
+    if (loadingEnded) _loadingCollapsePending = true;
+    if (loadingStarted) {
+      _historyCommitGeneration += 1;
+      _historyCommitScheduled = false;
+    }
 
-    _anchorRestoreGeneration += 1;
-    final anchorGeneration = _anchorRestoreGeneration;
+    if (widget.oldestEdgeLoading || _loadingCollapsePending) {
+      _pendingMessages = List<ChatMessageVm>.of(widget.messages);
+    } else {
+      _replaceRenderedMessages(widget.messages, rebuild: false);
+    }
+
     if (widget.coordinator.mode == LocationChatViewportMode.initializing) {
       _scheduleInitialViewportLayout();
     }
-    _prependAnchorGeneration += 1;
-    final prependGeneration = _prependAnchorGeneration;
-    if (preservePrependAnchor) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || prependGeneration != _prependAnchorGeneration) return;
-        _preservePrependAnchor = false;
-      });
+    if (loadingStarted) {
+      _oldestEdgeLoadingController.forward();
     }
-    if (anchor == null) return;
+    if (loadingEnded &&
+        (_oldestEdgeLoadingController.status == AnimationStatus.completed ||
+            _oldestEdgeLoadingController.value >= 1)) {
+      _oldestEdgeLoadingController.reverse();
+    }
+  }
+
+  void _handleOldestEdgeLoadingStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed &&
+        _loadingCollapsePending &&
+        !widget.oldestEdgeLoading) {
+      _oldestEdgeLoadingController.reverse();
+      return;
+    }
+    if (status != AnimationStatus.dismissed || !_loadingCollapsePending) return;
+
+    _scheduleHistoryCommitAfterCollapsedFrame();
+  }
+
+  void _scheduleHistoryCommitAfterCollapsedFrame() {
+    if (_historyCommitScheduled) return;
+    _historyCommitScheduled = true;
+    final generation = ++_historyCommitGeneration;
+    // Paint the fully collapsed loader once before capturing the old layout.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || anchorGeneration != _anchorRestoreGeneration) return;
-      final nextAnchorTop = _messageTop(anchor.localId);
-      if (nextAnchorTop == null) return;
-      widget.coordinator.restoreAnchor(
-        delta: nextAnchorTop - anchor.top,
-        expectedCommandGeneration: commandGeneration,
+      if (!mounted ||
+          generation != _historyCommitGeneration ||
+          !_loadingCollapsePending ||
+          widget.oldestEdgeLoading) {
+        return;
+      }
+
+      final nextMessages = _pendingMessages ?? widget.messages;
+      _pendingMessages = null;
+      _loadingCollapsePending = false;
+      _historyCommitScheduled = false;
+      _replaceRenderedMessages(nextMessages, rebuild: true);
+      widget.onOldestEdgeLoadingCollapsed?.call();
+    });
+  }
+
+  void _replaceRenderedMessages(
+    List<ChatMessageVm> nextMessages, {
+    required bool rebuild,
+  }) {
+    final previousLocalIds = _messageLocalIds;
+    final nextLocalIds = _currentMessageLocalIds(nextMessages);
+    if (listEquals(previousLocalIds, nextLocalIds)) {
+      void replace() {
+        _renderedMessages = List<ChatMessageVm>.of(nextMessages);
+      }
+
+      if (rebuild) {
+        setState(replace);
+      } else {
+        replace();
+      }
+      return;
+    }
+
+    final shouldPreserveAnchor =
+        widget.coordinator.isDetached &&
+        _requiresAnchorRestore(previousLocalIds, nextLocalIds);
+    final visibleLayoutAnchor = shouldPreserveAnchor
+        ? _visibleRetainedAnchor(previousLocalIds, nextLocalIds.toSet())
+        : null;
+    final previousContentOffset = visibleLayoutAnchor == null
+        ? null
+        : _messageContentOffset(visibleLayoutAnchor.localId);
+    final layoutAnchor =
+        visibleLayoutAnchor != null && previousContentOffset != null
+        ? (
+            localId: visibleLayoutAnchor.localId,
+            contentOffset: previousContentOffset,
+          )
+        : null;
+    if (shouldPreserveAnchor) {
+      _detachedLayoutAnchor = layoutAnchor;
+      // A rolling-window replacement can keep the exact same total extent.
+      // Toggling a subpixel tail extent still makes ScrollPosition run the
+      // layout-phase correction before this frame is painted.
+      _layoutCorrectionExtentSignal = _layoutCorrectionExtentSignal == 0
+          ? _locationChatLayoutCorrectionExtentSignal
+          : 0;
+    }
+
+    void replace() {
+      _renderedMessages = List<ChatMessageVm>.of(nextMessages);
+      _messageLocalIds = nextLocalIds;
+      _pruneMessageLayoutKeys();
+    }
+
+    if (rebuild) {
+      setState(replace);
+    } else {
+      replace();
+    }
+    _scheduleDetachedAnchorSnapshot();
+  }
+
+  void _handleCoordinatorChanged() {
+    if (!widget.coordinator.isDetached) {
+      _detachedLayoutAnchor = null;
+      return;
+    }
+    _scheduleDetachedAnchorSnapshot();
+  }
+
+  void _scheduleDetachedAnchorSnapshot() {
+    if (_detachedAnchorSnapshotScheduled) return;
+    _detachedAnchorSnapshotScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _detachedAnchorSnapshotScheduled = false;
+      if (!mounted || !widget.coordinator.isDetached) return;
+      final anchor = _visibleRetainedAnchor(
+        _messageLocalIds,
+        _messageLocalIds.toSet(),
+      );
+      if (anchor == null) return;
+      final contentOffset = _messageContentOffset(anchor.localId);
+      if (contentOffset == null) return;
+      _detachedLayoutAnchor = (
+        localId: anchor.localId,
+        contentOffset: contentOffset,
       );
     });
   }
@@ -311,8 +454,8 @@ class _LocationChatAnchoredMessageListState
     });
   }
 
-  List<String> _currentMessageLocalIds() {
-    return widget.messages.map(_messageLayoutId).toList(growable: false);
+  List<String> _currentMessageLocalIds(List<ChatMessageVm> messages) {
+    return messages.map(_messageLayoutId).toList(growable: false);
   }
 
   String _messageLayoutId(ChatMessageVm message) {
@@ -333,15 +476,6 @@ class _LocationChatAnchoredMessageListState
     return true;
   }
 
-  bool _isPureHeadPrepend(List<String> previous, List<String> next) {
-    if (previous.isEmpty || next.length <= previous.length) return false;
-    final addedCount = next.length - previous.length;
-    for (var index = 0; index < previous.length; index += 1) {
-      if (previous[index] != next[index + addedCount]) return false;
-    }
-    return true;
-  }
-
   ({String localId, double top})? _visibleRetainedAnchor(
     List<String> previousLocalIds,
     Set<String> retainedLocalIds,
@@ -349,6 +483,7 @@ class _LocationChatAnchoredMessageListState
     final viewportBounds = _globalBounds(context.findRenderObject());
     ({String localId, double top})? closestAnchor;
     var closestDistance = double.infinity;
+    var closestAnchorIsVisible = false;
     for (final localId in previousLocalIds) {
       if (!retainedLocalIds.contains(localId)) continue;
       final messageBounds = _messageBounds(localId);
@@ -356,26 +491,37 @@ class _LocationChatAnchoredMessageListState
       if (viewportBounds == null) {
         return (localId: localId, top: messageBounds.top);
       }
-      final distance = switch (messageBounds) {
-        Rect(:final bottom) when bottom < viewportBounds.top =>
-          viewportBounds.top - bottom,
-        Rect(:final top) when top > viewportBounds.bottom =>
-          top - viewportBounds.bottom,
-        _ => 0.0,
-      };
+      final isVisible =
+          messageBounds.bottom >= viewportBounds.top &&
+          messageBounds.top <= viewportBounds.bottom;
+      if (closestAnchorIsVisible && !isVisible) continue;
+      final distance = isVisible
+          ? (messageBounds.center.dy - viewportBounds.center.dy).abs()
+          : switch (messageBounds) {
+              Rect(:final bottom) when bottom < viewportBounds.top =>
+                viewportBounds.top - bottom,
+              Rect(:final top) => top - viewportBounds.bottom,
+            };
+      if (isVisible && !closestAnchorIsVisible) {
+        closestDistance = double.infinity;
+      }
       if (distance >= closestDistance) continue;
       closestDistance = distance;
+      closestAnchorIsVisible = isVisible;
       closestAnchor = (localId: localId, top: messageBounds.top);
-      if (distance == 0) break;
     }
     return closestAnchor;
   }
 
   @override
   void dispose() {
-    _anchorRestoreGeneration += 1;
-    _prependAnchorGeneration += 1;
+    widget.coordinator.removeListener(_handleCoordinatorChanged);
     widget.coordinator.setOldestMessageStopOffset(null);
+    _historyCommitGeneration += 1;
+    _detachedLayoutAnchor = null;
+    _oldestEdgeLoadingController
+      ..removeStatusListener(_handleOldestEdgeLoadingStatus)
+      ..dispose();
     _messageLayoutKeys.clear();
     super.dispose();
   }
@@ -385,12 +531,11 @@ class _LocationChatAnchoredMessageListState
     final style = widget.style ?? ChatUiStyleConfig.standard;
     final hasOldestEdgeContent =
         widget.topTitle.trim().isNotEmpty ||
-        (widget.oldestEdgeNotice?.trim().isNotEmpty ?? false) ||
-        widget.oldestEdgeLoading;
+        (widget.oldestEdgeNotice?.trim().isNotEmpty ?? false);
     final requiresSecondScroll =
         widget.oldestEdgeNoticeRequiresSecondScroll &&
         hasOldestEdgeContent &&
-        widget.messages.isNotEmpty;
+        _renderedMessages.isNotEmpty;
     _scheduleOldestMessageStopLayout(
       enabled: requiresSecondScroll,
       topPadding: style.messageListPadding.top,
@@ -409,11 +554,11 @@ class _LocationChatAnchoredMessageListState
           controller: widget.coordinator.controller,
           physics: LocationChatBottomAnchoringScrollPhysics(
             shouldFollowLatest: () => widget.coordinator.shouldFollowLatest,
-            shouldPreservePrependAnchor: () => _preservePrependAnchor,
             oldestMessageStopOffset: () =>
                 widget.coordinator.oldestMessageStopOffset,
             shouldStopAtOldestMessage: () =>
                 widget.coordinator.shouldStopAtOldestMessage,
+            takeDetachedLayoutCorrection: _takeDetachedLayoutCorrection,
           ),
           keyboardDismissBehavior:
               widget.keyboardDismissBehavior ??
@@ -423,13 +568,45 @@ class _LocationChatAnchoredMessageListState
             child: Padding(
               padding: style.messageListPadding,
               child: Column(
+                key: _messageContentKey,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  AnimatedBuilder(
+                    animation: _oldestEdgeLoadingAnimation,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                      child: SizedBox.square(
+                        dimension: style.sendingBadgeSize,
+                        child: Padding(
+                          padding: EdgeInsets.all(style.sendingBadgePadding),
+                          child: CircularProgressIndicator(
+                            strokeWidth: style.sendingBadgeStrokeWidth,
+                            color: style.sendingBadgeColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                    builder: (context, child) {
+                      final factor = _oldestEdgeLoadingAnimation.value;
+                      if (factor <= 0 &&
+                          !widget.oldestEdgeLoading &&
+                          !_loadingCollapsePending) {
+                        return const SizedBox.shrink();
+                      }
+                      return ClipRect(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          heightFactor: factor,
+                          child: Opacity(opacity: factor, child: child),
+                        ),
+                      );
+                    },
+                  ),
                   if (hasOldestEdgeContent)
                     ChatOldestEdgeContent(
                       topTitle: widget.topTitle,
                       notice: widget.oldestEdgeNotice,
-                      loading: widget.oldestEdgeLoading,
+                      loading: false,
                       style: style,
                     ),
                   if (requiresSecondScroll)
@@ -442,7 +619,7 @@ class _LocationChatAnchoredMessageListState
                         children: [
                           for (
                             var index = 0;
-                            index < widget.messages.length;
+                            index < _renderedMessages.length;
                             index += 1
                           )
                             _buildMessageRow(index, style),
@@ -452,10 +629,11 @@ class _LocationChatAnchoredMessageListState
                   else
                     for (
                       var index = 0;
-                      index < widget.messages.length;
+                      index < _renderedMessages.length;
                       index += 1
                     )
                       _buildMessageRow(index, style),
+                  SizedBox(height: _layoutCorrectionExtentSignal),
                 ],
               ),
             ),
@@ -477,12 +655,12 @@ class _LocationChatAnchoredMessageListState
     _oldestMessageStopLayoutScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _oldestMessageStopLayoutScheduled = false;
-      if (!mounted || widget.messages.isEmpty) return;
+      if (!mounted || _renderedMessages.isEmpty) return;
       final viewportBounds = _globalBounds(
         _scrollViewportKey.currentContext?.findRenderObject(),
       );
       final firstMessageBounds = _messageBounds(
-        _messageLayoutId(widget.messages.first),
+        _messageLayoutId(_renderedMessages.first),
       );
       if (viewportBounds == null || firstMessageBounds == null) return;
       final controller = widget.coordinator.controller;
@@ -497,13 +675,44 @@ class _LocationChatAnchoredMessageListState
   }
 
   void _pruneMessageLayoutKeys() {
-    final retainedLocalIds = widget.messages.map(_messageLayoutId).toSet();
+    final retainedLocalIds = _renderedMessages.map(_messageLayoutId).toSet();
     _messageLayoutKeys.removeWhere(
       (localId, _) => !retainedLocalIds.contains(localId),
     );
   }
 
-  double? _messageTop(String localId) => _messageBounds(localId)?.top;
+  double? _takeDetachedLayoutCorrection() {
+    final anchor = _detachedLayoutAnchor;
+    if (anchor == null) return null;
+    final nextContentOffset = _messageContentOffset(anchor.localId);
+    if (nextContentOffset == null) return null;
+    _detachedLayoutAnchor = (
+      localId: anchor.localId,
+      contentOffset: nextContentOffset,
+    );
+    if (widget.oldestEdgeLoading || _loadingCollapsePending) return null;
+    final correction = nextContentOffset - anchor.contentOffset;
+    return correction.abs() > precisionErrorTolerance ? correction : null;
+  }
+
+  double? _messageContentOffset(String localId) {
+    final messageContext = _messageLayoutKeys[localId]?.currentContext;
+    final contentContext = _messageContentKey.currentContext;
+    final messageRenderObject = messageContext?.findRenderObject();
+    final contentRenderObject = contentContext?.findRenderObject();
+    if (messageRenderObject == null || contentRenderObject == null) return null;
+
+    // This runs from ScrollPhysics during layout, where localToGlobal is not
+    // safe. Box parent-data offsets provide the same content-space delta.
+    var offset = 0.0;
+    RenderObject? current = messageRenderObject;
+    while (current != null && current != contentRenderObject) {
+      final parentData = current.parentData;
+      if (parentData is BoxParentData) offset += parentData.offset.dy;
+      current = current.parent;
+    }
+    return current == contentRenderObject && offset.isFinite ? offset : null;
+  }
 
   Rect? _messageBounds(String localId) {
     if (localId.isEmpty) return null;
@@ -540,10 +749,10 @@ class _LocationChatAnchoredMessageListState
   }
 
   Widget _buildMessageRow(int messageIndex, ChatUiStyleConfig style) {
-    final current = widget.messages[messageIndex];
+    final current = _renderedMessages[messageIndex];
     final previous = messageIndex == 0
         ? null
-        : widget.messages[messageIndex - 1];
+        : _renderedMessages[messageIndex - 1];
     final layoutId = _messageLayoutId(current);
     final layoutKey = _messageLayoutKeys.putIfAbsent(layoutId, GlobalKey.new);
     return KeyedSubtree(
@@ -551,7 +760,7 @@ class _LocationChatAnchoredMessageListState
       child: ChatMessageRow(
         key: ValueKey(layoutId),
         message: current,
-        imageViewerMessages: widget.messages,
+        imageViewerMessages: _renderedMessages,
         style: style,
         onMessageLongPressStart: widget.onMessageLongPressStart,
         onFailedMessageTap: widget.onFailedMessageTap,
@@ -571,12 +780,14 @@ class LocationChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
     this.shouldPreservePrependAnchor,
     this.oldestMessageStopOffset,
     this.shouldStopAtOldestMessage,
+    this.takeDetachedLayoutCorrection,
   });
 
   final ValueGetter<bool> shouldFollowLatest;
   final ValueGetter<bool>? shouldPreservePrependAnchor;
   final ValueGetter<double?>? oldestMessageStopOffset;
   final ValueGetter<bool>? shouldStopAtOldestMessage;
+  final ValueGetter<double?>? takeDetachedLayoutCorrection;
 
   @override
   LocationChatBottomAnchoringScrollPhysics applyTo(ScrollPhysics? ancestor) {
@@ -586,6 +797,7 @@ class LocationChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
       shouldPreservePrependAnchor: shouldPreservePrependAnchor,
       oldestMessageStopOffset: oldestMessageStopOffset,
       shouldStopAtOldestMessage: shouldStopAtOldestMessage,
+      takeDetachedLayoutCorrection: takeDetachedLayoutCorrection,
     );
   }
 
@@ -611,6 +823,17 @@ class LocationChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
     required double velocity,
   }) {
     if (!shouldFollowLatest()) {
+      final currentPixels = newPosition.pixels.clamp(
+        newPosition.minScrollExtent,
+        newPosition.maxScrollExtent,
+      );
+      final layoutCorrection = takeDetachedLayoutCorrection?.call();
+      if (layoutCorrection != null && layoutCorrection.isFinite) {
+        return (currentPixels + layoutCorrection).clamp(
+          newPosition.minScrollExtent,
+          newPosition.maxScrollExtent,
+        );
+      }
       if (shouldPreservePrependAnchor?.call() ?? false) {
         final extentDelta =
             newPosition.maxScrollExtent - oldPosition.maxScrollExtent;
@@ -619,10 +842,7 @@ class LocationChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
           newPosition.maxScrollExtent,
         );
       }
-      return newPosition.pixels.clamp(
-        newPosition.minScrollExtent,
-        newPosition.maxScrollExtent,
-      );
+      return currentPixels;
     }
     final wasNearBottom =
         oldPosition.maxScrollExtent - newPosition.pixels <=

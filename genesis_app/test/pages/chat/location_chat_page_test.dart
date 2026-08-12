@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
@@ -202,6 +203,41 @@ void main() {
         detached: true,
         extentBefore: 120,
         isScrolling: false,
+      ),
+      isTrue,
+    );
+  });
+
+  test('AI disclaimer only enters the list after history is resolved', () {
+    expect(
+      locationChatShouldShowAiContentDisclaimerForTesting(
+        initialContentReady: false,
+        hasMoreOlderMessages: false,
+        loadingOlderMessages: false,
+      ),
+      isFalse,
+    );
+    expect(
+      locationChatShouldShowAiContentDisclaimerForTesting(
+        initialContentReady: true,
+        hasMoreOlderMessages: true,
+        loadingOlderMessages: false,
+      ),
+      isFalse,
+    );
+    expect(
+      locationChatShouldShowAiContentDisclaimerForTesting(
+        initialContentReady: true,
+        hasMoreOlderMessages: false,
+        loadingOlderMessages: true,
+      ),
+      isFalse,
+    );
+    expect(
+      locationChatShouldShowAiContentDisclaimerForTesting(
+        initialContentReady: true,
+        hasMoreOlderMessages: false,
+        loadingOlderMessages: false,
       ),
       isTrue,
     );
@@ -515,7 +551,7 @@ void main() {
   );
 
   testWidgets(
-    'canonical V2 tick shows unread notice while detached and stays pinned after notice tap',
+    'consecutive canonical V2 ticks share one unread bubble count while detached',
     (tester) async {
       final sessionStore = MemoryUserSessionStore();
       await sessionStore.saveUid('user-1');
@@ -616,6 +652,36 @@ void main() {
         findsOneWidget,
       );
 
+      socket.serverV2Tick(
+        messageId: 22,
+        locationMessageId: 22,
+        globalText: 'Latest detached canonical tick',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.messagesByLocation['location-current']?.any(
+              (message) =>
+                  message.locationMessageId == 22 && message.isV2LocationTick,
+            ) ==
+            true,
+      );
+      await tester.pump();
+
+      expect(position.pixels, closeTo(pixelsBeforeTick, 0.1));
+      expect(find.text('Detached canonical tick'), findsNothing);
+      expect(find.text('Latest detached canonical tick'), findsOneWidget);
+      expect(
+        tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byKey(const ValueKey('location-chat-message-list')),
+            )
+            .messages
+            .where((message) => message.isTick),
+        hasLength(1),
+      );
+      expect(find.text('1 new message'), findsOneWidget);
+
       await tester.tap(
         find.byKey(const ValueKey('location-chat-new-message-notice')),
       );
@@ -630,8 +696,8 @@ void main() {
       expect(find.text('1 new message'), findsNothing);
 
       socket.serverV2Tick(
-        messageId: 22,
-        locationMessageId: 22,
+        messageId: 23,
+        locationMessageId: 23,
         globalText: 'Bottom canonical tick',
       );
       await _pumpUntilLocationChatTest(
@@ -639,7 +705,7 @@ void main() {
         () =>
             service.state.messagesByLocation['location-current']?.any(
               (message) =>
-                  message.locationMessageId == 22 && message.isV2LocationTick,
+                  message.locationMessageId == 23 && message.isV2LocationTick,
             ) ==
             true,
       );
@@ -1775,6 +1841,117 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const ValueKey('memory-model-entry')), findsNothing);
+  });
+
+  testWidgets('exhausted location chat prepends one AI disclaimer bubble', (
+    tester,
+  ) async {
+    final historyMessage = _message(
+      messageId: 10,
+      locationMessageId: 0,
+      content: 'Only available history message',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'world-current',
+          locationId: 'loc-1',
+          active: false,
+          openingPreviewMessages: [historyMessage],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final messageList = tester.widget<LocationChatAnchoredMessageList>(
+      find.byKey(const ValueKey('location-chat-message-list')),
+    );
+    expect(messageList.oldestEdgeNotice, isNull);
+    expect(messageList.oldestEdgeNoticeRequiresSecondScroll, isFalse);
+    expect(messageList.messages.first.isAiContentDisclaimer, isTrue);
+    expect(
+      messageList.messages.where((message) => message.isAiContentDisclaimer),
+      hasLength(1),
+    );
+    expect(messageList.messages.last.text, 'Only available history message');
+    expect(find.byType(ChatAiContentDisclaimerMessageBubble), findsOneWidget);
+    expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+  });
+
+  testWidgets('resolved empty location chat shows the AI disclaimer bubble', (
+    tester,
+  ) async {
+    final connected = await _connectedLocationChatTestService();
+    final services = connected.services;
+    final service = connected.service;
+    await service.join(locationId: 'location-current');
+
+    Widget build({required bool active}) {
+      return AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            active: active,
+            service: service,
+            leaveOnInactive: false,
+            messageQueueInitializationCovered: true,
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(build(active: false));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find
+          .byType(ChatAiContentDisclaimerMessageBubble)
+          .evaluate()
+          .isNotEmpty,
+    );
+
+    final messageList = tester.widget<LocationChatAnchoredMessageList>(
+      find.byKey(const ValueKey('location-chat-message-list')),
+    );
+    expect(messageList.messages, hasLength(1));
+    expect(messageList.messages.single.isAiContentDisclaimer, isTrue);
+    expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+
+    await tester.pumpWidget(build(active: true));
+    await tester.pump();
+    connected.socket.serverV2UserMessage(messageId: 1);
+    await _pumpUntilLocationChatTest(tester, () {
+      if (service.state.messagesByLocation['location-current']?.length != 1) {
+        return false;
+      }
+      final listFinder = find.byKey(
+        const ValueKey('location-chat-message-list'),
+      );
+      if (listFinder.evaluate().isEmpty) return false;
+      return tester
+              .widget<LocationChatAnchoredMessageList>(listFinder)
+              .messages
+              .length ==
+          2;
+    });
+
+    final updatedMessageList = tester.widget<LocationChatAnchoredMessageList>(
+      find.byKey(const ValueKey('location-chat-message-list')),
+    );
+    expect(
+      updatedMessageList.messages.where(
+        (message) => message.isAiContentDisclaimer,
+      ),
+      hasLength(1),
+    );
+    expect(updatedMessageList.messages.first.isAiContentDisclaimer, isTrue);
+    expect(updatedMessageList.messages.last.text, 'message 1');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(service.dispose());
   });
 
   testWidgets(
