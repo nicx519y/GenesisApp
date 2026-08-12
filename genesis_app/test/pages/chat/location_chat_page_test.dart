@@ -1349,46 +1349,96 @@ void main() {
     );
   });
 
-  test('message reconciliation preserves unmatched local send failures', () {
+  test(
+    'message reconciliation preserves local rows until canonical ids arrive',
+    () {
+      final accepted = ChatMessageVm(
+        localId: 'local-accepted',
+        clientMsgId: 'client-accepted',
+        senderId: 'u_me',
+        senderName: 'Me',
+        avatarUrl: '',
+        text: 'Accepted, awaiting echo',
+        isMe: true,
+        status: 'sent',
+      );
+      final canonical = ChatMessageVm(
+        localId: 'server-message',
+        clientMsgId: 'server-client-id',
+        globalMessageId: 100,
+        messageId: 10,
+        locationMessageId: 1,
+        senderId: 'u_me',
+        senderName: 'Me',
+        avatarUrl: '',
+        text: 'Already canonical',
+        isMe: true,
+        status: 'sent',
+      );
+      final sending = ChatMessageVm(
+        localId: 'local-sending',
+        clientMsgId: 'client-sending',
+        senderId: 'u_me',
+        senderName: 'Me',
+        avatarUrl: '',
+        text: 'Sending',
+        isMe: true,
+        status: 'sending',
+      );
+      final failed = ChatMessageVm(
+        localId: 'local-failed',
+        clientMsgId: 'client-failed',
+        senderId: 'u_me',
+        senderName: 'Me',
+        avatarUrl: '',
+        text: 'Insufficient balance',
+        isMe: true,
+        status: 'failed',
+      );
+      final reconciled = <ChatMessageVm>[];
+
+      preserveUnmatchedLocationChatLocalMessages(
+        previous: [accepted, canonical, sending, failed],
+        reconciled: reconciled,
+        usedLocalIds: <String>{},
+      );
+
+      expect(reconciled, [accepted, sending, failed]);
+
+      accepted.globalMessageId = 101;
+      accepted.messageId = 11;
+      accepted.locationMessageId = 2;
+      final afterCanonical = <ChatMessageVm>[];
+      preserveUnmatchedLocationChatLocalMessages(
+        previous: [accepted],
+        reconciled: afterCanonical,
+        usedLocalIds: <String>{},
+      );
+
+      expect(afterCanonical, isEmpty);
+    },
+  );
+
+  test('message reconciliation does not duplicate an already matched row', () {
     final sent = ChatMessageVm(
-      localId: 'server-message',
-      clientMsgId: 'server-client-id',
+      localId: 'local-accepted',
+      clientMsgId: 'client-accepted',
       senderId: 'u_me',
       senderName: 'Me',
       avatarUrl: '',
-      text: 'Already sent',
+      text: 'Accepted, awaiting echo',
       isMe: true,
       status: 'sent',
-    );
-    final sending = ChatMessageVm(
-      localId: 'local-sending',
-      clientMsgId: 'client-sending',
-      senderId: 'u_me',
-      senderName: 'Me',
-      avatarUrl: '',
-      text: 'Sending',
-      isMe: true,
-      status: 'sending',
-    );
-    final failed = ChatMessageVm(
-      localId: 'local-failed',
-      clientMsgId: 'client-failed',
-      senderId: 'u_me',
-      senderName: 'Me',
-      avatarUrl: '',
-      text: 'Insufficient balance',
-      isMe: true,
-      status: 'failed',
     );
     final reconciled = <ChatMessageVm>[sent];
 
     preserveUnmatchedLocationChatLocalMessages(
-      previous: [sent, sending, failed],
+      previous: [sent],
       reconciled: reconciled,
       usedLocalIds: {sent.localId},
     );
 
-    expect(reconciled, [sent, sending, failed]);
+    expect(reconciled, [sent]);
   });
 
   test('ack 3001 removes the optimistic message and restores its draft', () {
