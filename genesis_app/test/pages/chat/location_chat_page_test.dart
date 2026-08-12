@@ -47,6 +47,25 @@ bool _returnTrue() => true;
 bool _returnFalse() => false;
 
 void main() {
+  test(
+    'location chat metadata updates contain asynchronous failures',
+    () async {
+      final unhandledErrors = <Object>[];
+
+      await runZonedGuarded<Future<void>>(() async {
+        final completed = Completer<void>();
+        unawaited(
+          runLocationChatMetadataUpdateBestEffort(
+            () async => throw StateError('storage unavailable'),
+          ).whenComplete(completed.complete),
+        );
+        await completed.future;
+      }, (error, _) => unhandledErrors.add(error));
+
+      expect(unhandledErrors, isEmpty);
+    },
+  );
+
   test('location chat keeps programmatic positioning in its coordinator', () {
     final pageSource = File(
       'lib/pages/chat/location_chat_page.dart',

@@ -64,6 +64,17 @@ const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
 
 @visibleForTesting
+Future<void> runLocationChatMetadataUpdateBestEffort(
+  Future<void> Function() update,
+) async {
+  try {
+    await update();
+  } catch (error, stackTrace) {
+    debugPrint('[LocationChat] metadata update failed: $error\n$stackTrace');
+  }
+}
+
+@visibleForTesting
 bool locationChatShouldShowAiContentDisclaimerForTesting({
   required bool initialContentReady,
   required bool hasMoreOlderMessages,

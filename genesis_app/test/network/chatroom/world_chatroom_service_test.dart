@@ -2985,6 +2985,47 @@ void main() {
   );
 
   test(
+    'dispose skips a queued event location refresh without unhandled errors',
+    () async {
+      final unhandledErrors = <Object>[];
+
+      await runZonedGuarded<Future<void>>(() async {
+        final socket = _FakeChatroomSocket();
+        final http = _BlockingWorldDetailHttpTransport();
+        final service = await _service(
+          socketTransport: _FakeChatroomTransport(socket),
+          httpTransport: http,
+          refreshInitialSnapshotOnConnect: false,
+        );
+        service.applyWorldSnapshot(_worldSnapshot());
+        await service.connect(worldId: 'world-1', identity: _identity());
+
+        socket.serverFrame('world_change', {
+          'world_id': 'world-1',
+          'payload': {'event_type': 'world_change'},
+        });
+        await _waitFor(() => http.worldDetailStarted);
+
+        socket.serverFrame('world_new_message', {
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'payload': {'event_type': 'world_new_message'},
+        });
+        await Future<void>.delayed(Duration.zero);
+        final dispose = service.dispose();
+        http.completeWorldDetail();
+        await dispose;
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(http.detailRequests, 1);
+        expect(http.messagesRequests, 0);
+      }, (error, _) => unhandledErrors.add(error));
+
+      expect(unhandledErrors, isEmpty);
+    },
+  );
+
+  test(
     'map update increments revision while character update is no-op',
     () async {
       final socket = _FakeChatroomSocket();
@@ -5133,6 +5174,26 @@ class _SequencedWorldMessagesHttpTransport extends _WorldChatroomHttpTransport {
     pendingWorldMessages.add(completer);
     await completer.future;
     completedWorldMessages += 1;
+    return super.send(request);
+  }
+}
+
+class _BlockingWorldDetailHttpTransport extends _WorldChatroomHttpTransport {
+  final Completer<void> _worldDetailCompleter = Completer<void>();
+  bool worldDetailStarted = false;
+
+  void completeWorldDetail() {
+    if (!_worldDetailCompleter.isCompleted) {
+      _worldDetailCompleter.complete();
+    }
+  }
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.uri.path.endsWith('/api/v1/world/detail')) {
+      worldDetailStarted = true;
+      await _worldDetailCompleter.future;
+    }
     return super.send(request);
   }
 }

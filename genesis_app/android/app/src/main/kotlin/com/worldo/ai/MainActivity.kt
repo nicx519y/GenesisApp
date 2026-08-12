@@ -41,6 +41,9 @@ import java.security.spec.ECGenParameterSpec
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.sqrt
 
 class MainActivity : FlutterActivity() {
     private val channel = "com.worldo.ai/device"
@@ -53,6 +56,9 @@ class MainActivity : FlutterActivity() {
     private val generatedDeviceIdKey = "generated_device_id"
     private val prefsName = "genesis"
     private val gatewayKeyAlias = "genesis_gateway_device_key_v1"
+    private val normalizedDiscussImageMaxDimension = 4096
+    private val normalizedDiscussImageMaxPixels = 16_000_000L
+    private val legacyNormalizedDiscussImageMaxPixels = 8_000_000L
     private var pendingDiscussImagePickerResult: MethodChannel.Result? = null
     private var pendingDiscussImagePickerLimit = 0
     private var pendingDiscussImagePickerNormalizeForUpload = false
@@ -509,57 +515,154 @@ class MainActivity : FlutterActivity() {
 
     private fun saveNormalizedDiscussImage(uri: Uri, index: Int): String {
         val decoded = decodeDiscussImage(uri)
-        val hasTransparency = bitmapHasTransparentPixels(decoded)
-        val extension = if (hasTransparency) "png" else "jpg"
-        val format = if (hasTransparency) {
-            Bitmap.CompressFormat.PNG
-        } else {
-            Bitmap.CompressFormat.JPEG
-        }
-        val quality = if (hasTransparency) 100 else 90
-        val dir = File(cacheDir, "discuss_image_picker")
-        if (!dir.exists()) dir.mkdirs()
-        val file = File(
-            dir,
-            "discuss_${System.currentTimeMillis()}_$index.$extension",
-        )
-
         try {
+            val hasTransparency = bitmapHasTransparentPixels(decoded)
+            val extension = if (hasTransparency) "png" else "jpg"
+            val format = if (hasTransparency) {
+                Bitmap.CompressFormat.PNG
+            } else {
+                Bitmap.CompressFormat.JPEG
+            }
+            val quality = if (hasTransparency) 100 else 90
+            val dir = File(cacheDir, "discuss_image_picker")
+            if (!dir.exists()) dir.mkdirs()
+            val file = File(
+                dir,
+                "discuss_${System.currentTimeMillis()}_$index.$extension",
+            )
             FileOutputStream(file).use { output ->
                 check(decoded.compress(format, quality, output)) {
                     "Selected image could not be encoded."
                 }
             }
+            return file.absolutePath
         } finally {
             decoded.recycle()
         }
-        return file.absolutePath
     }
 
     private fun decodeDiscussImage(uri: Uri): Bitmap {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val source = ImageDecoder.createSource(contentResolver, uri)
-            return ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+            return ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                val (targetWidth, targetHeight) = normalizedDiscussImageSize(
+                    info.size.width,
+                    info.size.height,
+                )
+                if (targetWidth != info.size.width || targetHeight != info.size.height) {
+                    decoder.setTargetSize(targetWidth, targetHeight)
+                }
             }
         }
 
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "Cannot open selected image." }
+            BitmapFactory.decodeStream(input, null, bounds)
+        }
+        require(bounds.outWidth > 0 && bounds.outHeight > 0) {
+            "Selected image dimensions could not be read."
+        }
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = normalizedDiscussImageSampleSize(
+                bounds.outWidth,
+                bounds.outHeight,
+                legacyNormalizedDiscussImageMaxPixels,
+            )
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
         val bitmap = contentResolver.openInputStream(uri).use { input ->
             requireNotNull(input) { "Cannot open selected image." }
-            requireNotNull(BitmapFactory.decodeStream(input)) {
+            requireNotNull(BitmapFactory.decodeStream(input, null, options)) {
                 "Selected image could not be decoded."
             }
         }
-        val orientation = runCatching {
-            contentResolver.openInputStream(uri).use { input ->
-                requireNotNull(input) { "Cannot open selected image metadata." }
-                ExifInterface(input).getAttributeInt(
-                    ExifInterface.TAG_ORIENTATION,
-                    ExifInterface.ORIENTATION_NORMAL,
-                )
+        var resized = bitmap
+        try {
+            resized = resizeDiscussImageIfNeeded(
+                bitmap,
+                legacyNormalizedDiscussImageMaxPixels,
+            )
+            val orientation = runCatching {
+                contentResolver.openInputStream(uri).use { input ->
+                    requireNotNull(input) { "Cannot open selected image metadata." }
+                    ExifInterface(input).getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.ORIENTATION_NORMAL,
+                    )
+                }
+            }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+            return applyExifOrientation(resized, orientation)
+        } catch (error: Throwable) {
+            if (!resized.isRecycled) resized.recycle()
+            if (resized !== bitmap && !bitmap.isRecycled) bitmap.recycle()
+            throw error
+        }
+    }
+
+    private fun normalizedDiscussImageSize(
+        sourceWidth: Int,
+        sourceHeight: Int,
+        maxPixels: Long = normalizedDiscussImageMaxPixels,
+    ): Pair<Int, Int> {
+        require(sourceWidth > 0 && sourceHeight > 0) {
+            "Selected image dimensions are invalid."
+        }
+        val width = sourceWidth.toDouble()
+        val height = sourceHeight.toDouble()
+        val dimensionScale = normalizedDiscussImageMaxDimension / maxOf(width, height)
+        val pixelScale = sqrt(maxPixels / (width * height))
+        val scale = minOf(1.0, dimensionScale, pixelScale)
+        return Pair(
+            maxOf(1, floor(width * scale).toInt()),
+            maxOf(1, floor(height * scale).toInt()),
+        )
+    }
+
+    private fun normalizedDiscussImageSampleSize(
+        sourceWidth: Int,
+        sourceHeight: Int,
+        maxPixels: Long,
+    ): Int {
+        var sampleSize = 1
+        while (sampleSize <= Int.MAX_VALUE / 2) {
+            val sampledWidth = ceil(sourceWidth.toDouble() / sampleSize).toLong()
+            val sampledHeight = ceil(sourceHeight.toDouble() / sampleSize).toLong()
+            if (
+                sampledWidth <= normalizedDiscussImageMaxDimension &&
+                sampledHeight <= normalizedDiscussImageMaxDimension &&
+                sampledWidth * sampledHeight <= maxPixels
+            ) {
+                break
             }
-        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
-        return applyExifOrientation(bitmap, orientation)
+            sampleSize *= 2
+        }
+        return sampleSize
+    }
+
+    private fun resizeDiscussImageIfNeeded(
+        bitmap: Bitmap,
+        maxPixels: Long,
+    ): Bitmap {
+        val (targetWidth, targetHeight) = normalizedDiscussImageSize(
+            bitmap.width,
+            bitmap.height,
+            maxPixels,
+        )
+        if (targetWidth == bitmap.width && targetHeight == bitmap.height) {
+            return bitmap
+        }
+        return try {
+            Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true).also {
+                if (it !== bitmap) bitmap.recycle()
+            }
+        } catch (error: Throwable) {
+            bitmap.recycle()
+            throw error
+        }
     }
 
     private fun applyExifOrientation(bitmap: Bitmap, orientation: Int): Bitmap {

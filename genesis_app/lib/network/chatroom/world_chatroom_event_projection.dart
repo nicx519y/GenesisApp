@@ -152,10 +152,9 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         final movedLocationId = event.locationId.trim();
         if (movedLocationId.isNotEmpty) {
           unawaited(
-            refreshLatestMessages(
+            _refreshEventLocationMessages(
               locationId: movedLocationId,
-              limit: 20,
-              emitLatestFetched: false,
+              sourceType: event.eventType,
             ),
           );
         } else {
@@ -169,10 +168,9 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         final notificationLocationId = event.locationId.trim();
         if (notificationLocationId.isNotEmpty) {
           unawaited(
-            refreshLatestMessages(
+            _refreshEventLocationMessages(
               locationId: notificationLocationId,
-              limit: 20,
-              emitLatestFetched: false,
+              sourceType: event.eventType,
             ),
           );
         } else {
@@ -200,6 +198,31 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         break;
       default:
         break;
+    }
+  }
+
+  Future<void> _refreshEventLocationMessages({
+    required String locationId,
+    required String sourceType,
+  }) async {
+    if (_disposed || _worldId.trim().isEmpty) return;
+    try {
+      await refreshLatestMessages(
+        locationId: locationId,
+        limit: 20,
+        emitLatestFetched: false,
+      );
+    } catch (error) {
+      if (_disposed) return;
+      _recordFailure(
+        ChatroomFailureEvent(
+          code: 'message_history_load_failed',
+          message: 'Something went wrong',
+          sourceType: sourceType,
+          requestType: 'get_messages',
+          cause: error,
+        ),
+      );
     }
   }
 

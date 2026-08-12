@@ -102,7 +102,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         service.cancelCanonicalMessageWait(clientMsgId);
         return;
       }
-      unawaited(_markRecentWorldChatLocation());
+      unawaited(
+        runLocationChatMetadataUpdateBestEffort(_markRecentWorldChatLocation),
+      );
       _setLocationChatState(() {
         localMessage.status = 'sent';
         _sending = false;
@@ -216,12 +218,16 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   }
 
   Future<void> _markRecentWorldChatLocation() async {
-    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    final services = AppServicesScope.read(context);
+    final worldId = widget.worldId;
+    final locationId = widget.locationId;
+    final locationPathIds = List<String>.of(widget.recentChatLocationPathIds);
+    final uid = await resolveRecentWorldChatUid(services);
     await recentWorldChatStore.markRecentChat(
       uid: uid,
-      worldId: widget.worldId,
-      locationId: widget.locationId,
-      locationPathIds: widget.recentChatLocationPathIds,
+      worldId: worldId,
+      locationId: locationId,
+      locationPathIds: locationPathIds,
     );
   }
 
