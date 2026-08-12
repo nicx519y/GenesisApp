@@ -18,12 +18,24 @@ void preserveUnmatchedLocationChatLocalMessages({
     if (usedLocalIds.contains(message.localId) ||
         !message.isMe ||
         message.clientMsgId.trim().isEmpty ||
-        (message.status != 'sending' && message.status != 'failed')) {
+        !_shouldPreserveUnmatchedLocationChatLocalMessage(message)) {
       continue;
     }
     usedLocalIds.add(message.localId);
     reconciled.add(message);
   }
+}
+
+bool _shouldPreserveUnmatchedLocationChatLocalMessage(ChatMessageVm message) {
+  if (message.status == 'sending' || message.status == 'failed') return true;
+
+  // A V2 ACK only confirms that the command was accepted. Until the
+  // canonical user echo supplies its ids, this is still the optimistic row
+  // and must survive unrelated chatroom state updates.
+  return message.status == 'sent' &&
+      message.globalMessageId <= 0 &&
+      (message.messageId ?? 0) <= 0 &&
+      message.locationMessageId <= 0;
 }
 
 const Set<String> _locationChatDraftRecoverableFailureCodes = <String>{
