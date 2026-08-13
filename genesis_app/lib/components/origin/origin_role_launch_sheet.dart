@@ -95,6 +95,7 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
   required BuildContext context,
   required List<OriginCharacter> characters,
   bool initialCustomTab = false,
+  bool fillProfileOnOpen = false,
   bool initialLaunchedTab = false,
   OriginRoleProfileLoader? onFillFromProfile,
   OriginRoleAvatarResolver? resolveAvatarUrl,
@@ -122,6 +123,7 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
               body: OriginRoleLaunchSheet(
                 characters: characters,
                 initialCustomTab: initialCustomTab,
+                fillProfileOnOpen: fillProfileOnOpen,
                 initialLaunchedTab: initialLaunchedTab,
                 onFillFromProfile: onFillFromProfile,
                 resolveAvatarUrl: resolveAvatarUrl,
@@ -142,6 +144,7 @@ class OriginRoleLaunchSheet extends StatefulWidget {
     super.key,
     required this.characters,
     this.initialCustomTab = false,
+    this.fillProfileOnOpen = false,
     this.initialLaunchedTab = false,
     this.onFillFromProfile,
     this.resolveAvatarUrl,
@@ -152,6 +155,7 @@ class OriginRoleLaunchSheet extends StatefulWidget {
 
   final List<OriginCharacter> characters;
   final bool initialCustomTab;
+  final bool fillProfileOnOpen;
   final bool initialLaunchedTab;
   final OriginRoleProfileLoader? onFillFromProfile;
   final OriginRoleAvatarResolver? resolveAvatarUrl;
@@ -193,6 +197,11 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
       }
     } else {
       _loadLaunchedPresetRoles();
+    }
+    if (widget.initialCustomTab && widget.fillProfileOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fillFromProfile();
+      });
     }
   }
 

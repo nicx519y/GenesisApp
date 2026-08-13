@@ -547,6 +547,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<void> _showLaunchRoleSheet(
     OriginDetail origin, {
     bool initialCustomTab = false,
+    bool fillProfileOnOpen = false,
     String initialLocationId = '',
   }) async {
     if (_launching) return;
@@ -555,6 +556,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     await _openLaunchRoleSheet(
       origin,
       initialCustomTab: initialCustomTab,
+      fillProfileOnOpen: fillProfileOnOpen,
       initialLocationId: initialLocationId,
     );
   }
@@ -622,6 +624,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<void> _openLaunchRoleSheet(
     OriginDetail origin, {
     bool initialCustomTab = false,
+    bool fillProfileOnOpen = false,
     String initialLocationId = '',
   }) async {
     final launchedPresetRoles = _launchedPresetRolesData;
@@ -635,6 +638,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       context: context,
       characters: origin.characters,
       initialCustomTab: initialCustomTab,
+      fillProfileOnOpen: fillProfileOnOpen,
       initialLaunchedTab:
           !initialCustomTab && launchedPresetRoles?.isNotEmpty == true,
       resolveAvatarUrl: _resolveAssetUrl,
@@ -1086,6 +1090,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                   _selectAndLaunchPresetRole(origin, character),
               onSelectProfileRole: (profileRole) =>
                   _selectAndLaunchProfileRole(origin, profileRole),
+              onEditProfileRole: () => _showLaunchRoleSheet(
+                origin,
+                initialCustomTab: true,
+                fillProfileOnOpen: true,
+              ),
               onCustomizeRole: () =>
                   _showLaunchRoleSheet(origin, initialCustomTab: true),
             ),

@@ -15,6 +15,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.profileRole,
     required this.onSelectRole,
     required this.onSelectProfileRole,
+    required this.onEditProfileRole,
     required this.onCustomizeRole,
   });
 
@@ -33,6 +34,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final OriginCustomRoleDraft? profileRole;
   final Future<void> Function(OriginCharacter character) onSelectRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
+  final VoidCallback onEditProfileRole;
   final VoidCallback onCustomizeRole;
 
   @override
@@ -429,6 +431,7 @@ class _OriginDetailDraggableSheetState
                               profileRole: widget.profileRole,
                               onSelectRole: widget.onSelectRole,
                               onSelectProfileRole: widget.onSelectProfileRole,
+                              onEditProfileRole: widget.onEditProfileRole,
                               onCustomizeRole: widget.onCustomizeRole,
                             ),
                           ),

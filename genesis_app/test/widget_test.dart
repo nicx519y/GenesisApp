@@ -7236,6 +7236,40 @@ void main() {
       tester.getTopLeft(recommendedRole).dx,
       lessThan(tester.getTopLeft(regularRole).dx),
     );
+    final suggestedLabel = find.byKey(
+      const ValueKey<String>('origin-setup-role-suggested-label-c_recommended'),
+    );
+    expect(suggestedLabel, findsOneWidget);
+    expect(
+      find.descendant(
+        of: suggestedLabel,
+        matching: find.text('Originator Suggested'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Text>(find.text('Originator Suggested')).style?.fontSize,
+      13,
+    );
+    final recommendedPortrait = find.byKey(
+      const ValueKey<String>('origin-setup-role-portrait-c_recommended'),
+    );
+    final suggestedLabelRect = tester.getRect(suggestedLabel);
+    final recommendedPortraitRect = tester.getRect(recommendedPortrait);
+    expect(
+      suggestedLabelRect.top,
+      closeTo(recommendedPortraitRect.top + 12, 0.01),
+    );
+    expect(
+      suggestedLabelRect.left,
+      closeTo(recommendedPortraitRect.left + 12, 0.01),
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-suggested-label-c_regular'),
+      ),
+      findsNothing,
+    );
     final recommendedMark = find.byKey(
       const ValueKey<String>('origin-setup-role-recommended-c_recommended'),
     );
@@ -7281,6 +7315,17 @@ void main() {
       ),
       findsNothing,
     );
+    tester
+        .widget<GestureDetector>(
+          find.byKey(
+            const ValueKey<String>(
+              'origin-setup-role-card-body-toggle-c_recommended',
+            ),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+    expect(suggestedLabel, findsNothing);
   });
 
   testWidgets('Origin detail launch bar launches a world', (
@@ -7929,6 +7974,19 @@ void main() {
     final profilePortrait = find.byKey(
       const ValueKey<String>('origin-setup-role-portrait-current-user'),
     );
+    final profileLabel = find.byKey(
+      const ValueKey<String>('origin-setup-role-profile-label'),
+    );
+    expect(profileLabel, findsOneWidget);
+    expect(
+      find.descendant(of: profileLabel, matching: find.text('Your Profile')),
+      findsOneWidget,
+    );
+    expect(tester.widget<Text>(find.text('Your Profile')).style?.fontSize, 13);
+    final profilePortraitRect = tester.getRect(profilePortrait);
+    final profileLabelRect = tester.getRect(profileLabel);
+    expect(profileLabelRect.top, closeTo(profilePortraitRect.top + 12, 0.01));
+    expect(profileLabelRect.left, closeTo(profilePortraitRect.left + 12, 0.01));
     expect(
       find.descendant(of: profilePortrait, matching: find.text('Profile Hero')),
       findsOneWidget,
@@ -7948,6 +8006,77 @@ void main() {
       contains('https://cdn.example.com/profile_1080x1080.jpg'),
     );
     expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+
+    final profileBodyToggle = find.byKey(
+      const ValueKey<String>('origin-setup-role-card-body-toggle-current-user'),
+    );
+    tester.widget<GestureDetector>(profileBodyToggle).onTap!();
+    await tester.pumpAndSettle();
+    expect(profileLabel, findsNothing);
+    final profileDetails = find.byKey(
+      const ValueKey<String>('origin-setup-role-details-current-user'),
+    );
+    expect(
+      find.descendant(of: profileDetails, matching: find.text('Identity')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: profileDetails, matching: find.text('Background')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: profileDetails, matching: find.text('Brief')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: profileDetails, matching: find.text('Goal')),
+      findsNothing,
+    );
+    tester.widget<GestureDetector>(profileBodyToggle).onTap!();
+    await tester.pumpAndSettle();
+    expect(profileLabel, findsOneWidget);
+
+    final editSurfaceFinder = find.byKey(
+      const ValueKey<String>('origin-setup-role-edit-surface-current-user'),
+    );
+    expect(tester.getSize(editSurfaceFinder), const Size.square(35));
+    final editSurface = tester.widget<Material>(editSurfaceFinder);
+    expect(editSurface.color, const Color(0x667A7A7A));
+    expect(
+      find.descendant(
+        of: editSurfaceFinder,
+        matching: find.byIcon(Icons.edit_rounded),
+      ),
+      findsOneWidget,
+    );
+    tester
+        .widget<InkWell>(
+          find.byKey(
+            const ValueKey<String>('origin-setup-role-edit-current-user'),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    final customForm = find.byKey(
+      const ValueKey<String>('origin-role-custom-tab'),
+    );
+    expect(customForm, findsOneWidget);
+    final customFields = find.descendant(
+      of: customForm,
+      matching: find.byType(TextField),
+    );
+    expect(
+      tester.widget<TextField>(customFields.at(0)).controller?.text,
+      'Profile Hero',
+    );
+    expect(
+      tester.widget<TextField>(customFields.at(1)).controller?.text,
+      isEmpty,
+    );
+    expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+    await tester.tap(find.byKey(const ValueKey('origin-role-sheet-close')));
+    await tester.pumpAndSettle();
 
     tester.widget<InkWell>(profileRole).onTap!();
     await tester.pumpAndSettle();
@@ -8827,7 +8956,12 @@ void main() {
 
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Custom'));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-role-sheet')),
+        matching: find.text('Custom'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Custom Hero');
     await tester.pump();
@@ -8896,7 +9030,12 @@ void main() {
 
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Custom'));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-role-sheet')),
+        matching: find.text('Custom'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Fill from my profile'));
     await tester.pumpAndSettle();
@@ -8951,7 +9090,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Custom'));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-role-sheet')),
+        matching: find.text('Custom'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Fill from my profile'));
     await tester.pumpAndSettle();
@@ -9083,7 +9227,12 @@ void main() {
 
       await tester.tap(find.text('Launch'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Custom'));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('origin-role-sheet')),
+          matching: find.text('Custom'),
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Fill from my profile'));
       await tester.pumpAndSettle();
