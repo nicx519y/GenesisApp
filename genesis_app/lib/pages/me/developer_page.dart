@@ -16,6 +16,7 @@ import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
+import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
@@ -28,6 +29,7 @@ import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../network/models/gem_wallet.dart';
 import '../../network/network_capture.dart';
+import '../../network/websocket_capture.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
@@ -39,7 +41,9 @@ import 'about_us_page.dart';
 part 'developer_endpoint_actions.dart';
 part 'developer_previews.dart';
 part 'developer_components.dart';
+part 'developer_capture_components.dart';
 part 'developer_network_tab.dart';
+part 'developer_websocket_tab.dart';
 
 const String _buildModeLabel = kReleaseMode
     ? 'release'
@@ -316,9 +320,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                         key: const ValueKey<String>('developer-network-tab'),
                         horizontalPadding: horizontalContentPadding,
                       ),
-                      const _DeveloperEmptyTab(
-                        key: ValueKey<String>('developer-websocket-tab'),
-                        title: 'WebSocket',
+                      _DeveloperWebSocketTab(
+                        key: const ValueKey<String>('developer-websocket-tab'),
+                        horizontalPadding: horizontalContentPadding,
                       ),
                     ],
                   ],

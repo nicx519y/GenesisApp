@@ -13,6 +13,7 @@ import 'app/startup/app_startup_coordinator.dart';
 import 'app/telemetry/genesis_telemetry.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
+import 'network/websocket_capture.dart';
 import 'ui/system/genesis_system_ui.dart';
 
 export 'app/genesis_app.dart';
@@ -37,9 +38,12 @@ Future<void> main() async {
       );
     }
   }();
-  final networkCaptureLoad = kDebugMode
-      ? networkCaptureController.loadEnabled()
-      : Future<bool>.value(false);
+  final captureSettingsLoad = kDebugMode
+      ? Future.wait<bool>(<Future<bool>>[
+          networkCaptureController.loadEnabled(),
+          webSocketCaptureController.loadSettings(),
+        ])
+      : Future<List<bool>>.value(const <bool>[]);
   final appConfig = await AppEndpointOverrideStore.loadConfig().timeout(
     const Duration(seconds: 2),
     onTimeout: () {
@@ -49,7 +53,7 @@ Future<void> main() async {
   );
   await Future.wait<Object?>(<Future<Object?>>[
     tilemapSettingsLoad,
-    networkCaptureLoad,
+    captureSettingsLoad,
   ]);
 
   void runGenesisApp() {

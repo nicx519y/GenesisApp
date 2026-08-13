@@ -77,6 +77,7 @@ import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/network/network_capture.dart';
+import 'package:genesis_flutter_android/network/websocket_capture.dart';
 import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
 import 'package:genesis_flutter_android/components/world_map_stage.dart';
@@ -2198,6 +2199,7 @@ void main() {
     tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
     networkCaptureController.resetForTesting();
+    webSocketCaptureController.resetForTesting();
     resetDeveloperPageTabForTesting();
     BlockedUserReviewReturn.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
@@ -17831,6 +17833,208 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'developer websocket tab filters expands copies and keeps scroll on new frames',
+    (WidgetTester tester) async {
+      var clipboardText = '';
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            final data = Map<String, dynamic>.from(call.arguments as Map);
+            clipboardText = '${data['text'] ?? ''}';
+          }
+          if (call.method == 'Clipboard.getData') {
+            return <String, dynamic>{'text': clipboardText};
+          }
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+      await webSocketCaptureController.setEnabled(true);
+      final connection = webSocketCaptureController.openConnection(
+        Uri.parse('wss://dev.hushie.ai/aitown-chat/ws?token=hidden'),
+      );
+      connection.recordFrame(
+        WebSocketCaptureDirection.send,
+        '{"type":"ack","client_message_id":"client_ack"}',
+      );
+      for (var index = 0; index < 25; index += 1) {
+        connection.recordFrame(
+          WebSocketCaptureDirection.receive,
+          jsonEncode(<String, Object?>{
+            'type': 'character',
+            'stream_type': 'llm_chunk',
+            'world_id': 'w_test',
+            'location_id': 'loc_1',
+            'global_message_id': 33809 + index,
+            'content': 'chunk-$index',
+          }),
+        );
+      }
+      final newestId = webSocketCaptureController.records.first.id;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(),
+            child: const DeveloperPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('websocket'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Capture websocket'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('developer-websocket-count')),
+        findsOneWidget,
+      );
+      expect(find.text('26'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('developer-websocket-search')),
+        'llm_chunk',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('25/26'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('developer-websocket-search')),
+        '',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('developer-websocket-direction-receive'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('25/26'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-direction-all')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-type-filter')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Filter by type'), findsOneWidget);
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('developer-websocket-type-mode-only-show'),
+        ),
+      );
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('developer-websocket-type-option-ack'),
+        ),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-type-apply')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Type: Only show 1'), findsOneWidget);
+      expect(find.text('1/26'), findsOneWidget);
+      expect(find.text('SEND'), findsOneWidget);
+      expect(find.text('character'), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-type-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('developer-websocket-type-mode-hide'),
+        ),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-type-apply')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Type: Hide 1'), findsOneWidget);
+      expect(find.text('ACK'), findsNothing);
+      expect(find.text('25/26'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(ValueKey<String>('websocket-record-$newestId')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Overview'), findsOneWidget);
+      expect(find.text('Message'), findsOneWidget);
+      await tester.tap(find.text('Message'));
+      await tester.pumpAndSettle();
+      final messageContent = find.byKey(
+        ValueKey<String>('developer-websocket-message-content-$newestId'),
+      );
+      expect(messageContent, findsOneWidget);
+      expect(find.textContaining('chunk-24'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-copy-message')),
+      );
+      await tester.pump();
+      expect(
+        (await Clipboard.getData(Clipboard.kTextPlain))?.text,
+        contains('chunk-24'),
+      );
+
+      final list = find.descendant(
+        of: find.byKey(
+          const PageStorageKey<String>('developer-websocket-tab-scroll'),
+        ),
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(list).position;
+      position.jumpTo(position.maxScrollExtent.clamp(1, 300));
+      await tester.pump();
+      final previousOffset = position.pixels;
+      connection.recordFrame(
+        WebSocketCaptureDirection.receive,
+        '{"type":"character","stream_type":"llm_chunk","content":"new"}',
+      );
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(
+        find.byKey(const ValueKey<String>('developer-websocket-new-frames')),
+        findsOneWidget,
+      );
+      expect(position.pixels, previousOffset);
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-new-frames')),
+      );
+      await tester.pumpAndSettle();
+      expect(position.pixels, 0);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-clear')),
+      );
+      await tester.pumpAndSettle();
+      expect(webSocketCaptureController.records, isEmpty);
+      expect(webSocketCaptureController.selectedTypes, <String>{'ack'});
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-type-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-type-reset')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-websocket-type-apply')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Type: All'), findsOneWidget);
+      expect(webSocketCaptureController.selectedTypes, isEmpty);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
     'settings delete account clears session posts delete and opens origin',

@@ -99,63 +99,18 @@ class _DeveloperNetworkTabState extends State<_DeveloperNetworkTab> {
           ),
           child: Column(
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Capture network',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '${controller.records.length}',
-                    key: const ValueKey<String>('developer-network-count'),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF777777),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    key: const ValueKey<String>('developer-network-clear'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: controller.records.isEmpty ? null : _clear,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'Clear',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: controller.records.isEmpty
-                              ? const Color(0xFFBBBBBB)
-                              : const Color(0xFFFF2442),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 44,
-                    height: 32,
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: Switch(
-                        key: const ValueKey<String>(
-                          'developer-network-capture-switch',
-                        ),
-                        value: controller.enabled,
-                        onChanged: !controller.available || _savingEnabled
-                            ? null
-                            : _setCaptureEnabled,
-                      ),
-                    ),
-                  ),
-                ],
+              _DeveloperCaptureHeader(
+                title: 'Capture network',
+                totalCount: controller.records.length,
+                countKey: const ValueKey<String>('developer-network-count'),
+                clearKey: const ValueKey<String>('developer-network-clear'),
+                switchKey: const ValueKey<String>(
+                  'developer-network-capture-switch',
+                ),
+                enabled: controller.enabled,
+                enabledControl: controller.available && !_savingEnabled,
+                onClear: controller.records.isEmpty ? null : _clear,
+                onEnabledChanged: _setCaptureEnabled,
               ),
               const SizedBox(height: 8),
               GenesisSearchField(
@@ -285,30 +240,11 @@ class _DeveloperNetworkFilterChip extends StatelessWidget {
       _DeveloperNetworkFilter.error => 'Error',
       _DeveloperNetworkFilter.pending => 'Pending',
     };
-    return GestureDetector(
+    return _DeveloperCaptureFilterChip(
       key: ValueKey<String>('developer-network-filter-${filter.name}'),
-      behavior: HitTestBehavior.opaque,
+      label: label,
+      selected: selected,
       onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFFFEDF0) : const Color(0xFFF2F2F4),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? const Color(0xFFFF2442) : Colors.transparent,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: selected ? const Color(0xFFFF2442) : Colors.black,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -418,7 +354,7 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Column(
                 children: [
-                  _DeveloperNetworkDetailSection(
+                  _DeveloperCaptureDetailSection(
                     title: 'Overview',
                     expanded: isSectionExpanded('overview'),
                     onToggle: () => onToggleSection('overview'),
@@ -427,7 +363,7 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                       'developer-network-overview-content-${record.id}',
                     ),
                   ),
-                  _DeveloperNetworkDetailSection(
+                  _DeveloperCaptureDetailSection(
                     title: 'Request',
                     expanded: isSectionExpanded('request'),
                     onToggle: () => onToggleSection('request'),
@@ -436,8 +372,11 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                       'developer-network-request-content-${record.id}',
                     ),
                     copyLabel: 'Request copied',
+                    copyKey: const ValueKey<String>(
+                      'developer-network-copy-request',
+                    ),
                   ),
-                  _DeveloperNetworkDetailSection(
+                  _DeveloperCaptureDetailSection(
                     title: isError ? 'Error' : 'Response',
                     expanded: isSectionExpanded('response'),
                     onToggle: () => onToggleSection('response'),
@@ -446,6 +385,9 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                       'developer-network-response-content-${record.id}',
                     ),
                     copyLabel: isError ? 'Error copied' : 'Response copied',
+                    copyKey: ValueKey<String>(
+                      'developer-network-copy-${isError ? 'error' : 'response'}',
+                    ),
                   ),
                 ],
               ),
@@ -453,94 +395,6 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-}
-
-class _DeveloperNetworkDetailSection extends StatelessWidget {
-  const _DeveloperNetworkDetailSection({
-    required this.title,
-    required this.expanded,
-    required this.onToggle,
-    required this.content,
-    required this.contentKey,
-    this.copyLabel,
-  });
-
-  final String title;
-  final bool expanded;
-  final VoidCallback onToggle;
-  final String content;
-  final Key contentKey;
-  final String? copyLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onToggle,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (copyLabel != null)
-                  GestureDetector(
-                    key: ValueKey<String>(
-                      'developer-network-copy-${title.toLowerCase()}',
-                    ),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () async {
-                      await Clipboard.setData(ClipboardData(text: content));
-                      if (context.mounted) {
-                        showGenesisToast(context, copyLabel!);
-                      }
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: Icon(Icons.copy, size: 15),
-                    ),
-                  ),
-                Icon(
-                  expanded ? Icons.expand_less : Icons.expand_more,
-                  size: 18,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (expanded)
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 5),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              content,
-              key: contentKey,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
-                height: 1.35,
-                color: Color(0xFF333333),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }

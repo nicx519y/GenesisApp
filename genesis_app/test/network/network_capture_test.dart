@@ -13,6 +13,12 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  test('default network limits are 200 records and 40 MB', () {
+    final controller = NetworkCaptureController();
+    expect(controller.maxRecords, 200);
+    expect(controller.maxBodyBytes, 40 * 1024 * 1024);
+  });
+
   test('capture enabled state persists and loads', () async {
     final controller = NetworkCaptureController();
     expect(await controller.loadEnabled(), isFalse);
@@ -86,16 +92,16 @@ void main() {
       expect(controller.records.single.status, NetworkCaptureStatus.pending);
       expect(
         controller.records.single.uri.queryParameters['token'],
-        isNot('query-secret'),
+        'query-secret',
       );
       expect(
         controller.records.single.requestHeaders['authorization'],
-        isNot('Bearer secret-token'),
+        'Bearer secret-token',
       );
       expect(controller.records.single.requestBody!.text, contains('Worldo'));
       expect(
         controller.records.single.requestBody!.text,
-        isNot(contains('private-password')),
+        contains('private-password'),
       );
 
       responseCompleter.complete(
@@ -115,7 +121,7 @@ void main() {
       expect(controller.records.single.httpProtocolVersion, 'h3');
       expect(
         controller.records.single.responseBody!.text,
-        isNot(contains('response-secret')),
+        contains('response-secret'),
       );
     },
   );
@@ -276,11 +282,11 @@ void main() {
     expect(captured.text, contains('image/jpeg'));
     expect(captured.text, contains('128'));
     expect(captured.text, contains('hello'));
-    expect(captured.text, isNot(contains('upload-secret')));
+    expect(captured.text, contains('upload-secret'));
     expect(captured.text, isNot(contains(List.filled(16, 'A').join())));
   });
 
-  test('form body and plain error text redact sensitive values', () async {
+  test('form body and plain error text keep original values', () async {
     final request = _request(
       headers: const <String, String>{
         'content-type': 'application/x-www-form-urlencoded',
@@ -290,19 +296,12 @@ void main() {
 
     final captured = captureNetworkRequestBody(request)!;
     expect(captured.text, contains('name=Worldo'));
-    expect(captured.text, isNot(contains('upload-secret')));
+    expect(captured.text, contains('upload-secret'));
     final controller = NetworkCaptureController();
     await controller.setEnabled(true);
     final id = controller.begin(_request())!;
     controller.fail(id, StateError('request failed: token=plain-secret'));
-    expect(
-      controller.records.single.errorMessage,
-      isNot(contains('plain-secret')),
-    );
-    expect(
-      sanitizeNetworkCaptureText('plain token=body-value'),
-      'plain token=body-value',
-    );
+    expect(controller.records.single.errorMessage, contains('plain-secret'));
   });
 
   test(

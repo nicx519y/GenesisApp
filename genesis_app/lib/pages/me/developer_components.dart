@@ -1,29 +1,5 @@
 part of 'developer_page.dart';
 
-class _DeveloperEmptyTab extends StatelessWidget {
-  const _DeveloperEmptyTab({super.key, required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          '$title monitoring is not enabled yet.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 14,
-            height: 1.4,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _DeveloperToggleRow extends StatelessWidget {
   const _DeveloperToggleRow({
     required this.sectionTitle,

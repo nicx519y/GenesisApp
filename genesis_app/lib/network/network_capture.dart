@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'http_transport.dart';
 
 const int defaultNetworkCaptureMaxRecords = 200;
-const int defaultNetworkCaptureMaxBodyBytes = 20 * 1024 * 1024;
+const int defaultNetworkCaptureMaxBodyBytes = 40 * 1024 * 1024;
 
 final NetworkCaptureController networkCaptureController =
     NetworkCaptureController();
@@ -179,10 +179,10 @@ class NetworkCaptureController extends ChangeNotifier {
     final record = NetworkCaptureRecord(
       id: id,
       method: request.method.toUpperCase(),
-      uri: sanitizeNetworkCaptureUri(request.uri),
+      uri: request.uri,
       startedAt: DateTime.now(),
-      requestHeaders: sanitizeNetworkCaptureHeaders(request.headers),
-      requestQuery: sanitizeNetworkCaptureQuery(request.uri.queryParametersAll),
+      requestHeaders: _copyNetworkCaptureHeaders(request.headers),
+      requestQuery: _copyNetworkCaptureQuery(request.uri.queryParametersAll),
       requestBody: captureNetworkRequestBody(request),
       status: NetworkCaptureStatus.pending,
     );
@@ -202,7 +202,7 @@ class NetworkCaptureController extends ChangeNotifier {
       finishedAt: DateTime.now(),
       status: status,
       statusCode: response.statusCode,
-      responseHeaders: sanitizeNetworkCaptureHeaders(response.headers),
+      responseHeaders: _copyNetworkCaptureHeaders(response.headers),
       responseBody: captureNetworkResponseBody(response),
       httpProtocolVersion: response.httpProtocolVersion,
     );
@@ -217,7 +217,7 @@ class NetworkCaptureController extends ChangeNotifier {
       finishedAt: DateTime.now(),
       status: NetworkCaptureStatus.error,
       errorType: error.runtimeType.toString(),
-      errorMessage: _sanitizePlainNetworkText('$error'),
+      errorMessage: '$error',
     );
     _enforceLimits();
     notifyListeners();
@@ -320,45 +320,17 @@ class RecordingHttpTransport implements HttpTransport {
   }
 }
 
-Map<String, String> sanitizeNetworkCaptureHeaders(Map<String, String> input) {
-  return Map<String, String>.unmodifiable(<String, String>{
-    for (final entry in input.entries)
-      entry.key: _isSensitiveNetworkKey(entry.key)
-          ? _redactedNetworkValue(entry.value)
-          : entry.value,
-  });
+Map<String, String> _copyNetworkCaptureHeaders(Map<String, String> input) {
+  return Map<String, String>.unmodifiable(input);
 }
 
-Map<String, List<String>> sanitizeNetworkCaptureQuery(
+Map<String, List<String>> _copyNetworkCaptureQuery(
   Map<String, List<String>> input,
 ) {
   return Map<String, List<String>>.unmodifiable(<String, List<String>>{
     for (final entry in input.entries)
-      entry.key: List<String>.unmodifiable(
-        _isSensitiveNetworkKey(entry.key)
-            ? entry.value.map(_redactedNetworkValue)
-            : entry.value,
-      ),
+      entry.key: List<String>.unmodifiable(entry.value),
   });
-}
-
-Uri sanitizeNetworkCaptureUri(Uri uri) {
-  final query = sanitizeNetworkCaptureQuery(uri.queryParametersAll);
-  return uri.replace(
-    queryParameters: query.isEmpty
-        ? null
-        : <String, Object>{
-            for (final entry in query.entries) entry.key: entry.value,
-          },
-  );
-}
-
-String sanitizeNetworkCaptureText(String input) {
-  try {
-    return jsonEncode(_sanitizeNetworkJson(jsonDecode(input)));
-  } catch (_) {
-    return input;
-  }
 }
 
 NetworkCaptureBody? captureNetworkRequestBody(TransportRequest request) {
@@ -372,21 +344,15 @@ NetworkCaptureBody? captureNetworkRequestBody(TransportRequest request) {
     final raw = utf8.decode(bytes, allowMalformed: true);
     try {
       final values = Uri.splitQueryString(raw);
-      final sanitized = <String, String>{
-        for (final entry in values.entries)
-          entry.key: _isSensitiveNetworkKey(entry.key)
-              ? _redactedNetworkValue(entry.value)
-              : entry.value,
-      };
       return NetworkCaptureBody(
-        text: Uri(queryParameters: sanitized).query,
+        text: Uri(queryParameters: values).query,
         byteCount: bytes.length,
         contentType: contentType,
         binary: false,
       );
     } catch (_) {
       return NetworkCaptureBody(
-        text: _sanitizePlainNetworkText(raw),
+        text: raw,
         byteCount: bytes.length,
         contentType: contentType,
         binary: false,
@@ -395,9 +361,7 @@ NetworkCaptureBody? captureNetworkRequestBody(TransportRequest request) {
   }
   if (_isTextNetworkContentType(contentType)) {
     return NetworkCaptureBody(
-      text: sanitizeNetworkCaptureText(
-        utf8.decode(bytes, allowMalformed: true),
-      ),
+      text: utf8.decode(bytes, allowMalformed: true),
       byteCount: bytes.length,
       contentType: contentType,
       binary: false,
@@ -411,7 +375,7 @@ NetworkCaptureBody? captureNetworkResponseBody(TransportResponse response) {
   final contentType = _networkContentType(response.headers);
   if (response.body.isNotEmpty && _isTextNetworkContentType(contentType)) {
     return NetworkCaptureBody(
-      text: sanitizeNetworkCaptureText(response.body),
+      text: response.body,
       byteCount:
           response.responsePayloadSizeBytes ??
           (bytes.isEmpty ? utf8.encode(response.body).length : bytes.length),
@@ -494,9 +458,7 @@ NetworkCaptureBody _captureMultipartBody(List<int> bytes, String contentType) {
         bytes.sublist(valueStart, valueEnd.clamp(valueStart, bytes.length)),
         allowMalformed: true,
       );
-      fields[name] = _isSensitiveNetworkKey(name)
-          ? _redactedNetworkValue(value)
-          : value;
+      fields[name] = value;
     }
     cursor = nextBoundary;
   }
@@ -526,52 +488,6 @@ int _indexOfBytes(List<int> source, List<int> pattern, int start) {
     if (matches) return index;
   }
   return -1;
-}
-
-Object? _sanitizeNetworkJson(Object? value, {String key = ''}) {
-  if (_isSensitiveNetworkKey(key)) return _redactedNetworkValue('$value');
-  if (value is Map) {
-    return <String, Object?>{
-      for (final entry in value.entries)
-        '${entry.key}': _sanitizeNetworkJson(entry.value, key: '${entry.key}'),
-    };
-  }
-  if (value is Iterable) {
-    return value.map((item) => _sanitizeNetworkJson(item)).toList();
-  }
-  return value;
-}
-
-bool _isSensitiveNetworkKey(String key) {
-  final normalized = key.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-  return const <String>[
-    'authorization',
-    'token',
-    'cookie',
-    'password',
-    'passwd',
-    'secret',
-    'session',
-    'credential',
-    'apikey',
-    'signature',
-    'privatekey',
-  ].any(normalized.contains);
-}
-
-String _redactedNetworkValue(String value) {
-  if (value.trim().isEmpty) return '';
-  return '****';
-}
-
-String _sanitizePlainNetworkText(String value) {
-  final sensitiveAssignment = RegExp(
-    r'(authorization|token|cookie|password|passwd|secret|session|credential|api[_-]?key|signature|private[_-]?key)\s*([=:])\s*([^&,\r\n}\]]+)',
-    caseSensitive: false,
-  );
-  return value.replaceAllMapped(sensitiveAssignment, (match) {
-    return '${match.group(1)}${match.group(2)}****';
-  });
 }
 
 String _networkContentType(Map<String, String> headers) {
