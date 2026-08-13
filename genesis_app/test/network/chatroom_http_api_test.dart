@@ -354,6 +354,46 @@ void main() {
     expect(message.content, 'Top-level tick metadata');
   });
 
+  test('V2 character history reads top-level current time', () {
+    final response = ChatroomMessageListResponse.fromV2Json({
+      'messages': [
+        {
+          'type': 'character',
+          'message_id': 102,
+          'location_message_id': 30,
+          'sender_type': 'character',
+          'sender_id': 'char_1',
+          'current_time': 'Day 1, 13:31',
+          'payload': {'content': 'The railway dies.'},
+        },
+      ],
+      'has_more': false,
+    });
+
+    expect(response.messages.single.currentTime, 'Day 1, 13:31');
+  });
+
+  test('V2 character history keeps payload current time compatibility', () {
+    final response = ChatroomMessageListResponse.fromV2Json({
+      'messages': [
+        {
+          'type': 'character',
+          'message_id': 103,
+          'location_message_id': 31,
+          'sender_type': 'character',
+          'sender_id': 'char_1',
+          'payload': {
+            'content': 'The railway dies.',
+            'current_time': 'Day 1, 08:09',
+          },
+        },
+      ],
+      'has_more': false,
+    });
+
+    expect(response.messages.single.currentTime, 'Day 1, 08:09');
+  });
+
   test('invalid V2 tick arrays fall back to payload content', () {
     final response = ChatroomMessageListResponse.fromV2Json({
       'messages': [

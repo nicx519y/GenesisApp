@@ -144,6 +144,11 @@ class ChatroomHttpMessage {
     final tickPayload = _decodeV2TickPayload(message.type, payload);
     final senderId = message.senderId;
     final resolvedRawJson = rawJson ?? message.toJson();
+    final topLevelCurrentTime = message.currentTime;
+    final payloadCurrentTime =
+        tickPayload?.currentTime.trim().isNotEmpty == true
+        ? tickPayload!.currentTime
+        : asString(payload['current_time']);
     final content = asString(
       payload['content'],
       fallback: tickPayload?.globalText ?? '',
@@ -172,7 +177,9 @@ class ChatroomHttpMessage {
         rawMessageType: message.messageType,
         senderId: senderId,
       ),
-      currentTime: tickPayload?.currentTime ?? '',
+      currentTime: topLevelCurrentTime.trim().isNotEmpty
+          ? topLevelCurrentTime
+          : payloadCurrentTime,
       clientMsgId: message.clientMsgId,
       minAppVersion: message.minAppVersion ?? 0,
       payload: payload,

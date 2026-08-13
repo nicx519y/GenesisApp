@@ -1632,6 +1632,7 @@ void main() {
         'message_type': 'text',
         'min_app_version': 34,
         'created_at': '2026-08-10 11:06:37',
+        'current_time': 'Day 1, 13:50',
         'payload': <String, dynamic>{
           'seq': 3,
           'content': 'Hello',

@@ -51,6 +51,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       service: service,
       localMessage: localMessage,
       clientMsgId: clientMsgId,
+      isInitialSend: true,
     );
   }
 
@@ -82,6 +83,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       service: service,
       localMessage: message,
       clientMsgId: clientMsgId,
+      isInitialSend: false,
     );
   }
 
@@ -89,9 +91,18 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     required WorldChatroomService service,
     required ChatMessageVm localMessage,
     required String clientMsgId,
+    required bool isInitialSend,
   }) async {
     var receiptReceived = false;
     try {
+      if (isInitialSend) {
+        unawaited(
+          FirebaseAnalyticsMonitoring.recordMessageSent(
+            worldId: widget.worldId,
+            locationId: widget.locationId,
+          ),
+        );
+      }
       final handle = service.sendMessage(
         localMessage.text,
         clientMsgId: clientMsgId,

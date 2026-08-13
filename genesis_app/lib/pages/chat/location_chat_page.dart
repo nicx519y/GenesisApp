@@ -9,6 +9,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
+import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
