@@ -8,6 +8,7 @@ class _InlineMarkdownText extends StatelessWidget {
     this.overflow,
     this.textAlign,
     this.useBaseColorForEmphasis = false,
+    this.softItalic = false,
   });
 
   final String text;
@@ -16,12 +17,15 @@ class _InlineMarkdownText extends StatelessWidget {
   final TextOverflow? overflow;
   final TextAlign? textAlign;
   final bool useBaseColorForEmphasis;
+  final bool softItalic;
 
   @override
   Widget build(BuildContext context) {
     final platform = Theme.of(context).platform;
-    final textStyle = GenesisTypography.withFallback(style);
-    return Text.rich(
+    final textStyle = softItalic
+        ? genesisSoftItalicStyle(style, platform: platform)
+        : GenesisTypography.withFallback(style);
+    final textWidget = Text.rich(
       TextSpan(
         style: textStyle,
         children: _inlineMarkdownSpans(
@@ -29,12 +33,15 @@ class _InlineMarkdownText extends StatelessWidget {
           textStyle,
           platform,
           useBaseColorForEmphasis: useBaseColorForEmphasis,
+          suppressIosEmphasisSkew: softItalic && platform == TargetPlatform.iOS,
         ),
       ),
       maxLines: maxLines,
       overflow: overflow,
       textAlign: textAlign,
     );
+    if (!softItalic) return textWidget;
+    return genesisSoftItalicForPlatform(child: textWidget, platform: platform);
   }
 }
 
@@ -43,6 +50,7 @@ List<InlineSpan> _inlineMarkdownSpans(
   TextStyle baseStyle,
   TargetPlatform platform, {
   bool useBaseColorForEmphasis = false,
+  bool suppressIosEmphasisSkew = false,
 }) {
   final spans = <InlineSpan>[];
   final buffer = StringBuffer();
@@ -61,14 +69,25 @@ List<InlineSpan> _inlineMarkdownSpans(
       if (end != -1 && end > index + 1) {
         flushPlain();
         spans.addAll(
-          _inlineEmphasisSpans(
-            text.substring(index + 1, end),
-            baseStyle,
-            platform,
-            color: useBaseColorForEmphasis
-                ? baseStyle.color
-                : const Color(0xFF888888),
-          ),
+          suppressIosEmphasisSkew
+              ? <InlineSpan>[
+                  TextSpan(
+                    text: text.substring(index + 1, end),
+                    style: baseStyle.copyWith(
+                      color: useBaseColorForEmphasis
+                          ? baseStyle.color
+                          : const Color(0xFF888888),
+                    ),
+                  ),
+                ]
+              : _inlineEmphasisSpans(
+                  text.substring(index + 1, end),
+                  baseStyle,
+                  platform,
+                  color: useBaseColorForEmphasis
+                      ? baseStyle.color
+                      : const Color(0xFF888888),
+                ),
         );
         index = end + 1;
         continue;

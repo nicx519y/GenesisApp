@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
   testWidgets(
@@ -200,6 +201,7 @@ void main() {
     (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: WorldEventsSection(
               world: _worldDetail(),
@@ -262,12 +264,18 @@ void main() {
         ),
         findsOneWidget,
       );
+      final clueText = find.text('Follow the light toward the gate.');
+      expect(tester.widget<Text>(clueText).style?.fontStyle, FontStyle.normal);
       expect(
-        tester
-            .widget<Text>(find.text('Follow the light toward the gate.'))
-            .style
-            ?.fontStyle,
-        FontStyle.italic,
+        find.ancestor(
+          of: clueText,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Transform &&
+                _matchesIosInlineEmphasisSkew(widget.transform),
+          ),
+        ),
+        findsOneWidget,
       );
       expect(
         tester
@@ -282,13 +290,19 @@ void main() {
   testWidgets('events sheet shows AI and user visible roles after event time', (
     WidgetTester tester,
   ) async {
+    const aiRoleName =
+        'Oracle With A Very Long Ceremonial Name That Wraps Below';
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: WorldEventsSection(
             world: _worldDetail(
               characters: const [
-                {'char_id': 'char_oracle', 'name': 'Oracle', 'player_uid': ''},
+                {
+                  'char_id': 'char_oracle',
+                  'name': aiRoleName,
+                  'player_uid': '',
+                },
                 {
                   'char_id': 'char_iris',
                   'name': 'Iris',
@@ -330,14 +344,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Day 4, 20:25'), findsOneWidget);
-    expect(find.text('Oracle'), findsOneWidget);
+    expect(find.text(aiRoleName), findsOneWidget);
     expect(find.text('Iris'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Day 4, 20:25')).style?.color,
       const Color(0xFF666666),
     );
     expect(
-      tester.widget<Text>(find.text('Oracle')).style?.color,
+      tester.widget<Text>(find.text(aiRoleName)).style?.color,
       const Color(0xFF666666),
     );
     expect(
@@ -357,12 +371,18 @@ void main() {
     expect(aiIcon, findsOneWidget);
     expect(userIcon, findsOneWidget);
     expect(
-      tester.getCenter(find.text('Day 4, 20:25')).dy,
-      closeTo(tester.getCenter(find.text('Oracle')).dy, 2),
+      tester.getTopLeft(find.text('Day 4, 20:25')).dy,
+      closeTo(tester.getTopLeft(find.text(aiRoleName)).dy, 2),
+    );
+    expect(tester.getSize(find.text(aiRoleName)).width, greaterThan(224));
+    expect(tester.getSize(find.text(aiRoleName)).height, greaterThan(20));
+    expect(
+      tester.getTopLeft(aiIcon).dy,
+      closeTo(tester.getTopLeft(find.text(aiRoleName)).dy + 2, 0.1),
     );
     expect(
-      tester.getCenter(find.text('Oracle')).dx,
-      lessThan(tester.getCenter(find.text('Iris')).dx),
+      tester.getTopLeft(find.text('Iris')).dy,
+      greaterThan(tester.getTopLeft(find.text(aiRoleName)).dy),
     );
   });
 
@@ -474,6 +494,16 @@ void main() {
     expect(find.text('Previous sub tick 1 body'), findsNothing);
     expect(tester.getTopLeft(find.byKey(latestPreviousSubTickKey)).dy, 0);
   });
+}
+
+bool _matchesIosInlineEmphasisSkew(Matrix4 transform) {
+  final expected = Matrix4.skewX(GenesisTypography.iosInlineEmphasisSkew);
+  for (var index = 0; index < transform.storage.length; index += 1) {
+    if ((transform.storage[index] - expected.storage[index]).abs() > 0.0001) {
+      return false;
+    }
+  }
+  return true;
 }
 
 WorldDetail _worldDetail({

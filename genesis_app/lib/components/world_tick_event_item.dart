@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../icons/custom_icon_assets.dart';
+import '../ui/components/genesis_soft_italic_text.dart';
 import '../utils/genesis_timestamp_formatter.dart';
 
 class WorldTickEventItem extends StatelessWidget {
@@ -320,7 +321,6 @@ class _ClueText extends StatelessWidget {
     const iconColor = Color(0xFF444444);
     final textStyle = style.copyWith(
       color: const Color(0xFF666666),
-      fontStyle: FontStyle.italic,
       height: 1.35,
     );
     return Row(
@@ -336,7 +336,7 @@ class _ClueText extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 5),
-        Expanded(child: Text(text, style: textStyle)),
+        Expanded(child: GenesisSoftItalicText(text, style: textStyle)),
       ],
     );
   }
@@ -468,12 +468,11 @@ class _EventMetadata extends StatelessWidget {
         .where((role) => !role.isAi)
         .map((role) => role.name)
         .toList(growable: false);
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
+    final roleGroups = Wrap(
+      crossAxisAlignment: WrapCrossAlignment.start,
       spacing: 8,
       runSpacing: 4,
       children: [
-        if (timestamp != null) timestamp!,
         if (aiNames.isNotEmpty)
           _VisibleRoleGroup(
             iconAsset: characterStatIconAsset,
@@ -486,6 +485,16 @@ class _EventMetadata extends StatelessWidget {
             names: userNames,
             style: style,
           ),
+      ],
+    );
+    if (timestamp == null) return roleGroups;
+    if (visibleRoles.isEmpty) return timestamp!;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        timestamp!,
+        const SizedBox(width: 8),
+        Expanded(child: roleGroups),
       ],
     );
   }
@@ -508,22 +517,23 @@ class _VisibleRoleGroup extends StatelessWidget {
       fontWeight: FontWeight.w400,
       color: style?.color ?? const Color(0xFF444444),
     );
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 240),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SvgPicture.asset(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: SvgPicture.asset(
             iconAsset,
             width: 12,
             height: 12,
             fit: BoxFit.contain,
             excludeFromSemantics: true,
           ),
-          const SizedBox(width: 4),
-          Flexible(child: Text(names.join(', '), style: resolvedStyle)),
-        ],
-      ),
+        ),
+        const SizedBox(width: 4),
+        Flexible(child: Text(names.join(', '), style: resolvedStyle)),
+      ],
     );
   }
 }
