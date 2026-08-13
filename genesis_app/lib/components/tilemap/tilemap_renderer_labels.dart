@@ -25,6 +25,7 @@ const double _tilemapLocationActivityIconGap = 3;
 const double _tilemapLocationActivityIconExtraWidth =
     _tilemapLocationActivityIconGap + kRecentChatMapBadgeSize;
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
+  inherit: false,
   color: Colors.white,
   fontSize: 12,
   height: 1.2,

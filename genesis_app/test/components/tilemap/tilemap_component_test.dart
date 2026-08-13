@@ -1274,7 +1274,7 @@ void main() {
             width: 320,
             height: 480,
             child: DefaultTextStyle(
-              style: const TextStyle(),
+              style: const TextStyle(letterSpacing: 4),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               child: TilemapRenderer(

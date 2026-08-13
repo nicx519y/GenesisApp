@@ -76,6 +76,7 @@ const double _worldPointAvatarTopGap = 10;
 // making the empty space between a location's label, pin and avatars tappable.
 const double _worldPointTapTargetPadding = 6;
 const TextStyle _worldPointLabelTextStyle = TextStyle(
+  inherit: false,
   fontSize: 12,
   height: 1.2,
   leadingDistribution: TextLeadingDistribution.even,

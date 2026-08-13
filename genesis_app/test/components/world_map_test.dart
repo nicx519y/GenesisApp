@@ -2535,7 +2535,7 @@ Future<void> _pumpWorldMap(
   final mapChild = inheritedTextMaxLines == null
       ? worldMap
       : DefaultTextStyle(
-          style: const TextStyle(),
+          style: const TextStyle(letterSpacing: 4),
           maxLines: inheritedTextMaxLines,
           overflow: TextOverflow.ellipsis,
           child: worldMap,
