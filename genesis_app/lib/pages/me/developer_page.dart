@@ -64,6 +64,14 @@ const List<String> _creatingPreviewWaitLines = [
   'Jon: Archive courier. Restless, charming, and far too willing to trade secrets for a shortcut.',
 ];
 
+const List<String> _developerPageTabs = <String>[
+  'basic',
+  'test',
+  'network',
+  'websocket',
+  'log',
+];
+
 class DeveloperPage extends StatelessWidget {
   const DeveloperPage({super.key});
 
@@ -71,13 +79,7 @@ class DeveloperPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: GenesisBackAppBar(pageName: 'Developer page'),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 20),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          child: const DeveloperPageContent(),
-        ),
-      ),
+      body: const SafeArea(child: DeveloperPageContent()),
     );
   }
 }
@@ -97,14 +99,12 @@ class DeveloperPageSheet extends StatelessWidget {
             buttonKey: const ValueKey<String>('developer-page-sheet-close'),
             onPressed: () => Navigator.of(context).maybePop(),
           ),
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: DeveloperPageContent(
-              dismissBeforePreview: true,
-              onDismissBeforePreview: () async {
-                await Navigator.of(context).maybePop();
-              },
-            ),
+          titleBottomSpacing: 12,
+          child: DeveloperPageContent(
+            dismissBeforePreview: true,
+            onDismissBeforePreview: () async {
+              await Navigator.of(context).maybePop();
+            },
           ),
         );
       },
@@ -220,204 +220,270 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 18),
-          FutureBuilder<_DeveloperAccountIdentity>(
-            future: _accountIdentityFuture,
-            builder: (context, snapshot) => _buildAccountIdentityRows(snapshot),
-          ),
-          const SizedBox(height: _itemGap),
-          _buildGemBalanceInfoRow(),
-          const SizedBox(height: _itemGap),
-          FutureBuilder<DeviceIdDiagnostics>(
-            future: _deviceIdDiagnosticsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const _DeveloperInfoSingleLineRow(
-                  title: 'Device ID',
-                  content: 'Loading...',
-                );
-              }
-              return _buildDeviceIdDiagnostics(snapshot.data);
-            },
-          ),
-          const SizedBox(height: _itemGap),
-          FutureBuilder<AppVersionInfo>(
-            future: _appVersionFuture,
-            builder: (context, snapshot) {
-              final value = snapshot.connectionState == ConnectionState.done
-                  ? _versionLabel(snapshot.data)
-                  : 'Loading...';
-              return _DeveloperInfoRow(title: 'Version', content: value);
-            },
-          ),
-          const SizedBox(height: _itemGap),
-          const _DeveloperInfoRow(title: 'Build', content: _buildModeLabel),
-          const SizedBox(height: _itemGap),
-          ValueListenableBuilder<String>(
-            valueListenable: genesisCurrentPageClassName,
-            builder: (context, pageName, _) {
-              return _DeveloperInfoRow(
-                title: 'Current Page',
-                content: pageName,
-              );
-            },
-          ),
-          const SizedBox(height: _itemGap),
-          ValueListenableBuilder<AgentControlStatus>(
-            valueListenable: agentControlStatus,
-            builder: (context, status, _) {
-              return _DeveloperInfoRow(
-                title: 'Agent CLI',
-                content: _formatAgentControlStatus(status),
-              );
-            },
-          ),
-          const SizedBox(height: 18),
-          const _DeveloperSectionTitle('Tilemap'),
-          const SizedBox(height: _itemGap),
-          _DeveloperToggleRow(
-            label: 'Show settings button',
-            value: _showTilemapSettingsButton,
-            enabled:
-                !_loadingTilemapSettingsButtonVisibility &&
-                !_savingTilemapSettingsButtonVisibility,
-            switchKey: const ValueKey<String>(
-              'developer-tilemap-settings-button-switch',
+    final horizontalContentPadding = widget.dismissBeforePreview ? 0.0 : 20.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.hasBoundedHeight
+            ? constraints.maxHeight
+            : MediaQuery.sizeOf(context).height;
+        return SizedBox(
+          height: height,
+          child: DefaultTabController(
+            length: _developerPageTabs.length,
+            child: Column(
+              children: [
+                SecendTabs(
+                  labels: _developerPageTabs,
+                  horizontalPadding: horizontalContentPadding,
+                  labelPadding: const EdgeInsets.only(right: 16),
+                  verticalPadding: 0,
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _buildInfoTab(horizontalContentPadding),
+                      _buildTestTab(horizontalContentPadding),
+                      const _DeveloperEmptyTab(
+                        key: ValueKey<String>('developer-network-tab'),
+                        title: 'Network',
+                      ),
+                      const _DeveloperEmptyTab(
+                        key: ValueKey<String>('developer-websocket-tab'),
+                        title: 'WebSocket',
+                      ),
+                      const _DeveloperEmptyTab(
+                        key: ValueKey<String>('developer-log-tab'),
+                        title: 'Log',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            onChanged: (value) {
-              unawaited(_setTilemapSettingsButtonVisibility(value));
-            },
           ),
-          const SizedBox(height: 18),
-          _DeveloperEndpointHeader(
-            isTestEnvironment: _isUsingTestEndpointHost,
-            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
-            onPressed: () => unawaited(_switchEndpointEnvironment()),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoTab(double horizontalPadding) {
+    return ListView(
+      key: const PageStorageKey<String>('developer-info-tab-scroll'),
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        10,
+        horizontalPadding,
+        20,
+      ),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      children: [
+        FutureBuilder<_DeveloperAccountIdentity>(
+          future: _accountIdentityFuture,
+          builder: (context, snapshot) => _buildAccountIdentityRows(snapshot),
+        ),
+        const SizedBox(height: _itemGap),
+        _buildGemBalanceInfoRow(),
+        const SizedBox(height: _itemGap),
+        FutureBuilder<DeviceIdDiagnostics>(
+          future: _deviceIdDiagnosticsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const _DeveloperInfoSingleLineRow(
+                title: 'Device ID',
+                content: 'Loading...',
+              );
+            }
+            return _buildDeviceIdDiagnostics(snapshot.data);
+          },
+        ),
+        const SizedBox(height: _itemGap),
+        FutureBuilder<AppVersionInfo>(
+          future: _appVersionFuture,
+          builder: (context, snapshot) {
+            final value = snapshot.connectionState == ConnectionState.done
+                ? _versionLabel(snapshot.data)
+                : 'Loading...';
+            return _DeveloperInfoRow(title: 'Version', content: value);
+          },
+        ),
+        const SizedBox(height: _itemGap),
+        const _DeveloperInfoRow(title: 'Build', content: _buildModeLabel),
+        const SizedBox(height: _itemGap),
+        ValueListenableBuilder<String>(
+          valueListenable: genesisCurrentPageClassName,
+          builder: (context, pageName, _) {
+            return _DeveloperInfoRow(title: 'Current Page', content: pageName);
+          },
+        ),
+        const SizedBox(height: _itemGap),
+        ValueListenableBuilder<AgentControlStatus>(
+          valueListenable: agentControlStatus,
+          builder: (context, status, _) {
+            return _DeveloperInfoRow(
+              title: 'Agent CLI',
+              content: _formatAgentControlStatus(status),
+            );
+          },
+        ),
+        const SizedBox(height: 18),
+        ..._buildEndpointSection(),
+      ],
+    );
+  }
+
+  List<Widget> _buildEndpointSection() {
+    return [
+      _DeveloperEndpointHeader(
+        isTestEnvironment: _isUsingTestEndpointHost,
+        enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
+        onPressed: () => unawaited(_switchEndpointEnvironment()),
+      ),
+      const SizedBox(height: 12),
+      _DeveloperEndpointField(
+        key: const ValueKey<String>('developer-api-base-url-field'),
+        label: 'API HTTPS',
+        scheme: 'https://',
+        hintText: _defaultEndpointHost,
+        controller: _apiBaseUrlController,
+      ),
+      const SizedBox(height: _itemGap),
+      _DeveloperEndpointField(
+        key: const ValueKey<String>('developer-gateway-api-base-url-field'),
+        label: 'Gateway',
+        scheme: 'https://',
+        hintText: _defaultEndpointHost,
+        controller: _gatewayApiBaseUrlController,
+      ),
+      const SizedBox(height: _itemGap),
+      _DeveloperEndpointField(
+        key: const ValueKey<String>('developer-chatroom-ws-base-url-field'),
+        label: 'Chat WSS',
+        scheme: 'wss://',
+        hintText: _defaultEndpointHost,
+        controller: _chatroomWsBaseUrlController,
+      ),
+    ];
+  }
+
+  Widget _buildTestTab(double horizontalPadding) {
+    return ListView(
+      key: const PageStorageKey<String>('developer-test-tab-scroll'),
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        10,
+        horizontalPadding,
+        20,
+      ),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      children: [
+        _DeveloperToggleRow(
+          sectionTitle: 'Tilemap',
+          label: 'Show settings button',
+          value: _showTilemapSettingsButton,
+          enabled:
+              !_loadingTilemapSettingsButtonVisibility &&
+              !_savingTilemapSettingsButtonVisibility,
+          switchKey: const ValueKey<String>(
+            'developer-tilemap-settings-button-switch',
           ),
-          const SizedBox(height: 12),
-          _DeveloperEndpointField(
-            key: const ValueKey<String>('developer-api-base-url-field'),
-            label: 'API HTTPS',
-            scheme: 'https://',
-            hintText: _defaultEndpointHost,
-            controller: _apiBaseUrlController,
-          ),
+          onChanged: (value) {
+            unawaited(_setTilemapSettingsButtonVisibility(value));
+          },
+        ),
+        const SizedBox(height: 18),
+        GenesisPrimaryButton(
+          label: 'Creating',
+          onPressed: _showCreatingWaitOverlayPreview,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: 'Launching',
+          onPressed: _showLaunchingWaitOverlayPreview,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: 'Progressing',
+          onPressed: _showProgressingWaitOverlayPreview,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: 'Preview Gem purchase sheet',
+          onPressed: _showGemPurchaseSheetPreview,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: 'Preview purchase overlay',
+          onPressed: _showGemPurchaseOverlayPreview,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: 'Preview Daily Check-in',
+          onPressed: _showDailyCheckInPreview,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: _clearingDirectMessageCache
+              ? 'Clearing...'
+              : 'Clear direct message cache',
+          onPressed: _clearingDirectMessageCache
+              ? null
+              : _clearDirectMessageCache,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: _clearingImageCache ? 'Clearing...' : 'Clear image cache',
+          onPressed: _clearingImageCache ? null : _clearImageCache,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: _clearingGatewayAuth ? 'Clearing...' : 'Clear Gateway auth',
+          onPressed: _clearingGatewayAuth ? null : _clearGatewayAuth,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: _verifyingGatewaySignature
+              ? 'Testing Gateway signature...'
+              : 'Test Gateway signature',
+          onPressed: _verifyingGatewaySignature
+              ? null
+              : _verifyGatewaySignature,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        if (_gatewaySignatureVerifyResult != null) ...[
           const SizedBox(height: _itemGap),
-          _DeveloperEndpointField(
-            key: const ValueKey<String>('developer-gateway-api-base-url-field'),
-            label: 'Gateway',
-            scheme: 'https://',
-            hintText: _defaultEndpointHost,
-            controller: _gatewayApiBaseUrlController,
-          ),
-          const SizedBox(height: _itemGap),
-          _DeveloperEndpointField(
-            key: const ValueKey<String>('developer-chatroom-ws-base-url-field'),
-            label: 'Chat WSS',
-            scheme: 'wss://',
-            hintText: _defaultEndpointHost,
-            controller: _chatroomWsBaseUrlController,
-          ),
-          const SizedBox(height: 18),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: 'Creating',
-            onPressed: _showCreatingWaitOverlayPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: 'Launching',
-            onPressed: _showLaunchingWaitOverlayPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: 'Progressing',
-            onPressed: _showProgressingWaitOverlayPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: 'Preview Gem purchase sheet',
-            onPressed: _showGemPurchaseSheetPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: 'Preview purchase overlay',
-            onPressed: _showGemPurchaseOverlayPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: 'Preview Daily Check-in',
-            onPressed: _showDailyCheckInPreview,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: _clearingDirectMessageCache
-                ? 'Clearing...'
-                : 'Clear direct message cache',
-            onPressed: _clearingDirectMessageCache
-                ? null
-                : _clearDirectMessageCache,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: _clearingImageCache ? 'Clearing...' : 'Clear image cache',
-            onPressed: _clearingImageCache ? null : _clearImageCache,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: _clearingGatewayAuth ? 'Clearing...' : 'Clear Gateway auth',
-            onPressed: _clearingGatewayAuth ? null : _clearGatewayAuth,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: _verifyingGatewaySignature
-                ? 'Testing Gateway signature...'
-                : 'Test Gateway signature',
-            onPressed: _verifyingGatewaySignature
-                ? null
-                : _verifyGatewaySignature,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          if (_gatewaySignatureVerifyResult != null) ...[
-            const SizedBox(height: _itemGap),
-            _DeveloperInfoBlock(
-              title: 'Gateway signature response',
-              content: _gatewaySignatureVerifyResult!,
-            ),
-          ],
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: 'Hide debug button',
-            onPressed: _hideDebugButton,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
+          _DeveloperInfoBlock(
+            title: 'Gateway signature response',
+            content: _gatewaySignatureVerifyResult!,
           ),
         ],
-      ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: 'Hide debug button',
+          onPressed: _hideDebugButton,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+      ],
     );
   }
 }

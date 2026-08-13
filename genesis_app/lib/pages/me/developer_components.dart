@@ -1,7 +1,32 @@
 part of 'developer_page.dart';
 
+class _DeveloperEmptyTab extends StatelessWidget {
+  const _DeveloperEmptyTab({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          '$title monitoring is not enabled yet.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Color(0xFF888888),
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DeveloperToggleRow extends StatelessWidget {
   const _DeveloperToggleRow({
+    required this.sectionTitle,
     required this.label,
     required this.value,
     required this.enabled,
@@ -9,6 +34,7 @@ class _DeveloperToggleRow extends StatelessWidget {
     required this.onChanged,
   });
 
+  final String sectionTitle;
   final String label;
   final bool value;
   final bool enabled;
@@ -19,6 +45,8 @@ class _DeveloperToggleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        _DeveloperSectionTitle(sectionTitle),
+        const SizedBox(width: 12),
         Expanded(
           child: Text(
             label,
@@ -30,10 +58,17 @@ class _DeveloperToggleRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Switch(
-          key: switchKey,
-          value: value,
-          onChanged: enabled ? onChanged : null,
+        SizedBox(
+          width: 44,
+          height: 32,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: Switch(
+              key: switchKey,
+              value: value,
+              onChanged: enabled ? onChanged : null,
+            ),
+          ),
         ),
       ],
     );

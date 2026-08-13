@@ -16776,27 +16776,30 @@ void main() {
               directMessageConversations: conversationStore,
               directMessageMessages: messageStore,
             ),
-            child: const SettingsPage(),
+            child: const DeveloperPage(),
           ),
         ),
       );
-      await tester.pumpAndSettle();
-
-      final unlockArea = find.byKey(
-        const ValueKey<String>('settings-debug-title-unlock-area'),
-      );
-      for (var i = 0; i < 10; i += 1) {
-        await tester.tap(unlockArea);
-        await tester.pump();
-      }
-
-      await tester.tap(find.text('Developer page'));
       await tester.pumpAndSettle();
 
       expect(find.text('Developer page'), findsWidgets);
       expect(find.text('Device ID:'), findsOneWidget);
       expect(find.text('test-device-id'), findsOneWidget);
 
+      await tester.tap(find.text('test'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Clear direct message cache'),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byKey(
+                const PageStorageKey<String>('developer-test-tab-scroll'),
+              ),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.tap(find.text('Clear direct message cache'));
       await tester.pumpAndSettle();
 
@@ -16923,6 +16926,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('test'));
+    await tester.pumpAndSettle();
     final visibilitySwitch = find.byKey(
       const ValueKey<String>('developer-tilemap-settings-button-switch'),
     );
@@ -17148,6 +17153,31 @@ void main() {
       findsNothing,
     );
     expect(find.byType(AnimatedPadding), findsNothing);
+  });
+
+  testWidgets('developer page tabs switch with horizontal swipes', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('basic'), findsOneWidget);
+    expect(find.text('Network monitoring is not enabled yet.'), findsNothing);
+
+    final tabView = find.byType(TabBarView);
+    await tester.drag(tabView, const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    await tester.drag(tabView, const Offset(-500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Network monitoring is not enabled yet.'), findsOneWidget);
   });
 
   testWidgets(
