@@ -30,22 +30,31 @@ class _OriginSetupRoleSection extends StatefulWidget {
 
 class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   final ScrollController _cardsController = ScrollController();
-  var _currentCardIndex = 0;
+  final ValueNotifier<int> _currentCardIndex = ValueNotifier<int>(0);
+  final Set<String> _preloadedAvatarKeys = <String>{};
   var _cardStride = 1.0;
 
   @override
   void initState() {
     super.initState();
     _cardsController.addListener(_handleCardsScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _precacheUpcomingRoleAvatars(_currentCardIndex.value);
+    });
   }
 
   @override
   void didUpdateWidget(covariant _OriginSetupRoleSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     final lastIndex = _cardCount - 1;
-    if (_currentCardIndex > lastIndex) {
-      _currentCardIndex = lastIndex;
+    if (_currentCardIndex.value > lastIndex) {
+      _currentCardIndex.value = lastIndex;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _precacheUpcomingRoleAvatars(_currentCardIndex.value);
+    });
   }
 
   int get _cardCount =>
@@ -55,6 +64,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   void dispose() {
     _cardsController.removeListener(_handleCardsScroll);
     _cardsController.dispose();
+    _currentCardIndex.dispose();
     super.dispose();
   }
 
@@ -65,8 +75,56 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
       0,
       cardCount - 1,
     );
-    if (nextIndex == _currentCardIndex || !mounted) return;
-    setState(() => _currentCardIndex = nextIndex);
+    if (nextIndex == _currentCardIndex.value || !mounted) return;
+    _currentCardIndex.value = nextIndex;
+    _precacheUpcomingRoleAvatars(nextIndex);
+  }
+
+  void _precacheUpcomingRoleAvatars(int currentIndex) {
+    if (!mounted) return;
+    final avatarSources = <String>[
+      if (widget.profileRole case final profileRole?) profileRole.avatarUrl,
+      ...originCharactersRecommendedFirst(
+        widget.characters,
+      ).map((character) => character.avatar),
+    ];
+    if (avatarSources.isEmpty || currentIndex >= avatarSources.length) return;
+
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final decodeSize = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
+        .ceil();
+    final lastIndex = math.min(currentIndex + 2, avatarSources.length - 1);
+    for (var index = currentIndex; index <= lastIndex; index += 1) {
+      final avatarUrl = _originRoleCardAvatarUrl(
+        context,
+        _resolveAssetUrl(avatarSources[index]),
+      );
+      if (avatarUrl.isEmpty) continue;
+      final cacheKey = '$avatarUrl@$decodeSize';
+      if (!_preloadedAvatarKeys.add(cacheKey)) continue;
+
+      final ImageProvider provider = avatarUrl.startsWith('assets/')
+          ? AssetImage(avatarUrl)
+          : GenesisStaticNetworkImageProvider(
+              imageUrl: avatarUrl,
+              cacheWidth: decodeSize,
+              cacheHeight: decodeSize,
+              fit: BoxFit.cover,
+            );
+      unawaited(
+        precacheImage(
+          provider,
+          context,
+          onError: (error, stackTrace) {
+            _preloadedAvatarKeys.remove(cacheKey);
+            debugPrint(
+              '[OriginWorldPage] role avatar decode precache failed '
+              'url="$avatarUrl": $error',
+            );
+          },
+        ),
+      );
+    }
   }
 
   @override
@@ -177,9 +235,13 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
             ),
           ),
           const SizedBox(height: 14),
-          _OriginRoleCardsIndicator(
-            count: cardCount,
-            currentIndex: _currentCardIndex.clamp(0, cardCount - 1),
+          ValueListenableBuilder<int>(
+            valueListenable: _currentCardIndex,
+            builder: (context, currentIndex, child) =>
+                _OriginRoleCardsIndicator(
+                  count: cardCount,
+                  currentIndex: currentIndex.clamp(0, cardCount - 1),
+                ),
           ),
         ],
       ),

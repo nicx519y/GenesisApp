@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -181,6 +182,65 @@ void main() {
     expect(startupStreet.size.width, lessThanOrEqualTo(90.0));
     expect(startupStreet.size.height, greaterThan(12.0));
   });
+
+  testWidgets(
+    'legacy world map sizes wrapped labels to their longest line and clears dot',
+    (tester) async {
+      const name = 'Sala Común De Slytherin';
+      await _pumpWorldMap(
+        tester,
+        users: const [],
+        inheritedTextMaxLines: 1,
+        points: const <WorldPoint>[
+          WorldPoint(
+            id: 'wrapped-label',
+            name: name,
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: <UserAvatar>[],
+          ),
+        ],
+      );
+
+      final painter = TextPainter(
+        text: const TextSpan(
+          text: name,
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            leadingDistribution: TextLeadingDistribution.even,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: 135);
+      final longestLine = painter.computeLineMetrics().fold<double>(
+        0,
+        (width, line) => math.max(width, line.width),
+      );
+      final expectedLabelWidth = longestLine.ceilToDouble() + 6;
+
+      final labelRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>('world-map-location-label-wrapped-label'),
+        ),
+      );
+      final dotRect = tester.getRect(
+        find.byKey(const ValueKey<String>('world-map-location-dot')),
+      );
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
+
+      final expectedLineCount = painter.computeLineMetrics().length;
+      expect(expectedLineCount, greaterThan(1));
+      expect(paragraph.maxLines, expectedLineCount);
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(labelRect.width, closeTo(expectedLabelWidth, 0.01));
+      expect(labelRect.width, lessThan(141));
+      expect(labelRect.height, closeTo(painter.height + 8, 0.01));
+      expect(dotRect.top - labelRect.bottom, closeTo(6, 0.01));
+    },
+  );
 
   testWidgets('world map renders recent chat icon outside centered label', (
     tester,
@@ -2432,11 +2492,54 @@ Future<void> _pumpWorldMap(
   double initialZoomScale = 1,
   Set<String> recentChatMapLocationIds = const <String>{},
   Set<String> eventMapLocationIds = const <String>{},
+  int? inheritedTextMaxLines,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+
+  final worldMap = LegacyWorldMap(
+    common: WorldMapCommonConfig(
+      locationNodes: locationNodes,
+      messageBubbles: messageBubbles,
+      messageBubblePlaybackPaused: messageBubblePlaybackPaused,
+      onDrillIntoLocation: onDrillIntoLocation,
+      onMapTap: onMapTap,
+      onPointTap: onPointTap,
+    ),
+    config: LegacyWorldMapConfig(
+      mapImageUrl: mapImageUrl,
+      preloadMapImageUrls: preloadMapImageUrls,
+      fallbackOnEmptyMapUrl: fallbackOnEmptyMapUrl,
+      showPointsList: showPointsList,
+      listPoints: listPoints,
+      activeBubble: activeBubble,
+      initialZoomScale: initialZoomScale,
+      recentChatMapLocationIds: recentChatMapLocationIds,
+      eventMapLocationIds: eventMapLocationIds,
+      onHorizontalPanStateChanged: onHorizontalPanStateChanged,
+      points:
+          points ??
+          [
+            WorldPoint(
+              id: 'point-1',
+              name: 'Gate',
+              type: WorldPointType.portal,
+              position: _pointPosition,
+              users: users,
+            ),
+          ],
+    ),
+  );
+  final mapChild = inheritedTextMaxLines == null
+      ? worldMap
+      : DefaultTextStyle(
+          style: const TextStyle(),
+          maxLines: inheritedTextMaxLines,
+          overflow: TextOverflow.ellipsis,
+          child: worldMap,
+        );
 
   await tester.pumpWidget(
     MaterialApp(
@@ -2451,39 +2554,7 @@ Future<void> _pumpWorldMap(
             child: SizedBox(
               width: size.width,
               height: size.height,
-              child: LegacyWorldMap(
-                common: WorldMapCommonConfig(
-                  locationNodes: locationNodes,
-                  messageBubbles: messageBubbles,
-                  messageBubblePlaybackPaused: messageBubblePlaybackPaused,
-                  onDrillIntoLocation: onDrillIntoLocation,
-                  onMapTap: onMapTap,
-                  onPointTap: onPointTap,
-                ),
-                config: LegacyWorldMapConfig(
-                  mapImageUrl: mapImageUrl,
-                  preloadMapImageUrls: preloadMapImageUrls,
-                  fallbackOnEmptyMapUrl: fallbackOnEmptyMapUrl,
-                  showPointsList: showPointsList,
-                  listPoints: listPoints,
-                  activeBubble: activeBubble,
-                  initialZoomScale: initialZoomScale,
-                  recentChatMapLocationIds: recentChatMapLocationIds,
-                  eventMapLocationIds: eventMapLocationIds,
-                  onHorizontalPanStateChanged: onHorizontalPanStateChanged,
-                  points:
-                      points ??
-                      [
-                        WorldPoint(
-                          id: 'point-1',
-                          name: 'Gate',
-                          type: WorldPointType.portal,
-                          position: _pointPosition,
-                          users: users,
-                        ),
-                      ],
-                ),
-              ),
+              child: mapChild,
             ),
           ),
         ),

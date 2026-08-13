@@ -1622,6 +1622,8 @@ void main() {
         'message_id': 102,
         'location_message_id': 30,
         'conversation_round_id': 7360,
+        'tick_no': 7,
+        'sub_tick_no': 3,
         'sender_type': 'character',
         'sender_id': 'char-2',
         'sender_name': 'Elara',
@@ -1645,6 +1647,8 @@ void main() {
       expect(message.isLlmStream, true);
       expect(message.streamType, 'llm_chunk');
       expect(message.conversationRoundId, 7360);
+      expect(message.tickNo, 7);
+      expect(message.subTickNo, 3);
     });
 
     test('routes the V2 waiting conversation round control event', () {

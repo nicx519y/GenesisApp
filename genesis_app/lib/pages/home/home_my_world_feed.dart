@@ -528,6 +528,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       item.lastProgressAt,
       item.lastProgressSummary,
       item.lastProgressTickNo,
+      item.lastProgressSubTickNo,
       item.lastProgressCurrentTime,
       item.previewImages.join('\n'),
       item.tags.join('\n'),
