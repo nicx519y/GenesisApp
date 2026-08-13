@@ -1,5 +1,6 @@
 import AppTrackingTransparency
 import Flutter
+import ImageIO
 import PhotosUI
 import Security
 import UIKit
@@ -16,6 +17,8 @@ import UniformTypeIdentifiers
   private let deviceIdKey = "genesis_device_id"
   private let deviceIdKeychainService = "com.worldo.ai.device-id"
   private let gatewayKeyTag = "com.worldo.ai.gateway-device-key.v1".data(using: .utf8)!
+  private let normalizedDiscussImageMaxDimension = 4096
+  private let normalizedDiscussImageMaxPixels = 16_000_000.0
   private let prefs = UserDefaults.standard
   private var pendingDiscussImagePickerResult: FlutterResult?
   private var pendingDiscussImagePickerNormalizeForUpload = false
@@ -288,37 +291,41 @@ import UniformTypeIdentifiers
       return
     }
 
-    let group = DispatchGroup()
     var paths = Array<String?>(repeating: nil, count: results.count)
     var failures: [String] = []
-    let lock = NSLock()
 
-    for (index, item) in results.enumerated() {
-      group.enter()
+    func finish() {
+      DispatchQueue.main.async {
+        let loadedPaths = paths.compactMap { $0 }
+        if loadedPaths.isEmpty, let firstFailure = failures.first {
+          result(FlutterError(code: "invalid_image", message: firstFailure, details: failures))
+        } else {
+          result(loadedPaths)
+        }
+      }
+    }
+
+    func processItem(at index: Int) {
+      guard index < results.count else {
+        finish()
+        return
+      }
+      let item = results[index]
       saveDiscussPickedImage(
         item.itemProvider,
         normalizeForUpload: normalizeForUpload
       ) { path, error in
-        lock.lock()
         if let path = path {
           paths[index] = path
         } else if let error = error {
           failures.append(error)
           NSLog("Discuss image selection failed for item \(index): \(error)")
         }
-        lock.unlock()
-        group.leave()
+        processItem(at: index + 1)
       }
     }
 
-    group.notify(queue: .main) {
-      let loadedPaths = paths.compactMap { $0 }
-      if loadedPaths.isEmpty, let firstFailure = failures.first {
-        result(FlutterError(code: "invalid_image", message: firstFailure, details: failures))
-      } else {
-        result(loadedPaths)
-      }
-    }
+    processItem(at: 0)
   }
 
   @available(iOS 14, *)
@@ -333,20 +340,19 @@ import UniformTypeIdentifiers
       return
     }
 
-    loadDiscussUIImageRepresentation(
-      provider,
-      normalizeForUpload: normalizeForUpload
-    ) { [weak self] path, error in
+    if normalizeForUpload {
+      loadNormalizedDiscussImageRepresentation(provider, completion: completion)
+      return
+    }
+
+    loadDiscussUIImageRepresentation(provider) { [weak self] path, error in
       if let path = path {
         completion(path, nil)
         return
       }
 
       NSLog("Discuss UIImage representation failed: \(error ?? "unknown error")")
-      self?.loadDiscussImageDataRepresentation(
-        provider,
-        normalizeForUpload: normalizeForUpload
-      ) { dataPath, dataError in
+      self?.loadDiscussImageDataRepresentation(provider) { dataPath, dataError in
         if let dataPath = dataPath {
           completion(dataPath, nil)
         } else {
@@ -357,9 +363,73 @@ import UniformTypeIdentifiers
   }
 
   @available(iOS 14, *)
+  private func loadNormalizedDiscussImageRepresentation(
+    _ provider: NSItemProvider,
+    completion: @escaping (String?, String?) -> Void
+  ) {
+    let identifiers = provider.registeredTypeIdentifiers.filter { identifier in
+      guard let type = UTType(identifier) else {
+        return false
+      }
+      return type.conforms(to: .image) && !type.conforms(to: .gif)
+    }
+
+    func tryData(at index: Int, lastError: String?) {
+      guard index < identifiers.count else {
+        completion(nil, lastError ?? "Provider has no supported image representation.")
+        return
+      }
+
+      let identifier = identifiers[index]
+      provider.loadDataRepresentation(forTypeIdentifier: identifier) { [weak self] data, error in
+        guard let self = self else {
+          completion(nil, "Image processor is unavailable.")
+          return
+        }
+        if let data = data,
+           let source = CGImageSourceCreateWithData(data as CFData, nil),
+           let path = self.writeNormalizedDiscussImage(source) {
+          completion(path, nil)
+          return
+        }
+        let message = error?.localizedDescription
+          ?? "Cannot decode data representation of type \(identifier)."
+        NSLog("Discuss normalized image data representation failed: \(message)")
+        tryData(at: index + 1, lastError: message)
+      }
+    }
+
+    func tryFile(at index: Int, lastError: String?) {
+      guard index < identifiers.count else {
+        tryData(at: 0, lastError: lastError)
+        return
+      }
+
+      let identifier = identifiers[index]
+      provider.loadFileRepresentation(forTypeIdentifier: identifier) { [weak self] url, error in
+        guard let self = self else {
+          completion(nil, "Image processor is unavailable.")
+          return
+        }
+        if let url = url,
+           let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+           let path = self.writeNormalizedDiscussImage(source) {
+          completion(path, nil)
+          return
+        }
+        let message = error?.localizedDescription
+          ?? "Cannot decode file representation of type \(identifier)."
+        NSLog("Discuss normalized image file representation failed: \(message)")
+        tryFile(at: index + 1, lastError: message)
+      }
+    }
+
+    tryFile(at: 0, lastError: nil)
+  }
+
+  @available(iOS 14, *)
   private func loadDiscussImageDataRepresentation(
     _ provider: NSItemProvider,
-    normalizeForUpload: Bool,
     completion: @escaping (String?, String?) -> Void
   ) {
     var remaining = provider.registeredTypeIdentifiers.filter { identifier in
@@ -379,10 +449,7 @@ import UniformTypeIdentifiers
       provider.loadDataRepresentation(forTypeIdentifier: identifier) { [weak self] data, error in
         if let data = data,
            let image = UIImage(data: data),
-           let path = self?.writeDiscussImage(
-             image,
-             normalizeForUpload: normalizeForUpload
-           ) {
+           let path = self?.writeDiscussJPEGImage(image) {
           completion(path, nil)
         } else {
           let message = error?.localizedDescription ?? "Cannot load data representation of type \(identifier)."
@@ -397,7 +464,6 @@ import UniformTypeIdentifiers
 
   private func loadDiscussUIImageRepresentation(
     _ provider: NSItemProvider,
-    normalizeForUpload: Bool,
     completion: @escaping (String?, String?) -> Void
   ) {
     guard provider.canLoadObject(ofClass: UIImage.self) else {
@@ -407,25 +473,12 @@ import UniformTypeIdentifiers
 
     provider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
       guard let image = object as? UIImage,
-            let path = self?.writeDiscussImage(
-              image,
-              normalizeForUpload: normalizeForUpload
-            ) else {
+            let path = self?.writeDiscussJPEGImage(image) else {
         completion(nil, error?.localizedDescription ?? "Cannot load UIImage representation.")
         return
       }
       completion(path, nil)
     }
-  }
-
-  private func writeDiscussImage(
-    _ image: UIImage,
-    normalizeForUpload: Bool
-  ) -> String? {
-    if normalizeForUpload {
-      return writeNormalizedDiscussImage(image)
-    }
-    return writeDiscussJPEGImage(image)
   }
 
   private func writeDiscussJPEGImage(_ image: UIImage) -> String? {
@@ -435,43 +488,68 @@ import UniformTypeIdentifiers
     return writeDiscussImageData(data, extension: "jpg")
   }
 
-  private func writeNormalizedDiscussImage(_ image: UIImage) -> String? {
-    guard let normalized = normalizedDiscussImage(image),
-          let cgImage = normalized.cgImage else {
+  private func writeNormalizedDiscussImage(_ source: CGImageSource) -> String? {
+    guard let maxPixelSize = normalizedDiscussImageMaxPixelSize(source) else {
       return nil
     }
-    if discussImageHasTransparentPixels(cgImage) {
-      guard let data = normalized.pngData() else {
-        return nil
-      }
-      return writeDiscussImageData(data, extension: "png")
-    }
-    guard let data = normalized.jpegData(compressionQuality: 0.90) else {
+    let options: [CFString: Any] = [
+      kCGImageSourceCreateThumbnailFromImageAlways: true,
+      kCGImageSourceCreateThumbnailWithTransform: true,
+      kCGImageSourceShouldCacheImmediately: true,
+      kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+    ]
+    guard let image = CGImageSourceCreateThumbnailAtIndex(
+      source,
+      0,
+      options as CFDictionary
+    ) else {
       return nil
     }
-    return writeDiscussImageData(data, extension: "jpg")
+    return writeNormalizedDiscussCGImage(image)
   }
 
-  private func normalizedDiscussImage(_ image: UIImage) -> UIImage? {
-    let width = max(1, Int((image.size.width * image.scale).rounded()))
-    let height = max(1, Int((image.size.height * image.scale).rounded()))
-    let format = UIGraphicsImageRendererFormat()
-    format.scale = 1
-    format.opaque = false
-    let renderer = UIGraphicsImageRenderer(
-      size: CGSize(width: CGFloat(width), height: CGFloat(height)),
-      format: format
-    )
-    return renderer.image { _ in
-      image.draw(
-        in: CGRect(
-          x: 0,
-          y: 0,
-          width: CGFloat(width),
-          height: CGFloat(height)
-        )
-      )
+  private func normalizedDiscussImageMaxPixelSize(_ source: CGImageSource) -> Int? {
+    guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+      as? [CFString: Any],
+      let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.doubleValue,
+      let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.doubleValue,
+      width.isFinite,
+      height.isFinite,
+      width > 0,
+      height > 0 else {
+      return nil
     }
+
+    let longestEdge = max(width, height)
+    let dimensionScale = Double(normalizedDiscussImageMaxDimension) / longestEdge
+    let pixelScale = sqrt(normalizedDiscussImageMaxPixels / (width * height))
+    let scale = min(1.0, dimensionScale, pixelScale)
+    return max(1, Int(floor(longestEdge * scale)))
+  }
+
+  private func writeNormalizedDiscussCGImage(_ image: CGImage) -> String? {
+    let hasTransparency = discussImageHasTransparentPixels(image)
+    let fileExtension = hasTransparency ? "png" : "jpg"
+    let destinationType = hasTransparency ? UTType.png.identifier : UTType.jpeg.identifier
+    let destinationURL = discussPickerTempURL(fileExtension: fileExtension)
+    guard let destination = CGImageDestinationCreateWithURL(
+      destinationURL as CFURL,
+      destinationType as CFString,
+      1,
+      nil
+    ) else {
+      return nil
+    }
+
+    let properties: CFDictionary? = hasTransparency
+      ? nil
+      : [kCGImageDestinationLossyCompressionQuality: 0.90] as CFDictionary
+    CGImageDestinationAddImage(destination, image, properties)
+    guard CGImageDestinationFinalize(destination) else {
+      try? FileManager.default.removeItem(at: destinationURL)
+      return nil
+    }
+    return destinationURL.path
   }
 
   private func discussImageHasTransparentPixels(_ image: CGImage) -> Bool {

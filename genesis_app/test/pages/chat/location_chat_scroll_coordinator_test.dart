@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_test/flutter_test.dart';
@@ -45,6 +46,135 @@ void main() {
       ),
     );
   }
+
+  Widget asyncViewport(
+    LocationChatScrollCoordinator coordinator,
+    ValueListenable<int> messageCount, {
+    FocusNode? composerFocusNode,
+  }) {
+    return MaterialApp(
+      home: Scaffold(
+        resizeToAvoidBottomInset: composerFocusNode != null,
+        body: Column(
+          children: [
+            Expanded(
+              child: ValueListenableBuilder<int>(
+                valueListenable: messageCount,
+                builder: (context, count, _) {
+                  return NotificationListener<ScrollNotification>(
+                    onNotification: coordinator.handleScrollNotification,
+                    child: LocationChatAnchoredMessageList(
+                      key: const ValueKey('async-location-chat-list'),
+                      coordinator: coordinator,
+                      messages: messages(count),
+                      topTitle: '',
+                      showDateDividers: false,
+                      style: ChatUiStyleConfig.standard.copyWith(
+                        messageListPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (composerFocusNode != null)
+              TextField(focusNode: composerFocusNode),
+          ],
+        ),
+      ),
+    );
+  }
+
+  testWidgets('async long content accepts the first user drag', (tester) async {
+    final coordinator = LocationChatScrollCoordinator();
+    final messageCount = ValueNotifier<int>(0);
+    addTearDown(coordinator.dispose);
+    addTearDown(messageCount.dispose);
+
+    await tester.pumpWidget(asyncViewport(coordinator, messageCount));
+    await tester.pumpAndSettle();
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey('async-location-chat-list')),
+      matching: find.byType(Scrollable),
+    );
+    final position = coordinator.controller.position;
+    expect(position.maxScrollExtent, 0);
+    expect(position.physics.shouldAcceptUserOffset(position), isTrue);
+
+    messageCount.value = 30;
+    await tester.pumpAndSettle();
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+    final pixelsBeforeDrag = position.pixels;
+
+    await tester.drag(scrollable, const Offset(0, 240));
+    await tester.pumpAndSettle();
+
+    expect(position.pixels, lessThan(pixelsBeforeDrag));
+    expect(coordinator.mode, LocationChatViewportMode.detached);
+  });
+
+  testWidgets('async long content stays draggable across keyboard resize', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetViewInsets);
+    final coordinator = LocationChatScrollCoordinator();
+    final messageCount = ValueNotifier<int>(0);
+    final composerFocusNode = FocusNode();
+    void followLatestOnFocus() {
+      if (!composerFocusNode.hasFocus) return;
+      coordinator.requestBottom(
+        reason: LocationChatBottomReason.composerFocus,
+        behavior: LocationChatBottomBehavior.jump,
+      );
+    }
+
+    composerFocusNode.addListener(followLatestOnFocus);
+    addTearDown(coordinator.dispose);
+    addTearDown(messageCount.dispose);
+    addTearDown(() {
+      composerFocusNode.removeListener(followLatestOnFocus);
+      composerFocusNode.dispose();
+    });
+
+    await tester.pumpWidget(
+      asyncViewport(
+        coordinator,
+        messageCount,
+        composerFocusNode: composerFocusNode,
+      ),
+    );
+    await tester.pumpAndSettle();
+    messageCount.value = 30;
+    await tester.pumpAndSettle();
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey('async-location-chat-list')),
+      matching: find.byType(Scrollable),
+    );
+    final position = coordinator.controller.position;
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    expect(composerFocusNode.hasFocus, isTrue);
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+    final keyboardPixelsBeforeDrag = position.pixels;
+
+    await tester.drag(scrollable, const Offset(0, 240));
+    await tester.pumpAndSettle();
+    expect(position.pixels, lessThan(keyboardPixelsBeforeDrag));
+    expect(coordinator.mode, LocationChatViewportMode.detached);
+
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    final pixelsBeforePostKeyboardDrag = position.pixels;
+    await tester.drag(scrollable, const Offset(0, 120));
+    await tester.pumpAndSettle();
+
+    expect(position.pixels, lessThan(pixelsBeforePostKeyboardDrag));
+    expect(coordinator.mode, LocationChatViewportMode.detached);
+  });
 
   testWidgets('every enter positions the viewport at the latest message', (
     tester,

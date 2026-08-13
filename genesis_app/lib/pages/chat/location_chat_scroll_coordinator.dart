@@ -802,6 +802,15 @@ class LocationChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
   }
 
   @override
+  bool shouldAcceptUserOffset(ScrollMetrics position) => true;
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    if (position.minScrollExtent == position.maxScrollExtent) return 0;
+    return super.applyPhysicsToUserOffset(position, offset);
+  }
+
+  @override
   double applyBoundaryConditions(ScrollMetrics position, double value) {
     final stopOffset = oldestMessageStopOffset?.call();
     if (stopOffset != null &&
