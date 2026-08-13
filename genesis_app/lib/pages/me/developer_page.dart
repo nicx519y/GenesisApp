@@ -69,7 +69,6 @@ const List<String> _developerPageTabs = <String>[
   'test',
   'network',
   'websocket',
-  'log',
 ];
 
 class DeveloperPage extends StatelessWidget {
@@ -251,10 +250,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
                       const _DeveloperEmptyTab(
                         key: ValueKey<String>('developer-websocket-tab'),
                         title: 'WebSocket',
-                      ),
-                      const _DeveloperEmptyTab(
-                        key: ValueKey<String>('developer-log-tab'),
-                        title: 'Log',
                       ),
                     ],
                   ),
