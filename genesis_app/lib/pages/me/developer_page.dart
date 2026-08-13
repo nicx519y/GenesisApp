@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,13 +21,13 @@ import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
 import '../../components/gems/daily_check_in_dialog.dart';
 import '../../components/genesis_logo.dart';
-import '../../components/page_header.dart';
 import '../../components/tilemap/tilemap_settings_button_visibility.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../network/genesis_api.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../network/models/gem_wallet.dart';
+import '../../network/network_capture.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
@@ -38,6 +39,7 @@ import 'about_us_page.dart';
 part 'developer_endpoint_actions.dart';
 part 'developer_previews.dart';
 part 'developer_components.dart';
+part 'developer_network_tab.dart';
 
 const String _buildModeLabel = kReleaseMode
     ? 'release'
@@ -64,12 +66,29 @@ const List<String> _creatingPreviewWaitLines = [
   'Jon: Archive courier. Restless, charming, and far too willing to trade secrets for a shortcut.',
 ];
 
-const List<String> _developerPageTabs = <String>[
+const List<String> _developerPageCoreTabs = <String>['basic', 'test'];
+const List<String> _developerPageDebugTabs = <String>[
   'basic',
   'test',
   'network',
   'websocket',
 ];
+
+@visibleForTesting
+List<String> developerPageTabsForBuild({required bool isDebugBuild}) {
+  return isDebugBuild ? _developerPageDebugTabs : _developerPageCoreTabs;
+}
+
+final List<String> _developerPageTabs = developerPageTabsForBuild(
+  isDebugBuild: kDebugMode,
+);
+
+int _developerPageLastTabIndex = 0;
+
+@visibleForTesting
+void resetDeveloperPageTabForTesting() {
+  _developerPageLastTabIndex = 0;
+}
 
 class DeveloperPage extends StatelessWidget {
   const DeveloperPage({super.key});
@@ -77,8 +96,13 @@ class DeveloperPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: GenesisBackAppBar(pageName: 'Developer page'),
-      body: const SafeArea(child: DeveloperPageContent()),
+      body: SafeArea(
+        child: DeveloperPageContent(
+          headerLeading: _DeveloperPageBackButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -92,15 +116,15 @@ class DeveloperPageSheet extends StatelessWidget {
       builder: (context, constraints) {
         return GenesisBottomSheetPanel(
           key: const ValueKey<String>('developer-page-sheet'),
-          title: 'Developer page',
+          title: '',
           height: constraints.maxHeight,
-          trailing: GenesisBottomSheetCloseButton(
-            buttonKey: const ValueKey<String>('developer-page-sheet-close'),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          titleBottomSpacing: 12,
+          showHeader: false,
           child: DeveloperPageContent(
             dismissBeforePreview: true,
+            headerTrailing: GenesisBottomSheetCloseButton(
+              buttonKey: const ValueKey<String>('developer-page-sheet-close'),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
             onDismissBeforePreview: () async {
               await Navigator.of(context).maybePop();
             },
@@ -116,16 +140,21 @@ class DeveloperPageContent extends StatefulWidget {
     super.key,
     this.dismissBeforePreview = false,
     this.onDismissBeforePreview,
+    this.headerLeading,
+    this.headerTrailing,
   });
 
   final bool dismissBeforePreview;
   final Future<void> Function()? onDismissBeforePreview;
+  final Widget? headerLeading;
+  final Widget? headerTrailing;
 
   @override
   State<DeveloperPageContent> createState() => _DeveloperPageContentState();
 }
 
-class _DeveloperPageContentState extends State<DeveloperPageContent> {
+class _DeveloperPageContentState extends State<DeveloperPageContent>
+    with SingleTickerProviderStateMixin {
   static const double _itemGap = 8;
   static const String _productionEndpointHost = 'api.worldo.ai';
   static const String _testEndpointHost = 'dev.hushie.ai';
@@ -138,6 +167,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   late final TextEditingController _apiBaseUrlController;
   late final TextEditingController _gatewayApiBaseUrlController;
   late final TextEditingController _chatroomWsBaseUrlController;
+  late final TabController _tabController;
   bool _clearingDirectMessageCache = false;
   bool _clearingImageCache = false;
   bool _clearingGatewayAuth = false;
@@ -153,6 +183,15 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: _developerPageTabs.length,
+      initialIndex: _developerPageLastTabIndex.clamp(
+        0,
+        _developerPageTabs.length - 1,
+      ),
+      vsync: this,
+    );
+    _tabController.addListener(_rememberSelectedTab);
     final deviceId = AppServicesScope.read(context).deviceId;
     _deviceIdDiagnosticsFuture = deviceId is DeviceIdDiagnosticsService
         ? (deviceId as DeviceIdDiagnosticsService).getDeviceIdDiagnostics()
@@ -174,6 +213,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
 
   @override
   void dispose() {
+    _tabController.removeListener(_rememberSelectedTab);
+    _tabController.dispose();
     _apiBaseUrlController.removeListener(_handleEndpointTextChanged);
     _gatewayApiBaseUrlController.removeListener(_handleEndpointTextChanged);
     _chatroomWsBaseUrlController.removeListener(_handleEndpointTextChanged);
@@ -181,6 +222,10 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _gatewayApiBaseUrlController.dispose();
     _chatroomWsBaseUrlController.dispose();
     super.dispose();
+  }
+
+  void _rememberSelectedTab() {
+    _developerPageLastTabIndex = _tabController.index;
   }
 
   void _updateState(VoidCallback callback) => setState(callback);
@@ -220,6 +265,15 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   @override
   Widget build(BuildContext context) {
     final horizontalContentPadding = widget.dismissBeforePreview ? 0.0 : 20.0;
+    final hasHeaderControl =
+        widget.headerLeading != null || widget.headerTrailing != null;
+    final tabs = SecendTabs(
+      labels: _developerPageTabs,
+      controller: _tabController,
+      horizontalPadding: hasHeaderControl ? 0 : horizontalContentPadding,
+      labelPadding: const EdgeInsets.only(right: 16),
+      verticalPadding: 0,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.hasBoundedHeight
@@ -227,35 +281,50 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             : MediaQuery.sizeOf(context).height;
         return SizedBox(
           height: height,
-          child: DefaultTabController(
-            length: _developerPageTabs.length,
-            child: Column(
-              children: [
-                SecendTabs(
-                  labels: _developerPageTabs,
-                  horizontalPadding: horizontalContentPadding,
-                  labelPadding: const EdgeInsets.only(right: 16),
-                  verticalPadding: 0,
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: TabBarView(
+          child: Column(
+            children: [
+              if (hasHeaderControl)
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalContentPadding,
+                  ),
+                  child: Row(
                     children: [
-                      _buildInfoTab(horizontalContentPadding),
-                      _buildTestTab(horizontalContentPadding),
-                      const _DeveloperEmptyTab(
-                        key: ValueKey<String>('developer-network-tab'),
-                        title: 'Network',
+                      if (widget.headerLeading != null) ...[
+                        widget.headerLeading!,
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(child: tabs),
+                      if (widget.headerTrailing != null) ...[
+                        const SizedBox(width: 8),
+                        widget.headerTrailing!,
+                      ],
+                    ],
+                  ),
+                )
+              else
+                tabs,
+              const SizedBox(height: 8),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildInfoTab(horizontalContentPadding),
+                    _buildTestTab(horizontalContentPadding),
+                    if (kDebugMode) ...[
+                      _DeveloperNetworkTab(
+                        key: const ValueKey<String>('developer-network-tab'),
+                        horizontalPadding: horizontalContentPadding,
                       ),
                       const _DeveloperEmptyTab(
                         key: ValueKey<String>('developer-websocket-tab'),
                         title: 'WebSocket',
                       ),
                     ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -479,6 +548,35 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           foregroundColor: Colors.black,
         ),
       ],
+    );
+  }
+}
+
+class _DeveloperPageBackButton extends StatelessWidget {
+  const _DeveloperPageBackButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 24,
+      child: IconButton(
+        tooltip: 'Back',
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+        style: IconButton.styleFrom(
+          minimumSize: const Size.square(24),
+          maximumSize: const Size.square(24),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        icon: const Icon(
+          Icons.arrow_back_ios_new,
+          color: Colors.black,
+          size: 17,
+        ),
+      ),
     );
   }
 }

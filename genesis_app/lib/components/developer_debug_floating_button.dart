@@ -130,7 +130,7 @@ class _DeveloperDebugFloatingButtonState
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (_) => const FractionallySizedBox(
-          heightFactor: 0.72,
+          heightFactor: 4 / 5,
           child: DeveloperPageSheet(),
         ),
       );

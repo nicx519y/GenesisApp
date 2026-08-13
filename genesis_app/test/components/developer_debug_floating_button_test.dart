@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/components/developer_debug_floating_button.dart';
+import 'package:genesis_flutter_android/pages/me/developer_page.dart';
 
 void main() {
   tearDown(() {
@@ -73,6 +74,10 @@ void main() {
     calls.clear();
 
     await tester.tap(find.text('debug'));
+    await tester.pumpAndSettle();
+
+    final sheetSize = tester.getSize(find.byType(DeveloperPageSheet));
+    expect(sheetSize.height, closeTo(480, 0.01));
 
     expect(SystemChrome.latestStyle?.statusBarColor, Colors.transparent);
     expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);

@@ -76,6 +76,7 @@ import 'package:genesis_flutter_android/network/models/app_version_check.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
+import 'package:genesis_flutter_android/network/network_capture.dart';
 import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
 import 'package:genesis_flutter_android/components/world_map_stage.dart';
@@ -2196,6 +2197,8 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
+    networkCaptureController.resetForTesting();
+    resetDeveloperPageTabForTesting();
     BlockedUserReviewReturn.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
   });
@@ -17215,7 +17218,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Developer page'), findsWidgets);
+      expect(find.text('Developer page'), findsNothing);
       expect(find.text('Device ID:'), findsOneWidget);
       expect(find.text('test-device-id'), findsOneWidget);
 
@@ -17575,9 +17578,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
+    expect(find.text('Developer page'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('developer-page-sheet-close')),
       findsOneWidget,
+    );
+    expect(
+      tester.getCenter(find.text('basic')).dy,
+      closeTo(
+        tester
+            .getCenter(
+              find.byKey(const ValueKey<String>('developer-page-sheet-close')),
+            )
+            .dy,
+        1,
+      ),
     );
     expect(
       find.byKey(
@@ -17602,7 +17617,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('basic'), findsOneWidget);
-    expect(find.text('Network monitoring is not enabled yet.'), findsNothing);
+    expect(find.text('Capture network'), findsNothing);
 
     final tabView = find.byType(TabBarView);
     await tester.drag(tabView, const Offset(-500, 0));
@@ -17610,7 +17625,211 @@ void main() {
     await tester.drag(tabView, const Offset(-500, 0));
     await tester.pumpAndSettle();
 
-    expect(find.text('Network monitoring is not enabled yet.'), findsOneWidget);
+    expect(find.text('Capture network'), findsOneWidget);
+    expect(
+      find.text('Turn on Capture network to record new business requests.'),
+      findsOneWidget,
+    );
+  });
+
+  test('developer page hides diagnostic tabs outside debug builds', () {
+    expect(developerPageTabsForBuild(isDebugBuild: false), const <String>[
+      'basic',
+      'test',
+    ]);
+    expect(developerPageTabsForBuild(isDebugBuild: true), const <String>[
+      'basic',
+      'test',
+      'network',
+      'websocket',
+    ]);
+  });
+
+  testWidgets('developer page remembers the last selected tab when reopened', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices();
+
+    Future<void> openDeveloperPage() {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const DeveloperPage(),
+          ),
+        ),
+      );
+    }
+
+    await openDeveloperPage();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('network'));
+    await tester.pumpAndSettle();
+    expect(find.text('Capture network'), findsOneWidget);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pumpAndSettle();
+    await openDeveloperPage();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Capture network'), findsOneWidget);
+  });
+
+  testWidgets('developer network tab captures filters expands and clears', (
+    WidgetTester tester,
+  ) async {
+    var clipboardText = '';
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        switch (call.method) {
+          case 'Clipboard.setData':
+            final data = Map<String, dynamic>.from(call.arguments as Map);
+            clipboardText = '${data['text'] ?? ''}';
+            return null;
+          case 'Clipboard.getData':
+            return <String, dynamic>{'text': clipboardText};
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+    await networkCaptureController.setEnabled(true);
+    final successId = networkCaptureController.begin(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('https://api.worldo.ai/api/v1/world?id=w_test'),
+        headers: const <String, String>{'authorization': 'Bearer hidden-token'},
+        bodyBytes: utf8.encode(
+          jsonEncode(<String, Object?>{
+            'lines': List<String>.generate(
+              120,
+              (index) => 'request-line-$index',
+            ),
+          }),
+        ),
+        timeoutMs: 1000,
+      ),
+    );
+    networkCaptureController.complete(
+      successId!,
+      TransportResponse(
+        statusCode: 200,
+        headers: const <String, String>{'content-type': 'application/json'},
+        body: '{"err_no":0,"data":{"name":"Worldo"}}',
+        bodyBytes: utf8.encode('{"err_no":0,"data":{"name":"Worldo"}}'),
+        httpProtocolVersion: 'h2',
+      ),
+    );
+    final errorId = networkCaptureController.begin(
+      TransportRequest(
+        method: 'POST',
+        uri: Uri.parse('https://api.worldo.ai/api/v1/fail'),
+        headers: const <String, String>{},
+        bodyBytes: null,
+        timeoutMs: 1000,
+      ),
+    );
+    networkCaptureController.fail(errorId!, StateError('request failed'));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('network'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('developer-network-count')),
+      findsOneWidget,
+    );
+    expect(find.text('/api/v1/world'), findsOneWidget);
+    expect(find.text('/api/v1/fail'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('developer-network-search')),
+      'fail',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('/api/v1/world'), findsNothing);
+    expect(find.text('/api/v1/fail'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('developer-network-search')),
+      '',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('developer-network-filter-success')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('/api/v1/world'), findsOneWidget);
+    expect(find.text('/api/v1/fail'), findsNothing);
+
+    await tester.tap(find.text('/api/v1/world'));
+    await tester.pumpAndSettle();
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.text('Request'), findsOneWidget);
+    expect(find.text('Response'), findsOneWidget);
+
+    await tester.tap(find.text('Request'));
+    await tester.pumpAndSettle();
+    final requestContent = find.byKey(
+      ValueKey<String>('developer-network-request-content-$successId'),
+    );
+    expect(requestContent, findsOneWidget);
+    final networkList = find.descendant(
+      of: find.byKey(
+        const PageStorageKey<String>('developer-network-tab-scroll'),
+      ),
+      matching: find.byType(Scrollable),
+    );
+    final scrollPosition = tester.state<ScrollableState>(networkList).position;
+    expect(scrollPosition.maxScrollExtent, greaterThan(0));
+    final gesture = await tester.startGesture(
+      tester.getTopLeft(requestContent) + const Offset(20, 20),
+    );
+    await gesture.moveBy(const Offset(0, -20));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, -240));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(scrollPosition.pixels, greaterThan(0));
+
+    scrollPosition.jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Request'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Response'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Worldo'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('developer-network-copy-response')),
+    );
+    await tester.pump();
+    expect(
+      (await Clipboard.getData(Clipboard.kTextPlain))?.text,
+      contains('Worldo'),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('developer-network-clear')),
+    );
+    await tester.pumpAndSettle();
+    expect(networkCaptureController.records, isEmpty);
+    expect(find.text('Network records cleared'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
   });
 
   testWidgets(

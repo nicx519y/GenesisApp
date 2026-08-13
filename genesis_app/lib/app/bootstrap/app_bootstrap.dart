@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../config/app_config.dart';
@@ -11,6 +12,7 @@ import '../../network/devtools_http_profile.dart';
 import '../../network/genesis_http_cache_manager.dart';
 import '../../network/genesis_http_transport_pool.dart';
 import '../../network/network_runtime_factory.dart';
+import '../../network/network_capture.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
@@ -48,6 +50,7 @@ class AppBootstrap {
   }
 
   static Future<AppServices> initialize() async {
+    if (kDebugMode) await networkCaptureController.loadEnabled();
     final services = createInitialServices();
     await warmUp(services);
     return services;
