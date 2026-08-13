@@ -83,18 +83,42 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              'Select Your Role',
-              textAlign: TextAlign.left,
-              style: TextStyle(
-                fontSize: 16,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
-                decoration: TextDecoration.none,
-              ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              children: [
+                SvgPicture.asset(
+                  launchIconAsset,
+                  key: const ValueKey<String>(
+                    'origin-setup-role-title-launch-icon',
+                  ),
+                  width: 16,
+                  height: 16,
+                  excludeFromSemantics: true,
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xFF111111),
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(
+                  width: originDetailSectionTitleIconGapForTesting,
+                ),
+                const Flexible(
+                  child: Text(
+                    'Select Your Role',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.left,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111111),
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),

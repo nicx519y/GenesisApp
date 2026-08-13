@@ -277,17 +277,30 @@ List<Widget> _originInitialDialogueSlivers(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Worldo Brief',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 16,
-                  height: 1.2,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111111),
-                  decoration: TextDecoration.none,
-                ),
+              const Row(
+                children: [
+                  Icon(
+                    MyFlutterApp.eye,
+                    key: ValueKey<String>('origin-opening-worldo-brief-icon'),
+                    size: 16,
+                    color: Color(0xFFFF2442),
+                  ),
+                  SizedBox(width: originDetailSectionTitleIconGapForTesting),
+                  Flexible(
+                    child: Text(
+                      'Worldo Brief',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF111111),
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text(

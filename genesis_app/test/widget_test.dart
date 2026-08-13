@@ -6154,8 +6154,13 @@ void main() {
     expect(briefTitle.style?.fontSize, 16);
     expect(
       find.descendant(of: brief, matching: find.byIcon(MyFlutterApp.eye)),
-      findsNothing,
+      findsOneWidget,
     );
+    final briefIcon = tester.widget<Icon>(
+      find.byKey(const ValueKey<String>('origin-opening-worldo-brief-icon')),
+    );
+    expect(briefIcon.size, 16);
+    expect(briefIcon.color, const Color(0xFFFF2442));
     expect(find.text('Origin detail subtitle'), findsOneWidget);
     expect(
       tester
@@ -7236,6 +7241,11 @@ void main() {
       tester.getTopLeft(recommendedRole).dx,
       lessThan(tester.getTopLeft(regularRole).dx),
     );
+    final roleTitleLaunchIcon = tester.widget<SvgPicture>(
+      find.byKey(const ValueKey<String>('origin-setup-role-title-launch-icon')),
+    );
+    expect(roleTitleLaunchIcon.width, 16);
+    expect(roleTitleLaunchIcon.height, 16);
     final suggestedLabel = find.byKey(
       const ValueKey<String>('origin-setup-role-suggested-label-c_recommended'),
     );
