@@ -18,6 +18,7 @@ class WorldMapBubbleCandidate {
 
 List<WorldMapBubbleCandidate> worldMapBubbleCandidatesFor({
   required int currentTickNo,
+  required int currentSubTickNo,
   required List<Map<String, dynamic>> characterPositions,
   required Map<String, List<WorldChatroomMessage>> messagesByLocation,
 }) {
@@ -37,7 +38,11 @@ List<WorldMapBubbleCandidate> worldMapBubbleCandidatesFor({
     if (messages == null || messages.isEmpty) continue;
 
     final currentTickMessages = messages
-        .where((message) => message.tickNo == currentTickNo)
+        .where(
+          (message) =>
+              message.tickNo == currentTickNo &&
+              message.subTickNo == currentSubTickNo,
+        )
         .toList(growable: false);
     if (currentTickMessages.isEmpty) continue;
 

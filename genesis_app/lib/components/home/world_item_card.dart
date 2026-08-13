@@ -36,6 +36,7 @@ class WorldListItem {
     required this.lastProgressAt,
     required this.lastProgressSummary,
     required this.lastProgressTickNo,
+    required this.lastProgressSubTickNo,
     required this.lastProgressCurrentTime,
     required this.previewImages,
     required this.tags,
@@ -104,6 +105,7 @@ class WorldListItem {
         lastTick['tick_no'],
         fallback: asInt(lastTick['tick_index']),
       ),
+      lastProgressSubTickNo: asInt(lastTick['sub_tick_no']),
       lastProgressCurrentTime: asString(
         lastTick['current_time'],
         fallback: asString(info['current_time']),
@@ -144,6 +146,7 @@ class WorldListItem {
   final String lastProgressAt;
   final String lastProgressSummary;
   final int lastProgressTickNo;
+  final int lastProgressSubTickNo;
   final String lastProgressCurrentTime;
   final List<String> previewImages;
   final List<String> tags;
@@ -174,7 +177,12 @@ class WorldListItem {
 
   String get progressTickTimeLabel {
     final parts = <String>[];
-    if (lastProgressTickNo > 0) parts.add('Tick $lastProgressTickNo');
+    if (lastProgressTickNo > 0) {
+      parts.add(
+        'Tick $lastProgressTickNo'
+        '${lastProgressSubTickNo > 0 ? '-$lastProgressSubTickNo' : ''}',
+      );
+    }
     final currentTime = lastProgressCurrentTime.trim();
     if (currentTime.isNotEmpty) parts.add(currentTime);
     return parts.join(' · ');

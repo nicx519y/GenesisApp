@@ -2469,7 +2469,8 @@ void main() {
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
     expect(find.text('#Worldo'), findsOneWidget);
-    expect(find.text('Create'), findsOneWidget);
+    expect(find.text('Create'), findsNothing);
+    expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
   });
@@ -5765,7 +5766,7 @@ void main() {
         tester.getSize(
           find.byKey(const ValueKey<String>('origin-loading-role-card')),
         ),
-        const Size(288, 381),
+        const Size(240, 333),
       );
       expect(
         tester.getSize(
@@ -6097,6 +6098,115 @@ void main() {
       lessThan(81),
     );
     expect(find.text('Opening line 79'), findsNothing);
+  });
+
+  testWidgets('origin opening shows Worldo brief above opening location', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport(
+      originTicks: const <Map<String, Object?>>[
+        <String, Object?>{
+          'tick_no': 1,
+          'tick_result': <String, Object?>{
+            'location_groups': <Map<String, Object?>>[
+              <String, Object?>{
+                'location_id': 'l_o_test_1',
+                'initial_dialogue': <Map<String, Object?>>[
+                  <String, Object?>{
+                    'char_id': 'c_o_test_1',
+                    'char_name': 'Detail Character',
+                    'content': 'Opening line 1',
+                  },
+                  <String, Object?>{
+                    'char_id': 'c_o_test_1',
+                    'char_name': 'Detail Character',
+                    'content': 'Opening line 2',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final brief = find.byKey(
+      const ValueKey<String>('origin-opening-worldo-brief'),
+    );
+    final openingLocation = find.byKey(
+      const ValueKey<String>('origin-opening-location'),
+    );
+    expect(brief, findsOneWidget);
+    final briefTitle = tester.widget<Text>(find.text('Worldo Brief'));
+    expect(briefTitle.style?.fontSize, 16);
+    expect(
+      find.descendant(of: brief, matching: find.byIcon(MyFlutterApp.eye)),
+      findsOneWidget,
+    );
+    final briefIcon = tester.widget<Icon>(
+      find.byKey(const ValueKey<String>('origin-opening-worldo-brief-icon')),
+    );
+    expect(briefIcon.size, 16);
+    expect(briefIcon.color, const Color(0xFFFF2442));
+    expect(find.text('Origin detail subtitle'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(
+              const ValueKey<String>('origin-opening-worldo-brief-body'),
+            ),
+          )
+          .style
+          ?.fontSize,
+      14,
+    );
+    expect(openingLocation, findsOneWidget);
+    expect(
+      (tester.widget<Padding>(openingLocation).padding as EdgeInsets).bottom,
+      8,
+    );
+    expect(
+      tester.getTopLeft(brief).dy,
+      lessThan(tester.getTopLeft(openingLocation).dy),
+    );
+    final openingDialogueFinder = find.byKey(
+      const ValueKey<String>('origin-opening-dialogue'),
+    );
+    final openingDialogue = tester.widget<SliverPadding>(openingDialogueFinder);
+    expect((openingDialogue.padding as EdgeInsets).bottom, 24);
+    final openingList = tester.widget<SliverList>(
+      find.descendant(
+        of: openingDialogueFinder,
+        matching: find.byType(SliverList),
+      ),
+    );
+    final openingDelegate = openingList.delegate as SliverChildBuilderDelegate;
+    final buildContext = tester.element(
+      find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
+    );
+    final firstOpeningRow =
+        openingDelegate.builder(buildContext, 0) as ChatMessageRow;
+    final lastOpeningRow =
+        openingDelegate.builder(
+              buildContext,
+              openingDelegate.estimatedChildCount! - 1,
+            )
+            as ChatMessageRow;
+    expect(firstOpeningRow.style?.rowBottomPadding, 24);
+    expect(lastOpeningRow.style?.rowBottomPadding, 0);
   });
 
   testWidgets(
@@ -7131,6 +7241,45 @@ void main() {
       tester.getTopLeft(recommendedRole).dx,
       lessThan(tester.getTopLeft(regularRole).dx),
     );
+    final roleTitleLaunchIcon = tester.widget<SvgPicture>(
+      find.byKey(const ValueKey<String>('origin-setup-role-title-launch-icon')),
+    );
+    expect(roleTitleLaunchIcon.width, 16);
+    expect(roleTitleLaunchIcon.height, 16);
+    final suggestedLabel = find.byKey(
+      const ValueKey<String>('origin-setup-role-suggested-label-c_recommended'),
+    );
+    expect(suggestedLabel, findsOneWidget);
+    expect(
+      find.descendant(
+        of: suggestedLabel,
+        matching: find.text('Originator Suggested'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Text>(find.text('Originator Suggested')).style?.fontSize,
+      13,
+    );
+    final recommendedPortrait = find.byKey(
+      const ValueKey<String>('origin-setup-role-portrait-c_recommended'),
+    );
+    final suggestedLabelRect = tester.getRect(suggestedLabel);
+    final recommendedPortraitRect = tester.getRect(recommendedPortrait);
+    expect(
+      suggestedLabelRect.top,
+      closeTo(recommendedPortraitRect.top + 12, 0.01),
+    );
+    expect(
+      suggestedLabelRect.left,
+      closeTo(recommendedPortraitRect.left + 12, 0.01),
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-suggested-label-c_regular'),
+      ),
+      findsNothing,
+    );
     final recommendedMark = find.byKey(
       const ValueKey<String>('origin-setup-role-recommended-c_recommended'),
     );
@@ -7176,6 +7325,17 @@ void main() {
       ),
       findsNothing,
     );
+    tester
+        .widget<GestureDetector>(
+          find.byKey(
+            const ValueKey<String>(
+              'origin-setup-role-card-body-toggle-c_recommended',
+            ),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+    expect(suggestedLabel, findsNothing);
   });
 
   testWidgets('Origin detail launch bar launches a world', (
@@ -7294,7 +7454,7 @@ void main() {
       const ValueKey<String>('origin-setup-role-portrait-$roleId'),
     );
     expect(portrait, findsOneWidget);
-    expect(tester.getSize(portrait).width, 288);
+    expect(tester.getSize(portrait).width, 240);
     final setupAvatarFinder = find.descendant(
       of: portrait,
       matching: find.byType(GenesisStaticNetworkImage),
@@ -7343,8 +7503,8 @@ void main() {
     final cardBodyToggle = find.byKey(
       const ValueKey<String>('origin-setup-role-card-body-toggle-$roleId'),
     );
-    expect(tester.getSize(roleToggle), const Size(288, 48));
-    expect(tester.getSize(cardBodyToggle), const Size(288, 288));
+    expect(tester.getSize(roleToggle), const Size(240, 48));
+    expect(tester.getSize(cardBodyToggle), const Size(240, 240));
     expect(
       find.ancestor(
         of: roleToggle,
@@ -7413,7 +7573,7 @@ void main() {
       const ValueKey<String>('origin-setup-role-details-$roleId'),
     );
     expect(details, findsOneWidget);
-    expect(tester.getSize(details), const Size(288, 288));
+    expect(tester.getSize(details), const Size(240, 240));
     expect(
       find.descendant(of: details, matching: find.text('Name')),
       findsNothing,
@@ -7445,7 +7605,7 @@ void main() {
     final detailIdentity = tester.widget<Text>(
       find.descendant(of: details, matching: find.text('Guide')),
     );
-    expect(identityLabel.style?.fontSize, 11);
+    expect(identityLabel.style?.fontSize, 13);
     expect(detailIdentity.style?.fontSize, 13);
     expect(identityLabel.textAlign, TextAlign.start);
     expect(detailIdentity.textAlign, TextAlign.start);
@@ -7788,6 +7948,163 @@ void main() {
     },
   );
 
+  testWidgets('Origin shows cached signed-in profile as a direct launch role', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          initialUserInfo: const {
+            'uid': 'u_profile',
+            'name': 'Profile Hero',
+            'avatar': {
+              'sm_url': 'https://cdn.example.com/profile_180x180.jpg',
+              'xl_url': 'https://cdn.example.com/profile_1080x1080.jpg',
+            },
+          },
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final profileRole = find.byKey(
+      const ValueKey<String>('origin-setup-role-current-user'),
+    );
+    expect(profileRole, findsOneWidget);
+    final profilePortrait = find.byKey(
+      const ValueKey<String>('origin-setup-role-portrait-current-user'),
+    );
+    final profileLabel = find.byKey(
+      const ValueKey<String>('origin-setup-role-profile-label'),
+    );
+    expect(profileLabel, findsOneWidget);
+    expect(
+      find.descendant(of: profileLabel, matching: find.text('Your Profile')),
+      findsOneWidget,
+    );
+    expect(tester.widget<Text>(find.text('Your Profile')).style?.fontSize, 13);
+    final profilePortraitRect = tester.getRect(profilePortrait);
+    final profileLabelRect = tester.getRect(profileLabel);
+    expect(profileLabelRect.top, closeTo(profilePortraitRect.top + 12, 0.01));
+    expect(profileLabelRect.left, closeTo(profilePortraitRect.left + 12, 0.01));
+    expect(
+      find.descendant(of: profilePortrait, matching: find.text('Profile Hero')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: profilePortrait, matching: find.text('Identity')),
+      findsNothing,
+    );
+    final profileAvatar = tester.widget<GenesisStaticNetworkImage>(
+      find.descendant(
+        of: profilePortrait,
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+    );
+    expect(
+      profileAvatar.imageUrl,
+      contains('https://cdn.example.com/profile_1080x1080.jpg'),
+    );
+    expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+
+    final profileBodyToggle = find.byKey(
+      const ValueKey<String>('origin-setup-role-card-body-toggle-current-user'),
+    );
+    tester.widget<GestureDetector>(profileBodyToggle).onTap!();
+    await tester.pumpAndSettle();
+    expect(profileLabel, findsNothing);
+    final profileDetails = find.byKey(
+      const ValueKey<String>('origin-setup-role-details-current-user'),
+    );
+    expect(
+      find.descendant(of: profileDetails, matching: find.text('Identity')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: profileDetails, matching: find.text('Background')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: profileDetails, matching: find.text('Brief')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: profileDetails, matching: find.text('Goal')),
+      findsNothing,
+    );
+    tester.widget<GestureDetector>(profileBodyToggle).onTap!();
+    await tester.pumpAndSettle();
+    expect(profileLabel, findsOneWidget);
+
+    final editSurfaceFinder = find.byKey(
+      const ValueKey<String>('origin-setup-role-edit-surface-current-user'),
+    );
+    expect(tester.getSize(editSurfaceFinder), const Size.square(35));
+    final editSurface = tester.widget<Material>(editSurfaceFinder);
+    expect(editSurface.color, const Color(0x667A7A7A));
+    expect(
+      find.descendant(
+        of: editSurfaceFinder,
+        matching: find.byIcon(Icons.edit_rounded),
+      ),
+      findsOneWidget,
+    );
+    tester
+        .widget<InkWell>(
+          find.byKey(
+            const ValueKey<String>('origin-setup-role-edit-current-user'),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    final customForm = find.byKey(
+      const ValueKey<String>('origin-role-custom-tab'),
+    );
+    expect(customForm, findsOneWidget);
+    final customFields = find.descendant(
+      of: customForm,
+      matching: find.byType(TextField),
+    );
+    expect(
+      tester.widget<TextField>(customFields.at(0)).controller?.text,
+      'Profile Hero',
+    );
+    expect(
+      tester.widget<TextField>(customFields.at(1)).controller?.text,
+      isEmpty,
+    );
+    expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+    await tester.tap(find.byKey(const ValueKey('origin-role-sheet-close')));
+    await tester.pumpAndSettle();
+
+    tester.widget<InkWell>(profileRole).onTap!();
+    await tester.pumpAndSettle();
+
+    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+    expect(launchRequests, hasLength(1));
+    final launchBody = transport.decodedBody(launchRequests.single);
+    expect(launchBody.containsKey('preset_character_id'), isFalse);
+    expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
+    expect(launchBody['custom_role'], containsPair('identity', ''));
+    expect(
+      launchBody['custom_role'],
+      containsPair('avatar', 'https://cdn.example.com/profile_1080x1080.jpg'),
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('Origin custom card opens custom role sheet and launches', (
     WidgetTester tester,
   ) async {
@@ -7863,6 +8180,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-role-current-user')),
+      findsNothing,
+    );
 
     final customCard = find.byKey(
       const ValueKey<String>('origin-setup-role-custom-card'),
@@ -8644,7 +8966,12 @@ void main() {
 
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Custom'));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-role-sheet')),
+        matching: find.text('Custom'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Custom Hero');
     await tester.pump();
@@ -8713,7 +9040,12 @@ void main() {
 
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Custom'));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-role-sheet')),
+        matching: find.text('Custom'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Fill from my profile'));
     await tester.pumpAndSettle();
@@ -8768,7 +9100,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Custom'));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-role-sheet')),
+        matching: find.text('Custom'),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Fill from my profile'));
     await tester.pumpAndSettle();
@@ -8900,7 +9237,12 @@ void main() {
 
       await tester.tap(find.text('Launch'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Custom'));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('origin-role-sheet')),
+          matching: find.text('Custom'),
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Fill from my profile'));
       await tester.pumpAndSettle();
@@ -10628,7 +10970,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
-    await tester.tap(find.text('Create'));
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Create')));
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to continue'), findsOneWidget);
@@ -10642,7 +10984,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
-    await tester.tap(find.text('Create'));
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Create')));
     await tester.pumpAndSettle();
 
     expect(find.text('Create Worldo'), findsOneWidget);
@@ -11256,9 +11598,12 @@ void main() {
       expect(find.text('Empty Hall'), findsOneWidget);
       expect(find.text('Hidden L1'), findsNothing);
       expect(find.text('Hidden L2'), findsNothing);
-      expect(find.text('Mira'), findsOneWidget);
       final locationOption = find.byKey(
         const ValueKey<String>('opening-location-option-location_opening_1'),
+      );
+      expect(
+        find.descendant(of: locationOption, matching: find.text('Mira')),
+        findsOneWidget,
       );
       expect(
         find.descendant(
@@ -11343,7 +11688,7 @@ void main() {
                   find.byKey(const ValueKey<String>('opening-dialogue-title')),
                 )
                 .dy,
-        closeTo(20, 0.01),
+        closeTo(16, 0.01),
       );
       final characterAddButton = find.byKey(
         const ValueKey<String>('opening-add-character-char_opening_1'),
@@ -12557,6 +12902,7 @@ void main() {
             name: 'Tff',
             identity: 'Guide',
             personality: 'Calm',
+            isRecommend: 1,
           ),
         ],
         locations: <LocationDraft>[
@@ -12601,6 +12947,49 @@ void main() {
     expect(find.textContaining('World Logic:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
     expect(find.text('1 characters: Tff'), findsOneWidget);
+    expect(find.text('Suggested: Tff'), findsOneWidget);
+    final charactersTitle = find.text('Characters (>=1)');
+    final charactersCompleted = find.byKey(
+      const ValueKey<String>('section-completed-Characters (>=1)'),
+    );
+    final charactersChevron = find.byKey(
+      const ValueKey<String>('section-chevron-Characters (>=1)'),
+    );
+    expect(
+      tester.getTopRight(charactersChevron).dx,
+      closeTo(
+        tester
+            .getTopRight(
+              find.byKey(
+                const ValueKey<String>('section-content-Characters (>=1)'),
+              ),
+            )
+            .dx,
+        0.01,
+      ),
+    );
+    expect(
+      tester.getTopLeft(charactersCompleted).dx -
+          tester.getTopRight(charactersTitle).dx,
+      closeTo(6, 0.01),
+    );
+    expect(
+      tester.getTopRight(find.text('1 characters: Tff')).dx,
+      greaterThan(tester.getTopLeft(charactersChevron).dx),
+    );
+    final bestRoleSummary = tester.widget<Text>(
+      find.byKey(
+        const ValueKey<String>('section-summary-line-Characters (>=1)-1'),
+      ),
+    );
+    final bestRoleSpans = (bestRoleSummary.textSpan! as TextSpan).children!;
+    expect((bestRoleSpans.first as TextSpan).text, 'Suggested:');
+    expect(
+      (bestRoleSpans.first as TextSpan).style?.color,
+      const Color(0xFF999999),
+    );
+    expect((bestRoleSpans.last as TextSpan).text, ' Tff');
+    expect(bestRoleSummary.style?.color, const Color(0xFF444444));
     expect(find.text('L1 · Region : 1'), findsOneWidget);
     expect(find.text('L2 · Building : 1'), findsOneWidget);
     expect(find.text('L3 · Room : 1'), findsOneWidget);
@@ -12609,7 +12998,51 @@ void main() {
     expect(find.text('Narrator : 1'), findsOneWidget);
     expect(find.text('Image : 0'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
+    await tester.drag(find.byType(ListView), const Offset(0, -240));
+    await tester.pump();
     expect(find.text('2 events'), findsOneWidget);
+  });
+
+  testWidgets('characters summary hides Suggested when none is selected', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const characterName =
+        'Optional Character With A Name That Must Wrap Completely';
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[
+          CharacterDraft(
+            charId: 'char_optional_best_role',
+            name: characterName,
+            identity: 'Guide',
+            personality: 'Calm',
+          ),
+        ],
+        locations: <LocationDraft>[],
+        storyEvents: <StoryEventDraft>[],
+        basicsSaved: false,
+        charactersSaved: true,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
+    await tester.pumpAndSettle();
+
+    final characterSummary = find.text('1 characters: $characterName');
+    expect(characterSummary, findsOneWidget);
+    final summaryText = tester.widget<Text>(characterSummary);
+    expect(summaryText.maxLines, isNull);
+    expect(summaryText.softWrap, isTrue);
+    expect(summaryText.overflow, isNull);
+    expect(tester.getSize(characterSummary).height, greaterThan(20));
+    expect(find.textContaining('Suggested:'), findsNothing);
   });
 
   testWidgets('create origin back action can discard the local draft', (

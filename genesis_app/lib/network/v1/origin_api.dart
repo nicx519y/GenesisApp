@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../json_utils.dart';
 import 'v1_api_resource.dart';
 
@@ -285,14 +288,51 @@ class OriginV1Api extends V1ApiResource {
         'presetCharacterId and customRole must be exactly one of two',
       );
     }
-    return postMap(
-      'origin/launch',
-      v1Body({
-        'origin_id': resolvedOriginId,
+    final roleType = hasPreset ? 'preset' : 'custom';
+    unawaited(
+      FirebaseAnalyticsMonitoring.recordLaunch(
+        originId: resolvedOriginId,
+        roleType: roleType,
+      ),
+    );
+    return _launchValidated(
+      originId: resolvedOriginId,
+      presetCharacterId: presetCharacterId,
+      customRole: customRole,
+      roleType: roleType,
+    );
+  }
+
+  Future<Map<String, dynamic>> _launchValidated({
+    required String originId,
+    required String? presetCharacterId,
+    required Map<String, dynamic>? customRole,
+    required String roleType,
+  }) async {
+    final json = await client.post<Object?>(
+      'v1/origin/launch',
+      body: v1Body({
+        'origin_id': originId,
         'preset_character_id': presetCharacterId,
         'custom_role': customRole,
       }),
     );
+    final hasExplicitSuccess = _hasExplicitSuccessfulV1Envelope(json);
+    final data = handleV1ResponseErrNo(json);
+    final result = data == null ? <String, dynamic>{} : asJsonMap(data);
+    if (hasExplicitSuccess) {
+      final worldId = asString(result['world_id'] ?? result['wid']).trim();
+      if (worldId.isNotEmpty) {
+        unawaited(
+          FirebaseAnalyticsMonitoring.recordLaunchSuccess(
+            originId: originId,
+            roleType: roleType,
+            worldId: worldId,
+          ),
+        );
+      }
+    }
+    return result;
   }
 
   /// GET /api/v1/origin/versionlist
@@ -342,4 +382,27 @@ class OriginV1Api extends V1ApiResource {
   Future<void> delete({required String oid}) {
     return postVoid('origin/del', {'oid': oid});
   }
+}
+
+bool _hasExplicitSuccessfulV1Envelope(Object? json) {
+  if (json is! Map) return false;
+  final map = asJsonMap(json);
+  final Object? rawErrNo;
+  if (map.containsKey('err_no')) {
+    rawErrNo = map['err_no'];
+  } else if (map.containsKey('errNo')) {
+    rawErrNo = map['errNo'];
+  } else {
+    return false;
+  }
+  return _parseStrictV1ErrNo(rawErrNo) == 0;
+}
+
+int? _parseStrictV1ErrNo(Object? value) {
+  if (value is int) return value;
+  if (value is num && value.isFinite && value == value.toInt()) {
+    return value.toInt();
+  }
+  if (value is String) return int.tryParse(value.trim());
+  return null;
 }

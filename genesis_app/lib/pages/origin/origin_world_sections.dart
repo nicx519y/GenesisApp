@@ -7,9 +7,7 @@ class _WorldViewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final body = origin.worldView.trim().isEmpty
-        ? origin.description.trim()
-        : origin.worldView.trim();
+    final body = _originWorldoBrief(origin);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -26,6 +24,11 @@ class _WorldViewSection extends StatelessWidget {
       ],
     );
   }
+}
+
+String _originWorldoBrief(OriginDetail origin) {
+  final worldView = origin.worldView.trim();
+  return worldView.isEmpty ? origin.description.trim() : worldView;
 }
 
 class _OriginPreviewImage extends StatelessWidget {
@@ -246,6 +249,7 @@ class _DiscussSection extends StatelessWidget {
 }
 
 List<Widget> _originInitialDialogueSlivers(
+  OriginDetail origin,
   _OriginInitialDialoguePreview preview,
 ) {
   final style = kLocationChatStyle.copyWith(
@@ -258,10 +262,65 @@ List<Widget> _originInitialDialogueSlivers(
     ),
   );
   final padding = style.messageListPadding;
+  final brief = _originWorldoBrief(origin);
   return <Widget>[
+    if (brief.isNotEmpty)
+      SliverToBoxAdapter(
+        child: Padding(
+          key: const ValueKey<String>('origin-opening-worldo-brief'),
+          padding: EdgeInsets.fromLTRB(
+            padding.left,
+            6,
+            padding.right,
+            originDetailSectionGapForTesting,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(
+                    MyFlutterApp.eye,
+                    key: ValueKey<String>('origin-opening-worldo-brief-icon'),
+                    size: 16,
+                    color: Color(0xFFFF2442),
+                  ),
+                  SizedBox(width: originDetailSectionTitleIconGapForTesting),
+                  Flexible(
+                    child: Text(
+                      'Worldo Brief',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF111111),
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                brief,
+                key: const ValueKey<String>('origin-opening-worldo-brief-body'),
+                style: _bodyTextStyle.copyWith(fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ),
     SliverToBoxAdapter(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(padding.left, 6, padding.right, 18),
+        key: const ValueKey<String>('origin-opening-location'),
+        padding: EdgeInsets.fromLTRB(
+          padding.left,
+          brief.isEmpty ? 6 : 0,
+          padding.right,
+          8,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
@@ -285,21 +344,31 @@ List<Widget> _originInitialDialogueSlivers(
       ),
     ),
     SliverPadding(
+      key: const ValueKey<String>('origin-opening-dialogue'),
       padding: EdgeInsets.fromLTRB(
         padding.left,
         0,
         padding.right,
-        padding.bottom,
+        originDetailSectionGapForTesting,
       ),
       sliver: SliverList.builder(
         itemCount: preview.messages.length,
         itemBuilder: (context, index) {
           final message = preview.messages[index];
+          final isLast = index == preview.messages.length - 1;
+          final messageStyle = isLast
+              ? style.copyWith(
+                  rowBottomPadding: 0,
+                  systemMessageMargin: style.systemMessageMargin.copyWith(
+                    bottom: 0,
+                  ),
+                )
+              : style;
           return ChatMessageRow(
             key: ValueKey<String>(message.localId),
             message: message,
             showDateDivider: false,
-            style: style,
+            style: messageStyle,
           );
         },
       ),

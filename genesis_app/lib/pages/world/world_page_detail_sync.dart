@@ -167,6 +167,7 @@ extension _WorldPageDetailSync on _WorldPageState {
     }
     return worldMapBubbleCandidatesFor(
       currentTickNo: world.tickCount,
+      currentSubTickNo: world.subTickNo,
       characterPositions: world.characterPositions,
       messagesByLocation: state.messagesByLocation,
     );

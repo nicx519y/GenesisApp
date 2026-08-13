@@ -65,12 +65,12 @@ class _BestRoleSelector extends StatelessWidget {
               OriginRoleSelectionMark(
                 key: ValueKey('origin-character-recommended-${form.charId}'),
                 selected: form.isRecommended,
-                semanticLabel: "Creator's best role for players to launch as",
+                semanticLabel: 'Creator suggests this role for the user',
                 style: OriginRoleSelectionMarkStyle.star,
               ),
               const SizedBox(width: 6),
               const Text(
-                'Best role',
+                'Suggest',
                 style: TextStyle(
                   color: Color(0xFF111111),
                   fontSize: 12,

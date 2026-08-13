@@ -4,17 +4,23 @@ class _OriginSetupRoleSection extends StatefulWidget {
   const _OriginSetupRoleSection({
     required this.characters,
     required this.launching,
+    required this.profileRole,
     required this.onSelectRole,
+    required this.onSelectProfileRole,
+    required this.onEditProfileRole,
     required this.onCustomizeRole,
   });
 
-  static const double _cardWidth = 288;
+  static const double _cardWidth = 240;
   static const double _buttonHeight = 93;
   static const double _toggleAreaHeight = 48;
 
   final List<OriginCharacter> characters;
   final bool launching;
+  final OriginCustomRoleDraft? profileRole;
   final Future<void> Function(OriginCharacter character) onSelectRole;
+  final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
+  final VoidCallback onEditProfileRole;
   final VoidCallback onCustomizeRole;
 
   @override
@@ -24,40 +30,101 @@ class _OriginSetupRoleSection extends StatefulWidget {
 
 class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   final ScrollController _cardsController = ScrollController();
-  var _currentCardIndex = 0;
+  final ValueNotifier<int> _currentCardIndex = ValueNotifier<int>(0);
+  final Set<String> _preloadedAvatarKeys = <String>{};
   var _cardStride = 1.0;
 
   @override
   void initState() {
     super.initState();
     _cardsController.addListener(_handleCardsScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _precacheUpcomingRoleAvatars(_currentCardIndex.value);
+    });
   }
 
   @override
   void didUpdateWidget(covariant _OriginSetupRoleSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final lastIndex = widget.characters.length;
-    if (_currentCardIndex > lastIndex) {
-      _currentCardIndex = lastIndex;
+    final lastIndex = _cardCount - 1;
+    if (_currentCardIndex.value > lastIndex) {
+      _currentCardIndex.value = lastIndex;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _precacheUpcomingRoleAvatars(_currentCardIndex.value);
+    });
   }
+
+  int get _cardCount =>
+      widget.characters.length + (widget.profileRole == null ? 1 : 2);
 
   @override
   void dispose() {
     _cardsController.removeListener(_handleCardsScroll);
     _cardsController.dispose();
+    _currentCardIndex.dispose();
     super.dispose();
   }
 
   void _handleCardsScroll() {
     if (!_cardsController.hasClients || _cardStride <= 0) return;
-    final cardCount = widget.characters.length + 1;
+    final cardCount = _cardCount;
     final nextIndex = (_cardsController.offset / _cardStride).round().clamp(
       0,
       cardCount - 1,
     );
-    if (nextIndex == _currentCardIndex || !mounted) return;
-    setState(() => _currentCardIndex = nextIndex);
+    if (nextIndex == _currentCardIndex.value || !mounted) return;
+    _currentCardIndex.value = nextIndex;
+    _precacheUpcomingRoleAvatars(nextIndex);
+  }
+
+  void _precacheUpcomingRoleAvatars(int currentIndex) {
+    if (!mounted) return;
+    final avatarSources = <String>[
+      if (widget.profileRole case final profileRole?) profileRole.avatarUrl,
+      ...originCharactersRecommendedFirst(
+        widget.characters,
+      ).map((character) => character.avatar),
+    ];
+    if (avatarSources.isEmpty || currentIndex >= avatarSources.length) return;
+
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final decodeSize = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
+        .ceil();
+    final lastIndex = math.min(currentIndex + 2, avatarSources.length - 1);
+    for (var index = currentIndex; index <= lastIndex; index += 1) {
+      final avatarUrl = _originRoleCardAvatarUrl(
+        context,
+        _resolveAssetUrl(avatarSources[index]),
+      );
+      if (avatarUrl.isEmpty) continue;
+      final cacheKey = '$avatarUrl@$decodeSize';
+      if (!_preloadedAvatarKeys.add(cacheKey)) continue;
+
+      final ImageProvider provider = avatarUrl.startsWith('assets/')
+          ? AssetImage(avatarUrl)
+          : GenesisStaticNetworkImageProvider(
+              imageUrl: avatarUrl,
+              cacheWidth: decodeSize,
+              cacheHeight: decodeSize,
+              fit: BoxFit.cover,
+            );
+      unawaited(
+        precacheImage(
+          provider,
+          context,
+          onError: (error, stackTrace) {
+            _preloadedAvatarKeys.remove(cacheKey);
+            debugPrint(
+              '[OriginWorldPage] role avatar decode precache failed '
+              'url="$avatarUrl": $error',
+            );
+          },
+        ),
+      );
+    }
   }
 
   @override
@@ -65,28 +132,54 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     const cardWidth = _OriginSetupRoleSection._cardWidth;
     const cardGap = 12.0;
     final characters = originCharactersRecommendedFirst(widget.characters);
-    final cardCount = characters.length + 1;
+    final profileRole = widget.profileRole;
+    final profileCardCount = profileRole == null ? 0 : 1;
+    final cardCount = characters.length + profileCardCount + 1;
     _cardStride = cardWidth + cardGap;
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 28),
+      padding: const EdgeInsets.only(bottom: 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              'Select Your Role',
-              textAlign: TextAlign.left,
-              style: TextStyle(
-                fontSize: 16,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
-                decoration: TextDecoration.none,
-              ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              children: [
+                SvgPicture.asset(
+                  launchIconAsset,
+                  key: const ValueKey<String>(
+                    'origin-setup-role-title-launch-icon',
+                  ),
+                  width: 16,
+                  height: 16,
+                  excludeFromSemantics: true,
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xFF111111),
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(
+                  width: originDetailSectionTitleIconGapForTesting,
+                ),
+                const Flexible(
+                  child: Text(
+                    'Select Your Role',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.left,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111111),
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           SizedBox(
             height: cardWidth + _OriginSetupRoleSection._buttonHeight,
             child: ListView.separated(
@@ -99,7 +192,24 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
               separatorBuilder: (context, index) =>
                   const SizedBox(width: cardGap),
               itemBuilder: (context, index) {
-                if (index == characters.length) {
+                if (profileRole != null && index == 0) {
+                  return SizedBox(
+                    width: cardWidth,
+                    child: _OriginSetupRoleCard(
+                      content: _OriginSetupRoleCardContent.fromProfile(
+                        profileRole,
+                      ),
+                      cardWidth: cardWidth,
+                      buttonHeight: _OriginSetupRoleSection._buttonHeight,
+                      launching: widget.launching,
+                      onEdit: widget.onEditProfileRole,
+                      onSelect: () =>
+                          unawaited(widget.onSelectProfileRole(profileRole)),
+                    ),
+                  );
+                }
+                final characterIndex = index - profileCardCount;
+                if (characterIndex == characters.length) {
                   return SizedBox(
                     width: cardWidth,
                     child: _OriginSetupCustomRoleCard(
@@ -108,11 +218,13 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                     ),
                   );
                 }
-                final character = characters[index];
+                final character = characters[characterIndex];
                 return SizedBox(
                   width: cardWidth,
                   child: _OriginSetupRoleCard(
-                    character: character,
+                    content: _OriginSetupRoleCardContent.fromCharacter(
+                      character,
+                    ),
                     cardWidth: cardWidth,
                     buttonHeight: _OriginSetupRoleSection._buttonHeight,
                     launching: widget.launching,
@@ -123,9 +235,13 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
             ),
           ),
           const SizedBox(height: 14),
-          _OriginRoleCardsIndicator(
-            count: cardCount,
-            currentIndex: _currentCardIndex.clamp(0, cardCount - 1),
+          ValueListenableBuilder<int>(
+            valueListenable: _currentCardIndex,
+            builder: (context, currentIndex, child) =>
+                _OriginRoleCardsIndicator(
+                  count: cardCount,
+                  currentIndex: currentIndex.clamp(0, cardCount - 1),
+                ),
           ),
         ],
       ),
@@ -229,20 +345,77 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
   }
 }
 
+@immutable
+class _OriginSetupRoleCardContent {
+  const _OriginSetupRoleCardContent({
+    required this.stableId,
+    required this.name,
+    required this.avatar,
+    required this.identity,
+    required this.brief,
+    required this.goal,
+    required this.background,
+    required this.isRecommended,
+    required this.isProfile,
+  });
+
+  factory _OriginSetupRoleCardContent.fromCharacter(OriginCharacter character) {
+    return _OriginSetupRoleCardContent(
+      stableId: _characterStableId(character),
+      name: character.name,
+      avatar: character.avatar,
+      identity: character.tags,
+      brief: character.tagline,
+      goal: character.goal,
+      background: '',
+      isRecommended: character.isRecommended,
+      isProfile: false,
+    );
+  }
+
+  factory _OriginSetupRoleCardContent.fromProfile(
+    OriginCustomRoleDraft profileRole,
+  ) {
+    return _OriginSetupRoleCardContent(
+      stableId: 'current-user',
+      name: profileRole.name,
+      avatar: profileRole.avatarUrl,
+      identity: '',
+      brief: '',
+      goal: '',
+      background: profileRole.bio,
+      isRecommended: false,
+      isProfile: true,
+    );
+  }
+
+  final String stableId;
+  final String name;
+  final String avatar;
+  final String identity;
+  final String brief;
+  final String goal;
+  final String background;
+  final bool isRecommended;
+  final bool isProfile;
+}
+
 class _OriginSetupRoleCard extends StatefulWidget {
   const _OriginSetupRoleCard({
-    required this.character,
+    required this.content,
     required this.cardWidth,
     required this.buttonHeight,
     required this.launching,
     required this.onSelect,
+    this.onEdit,
   });
 
-  final OriginCharacter character;
+  final _OriginSetupRoleCardContent content;
   final double cardWidth;
   final double buttonHeight;
   final bool launching;
   final VoidCallback onSelect;
+  final VoidCallback? onEdit;
 
   @override
   State<_OriginSetupRoleCard> createState() => _OriginSetupRoleCardState();
@@ -272,14 +445,19 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
 
   @override
   Widget build(BuildContext context) {
-    final character = widget.character;
+    final content = widget.content;
     final cardWidth = widget.cardWidth;
     final buttonHeight = widget.buttonHeight;
     final avatarUrl = _originRoleCardAvatarUrl(
       context,
-      _resolveAssetUrl(character.avatar),
+      _resolveAssetUrl(content.avatar),
     );
-    final stableId = _characterStableId(character);
+    final stableId = content.stableId;
+    final topLabel = content.isProfile
+        ? 'Your Profile'
+        : content.isRecommended
+        ? 'Originator Suggested'
+        : null;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -312,19 +490,54 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                               key: ValueKey<String>(
                                 'origin-setup-role-details-$stableId',
                               ),
-                              character: character,
+                              content: content,
                               controller: _detailsController,
                             )
                           : _OriginSetupRolePortrait(
                               key: ValueKey<String>(
                                 'origin-setup-role-portrait-$stableId',
                               ),
-                              character: character,
+                              content: content,
                               avatarUrl: avatarUrl,
                               cardWidth: cardWidth,
                             ),
                     ),
                   ),
+                  if (topLabel != null && !_showDetails)
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: IgnorePointer(
+                        child: Container(
+                          key: ValueKey<String>(
+                            content.isProfile
+                                ? 'origin-setup-role-profile-label'
+                                : 'origin-setup-role-suggested-label-$stableId',
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.68),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.16),
+                            ),
+                          ),
+                          child: Text(
+                            topLabel,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              height: 1,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -381,53 +594,93 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                          child: Material(
-                            key: ValueKey<String>(
-                              'origin-setup-role-select-surface-$stableId',
-                            ),
-                            color: const Color(0x667A7A7A),
-                            borderRadius: BorderRadius.circular(8),
-                            clipBehavior: Clip.antiAlias,
-                            child: InkWell(
-                              key: ValueKey<String>(
-                                'origin-setup-role-$stableId',
-                              ),
-                              onTap: widget.launching ? null : widget.onSelect,
-                              child: Center(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    if (character.isRecommended) ...[
-                                      OriginRecommendedRoleMark(
-                                        badgeKey: ValueKey<String>(
-                                          'origin-setup-role-recommended-$stableId',
-                                        ),
-                                        showBackground: true,
+                          child: Row(
+                            children: [
+                              if (widget.onEdit != null) ...[
+                                SizedBox.square(
+                                  dimension: 35,
+                                  child: Material(
+                                    key: ValueKey<String>(
+                                      'origin-setup-role-edit-surface-$stableId',
+                                    ),
+                                    color: const Color(0x667A7A7A),
+                                    borderRadius: BorderRadius.circular(8),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: InkWell(
+                                      key: ValueKey<String>(
+                                        'origin-setup-role-edit-$stableId',
                                       ),
-                                      const SizedBox(width: 6),
-                                    ],
-                                    Flexible(
-                                      child: Text(
-                                        widget.launching
-                                            ? 'Launching...'
-                                            : 'Select to Launch',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          height: 1,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white.withValues(
-                                            alpha: widget.launching ? 0.6 : 1,
-                                          ),
-                                          decoration: TextDecoration.none,
+                                      onTap: widget.launching
+                                          ? null
+                                          : widget.onEdit,
+                                      child: Icon(
+                                        Icons.edit_rounded,
+                                        size: 18,
+                                        color: Colors.white.withValues(
+                                          alpha: widget.launching ? 0.6 : 1,
                                         ),
                                       ),
                                     ),
-                                  ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Expanded(
+                                child: Material(
+                                  key: ValueKey<String>(
+                                    'origin-setup-role-select-surface-$stableId',
+                                  ),
+                                  color: const Color(0x667A7A7A),
+                                  borderRadius: BorderRadius.circular(8),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: InkWell(
+                                    key: ValueKey<String>(
+                                      'origin-setup-role-$stableId',
+                                    ),
+                                    onTap: widget.launching
+                                        ? null
+                                        : widget.onSelect,
+                                    child: Center(
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          if (content.isRecommended) ...[
+                                            OriginRecommendedRoleMark(
+                                              badgeKey: ValueKey<String>(
+                                                'origin-setup-role-recommended-$stableId',
+                                              ),
+                                              showBackground: true,
+                                            ),
+                                            const SizedBox(width: 6),
+                                          ],
+                                          Flexible(
+                                            child: Text(
+                                              widget.launching
+                                                  ? 'Launching...'
+                                                  : 'Select to Launch',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                height: 1,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.white.withValues(
+                                                  alpha: widget.launching
+                                                      ? 0.6
+                                                      : 1,
+                                                ),
+                                                decoration: TextDecoration.none,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),
@@ -446,12 +699,12 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
 class _OriginSetupRolePortrait extends StatelessWidget {
   const _OriginSetupRolePortrait({
     super.key,
-    required this.character,
+    required this.content,
     required this.avatarUrl,
     required this.cardWidth,
   });
 
-  final OriginCharacter character;
+  final _OriginSetupRoleCardContent content;
   final String avatarUrl;
   final double cardWidth;
 
@@ -462,7 +715,7 @@ class _OriginSetupRolePortrait extends StatelessWidget {
       children: [
         _OriginSetupRoleImage(
           url: avatarUrl,
-          name: character.name,
+          name: content.name,
           width: cardWidth,
           height: cardWidth,
         ),
@@ -488,7 +741,7 @@ class _OriginSetupRolePortrait extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                character.name,
+                content.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -499,10 +752,10 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                   decoration: TextDecoration.none,
                 ),
               ),
-              if (character.tags.trim().isNotEmpty) ...[
+              if (content.identity.trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  character.tags.trim(),
+                  content.identity.trim(),
                   softWrap: true,
                   style: const TextStyle(
                     fontSize: 13,
@@ -524,11 +777,11 @@ class _OriginSetupRolePortrait extends StatelessWidget {
 class _OriginSetupRoleDetails extends StatelessWidget {
   const _OriginSetupRoleDetails({
     super.key,
-    required this.character,
+    required this.content,
     required this.controller,
   });
 
-  final OriginCharacter character;
+  final _OriginSetupRoleCardContent content;
   final ScrollController controller;
 
   @override
@@ -538,7 +791,7 @@ class _OriginSetupRoleDetails extends StatelessWidget {
         color: const Color(0xFF202022),
         child: SingleChildScrollView(
           key: ValueKey<String>(
-            'origin-setup-role-details-scroll-${_characterStableId(character)}',
+            'origin-setup-role-details-scroll-${content.stableId}',
           ),
           controller: controller,
           padding: const EdgeInsets.all(16),
@@ -546,7 +799,7 @@ class _OriginSetupRoleDetails extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                character.name.trim().isEmpty ? '—' : character.name.trim(),
+                content.name.trim().isEmpty ? '—' : content.name.trim(),
                 textAlign: TextAlign.start,
                 style: const TextStyle(
                   fontSize: 14,
@@ -559,17 +812,25 @@ class _OriginSetupRoleDetails extends StatelessWidget {
               const SizedBox(height: 14),
               _OriginSetupRoleDetailField(
                 label: 'Identity',
-                value: character.tags,
+                value: content.identity,
               ),
-              _OriginSetupRoleDetailField(
-                label: 'Brief',
-                value: character.tagline,
-              ),
-              _OriginSetupRoleDetailField(
-                label: 'Goal',
-                value: character.goal,
-                addBottomGap: false,
-              ),
+              if (content.isProfile)
+                _OriginSetupRoleDetailField(
+                  label: 'Background',
+                  value: content.background,
+                  addBottomGap: false,
+                )
+              else ...[
+                _OriginSetupRoleDetailField(
+                  label: 'Brief',
+                  value: content.brief,
+                ),
+                _OriginSetupRoleDetailField(
+                  label: 'Goal',
+                  value: content.goal,
+                  addBottomGap: false,
+                ),
+              ],
             ],
           ),
         ),
@@ -603,7 +864,7 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
               label,
               textAlign: TextAlign.start,
               style: const TextStyle(
-                fontSize: 11,
+                fontSize: 13,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
                 color: Color(0x99FFFFFF),

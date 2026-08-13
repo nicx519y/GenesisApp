@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 
 import '../config/app_config.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/firebase_crash_reporting.dart';
 import '../telemetry/firebase_performance_monitoring.dart';
+import '../telemetry/firebase_runtime.dart';
 import '../../network/devtools_http_profile.dart';
 import '../../network/genesis_http_cache_manager.dart';
 import '../../network/genesis_http_transport_pool.dart';
@@ -63,9 +63,7 @@ class AppBootstrap {
 
   static Future<void> _initializeFirebasePerformanceMonitoring() async {
     try {
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
-      }
+      await FirebaseRuntime.ensureInitialized();
       await FirebasePerformanceMonitoring.enable();
     } catch (e, st) {
       _firebasePerformanceInitialization = null;

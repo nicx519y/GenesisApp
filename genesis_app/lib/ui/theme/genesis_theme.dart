@@ -22,6 +22,13 @@ abstract final class GenesisTheme {
     return ThemeData(
       // The standard color system consumed by Flutter Material components.
       colorScheme: colorScheme,
+      // Product interactions use state changes rather than Material ripple,
+      // pressed, hover, or focus overlays.
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
       // The default page background color, used when a Scaffold does not set one explicitly.
       scaffoldBackgroundColor: GenesisColors.surface,
       // The standard app TextTheme, available to regular Text widgets through Theme.of(context).textTheme.
@@ -46,6 +53,8 @@ abstract final class GenesisTheme {
           ),
           // Default primary button text style.
           textStyle: GenesisTypography.bodyStrong,
+          overlayColor: Colors.transparent,
+          splashFactory: NoSplash.splashFactory,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -53,6 +62,8 @@ abstract final class GenesisTheme {
           shape: const RoundedRectangleBorder(
             borderRadius: GenesisRadii.button,
           ),
+          overlayColor: Colors.transparent,
+          splashFactory: NoSplash.splashFactory,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -60,6 +71,8 @@ abstract final class GenesisTheme {
           shape: const RoundedRectangleBorder(
             borderRadius: GenesisRadii.button,
           ),
+          overlayColor: Colors.transparent,
+          splashFactory: NoSplash.splashFactory,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -67,7 +80,36 @@ abstract final class GenesisTheme {
           shape: const RoundedRectangleBorder(
             borderRadius: GenesisRadii.button,
           ),
+          overlayColor: Colors.transparent,
+          splashFactory: NoSplash.splashFactory,
         ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          overlayColor: Colors.transparent,
+          splashFactory: NoSplash.splashFactory,
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        splashColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
+      ),
+      checkboxTheme: const CheckboxThemeData(
+        overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+        splashRadius: 0,
+      ),
+      radioTheme: const RadioThemeData(
+        overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+        splashRadius: 0,
+      ),
+      switchTheme: const SwitchThemeData(
+        overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+        splashRadius: 0,
+      ),
+      tabBarTheme: const TabBarThemeData(
+        overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
+        splashFactory: NoSplash.splashFactory,
       ),
       // The default TextField and InputDecorator style; editable GenesisSearchField instances reuse part of it.
       inputDecorationTheme: const InputDecorationTheme(
