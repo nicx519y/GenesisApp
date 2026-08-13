@@ -269,12 +269,10 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   @override
   Widget build(BuildContext context) {
     final horizontalContentPadding = widget.dismissBeforePreview ? 0.0 : 20.0;
-    final hasHeaderControl =
-        widget.headerLeading != null || widget.headerTrailing != null;
     final tabs = SecendTabs(
       labels: _developerPageTabs,
       controller: _tabController,
-      horizontalPadding: hasHeaderControl ? 0 : horizontalContentPadding,
+      horizontalPadding: horizontalContentPadding,
       labelPadding: const EdgeInsets.only(right: 16),
       verticalPadding: 0,
     );
@@ -287,28 +285,40 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           height: height,
           child: Column(
             children: [
-              if (hasHeaderControl)
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: horizontalContentPadding,
-                  ),
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalContentPadding,
+                ),
+                child: SizedBox(
+                  height: 28,
                   child: Row(
                     children: [
                       if (widget.headerLeading != null) ...[
                         widget.headerLeading!,
                         const SizedBox(width: 8),
                       ],
-                      Expanded(child: tabs),
+                      const Expanded(
+                        child: Text(
+                          'Developer Page',
+                          key: ValueKey<String>('developer-page-title'),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
                       if (widget.headerTrailing != null) ...[
                         const SizedBox(width: 8),
                         widget.headerTrailing!,
                       ],
                     ],
                   ),
-                )
-              else
-                tabs,
-              const SizedBox(height: 8),
+                ),
+              ),
+              const SizedBox(height: 1),
+              tabs,
+              const SizedBox(height: 4),
               Expanded(
                 child: TabBarView(
                   controller: _tabController,

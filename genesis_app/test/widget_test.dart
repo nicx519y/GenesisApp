@@ -17580,22 +17580,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
-    expect(find.text('Developer page'), findsNothing);
+    expect(find.text('Developer Page'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('developer-page-sheet-close')),
       findsOneWidget,
     );
-    expect(
-      tester.getCenter(find.text('basic')).dy,
-      closeTo(
-        tester
-            .getCenter(
-              find.byKey(const ValueKey<String>('developer-page-sheet-close')),
-            )
-            .dy,
-        1,
-      ),
-    );
+    final titleCenter = tester.getCenter(find.text('Developer Page')).dy;
+    final closeCenter = tester
+        .getCenter(
+          find.byKey(const ValueKey<String>('developer-page-sheet-close')),
+        )
+        .dy;
+    final tabsCenter = tester.getCenter(find.text('basic')).dy;
+    expect(titleCenter, closeTo(closeCenter, 1));
+    expect(tabsCenter, greaterThan(titleCenter));
+    expect(tabsCenter - titleCenter, lessThan(48));
     expect(
       find.byKey(
         const ValueKey<String>('developer-page-sheet-keyboard-padding'),
