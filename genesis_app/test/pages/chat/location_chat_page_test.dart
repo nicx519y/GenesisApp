@@ -9,6 +9,7 @@ import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
@@ -47,6 +48,8 @@ bool _returnTrue() => true;
 bool _returnFalse() => false;
 
 void main() {
+  tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+
   test(
     'location chat metadata updates contain asynchronous failures',
     () async {
@@ -1134,6 +1137,224 @@ void main() {
 
   test('selected model code is empty when cache has no model field', () {
     expect(selectedModelCodeFromUserInfo({'uid': 'u_1'}), isEmpty);
+  });
+
+  testWidgets(
+    'location chat records one message_sent across transport retries',
+    (WidgetTester tester) async {
+      final analytics = _enableLocationChatAnalyticsForTesting();
+      final harness = await _connectedLocationChatTestService(
+        ackTimeout: const Duration(milliseconds: 10),
+      );
+      final service = harness.service;
+      final socket = harness.socket;
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: service,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => service.state.joinedLocationId == 'location-current',
+      );
+
+      final composerFinder = find.byType(ChatComposer);
+      tester.widget<ChatComposer>(composerFinder).controller.text =
+          'hello from location chat';
+      await tester.pump();
+      unawaited(tester.widget<ChatComposer>(composerFinder).onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => socket.sendMessageCount == 1 && analytics.events.isNotEmpty,
+      );
+
+      expect(analytics.events, <_LocationChatAnalyticsEvent>[
+        const _LocationChatAnalyticsEvent('message_sent', <String, Object>{
+          'world_id': 'world-current',
+          'location_id': 'location-current',
+        }),
+      ]);
+
+      // The chatroom client retries a missing ACK internally. Those transport
+      // attempts must not create additional business-level Analytics events.
+      await tester.pump(const Duration(milliseconds: 35));
+      expect(socket.sendMessageCount, 3);
+      expect(analytics.events, hasLength(1));
+      await tester.pump(const Duration(seconds: 3));
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(service.dispose());
+    },
+  );
+
+  testWidgets('manual failed-message retry does not record message_sent', (
+    WidgetTester tester,
+  ) async {
+    final analytics = _enableLocationChatAnalyticsForTesting();
+    final harness = await _connectedLocationChatTestService();
+    final service = harness.service;
+    final socket = harness.socket;
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: service,
+            leaveOnInactive: false,
+            messageQueueInitializationCovered: true,
+          ),
+        ),
+      ),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => service.state.joinedLocationId == 'location-current',
+    );
+
+    final composerFinder = find.byType(ChatComposer);
+    tester.widget<ChatComposer>(composerFinder).controller.text =
+        'retryable message';
+    await tester.pump();
+    unawaited(tester.widget<ChatComposer>(composerFinder).onSend());
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => socket.sendMessageCount == 1 && analytics.events.length == 1,
+    );
+    socket.serverV2AckForLatestSend(errNo: 9001);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.byType(ChatFailedBadge).evaluate().isNotEmpty,
+    );
+
+    await tester.tap(find.byType(ChatFailedBadge));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => socket.sendMessageCount == 2,
+    );
+    expect(analytics.events, hasLength(1));
+
+    socket.serverV2AckForLatestSend(errNo: 9001);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(service.dispose());
+  });
+
+  testWidgets('blank and blocked location chat sends are not recorded', (
+    WidgetTester tester,
+  ) async {
+    final analytics = _enableLocationChatAnalyticsForTesting();
+    final harness = await _connectedLocationChatTestService();
+    final service = harness.service;
+    final socket = harness.socket;
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: service,
+            leaveOnInactive: false,
+            messageQueueInitializationCovered: true,
+          ),
+        ),
+      ),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => service.state.joinedLocationId == 'location-current',
+    );
+
+    final composerFinder = find.byType(ChatComposer);
+    await tester.widget<ChatComposer>(composerFinder).onSend();
+    await tester.pump();
+    expect(socket.sendMessageCount, 0);
+    expect(analytics.events, isEmpty);
+
+    final composer = tester.widget<ChatComposer>(composerFinder);
+    composer.controller.text = 'blocked draft';
+    socket.serverWaitingConversationRound(roundId: 301);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => service.state.waitingConversationRoundIdsByLocation.containsKey(
+        'location-current',
+      ),
+    );
+    await tester.pump();
+    await tester.widget<ChatComposer>(composerFinder).onSend();
+    await tester.pump();
+    expect(socket.sendMessageCount, 0);
+    expect(analytics.events, isEmpty);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(service.dispose());
+  });
+
+  testWidgets('a synchronous send failure is still recorded once', (
+    WidgetTester tester,
+  ) async {
+    final analytics = _enableLocationChatAnalyticsForTesting();
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('user-1');
+    final services = ServiceRegistry.build(
+      config: const AppConfig(useMock: true),
+      sessionStoreOverride: sessionStore,
+      chatroomMessagesOverride: MemoryChatroomMessageStorage(),
+    );
+    final service = _ThrowingLocationChatService(services);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-sync-failure',
+            locationId: 'location-sync-failure',
+            service: service,
+            leaveOnInactive: false,
+            messageQueueInitializationCovered: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final composerFinder = find.byType(ChatComposer);
+    tester.widget<ChatComposer>(composerFinder).controller.text =
+        'attempted message';
+    await tester.pump();
+    await tester.widget<ChatComposer>(composerFinder).onSend();
+    await tester.pump();
+
+    expect(service.sendAttempts, 1);
+    expect(analytics.events, <_LocationChatAnalyticsEvent>[
+      const _LocationChatAnalyticsEvent('message_sent', <String, Object>{
+        'world_id': 'world-sync-failure',
+        'location_id': 'location-sync-failure',
+      }),
+    ]);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await service.dispose();
   });
 
   testWidgets('server waiting round disables send until matching end event', (
@@ -4013,7 +4234,9 @@ Future<
     _LocationChatTestSocket socket,
   })
 >
-_connectedLocationChatTestService() async {
+_connectedLocationChatTestService({
+  Duration ackTimeout = const Duration(seconds: 12),
+}) async {
   final sessionStore = MemoryUserSessionStore();
   await sessionStore.saveUid('user-1');
   await sessionStore.saveAuthToken('token-1');
@@ -4027,6 +4250,7 @@ _connectedLocationChatTestService() async {
     wsBaseUrl: 'ws://localhost:8082/aitown-chat/ws',
     sessionStore: sessionStore,
     transport: _LocationChatTestTransport(socket),
+    ackTimeout: ackTimeout,
     autoHeartbeat: false,
     handshakeHeaderSigner: (_, headers) async => <String, String>{
       ...headers,
@@ -4050,6 +4274,101 @@ _connectedLocationChatTestService() async {
   return (services: services, service: service, socket: socket);
 }
 
+_LocationChatAnalyticsClient _enableLocationChatAnalyticsForTesting() {
+  final client = _LocationChatAnalyticsClient();
+  FirebaseAnalyticsMonitoring.setClientForTesting(client);
+  FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+  FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+  return client;
+}
+
+class _LocationChatAnalyticsClient implements AppAnalyticsClient {
+  final List<_LocationChatAnalyticsEvent> events =
+      <_LocationChatAnalyticsEvent>[];
+
+  @override
+  Future<void> logEvent({
+    required String name,
+    Map<String, Object>? parameters,
+  }) async {
+    events.add(
+      _LocationChatAnalyticsEvent(name, parameters ?? const <String, Object>{}),
+    );
+  }
+}
+
+class _LocationChatAnalyticsEvent {
+  const _LocationChatAnalyticsEvent(this.name, this.parameters);
+
+  final String name;
+  final Map<String, Object> parameters;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _LocationChatAnalyticsEvent &&
+        other.name == name &&
+        _mapsEqual(other.parameters, parameters);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(name, Object.hashAllUnordered(parameters.entries));
+}
+
+bool _mapsEqual(Map<String, Object> first, Map<String, Object> second) {
+  if (first.length != second.length) return false;
+  for (final entry in first.entries) {
+    if (second[entry.key] != entry.value) return false;
+  }
+  return true;
+}
+
+class _ThrowingLocationChatService extends WorldChatroomService {
+  _ThrowingLocationChatService(AppServices services)
+    : super(
+        api: services.api,
+        client: services.chatroom,
+        messageStorage: services.chatroomMessages,
+        refreshInitialSnapshotOnConnect: false,
+      );
+
+  int sendAttempts = 0;
+
+  @override
+  WorldChatroomState get state => const WorldChatroomState(
+    connected: true,
+    joinedLocationId: 'location-sync-failure',
+  );
+
+  @override
+  ChatroomConnectionIdentity? get identity => const ChatroomConnectionIdentity(
+    userId: 'user-1',
+    senderId: 'user-1',
+    senderName: 'Player One',
+  );
+
+  @override
+  Future<void> hydrateLocalMessages({
+    required String worldId,
+    required String locationId,
+    String? ownerUid,
+    Iterable<String> locationAliases = const <String>[],
+  }) async {}
+
+  @override
+  Future<List<WorldChatroomMessage>> refreshLatestMessages({
+    required String locationId,
+    int limit = 20,
+    bool emitLatestFetched = true,
+  }) async => const <WorldChatroomMessage>[];
+
+  @override
+  ChatroomSendHandle sendMessage(String text, {String? clientMsgId}) {
+    sendAttempts += 1;
+    throw StateError('synchronous send failure');
+  }
+}
+
 class _LocationChatTestTransport implements ChatroomSocketTransport {
   const _LocationChatTestTransport(this.socket);
 
@@ -4070,6 +4389,31 @@ class _LocationChatTestSocket implements ChatroomSocket {
 
   int get sendMessageCount =>
       _sentFrames.where((frame) => frame['type'] == 'send_message').length;
+
+  void serverV2AckForLatestSend({required int errNo}) {
+    final frame = _sentFrames.lastWhere(
+      (candidate) => candidate['type'] == 'send_message',
+    );
+    final clientMsgId = '${frame['client_msg_id'] ?? ''}';
+    _serverFrame('ack', <String, Object?>{
+      'stream_type': '',
+      'ts': 1786327200000,
+      'world_id': 'world-current',
+      'location_id': 'location-current',
+      'session_id': 'session-1',
+      'sender_type': '',
+      'sender_id': '',
+      'sender_name': '',
+      'user_id': 'user-1',
+      'client_msg_id': clientMsgId,
+      'message_type': '',
+      'min_app_version': 0,
+      'created_at': '',
+      'payload': const <String, Object?>{},
+      'err_no': errNo,
+      'err_msg': errNo == 0 ? '' : 'rejected',
+    });
+  }
 
   @override
   Stream<String> get messages => _messages.stream;

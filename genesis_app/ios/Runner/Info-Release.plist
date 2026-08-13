@@ -42,8 +42,6 @@
 	<key>FirebaseDataCollectionDefaultEnabled</key>
 	<false/>
 	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
-	<false/>
-	<key>FIREBASE_ANALYTICS_COLLECTION_DEACTIVATED</key>
 	<true/>
 	<key>FirebasePerformanceCollectionEnabled</key>
 	<false/>
