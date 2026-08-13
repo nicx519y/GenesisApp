@@ -40,6 +40,7 @@ class TilemapRenderer extends StatefulWidget {
     this.locationImageFlowDurationSeconds =
         tilemapDefaultLocationImageFlowDurationSeconds,
     this.locationImageFlowBlendMode = tilemapDefaultLocationImageFlowBlendMode,
+    this.renderBackend = tilemapDefaultRenderBackend,
     this.initialScale = tilemapDefaultInitialScale,
     this.dragBoundaryPaddingTiles = tilemapDefaultDragBoundaryPaddingTiles,
   });
@@ -74,6 +75,7 @@ class TilemapRenderer extends StatefulWidget {
   final double locationImageFlowOpacity;
   final double locationImageFlowDurationSeconds;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
+  final TilemapRenderBackend renderBackend;
   final double initialScale;
   final double dragBoundaryPaddingTiles;
 
@@ -159,7 +161,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
   @override
   void didUpdateWidget(covariant TilemapRenderer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.config, widget.config)) {
+    if (!identical(oldWidget.config, widget.config) ||
+        oldWidget.renderBackend != widget.renderBackend) {
       _resetViewportReadiness();
       _resetProgressiveTileMount();
     } else if (!identical(oldWidget.onViewportReady, widget.onViewportReady) &&
@@ -517,73 +520,154 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                           child: Stack(
                                             clipBehavior: Clip.none,
                                             children: [
-                                              for (final record in records)
-                                                if (_revealedTileKeys.contains(
-                                                  record.tile.cellKey,
-                                                ))
-                                                  _ProjectedTile(
-                                                    key: ValueKey<String>(
-                                                      'tile-${record.tile.x}-'
-                                                      '${record.tile.y}',
+                                              if (widget.renderBackend ==
+                                                  TilemapRenderBackend
+                                                      .widgets) ...<Widget>[
+                                                for (final record in records)
+                                                  if (_revealedTileKeys
+                                                      .contains(
+                                                        record.tile.cellKey,
+                                                      ))
+                                                    _ProjectedTile(
+                                                      key: ValueKey<String>(
+                                                        'tile-${record.tile.x}-'
+                                                        '${record.tile.y}',
+                                                      ),
+                                                      tile: record.tile,
+                                                      asset:
+                                                          _revealedAssetForRecord(
+                                                            record,
+                                                          ),
+                                                      topLeft:
+                                                          record.imageTopLeft,
+                                                      extent:
+                                                          projection.tileExtent,
+                                                      locationImageFlowAnimation:
+                                                          showLocationImageFlow &&
+                                                              locationImageFlowTileKeys
+                                                                  .contains(
+                                                                    record
+                                                                        .tile
+                                                                        .cellKey,
+                                                                  )
+                                                          ? _locationImageFlowController
+                                                          : null,
+                                                      locationImageFlowPhase:
+                                                          tilemapLocationImageFlowPhase(
+                                                            record.tile,
+                                                          ),
+                                                      locationImageFlowAngleDegrees:
+                                                          widget
+                                                              .locationImageFlowAngleDegrees,
+                                                      locationImageFlowGradientPoints:
+                                                          widget
+                                                              .locationImageFlowGradientPoints,
+                                                      locationImageFlowOpacity:
+                                                          widget
+                                                              .locationImageFlowOpacity,
+                                                      locationImageFlowBlendMode:
+                                                          widget
+                                                              .locationImageFlowBlendMode,
+                                                      fogField:
+                                                          widget.blendFogWithShadowTiles &&
+                                                              record
+                                                                  .tile
+                                                                  .hasShadow
+                                                          ? fogField
+                                                          : null,
+                                                      rasterizeFogComposite:
+                                                          widget
+                                                              .cacheFogTileBitmaps &&
+                                                          widget.isForeground &&
+                                                          _rectsOverlapWithVisibleArea(
+                                                            record.imageBounds,
+                                                            visibleSceneBounds,
+                                                          ),
+                                                      onImageError:
+                                                          _tileImageErrorCallback(
+                                                            record,
+                                                          ),
+                                                      onImageFrame:
+                                                          _tileImageFrameCallback(
+                                                            record,
+                                                          ),
                                                     ),
-                                                    tile: record.tile,
-                                                    asset:
-                                                        _revealedAssetForRecord(
-                                                          record,
-                                                        ),
-                                                    topLeft:
-                                                        record.imageTopLeft,
-                                                    extent:
-                                                        projection.tileExtent,
-                                                    locationImageFlowAnimation:
-                                                        showLocationImageFlow &&
-                                                            locationImageFlowTileKeys
-                                                                .contains(
+                                              ],
+                                              if (widget.renderBackend ==
+                                                  TilemapRenderBackend.canvas)
+                                                _TilemapCanvasTileLayer(
+                                                  mapSize: mapSize,
+                                                  frameGeneration:
+                                                      _progressiveMountGeneration,
+                                                  tiles: [
+                                                    for (final record
+                                                        in records)
+                                                      if (_revealedTileKeys
+                                                          .contains(
+                                                            record.tile.cellKey,
+                                                          ))
+                                                        _TilemapCanvasTileEntry(
+                                                          record: record,
+                                                          asset:
+                                                              _revealedAssetForRecord(
+                                                                record,
+                                                              ),
+                                                          extent: projection
+                                                              .tileExtent,
+                                                          locationImageFlowAnimation:
+                                                              showLocationImageFlow &&
+                                                                  locationImageFlowTileKeys
+                                                                      .contains(
+                                                                        record
+                                                                            .tile
+                                                                            .cellKey,
+                                                                      )
+                                                              ? _locationImageFlowController
+                                                              : null,
+                                                          locationImageFlowPhase:
+                                                              tilemapLocationImageFlowPhase(
+                                                                record.tile,
+                                                              ),
+                                                          locationImageFlowAngleDegrees:
+                                                              widget
+                                                                  .locationImageFlowAngleDegrees,
+                                                          locationImageFlowGradientPoints:
+                                                              widget
+                                                                  .locationImageFlowGradientPoints,
+                                                          locationImageFlowOpacity:
+                                                              widget
+                                                                  .locationImageFlowOpacity,
+                                                          locationImageFlowBlendMode:
+                                                              widget
+                                                                  .locationImageFlowBlendMode,
+                                                          fogField:
+                                                              widget.blendFogWithShadowTiles &&
                                                                   record
                                                                       .tile
-                                                                      .cellKey,
-                                                                )
-                                                        ? _locationImageFlowController
-                                                        : null,
-                                                    locationImageFlowPhase:
-                                                        tilemapLocationImageFlowPhase(
-                                                          record.tile,
+                                                                      .hasShadow
+                                                              ? fogField
+                                                              : null,
+                                                          rasterizeFogComposite:
+                                                              widget
+                                                                  .cacheFogTileBitmaps &&
+                                                              widget
+                                                                  .isForeground &&
+                                                              _rectsOverlapWithVisibleArea(
+                                                                record
+                                                                    .imageBounds,
+                                                                visibleSceneBounds,
+                                                              ),
+                                                          onImageError:
+                                                              _tileImageErrorCallback(
+                                                                record,
+                                                              ),
+                                                          onImageFrame:
+                                                              _tileImageFrameCallback(
+                                                                record,
+                                                              ),
                                                         ),
-                                                    locationImageFlowAngleDegrees:
-                                                        widget
-                                                            .locationImageFlowAngleDegrees,
-                                                    locationImageFlowGradientPoints:
-                                                        widget
-                                                            .locationImageFlowGradientPoints,
-                                                    locationImageFlowOpacity: widget
-                                                        .locationImageFlowOpacity,
-                                                    locationImageFlowBlendMode:
-                                                        widget
-                                                            .locationImageFlowBlendMode,
-                                                    fogField:
-                                                        widget.blendFogWithShadowTiles &&
-                                                            record
-                                                                .tile
-                                                                .hasShadow
-                                                        ? fogField
-                                                        : null,
-                                                    rasterizeFogComposite:
-                                                        widget
-                                                            .cacheFogTileBitmaps &&
-                                                        widget.isForeground &&
-                                                        _rectsOverlapWithVisibleArea(
-                                                          record.imageBounds,
-                                                          visibleSceneBounds,
-                                                        ),
-                                                    onImageError:
-                                                        _tileImageErrorCallback(
-                                                          record,
-                                                        ),
-                                                    onImageFrame:
-                                                        _tileImageFrameCallback(
-                                                          record,
-                                                        ),
-                                                  ),
+                                                  ],
+                                                ),
                                             ],
                                           ),
                                         ),

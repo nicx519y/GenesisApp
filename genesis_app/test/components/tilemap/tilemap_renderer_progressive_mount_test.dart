@@ -411,6 +411,7 @@ Widget _rendererHarness({
           height: viewportSize.height,
           child: TilemapRenderer(
             config: config,
+            renderBackend: TilemapRenderBackend.widgets,
             waitForVisibleTileImageFrames: waitForVisibleTileImageFrames,
             showLocationImageFlow: showLocationImageFlow,
             blendFogWithShadowTiles: false,

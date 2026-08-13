@@ -54,11 +54,71 @@ class _ProjectedTile extends StatelessWidget {
         return const SizedBox.shrink();
       },
     );
+    return Positioned(
+      left: topLeft.dx,
+      top: topLeft.dy,
+      width: extent,
+      height: extent,
+      child: _ProjectedTileContent(
+        tile: tile,
+        asset: asset,
+        topLeft: topLeft,
+        extent: extent,
+        locationImageFlowAnimation: locationImageFlowAnimation,
+        locationImageFlowPhase: locationImageFlowPhase,
+        locationImageFlowAngleDegrees: locationImageFlowAngleDegrees,
+        locationImageFlowGradientPoints: locationImageFlowGradientPoints,
+        locationImageFlowOpacity: locationImageFlowOpacity,
+        locationImageFlowBlendMode: locationImageFlowBlendMode,
+        fogField: fogField,
+        rasterizeFogComposite: rasterizeFogComposite,
+        child: image,
+      ),
+    );
+  }
+}
+
+class _ProjectedTileContent extends StatelessWidget {
+  const _ProjectedTileContent({
+    required this.tile,
+    required this.asset,
+    required this.topLeft,
+    required this.extent,
+    required this.child,
+    this.locationImageFlowAnimation,
+    this.locationImageFlowPhase = 0,
+    this.locationImageFlowAngleDegrees =
+        tilemapDefaultLocationImageFlowAngleDegrees,
+    this.locationImageFlowGradientPoints =
+        tilemapDefaultLocationImageFlowGradientPoints,
+    this.locationImageFlowOpacity = tilemapDefaultLocationImageFlowOpacity,
+    this.locationImageFlowBlendMode = tilemapDefaultLocationImageFlowBlendMode,
+    this.fogField,
+    this.rasterizeFogComposite = false,
+  });
+
+  final TilemapCell tile;
+  final String asset;
+  final Offset topLeft;
+  final double extent;
+  final Widget child;
+  final Animation<double>? locationImageFlowAnimation;
+  final double locationImageFlowPhase;
+  final double locationImageFlowAngleDegrees;
+  final List<TilemapLocationImageFlowGradientPoint>
+  locationImageFlowGradientPoints;
+  final double locationImageFlowOpacity;
+  final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
+  final TilemapFogField? fogField;
+  final bool rasterizeFogComposite;
+
+  @override
+  Widget build(BuildContext context) {
     final field = fogField;
     final fogVertices = field?.shadowTileVertices[tile.cellKey];
     final animation = locationImageFlowAnimation;
     final imageWithFlow = animation == null
-        ? image
+        ? child
         : _TilemapImageFlow(
             key: ValueKey<String>(
               'tile-location-image-flow-${tile.x}-${tile.y}',
@@ -70,26 +130,20 @@ class _ProjectedTile extends StatelessWidget {
             gradientPoints: locationImageFlowGradientPoints,
             opacity: locationImageFlowOpacity,
             blendMode: locationImageFlowBlendMode,
-            child: image,
+            child: child,
           );
-    return Positioned(
-      left: topLeft.dx,
-      top: topLeft.dy,
-      width: extent,
-      height: extent,
-      child: field == null || fogVertices == null
-          ? imageWithFlow
-          : _TilemapFogBlend(
-              key: ValueKey<String>('tile-fog-blend-${tile.x}-${tile.y}'),
-              vertices: fogVertices,
-              sceneTopLeft: topLeft,
-              rasterizationEnabled: rasterizeFogComposite,
-              rasterPixelRatio: _tilemapFogRasterPixelRatio(
-                asset: asset,
-                tileExtent: extent,
-              ),
-              child: imageWithFlow,
+    return field == null || fogVertices == null
+        ? imageWithFlow
+        : _TilemapFogBlend(
+            key: ValueKey<String>('tile-fog-blend-${tile.x}-${tile.y}'),
+            vertices: fogVertices,
+            sceneTopLeft: topLeft,
+            rasterizationEnabled: rasterizeFogComposite,
+            rasterPixelRatio: _tilemapFogRasterPixelRatio(
+              asset: asset,
+              tileExtent: extent,
             ),
-    );
+            child: imageWithFlow,
+          );
   }
 }

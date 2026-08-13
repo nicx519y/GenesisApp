@@ -391,6 +391,7 @@ class Tilemap extends StatefulWidget {
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
     this.locationImageFlowPaused = false,
+    this.renderBackend = tilemapDefaultRenderBackend,
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
@@ -420,6 +421,7 @@ class Tilemap extends StatefulWidget {
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
     this.locationImageFlowPaused = false,
+    this.renderBackend = tilemapDefaultRenderBackend,
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
@@ -448,6 +450,7 @@ class Tilemap extends StatefulWidget {
   final Set<String> eventLocationIds;
   final bool animationsPaused;
   final bool locationImageFlowPaused;
+  final TilemapRenderBackend renderBackend;
   final int reloadRevision;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
@@ -939,7 +942,10 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     final generation = _cacheGeneration;
     final trace = await FirebasePerformanceMonitoring.startTrace(
       _firstRenderPerformanceTraceName,
-      attributes: <String, String>{'source': widget._source.name},
+      attributes: <String, String>{
+        'source': widget._source.name,
+        'renderer': widget.renderBackend.name,
+      },
     );
     if (trace == null) return;
 
@@ -1871,6 +1877,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       locationImageFlowOpacity: _locationImageFlowOpacity,
       locationImageFlowDurationSeconds: _locationImageFlowDurationSeconds,
       locationImageFlowBlendMode: _locationImageFlowBlendMode,
+      renderBackend: widget.renderBackend,
       initialScale: _initialScale,
       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
     );
@@ -2114,6 +2121,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     return <Object?>[
       widget._source.name,
       widget._entityId,
+      widget.renderBackend.name,
       _cacheGeneration,
       renderSettings,
       Object.hashAll(widget.locationNodes.map(_locationNodeEnvironmentHash)),

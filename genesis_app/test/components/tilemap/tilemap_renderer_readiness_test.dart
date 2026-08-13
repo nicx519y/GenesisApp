@@ -297,6 +297,7 @@ Widget _rendererHarness({
           child: TilemapRenderer(
             key: rendererKey,
             config: config,
+            renderBackend: TilemapRenderBackend.widgets,
             onViewportReady: onViewportReady,
             waitForVisibleTileImageFrames: waitForVisibleTileImageFrames,
           ),

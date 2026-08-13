@@ -24,6 +24,7 @@ part 'tilemap_renderer_index.dart';
 part 'tilemap_renderer_widget.dart';
 part 'tilemap_renderer_labels.dart';
 part 'tilemap_renderer_tile_layer.dart';
+part 'tilemap_renderer_canvas_layer.dart';
 part 'tilemap_renderer_image_flow.dart';
 part 'tilemap_renderer_fog_bitmap_cache.dart';
 part 'tilemap_renderer_fog_shadow.dart';
@@ -116,6 +117,59 @@ typedef TilemapEventResolver = bool Function(TilemapCell tile);
 enum TilemapVisualMode { light, dark }
 
 const TilemapVisualMode tilemapDefaultVisualMode = TilemapVisualMode.dark;
+
+/// Selects how decoded tile images are submitted to the Flutter canvas.
+///
+/// Both backends keep the same image provider, CDN tiering, fog, flow, culling,
+/// progressive mount, and paint-order contracts. [canvas] shares one image
+/// stream per resolved URL and batches consecutive draws that use one image.
+enum TilemapRenderBackend { widgets, canvas }
+
+/// Set `--dart-define=GENESIS_TILEMAP_USE_WIDGET_RENDERER=true` to run the
+/// legacy renderer as an A/B baseline without changing application code.
+const bool tilemapUseWidgetRenderer = bool.fromEnvironment(
+  'GENESIS_TILEMAP_USE_WIDGET_RENDERER',
+);
+
+const TilemapRenderBackend tilemapDefaultRenderBackend =
+    tilemapUseWidgetRenderer
+    ? TilemapRenderBackend.widgets
+    : TilemapRenderBackend.canvas;
+
+@immutable
+class TilemapCanvasRenderStats {
+  const TilemapCanvasRenderStats({
+    required this.tileCount,
+    required this.imageCount,
+    required this.drawCallCount,
+    required this.renderObjectCount,
+  });
+
+  final int tileCount;
+  final int imageCount;
+
+  /// Number of `drawRawAtlas` submissions in the Canvas tile layer.
+  final int drawCallCount;
+
+  /// The single Canvas tile-layer render object; effect children are excluded.
+  final int renderObjectCount;
+
+  @override
+  bool operator ==(Object other) {
+    return other is TilemapCanvasRenderStats &&
+        other.tileCount == tileCount &&
+        other.imageCount == imageCount &&
+        other.drawCallCount == drawCallCount &&
+        other.renderObjectCount == renderObjectCount;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(tileCount, imageCount, drawCallCount, renderObjectCount);
+}
+
+@visibleForTesting
+ValueChanged<TilemapCanvasRenderStats>? debugTilemapCanvasRenderStatsChanged;
 
 @immutable
 class TilemapVisualStyle {

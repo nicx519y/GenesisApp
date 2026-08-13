@@ -278,6 +278,7 @@ void main() {
         viewportSize: const Size(320, 480),
         child: TilemapRenderer(
           config: config,
+          renderBackend: TilemapRenderBackend.widgets,
           waitForVisibleTileImageFrames: false,
           isForeground: false,
         ),

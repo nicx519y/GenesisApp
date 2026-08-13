@@ -1148,6 +1148,7 @@ void main() {
           height: 480,
           child: TilemapRenderer(
             config: config,
+            renderBackend: TilemapRenderBackend.widgets,
             onTileAction: (tile) async => tappedTile = tile,
             locationNameForTile: (_) => 'High School',
             showRecentChatForTile: (_) => true,
@@ -1275,6 +1276,7 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
+              renderBackend: TilemapRenderBackend.widgets,
               locationNameForTile: (_) => name,
               locationAvatarsForTile: (_) => const [avatar],
               messageBubbles: const [
@@ -1406,7 +1408,10 @@ void main() {
           child: SizedBox(
             width: 320,
             height: 480,
-            child: TilemapRenderer(config: config),
+            child: TilemapRenderer(
+              config: config,
+              renderBackend: TilemapRenderBackend.widgets,
+            ),
           ),
         ),
       ),
@@ -1483,6 +1488,7 @@ void main() {
             data: MediaQueryData(disableAnimations: disableAnimations),
             child: TilemapRenderer(
               config: config,
+              renderBackend: TilemapRenderBackend.widgets,
               showLocationImageFlow: showLocationImageFlow,
               locationNameForTile: (tile) => switch (tile.locationId) {
                 'named' => 'Named place',
@@ -1551,6 +1557,7 @@ void main() {
       MaterialApp(
         home: TilemapRenderer(
           config: config,
+          renderBackend: TilemapRenderBackend.widgets,
           locationNameForTile: (_) => 'Shadow place',
         ),
       ),
@@ -1590,6 +1597,7 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
+              renderBackend: TilemapRenderBackend.widgets,
               fogControlPoints: fogControlPoints,
             ),
           ),
@@ -1719,6 +1727,7 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
+              renderBackend: TilemapRenderBackend.widgets,
               cacheFogTileBitmaps: cacheFogTileBitmaps,
             ),
           ),
@@ -1806,7 +1815,10 @@ void main() {
         home: SizedBox(
           width: 320,
           height: 480,
-          child: TilemapRenderer(config: config),
+          child: TilemapRenderer(
+            config: config,
+            renderBackend: TilemapRenderBackend.widgets,
+          ),
         ),
       ),
     );
@@ -1860,6 +1872,7 @@ void main() {
           height: 480,
           child: TilemapRenderer(
             config: config,
+            renderBackend: TilemapRenderBackend.widgets,
             blendFogWithShadowTiles: false,
             showShadowZeroBorders: true,
           ),
@@ -1927,6 +1940,7 @@ void main() {
           height: 480,
           child: TilemapRenderer(
             config: config,
+            renderBackend: TilemapRenderBackend.widgets,
             blendFogWithShadowTiles: true,
             showShadowZeroBorders: false,
           ),
@@ -1999,6 +2013,7 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
+              renderBackend: TilemapRenderBackend.widgets,
               locationNameForTile: (tile) => tile.locationId,
               locationAvatarsForTile: (tile) => tile.locationId == 'center'
                   ? const [UserAvatar('AA', id: 'a', name: 'Ada')]
@@ -2079,6 +2094,7 @@ void main() {
           height: 480,
           child: TilemapRenderer(
             config: config,
+            renderBackend: TilemapRenderBackend.widgets,
             onImageError: (error) => imageError = error,
           ),
         ),
@@ -2113,6 +2129,7 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
+              renderBackend: TilemapRenderBackend.widgets,
               locationNameForTile: (_) => 'June Coffee',
               locationAvatarsForTile: (_) => avatars,
             ),

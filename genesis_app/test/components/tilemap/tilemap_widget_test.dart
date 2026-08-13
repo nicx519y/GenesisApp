@@ -315,6 +315,7 @@ void main() {
       );
       expect(firstRenderTrace.attributes, const <String, String>{
         'source': 'origin',
+        'renderer': 'canvas',
         'result': 'success',
       });
       expect(firstRenderTrace.metrics, const <String, int>{
