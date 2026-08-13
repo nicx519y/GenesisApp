@@ -73,6 +73,7 @@ class ChatroomV2Message {
     this.messageType = '',
     this.minAppVersion,
     this.createdAt = '',
+    this.currentTime = '',
     this.payload = const <String, dynamic>{},
     this.errNo = 0,
     this.errMsg = '',
@@ -96,6 +97,7 @@ class ChatroomV2Message {
   final String messageType;
   final int? minAppVersion;
   final String createdAt;
+  final String currentTime;
   final Map<String, dynamic> payload;
   final int errNo;
   final String errMsg;
@@ -138,6 +140,7 @@ class ChatroomV2Message {
           ? null
           : asInt(json['min_app_version']),
       createdAt: asString(json['created_at']),
+      currentTime: asString(json['current_time']),
       payload: _optionalJsonMap(json['payload']),
       errNo: asInt(json['err_no']),
       errMsg: asString(json['err_msg']),
@@ -185,6 +188,7 @@ class ChatroomV2Message {
       if (messageType.isNotEmpty) 'message_type': messageType,
       if (minAppVersion != null) 'min_app_version': minAppVersion,
       if (createdAt.isNotEmpty) 'created_at': createdAt,
+      if (currentTime.isNotEmpty) 'current_time': currentTime,
       'payload': payload,
       'err_no': errNo,
       'err_msg': errMsg,
@@ -463,7 +467,9 @@ class ChatroomEnvelope {
       createdAt: message.createdAt,
       errNo: message.errNo.toString(),
       errMsg: message.errMsg,
-      currentTime: _currentTime(message.payload),
+      currentTime: message.currentTime.trim().isNotEmpty
+          ? message.currentTime
+          : _currentTime(message.payload),
       globalMsgId: message.globalMessageId,
       msgId: message.messageId,
       locationMsgId: message.locationMessageId,
@@ -540,6 +546,7 @@ class ChatroomEnvelope {
       messageType: messageType,
       minAppVersion: minAppVersion,
       createdAt: createdAt,
+      currentTime: currentTime,
       payload: payload,
       errNo: asInt(errNo),
       errMsg: errMsg,

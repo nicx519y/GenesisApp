@@ -43,6 +43,7 @@ Flutter 在 Gateway signer 完成后，以不区分大小写的方式读取最�
   "message_type": "text",
   "min_app_version": 0,
   "created_at": "2026-08-10 11:06:37",
+  "current_time": "Day 1, 13:50",
   "payload": {
     "content": "Hello"
   },
@@ -56,6 +57,7 @@ Flutter 在 Gateway signer 完成后，以不区分大小写的方式读取最�
 - `type` 是业务类型；落库内容使用 `user`、`character`、`narrator`、`tick` 等值。
 - `stream_type` 是独立路由轴，只允许 `""`、`llm_stream_start`、`llm_chunk`、`llm_stream_end`。解析时必须先路由 `stream_type`，再路由 `type`。
 - V2 ID 使用全称 `global_message_id/message_id/location_message_id`。旧别名只存在于 legacy adapter。
+- `current_time` 是消息产生时的世界时间元数据，位于顶层；客户端暂时兼容旧数据放在 `payload.current_time` 的情况。
 - 元数据位于顶层，业务正文、Tick 内容和流式 `seq/content` 位于 `payload`。
 - `payload`、整数 `err_no` 和字符串 `err_msg` 是统一字段。未知扩展字段可以忽略，但 payload 非 object、未知 `stream_type` 或未知业务 `type` 是单帧协议错误。
 - Flutter 的共享 wire DTO 是 `ChatroomV2Message.fromJson/toJson`；HTTP 与 WS 应复用它，避免丢失 `type/stream_type/payload` 这三个持久化标记。

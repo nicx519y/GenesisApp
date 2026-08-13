@@ -182,6 +182,38 @@ void main() {
     expect(startupStreet.size.height, greaterThan(12.0));
   });
 
+  testWidgets('wrapped legacy label keeps a fixed gap above its location dot', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [
+        WorldPoint(
+          id: 'guildmasters-war-room',
+          name: "Guildmaster's War Room",
+          type: WorldPointType.portal,
+          position: Offset(0.5, 0.5),
+          users: [],
+        ),
+      ],
+    );
+
+    final labelRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>(
+          'world-map-location-label-guildmasters-war-room',
+        ),
+      ),
+    );
+    final dotRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-dot')),
+    );
+
+    expect(labelRect.height, greaterThan(22.4));
+    expect(dotRect.top - labelRect.bottom, closeTo(6, 0.01));
+  });
+
   testWidgets('world map renders recent chat icon outside centered label', (
     tester,
   ) async {
