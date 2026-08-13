@@ -15,6 +15,10 @@ abstract interface class BillingPlatform {
 
   Future<List<BillingPurchase>> queryRecoverablePurchases();
 
+  /// Records a store-verified purchase using the platform's native Analytics
+  /// integration. Implementations must be best-effort and non-blocking.
+  void recordVerifiedPurchaseForAnalytics(BillingPurchase purchase);
+
   Future<BillingProductQueryResult> queryProduct(
     String storeProductId,
     BillingStoreProductType expectedType, {
@@ -74,6 +78,12 @@ class GooglePlayBillingPlatform implements BillingPlatform {
     } on Object catch (error) {
       throw BillingPlatformException('query_purchases_failed', '$error');
     }
+  }
+
+  @override
+  void recordVerifiedPurchaseForAnalytics(BillingPurchase purchase) {
+    // Google Play purchases are collected automatically after the Analytics
+    // property is linked to Play. Manually logging would double-count them.
   }
 
   @override

@@ -1,8 +1,10 @@
 import AppTrackingTransparency
+import FirebaseAnalytics
 import Flutter
 import ImageIO
 import PhotosUI
 import Security
+import StoreKit
 import UIKit
 import UniformTypeIdentifiers
 
@@ -11,18 +13,21 @@ import UniformTypeIdentifiers
   private let channelName = "com.worldo.ai/device"
   private let httpProtocolChannelName = "com.worldo.ai/network"
   private let discussImagePickerChannelName = "com.worldo.ai/discuss_image_picker"
+  private let firebaseAnalyticsChannelName = "com.worldo.ai/firebase_analytics"
   private let uidKey = "uid"
   private let authTokenKey = "auth_token"
   private let userInfoKey = "user_info"
   private let deviceIdKey = "genesis_device_id"
   private let deviceIdKeychainService = "com.worldo.ai.device-id"
   private let gatewayKeyTag = "com.worldo.ai.gateway-device-key.v1".data(using: .utf8)!
+  private let loggedStoreKit2TransactionIdsKey = "firebase_analytics_storekit2_transaction_ids"
   private let normalizedDiscussImageMaxDimension = 4096
   private let normalizedDiscussImageMaxPixels = 16_000_000.0
   private let prefs = UserDefaults.standard
   private var pendingDiscussImagePickerResult: FlutterResult?
   private var pendingDiscussImagePickerNormalizeForUpload = false
   private var httpProtocolProbes: [UUID: GenesisHttpProtocolProbe] = [:]
+  private var storeKit2AnalyticsInFlightIds = Set<UInt64>()
 
   override func application(
     _ application: UIApplication,
@@ -36,6 +41,87 @@ import UniformTypeIdentifiers
     configureGenesisMethodChannel(messenger: engineBridge.applicationRegistrar.messenger())
     configureHttpProtocolChannel(messenger: engineBridge.applicationRegistrar.messenger())
     configureDiscussImagePickerChannel(messenger: engineBridge.applicationRegistrar.messenger())
+    configureFirebaseAnalyticsChannel(messenger: engineBridge.applicationRegistrar.messenger())
+  }
+
+  private func configureFirebaseAnalyticsChannel(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: firebaseAnalyticsChannelName,
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(FlutterError(code: "unavailable", message: "AppDelegate released", details: nil))
+        return
+      }
+      guard call.method == "logStoreKit2Transaction" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let args = call.arguments as? [String: Any]
+      let rawId = (args?["transactionId"] as? String ?? "")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      guard let transactionId = UInt64(rawId), transactionId > 0 else {
+        result(FlutterError(code: "invalid_transaction_id", message: "A numeric StoreKit transaction ID is required.", details: nil))
+        return
+      }
+      if self.hasLoggedStoreKit2Transaction(rawId) || self.storeKit2AnalyticsInFlightIds.contains(transactionId) {
+        result(true)
+        return
+      }
+
+      self.storeKit2AnalyticsInFlightIds.insert(transactionId)
+      Task { [weak self] in
+        guard let self = self else { return }
+        let transaction = await self.verifiedStoreKit2Transaction(id: transactionId)
+        await MainActor.run {
+          self.storeKit2AnalyticsInFlightIds.remove(transactionId)
+          guard let transaction = transaction else {
+            result(FlutterError(code: "transaction_not_verified", message: "The StoreKit transaction could not be found and verified.", details: nil))
+            return
+          }
+          Analytics.logTransaction(transaction)
+          self.markStoreKit2TransactionLogged(rawId)
+          result(true)
+        }
+      }
+    }
+  }
+
+  @available(iOS 15.0, *)
+  private func verifiedStoreKit2Transaction(id: UInt64) async -> StoreKit.Transaction? {
+    for await verificationResult in StoreKit.Transaction.unfinished {
+      switch verificationResult {
+      case .verified(let transaction) where transaction.id == id:
+        return transaction
+      case .unverified(let transaction, _) where transaction.id == id:
+        return nil
+      default:
+        continue
+      }
+    }
+    for await verificationResult in StoreKit.Transaction.all {
+      switch verificationResult {
+      case .verified(let transaction) where transaction.id == id:
+        return transaction
+      case .unverified(let transaction, _) where transaction.id == id:
+        return nil
+      default:
+        continue
+      }
+    }
+    return nil
+  }
+
+  private func hasLoggedStoreKit2Transaction(_ transactionId: String) -> Bool {
+    let loggedIds = prefs.stringArray(forKey: loggedStoreKit2TransactionIdsKey) ?? []
+    return loggedIds.contains(transactionId)
+  }
+
+  private func markStoreKit2TransactionLogged(_ transactionId: String) {
+    var loggedIds = Set(prefs.stringArray(forKey: loggedStoreKit2TransactionIdsKey) ?? [])
+    guard loggedIds.insert(transactionId).inserted else { return }
+    prefs.set(loggedIds.sorted(), forKey: loggedStoreKit2TransactionIdsKey)
   }
 
   private func configureHttpProtocolChannel(messenger: FlutterBinaryMessenger) {

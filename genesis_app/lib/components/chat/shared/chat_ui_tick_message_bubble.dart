@@ -354,8 +354,8 @@ class _ChatTickGlobalSection extends StatelessWidget {
         textAlign: TextAlign.left,
         style: style.systemMessageTextStyle.copyWith(
           color: textColor.withValues(alpha: 0.72),
-          fontStyle: FontStyle.italic,
         ),
+        softItalic: true,
       ),
     );
   }

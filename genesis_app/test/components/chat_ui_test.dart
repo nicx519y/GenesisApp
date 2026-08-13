@@ -549,31 +549,36 @@ void main() {
     expect(find.byType(ChatAvatar), findsNothing);
   });
 
-  testWidgets('story event visibility badge wraps safely on narrow screens', (
+  testWidgets('tick event visibility uses available width when wrapping', (
     WidgetTester tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(320, 640));
+    await tester.binding.setSurfaceSize(const Size(520, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    const roleNames =
+        'Mateo Cruz, Iris, Marcus Aurelius, Alexandra Johnson, River Song, '
+        'Theodore Roosevelt, Cassandra Nova';
     final message = ChatMessageVm(
-      localId: 'narrow-story',
-      senderId: 'sub_tick',
-      senderName: 'sub_tick',
+      localId: 'wrapping-tick',
+      senderId: 'tick',
+      senderName: 'Tick',
       text: 'A narrow-screen event.',
       isMe: false,
       status: 'sent',
-      senderType: 'story_events',
-      timelinePayload: const ChatStoryEventsPayloadVm(
-        locationId: 'loc_station',
-        locationName: 'Old Station',
-        paragraphs: [
-          ChatStoryEventParagraphVm(
-            timestamp: 'Day 2, 10:15',
-            text: 'A narrow-screen event.',
-            clue: '',
-            visibilityLabel:
-                'Mateo Cruz, Iris, Marcus Aurelius, Alexandra Johnson',
-          ),
-        ],
+      senderType: 'tick',
+      tickNo: 2,
+      timelinePayload: const ChatTickPayloadVm(
+        storyEvents: ChatStoryEventsPayloadVm(
+          locationId: 'loc_station',
+          locationName: 'Old Station',
+          paragraphs: [
+            ChatStoryEventParagraphVm(
+              timestamp: 'Day 2, 10:15',
+              text: 'A narrow-screen event.',
+              clue: '',
+              visibilityLabel: roleNames,
+            ),
+          ],
+        ),
       ),
     );
 
@@ -589,13 +594,29 @@ void main() {
       ),
     );
 
-    expect(
-      find.byKey(const ValueKey('chat-story-event-visibility-narrow-story-0')),
-      findsOneWidget,
+    final visibility = find.byKey(
+      const ValueKey('chat-story-event-visibility-wrapping-tick-tick-0'),
     );
+    expect(visibility, findsOneWidget);
+    expect(find.text(roleNames), findsOneWidget);
+    expect(tester.getSize(find.text(roleNames)).width, greaterThan(224));
+    expect(tester.getSize(find.text(roleNames)).height, greaterThan(20));
     expect(
-      find.text('Mateo Cruz, Iris, Marcus Aurelius, Alexandra Johnson'),
-      findsOneWidget,
+      tester.getTopLeft(find.text('Day 2, 10:15')).dy,
+      closeTo(tester.getTopLeft(find.text(roleNames)).dy, 2),
+    );
+    final userIcon = find.descendant(
+      of: visibility,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(userStatIconAsset),
+      ),
+    );
+    expect(userIcon, findsOneWidget);
+    expect(
+      tester.getTopLeft(userIcon).dy,
+      closeTo(tester.getTopLeft(find.text(roleNames)).dy + 2, 0.1),
     );
     expect(tester.takeException(), isNull);
   });
@@ -3131,6 +3152,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: SizedBox(
               width: 400,
@@ -3208,7 +3230,18 @@ void main() {
       );
       expect(
         tester.widget<Text>(globalText).textSpan?.style?.fontStyle,
-        FontStyle.italic,
+        FontStyle.normal,
+      );
+      expect(
+        find.ancestor(
+          of: globalText,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Transform &&
+                _matchesIosInlineEmphasisSkew(widget.transform),
+          ),
+        ),
+        findsOneWidget,
       );
       expect(find.text('Event'), findsNothing);
       expect(find.text('Vault'), findsNothing);
@@ -3229,7 +3262,23 @@ void main() {
         findsOneWidget,
       );
       expect(eventText, findsOneWidget);
-      expect(find.text('It spells Elara.'), findsOneWidget);
+      final clueText = find.text('It spells Elara.');
+      expect(clueText, findsOneWidget);
+      expect(
+        tester.widget<Text>(clueText).textSpan?.style?.fontStyle,
+        FontStyle.normal,
+      );
+      expect(
+        find.ancestor(
+          of: clueText,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Transform &&
+                _matchesIosInlineEmphasisSkew(widget.transform),
+          ),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Character destinations'), findsNothing);
       expect(routeIcon, findsOneWidget);
       expect(find.text('Elara, Lyra'), findsOneWidget);
