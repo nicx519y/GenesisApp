@@ -59,11 +59,8 @@ class _WorldPointMarkerGeometry {
   final double pointCenterY;
 }
 
-const double _worldPointLabelLineHeight = 14.4;
 const double _worldPointLabelHorizontalPadding = 6;
 const double _worldPointLabelVerticalPadding = 8;
-const double _worldPointWideLabelRuneWidth = 14;
-const double _worldPointNarrowLabelRuneWidth = 6;
 const double _worldPointMaxLabelTextWidth = 135;
 const double _worldPointActivityIconGap = 3;
 const double _worldPointActivityIconExtraWidth =
@@ -78,8 +75,19 @@ const double _worldPointAvatarTopGap = 10;
 // Keep a small, intentional tolerance around the visible controls, without
 // making the empty space between a location's label, pin and avatars tappable.
 const double _worldPointTapTargetPadding = 6;
+const TextStyle _worldPointLabelTextStyle = TextStyle(
+  fontSize: 12,
+  height: 1.2,
+  leadingDistribution: TextLeadingDistribution.even,
+  fontWeight: FontWeight.w600,
+);
+
+TextStyle _resolvedWorldPointLabelTextStyle(BuildContext context) {
+  return DefaultTextStyle.of(context).style.merge(_worldPointLabelTextStyle);
+}
 
 _WorldPointMarkerGeometry _geometryForPoint(
+  BuildContext context,
   WorldPoint point,
   double width, {
   required bool showRecentChatIcon,
@@ -101,7 +109,14 @@ _WorldPointMarkerGeometry _geometryForPoint(
     labelGroupWidth,
   );
   final pointCenterY =
-      _worldPointLabelHeight(point.name) +
+      _worldPointLabelHeight(
+        context,
+        point.name,
+        maxWidth: math.max(
+          0,
+          labelMaxWidth - _worldPointLabelHorizontalPadding,
+        ),
+      ) +
       _worldPointTapTargetPadding +
       _worldPointLabelToDotSpacing +
       _worldPointDotSize / 2;
@@ -120,35 +135,23 @@ _WorldPointMarkerGeometry _geometryForPoint(
   );
 }
 
-double _worldPointLabelHeight(String text, {double trailingExtraWidth = 0}) {
-  final estimatedTextWidth = _estimatedWorldPointLabelTextWidth(text);
-  final lineCount = math.max(
-    1,
-    ((estimatedTextWidth + trailingExtraWidth) / _worldPointMaxLabelTextWidth)
-        .ceil(),
-  );
-  return lineCount * _worldPointLabelLineHeight +
-      _worldPointLabelVerticalPadding;
-}
-
-double _estimatedWorldPointLabelTextWidth(String text) {
-  var width = 0.0;
-  for (final rune in text.runes) {
-    width += _isWideWorldPointLabelRune(rune)
-        ? _worldPointWideLabelRuneWidth
-        : _worldPointNarrowLabelRuneWidth;
-  }
-  return width;
-}
-
-bool _isWideWorldPointLabelRune(int rune) {
-  return (rune >= 0x1100 && rune <= 0x11FF) ||
-      (rune >= 0x2E80 && rune <= 0xA4CF) ||
-      (rune >= 0xAC00 && rune <= 0xD7AF) ||
-      (rune >= 0xF900 && rune <= 0xFAFF) ||
-      (rune >= 0xFE10 && rune <= 0xFE6F) ||
-      (rune >= 0xFF00 && rune <= 0xFFEF) ||
-      (rune >= 0x20000 && rune <= 0x3FFFD);
+double _worldPointLabelHeight(
+  BuildContext context,
+  String text, {
+  required double maxWidth,
+}) {
+  if (maxWidth <= 0) return _worldPointLabelVerticalPadding;
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: _resolvedWorldPointLabelTextStyle(context),
+    ),
+    textAlign: TextAlign.center,
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    locale: Localizations.maybeLocaleOf(context),
+  )..layout(maxWidth: maxWidth);
+  return painter.height + _worldPointLabelVerticalPadding;
 }
 
 double _worldPointMarkerHeight({
@@ -271,6 +274,7 @@ class LegacyWorldMapPointPositioned extends StatelessWidget {
   Widget build(BuildContext context) {
     final users = worldMapVisibleAvatarsForPoint(point);
     final geometry = _geometryForPoint(
+      context,
       point,
       width,
       showRecentChatIcon: showRecentChatIcon,
@@ -354,6 +358,7 @@ class LegacyWorldMapPointMessageBubblePositioned extends StatelessWidget {
     if (bubbleIndex < 0) return const SizedBox.shrink();
 
     final geometry = _geometryForPoint(
+      context,
       point,
       width,
       showRecentChatIcon: false,
@@ -614,18 +619,11 @@ class _PointLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = color ?? Colors.black;
-    final style = TextStyle(
-      fontSize: 12,
-      height: 1.2,
-      leadingDistribution: TextLeadingDistribution.even,
-      fontWeight: FontWeight.w600,
-      color: textColor,
-    );
     return Text(
       point.name,
       textAlign: TextAlign.center,
       softWrap: true,
-      style: style,
+      style: _worldPointLabelTextStyle.copyWith(color: textColor),
     );
   }
 }
