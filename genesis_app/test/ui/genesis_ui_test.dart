@@ -850,8 +850,8 @@ void main() {
       (icons[1].bytesLoader as SvgAssetLoader).assetName,
       bottomNavMessagesPressIconAsset,
     );
-    expect(icons[2].width, 28);
-    expect(icons[2].height, 28);
+    expect(icons[2].width, 22);
+    expect(icons[2].height, 22);
     expect(
       (icons[2].bytesLoader as SvgAssetLoader).assetName,
       bottomNavCreateIconAsset,
@@ -900,6 +900,75 @@ void main() {
     );
     expect(badgePosition.top, -1);
     expect(badgePosition.left, 19);
+  });
+
+  testWidgets('GenesisBottomNavigation can show an icon-only create action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.light(),
+        home: Scaffold(
+          bottomNavigationBar: GenesisBottomNavigation(
+            currentIndex: 0,
+            onTap: (_) {},
+            items: const [
+              GenesisBottomNavigationItem(
+                label: 'Create',
+                icon: Icons.add,
+                prominent: true,
+                showLabel: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Create'), findsNothing);
+    expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
+
+    final createIcon = tester.widget<Icon>(find.byIcon(Icons.add));
+    expect(createIcon.size, 22);
+    expect(createIcon.color, Colors.white);
+
+    final decoration = tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.byKey(const ValueKey('bottom-nav-Create')),
+            matching: find.byType(Container),
+          ),
+        )
+        .map((container) => container.decoration)
+        .whereType<ShapeDecoration>()
+        .singleWhere(
+          (decoration) =>
+              decoration.color == GenesisColors.create &&
+              decoration.shape ==
+                  const ContinuousRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(20)),
+                  ),
+        );
+    expect(decoration.color, GenesisColors.create);
+
+    final createSurface = tester.widget<Container>(
+      find.descendant(
+        of: find.byKey(const ValueKey('bottom-nav-Create')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.constraints?.maxWidth == 42 &&
+              widget.constraints?.maxHeight == 33,
+        ),
+      ),
+    );
+    expect(createSurface.constraints?.maxWidth, 42);
+    expect(createSurface.constraints?.maxHeight, 33);
+    expect(
+      tester.getTopLeft(find.byIcon(Icons.add)).dy -
+          tester.getTopLeft(find.byKey(const ValueKey('bottom-nav-Create'))).dy,
+      9.5,
+    );
   });
 
   testWidgets('GenesisBottomNavigation keeps minimum bottom padding', (

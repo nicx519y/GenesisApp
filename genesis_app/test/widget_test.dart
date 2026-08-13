@@ -2469,7 +2469,8 @@ void main() {
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
     expect(find.text('#Worldo'), findsOneWidget);
-    expect(find.text('Create'), findsOneWidget);
+    expect(find.text('Create'), findsNothing);
+    expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
   });
@@ -10732,7 +10733,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
-    await tester.tap(find.text('Create'));
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Create')));
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to continue'), findsOneWidget);
@@ -10746,7 +10747,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
-    await tester.tap(find.text('Create'));
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Create')));
     await tester.pumpAndSettle();
 
     expect(find.text('Create Worldo'), findsOneWidget);

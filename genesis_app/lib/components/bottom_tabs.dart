@@ -33,8 +33,9 @@ class BottomTabs extends StatelessWidget {
         ),
         const GenesisBottomNavigationItem(
           label: 'Create',
-          iconAsset: bottomNavCreateIconAsset,
+          icon: Icons.add,
           prominent: true,
+          showLabel: false,
         ),
         GenesisBottomNavigationItem(
           label: 'Messages',
