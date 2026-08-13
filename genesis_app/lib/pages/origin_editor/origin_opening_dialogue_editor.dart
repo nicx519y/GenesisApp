@@ -134,7 +134,7 @@ class _OpeningBestRoleSelector extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Best role',
+            'Suggest a role for user',
             style: TextStyle(
               color: createFormText,
               fontSize: 16,
@@ -182,7 +182,7 @@ class _OpeningBestRoleOption extends StatelessWidget {
     return Semantics(
       button: true,
       selected: character.isRecommended,
-      label: '${character.name.trim()} as the creator best role',
+      label: '${character.name.trim()} suggested for the user',
       child: GestureDetector(
         key: ValueKey<String>('opening-best-role-$characterId'),
         behavior: HitTestBehavior.opaque,

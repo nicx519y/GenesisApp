@@ -210,7 +210,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
         })
         .catchError((Object _) {
           if (mounted) {
-            showGenesisToast(context, 'Unable to save Best role.');
+            showGenesisToast(context, 'Unable to save suggested role.');
           }
         });
   }

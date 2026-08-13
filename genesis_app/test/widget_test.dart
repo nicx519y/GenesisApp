@@ -12937,7 +12937,7 @@ void main() {
     expect(find.textContaining('World Logic:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
     expect(find.text('1 characters: Tff'), findsOneWidget);
-    expect(find.text('Best role: Tff'), findsOneWidget);
+    expect(find.text('Suggested: Tff'), findsOneWidget);
     final charactersTitle = find.text('Characters (>=1)');
     final charactersCompleted = find.byKey(
       const ValueKey<String>('section-completed-Characters (>=1)'),
@@ -12973,7 +12973,7 @@ void main() {
       ),
     );
     final bestRoleSpans = (bestRoleSummary.textSpan! as TextSpan).children!;
-    expect((bestRoleSpans.first as TextSpan).text, 'Best role:');
+    expect((bestRoleSpans.first as TextSpan).text, 'Suggested:');
     expect(
       (bestRoleSpans.first as TextSpan).style?.color,
       const Color(0xFF999999),
@@ -12993,7 +12993,7 @@ void main() {
     expect(find.text('2 events'), findsOneWidget);
   });
 
-  testWidgets('characters summary hides Best role when none is selected', (
+  testWidgets('characters summary hides Suggested when none is selected', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(320, 800);
@@ -13032,7 +13032,7 @@ void main() {
     expect(summaryText.softWrap, isTrue);
     expect(summaryText.overflow, isNull);
     expect(tester.getSize(characterSummary).height, greaterThan(20));
-    expect(find.textContaining('Best role:'), findsNothing);
+    expect(find.textContaining('Suggested:'), findsNothing);
   });
 
   testWidgets('create origin back action can discard the local draft', (

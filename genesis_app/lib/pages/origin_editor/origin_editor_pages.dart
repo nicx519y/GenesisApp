@@ -700,7 +700,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         ? '0 characters'
         : '${characters.length} characters: $names';
     if (bestRoleName == null) return characterSummary;
-    return '$characterSummary\nBest role: $bestRoleName';
+    return '$characterSummary\nSuggested: $bestRoleName';
   }
 
   String _locationsSummary(CreateOriginDraft draft) {

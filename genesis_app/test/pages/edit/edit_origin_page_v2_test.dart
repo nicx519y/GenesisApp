@@ -173,10 +173,10 @@ void main() {
         tester.widget<OriginRoleSelectionMark>(bexCheckbox).selected,
         isFalse,
       );
-      expect(find.text('Best role'), findsNWidgets(2));
+      expect(find.text('Suggest'), findsNWidgets(2));
       expect(find.text('Recommend as the best role'), findsNothing);
       expect(
-        tester.widget<Text>(find.text('Best role').first).style?.fontSize,
+        tester.widget<Text>(find.text('Suggest').first).style?.fontSize,
         12,
       );
       expect(
@@ -280,7 +280,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Best role'), findsOneWidget);
+    expect(find.text('Suggest a role for user'), findsOneWidget);
     final ariMark = find.byKey(
       const ValueKey<String>('opening-best-role-mark-char_ari'),
     );
