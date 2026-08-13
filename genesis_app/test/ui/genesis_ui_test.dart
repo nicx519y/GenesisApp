@@ -915,9 +915,16 @@ void main() {
             items: const [
               GenesisBottomNavigationItem(
                 label: 'Create',
-                icon: Icons.add,
+                icon: Icons.add_rounded,
                 prominent: true,
                 showLabel: false,
+                iconSize: 26,
+                iconShadows: [
+                  Shadow(color: Colors.white, offset: Offset(0.5, 0)),
+                  Shadow(color: Colors.white, offset: Offset(-0.5, 0)),
+                  Shadow(color: Colors.white, offset: Offset(0, 0.5)),
+                  Shadow(color: Colors.white, offset: Offset(0, -0.5)),
+                ],
               ),
             ],
           ),
@@ -928,9 +935,10 @@ void main() {
     expect(find.text('Create'), findsNothing);
     expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
 
-    final createIcon = tester.widget<Icon>(find.byIcon(Icons.add));
-    expect(createIcon.size, 22);
+    final createIcon = tester.widget<Icon>(find.byIcon(Icons.add_rounded));
+    expect(createIcon.size, 26);
     expect(createIcon.color, Colors.white);
+    expect(createIcon.shadows, hasLength(4));
 
     final decoration = tester
         .widgetList<Container>(
@@ -965,9 +973,8 @@ void main() {
     expect(createSurface.constraints?.maxWidth, 42);
     expect(createSurface.constraints?.maxHeight, 33);
     expect(
-      tester.getTopLeft(find.byIcon(Icons.add)).dy -
-          tester.getTopLeft(find.byKey(const ValueKey('bottom-nav-Create'))).dy,
-      9.5,
+      tester.getCenter(find.byWidget(createSurface)).dy,
+      tester.getCenter(find.byKey(const ValueKey('bottom-nav-Create'))).dy,
     );
   });
 

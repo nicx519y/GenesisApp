@@ -16,6 +16,8 @@ class GenesisBottomNavigationItem {
     this.enabled = true,
     this.prominent = false,
     this.showLabel = true,
+    this.iconSize,
+    this.iconShadows,
     this.badgeCount = 0,
   }) : assert(icon != null || iconAsset != null);
 
@@ -26,6 +28,8 @@ class GenesisBottomNavigationItem {
   final bool enabled;
   final bool prominent;
   final bool showLabel;
+  final double? iconSize;
+  final List<Shadow>? iconShadows;
   final int badgeCount;
 }
 
@@ -100,11 +104,13 @@ class GenesisBottomNavigationTile extends StatelessWidget {
         : selected
         ? uiTheme.bottomNavigationSelectedColor
         : uiTheme.bottomNavigationUnselectedColor;
-    final iconSize = item.prominent
-        ? 22.0
-        : item.iconAsset == null
-        ? 20.0
-        : 24.0;
+    final iconSize =
+        item.iconSize ??
+        (item.prominent
+            ? 22.0
+            : item.iconAsset == null
+            ? 20.0
+            : 24.0);
     final iconAsset = selected
         ? item.selectedIconAsset ?? item.iconAsset
         : item.iconAsset;
@@ -134,16 +140,14 @@ class GenesisBottomNavigationTile extends StatelessWidget {
           label: item.label,
           excludeSemantics: true,
           child: Column(
-            mainAxisAlignment: item.prominent && !item.showLabel
-                ? MainAxisAlignment.start
-                : MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (item.prominent && !item.showLabel) const SizedBox(height: 4),
               if (item.prominent)
                 _ProminentNavigationIcon(
                   icon: item.icon,
                   assetName: iconAsset,
                   size: iconSize,
+                  shadows: item.iconShadows,
                   backgroundColor: color,
                 )
               else
@@ -180,12 +184,14 @@ class _ProminentNavigationIcon extends StatelessWidget {
     required this.icon,
     required this.assetName,
     required this.size,
+    required this.shadows,
     required this.backgroundColor,
   });
 
   final IconData? icon;
   final String? assetName;
   final double size;
+  final List<Shadow>? shadows;
   final Color backgroundColor;
 
   @override
@@ -219,7 +225,7 @@ class _ProminentNavigationIcon extends StatelessWidget {
                     fit: BoxFit.contain,
                     color: Colors.white,
                   )
-          : Icon(icon, color: Colors.white, size: size),
+          : Icon(icon, color: Colors.white, size: size, shadows: shadows),
     );
   }
 }

@@ -22,6 +22,18 @@ String _resolvedProfileAvatar(
   return asResolvedImageUrl(profileAvatar, resolveAssetUrl);
 }
 
+bool _sameOriginProfileRole(
+  OriginCustomRoleDraft? current,
+  OriginCustomRoleDraft? next,
+) {
+  if (identical(current, next)) return true;
+  if (current == null || next == null) return false;
+  return current.avatarUrl == next.avatarUrl &&
+      current.name == next.name &&
+      current.identity == next.identity &&
+      current.bio == next.bio;
+}
+
 Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
   for (final key in keys) {
     final value = map[key];

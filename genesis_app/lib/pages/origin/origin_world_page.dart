@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -124,6 +125,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   List<OriginMyLaunchPresetCharacter>? _launchedPresetRolesData;
   String _launchedPresetRolesCacheKey = '';
   String _launchedPresetRolesPreloadScheduledForOriginId = '';
+  ValueListenable<int>? _userInfoRevisionListenable;
+  OriginCustomRoleDraft? _cachedProfileRole;
+  int _cachedProfileRoleLoadGeneration = 0;
   bool _launching = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
@@ -149,6 +153,19 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     _tilemapVisualModeLoad = _loadTilemapVisualMode();
     _tabController = TabController(length: 2, vsync: this);
     _scheduleInitialOriginLoadAfterFrameworkFrame();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextRevisionListenable = AppServicesScope.read(
+      context,
+    ).sessionStore.userInfoRevision;
+    if (identical(_userInfoRevisionListenable, nextRevisionListenable)) return;
+    _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
+    _userInfoRevisionListenable = nextRevisionListenable;
+    nextRevisionListenable.addListener(_handleCachedUserInfoChanged);
+    unawaited(_refreshCachedProfileRole());
   }
 
   @override
@@ -194,11 +211,46 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   void dispose() {
     _originLoadGeneration += 1;
+    _cachedProfileRoleLoadGeneration += 1;
+    _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     _locationChatBackgroundPreloader.dispose();
     _detailSheetRaisedNotifier.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _handleCachedUserInfoChanged() {
+    unawaited(_refreshCachedProfileRole());
+  }
+
+  Future<void> _refreshCachedProfileRole() async {
+    final generation = ++_cachedProfileRoleLoadGeneration;
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    OriginCustomRoleDraft? nextRole;
+    if (uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty) {
+      final userInfo = await services.sessionStore.readUserInfo();
+      final cachedName = userInfo == null
+          ? ''
+          : _mapString(userInfo, const [
+              'name',
+              'nickname',
+              'user_name',
+              'displayName',
+              'display_name',
+            ]);
+      nextRole = OriginCustomRoleDraft(
+        avatarUrl: userInfo == null ? '' : _resolvedProfileAvatar(userInfo, ''),
+        name: cachedName.isEmpty ? uid : cachedName,
+        identity: '',
+      );
+    }
+    if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;
+    if (_sameOriginProfileRole(_cachedProfileRole, nextRole)) return;
+    setState(() => _cachedProfileRole = nextRole);
   }
 
   Color get _tilemapLoadingBackgroundColor =>
@@ -530,6 +582,38 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     await _launchOrigin(
       origin,
       OriginRoleLaunchSelection.preset(characterId),
+      initialLocationId:
+          _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
+    );
+  }
+
+  Future<void> _selectAndLaunchProfileRole(
+    OriginDetail origin,
+    OriginCustomRoleDraft profileRole,
+  ) async {
+    if (_launching) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_setup_role_launch',
+      object1: origin.oid,
+      object2: 'current_user',
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_launch_opening',
+      object1: origin.oid,
+    );
+    await _launchOrigin(
+      origin,
+      OriginRoleLaunchSelection.custom(
+        OriginCustomRoleDraft(
+          avatarUrl: profileRole.avatarUrl,
+          name: profileRole.name,
+          identity: '',
+        ),
+      ),
       initialLocationId:
           _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
     );
@@ -997,8 +1081,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                   _handleOpeningSheetExpansionInterrupted,
               onOriginChanged: _refreshOriginDetail,
               launching: _launching,
+              profileRole: _cachedProfileRole,
               onSelectRole: (character) =>
                   _selectAndLaunchPresetRole(origin, character),
+              onSelectProfileRole: (profileRole) =>
+                  _selectAndLaunchProfileRole(origin, profileRole),
               onCustomizeRole: () =>
                   _showLaunchRoleSheet(origin, initialCustomTab: true),
             ),

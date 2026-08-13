@@ -7893,6 +7893,79 @@ void main() {
     },
   );
 
+  testWidgets('Origin shows cached signed-in profile as a direct launch role', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          initialUserInfo: const {
+            'uid': 'u_profile',
+            'name': 'Profile Hero',
+            'avatar': {
+              'sm_url': 'https://cdn.example.com/profile_180x180.jpg',
+              'xl_url': 'https://cdn.example.com/profile_1080x1080.jpg',
+            },
+          },
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final profileRole = find.byKey(
+      const ValueKey<String>('origin-setup-role-current-user'),
+    );
+    expect(profileRole, findsOneWidget);
+    final profilePortrait = find.byKey(
+      const ValueKey<String>('origin-setup-role-portrait-current-user'),
+    );
+    expect(
+      find.descendant(of: profilePortrait, matching: find.text('Profile Hero')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: profilePortrait, matching: find.text('Identity')),
+      findsNothing,
+    );
+    final profileAvatar = tester.widget<GenesisStaticNetworkImage>(
+      find.descendant(
+        of: profilePortrait,
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+    );
+    expect(
+      profileAvatar.imageUrl,
+      contains('https://cdn.example.com/profile_1080x1080.jpg'),
+    );
+    expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+
+    tester.widget<InkWell>(profileRole).onTap!();
+    await tester.pumpAndSettle();
+
+    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+    expect(launchRequests, hasLength(1));
+    final launchBody = transport.decodedBody(launchRequests.single);
+    expect(launchBody.containsKey('preset_character_id'), isFalse);
+    expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
+    expect(launchBody['custom_role'], containsPair('identity', ''));
+    expect(
+      launchBody['custom_role'],
+      containsPair('avatar', 'https://cdn.example.com/profile_1080x1080.jpg'),
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('Origin custom card opens custom role sheet and launches', (
     WidgetTester tester,
   ) async {
@@ -7968,6 +8041,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-role-current-user')),
+      findsNothing,
+    );
 
     final customCard = find.byKey(
       const ValueKey<String>('origin-setup-role-custom-card'),
