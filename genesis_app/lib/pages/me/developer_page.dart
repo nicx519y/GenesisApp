@@ -123,6 +123,7 @@ class DeveloperPageSheet extends StatelessWidget {
           title: '',
           height: constraints.maxHeight,
           showHeader: false,
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
           child: DeveloperPageContent(
             dismissBeforePreview: true,
             headerTrailing: GenesisBottomSheetCloseButton(
@@ -290,7 +291,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                   horizontal: horizontalContentPadding,
                 ),
                 child: SizedBox(
-                  height: 28,
+                  height: 24,
                   child: Row(
                     children: [
                       if (widget.headerLeading != null) ...[
@@ -316,7 +317,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                   ),
                 ),
               ),
-              const SizedBox(height: 1),
+              const SizedBox(height: 0.5),
               tabs,
               const SizedBox(height: 4),
               Expanded(

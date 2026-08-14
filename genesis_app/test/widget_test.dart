@@ -17596,6 +17596,17 @@ void main() {
     expect(tabsCenter, greaterThan(titleCenter));
     expect(tabsCenter - titleCenter, lessThan(48));
     expect(
+      tester.getTopLeft(
+            find.byKey(const ValueKey<String>('developer-page-sheet-close')),
+          ).dy -
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('developer-page-sheet')),
+              )
+              .dy,
+      closeTo(10, 1),
+    );
+    expect(
       find.byKey(
         const ValueKey<String>('developer-page-sheet-keyboard-padding'),
       ),
@@ -17756,6 +17767,14 @@ void main() {
     );
     expect(find.text('/api/v1/world'), findsOneWidget);
     expect(find.text('/api/v1/fail'), findsOneWidget);
+    final queryText = tester.widget<Text>(
+      find.byKey(ValueKey<String>('developer-network-query-$successId')),
+    );
+    expect(queryText.data, '?id=w_test');
+    expect(queryText.maxLines, isNull);
+    expect(queryText.overflow, isNull);
+    expect(queryText.style?.fontSize, 11);
+    expect(queryText.style?.color, const Color(0xFF777777));
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('developer-network-search')),
