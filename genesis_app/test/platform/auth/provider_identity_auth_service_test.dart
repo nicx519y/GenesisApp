@@ -36,6 +36,7 @@ void main() {
     });
     final service = ProviderIdentityAuthService(
       sessionStore: sessionStore,
+      appleSignInEnabled: true,
       appleSignIn: () async => const AppleIdentitySession(
         appleIdentityToken: 'apple-token',
         displayName: '',
@@ -114,6 +115,7 @@ void main() {
     );
     final appleService = ProviderIdentityAuthService(
       sessionStore: MemoryUserSessionStore(),
+      appleSignInEnabled: true,
       appleSignIn: () async =>
           throw const SignInWithAppleAuthorizationException(
             code: AuthorizationErrorCode.canceled,
@@ -143,5 +145,27 @@ void main() {
     await service.signOutIdentity();
 
     expect(signOutCount, 1);
+  });
+
+  test('disabled Apple sign-in fails before invoking the provider', () async {
+    var appleCallCount = 0;
+    final service = ProviderIdentityAuthService(
+      sessionStore: MemoryUserSessionStore(),
+      appleSignInEnabled: false,
+      appleSignIn: () async {
+        appleCallCount += 1;
+        return const AppleIdentitySession(
+          appleIdentityToken: 'unexpected',
+          displayName: '',
+          photoUrl: '',
+        );
+      },
+    );
+
+    await expectLater(
+      service.signIn(IdentityProvider.apple),
+      throwsA(isA<UnsupportedError>()),
+    );
+    expect(appleCallCount, 0);
   });
 }

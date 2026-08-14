@@ -35,6 +35,21 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "app"
+    productFlavors {
+        create("production") {
+            dimension = "app"
+            applicationId = "com.worldo.ai"
+        }
+        create("internal") {
+            dimension = "app"
+            applicationId = "com.worldo.ai.internal"
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+            }
+        }
+    }
+
     signingConfigs {
         create("genesisAiSign") {
             storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
@@ -57,6 +72,11 @@ android {
             )
         }
     }
+}
+
+googleServices {
+    missingGoogleServicesStrategy =
+        com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.IGNORE
 }
 
 kotlin {
