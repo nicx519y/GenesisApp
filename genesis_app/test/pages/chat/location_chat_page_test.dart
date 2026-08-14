@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -164,6 +165,30 @@ void main() {
         androidSdkInt: 30,
       ),
       isTrue,
+    );
+  });
+
+  test('keyboard inset excludes the stable bottom safe area', () {
+    expect(
+      locationChatEffectiveKeyboardInsetForTesting(
+        rawKeyboardInset: 0,
+        bottomSafeAreaInset: 34,
+      ),
+      0,
+    );
+    expect(
+      locationChatEffectiveKeyboardInsetForTesting(
+        rawKeyboardInset: 34,
+        bottomSafeAreaInset: 34,
+      ),
+      0,
+    );
+    expect(
+      locationChatEffectiveKeyboardInsetForTesting(
+        rawKeyboardInset: 300,
+        bottomSafeAreaInset: 34,
+      ),
+      266,
     );
   });
 
@@ -1283,7 +1308,8 @@ void main() {
         );
       }
 
-      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pump();
+      await tester.pump();
       expect(
         tester.getSize(find.byType(LocationChatAnchoredMessageList)).height,
         lessThan(restingMessageListSize.height - 250),
@@ -1308,6 +1334,82 @@ void main() {
       tester.widget<TextField>(textField).focusNode?.unfocus();
       await tester.pump();
       expect(scaffold().resizeToAvoidBottomInset, isFalse);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(harness.service.dispose());
+    },
+  );
+
+  testWidgets(
+    'location chat composer follows keyboard frames with a bottom safe area',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+      addTearDown(tester.view.resetViewPadding);
+      final harness = await _connectedLocationChatTestService();
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              leaveOnInactive: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final textField = find.byType(TextField);
+      final messageList = find.byType(LocationChatAnchoredMessageList);
+      final restingBottom = tester.getBottomRight(textField).dy;
+      final restingMessageListSize = tester.getSize(messageList);
+
+      for (final rawInset in [20.0, 34.0, 100.0, 220.0, 300.0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: rawInset);
+        await tester.pump();
+        final effectiveInset = math.max(0.0, rawInset - 34);
+        expect(
+          tester.getBottomRight(textField).dy,
+          closeTo(restingBottom - effectiveInset, 0.1),
+        );
+        expect(tester.getSize(messageList), restingMessageListSize);
+      }
+
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester.getSize(messageList).height,
+        closeTo(restingMessageListSize.height - 266, 0.1),
+      );
+
+      for (final rawInset in [220.0, 100.0, 34.0, 20.0, 0.0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: rawInset);
+        await tester.pump();
+        final effectiveInset = math.max(0.0, rawInset - 34);
+        expect(
+          tester.getBottomRight(textField).dy,
+          closeTo(restingBottom - effectiveInset, 0.1),
+        );
+      }
+      expect(tester.getSize(messageList), restingMessageListSize);
+
+      // A stale opening commit must not run after a quick reversal.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      expect(tester.getBottomRight(textField).dy, closeTo(restingBottom, 0.1));
+      expect(tester.getSize(messageList), restingMessageListSize);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();

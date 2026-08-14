@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -57,9 +58,7 @@ const double _locationChatBackgroundPreviewLogicalWidth = 120;
 const Duration _locationChatBackgroundFadeDuration = Duration(
   milliseconds: 150,
 );
-const Duration _locationChatKeyboardInsetSettleDelay = Duration(
-  milliseconds: 48,
-);
+const int _locationChatKeyboardMotionTraceMaxSamples = 120;
 const double _locationChatEdgeSwipeWidth = 24;
 const double _locationChatEdgeSwipeTriggerDistance = 64;
 const double _locationChatEdgeSwipeTriggerVelocity = 450;
@@ -96,6 +95,14 @@ bool locationChatManagesKeyboardInsetForTesting({
 }) {
   return platform == TargetPlatform.iOS ||
       platform == TargetPlatform.android && (androidSdkInt ?? 0) >= 30;
+}
+
+@visibleForTesting
+double locationChatEffectiveKeyboardInsetForTesting({
+  required double rawKeyboardInset,
+  required double bottomSafeAreaInset,
+}) {
+  return math.max(0.0, rawKeyboardInset - bottomSafeAreaInset);
 }
 
 @visibleForTesting
@@ -711,6 +718,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       platform: Theme.of(context).platform,
       androidSdkInt: _androidSdkInt,
     );
+    final bottomSafeAreaInset = GenesisSafeAreaInsets.bottom(context);
     final messageList = LocationChatAnchoredMessageList(
       key: const ValueKey<String>('location-chat-message-list'),
       coordinator: _scrollCoordinator,
@@ -760,8 +768,24 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                     'location-chat-ios-keyboard-inset',
                   ),
                   managesKeyboardInset: managesKeyboardInset,
+                  bottomSafeAreaInset: bottomSafeAreaInset,
                   shouldFollowLatest: () =>
                       _scrollCoordinator.shouldFollowLatest,
+                  onKeyboardMotionTraceSettled: kDebugMode
+                      ? (samples) {
+                          if (!LocationChatDebugSlice.enabled) return;
+                          LocationChatDebugSlice.recordEvent(
+                            source: 'panel',
+                            action: 'keyboard_motion_settled',
+                            worldId: widget.worldId,
+                            locationId: widget.locationId,
+                            details: <String, Object?>{
+                              'sampleCount': samples.length,
+                              'samples': samples,
+                            },
+                          );
+                        }
+                      : null,
                   messageViewport: Stack(
                     children: [
                       Positioned.fill(
@@ -826,14 +850,18 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
   const _LocationChatKeyboardInsetLayout({
     super.key,
     required this.managesKeyboardInset,
+    required this.bottomSafeAreaInset,
     required this.shouldFollowLatest,
+    this.onKeyboardMotionTraceSettled,
     required this.messageViewport,
     required this.header,
     required this.composer,
   });
 
   final bool managesKeyboardInset;
+  final double bottomSafeAreaInset;
   final ValueGetter<bool> shouldFollowLatest;
+  final ValueChanged<List<Map<String, Object?>>>? onKeyboardMotionTraceSettled;
   final Widget messageViewport;
   final Widget header;
   final Widget composer;
@@ -846,9 +874,11 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
 class _LocationChatKeyboardInsetLayoutState
     extends State<_LocationChatKeyboardInsetLayout>
     with WidgetsBindingObserver {
-  Timer? _settleTimer;
+  int _keyboardMetricsGeneration = 0;
   double _liveKeyboardInset = 0;
   double _layoutKeyboardInset = 0;
+  List<Map<String, Object?>>? _keyboardMotionSamples;
+  Stopwatch? _keyboardMotionStopwatch;
 
   @override
   void initState() {
@@ -877,8 +907,17 @@ class _LocationChatKeyboardInsetLayoutState
   @override
   void didUpdateWidget(covariant _LocationChatKeyboardInsetLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.managesKeyboardInset) return;
-    _settleTimer?.cancel();
+    if (widget.onKeyboardMotionTraceSettled == null) {
+      _clearKeyboardMotionTrace();
+    }
+    if (widget.managesKeyboardInset) {
+      if (!oldWidget.managesKeyboardInset) {
+        _updateLiveKeyboardInset(_viewKeyboardInset());
+      }
+      return;
+    }
+    _keyboardMetricsGeneration += 1;
+    _clearKeyboardMotionTrace();
     _liveKeyboardInset = 0;
     _layoutKeyboardInset = 0;
   }
@@ -896,18 +935,65 @@ class _LocationChatKeyboardInsetLayoutState
       _layoutKeyboardInset = 0;
     }
 
-    _settleTimer?.cancel();
-    if ((_layoutKeyboardInset - nextInset).abs() <= precisionErrorTolerance) {
-      return;
-    }
-    _settleTimer = Timer(_locationChatKeyboardInsetSettleDelay, () {
-      if (!mounted ||
-          (_layoutKeyboardInset - _liveKeyboardInset).abs() <=
-              precisionErrorTolerance) {
+    _recordKeyboardMotionSample(nextInset);
+    final generation = ++_keyboardMetricsGeneration;
+    _scheduleStableFrameCheck(generation, stableFrameCount: 0);
+  }
+
+  void _scheduleStableFrameCheck(
+    int generation, {
+    required int stableFrameCount,
+  }) {
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      if (!mounted || generation != _keyboardMetricsGeneration) return;
+      final nextStableFrameCount = stableFrameCount + 1;
+      if (nextStableFrameCount < 2) {
+        _scheduleStableFrameCheck(
+          generation,
+          stableFrameCount: nextStableFrameCount,
+        );
         return;
       }
-      setState(() => _layoutKeyboardInset = _liveKeyboardInset);
+
+      final needsLayoutCommit =
+          (_layoutKeyboardInset - _liveKeyboardInset).abs() >
+          precisionErrorTolerance;
+      if (needsLayoutCommit) {
+        setState(() => _layoutKeyboardInset = _liveKeyboardInset);
+      }
+      _finishKeyboardMotionTrace();
     });
+  }
+
+  void _recordKeyboardMotionSample(double rawKeyboardInset) {
+    if (widget.onKeyboardMotionTraceSettled == null) return;
+    final stopwatch = _keyboardMotionStopwatch ??= Stopwatch()..start();
+    final samples = _keyboardMotionSamples ??= <Map<String, Object?>>[];
+    if (samples.length == _locationChatKeyboardMotionTraceMaxSamples) {
+      samples.removeAt(0);
+    }
+    final effectiveKeyboardInset = _effectiveKeyboardInset(rawKeyboardInset);
+    samples.add(<String, Object?>{
+      'elapsedMicros': stopwatch.elapsedMicroseconds,
+      'rawInset': rawKeyboardInset,
+      'effectiveInset': effectiveKeyboardInset,
+      'composerTranslationY': -effectiveKeyboardInset,
+    });
+  }
+
+  void _finishKeyboardMotionTrace() {
+    final samples = _keyboardMotionSamples;
+    final callback = widget.onKeyboardMotionTraceSettled;
+    if (samples != null && samples.isNotEmpty && callback != null) {
+      callback(List<Map<String, Object?>>.unmodifiable(samples));
+    }
+    _clearKeyboardMotionTrace();
+  }
+
+  void _clearKeyboardMotionTrace() {
+    _keyboardMotionSamples = null;
+    _keyboardMotionStopwatch?.stop();
+    _keyboardMotionStopwatch = null;
   }
 
   double _viewKeyboardInset() {
@@ -916,23 +1002,33 @@ class _LocationChatKeyboardInsetLayoutState
     return view.viewInsets.bottom / view.devicePixelRatio;
   }
 
+  double _effectiveKeyboardInset(double rawKeyboardInset) {
+    return locationChatEffectiveKeyboardInsetForTesting(
+      rawKeyboardInset: rawKeyboardInset,
+      bottomSafeAreaInset: widget.bottomSafeAreaInset,
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _settleTimer?.cancel();
+    _keyboardMetricsGeneration += 1;
+    _clearKeyboardMotionTrace();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final liveKeyboardInset = _effectiveKeyboardInset(_liveKeyboardInset);
+    final layoutKeyboardInset = _effectiveKeyboardInset(_layoutKeyboardInset);
     final messageTranslation = widget.shouldFollowLatest()
-        ? _layoutKeyboardInset - _liveKeyboardInset
+        ? layoutKeyboardInset - liveKeyboardInset
         : 0.0;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(
-          bottom: _layoutKeyboardInset,
+          bottom: layoutKeyboardInset,
           child: Transform.translate(
             key: const ValueKey<String>(
               'location-chat-message-keyboard-transform',
@@ -950,7 +1046,7 @@ class _LocationChatKeyboardInsetLayoutState
             key: const ValueKey<String>(
               'location-chat-composer-keyboard-transform',
             ),
-            offset: Offset(0, -_liveKeyboardInset),
+            offset: Offset(0, -liveKeyboardInset),
             child: widget.composer,
           ),
         ),
