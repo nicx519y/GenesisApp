@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,7 @@ import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
@@ -24,6 +26,8 @@ import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/pages/chat/message_parsers/location_chat_message_parsers.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
+import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
+import 'package:genesis_flutter_android/platform/device/android_sdk_version.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
@@ -48,7 +52,14 @@ bool _returnTrue() => true;
 bool _returnFalse() => false;
 
 void main() {
-  tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+  tearDown(() {
+    FirebaseAnalyticsMonitoring.resetForTesting();
+    debugDefaultTargetPlatformOverride = null;
+    resetAndroidSdkIntForTesting();
+    locationChatHeaderEffectSettings.resetForTesting();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(GenesisMethodChannels.device, null);
+  });
 
   test(
     'location chat metadata updates contain asynchronous failures',
@@ -82,12 +93,17 @@ void main() {
       pageSource,
       isNot(contains('MediaQuery.maybeOf(context)?.devicePixelRatio')),
     );
-    expect(pageSource, isNot(contains('with WidgetsBindingObserver')));
     expect(
       pageSource,
-      isNot(contains('WidgetsBinding.instance.addObserver(this)')),
+      contains(
+        'class _LocationChatPanelState extends State<LocationChatPanel> {',
+      ),
     );
-    expect(pageSource, isNot(contains('void didChangeMetrics()')));
+    expect(pageSource, contains('class _LocationChatKeyboardInsetLayoutState'));
+    expect(
+      RegExp(r'void didChangeMetrics\(\)').allMatches(pageSource),
+      hasLength(1),
+    );
     expect(
       coordinatorSource,
       contains('class LocationChatBottomAnchoringScrollPhysics'),
@@ -104,6 +120,133 @@ void main() {
       ).allMatches(implementationSource),
       hasLength(2),
     );
+  });
+
+  test('location chat image widgets subscribe only to DPR changes', () {
+    for (final path in [
+      'lib/ui/components/genesis_static_network_image.dart',
+      'lib/ui/components/genesis_avatar.dart',
+      'lib/ui/components/genesis_list_image.dart',
+      'lib/components/chat/shared/chat_ui_media.dart',
+    ]) {
+      final source = File(path).readAsStringSync();
+      expect(
+        source,
+        contains('MediaQuery.devicePixelRatioOf(context)'),
+        reason: path,
+      );
+      expect(
+        source,
+        isNot(contains('MediaQuery.maybeOf(context)?.devicePixelRatio')),
+        reason: path,
+      );
+    }
+  });
+
+  test('manual keyboard inset starts at Android 11', () {
+    expect(
+      locationChatManagesKeyboardInsetForTesting(
+        platform: TargetPlatform.iOS,
+        androidSdkInt: null,
+      ),
+      isTrue,
+    );
+    expect(
+      locationChatManagesKeyboardInsetForTesting(
+        platform: TargetPlatform.android,
+        androidSdkInt: 29,
+      ),
+      isFalse,
+    );
+    expect(
+      locationChatManagesKeyboardInsetForTesting(
+        platform: TargetPlatform.android,
+        androidSdkInt: 30,
+      ),
+      isTrue,
+    );
+  });
+
+  test('minimum header effects disable transparency and blur', () {
+    final style = resolveLocationChatHeaderEffectStyle(
+      baseStyle: kLocationChatStyle,
+      settings: const LocationChatHeaderEffectSettings(
+        transparencyStrength: 0,
+        blurSigma: 0,
+      ),
+    );
+
+    expect(style.headerBackgroundGradient, isNull);
+    expect(style.headerBackgroundColor.a, 1);
+    expect(style.headerBackdropBlurSigma, 0);
+  });
+
+  testWidgets('Android 11 uses the manual keyboard inset layout', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(GenesisMethodChannels.device, (call) async {
+          if (call.method == GenesisMethodChannels.getAndroidSdkInt) return 30;
+          return null;
+        });
+    expect(await loadAndroidSdkInt(), 30);
+    debugDefaultTargetPlatformOverride = null;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    final harness = await _connectedLocationChatTestService();
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.android),
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: harness.service,
+            leaveOnInactive: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    final textField = find.byType(TextField);
+    final restingBottom = tester.getBottomRight(textField).dy;
+    expect(scaffold.resizeToAvoidBottomInset, isFalse);
+
+    expect(tester.widget<ChatHeader>(find.byType(ChatHeader)).style, isNotNull);
+    locationChatHeaderEffectSettings.previewTransparencyStrength(0);
+    locationChatHeaderEffectSettings.previewBlurSigma(0);
+    await tester.pump();
+    final disabledHeaderStyle = tester
+        .widget<ChatHeader>(find.byType(ChatHeader))
+        .style!;
+    expect(disabledHeaderStyle.headerBackgroundGradient, isNull);
+    expect(disabledHeaderStyle.headerBackgroundColor.a, 1);
+    expect(disabledHeaderStyle.headerBackdropBlurSigma, 0);
+    expect(
+      find.descendant(
+        of: find.byType(ChatHeader),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsNothing,
+    );
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    expect(
+      tester.getBottomRight(textField).dy,
+      closeTo(restingBottom - 300, 0.1),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(harness.service.dispose());
   });
 
   test('chat scroll physics keeps a bottom-aligned viewport anchored', () {
@@ -1085,7 +1228,7 @@ void main() {
   });
 
   testWidgets(
-    'location chat animates iOS keyboard inset without changing Android',
+    'location chat follows iOS keyboard inset and keeps unknown Android automatic',
     (WidgetTester tester) async {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -1116,26 +1259,43 @@ void main() {
 
       expect(scaffold().resizeToAvoidBottomInset, isFalse);
       expect(
-        tester.widget<AnimatedPadding>(keyboardInset).duration,
-        const Duration(milliseconds: 250),
+        find.descendant(
+          of: keyboardInset,
+          matching: find.byType(AnimatedPadding),
+        ),
+        findsNothing,
       );
       final restingBottom = tester.getBottomRight(textField).dy;
+      final restingMessageListSize = tester.getSize(
+        find.byType(LocationChatAnchoredMessageList),
+      );
 
-      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      final keyboardBottom = tester.getBottomRight(textField).dy;
-      expect(keyboardBottom, lessThan(restingBottom - 250));
+      for (final inset in [100.0, 200.0, 300.0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: inset);
+        await tester.pump();
+        expect(
+          tester.getBottomRight(textField).dy,
+          closeTo(restingBottom - inset, 0.1),
+        );
+        expect(
+          tester.getSize(find.byType(LocationChatAnchoredMessageList)),
+          restingMessageListSize,
+        );
+      }
+
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(
+        tester.getSize(find.byType(LocationChatAnchoredMessageList)).height,
+        lessThan(restingMessageListSize.height - 250),
+      );
 
       tester.view.resetViewInsets();
       await tester.pump();
-      expect(tester.getBottomRight(textField).dy, closeTo(keyboardBottom, 0.1));
-      await tester.pump(const Duration(milliseconds: 125));
-      final dismissingBottom = tester.getBottomRight(textField).dy;
-      expect(dismissingBottom, greaterThan(keyboardBottom));
-      expect(dismissingBottom, lessThan(restingBottom));
-      await tester.pump(const Duration(milliseconds: 200));
       expect(tester.getBottomRight(textField).dy, closeTo(restingBottom, 0.1));
+      expect(
+        tester.getSize(find.byType(LocationChatAnchoredMessageList)),
+        restingMessageListSize,
+      );
 
       await tester.pumpWidget(panel(TargetPlatform.android));
       await tester.pump(const Duration(milliseconds: 300));

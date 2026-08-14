@@ -48,7 +48,7 @@ class GenesisAvatar extends StatelessWidget {
       url,
       logicalWidth: imageWidth,
       logicalHeight: imageHeight,
-      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     ).trim();
     final fallback = GenesisAvatarFallback(
       name: safeName,

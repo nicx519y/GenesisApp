@@ -66,8 +66,7 @@ class _GenesisStaticNetworkImageState extends State<GenesisStaticNetworkImage> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final devicePixelRatio =
-            MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+        final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
         final logicalWidth = _resolveLogicalDimension(
           widget.width,
           constraints.maxWidth,

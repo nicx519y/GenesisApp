@@ -31,8 +31,7 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final nextDevicePixelRatio =
-        MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+    final nextDevicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     if (_provider == null ||
         (nextDevicePixelRatio - _devicePixelRatio).abs() > 0.01) {
       _devicePixelRatio = nextDevicePixelRatio;

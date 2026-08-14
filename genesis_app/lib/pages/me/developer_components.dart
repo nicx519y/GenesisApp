@@ -51,6 +51,68 @@ class _DeveloperToggleRow extends StatelessWidget {
   }
 }
 
+class _DeveloperSliderControl extends StatelessWidget {
+  const _DeveloperSliderControl({
+    required this.label,
+    required this.valueLabel,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.sliderKey,
+    required this.onChanged,
+    required this.onChangeEnd,
+  });
+
+  final String label;
+  final String valueLabel;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final Key sliderKey;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              valueLabel,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF666666)),
+            ),
+          ],
+        ),
+        Slider(
+          key: sliderKey,
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: valueLabel,
+          onChanged: onChanged,
+          onChangeEnd: onChangeEnd,
+        ),
+      ],
+    );
+  }
+}
+
 class _DeveloperGemPurchasePreview {
   _DeveloperGemPurchasePreview()
     : walletStore = GemWalletStore(

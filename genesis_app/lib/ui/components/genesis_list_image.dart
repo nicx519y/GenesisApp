@@ -62,7 +62,7 @@ class GenesisListImage extends StatelessWidget {
       imageUrl,
       logicalWidth: _finite(width) ?? _finite(constraints.maxWidth),
       logicalHeight: _finite(height) ?? _finite(constraints.maxHeight),
-      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     ).trim();
   }
 

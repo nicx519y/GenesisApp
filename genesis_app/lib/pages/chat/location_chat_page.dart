@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
+import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
@@ -28,6 +29,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
+import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_static_network_image.dart';
@@ -54,6 +56,9 @@ const double _locationChatMaxBackgroundImageDevicePixelRatio = 2;
 const double _locationChatBackgroundPreviewLogicalWidth = 120;
 const Duration _locationChatBackgroundFadeDuration = Duration(
   milliseconds: 150,
+);
+const Duration _locationChatKeyboardInsetSettleDelay = Duration(
+  milliseconds: 48,
 );
 const double _locationChatEdgeSwipeWidth = 24;
 const double _locationChatEdgeSwipeTriggerDistance = 64;
@@ -82,6 +87,73 @@ bool locationChatShouldShowAiContentDisclaimerForTesting({
   required bool loadingOlderMessages,
 }) {
   return initialContentReady && !hasMoreOlderMessages && !loadingOlderMessages;
+}
+
+@visibleForTesting
+bool locationChatManagesKeyboardInsetForTesting({
+  required TargetPlatform platform,
+  required int? androidSdkInt,
+}) {
+  return platform == TargetPlatform.iOS ||
+      platform == TargetPlatform.android && (androidSdkInt ?? 0) >= 30;
+}
+
+@visibleForTesting
+ChatUiStyleConfig resolveLocationChatHeaderEffectStyle({
+  required ChatUiStyleConfig baseStyle,
+  required LocationChatHeaderEffectSettings settings,
+}) {
+  final transparencyStrength = settings.transparencyStrength
+      .clamp(0.0, 1.0)
+      .toDouble();
+  final blurSigma = settings.blurSigma
+      .clamp(
+        LocationChatHeaderEffectSettings.minBlurSigma,
+        LocationChatHeaderEffectSettings.maxBlurSigma,
+      )
+      .toDouble();
+  final opaqueBackground = baseStyle.conversationBackgroundColor.withValues(
+    alpha: 1,
+  );
+  if (transparencyStrength <= 0) {
+    return baseStyle.copyWith(
+      headerBackgroundColor: opaqueBackground,
+      clearHeaderBackgroundGradient: true,
+      headerBackdropBlurSigma: blurSigma,
+    );
+  }
+
+  final sourceGradient = baseStyle.headerBackgroundGradient;
+  if (sourceGradient is! LinearGradient) {
+    return baseStyle.copyWith(
+      headerBackgroundColor: Color.lerp(
+        opaqueBackground,
+        baseStyle.headerBackgroundColor,
+        transparencyStrength,
+      ),
+      clearHeaderBackgroundGradient: true,
+      headerBackdropBlurSigma: blurSigma,
+    );
+  }
+  return baseStyle.copyWith(
+    headerBackgroundGradient: LinearGradient(
+      begin: sourceGradient.begin,
+      end: sourceGradient.end,
+      colors: sourceGradient.colors
+          .map(
+            (color) => Color.lerp(
+              color.withValues(alpha: 1),
+              color,
+              transparencyStrength,
+            )!,
+          )
+          .toList(growable: false),
+      stops: sourceGradient.stops,
+      tileMode: sourceGradient.tileMode,
+      transform: sourceGradient.transform,
+    ),
+    headerBackdropBlurSigma: blurSigma,
+  );
 }
 
 class LocationChatPage extends StatefulWidget {
@@ -345,6 +417,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       <String, String>{};
   final ChatMessageVm _aiContentDisclaimerMessage =
       ChatMessageVm.aiContentDisclaimer();
+  int? _androidSdkInt;
 
   bool get _sendAwaitingResponse {
     final state = _service?.state ?? _chatroomState;
@@ -373,6 +446,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void initState() {
     super.initState();
+    locationChatHeaderEffectSettings.addListener(
+      _handleHeaderEffectSettingsChanged,
+    );
+    unawaited(locationChatHeaderEffectSettings.load());
+    _androidSdkInt = cachedAndroidSdkInt;
     _retainModelEntryInHeader = widget.active;
     _scrollCoordinator = LocationChatScrollCoordinator()
       ..addListener(_handleViewportCoordinatorChanged);
@@ -394,10 +472,25 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _scrollCoordinator.enter();
     _prepareConnection();
     unawaited(_loadSelectedModelCodeFromCache());
+    unawaited(_loadAndroidSdkIntForKeyboardInset());
+  }
+
+  Future<void> _loadAndroidSdkIntForKeyboardInset() async {
+    final sdkInt = await loadAndroidSdkInt();
+    if (!mounted || sdkInt == null || sdkInt == _androidSdkInt) return;
+    _setLocationChatState(() => _androidSdkInt = sdkInt);
+  }
+
+  void _handleHeaderEffectSettingsChanged() {
+    if (!mounted) return;
+    _setLocationChatState(() {});
   }
 
   @override
   void dispose() {
+    locationChatHeaderEffectSettings.removeListener(
+      _handleHeaderEffectSettingsChanged,
+    );
     _cancelOlderMessagesLoadSchedule();
     _selectedModelLoadGeneration++;
     _timelineVmCache.clear();
@@ -543,7 +636,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
-    final baseStyle = widget.style ?? kLocationChatStyle;
+    final baseStyle = resolveLocationChatHeaderEffectStyle(
+      baseStyle: widget.style ?? kLocationChatStyle,
+      settings: locationChatHeaderEffectSettings.value,
+    );
     final style = baseStyle.copyWith(
       headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
         fontSize: 12,
@@ -611,11 +707,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       ),
     );
     final displayMessages = _locationChatDisplayMessages();
-    final managesIosKeyboardInset =
-        Theme.of(context).platform == TargetPlatform.iOS;
-    final keyboardBottomInset = managesIosKeyboardInset
-        ? MediaQuery.viewInsetsOf(context).bottom
-        : 0.0;
+    final managesKeyboardInset = locationChatManagesKeyboardInsetForTesting(
+      platform: Theme.of(context).platform,
+      androidSdkInt: _androidSdkInt,
+    );
     final messageList = LocationChatAnchoredMessageList(
       key: const ValueKey<String>('location-chat-message-list'),
       coordinator: _scrollCoordinator,
@@ -659,55 +754,43 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               child: Scaffold(
                 backgroundColor: Colors.transparent,
                 resizeToAvoidBottomInset:
-                    !managesIosKeyboardInset && _composerFocusNode.hasFocus,
-                body: AnimatedPadding(
+                    !managesKeyboardInset && _composerFocusNode.hasFocus,
+                body: _LocationChatKeyboardInsetLayout(
                   key: const ValueKey<String>(
                     'location-chat-ios-keyboard-inset',
                   ),
-                  duration: managesIosKeyboardInset
-                      ? const Duration(milliseconds: 250)
-                      : Duration.zero,
-                  curve: Curves.easeOutCubic,
-                  padding: EdgeInsets.only(bottom: keyboardBottomInset),
-                  child: Stack(
-                    clipBehavior: Clip.none,
+                  managesKeyboardInset: managesKeyboardInset,
+                  shouldFollowLatest: () =>
+                      _scrollCoordinator.shouldFollowLatest,
+                  messageViewport: Stack(
                     children: [
-                      Stack(
-                        children: [
-                          Positioned.fill(
-                            child: NotificationListener<ScrollNotification>(
-                              onNotification:
-                                  _scrollCoordinator.handleScrollNotification,
-                              child: messageList,
-                            ),
-                          ),
-                          if (_unseenIncomingCount > 0)
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: composerHeight + 12,
-                              child: Center(
-                                child: _LocationChatNewMessageNotice(
-                                  count: _unseenIncomingCount,
-                                  onTap: _openUnseenIncomingMessages,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      Positioned(left: 0, right: 0, top: 0, child: header),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: RepaintBoundary(
-                          child: _LocationChatComposerExtension(
-                            style: style,
-                            child: composer,
-                          ),
+                      Positioned.fill(
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification:
+                              _scrollCoordinator.handleScrollNotification,
+                          child: messageList,
                         ),
                       ),
+                      if (_unseenIncomingCount > 0)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: composerHeight + 12,
+                          child: Center(
+                            child: _LocationChatNewMessageNotice(
+                              count: _unseenIncomingCount,
+                              onTap: _openUnseenIncomingMessages,
+                            ),
+                          ),
+                        ),
                     ],
+                  ),
+                  header: header,
+                  composer: RepaintBoundary(
+                    child: _LocationChatComposerExtension(
+                      style: style,
+                      child: composer,
+                    ),
                   ),
                 ),
               ),
@@ -736,5 +819,142 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     return widget.active &&
         widget.onBack != null &&
         defaultTargetPlatform == TargetPlatform.iOS;
+  }
+}
+
+class _LocationChatKeyboardInsetLayout extends StatefulWidget {
+  const _LocationChatKeyboardInsetLayout({
+    super.key,
+    required this.managesKeyboardInset,
+    required this.shouldFollowLatest,
+    required this.messageViewport,
+    required this.header,
+    required this.composer,
+  });
+
+  final bool managesKeyboardInset;
+  final ValueGetter<bool> shouldFollowLatest;
+  final Widget messageViewport;
+  final Widget header;
+  final Widget composer;
+
+  @override
+  State<_LocationChatKeyboardInsetLayout> createState() =>
+      _LocationChatKeyboardInsetLayoutState();
+}
+
+class _LocationChatKeyboardInsetLayoutState
+    extends State<_LocationChatKeyboardInsetLayout>
+    with WidgetsBindingObserver {
+  Timer? _settleTimer;
+  double _liveKeyboardInset = 0;
+  double _layoutKeyboardInset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateLiveKeyboardInset(
+      widget.managesKeyboardInset ? _viewKeyboardInset() : 0,
+    );
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!mounted || !widget.managesKeyboardInset) return;
+    final nextInset = _viewKeyboardInset();
+    if ((_liveKeyboardInset - nextInset).abs() <= precisionErrorTolerance) {
+      return;
+    }
+    setState(() => _updateLiveKeyboardInset(nextInset));
+  }
+
+  @override
+  void didUpdateWidget(covariant _LocationChatKeyboardInsetLayout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.managesKeyboardInset) return;
+    _settleTimer?.cancel();
+    _liveKeyboardInset = 0;
+    _layoutKeyboardInset = 0;
+  }
+
+  void _updateLiveKeyboardInset(double nextInset) {
+    if ((_liveKeyboardInset - nextInset).abs() <= precisionErrorTolerance) {
+      return;
+    }
+    final keyboardIsLowering = nextInset < _liveKeyboardInset;
+    _liveKeyboardInset = nextInset;
+
+    // Expand once when dismissal starts. Subsequent keyboard frames only
+    // update transforms, so the message viewport is not laid out every frame.
+    if (keyboardIsLowering && _layoutKeyboardInset > 0) {
+      _layoutKeyboardInset = 0;
+    }
+
+    _settleTimer?.cancel();
+    if ((_layoutKeyboardInset - nextInset).abs() <= precisionErrorTolerance) {
+      return;
+    }
+    _settleTimer = Timer(_locationChatKeyboardInsetSettleDelay, () {
+      if (!mounted ||
+          (_layoutKeyboardInset - _liveKeyboardInset).abs() <=
+              precisionErrorTolerance) {
+        return;
+      }
+      setState(() => _layoutKeyboardInset = _liveKeyboardInset);
+    });
+  }
+
+  double _viewKeyboardInset() {
+    final view = View.maybeOf(context);
+    if (view == null || view.devicePixelRatio <= 0) return 0;
+    return view.viewInsets.bottom / view.devicePixelRatio;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _settleTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final messageTranslation = widget.shouldFollowLatest()
+        ? _layoutKeyboardInset - _liveKeyboardInset
+        : 0.0;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          bottom: _layoutKeyboardInset,
+          child: Transform.translate(
+            key: const ValueKey<String>(
+              'location-chat-message-keyboard-transform',
+            ),
+            offset: Offset(0, messageTranslation),
+            child: RepaintBoundary(child: widget.messageViewport),
+          ),
+        ),
+        Positioned(left: 0, right: 0, top: 0, child: widget.header),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Transform.translate(
+            key: const ValueKey<String>(
+              'location-chat-composer-keyboard-transform',
+            ),
+            offset: Offset(0, -_liveKeyboardInset),
+            child: widget.composer,
+          ),
+        ),
+      ],
+    );
   }
 }

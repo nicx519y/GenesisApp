@@ -1967,6 +1967,67 @@ void main() {
     );
   });
 
+  testWidgets('location chat header uses translucent backdrop blur', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatHeader(
+            title: 'Market',
+            subtitle: 'Alice, Bob',
+            connected: true,
+            connecting: false,
+            onBack: () {},
+            style: kLocationChatStyle,
+          ),
+        ),
+      ),
+    );
+
+    expect(kLocationChatStyle.headerBackdropBlurSigma, 10);
+    final gradient = kLocationChatStyle.headerBackgroundGradient;
+    expect(gradient, isNotNull);
+    expect(gradient!.colors, const [Color(0xA6111111), Color(0x33111111)]);
+    expect(
+      find.descendant(
+        of: find.byType(ChatHeader),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('location chat composer is opaque without backdrop blur', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatComposer(
+            controller: TextEditingController(),
+            inputEnabled: true,
+            sendEnabled: false,
+            sending: false,
+            onSend: () async {},
+            style: kLocationChatStyle,
+          ),
+        ),
+      ),
+    );
+
+    expect(kLocationChatStyle.composerBackdropBlurSigma, 0);
+    expect(kLocationChatStyle.composerBackgroundGradient, isNull);
+    expect(kLocationChatStyle.composerBackgroundColor.a, 1);
+    expect(
+      find.descendant(
+        of: find.byType(ChatComposer),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('location chat header left aligns title and subtitle rows', (
     WidgetTester tester,
   ) async {
