@@ -1084,6 +1084,77 @@ void main() {
     expect(panel.unauthorizedHandledByOwner, isFalse);
   });
 
+  testWidgets(
+    'location chat animates iOS keyboard inset without changing Android',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+      final harness = await _connectedLocationChatTestService();
+
+      Widget panel(TargetPlatform platform) => AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          theme: ThemeData(platform: platform),
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: harness.service,
+            leaveOnInactive: false,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(panel(TargetPlatform.iOS));
+      await tester.pump();
+
+      Scaffold scaffold() => tester.widget<Scaffold>(find.byType(Scaffold));
+      final keyboardInset = find.byKey(
+        const ValueKey<String>('location-chat-ios-keyboard-inset'),
+      );
+      final textField = find.byType(TextField);
+
+      expect(scaffold().resizeToAvoidBottomInset, isFalse);
+      expect(
+        tester.widget<AnimatedPadding>(keyboardInset).duration,
+        const Duration(milliseconds: 250),
+      );
+      final restingBottom = tester.getBottomRight(textField).dy;
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final keyboardBottom = tester.getBottomRight(textField).dy;
+      expect(keyboardBottom, lessThan(restingBottom - 250));
+
+      tester.view.resetViewInsets();
+      await tester.pump();
+      expect(tester.getBottomRight(textField).dy, closeTo(keyboardBottom, 0.1));
+      await tester.pump(const Duration(milliseconds: 125));
+      final dismissingBottom = tester.getBottomRight(textField).dy;
+      expect(dismissingBottom, greaterThan(keyboardBottom));
+      expect(dismissingBottom, lessThan(restingBottom));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.getBottomRight(textField).dy, closeTo(restingBottom, 0.1));
+
+      await tester.pumpWidget(panel(TargetPlatform.android));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(scaffold().resizeToAvoidBottomInset, isFalse);
+
+      tester.widget<TextField>(textField).focusNode?.requestFocus();
+      await tester.pump();
+      expect(scaffold().resizeToAvoidBottomInset, isTrue);
+
+      tester.widget<TextField>(textField).focusNode?.unfocus();
+      await tester.pump();
+      expect(scaffold().resizeToAvoidBottomInset, isFalse);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(harness.service.dispose());
+    },
+  );
+
   test('selected model code reads the user info sibling field', () {
     expect(
       selectedModelCodeFromUserInfo({

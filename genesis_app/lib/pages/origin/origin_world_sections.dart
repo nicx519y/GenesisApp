@@ -264,54 +264,6 @@ List<Widget> _originInitialDialogueSlivers(
   final padding = style.messageListPadding;
   final brief = _originWorldoBrief(origin);
   return <Widget>[
-    if (brief.isNotEmpty)
-      SliverToBoxAdapter(
-        child: Padding(
-          key: const ValueKey<String>('origin-opening-worldo-brief'),
-          padding: EdgeInsets.fromLTRB(
-            padding.left,
-            6,
-            padding.right,
-            originDetailSectionGapForTesting,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(
-                    MyFlutterApp.eye,
-                    key: ValueKey<String>('origin-opening-worldo-brief-icon'),
-                    size: 16,
-                    color: Color(0xFFFF2442),
-                  ),
-                  SizedBox(width: originDetailSectionTitleIconGapForTesting),
-                  Flexible(
-                    child: Text(
-                      'Worldo Brief',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 16,
-                        height: 1.2,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                brief,
-                key: const ValueKey<String>('origin-opening-worldo-brief-body'),
-                style: _bodyTextStyle.copyWith(fontSize: 14),
-              ),
-            ],
-          ),
-        ),
-      ),
     SliverToBoxAdapter(
       child: Padding(
         key: const ValueKey<String>('origin-opening-location'),
@@ -371,6 +323,61 @@ List<Widget> _originInitialDialogueSlivers(
             style: messageStyle,
           );
         },
+      ),
+    ),
+  ];
+}
+
+List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
+  final brief = _originWorldoBrief(origin);
+  if (brief.isEmpty) return const <Widget>[];
+  final padding = kLocationChatStyle.messageListPadding;
+  return <Widget>[
+    SliverToBoxAdapter(
+      child: Padding(
+        key: const ValueKey<String>('origin-opening-worldo-brief'),
+        padding: EdgeInsets.fromLTRB(
+          padding.left,
+          6,
+          padding.right,
+          originDetailSectionGapForTesting,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(
+                  MyFlutterApp.eye,
+                  key: ValueKey<String>('origin-opening-worldo-brief-icon'),
+                  size: 16,
+                  color: Color(0xFFFF2442),
+                ),
+                SizedBox(width: originDetailSectionTitleIconGapForTesting),
+                Flexible(
+                  child: Text(
+                    'Worldo Brief',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111111),
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              brief,
+              key: const ValueKey<String>('origin-opening-worldo-brief-body'),
+              style: _bodyTextStyle.copyWith(fontSize: 14),
+            ),
+          ],
+        ),
       ),
     ),
   ];
