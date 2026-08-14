@@ -419,6 +419,7 @@ class _OriginDetailDraggableSheetState
                             ),
                           )
                         else ...[
+                          ..._originWorldoBriefSlivers(widget.origin),
                           if (initialDialoguePreview != null)
                             ..._originInitialDialogueSlivers(
                               widget.origin,
