@@ -6209,6 +6209,37 @@ void main() {
     expect(lastOpeningRow.style?.rowBottomPadding, 0);
   });
 
+  testWidgets('origin sheet shows Worldo brief without opening dialogue', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originTicks: const <Map<String, Object?>>[],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('origin-opening-worldo-brief')),
+      findsOneWidget,
+    );
+    expect(find.text('Origin detail subtitle'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-opening-location')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-opening-dialogue')),
+      findsNothing,
+    );
+  });
+
   testWidgets(
     'origin detail version 2 selects first multiple-children Tilemap location',
     (WidgetTester tester) async {

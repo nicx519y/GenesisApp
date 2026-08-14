@@ -611,6 +611,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       ),
     );
     final displayMessages = _locationChatDisplayMessages();
+    final managesIosKeyboardInset =
+        Theme.of(context).platform == TargetPlatform.iOS;
+    final keyboardBottomInset = managesIosKeyboardInset
+        ? MediaQuery.viewInsetsOf(context).bottom
+        : 0.0;
     final messageList = LocationChatAnchoredMessageList(
       key: const ValueKey<String>('location-chat-message-list'),
       coordinator: _scrollCoordinator,
@@ -653,46 +658,57 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             Positioned.fill(
               child: Scaffold(
                 backgroundColor: Colors.transparent,
-                resizeToAvoidBottomInset: _composerFocusNode.hasFocus,
-                body: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Stack(
-                      children: [
-                        Positioned.fill(
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification:
-                                _scrollCoordinator.handleScrollNotification,
-                            child: messageList,
-                          ),
-                        ),
-                        if (_unseenIncomingCount > 0)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: composerHeight + 12,
-                            child: Center(
-                              child: _LocationChatNewMessageNotice(
-                                count: _unseenIncomingCount,
-                                onTap: _openUnseenIncomingMessages,
-                              ),
+                resizeToAvoidBottomInset:
+                    !managesIosKeyboardInset && _composerFocusNode.hasFocus,
+                body: AnimatedPadding(
+                  key: const ValueKey<String>(
+                    'location-chat-ios-keyboard-inset',
+                  ),
+                  duration: managesIosKeyboardInset
+                      ? const Duration(milliseconds: 250)
+                      : Duration.zero,
+                  curve: Curves.easeOutCubic,
+                  padding: EdgeInsets.only(bottom: keyboardBottomInset),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Stack(
+                        children: [
+                          Positioned.fill(
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification:
+                                  _scrollCoordinator.handleScrollNotification,
+                              child: messageList,
                             ),
                           ),
-                      ],
-                    ),
-                    Positioned(left: 0, right: 0, top: 0, child: header),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: RepaintBoundary(
-                        child: _LocationChatComposerExtension(
-                          style: style,
-                          child: composer,
+                          if (_unseenIncomingCount > 0)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: composerHeight + 12,
+                              child: Center(
+                                child: _LocationChatNewMessageNotice(
+                                  count: _unseenIncomingCount,
+                                  onTap: _openUnseenIncomingMessages,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      Positioned(left: 0, right: 0, top: 0, child: header),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: RepaintBoundary(
+                          child: _LocationChatComposerExtension(
+                            style: style,
+                            child: composer,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
