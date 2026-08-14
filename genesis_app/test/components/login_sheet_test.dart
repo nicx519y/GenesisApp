@@ -1,11 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/config/app_flavor_config.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
+import 'package:genesis_flutter_android/components/login_provider_button.dart';
 
 void main() {
+  testWidgets('provider buttons follow the current flavor capability', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LoginProviderButtons(loggingInProvider: null, onLogin: (_) {}),
+        ),
+      ),
+    );
+
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(
+      find.text('Continue with Apple'),
+      AppFlavorConfig.currentSupportsAppleSignIn
+          ? findsOneWidget
+          : findsNothing,
+    );
+  });
+
+  testWidgets('provider buttons can expose Google only', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LoginProviderButtons(
+            loggingInProvider: null,
+            onLogin: (_) {},
+            showApple: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsNothing);
+  });
+
   testWidgets('login sheet inherits the standard panel title style', (
     tester,
   ) async {
