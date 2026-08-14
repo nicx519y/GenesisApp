@@ -963,7 +963,7 @@ void main() {
     expect(tilemapTransformScale(minimum), tilemapMinScale);
   });
 
-  test('tile URL resolution selects each density tier', () {
+  test('tile URL resolution selects the nearest density tier', () {
     const baseUrl = 'https://cdn.example.com/tile/a.png';
 
     expect(
@@ -977,19 +977,29 @@ void main() {
       '?x-oss-process=image/resize,w_128,image/format,webp',
     );
     expect(
-      resolveTilemapAssetForDisplaySize(baseUrl, 129),
+      resolveTilemapAssetForDisplaySize(baseUrl, 191.9),
+      'https://cdn.example.com/tile/a.png'
+      '?x-oss-process=image/resize,w_128,image/format,webp',
+    );
+    expect(
+      resolveTilemapAssetForDisplaySize(baseUrl, 192),
       'https://cdn.example.com/tile/a.png'
       '?x-oss-process=image/resize,w_256,image/format,webp',
     );
     expect(
-      resolveTilemapAssetForDisplaySize(baseUrl, 257),
+      resolveTilemapAssetForDisplaySize(baseUrl, 383.9),
+      'https://cdn.example.com/tile/a.png'
+      '?x-oss-process=image/resize,w_256,image/format,webp',
+    );
+    expect(
+      resolveTilemapAssetForDisplaySize(baseUrl, 384),
       'https://cdn.example.com/tile/a.png'
       '?x-oss-process=image/resize,w_512,image/format,webp',
     );
     expect(
-      resolveTilemapAssetForDisplaySize(baseUrl, 513),
+      resolveTilemapAssetForDisplaySize(baseUrl, 575.9),
       'https://cdn.example.com/tile/a.png'
-      '?x-oss-process=image/resize,w_640,image/format,webp',
+      '?x-oss-process=image/resize,w_512,image/format,webp',
     );
     expect(
       resolveTilemapAssetForDisplaySize(baseUrl, 576),
@@ -997,7 +1007,12 @@ void main() {
       '?x-oss-process=image/resize,w_640,image/format,webp',
     );
     expect(
-      resolveTilemapAssetForDisplaySize(baseUrl, 641),
+      resolveTilemapAssetForDisplaySize(baseUrl, 831.9),
+      'https://cdn.example.com/tile/a.png'
+      '?x-oss-process=image/resize,w_640,image/format,webp',
+    );
+    expect(
+      resolveTilemapAssetForDisplaySize(baseUrl, 832),
       'https://cdn.example.com/tile/a.png'
       '?x-oss-process=image/resize,w_1024,image/format,webp',
     );

@@ -421,13 +421,17 @@ String resolveTilemapAssetForDisplaySize(
   }
   final requestedSize =
       displayTilePixelSize.isFinite && displayTilePixelSize > 0
-      ? displayTilePixelSize.ceil()
-      : 128;
+      ? displayTilePixelSize
+      : 128.0;
   const availableSizes = <int>[128, 256, 512, 640, 1024];
-  final resolvedSize = availableSizes.firstWhere(
-    (size) => size >= requestedSize,
-    orElse: () => availableSizes.last,
-  );
+  var resolvedSize = availableSizes.first;
+  var closestDistance = (requestedSize - resolvedSize).abs();
+  for (final size in availableSizes.skip(1)) {
+    final distance = (requestedSize - size).abs();
+    if (distance > closestDistance) continue;
+    resolvedSize = size;
+    closestDistance = distance;
+  }
   return '$path?x-oss-process=image/resize,w_$resolvedSize,'
       'image/format,webp';
 }

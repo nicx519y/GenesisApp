@@ -1062,7 +1062,7 @@ void main() {
 
       expect(pendingLoads, hasLength(2));
       final currentLoad = pendingLoads.entries.singleWhere(
-        (entry) => entry.key.contains('resize,w_256'),
+        (entry) => entry.key.contains('resize,w_128'),
       );
       firstLoad.value.completeError(StateError('stale image failure'));
       await tester.pump();
@@ -1122,7 +1122,7 @@ void main() {
       await tester.pump();
 
       final oldScaleLoad = pendingLoads.entries.single;
-      expect(oldScaleLoad.key, contains('resize,w_256'));
+      expect(oldScaleLoad.key, contains('resize,w_128'));
 
       await tester.tap(
         find.byKey(const ValueKey<String>('tilemap-settings-button')),

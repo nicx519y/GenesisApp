@@ -332,6 +332,12 @@ void main() {
     await _zoomInAndPump(tester);
     expect(
       pendingImages.keys.any((key) => key.contains('resize,w_1024')),
+      false,
+    );
+
+    await _zoomInAndPump(tester);
+    expect(
+      pendingImages.keys.any((key) => key.contains('resize,w_1024')),
       true,
     );
     expect(_mountedTileKeys(tester), hasLength(1));
