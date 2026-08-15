@@ -35,7 +35,6 @@ class ChatMessageBubble extends StatelessWidget {
         child: _InlineMarkdownText(
           text: text.isEmpty ? '...' : text,
           style: style.bubbleTextStyle,
-          useBaseColorForEmphasis: message.isMe,
         ),
       ),
     );

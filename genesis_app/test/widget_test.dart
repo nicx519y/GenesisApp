@@ -15,6 +15,7 @@ import 'package:genesis_flutter_android/app/blocked_user_review_return.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_bottom_navigation.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
@@ -2198,6 +2199,7 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
+    locationChatHeaderEffectSettings.resetForTesting();
     networkCaptureController.resetForTesting();
     webSocketCaptureController.resetForTesting();
     resetDeveloperPageTabForTesting();
@@ -17416,6 +17418,67 @@ void main() {
     );
   });
 
+  testWidgets('developer page controls LocationChat header effects', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('test'));
+    await tester.pumpAndSettle();
+
+    final transparencyFinder = find.byKey(
+      const ValueKey<String>(
+        'developer-location-chat-header-transparency-slider',
+      ),
+    );
+    final blurFinder = find.byKey(
+      const ValueKey<String>('developer-location-chat-header-blur-slider'),
+    );
+    expect(transparencyFinder, findsOneWidget);
+    expect(blurFinder, findsOneWidget);
+    expect(tester.widget<Slider>(transparencyFinder).value, 1);
+    expect(tester.widget<Slider>(blurFinder).value, 10);
+
+    tester.widget<Slider>(transparencyFinder).onChanged!(0);
+    await tester.pump();
+    tester.widget<Slider>(transparencyFinder).onChangeEnd!(0);
+    await tester.pumpAndSettle();
+
+    tester.widget<Slider>(blurFinder).onChanged!(0);
+    await tester.pump();
+    tester.widget<Slider>(blurFinder).onChangeEnd!(0);
+    await tester.pumpAndSettle();
+
+    expect(
+      locationChatHeaderEffectSettings.value,
+      const LocationChatHeaderEffectSettings(
+        transparencyStrength: 0,
+        blurSigma: 0,
+      ),
+    );
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getDouble(
+        LocationChatHeaderEffectSettingsController.transparencyStorageKey,
+      ),
+      0,
+    );
+    expect(
+      prefs.getDouble(
+        LocationChatHeaderEffectSettingsController.blurSigmaStorageKey,
+      ),
+      0,
+    );
+  });
+
   testWidgets('developer page shows the current endpoint environment', (
     WidgetTester tester,
   ) async {
@@ -17627,6 +17690,17 @@ void main() {
     expect(tabsCenter, greaterThan(titleCenter));
     expect(tabsCenter - titleCenter, lessThan(48));
     expect(
+      tester.getTopLeft(
+            find.byKey(const ValueKey<String>('developer-page-sheet-close')),
+          ).dy -
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('developer-page-sheet')),
+              )
+              .dy,
+      closeTo(10, 1),
+    );
+    expect(
       find.byKey(
         const ValueKey<String>('developer-page-sheet-keyboard-padding'),
       ),
@@ -17787,6 +17861,14 @@ void main() {
     );
     expect(find.text('/api/v1/world'), findsOneWidget);
     expect(find.text('/api/v1/fail'), findsOneWidget);
+    final queryText = tester.widget<Text>(
+      find.byKey(ValueKey<String>('developer-network-query-$successId')),
+    );
+    expect(queryText.data, '?id=w_test');
+    expect(queryText.maxLines, isNull);
+    expect(queryText.overflow, isNull);
+    expect(queryText.style?.fontSize, 11);
+    expect(queryText.style?.color, const Color(0xFF777777));
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('developer-network-search')),
@@ -22783,7 +22865,7 @@ void main() {
       await tester.tap(find.byType(TextField));
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 120));
+      await tester.pump(const Duration(milliseconds: 60));
 
       expect(tester.getSize(route), routeSizeBeforeKeyboard);
       expect(tester.getRect(find.byType(ChatHeader)), headerRectBeforeKeyboard);

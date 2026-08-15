@@ -39,11 +39,8 @@ class ChatComposer extends StatelessWidget {
     return _ChatComposerHeightObserver(
       onHeightChanged: onHeightChanged,
       child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: style.composerBackdropBlurSigma,
-            sigmaY: style.composerBackdropBlurSigma,
-          ),
+        child: _ChatComposerBackdropFilter(
+          sigma: style.composerBackdropBlurSigma,
           child: Container(
             padding: style.composerPadding.copyWith(
               bottom: style.composerPadding.bottom + bottomInset,
@@ -143,6 +140,22 @@ class ChatComposer extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ChatComposerBackdropFilter extends StatelessWidget {
+  const _ChatComposerBackdropFilter({required this.sigma, required this.child});
+
+  final double sigma;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (sigma <= 0) return child;
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+      child: child,
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../app/config/app_flavor_config.dart';
 import '../platform/auth/auth_session.dart';
 import '../pages/legal/legal_document_page.dart';
 import '../routers/app_router.dart';
@@ -21,11 +22,13 @@ class LoginProviderButtons extends StatelessWidget {
     required this.loggingInProvider,
     required this.onLogin,
     this.spacing = 18,
+    this.showApple = AppFlavorConfig.currentSupportsAppleSignIn,
   });
 
   final IdentityProvider? loggingInProvider;
   final FutureOr<void> Function(IdentityProvider provider) onLogin;
   final double spacing;
+  final bool showApple;
 
   @override
   Widget build(BuildContext context) {
@@ -39,15 +42,17 @@ class LoginProviderButtons extends StatelessWidget {
               : null,
           isLoading: loggingInProvider == IdentityProvider.google,
         ),
-        SizedBox(height: spacing),
-        LoginProviderButton(
-          provider: IdentityProvider.apple,
-          label: 'Continue with Apple',
-          onPressed: loggingInProvider == null
-              ? () => onLogin(IdentityProvider.apple)
-              : null,
-          isLoading: loggingInProvider == IdentityProvider.apple,
-        ),
+        if (showApple) ...[
+          SizedBox(height: spacing),
+          LoginProviderButton(
+            provider: IdentityProvider.apple,
+            label: 'Continue with Apple',
+            onPressed: loggingInProvider == null
+                ? () => onLogin(IdentityProvider.apple)
+                : null,
+            isLoading: loggingInProvider == IdentityProvider.apple,
+          ),
+        ],
       ],
     );
   }

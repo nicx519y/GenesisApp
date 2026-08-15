@@ -92,6 +92,8 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  default-flavor: production
+
   config:
     enable-swift-package-manager: false
 

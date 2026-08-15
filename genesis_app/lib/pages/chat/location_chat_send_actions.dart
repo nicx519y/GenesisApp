@@ -44,7 +44,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     );
     _scrollCoordinator.requestBottom(
       reason: LocationChatBottomReason.sentMessage,
-      behavior: LocationChatBottomBehavior.animate,
+      behavior: LocationChatBottomBehavior.jump,
     );
 
     await _submitLocalMessage(

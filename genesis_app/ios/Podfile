@@ -12,8 +12,14 @@ $FirebaseSDKVersion = '12.14.0'
 
 project 'Runner', {
   'Debug' => :debug,
+  'Debug-production' => :debug,
+  'Debug-internal' => :debug,
   'Profile' => :release,
+  'Profile-production' => :release,
+  'Profile-internal' => :release,
   'Release' => :release,
+  'Release-production' => :release,
+  'Release-internal' => :release,
 }
 
 def flutter_root

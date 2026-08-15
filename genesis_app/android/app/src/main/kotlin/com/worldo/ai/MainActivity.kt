@@ -81,6 +81,7 @@ class MainActivity : FlutterActivity() {
                         runOnUiThread { result.success(deviceId) }
                     }.start()
                 }
+                "getAndroidSdkInt" -> result.success(Build.VERSION.SDK_INT)
                 "getAndroidDeviceIdDiagnostics" -> {
                     Thread {
                         val diagnostics = resolveAndroidDeviceIdDiagnostics()

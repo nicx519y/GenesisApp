@@ -39,11 +39,8 @@ class ChatHeader extends StatelessWidget {
         : _chatHeaderTrailingWidth;
     final trailingInTitleRow = alignContentLeft && trailing != null;
     return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: style.headerBackdropBlurSigma,
-          sigmaY: style.headerBackdropBlurSigma,
-        ),
+      child: _ChatHeaderBackdropFilter(
+        sigma: style.headerBackdropBlurSigma,
         child: Container(
           height: topInset + style.headerHeight,
           padding: const EdgeInsets.symmetric(horizontal: 0),
@@ -215,6 +212,22 @@ class ChatHeader extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ChatHeaderBackdropFilter extends StatelessWidget {
+  const _ChatHeaderBackdropFilter({required this.sigma, required this.child});
+
+  final double sigma;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (sigma <= 0) return child;
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+      child: child,
     );
   }
 }

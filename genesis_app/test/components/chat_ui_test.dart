@@ -1967,6 +1967,67 @@ void main() {
     );
   });
 
+  testWidgets('location chat header uses translucent backdrop blur', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatHeader(
+            title: 'Market',
+            subtitle: 'Alice, Bob',
+            connected: true,
+            connecting: false,
+            onBack: () {},
+            style: kLocationChatStyle,
+          ),
+        ),
+      ),
+    );
+
+    expect(kLocationChatStyle.headerBackdropBlurSigma, 10);
+    final gradient = kLocationChatStyle.headerBackgroundGradient;
+    expect(gradient, isNotNull);
+    expect(gradient!.colors, const [Color(0xA6111111), Color(0x33111111)]);
+    expect(
+      find.descendant(
+        of: find.byType(ChatHeader),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('location chat composer is opaque without backdrop blur', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatComposer(
+            controller: TextEditingController(),
+            inputEnabled: true,
+            sendEnabled: false,
+            sending: false,
+            onSend: () async {},
+            style: kLocationChatStyle,
+          ),
+        ),
+      ),
+    );
+
+    expect(kLocationChatStyle.composerBackdropBlurSigma, 0);
+    expect(kLocationChatStyle.composerBackgroundGradient, isNull);
+    expect(kLocationChatStyle.composerBackgroundColor.a, 1);
+    expect(
+      find.descendant(
+        of: find.byType(ChatComposer),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('location chat header left aligns title and subtitle rows', (
     WidgetTester tester,
   ) async {
@@ -2337,7 +2398,7 @@ void main() {
     expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
   });
 
-  testWidgets('self chat markdown uses the sent message text color', (
+  testWidgets('self chat markdown uses the AI emphasis color', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -2367,7 +2428,7 @@ void main() {
     );
     expect(
       _textFragmentColor(bubbleText, 'historical role message'),
-      kLocationChatStyle.bubbleTextStyle.color,
+      const Color(0xFF888888),
     );
   });
 
@@ -3921,6 +3982,49 @@ void main() {
         style.messageListPadding.horizontal -
         style.systemMessageMargin.horizontal;
     expect(image.maxWidth, closeTo(narratorContentWidth, 0.01));
+  });
+
+  testWidgets('resolved remote image keeps its geometry when rebuilt', (
+    WidgetTester tester,
+  ) async {
+    const source = 'https://cdn-001.worldo.ai/chat/rebuild.webp';
+    addTearDown(() {
+      debugGenesisMessageImageInfoLoader = null;
+      clearGenesisMessageImageSizeCache();
+    });
+    debugGenesisMessageImageInfoLoader = (_) async => {
+      'ImageWidth': {'value': '400'},
+      'ImageHeight': {'value': '800'},
+    };
+
+    Widget image() => const MaterialApp(
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 300,
+            child: ChatThumbnailImage(imageUrl: source, maxWidth: 300),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(image());
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.getSize(find.byType(ChatThumbnailImage)),
+      const Size(300, 600),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pumpWidget(image());
+
+    expect(
+      tester.getSize(find.byType(ChatThumbnailImage)),
+      const Size(300, 600),
+    );
   });
 
   testWidgets('chat image keeps its ratio within the available layout width', (

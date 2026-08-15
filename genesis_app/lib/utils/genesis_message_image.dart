@@ -43,6 +43,7 @@ debugGenesisMessageImageOriginalSizeLoader;
 
 final Map<String, Future<ui.Size?>> _messageImageSizeRequests =
     <String, Future<ui.Size?>>{};
+final Map<String, ui.Size> _resolvedMessageImageSizes = <String, ui.Size>{};
 
 ui.Size fitGenesisMessageImageSize({
   required ui.Size sourceSize,
@@ -148,20 +149,30 @@ Future<ui.Size?> resolveGenesisMessageImageSourceSize(String source) {
   if (normalized.isEmpty || normalized.startsWith('assets/')) {
     return Future<ui.Size?>.value(null);
   }
-  final fromUrl = genesisMessageImageSizeFromUrl(normalized);
-  if (fromUrl != null) return Future<ui.Size?>.value(fromUrl);
+  final cached = cachedGenesisMessageImageSourceSize(normalized);
+  if (cached != null) return Future<ui.Size?>.value(cached);
   final cacheKey = _stripUrlParams(normalized);
   final request = _messageImageSizeRequests.putIfAbsent(
     cacheKey,
     () => _resolveRemoteMessageImageSourceSize(normalized),
   );
   request.then((size) {
-    if (size == null &&
-        identical(_messageImageSizeRequests[cacheKey], request)) {
+    if (!identical(_messageImageSizeRequests[cacheKey], request)) return;
+    if (size == null) {
+      _messageImageSizeRequests.remove(cacheKey);
+    } else {
+      _resolvedMessageImageSizes[cacheKey] = size;
       _messageImageSizeRequests.remove(cacheKey);
     }
   });
   return request;
+}
+
+ui.Size? cachedGenesisMessageImageSourceSize(String source) {
+  final normalized = source.trim();
+  if (normalized.isEmpty || normalized.startsWith('assets/')) return null;
+  return genesisMessageImageSizeFromUrl(normalized) ??
+      _resolvedMessageImageSizes[_stripUrlParams(normalized)];
 }
 
 Future<ui.Size?> _resolveRemoteMessageImageSourceSize(String source) async {
@@ -507,4 +518,5 @@ String _stripUrlParams(String source) {
 @visibleForTesting
 void clearGenesisMessageImageSizeCache() {
   _messageImageSizeRequests.clear();
+  _resolvedMessageImageSizes.clear();
 }

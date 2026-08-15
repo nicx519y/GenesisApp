@@ -315,6 +315,22 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (record.method == 'GET' && record.uri.query.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 50),
+                      child: Text(
+                        '?${record.uri.query}',
+                        key: ValueKey<String>(
+                          'developer-network-query-${record.id}',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF777777),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 5),
                   Row(
                     children: [

@@ -90,7 +90,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     };
     final next = <ChatMessageVm>[];
     final usedLocalIds = <String>{};
-    var changed = previous.length != visibleSource.length;
+    var changed = false;
     for (final parsed in visibleSource) {
       final message = parsed.source;
       final clientMsgId = parsed.clientMsgId.trim();
@@ -179,6 +179,9 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       reconciled: next,
       usedLocalIds: usedLocalIds,
     );
+    if (next.length != previous.length) {
+      changed = true;
+    }
     for (var i = 0; i < next.length && i < previous.length; i += 1) {
       if (next[i].localId != previous[i].localId) {
         changed = true;
