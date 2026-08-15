@@ -7,7 +7,6 @@ class _InlineMarkdownText extends StatelessWidget {
     this.maxLines,
     this.overflow,
     this.textAlign,
-    this.useBaseColorForEmphasis = false,
     this.softItalic = false,
   });
 
@@ -16,7 +15,6 @@ class _InlineMarkdownText extends StatelessWidget {
   final int? maxLines;
   final TextOverflow? overflow;
   final TextAlign? textAlign;
-  final bool useBaseColorForEmphasis;
   final bool softItalic;
 
   @override
@@ -32,7 +30,6 @@ class _InlineMarkdownText extends StatelessWidget {
           genesisDisplaySafeText(text),
           textStyle,
           platform,
-          useBaseColorForEmphasis: useBaseColorForEmphasis,
           suppressIosEmphasisSkew: softItalic && platform == TargetPlatform.iOS,
         ),
       ),
@@ -49,7 +46,6 @@ List<InlineSpan> _inlineMarkdownSpans(
   String text,
   TextStyle baseStyle,
   TargetPlatform platform, {
-  bool useBaseColorForEmphasis = false,
   bool suppressIosEmphasisSkew = false,
 }) {
   final spans = <InlineSpan>[];
@@ -73,20 +69,14 @@ List<InlineSpan> _inlineMarkdownSpans(
               ? <InlineSpan>[
                   TextSpan(
                     text: text.substring(index + 1, end),
-                    style: baseStyle.copyWith(
-                      color: useBaseColorForEmphasis
-                          ? baseStyle.color
-                          : const Color(0xFF888888),
-                    ),
+                    style: baseStyle.copyWith(color: const Color(0xFF888888)),
                   ),
                 ]
               : _inlineEmphasisSpans(
                   text.substring(index + 1, end),
                   baseStyle,
                   platform,
-                  color: useBaseColorForEmphasis
-                      ? baseStyle.color
-                      : const Color(0xFF888888),
+                  color: const Color(0xFF888888),
                 ),
         );
         index = end + 1;

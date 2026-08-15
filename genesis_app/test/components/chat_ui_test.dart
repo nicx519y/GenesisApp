@@ -2398,7 +2398,7 @@ void main() {
     expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
   });
 
-  testWidgets('self chat markdown uses the sent message text color', (
+  testWidgets('self chat markdown uses the AI emphasis color', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -2428,7 +2428,7 @@ void main() {
     );
     expect(
       _textFragmentColor(bubbleText, 'historical role message'),
-      kLocationChatStyle.bubbleTextStyle.color,
+      const Color(0xFF888888),
     );
   });
 
