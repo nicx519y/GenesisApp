@@ -66,6 +66,11 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
       setState(() => _failed = true);
       return;
     }
+    final cachedSourceSize = cachedGenesisMessageImageSourceSize(source);
+    if (cachedSourceSize != null) {
+      _configureImage(cachedSourceSize, notify: false);
+      return;
+    }
     if (source.startsWith('assets/')) {
       _resolveAssetImage(source, generation);
       return;
@@ -104,13 +109,17 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
     stream.addListener(listener);
   }
 
-  void _configureImage(Size sourceSize) {
+  void _configureImage(Size sourceSize, {bool notify = true}) {
     final displaySize = fitGenesisMessageImageSize(
       sourceSize: sourceSize,
       maxWidth: widget.maxWidth,
     );
     if (displaySize.isEmpty) {
-      setState(() => _failed = true);
+      if (notify) {
+        setState(() => _failed = true);
+      } else {
+        _failed = true;
+      }
       return;
     }
     final source = widget.imageUrl.trim();
@@ -119,14 +128,20 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
       displaySize: displaySize,
       devicePixelRatio: _devicePixelRatio,
     );
-    setState(() {
+    void applyImage() {
       _sourceSize = sourceSize;
       _displaySize = displaySize;
       _provider = source.startsWith('assets/')
           ? AssetImage(source)
           : GenesisStaticNetworkImageProvider(imageUrl: resolvedSource);
       _failed = false;
-    });
+    }
+
+    if (notify) {
+      setState(applyImage);
+    } else {
+      applyImage();
+    }
   }
 
   @override

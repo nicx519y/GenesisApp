@@ -3900,6 +3900,49 @@ void main() {
     expect(image.maxWidth, closeTo(narratorContentWidth, 0.01));
   });
 
+  testWidgets('resolved remote image keeps its geometry when rebuilt', (
+    WidgetTester tester,
+  ) async {
+    const source = 'https://cdn-001.worldo.ai/chat/rebuild.webp';
+    addTearDown(() {
+      debugGenesisMessageImageInfoLoader = null;
+      clearGenesisMessageImageSizeCache();
+    });
+    debugGenesisMessageImageInfoLoader = (_) async => {
+      'ImageWidth': {'value': '400'},
+      'ImageHeight': {'value': '800'},
+    };
+
+    Widget image() => const MaterialApp(
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 300,
+            child: ChatThumbnailImage(imageUrl: source, maxWidth: 300),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(image());
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.getSize(find.byType(ChatThumbnailImage)),
+      const Size(300, 600),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pumpWidget(image());
+
+    expect(
+      tester.getSize(find.byType(ChatThumbnailImage)),
+      const Size(300, 600),
+    );
+  });
+
   testWidgets('chat image keeps its ratio within the available layout width', (
     WidgetTester tester,
   ) async {
