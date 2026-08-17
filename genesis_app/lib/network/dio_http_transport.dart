@@ -18,7 +18,7 @@ class DioHttpTransport implements HttpTransport {
     HttpRequestPerformanceMetricFactory? performanceMetricFactory,
     HttpRequestPerformanceMetricUrlFilter? performanceMetricUrlFilter,
     HttpRequestPerformanceMetricReady? performanceMetricReady,
-  }) : _dio = dio ?? _createDio(proxy, http2IdleTimeout),
+  }) : _dio = _prepareDio(dio ?? _createDio(proxy, http2IdleTimeout)),
        _performanceMetricFactory =
            performanceMetricFactory ?? createFirebasePerformanceMetric,
        _performanceMetricUrlFilter =
@@ -178,6 +178,15 @@ Dio _createDio(String? proxy, Duration http2IdleTimeout) {
     httpsAdapter: httpsAdapter,
     otherAdapter: httpAdapter,
   );
+  return dio;
+}
+
+Dio _prepareDio(Dio dio) {
+  // ApiClient serializes request bodies and sets their content type before
+  // reaching this transport. Dio's implicit content-type interceptor is
+  // therefore redundant, and keeping it also adds a response-handler stage
+  // that was affected by Dio 5.10.0's interceptor error-zone regression.
+  dio.interceptors.removeImplyContentTypeInterceptor();
   return dio;
 }
 

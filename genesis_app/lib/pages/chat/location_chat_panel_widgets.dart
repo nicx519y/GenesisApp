@@ -62,9 +62,7 @@ String _resolveLocationChatBackgroundUrl(
     fallback: previewImageUrl,
     logicalWidth: logicalWidth,
     logicalHeight: logicalHeight,
-    devicePixelRatio: _locationChatBackgroundImageDevicePixelRatio(
-      devicePixelRatio,
-    ),
+    devicePixelRatio: devicePixelRatio,
   );
 }
 
@@ -117,11 +115,6 @@ String _resizeLocationChatBackgroundImageUrl(
   if (resized.isNotEmpty) return resized;
   if (resolved.isNotEmpty) return resolved;
   return _locationChatDefaultBackgroundAsset;
-}
-
-double _locationChatBackgroundImageDevicePixelRatio(double value) {
-  if (!value.isFinite || value <= 0) return 1;
-  return math.min(value, _locationChatMaxBackgroundImageDevicePixelRatio);
 }
 
 class _LocationChatBackgroundImage extends StatefulWidget {

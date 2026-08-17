@@ -53,7 +53,6 @@ part 'location_chat_shared.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
 const double _locationChatComposerBottomExtension = 60;
-const double _locationChatMaxBackgroundImageDevicePixelRatio = 2;
 const double _locationChatBackgroundPreviewLogicalWidth = 120;
 const Duration _locationChatBackgroundFadeDuration = Duration(
   milliseconds: 150,

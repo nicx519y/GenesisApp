@@ -403,9 +403,7 @@ int? _viewerDecodePixelDimension(
       logicalDimension <= 0) {
     return null;
   }
-  final ratio = devicePixelRatio.isFinite && devicePixelRatio > 0
-      ? devicePixelRatio
-      : 1.0;
+  final ratio = genesisImageDevicePixelRatio(devicePixelRatio);
   return (logicalDimension * ratio).ceil();
 }
 

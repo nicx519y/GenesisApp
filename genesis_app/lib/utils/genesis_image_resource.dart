@@ -131,6 +131,15 @@ class GenesisImageResource {
   }
 }
 
+const double genesisMaxImageDevicePixelRatio = 2;
+
+double genesisImageDevicePixelRatio(double devicePixelRatio) {
+  if (!devicePixelRatio.isFinite || devicePixelRatio <= 0) return 1;
+  return devicePixelRatio > genesisMaxImageDevicePixelRatio
+      ? genesisMaxImageDevicePixelRatio
+      : devicePixelRatio;
+}
+
 const List<int> _imageResizeWidthTiers = <int>[
   45,
   90,
@@ -242,9 +251,7 @@ double? _requiredPixels(double? logicalValue, double devicePixelRatio) {
   if (logicalValue == null || !logicalValue.isFinite || logicalValue <= 0) {
     return null;
   }
-  final ratio = devicePixelRatio.isFinite && devicePixelRatio > 0
-      ? devicePixelRatio
-      : 1.0;
+  final ratio = genesisImageDevicePixelRatio(devicePixelRatio);
   return logicalValue * ratio;
 }
 

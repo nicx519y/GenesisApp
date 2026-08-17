@@ -126,7 +126,7 @@ void main() {
     );
   });
 
-  test('resizeGenesisImageUrl resizes any plain network URL', () {
+  test('resizeGenesisImageUrl caps image DPR at 2', () {
     expect(
       resizeGenesisImageUrl(
         'https://cdn.example.com/map.webp?old=true#frag',
@@ -134,7 +134,7 @@ void main() {
         devicePixelRatio: 3,
       ),
       'https://cdn.example.com/map.webp'
-      '?x-oss-process=image/resize,w_1080,image/format,webp',
+      '?x-oss-process=image/resize,w_720,image/format,webp',
     );
   });
 

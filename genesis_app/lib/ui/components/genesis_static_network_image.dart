@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../../network/genesis_http_cache_manager.dart';
+import '../../utils/genesis_image_resource.dart';
 
 @visibleForTesting
 ImageStreamCompleter? Function(GenesisStaticNetworkImageProvider key)?
@@ -66,7 +67,9 @@ class _GenesisStaticNetworkImageState extends State<GenesisStaticNetworkImage> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+        final devicePixelRatio = genesisImageDevicePixelRatio(
+          MediaQuery.devicePixelRatioOf(context),
+        );
         final logicalWidth = _resolveLogicalDimension(
           widget.width,
           constraints.maxWidth,

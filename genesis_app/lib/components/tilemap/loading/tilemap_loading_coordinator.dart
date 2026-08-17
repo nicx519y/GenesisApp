@@ -543,7 +543,15 @@ class TilemapLoadingCoordinator {
             _activeBackgroundTilePreload != null) {
           await _activeBackgroundTilePreload;
         }
-        if (_backgroundWorkSuspended) break;
+        if (_disposed || _backgroundWorkSuspended) break;
+        if (!_isSilentPlanCurrent(
+              sessionGeneration: task.sessionGeneration,
+              planGeneration: task.planGeneration,
+            ) ||
+            _silentLoadQueue.isEmpty ||
+            !identical(_silentLoadQueue.first, task)) {
+          continue;
+        }
         _silentLoadQueue.removeFirst();
         final continuation = await _preloadLocation(task);
         if (!_isSilentPlanCurrent(
