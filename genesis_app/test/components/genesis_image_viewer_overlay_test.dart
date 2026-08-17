@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -142,12 +144,11 @@ void main() {
     final pageSize = tester.getSize(
       find.byKey(const ValueKey('genesis-image-viewer-page-view')),
     );
-    expect(
-      tester.getSize(
-        find.byKey(const ValueKey('genesis-image-viewer-image-0')),
-      ),
-      pageSize,
+    final initialImageSize = tester.getSize(
+      find.byKey(const ValueKey('genesis-image-viewer-image-0')),
     );
+    expect(initialImageSize.width, pageSize.width);
+    expect(initialImageSize.height, greaterThanOrEqualTo(pageSize.height));
 
     final gesture = await tester.startGesture(
       tester.getCenter(
@@ -161,7 +162,7 @@ void main() {
       tester.getSize(
         find.byKey(const ValueKey('genesis-image-viewer-image-0')),
       ),
-      pageSize,
+      initialImageSize,
     );
     await gesture.up();
     await tester.pumpAndSettle();
@@ -386,6 +387,82 @@ void main() {
 
     await gesture.up();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('tall image scrolls vertically without dismissing the viewer', (
+    tester,
+  ) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawRect(
+      const ui.Rect.fromLTWH(0, 0, 100, 1000),
+      ui.Paint()..color = Colors.red,
+    );
+    final tallImage = await recorder.endRecording().toImage(100, 1000);
+    debugGenesisStaticNetworkImageCompleter = (_) {
+      return OneFrameImageStreamCompleter(
+        Future<ImageInfo>.value(ImageInfo(image: tallImage)),
+      );
+    };
+    addTearDown(() {
+      debugGenesisStaticNetworkImageCompleter = null;
+      tallImage.dispose();
+    });
+
+    await _pumpViewerHost(tester, const [
+      'https://cdn.example.com/tall-image.png',
+    ]);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final pageSize = tester.getSize(
+      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('genesis-image-viewer-image-0')))
+          .height,
+      greaterThan(pageSize.height),
+    );
+    final gesture = await tester.startGesture(
+      tester.getCenter(
+        find.byKey(const ValueKey('genesis-image-viewer-interactive-0')),
+      ),
+    );
+    await gesture.moveBy(const Offset(0, -20));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, -100));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, -120));
+    await tester.pump();
+
+    var viewer = tester.widget<InteractiveViewer>(
+      find.byKey(const ValueKey('genesis-image-viewer-interactive-0')),
+    );
+    expect(
+      viewer.transformationController!.value.getTranslation().y,
+      lessThan(0),
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const ValueKey('genesis-image-viewer-interactive-0')),
+      const Offset(0, 80),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+      findsOneWidget,
+    );
+    viewer = tester.widget<InteractiveViewer>(
+      find.byKey(const ValueKey('genesis-image-viewer-interactive-0')),
+    );
+    expect(
+      viewer.transformationController!.value.getTranslation().y,
+      lessThan(0),
+    );
   });
 
   testWidgets('pinch zoom does not start page or dismiss gestures', (

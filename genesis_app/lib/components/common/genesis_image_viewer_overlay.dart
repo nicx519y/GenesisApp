@@ -246,6 +246,13 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     setState(() => _dragOffsetY = nextOffset);
   }
 
+  bool _canStartDismissDrag() {
+    final transformation = _transformationControllers[_currentIndex].value;
+    final scale = transformation.entry(0, 0);
+    final translationY = transformation.getTranslation().y;
+    return (scale - 1).abs() < 0.001 && translationY >= -0.5;
+  }
+
   @override
   Widget build(BuildContext context) {
     final dragProgress = (_dragOffsetY / _dismissDragDistance).clamp(0.0, 1.0);
@@ -266,7 +273,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
             child: Listener(
               onPointerDown: (event) {
                 _activePointers.add(event.pointer);
-                _dragStart = event.position;
+                _dragStart = _canStartDismissDrag() ? event.position : null;
                 final nextPinchActive = _activePointers.length > 1;
                 if (_dragOffsetY != 0 ||
                     nextPinchActive != _pinchGestureActive) {
@@ -452,17 +459,23 @@ class _ViewerImage extends StatelessWidget {
           child: InteractiveViewer(
             key: ValueKey('genesis-image-viewer-interactive-$index'),
             transformationController: controller,
+            constrained: false,
             minScale: 1,
             maxScale: 4,
-            child: SizedBox(
+            child: ConstrainedBox(
               key: ValueKey('genesis-image-viewer-image-$index'),
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              child: _ProgressiveImageByUrl(
-                index: index,
-                url: url,
-                previewImageProvider: previewImageProvider,
-                fit: BoxFit.fitWidth,
+              constraints: BoxConstraints(
+                minWidth: constraints.maxWidth,
+                maxWidth: constraints.maxWidth,
+                minHeight: constraints.maxHeight,
+              ),
+              child: Center(
+                child: _ProgressiveImageByUrl(
+                  index: index,
+                  url: url,
+                  previewImageProvider: previewImageProvider,
+                  fit: BoxFit.fitWidth,
+                ),
               ),
             ),
           ),
@@ -526,11 +539,6 @@ class _ProgressiveImageByUrl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = Container(
-      color: const Color(0xFF202020),
-      alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, size: 28, color: Colors.white54),
-    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final devicePixelRatio =
@@ -541,6 +549,19 @@ class _ProgressiveImageByUrl extends StatelessWidget {
         final logicalHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : null;
+        final fallback = SizedBox(
+          width: logicalWidth,
+          height: logicalWidth,
+          child: Container(
+            color: const Color(0xFF202020),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.image_outlined,
+              size: 28,
+              color: Colors.white54,
+            ),
+          ),
+        );
         final fullImageUrl = _selectViewerImageUrl(
           url,
           logicalWidth: logicalWidth,
@@ -562,6 +583,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
           return _buildViewerImage(
             key: ValueKey('genesis-image-viewer-full-$index'),
             imageUrl: fullImageUrl,
+            width: logicalWidth,
             fit: fit,
             fallback: fallback,
           );
@@ -571,13 +593,15 @@ class _ProgressiveImageByUrl extends StatelessWidget {
             ? _buildViewerImage(
                 key: ValueKey('genesis-image-viewer-preview-$index'),
                 imageUrl: previewImageUrl,
+                width: logicalWidth,
                 fit: fit,
                 fallback: fallback,
               )
-            : SizedBox.expand(
+            : KeyedSubtree(
                 key: ValueKey('genesis-image-viewer-preview-$index'),
                 child: Image(
                   image: explicitPreviewProvider,
+                  width: logicalWidth,
                   fit: fit,
                   gaplessPlayback: true,
                   frameBuilder:
@@ -593,6 +617,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
         return _buildViewerImage(
           key: ValueKey('genesis-image-viewer-full-$index'),
           imageUrl: fullImageUrl,
+          width: logicalWidth,
           fit: fit,
           fallback: preview,
         );
@@ -603,14 +628,16 @@ class _ProgressiveImageByUrl extends StatelessWidget {
   Widget _buildViewerImage({
     required Key key,
     required String imageUrl,
+    required double? width,
     required BoxFit fit,
     required Widget fallback,
   }) {
     if (imageUrl.startsWith('assets/')) {
-      return SizedBox.expand(
+      return KeyedSubtree(
         key: key,
         child: Image.asset(
           imageUrl,
+          width: width,
           fit: fit,
           frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
             if (wasSynchronouslyLoaded || frame != null) return child;
@@ -620,10 +647,11 @@ class _ProgressiveImageByUrl extends StatelessWidget {
         ),
       );
     }
-    return SizedBox.expand(
+    return KeyedSubtree(
       key: key,
       child: GenesisStaticNetworkImage(
         imageUrl: imageUrl,
+        width: width,
         fit: fit,
         placeholder: (_) => fallback,
         errorWidget: (_, _) => fallback,
