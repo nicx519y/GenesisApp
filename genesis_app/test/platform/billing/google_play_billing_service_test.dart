@@ -112,6 +112,9 @@ class _FakeBillingPlatform implements BillingPlatform {
 
   void emit(BillingPurchase purchase) => _controller.add([purchase]);
 
+  void emitError(Object error) =>
+      _controller.addError(error, StackTrace.current);
+
   Future<void> close() => _controller.close();
 }
 
@@ -1105,6 +1108,22 @@ void main() {
     );
     expect(failed.properties['reason'], 'launch_failed');
   });
+
+  test(
+    'purchase stream errors are contained and clear the active checkout',
+    () async {
+      await service.purchaseGem(_product, payTrackId: 'track_id_stream_error');
+      expect(service.state.value.hasBusyPurchase, isTrue);
+
+      platform.emitError(StateError('store stream failed'));
+      await _settle();
+
+      expect(service.state.value.hasBusyPurchase, isFalse);
+      expect(uiEvents.last.kind, BillingUiEventKind.failure);
+      expect(uiEvents.last.attemptId, 'track_id_stream_error');
+      expect(uiEvents.last.message, 'Payment service is unavailable.');
+    },
+  );
 
   test('billing launch failure tracks the platform error code', () async {
     platform.buyHandler = () {

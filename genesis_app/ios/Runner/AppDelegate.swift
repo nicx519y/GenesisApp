@@ -426,38 +426,25 @@ import UniformTypeIdentifiers
       return
     }
 
-    if normalizeForUpload {
-      loadNormalizedDiscussImageRepresentation(provider, completion: completion)
-      return
-    }
-
-    loadDiscussUIImageRepresentation(provider) { [weak self] path, error in
-      if let path = path {
-        completion(path, nil)
-        return
-      }
-
-      NSLog("Discuss UIImage representation failed: \(error ?? "unknown error")")
-      self?.loadDiscussImageDataRepresentation(provider) { dataPath, dataError in
-        if let dataPath = dataPath {
-          completion(dataPath, nil)
-        } else {
-          completion(nil, dataError ?? error ?? "Cannot load selected image.")
-        }
-      }
-    }
+    loadNormalizedDiscussImageRepresentation(
+      provider,
+      allowGif: !normalizeForUpload,
+      completion: completion
+    )
   }
 
   @available(iOS 14, *)
   private func loadNormalizedDiscussImageRepresentation(
     _ provider: NSItemProvider,
+    allowGif: Bool = false,
     completion: @escaping (String?, String?) -> Void
   ) {
     let identifiers = provider.registeredTypeIdentifiers.filter { identifier in
       guard let type = UTType(identifier) else {
         return false
       }
-      return type.conforms(to: .image) && !type.conforms(to: .gif)
+      return type.conforms(to: .image)
+        && (allowGif || !type.conforms(to: .gif))
     }
 
     func tryData(at index: Int, lastError: String?) {
@@ -511,67 +498,6 @@ import UniformTypeIdentifiers
     }
 
     tryFile(at: 0, lastError: nil)
-  }
-
-  @available(iOS 14, *)
-  private func loadDiscussImageDataRepresentation(
-    _ provider: NSItemProvider,
-    completion: @escaping (String?, String?) -> Void
-  ) {
-    var remaining = provider.registeredTypeIdentifiers.filter { identifier in
-      guard let type = UTType(identifier) else {
-        return false
-      }
-      return type.conforms(to: .image)
-    }
-
-    func tryNext(lastError: String?) {
-      guard !remaining.isEmpty else {
-        completion(nil, lastError)
-        return
-      }
-
-      let identifier = remaining.removeFirst()
-      provider.loadDataRepresentation(forTypeIdentifier: identifier) { [weak self] data, error in
-        if let data = data,
-           let image = UIImage(data: data),
-           let path = self?.writeDiscussJPEGImage(image) {
-          completion(path, nil)
-        } else {
-          let message = error?.localizedDescription ?? "Cannot load data representation of type \(identifier)."
-          NSLog("Discuss image data representation failed: \(message)")
-          tryNext(lastError: message)
-        }
-      }
-    }
-
-    tryNext(lastError: nil)
-  }
-
-  private func loadDiscussUIImageRepresentation(
-    _ provider: NSItemProvider,
-    completion: @escaping (String?, String?) -> Void
-  ) {
-    guard provider.canLoadObject(ofClass: UIImage.self) else {
-      completion(nil, "Provider cannot load UIImage.")
-      return
-    }
-
-    provider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
-      guard let image = object as? UIImage,
-            let path = self?.writeDiscussJPEGImage(image) else {
-        completion(nil, error?.localizedDescription ?? "Cannot load UIImage representation.")
-        return
-      }
-      completion(path, nil)
-    }
-  }
-
-  private func writeDiscussJPEGImage(_ image: UIImage) -> String? {
-    guard let data = image.jpegData(compressionQuality: 0.92) else {
-      return nil
-    }
-    return writeDiscussImageData(data, extension: "jpg")
   }
 
   private func writeNormalizedDiscussImage(_ source: CGImageSource) -> String? {
@@ -873,7 +799,13 @@ import UniformTypeIdentifiers
     guard status == errSecSuccess else {
       return nil
     }
-    return (item as! SecKey)
+    guard let item = item,
+          CFGetTypeID(item) == SecKeyGetTypeID() else {
+      NSLog("Gateway private key had an unexpected Keychain type; regenerating it.")
+      SecItemDelete(gatewayPrivateKeyQuery() as CFDictionary)
+      return nil
+    }
+    return item as! SecKey
   }
 
   private func resetGatewayKey() {

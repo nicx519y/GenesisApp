@@ -49,9 +49,13 @@ Future<bool> showDiscussPostComposer({
       return _DiscussComposerSheet(
         title: title,
         placeholder: placeholder,
-        pickImages: imagePicker ?? (limit) => pickGenesisImages(limit: limit),
+        pickImages:
+            imagePicker ??
+            (limit) =>
+                pickGenesisImages(limit: limit, normalizeForUpload: true),
         pickImageResult: imagePicker == null
-            ? (limit) => pickGenesisImageResult(limit: limit)
+            ? (limit) =>
+                  pickGenesisImageResult(limit: limit, normalizeForUpload: true)
             : null,
         uploadImage:
             imageUploader ??

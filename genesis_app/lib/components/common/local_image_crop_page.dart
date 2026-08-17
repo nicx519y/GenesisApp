@@ -9,6 +9,59 @@ import '../../ui/system/genesis_system_ui.dart';
 import '../../utils/image_upload_processing.dart';
 import 'genesis_center_toast.dart';
 
+const int _localImageCropMaxDecodeDimension = 4096;
+const int _localImageCropMaxDecodePixels = 16000000;
+
+@visibleForTesting
+({int width, int height}) calculateLocalImageCropDecodeSize({
+  required int sourceWidth,
+  required int sourceHeight,
+  int maxDimension = _localImageCropMaxDecodeDimension,
+  int maxPixels = _localImageCropMaxDecodePixels,
+}) {
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    throw ArgumentError('Image dimensions must be positive');
+  }
+  final safeMaxDimension = math.max(1, maxDimension);
+  final safeMaxPixels = math.max(1, maxPixels);
+  final dimensionScale = safeMaxDimension / math.max(sourceWidth, sourceHeight);
+  final pixelScale = math.sqrt(
+    safeMaxPixels / (sourceWidth.toDouble() * sourceHeight),
+  );
+  final scale = math.min(1.0, math.min(dimensionScale, pixelScale));
+  return (
+    width: math.max(1, (sourceWidth * scale).floor()),
+    height: math.max(1, (sourceHeight * scale).floor()),
+  );
+}
+
+@visibleForTesting
+Future<ui.Image> decodeLocalImageCropImage(Uint8List bytes) async {
+  final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+  ui.ImageDescriptor? descriptor;
+  ui.Codec? codec;
+  try {
+    descriptor = await ui.ImageDescriptor.encoded(buffer);
+    final decodeSize = calculateLocalImageCropDecodeSize(
+      sourceWidth: descriptor.width,
+      sourceHeight: descriptor.height,
+    );
+    final needsDownsampling =
+        decodeSize.width != descriptor.width ||
+        decodeSize.height != descriptor.height;
+    codec = await descriptor.instantiateCodec(
+      targetWidth: needsDownsampling ? decodeSize.width : null,
+      targetHeight: needsDownsampling ? decodeSize.height : null,
+    );
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  } finally {
+    codec?.dispose();
+    descriptor?.dispose();
+    buffer.dispose();
+  }
+}
+
 @visibleForTesting
 ({int width, int height}) calculateLocalImageCropOutputSize({
   required Rect sourceRect,
@@ -174,18 +227,15 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
 
   Future<void> _decodeImage() async {
     try {
-      final codec = await ui.instantiateImageCodec(widget.imageBytes);
-      final frame = await codec.getNextFrame();
+      final image = await decodeLocalImageCropImage(widget.imageBytes);
       if (!mounted) {
-        frame.image.dispose();
-        codec.dispose();
+        image.dispose();
         return;
       }
       setState(() {
-        _image = frame.image;
+        _image = image;
         _isLoading = false;
       });
-      codec.dispose();
     } catch (_) {
       if (!mounted) return;
       setState(() {

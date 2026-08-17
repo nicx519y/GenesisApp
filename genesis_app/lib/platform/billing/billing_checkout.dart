@@ -6,9 +6,28 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
       (purchases) => unawaited(
         _handlePurchases(purchases, source: BillingRecoverySource.direct),
       ),
+      onError: _handlePurchaseStreamError,
     );
 
     await _refreshStoreAvailability();
+  }
+
+  void _handlePurchaseStreamError(Object error, StackTrace stackTrace) {
+    if (_disposed) return;
+    debugPrint('[Billing] purchase stream failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+    final activeAttempts = Map<String, BillingPurchaseAttempt>.of(
+      _attemptByStoreProductId,
+    );
+    for (final entry in activeAttempts.entries) {
+      final attempt = entry.value;
+      _clearActiveAttempt(entry.key, attempt);
+      _emitFailure(
+        attempt.product.productId,
+        attempt.id,
+        'Payment service is unavailable.',
+      );
+    }
   }
 
   Future<bool> _refreshStoreAvailability() async {

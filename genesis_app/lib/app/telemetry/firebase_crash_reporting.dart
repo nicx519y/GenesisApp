@@ -3,6 +3,19 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
+@visibleForTesting
+Future<void> recordFirebaseCrashlyticsBestEffort(
+  Future<void> Function() record, {
+  required String operation,
+}) async {
+  try {
+    await record();
+  } catch (error, stackTrace) {
+    debugPrint('[Telemetry][FirebaseCrashlytics] $operation failed: $error');
+    debugPrint('[Telemetry][FirebaseCrashlytics] stacktrace:\n$stackTrace');
+  }
+}
+
 class FirebaseCrashReporting {
   const FirebaseCrashReporting._();
 
@@ -45,7 +58,12 @@ class FirebaseCrashReporting {
       } else {
         FlutterError.presentError(details);
       }
-      unawaited(FirebaseCrashlytics.instance.recordFlutterFatalError(details));
+      unawaited(
+        recordFirebaseCrashlyticsBestEffort(
+          () => FirebaseCrashlytics.instance.recordFlutterFatalError(details),
+          operation: 'record Flutter fatal error',
+        ),
+      );
     };
   }
 
@@ -53,7 +71,14 @@ class FirebaseCrashReporting {
     final previous = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
       unawaited(
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true),
+        recordFirebaseCrashlyticsBestEffort(
+          () => FirebaseCrashlytics.instance.recordError(
+            error,
+            stack,
+            fatal: true,
+          ),
+          operation: 'record platform fatal error',
+        ),
       );
       return previous?.call(error, stack) ?? true;
     };
@@ -62,7 +87,14 @@ class FirebaseCrashReporting {
   static void recordNonFatal(Object error, StackTrace stackTrace) {
     if (!_enabled) return;
     unawaited(
-      FirebaseCrashlytics.instance.recordError(error, stackTrace, fatal: false),
+      recordFirebaseCrashlyticsBestEffort(
+        () => FirebaseCrashlytics.instance.recordError(
+          error,
+          stackTrace,
+          fatal: false,
+        ),
+        operation: 'record non-fatal error',
+      ),
     );
   }
 }

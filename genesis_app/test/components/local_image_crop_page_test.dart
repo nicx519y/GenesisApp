@@ -39,6 +39,35 @@ void main() {
     });
   });
 
+  group('calculateLocalImageCropDecodeSize', () {
+    test('caps the longest edge before decoding a large source', () {
+      final size = calculateLocalImageCropDecodeSize(
+        sourceWidth: 12000,
+        sourceHeight: 9000,
+      );
+
+      expect(size, (width: 4096, height: 3072));
+    });
+
+    test('caps square sources by total decoded pixels', () {
+      final size = calculateLocalImageCropDecodeSize(
+        sourceWidth: 8000,
+        sourceHeight: 8000,
+      );
+
+      expect(size, (width: 4000, height: 4000));
+    });
+
+    test('does not upscale a small source', () {
+      final size = calculateLocalImageCropDecodeSize(
+        sourceWidth: 1200,
+        sourceHeight: 800,
+      );
+
+      expect(size, (width: 1200, height: 800));
+    });
+  });
+
   test('writes a large square crop at 1080 physical pixels', () async {
     final image = await _solidImage(1200, 1200);
     addTearDown(image.dispose);
@@ -82,6 +111,23 @@ void main() {
     expect(preview, isA<RawImage>());
     expect((preview as RawImage).image, same(sourceImage));
   });
+
+  test(
+    'downsamples an oversized encoded image before crop rendering',
+    () async {
+      final sourceImage = await _solidImage(5000, 10);
+      final byteData = await sourceImage.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      sourceImage.dispose();
+      final bytes = byteData!.buffer.asUint8List();
+
+      final decoded = await decodeLocalImageCropImage(bytes);
+      addTearDown(decoded.dispose);
+
+      expect((decoded.width, decoded.height), (4096, 8));
+    },
+  );
 }
 
 Future<ui.Image> _solidImage(int width, int height) async {
