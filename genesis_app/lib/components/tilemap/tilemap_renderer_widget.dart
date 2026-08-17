@@ -112,6 +112,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
   bool _hasUserTransformedMap = false;
   bool _isRunningTileAction = false;
   Set<String>? _initialViewportTileKeys;
+
   final Set<String> _initialViewportFramedTileKeys = <String>{};
   final List<VoidCallback> _notifiedViewportReadyCallbacks = <VoidCallback>[];
   bool _viewportReadyCallbackScheduled = false;
@@ -514,25 +515,24 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                         child: SizedBox(
                                           width: projection.mapWidth,
                                           height: projection.mapHeight,
-                                          child: Stack(
-                                            clipBehavior: Clip.none,
-                                            children: [
+                                          child: _TilemapCanvasTileLayer(
+                                            key: const ValueKey<String>(
+                                              'tilemap-canvas-tile-mount',
+                                            ),
+                                            mapSize: mapSize,
+                                            frameGeneration:
+                                                _progressiveMountGeneration,
+                                            tiles: [
                                               for (final record in records)
                                                 if (_revealedTileKeys.contains(
                                                   record.tile.cellKey,
                                                 ))
-                                                  _ProjectedTile(
-                                                    key: ValueKey<String>(
-                                                      'tile-${record.tile.x}-'
-                                                      '${record.tile.y}',
-                                                    ),
-                                                    tile: record.tile,
+                                                  _TilemapCanvasTileEntry(
+                                                    record: record,
                                                     asset:
                                                         _revealedAssetForRecord(
                                                           record,
                                                         ),
-                                                    topLeft:
-                                                        record.imageTopLeft,
                                                     extent:
                                                         projection.tileExtent,
                                                     locationImageFlowAnimation:

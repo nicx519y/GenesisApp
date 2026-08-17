@@ -4,8 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/genesis_http_cache_manager.dart';
 import 'package:genesis_flutter_android/network/genesis_http_transport_pool.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/network_capture.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   test(
     'global transport pool warms every connection once per origin',
     () async {
@@ -218,6 +224,42 @@ void main() {
       validTill.isBefore(DateTime.now().add(const Duration(seconds: 61))),
       true,
     );
+  });
+
+  test('image file service records actual CDN downloads only', () async {
+    final imageBytes = List<int>.filled(84 * 1024, 1);
+    final transport = _RecordingTransport(
+      TransportResponse(
+        statusCode: 200,
+        headers: const <String, String>{'content-type': 'image/webp'},
+        body: '',
+        bodyBytes: imageBytes,
+        responsePayloadSizeBytes: imageBytes.length,
+        httpProtocolVersion: 'h3',
+      ),
+    );
+    final captureController = NetworkCaptureController();
+    await captureController.setEnabled(true);
+    final service = GenesisHttpFileService(
+      transport: transport,
+      captureController: captureController,
+      isDebugBuild: true,
+    );
+    const url =
+        'https://cdn-001.worldo.ai/cover.webp'
+        '?x-oss-process=image/resize,w_360,image/format,webp';
+
+    await service.get(url);
+
+    final record = captureController.records.single;
+    expect(record.method, 'GET');
+    expect(record.uri, Uri.parse(url));
+    expect(record.status, NetworkCaptureStatus.success);
+    expect(record.statusCode, 200);
+    expect(record.httpProtocolVersion, 'h3');
+    expect(record.responseBody?.binary, isTrue);
+    expect(record.responseBody?.byteCount, 84 * 1024);
+    expect(record.responseBody?.text, '[Binary body: 86016 bytes]');
   });
 
   test('no-cache image response expires immediately', () {

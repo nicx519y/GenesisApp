@@ -939,7 +939,10 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     final generation = _cacheGeneration;
     final trace = await FirebasePerformanceMonitoring.startTrace(
       _firstRenderPerformanceTraceName,
-      attributes: <String, String>{'source': widget._source.name},
+      attributes: <String, String>{
+        'source': widget._source.name,
+        'renderer': 'canvas',
+      },
     );
     if (trace == null) return;
 

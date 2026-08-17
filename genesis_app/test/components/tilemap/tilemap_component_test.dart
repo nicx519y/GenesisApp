@@ -963,7 +963,7 @@ void main() {
     expect(tilemapTransformScale(minimum), tilemapMinScale);
   });
 
-  test('tile URL resolution selects each density tier', () {
+  test('tile URL resolution selects the nearest density tier', () {
     const baseUrl = 'https://cdn.example.com/tile/a.png';
 
     expect(
@@ -977,19 +977,29 @@ void main() {
       '?x-oss-process=image/resize,w_128,image/format,webp',
     );
     expect(
-      resolveTilemapAssetForDisplaySize(baseUrl, 129),
+      resolveTilemapAssetForDisplaySize(baseUrl, 191.9),
+      'https://cdn.example.com/tile/a.png'
+      '?x-oss-process=image/resize,w_128,image/format,webp',
+    );
+    expect(
+      resolveTilemapAssetForDisplaySize(baseUrl, 192),
       'https://cdn.example.com/tile/a.png'
       '?x-oss-process=image/resize,w_256,image/format,webp',
     );
     expect(
-      resolveTilemapAssetForDisplaySize(baseUrl, 257),
+      resolveTilemapAssetForDisplaySize(baseUrl, 383.9),
+      'https://cdn.example.com/tile/a.png'
+      '?x-oss-process=image/resize,w_256,image/format,webp',
+    );
+    expect(
+      resolveTilemapAssetForDisplaySize(baseUrl, 384),
       'https://cdn.example.com/tile/a.png'
       '?x-oss-process=image/resize,w_512,image/format,webp',
     );
     expect(
-      resolveTilemapAssetForDisplaySize(baseUrl, 513),
+      resolveTilemapAssetForDisplaySize(baseUrl, 575.9),
       'https://cdn.example.com/tile/a.png'
-      '?x-oss-process=image/resize,w_640,image/format,webp',
+      '?x-oss-process=image/resize,w_512,image/format,webp',
     );
     expect(
       resolveTilemapAssetForDisplaySize(baseUrl, 576),
@@ -997,7 +1007,12 @@ void main() {
       '?x-oss-process=image/resize,w_640,image/format,webp',
     );
     expect(
-      resolveTilemapAssetForDisplaySize(baseUrl, 641),
+      resolveTilemapAssetForDisplaySize(baseUrl, 831.9),
+      'https://cdn.example.com/tile/a.png'
+      '?x-oss-process=image/resize,w_640,image/format,webp',
+    );
+    expect(
+      resolveTilemapAssetForDisplaySize(baseUrl, 832),
       'https://cdn.example.com/tile/a.png'
       '?x-oss-process=image/resize,w_1024,image/format,webp',
     );
@@ -1196,7 +1211,10 @@ void main() {
       findsOneWidget,
     );
     expect(tester.renderObject(imageFlow).isRepaintBoundary, true);
-    expect(find.byType(Image), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-canvas-tile-mount')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('tile-location-pointer-High School')),
       findsNothing,
@@ -1616,6 +1634,7 @@ void main() {
       await tester.pump();
 
       final fogBlend = find.byKey(const ValueKey<String>('tile-fog-blend-0-0'));
+      await _pumpUntil(tester, () => fogBlend.evaluate().isNotEmpty);
       final initialRenderObject = tester.renderObject(fogBlend);
       final initialBoundaryLayer = initialRenderObject.debugLayer;
 
@@ -1973,8 +1992,10 @@ void main() {
       find.byKey(const ValueKey<String>('tile-fog-blend-1-0')),
       findsNothing,
     );
-    expect(find.byKey(const ValueKey<String>('tile-0-0')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('tile-1-0')), findsOneWidget);
+    expect(
+      _mountedCanvasTileKeys(tester),
+      containsAll(<String>{'tile-0-0', 'tile-1-0'}),
+    );
   });
 
   testWidgets('renderer creates tiles and labels only inside retained bounds', (
@@ -2027,10 +2048,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byKey(const ValueKey<String>('tile-50-50')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('tile-51-50')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('tile-0-0')), findsNothing);
-    expect(find.byKey(const ValueKey<String>('tile-99-99')), findsNothing);
+    expect(_mountedCanvasTileKeys(tester), <String>{
+      'tile-50-50',
+      'tile-51-50',
+    });
     expect(
       find.byKey(const ValueKey<String>('tile-fog-blend-51-50')),
       findsOneWidget,
@@ -2055,7 +2076,7 @@ void main() {
       find.byKey(const ValueKey<String>('tile-location-image-flow-0-0')),
       findsNothing,
     );
-    expect(find.byType(Image), findsNWidgets(2));
+    expect(find.byType(RawImage), findsNWidgets(2));
 
     await tester.timedDrag(
       find.byKey(const ValueKey<String>('tilemap-gesture-layer')),
@@ -2065,8 +2086,9 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byKey(const ValueKey<String>('tile-50-50')), findsNothing);
-    expect(find.byKey(const ValueKey<String>('tile-60-50')), findsOneWidget);
+    final pannedTileKeys = _mountedCanvasTileKeys(tester);
+    expect(pannedTileKeys, isNot(contains('tile-50-50')));
+    expect(pannedTileKeys, contains('tile-60-50'));
     expect(
       find.byKey(const ValueKey<String>('tile-location-label-60-50')),
       findsOneWidget,
@@ -2193,6 +2215,16 @@ Future<void> _primeSuccessfulTileImage(WidgetTester tester) async {
     SynchronousFuture<ImageInfo>(ImageInfo(image: image)),
   );
   addTearDown(_resetDebugTileImageCompleter);
+}
+
+Set<String> _mountedCanvasTileKeys(WidgetTester tester) {
+  final dynamic layer = tester.widget(
+    find.byKey(const ValueKey<String>('tilemap-canvas-tile-mount')),
+  );
+  return <String>{
+    for (final dynamic entry in layer.tiles as List<dynamic>)
+      'tile-${entry.record.tile.x}-${entry.record.tile.y}',
+  };
 }
 
 void _primeFailedTileImage() {

@@ -204,6 +204,62 @@ void main() {
     expect(cacheManager.getSingleFileCalls, 2);
     imageInfo!.dispose();
   });
+
+  testWidgets('deletes a corrupt disk image and retries once', (tester) async {
+    const imageUrl = 'https://cache.test/corrupt-then-valid.png';
+    final fileSystem = MemoryFileSystem();
+    final corruptFile = fileSystem.file('/corrupt.png');
+    await corruptFile.writeAsBytes(<int>[0, 1, 2, 3]);
+    final asset = await rootBundle.load('assets/images/default_list_image.png');
+    final validFile = fileSystem.file('/valid.png');
+    await validFile.writeAsBytes(asset.buffer.asUint8List());
+    final cacheManager = _CorruptThenValidCacheManager(corruptFile, validFile);
+    final provider = GenesisStaticNetworkImageProvider(
+      imageUrl: imageUrl,
+      cacheManager: cacheManager,
+    );
+    await provider.evict();
+    addTearDown(provider.evict);
+
+    ImageInfo? imageInfo;
+    await tester.runAsync(() async {
+      imageInfo = await _resolveImage(provider);
+    });
+
+    expect(imageInfo, isNotNull);
+    expect(cacheManager.getSingleFileCalls, 2);
+    expect(cacheManager.removedKeys, <String>[imageUrl]);
+    imageInfo!.dispose();
+  });
+
+  testWidgets('stops after one retry when the disk image stays corrupt', (
+    tester,
+  ) async {
+    const imageUrl = 'https://cache.test/always-corrupt.png';
+    final fileSystem = MemoryFileSystem();
+    final corruptFile = fileSystem.file('/always-corrupt.png');
+    await corruptFile.writeAsBytes(<int>[0, 1, 2, 3]);
+    final cacheManager = _AlwaysCorruptCacheManager(corruptFile);
+    final provider = GenesisStaticNetworkImageProvider(
+      imageUrl: imageUrl,
+      cacheManager: cacheManager,
+    );
+    await provider.evict();
+    addTearDown(provider.evict);
+
+    Object? decodeError;
+    await tester.runAsync(() async {
+      try {
+        await _resolveImage(provider);
+      } catch (error) {
+        decodeError = error;
+      }
+    });
+
+    expect(decodeError, isNotNull);
+    expect(cacheManager.getSingleFileCalls, 2);
+    expect(cacheManager.removedKeys, <String>[imageUrl, imageUrl]);
+  });
 }
 
 Future<ImageInfo> _resolveImage(ImageProvider provider) {
@@ -281,6 +337,59 @@ class _FailOnceMemoryCacheManager implements BaseCacheManager {
       throw StateError('first image request failed');
     }
     return file;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _CorruptThenValidCacheManager implements BaseCacheManager {
+  _CorruptThenValidCacheManager(this.corruptFile, this.validFile);
+
+  final File corruptFile;
+  final File validFile;
+  int getSingleFileCalls = 0;
+  final List<String> removedKeys = <String>[];
+
+  @override
+  Future<File> getSingleFile(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+  }) async {
+    getSingleFileCalls += 1;
+    return getSingleFileCalls == 1 ? corruptFile : validFile;
+  }
+
+  @override
+  Future<void> removeFile(String key) async {
+    removedKeys.add(key);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _AlwaysCorruptCacheManager implements BaseCacheManager {
+  _AlwaysCorruptCacheManager(this.file);
+
+  final File file;
+  int getSingleFileCalls = 0;
+  final List<String> removedKeys = <String>[];
+
+  @override
+  Future<File> getSingleFile(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+  }) async {
+    getSingleFileCalls += 1;
+    return file;
+  }
+
+  @override
+  Future<void> removeFile(String key) async {
+    removedKeys.add(key);
   }
 
   @override

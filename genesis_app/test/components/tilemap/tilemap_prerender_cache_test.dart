@@ -284,13 +284,13 @@ void main() {
       ),
     );
     await tester.pump();
+    await _pumpUntil(tester, () => _mountedTileKeys(tester).length == 2);
 
-    expect(find.byKey(const ValueKey<String>('tile-50-50')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('tile-51-50')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('tile-0-0')), findsNothing);
-    expect(find.byKey(const ValueKey<String>('tile-60-50')), findsNothing);
-    expect(find.byKey(const ValueKey<String>('tile-99-99')), findsNothing);
-    expect(find.byType(Image), findsNWidgets(2));
+    expect(_mountedTileKeys(tester), <String>['tile-50-50', 'tile-51-50']);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-canvas-tile-layer')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('suspended warm surface is offstage and keeps its state', (
@@ -380,4 +380,21 @@ TilemapConfig _singleTileConfig(String id) {
     },
     tiles: const [TilemapCell(x: 0, y: 0, type: 'tile')],
   );
+}
+
+List<String> _mountedTileKeys(WidgetTester tester) {
+  final dynamic layer = tester.widget(
+    find.byKey(const ValueKey<String>('tilemap-canvas-tile-mount')),
+  );
+  return <String>[
+    for (final dynamic entry in layer.tiles as List<dynamic>)
+      'tile-${entry.record.tile.x}-${entry.record.tile.y}',
+  ];
+}
+
+Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
+  for (var attempt = 0; attempt < 20 && !condition(); attempt += 1) {
+    await tester.pump();
+  }
+  expect(condition(), isTrue);
 }

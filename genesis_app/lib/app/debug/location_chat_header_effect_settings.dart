@@ -10,10 +10,10 @@ class LocationChatHeaderEffectSettings {
 
   static const double minTransparencyStrength = 0;
   static const double maxTransparencyStrength = 1;
-  static const double defaultTransparencyStrength = 1;
+  static const double defaultTransparencyStrength = 0.9;
   static const double minBlurSigma = 0;
   static const double maxBlurSigma = 20;
-  static const double defaultBlurSigma = 10;
+  static const double defaultBlurSigma = 4;
 
   static const defaults = LocationChatHeaderEffectSettings(
     transparencyStrength: defaultTransparencyStrength,
@@ -53,9 +53,9 @@ class LocationChatHeaderEffectSettingsController
     : super(LocationChatHeaderEffectSettings.defaults);
 
   static const String transparencyStorageKey =
-      'developer_location_chat_header_transparency_v1';
+      'developer_location_chat_surface_opacity_v2';
   static const String blurSigmaStorageKey =
-      'developer_location_chat_header_blur_sigma_v1';
+      'developer_location_chat_surface_blur_sigma_v2';
 
   bool _loaded = false;
   int _revision = 0;

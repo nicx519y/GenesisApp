@@ -332,6 +332,12 @@ void main() {
     await _zoomInAndPump(tester);
     expect(
       pendingImages.keys.any((key) => key.contains('resize,w_1024')),
+      false,
+    );
+
+    await _zoomInAndPump(tester);
+    expect(
+      pendingImages.keys.any((key) => key.contains('resize,w_1024')),
       true,
     );
     expect(_mountedTileKeys(tester), hasLength(1));
@@ -476,13 +482,12 @@ TilemapConfig _uniqueAssetConfig() {
 }
 
 List<String> _mountedTileKeys(WidgetTester tester) {
-  final transform = tester.widget<Transform>(
-    find.byKey(const ValueKey<String>('tilemap-tile-transform')),
+  final dynamic layer = tester.widget(
+    find.byKey(const ValueKey<String>('tilemap-canvas-tile-mount')),
   );
-  final mapBox = transform.child! as SizedBox;
-  final stack = mapBox.child! as Stack;
   return [
-    for (final child in stack.children) (child.key! as ValueKey<String>).value,
+    for (final dynamic entry in layer.tiles as List<dynamic>)
+      'tile-${entry.record.tile.x}-${entry.record.tile.y}',
   ];
 }
 

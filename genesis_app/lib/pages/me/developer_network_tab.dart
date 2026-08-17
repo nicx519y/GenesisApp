@@ -202,7 +202,7 @@ class _DeveloperNetworkTabState extends State<_DeveloperNetworkTab> {
         : hasFilter && controller.records.isNotEmpty
         ? 'No matching network requests.'
         : !controller.enabled
-        ? 'Turn on Capture network to record new business requests.'
+        ? 'Turn on Capture network to record new network requests.'
         : 'No requests yet. Use another page to generate network traffic.';
     return Center(
       child: Padding(
@@ -268,6 +268,9 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isError = record.status == NetworkCaptureStatus.error;
+    final isGet = record.method == 'GET';
+    final requestText = _networkRequestText(record);
+    final responseText = _networkResponseText(record);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFF7F7F8),
@@ -300,8 +303,11 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           record.uri.path.isEmpty ? '/' : record.uri.path,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          key: ValueKey<String>(
+                            'developer-network-path-${record.id}',
+                          ),
+                          maxLines: isGet ? null : 1,
+                          overflow: isGet ? null : TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -315,7 +321,7 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (record.method == 'GET' && record.uri.query.isNotEmpty) ...[
+                  if (isGet && record.uri.query.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Padding(
                       padding: const EdgeInsets.only(left: 50),
@@ -350,6 +356,16 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                           color: Color(0xFF777777),
                         ),
                       ),
+                      if (record.responseBody case final responseBody?) ...[
+                        const SizedBox(width: 10),
+                        Text(
+                          _networkByteSizeText(responseBody.byteCount),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF777777),
+                          ),
+                        ),
+                      ],
                       const SizedBox(width: 10),
                       Text(
                         _networkTimeText(record.startedAt),
@@ -383,7 +399,7 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                     title: 'Request',
                     expanded: isSectionExpanded('request'),
                     onToggle: () => onToggleSection('request'),
-                    content: _networkRequestText(record),
+                    content: requestText,
                     contentKey: ValueKey<String>(
                       'developer-network-request-content-${record.id}',
                     ),
@@ -391,12 +407,13 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                     copyKey: const ValueKey<String>(
                       'developer-network-copy-request',
                     ),
+                    selectable: true,
                   ),
                   _DeveloperCaptureDetailSection(
                     title: isError ? 'Error' : 'Response',
                     expanded: isSectionExpanded('response'),
                     onToggle: () => onToggleSection('response'),
-                    content: _networkResponseText(record),
+                    content: responseText,
                     contentKey: ValueKey<String>(
                       'developer-network-response-content-${record.id}',
                     ),
@@ -404,6 +421,7 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                     copyKey: ValueKey<String>(
                       'developer-network-copy-${isError ? 'error' : 'response'}',
                     ),
+                    selectable: true,
                   ),
                 ],
               ),
@@ -474,9 +492,22 @@ String _networkOverviewText(NetworkCaptureRecord record) {
       'Finished: ${record.finishedAt!.toIso8601String()}',
     'Duration: ${_networkDurationText(record.duration)}',
     'Protocol: ${record.httpProtocolVersion ?? 'unknown'}',
-    'Request bytes: ${record.requestBody?.byteCount ?? 0}',
-    'Response bytes: ${record.responseBody?.byteCount ?? 0}',
+    'Request size: ${_networkByteSizeText(record.requestBody?.byteCount ?? 0)}',
+    'Response size: ${_networkByteSizeText(record.responseBody?.byteCount ?? 0)}',
   ].join('\n');
+}
+
+String _networkByteSizeText(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  const kilobyte = 1024;
+  const megabyte = 1024 * kilobyte;
+  if (bytes < megabyte) return '${_compactSize(bytes / kilobyte)} KB';
+  return '${_compactSize(bytes / megabyte)} MB';
+}
+
+String _compactSize(double value) {
+  final fixed = value.toStringAsFixed(1);
+  return fixed.endsWith('.0') ? fixed.substring(0, fixed.length - 2) : fixed;
 }
 
 String _networkRequestText(NetworkCaptureRecord record) {

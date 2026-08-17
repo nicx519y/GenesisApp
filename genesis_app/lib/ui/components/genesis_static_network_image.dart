@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -165,6 +166,26 @@ class GenesisStaticNetworkImageProvider
       throw StateError('Image URL is empty');
     }
     final file = await key.cacheManager.getSingleFile(key.imageUrl);
+    try {
+      return await _decodeFile(key, file, decode);
+    } catch (_) {
+      await _removeCachedFileSafely(key);
+    }
+
+    final retryFile = await key.cacheManager.getSingleFile(key.imageUrl);
+    try {
+      return await _decodeFile(key, retryFile, decode);
+    } catch (error, stackTrace) {
+      await _removeCachedFileSafely(key);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  Future<ImageInfo> _decodeFile(
+    GenesisStaticNetworkImageProvider key,
+    File file,
+    ImageDecoderCallback decode,
+  ) async {
     final buffer = await ui.ImmutableBuffer.fromUint8List(
       await file.readAsBytes(),
     );
@@ -181,6 +202,16 @@ class GenesisStaticNetworkImageProvider
       return ImageInfo(image: frame.image, scale: 1);
     } finally {
       codec.dispose();
+    }
+  }
+
+  Future<void> _removeCachedFileSafely(
+    GenesisStaticNetworkImageProvider key,
+  ) async {
+    try {
+      await key.cacheManager.removeFile(key.imageUrl);
+    } catch (_) {
+      // Cache cleanup must not hide the original decode failure.
     }
   }
 
