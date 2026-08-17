@@ -15,6 +15,9 @@ class GenesisBottomNavigationItem {
     this.selectedIconAsset,
     this.enabled = true,
     this.prominent = false,
+    this.showLabel = true,
+    this.iconSize,
+    this.iconShadows,
     this.badgeCount = 0,
   }) : assert(icon != null || iconAsset != null);
 
@@ -24,6 +27,9 @@ class GenesisBottomNavigationItem {
   final String? selectedIconAsset;
   final bool enabled;
   final bool prominent;
+  final bool showLabel;
+  final double? iconSize;
+  final List<Shadow>? iconShadows;
   final int badgeCount;
 }
 
@@ -98,11 +104,13 @@ class GenesisBottomNavigationTile extends StatelessWidget {
         : selected
         ? uiTheme.bottomNavigationSelectedColor
         : uiTheme.bottomNavigationUnselectedColor;
-    final iconSize = item.prominent
-        ? 28.0
-        : item.iconAsset == null
-        ? 20.0
-        : 24.0;
+    final iconSize =
+        item.iconSize ??
+        (item.prominent
+            ? 22.0
+            : item.iconAsset == null
+            ? 20.0
+            : 24.0);
     final iconAsset = selected
         ? item.selectedIconAsset ?? item.iconAsset
         : item.iconAsset;
@@ -124,30 +132,100 @@ class GenesisBottomNavigationTile extends StatelessWidget {
                 onTap();
               }
             : null,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _BadgedIcon(
-              icon: item.icon,
-              assetName: iconAsset,
-              color: color,
-              size: iconSize,
-              badgeCount: item.badgeCount,
-              badgeKey: ValueKey('bottom-nav-${item.label}-unread-badge'),
-            ),
-            SizedBox(height: item.prominent ? 1 : GenesisSpacing.xxs),
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: uiTheme.tabLabelStyle.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        child: Semantics(
+          key: ValueKey<String>('bottom-nav-${item.label}'),
+          button: true,
+          enabled: item.enabled,
+          selected: selected,
+          label: item.label,
+          excludeSemantics: true,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (item.prominent)
+                _ProminentNavigationIcon(
+                  icon: item.icon,
+                  assetName: iconAsset,
+                  size: iconSize,
+                  shadows: item.iconShadows,
+                  backgroundColor: color,
+                )
+              else
+                _BadgedIcon(
+                  icon: item.icon,
+                  assetName: iconAsset,
+                  color: color,
+                  size: iconSize,
+                  badgeCount: item.badgeCount,
+                  badgeKey: ValueKey('bottom-nav-${item.label}-unread-badge'),
+                ),
+              if (item.showLabel) ...[
+                SizedBox(height: item.prominent ? 1 : GenesisSpacing.xxs),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: uiTheme.tabLabelStyle.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _ProminentNavigationIcon extends StatelessWidget {
+  const _ProminentNavigationIcon({
+    required this.icon,
+    required this.assetName,
+    required this.size,
+    required this.shadows,
+    required this.backgroundColor,
+  });
+
+  final IconData? icon;
+  final String? assetName;
+  final double size;
+  final List<Shadow>? shadows;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 33,
+      decoration: ShapeDecoration(
+        color: backgroundColor,
+        shape: const ContinuousRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+        ),
+      ),
+      alignment: Alignment.center,
+      child: assetName != null
+          ? assetName!.endsWith('.svg')
+                ? SvgPicture.asset(
+                    assetName!,
+                    width: size,
+                    height: size,
+                    fit: BoxFit.contain,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
+                  )
+                : Image.asset(
+                    assetName!,
+                    width: size,
+                    height: size,
+                    fit: BoxFit.contain,
+                    color: Colors.white,
+                  )
+          : Icon(icon, color: Colors.white, size: size, shadows: shadows),
     );
   }
 }

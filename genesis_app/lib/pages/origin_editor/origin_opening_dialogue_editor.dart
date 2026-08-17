@@ -116,6 +116,134 @@ class _OpeningDialogueEditor extends StatelessWidget {
   }
 }
 
+class _OpeningBestRoleSelector extends StatelessWidget {
+  const _OpeningBestRoleSelector({
+    required this.characters,
+    required this.onChanged,
+  });
+
+  final List<CharacterDraft> characters;
+  final ValueChanged<CharacterDraft> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Column(
+        key: const ValueKey<String>('opening-best-role-selector'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Suggest a role for user',
+            style: TextStyle(
+              color: createFormText,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: _fieldLabelInputGap),
+          if (characters.isEmpty)
+            const Text(
+              'No characters available.',
+              style: TextStyle(
+                color: createFormMuted,
+                fontSize: 13,
+                height: 1.2,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final character in characters)
+                  _OpeningBestRoleOption(
+                    character: character,
+                    onTap: () => onChanged(character),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpeningBestRoleOption extends StatelessWidget {
+  const _OpeningBestRoleOption({required this.character, required this.onTap});
+
+  final CharacterDraft character;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final characterId = character.charId.trim();
+    return Semantics(
+      button: true,
+      selected: character.isRecommended,
+      label: '${character.name.trim()} suggested for the user',
+      child: GestureDetector(
+        key: ValueKey<String>('opening-best-role-$characterId'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          key: ValueKey<String>('opening-best-role-card-$characterId'),
+          width: 104,
+          height: 116,
+          child: Column(
+            children: [
+              SizedBox(
+                width: 82,
+                height: 82,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GenesisCharacterAvatar(
+                      key: ValueKey<String>(
+                        'opening-best-role-avatar-$characterId',
+                      ),
+                      url: character.avatarUrl.trim(),
+                      name: character.name.trim(),
+                      size: 82,
+                      borderRadius: GenesisAvatarRadii.character,
+                      showFallbackWhileLoading: false,
+                    ),
+                    if (character.isRecommended)
+                      Positioned(
+                        left: 4,
+                        bottom: 4,
+                        child: OriginRecommendedRoleMark(
+                          badgeKey: ValueKey<String>(
+                            'opening-best-role-mark-$characterId',
+                          ),
+                          showBackground: true,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                character.name.trim(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: createFormText,
+                  fontSize: 12,
+                  height: 1.1,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _OpeningDialogueContentEditor extends StatelessWidget {
   const _OpeningDialogueContentEditor({
     required this.item,

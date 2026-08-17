@@ -14,8 +14,10 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   static const int _maxDialogueItems = 10;
 
   List<_OpeningLocationOption> _options = const <_OpeningLocationOption>[];
+  List<CharacterDraft> _characters = const <CharacterDraft>[];
   final List<_OpeningDialogueItem> _dialogueItems = <_OpeningDialogueItem>[];
   _OpeningLocationOption? _selectedOption;
+  Future<void> _bestRoleSave = Future<void>.value();
   int _nextDialogueItemId = 0;
   bool _loading = true;
   bool _isSaving = false;
@@ -86,6 +88,9 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     }
     setState(() {
       _options = options;
+      _characters = draft.characters
+          .where((character) => character.name.trim().isNotEmpty)
+          .toList(growable: false);
       _selectedOption = selectedOption;
       _dialogueItems.addAll(restoredItems);
       _loading = false;
@@ -170,6 +175,46 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     });
   }
 
+  void _setBestRole(CharacterDraft target) {
+    final targetId = target.charId.trim();
+    final shouldSelect = !target.isRecommended;
+    final updatedCharacters = _characters
+        .map(
+          (character) => character.copyWith(
+            isRecommend: shouldSelect && character.charId.trim() == targetId
+                ? 1
+                : 0,
+          ),
+        )
+        .toList(growable: false);
+    setState(() => _characters = updatedCharacters);
+
+    _bestRoleSave = _bestRoleSave
+        .then((_) async {
+          final draft = await widget.repository.loadDraft();
+          final recommendationsById = <String, int>{
+            for (final character in updatedCharacters)
+              character.charId.trim(): character.isRecommend,
+          };
+          final syncedCharacters = draft.characters
+              .map(
+                (character) => character.copyWith(
+                  isRecommend:
+                      recommendationsById[character.charId.trim()] ?? 0,
+                ),
+              )
+              .toList(growable: false);
+          await widget.repository.saveFinalDraft(
+            draft.copyWith(characters: syncedCharacters),
+          );
+        })
+        .catchError((Object _) {
+          if (mounted) {
+            showGenesisToast(context, 'Unable to save suggested role.');
+          }
+        });
+  }
+
   bool get _canSave {
     if (_selectedOption == null || _dialogueItems.isEmpty) return false;
     return _dialogueItems.every((item) => item.hasContent);
@@ -194,6 +239,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     final selected = _selectedOption!;
     setState(() => _isSaving = true);
     try {
+      await _bestRoleSave;
       final draft = await widget.repository.loadDraft();
       final opening = OpeningDraft(
         locationId: selected.id,
@@ -314,7 +360,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                 SizedBox(
                                   height: selected == null
                                       ? _fieldLabelInputGap
-                                      : 20,
+                                      : 16,
                                 ),
                                 if (selected == null)
                                   const CreateFormNote(
@@ -337,6 +383,11 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                               onDelete: _removeDialogueItem,
                               onChanged: () => setState(() {}),
                             ),
+                          const SizedBox(height: _fieldGroupGap),
+                          _OpeningBestRoleSelector(
+                            characters: _characters,
+                            onChanged: _setBestRole,
+                          ),
                         ],
                       ),
                     ),

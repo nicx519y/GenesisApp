@@ -1291,16 +1291,21 @@ void main() {
           home: SizedBox(
             width: 320,
             height: 480,
-            child: TilemapRenderer(
-              config: config,
-              locationNameForTile: (_) => name,
-              locationAvatarsForTile: (_) => const [avatar],
-              messageBubbles: const [
-                WorldMapMessageBubble(
-                  characterId: 'char_1',
-                  content: 'Hello from this location.',
-                ),
-              ],
+            child: DefaultTextStyle(
+              style: const TextStyle(letterSpacing: 4),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              child: TilemapRenderer(
+                config: config,
+                locationNameForTile: (_) => name,
+                locationAvatarsForTile: (_) => const [avatar],
+                messageBubbles: const [
+                  WorldMapMessageBubble(
+                    characterId: 'char_1',
+                    content: 'Hello from this location.',
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -1385,6 +1390,12 @@ void main() {
       );
 
       expect(wrappedLabelRect.height, greaterThan(singleLabelRect.height));
+      final wrappedParagraph = tester.renderObject<RenderParagraph>(
+        find.text(wrappedName),
+      );
+      expect(wrappedParagraph.maxLines, greaterThan(1));
+      expect(wrappedParagraph.didExceedMaxLines, isFalse);
+      expect(wrappedParagraph.size.height, greaterThan(singleLabelRect.height));
       expect(wrappedLabelRect.top, closeTo(singleLabelRect.top, 0.01));
       expect(wrappedAvatarRect.top, greaterThan(singleAvatarRect.top));
       expect(wrappedMessageRect.top, greaterThan(singleMessageRect.top));
@@ -1402,6 +1413,11 @@ void main() {
       expect(
         unevenWrappedLabelRect.height,
         greaterThan(singleLabelRect.height),
+      );
+      final unevenExpectedSize = expectedLabelSize(unevenWrappedName);
+      expect(
+        unevenWrappedLabelRect.width,
+        closeTo(unevenExpectedSize.width, 0.01),
       );
       expect(unevenWrappedLabelRect.width, lessThan(141));
     },

@@ -15,6 +15,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/local_mock_runtime.dart';
 import '../../network/network_runtime_factory.dart';
+import '../../network/network_capture.dart';
 import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
 import '../../platform/session/user_info_cache.dart';
@@ -153,10 +154,13 @@ class ServiceRegistry {
     final effectiveUseMock =
         config.useMock == true && kLocalMockTransportAvailable;
     const networkRuntimeFactory = NetworkRuntimeFactory();
-    final httpTransport = networkRuntimeFactory.buildHttpTransport(
+    final baseHttpTransport = networkRuntimeFactory.buildHttpTransport(
       debugProxy: debugProxy,
       useMock: effectiveUseMock,
     );
+    final httpTransport = baseHttpTransport == null
+        ? null
+        : debugNetworkCaptureTransport(delegate: baseHttpTransport);
     final socketTransport = networkRuntimeFactory.buildWebSocketTransport(
       debugProxy: debugProxy,
       debugLogFrames: config.debugWsLog,

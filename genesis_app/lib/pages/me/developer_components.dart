@@ -2,6 +2,7 @@ part of 'developer_page.dart';
 
 class _DeveloperToggleRow extends StatelessWidget {
   const _DeveloperToggleRow({
+    required this.sectionTitle,
     required this.label,
     required this.value,
     required this.enabled,
@@ -9,6 +10,7 @@ class _DeveloperToggleRow extends StatelessWidget {
     required this.onChanged,
   });
 
+  final String sectionTitle;
   final String label;
   final bool value;
   final bool enabled;
@@ -19,6 +21,8 @@ class _DeveloperToggleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        _DeveloperSectionTitle(sectionTitle),
+        const SizedBox(width: 12),
         Expanded(
           child: Text(
             label,
@@ -30,10 +34,79 @@ class _DeveloperToggleRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Switch(
-          key: switchKey,
+        SizedBox(
+          width: 44,
+          height: 32,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: Switch(
+              key: switchKey,
+              value: value,
+              onChanged: enabled ? onChanged : null,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeveloperSliderControl extends StatelessWidget {
+  const _DeveloperSliderControl({
+    required this.label,
+    required this.valueLabel,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.sliderKey,
+    required this.onChanged,
+    required this.onChangeEnd,
+  });
+
+  final String label;
+  final String valueLabel;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final Key sliderKey;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              valueLabel,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF666666)),
+            ),
+          ],
+        ),
+        Slider(
+          key: sliderKey,
           value: value,
-          onChanged: enabled ? onChanged : null,
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: valueLabel,
+          onChanged: onChanged,
+          onChangeEnd: onChangeEnd,
         ),
       ],
     );

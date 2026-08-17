@@ -25,6 +25,7 @@ const double _tilemapLocationActivityIconGap = 3;
 const double _tilemapLocationActivityIconExtraWidth =
     _tilemapLocationActivityIconGap + kRecentChatMapBadgeSize;
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
+  inherit: false,
   color: Colors.white,
   fontSize: 12,
   height: 1.2,
@@ -36,10 +37,12 @@ class _TilemapLocationLabelLayout {
   const _TilemapLocationLabelLayout({
     required this.bubbleWidth,
     required this.height,
+    required this.lineCount,
   });
 
   final double bubbleWidth;
   final double height;
+  final int lineCount;
 }
 
 _TilemapLocationLabelLayout _tilemapLocationLabelLayout(
@@ -57,10 +60,12 @@ _TilemapLocationLabelLayout _tilemapLocationLabelLayout(
             _tilemapLocationLabelMaxWidth -
             _tilemapLocationLabelHorizontalPadding * 2,
       );
-  final longestLine = painter.computeLineMetrics().fold<double>(
+  final lines = painter.computeLineMetrics();
+  final longestLine = lines.fold<double>(
     0,
     (width, line) => math.max(width, line.width),
   );
+  final lineCount = math.max(1, lines.length);
   final paddedLongestLine =
       longestLine.ceilToDouble() + _tilemapLocationLabelHorizontalPadding * 2;
   return _TilemapLocationLabelLayout(
@@ -69,6 +74,7 @@ _TilemapLocationLabelLayout _tilemapLocationLabelLayout(
       _tilemapLocationLabelMaxWidth,
     ),
     height: painter.height + _tilemapLocationLabelVerticalPadding * 2,
+    lineCount: lineCount,
   );
 }
 
@@ -284,6 +290,8 @@ class _TilemapLocationBubble extends StatelessWidget {
                                     name,
                                     textAlign: TextAlign.center,
                                     softWrap: true,
+                                    maxLines: labelLayout.lineCount,
+                                    overflow: TextOverflow.visible,
                                     style: _tilemapLocationLabelTextStyle,
                                   ),
                                 ),

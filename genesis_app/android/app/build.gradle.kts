@@ -35,6 +35,21 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "app"
+    productFlavors {
+        create("production") {
+            dimension = "app"
+            applicationId = "com.worldo.ai"
+        }
+        create("internal") {
+            dimension = "app"
+            applicationId = "com.worldo.ai.internal"
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+            }
+        }
+    }
+
     signingConfigs {
         create("genesisAiSign") {
             storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
@@ -59,6 +74,11 @@ android {
     }
 }
 
+googleServices {
+    missingGoogleServicesStrategy =
+        com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.IGNORE
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
@@ -68,8 +88,6 @@ kotlin {
 dependencies {
     implementation("androidx.core:core:1.18.0")
     implementation("androidx.core:core-splashscreen:1.2.0")
-    implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
-    implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("com.google.android.gms:play-services-ads-identifier:18.3.0")
 }

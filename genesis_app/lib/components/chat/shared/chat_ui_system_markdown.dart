@@ -7,34 +7,47 @@ class _InlineMarkdownText extends StatelessWidget {
     this.maxLines,
     this.overflow,
     this.textAlign,
-    this.useBaseColorForEmphasis = false,
-  });
+    this.softItalic = false,
+    this.softItalicPerToken = false,
+  }) : assert(!softItalic || !softItalicPerToken);
 
   final String text;
   final TextStyle style;
   final int? maxLines;
   final TextOverflow? overflow;
   final TextAlign? textAlign;
-  final bool useBaseColorForEmphasis;
+  final bool softItalic;
+  final bool softItalicPerToken;
 
   @override
   Widget build(BuildContext context) {
     final platform = Theme.of(context).platform;
-    final textStyle = GenesisTypography.withFallback(style);
-    return Text.rich(
+    final usesSoftItalic = softItalic || softItalicPerToken;
+    final textStyle = usesSoftItalic
+        ? genesisSoftItalicStyle(style, platform: platform)
+        : GenesisTypography.withFallback(style);
+    final displayText = genesisDisplaySafeText(text);
+    final textWidget = Text.rich(
       TextSpan(
         style: textStyle,
         children: _inlineMarkdownSpans(
-          genesisDisplaySafeText(text),
+          displayText,
           textStyle,
           platform,
-          useBaseColorForEmphasis: useBaseColorForEmphasis,
+          suppressIosEmphasisSkew: softItalic && platform == TargetPlatform.iOS,
+          softItalicPlainText:
+              softItalicPerToken && platform == TargetPlatform.iOS,
         ),
       ),
       maxLines: maxLines,
       overflow: overflow,
       textAlign: textAlign,
+      semanticsLabel: softItalicPerToken && platform == TargetPlatform.iOS
+          ? displayText
+          : null,
     );
+    if (!softItalic) return textWidget;
+    return genesisSoftItalicForPlatform(child: textWidget, platform: platform);
   }
 }
 
@@ -42,7 +55,8 @@ List<InlineSpan> _inlineMarkdownSpans(
   String text,
   TextStyle baseStyle,
   TargetPlatform platform, {
-  bool useBaseColorForEmphasis = false,
+  bool suppressIosEmphasisSkew = false,
+  bool softItalicPlainText = false,
 }) {
   final spans = <InlineSpan>[];
   final buffer = StringBuffer();
@@ -50,7 +64,19 @@ List<InlineSpan> _inlineMarkdownSpans(
 
   void flushPlain() {
     if (buffer.isEmpty) return;
-    spans.add(TextSpan(text: buffer.toString()));
+    final plainText = buffer.toString();
+    if (softItalicPlainText) {
+      spans.addAll(
+        _inlineEmphasisSpans(
+          plainText,
+          baseStyle,
+          platform,
+          color: baseStyle.color,
+        ),
+      );
+    } else {
+      spans.add(TextSpan(text: plainText));
+    }
     buffer.clear();
   }
 
@@ -61,14 +87,19 @@ List<InlineSpan> _inlineMarkdownSpans(
       if (end != -1 && end > index + 1) {
         flushPlain();
         spans.addAll(
-          _inlineEmphasisSpans(
-            text.substring(index + 1, end),
-            baseStyle,
-            platform,
-            color: useBaseColorForEmphasis
-                ? baseStyle.color
-                : const Color(0xFF888888),
-          ),
+          suppressIosEmphasisSkew
+              ? <InlineSpan>[
+                  TextSpan(
+                    text: text.substring(index + 1, end),
+                    style: baseStyle.copyWith(color: const Color(0xFF888888)),
+                  ),
+                ]
+              : _inlineEmphasisSpans(
+                  text.substring(index + 1, end),
+                  baseStyle,
+                  platform,
+                  color: const Color(0xFF888888),
+                ),
         );
         index = end + 1;
         continue;

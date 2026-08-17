@@ -549,31 +549,36 @@ void main() {
     expect(find.byType(ChatAvatar), findsNothing);
   });
 
-  testWidgets('story event visibility badge wraps safely on narrow screens', (
+  testWidgets('tick event visibility uses available width when wrapping', (
     WidgetTester tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(320, 640));
+    await tester.binding.setSurfaceSize(const Size(520, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    const roleNames =
+        'Mateo Cruz, Iris, Marcus Aurelius, Alexandra Johnson, River Song, '
+        'Theodore Roosevelt, Cassandra Nova';
     final message = ChatMessageVm(
-      localId: 'narrow-story',
-      senderId: 'sub_tick',
-      senderName: 'sub_tick',
+      localId: 'wrapping-tick',
+      senderId: 'tick',
+      senderName: 'Tick',
       text: 'A narrow-screen event.',
       isMe: false,
       status: 'sent',
-      senderType: 'story_events',
-      timelinePayload: const ChatStoryEventsPayloadVm(
-        locationId: 'loc_station',
-        locationName: 'Old Station',
-        paragraphs: [
-          ChatStoryEventParagraphVm(
-            timestamp: 'Day 2, 10:15',
-            text: 'A narrow-screen event.',
-            clue: '',
-            visibilityLabel:
-                'Mateo Cruz, Iris, Marcus Aurelius, Alexandra Johnson',
-          ),
-        ],
+      senderType: 'tick',
+      tickNo: 2,
+      timelinePayload: const ChatTickPayloadVm(
+        storyEvents: ChatStoryEventsPayloadVm(
+          locationId: 'loc_station',
+          locationName: 'Old Station',
+          paragraphs: [
+            ChatStoryEventParagraphVm(
+              timestamp: 'Day 2, 10:15',
+              text: 'A narrow-screen event.',
+              clue: '',
+              visibilityLabel: roleNames,
+            ),
+          ],
+        ),
       ),
     );
 
@@ -589,13 +594,29 @@ void main() {
       ),
     );
 
-    expect(
-      find.byKey(const ValueKey('chat-story-event-visibility-narrow-story-0')),
-      findsOneWidget,
+    final visibility = find.byKey(
+      const ValueKey('chat-story-event-visibility-wrapping-tick-tick-0'),
     );
+    expect(visibility, findsOneWidget);
+    expect(find.text(roleNames), findsOneWidget);
+    expect(tester.getSize(find.text(roleNames)).width, greaterThan(224));
+    expect(tester.getSize(find.text(roleNames)).height, greaterThan(20));
     expect(
-      find.text('Mateo Cruz, Iris, Marcus Aurelius, Alexandra Johnson'),
-      findsOneWidget,
+      tester.getTopLeft(find.text('Day 2, 10:15')).dy,
+      closeTo(tester.getTopLeft(find.text(roleNames)).dy, 2),
+    );
+    final userIcon = find.descendant(
+      of: visibility,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(userStatIconAsset),
+      ),
+    );
+    expect(userIcon, findsOneWidget);
+    expect(
+      tester.getTopLeft(userIcon).dy,
+      closeTo(tester.getTopLeft(find.text(roleNames)).dy + 2, 0.1),
     );
     expect(tester.takeException(), isNull);
   });
@@ -1946,6 +1967,66 @@ void main() {
     );
   });
 
+  testWidgets('location chat header uses 90 percent glass with blur four', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatHeader(
+            title: 'Market',
+            subtitle: 'Alice, Bob',
+            connected: true,
+            connecting: false,
+            onBack: () {},
+            style: kLocationChatStyle,
+          ),
+        ),
+      ),
+    );
+
+    expect(kLocationChatStyle.headerBackdropBlurSigma, 4);
+    expect(kLocationChatStyle.headerBackgroundGradient, isNull);
+    expect(kLocationChatStyle.headerBackgroundColor.a, closeTo(0.9, 0.01));
+    expect(
+      find.descendant(
+        of: find.byType(ChatHeader),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('location chat composer uses 90 percent glass with blur four', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatComposer(
+            controller: TextEditingController(),
+            inputEnabled: true,
+            sendEnabled: false,
+            sending: false,
+            onSend: () async {},
+            style: kLocationChatStyle,
+          ),
+        ),
+      ),
+    );
+
+    expect(kLocationChatStyle.composerBackdropBlurSigma, 4);
+    expect(kLocationChatStyle.composerBackgroundGradient, isNull);
+    expect(kLocationChatStyle.composerBackgroundColor.a, closeTo(0.9, 0.01));
+    expect(
+      find.descendant(
+        of: find.byType(ChatComposer),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('location chat header left aligns title and subtitle rows', (
     WidgetTester tester,
   ) async {
@@ -2316,7 +2397,7 @@ void main() {
     expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
   });
 
-  testWidgets('self chat markdown uses the sent message text color', (
+  testWidgets('self chat markdown uses the AI emphasis color', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -2346,7 +2427,7 @@ void main() {
     );
     expect(
       _textFragmentColor(bubbleText, 'historical role message'),
-      kLocationChatStyle.bubbleTextStyle.color,
+      const Color(0xFF888888),
     );
   });
 
@@ -3131,6 +3212,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: SizedBox(
               width: 400,
@@ -3151,7 +3233,15 @@ void main() {
       );
 
       final header = find.text('Tick 1-2 · Day 1, 13:50');
-      final globalText = find.text('The promise-shaped key pulses.');
+      final globalSection = find.byKey(
+        const ValueKey<String>('chat-tick-global-section'),
+      );
+      final globalText = find.descendant(
+        of: globalSection,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Text && widget.textSpan != null,
+        ),
+      );
       final eventText = find.text('Frost creeps toward Room 0.');
       final routeIcon = find.byWidgetPredicate(
         (widget) =>
@@ -3165,6 +3255,14 @@ void main() {
       expect(header, findsOneWidget);
       expect(find.text('Global'), findsNothing);
       expect(globalText, findsOneWidget);
+      expect(
+        _skewedWidgetFragmentTexts(
+          tester.widgetList<Text>(
+            find.descendant(of: globalSection, matching: find.byType(Text)),
+          ),
+        ),
+        containsAll(<String>['The', 'promise-shaped', 'key', 'pulses.']),
+      );
       expect(find.byIcon(Icons.schedule_rounded), findsNothing);
       final tickBubble = tester.widget<Container>(
         find.byKey(const ValueKey<String>('chat-tick-message-surface')),
@@ -3185,7 +3283,7 @@ void main() {
       expect(tester.widget<Text>(header).style?.color, const Color(0xFFC4DBEF));
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey<String>('chat-tick-global-section')),
+          of: globalSection,
           matching: find.byIcon(Icons.public_rounded),
         ),
         findsNothing,
@@ -3193,7 +3291,7 @@ void main() {
       expect(tester.widget<Text>(header).style?.fontWeight, FontWeight.w400);
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey<String>('chat-tick-global-section')),
+          of: globalSection,
           matching: find.byWidgetPredicate(
             (widget) =>
                 widget is SvgPicture &&
@@ -3208,7 +3306,18 @@ void main() {
       );
       expect(
         tester.widget<Text>(globalText).textSpan?.style?.fontStyle,
-        FontStyle.italic,
+        FontStyle.normal,
+      );
+      expect(
+        find.ancestor(
+          of: globalText,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Transform &&
+                _matchesIosInlineEmphasisSkew(widget.transform),
+          ),
+        ),
+        findsNothing,
       );
       expect(find.text('Event'), findsNothing);
       expect(find.text('Vault'), findsNothing);
@@ -3229,7 +3338,23 @@ void main() {
         findsOneWidget,
       );
       expect(eventText, findsOneWidget);
-      expect(find.text('It spells Elara.'), findsOneWidget);
+      final clueText = find.text('It spells Elara.');
+      expect(clueText, findsOneWidget);
+      expect(
+        tester.widget<Text>(clueText).textSpan?.style?.fontStyle,
+        FontStyle.normal,
+      );
+      expect(
+        find.ancestor(
+          of: clueText,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Transform &&
+                _matchesIosInlineEmphasisSkew(widget.transform),
+          ),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Character destinations'), findsNothing);
       expect(routeIcon, findsOneWidget);
       expect(find.text('Elara, Lyra'), findsOneWidget);
@@ -3237,10 +3362,10 @@ void main() {
       expect(find.text('Room 0'), findsOneWidget);
       expect(
         tester.getTopLeft(header).dy,
-        lessThan(tester.getTopLeft(globalText).dy),
+        lessThan(tester.getTopLeft(globalSection).dy),
       );
       expect(
-        tester.getTopLeft(globalText).dy,
+        tester.getTopLeft(globalSection).dy,
         lessThan(tester.getTopLeft(eventText).dy),
       );
       expect(
@@ -3309,6 +3434,74 @@ void main() {
       expect(chatTickMessageCopyText(message), 'Tick 0\nOriginal tick content');
     },
   );
+
+  testWidgets('tick global skews iOS multiline content per token', (
+    WidgetTester tester,
+  ) async {
+    const globalValue =
+        'First signal crosses the valley while the second signal follows.';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: SizedBox(
+            width: 220,
+            child: ChatMessageRow(
+              message: ChatMessageVm(
+                localId: 'tick-global-multiline',
+                senderId: 'tick',
+                senderName: 'Tick',
+                text: '',
+                isMe: false,
+                status: 'sent',
+                senderType: 'tick',
+                timelinePayload: const ChatTickPayloadVm(
+                  globalText: globalValue,
+                ),
+              ),
+              showDateDivider: false,
+              style: kLocationChatStyle,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final globalSection = find.byKey(
+      const ValueKey<String>('chat-tick-global-section'),
+    );
+    final richText = find.descendant(
+      of: globalSection,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Text && widget.textSpan != null,
+      ),
+    );
+    expect(richText, findsOneWidget);
+    expect(tester.getSize(richText).height, greaterThan(30));
+    expect(tester.widget<Text>(richText).semanticsLabel, globalValue);
+    expect(
+      find.ancestor(
+        of: richText,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Transform &&
+              _matchesIosInlineEmphasisSkew(widget.transform),
+        ),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: globalSection,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Transform &&
+              _matchesIosInlineEmphasisSkew(widget.transform),
+        ),
+      ),
+      findsWidgets,
+    );
+  });
 
   testWidgets('chat composer grows with text up to ten lines', (
     WidgetTester tester,
@@ -3788,6 +3981,49 @@ void main() {
         style.messageListPadding.horizontal -
         style.systemMessageMargin.horizontal;
     expect(image.maxWidth, closeTo(narratorContentWidth, 0.01));
+  });
+
+  testWidgets('resolved remote image keeps its geometry when rebuilt', (
+    WidgetTester tester,
+  ) async {
+    const source = 'https://cdn-001.worldo.ai/chat/rebuild.webp';
+    addTearDown(() {
+      debugGenesisMessageImageInfoLoader = null;
+      clearGenesisMessageImageSizeCache();
+    });
+    debugGenesisMessageImageInfoLoader = (_) async => {
+      'ImageWidth': {'value': '400'},
+      'ImageHeight': {'value': '800'},
+    };
+
+    Widget image() => const MaterialApp(
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 300,
+            child: ChatThumbnailImage(imageUrl: source, maxWidth: 300),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(image());
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.getSize(find.byType(ChatThumbnailImage)),
+      const Size(300, 600),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pumpWidget(image());
+
+    expect(
+      tester.getSize(find.byType(ChatThumbnailImage)),
+      const Size(300, 600),
+    );
   });
 
   testWidgets('chat image keeps its ratio within the available layout width', (

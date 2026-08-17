@@ -12,6 +12,19 @@ import 'package:genesis_flutter_android/network/io_http_transport.dart';
 import 'package:genesis_flutter_android/network/multipart_body.dart';
 
 void main() {
+  test('removes only Dio implicit content-type interceptor', () {
+    final dio = Dio();
+    final customInterceptor = InterceptorsWrapper();
+    dio.interceptors.add(customInterceptor);
+    addTearDown(() => dio.close(force: true));
+
+    expect(dio.interceptors, hasLength(2));
+
+    DioHttpTransport(dio: dio, performanceMetricUrlFilter: (_) => false);
+
+    expect(dio.interceptors, [same(customInterceptor)]);
+  });
+
   test('routes HTTPS to HTTP/2 adapter and plain HTTP to IO adapter', () async {
     final httpsAdapter = _RecordingAdapter(protocolVersion: '2.0');
     final otherAdapter = _RecordingAdapter(protocolVersion: '1.1');

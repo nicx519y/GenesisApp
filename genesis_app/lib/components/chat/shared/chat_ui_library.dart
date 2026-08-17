@@ -15,6 +15,7 @@ import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/components/genesis_list_image.dart';
 import '../../../ui/components/genesis_safe_area.dart';
+import '../../../ui/components/genesis_soft_italic_text.dart';
 import '../../../ui/components/genesis_static_network_image.dart';
 import '../../../ui/system/genesis_system_ui.dart';
 import '../../../ui/tokens/genesis_colors.dart';
@@ -71,32 +72,24 @@ const double _locationChatAvatarOneThird = 40 / 3;
 const double _npcChatAvatarSize = 36;
 const Color _npcChatAvatarBackgroundColor = Color(0xFF4A5F7A);
 const Color _locationChatBackgroundColor = Color(0xFF111111);
-const Color _locationChatChromeStrong = Color(0xF2111111);
-const Color _locationChatChromeSoft = Color(0x80111111);
-const Color _locationChatHeaderGlassTop = Color(0xA6111111);
-const Color _locationChatHeaderGlassBottom = Color(0x33111111);
+const Color _locationChatSurfaceColor = Color(0xE6111111);
+const double _locationChatSurfaceBlurSigma = 4;
 const double _chatHeaderTrailingWidth = 96;
 
 ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   conversationBackgroundColor: _locationChatBackgroundColor,
-  headerBackgroundGradient: LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [_locationChatHeaderGlassTop, _locationChatHeaderGlassBottom],
-  ),
+  headerBackgroundColor: _locationChatSurfaceColor,
+  clearHeaderBackgroundGradient: true,
   headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
       .copyWith(color: Colors.white),
   headerSubtitleTextStyle: ChatUiStyleConfig.standard.headerSubtitleTextStyle
       .copyWith(color: Colors.white),
   headerTitleIconColor: Colors.white,
   headerStatusIconColor: Colors.white,
-  headerBackdropBlurSigma: 20,
-  composerBackgroundGradient: LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [_locationChatChromeSoft, _locationChatChromeStrong],
-  ),
-  composerBackdropBlurSigma: 20,
+  headerBackdropBlurSigma: _locationChatSurfaceBlurSigma,
+  composerBackgroundColor: _locationChatSurfaceColor,
+  clearComposerBackgroundGradient: true,
+  composerBackdropBlurSigma: _locationChatSurfaceBlurSigma,
   messageListPadding: ChatUiStyleConfig.standard.messageListPadding.copyWith(
     left: _locationChatOuterPadding,
     right: _locationChatOuterPadding,

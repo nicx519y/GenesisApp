@@ -65,6 +65,8 @@ class ChatroomV2Message {
     this.messageId,
     this.locationMessageId,
     this.conversationRoundId,
+    this.tickNo,
+    this.subTickNo,
     this.senderType = '',
     this.senderId = '',
     this.senderName = '',
@@ -89,6 +91,8 @@ class ChatroomV2Message {
   final int? messageId;
   final int? locationMessageId;
   final int? conversationRoundId;
+  final int? tickNo;
+  final int? subTickNo;
   final String senderType;
   final String senderId;
   final String senderName;
@@ -130,6 +134,10 @@ class ChatroomV2Message {
       conversationRoundId: json['conversation_round_id'] == null
           ? null
           : asInt(json['conversation_round_id']),
+      tickNo: json['tick_no'] == null ? null : asInt(json['tick_no']),
+      subTickNo: json['sub_tick_no'] == null
+          ? null
+          : asInt(json['sub_tick_no']),
       senderType: asString(json['sender_type']),
       senderId: asString(json['sender_id']),
       senderName: asString(json['sender_name']),
@@ -180,6 +188,8 @@ class ChatroomV2Message {
       if (locationMessageId != null) 'location_message_id': locationMessageId,
       if (conversationRoundId != null)
         'conversation_round_id': conversationRoundId,
+      if (tickNo != null) 'tick_no': tickNo,
+      if (subTickNo != null) 'sub_tick_no': subTickNo,
       if (senderType.isNotEmpty) 'sender_type': senderType,
       if (senderId.isNotEmpty) 'sender_id': senderId,
       if (senderName.isNotEmpty) 'sender_name': senderName,
@@ -474,12 +484,16 @@ class ChatroomEnvelope {
       msgId: message.messageId,
       locationMsgId: message.locationMessageId,
       conversationRoundId: message.conversationRoundId,
-      tickNo: message.payload.containsKey('tick_no')
-          ? asInt(message.payload['tick_no'])
-          : null,
-      subTickNo: message.payload.containsKey('sub_tick_no')
-          ? asInt(message.payload['sub_tick_no'])
-          : null,
+      tickNo:
+          message.tickNo ??
+          (message.payload.containsKey('tick_no')
+              ? asInt(message.payload['tick_no'])
+              : null),
+      subTickNo:
+          message.subTickNo ??
+          (message.payload.containsKey('sub_tick_no')
+              ? asInt(message.payload['sub_tick_no'])
+              : null),
       clientMsgId: message.clientMsgId,
       broadcast: message.payload.containsKey('broadcast')
           ? asBool(message.payload['broadcast'])
@@ -538,6 +552,8 @@ class ChatroomEnvelope {
       messageId: msgId,
       locationMessageId: locationMsgId,
       conversationRoundId: conversationRoundId,
+      tickNo: tickNo,
+      subTickNo: subTickNo,
       senderType: senderType,
       senderId: senderId,
       senderName: senderName,

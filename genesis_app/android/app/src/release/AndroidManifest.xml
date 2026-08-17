@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="true"
+            tools:replace="android:value" />
+        <meta-data
+            android:name="firebase_analytics_collection_deactivated"
+            tools:node="remove" />
+    </application>
+</manifest>

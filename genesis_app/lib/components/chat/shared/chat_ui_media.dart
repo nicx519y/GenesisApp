@@ -31,8 +31,7 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final nextDevicePixelRatio =
-        MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+    final nextDevicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     if (_provider == null ||
         (nextDevicePixelRatio - _devicePixelRatio).abs() > 0.01) {
       _devicePixelRatio = nextDevicePixelRatio;
@@ -65,6 +64,11 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
     _failed = false;
     if (source.isEmpty) {
       setState(() => _failed = true);
+      return;
+    }
+    final cachedSourceSize = cachedGenesisMessageImageSourceSize(source);
+    if (cachedSourceSize != null) {
+      _configureImage(cachedSourceSize, notify: false);
       return;
     }
     if (source.startsWith('assets/')) {
@@ -105,13 +109,17 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
     stream.addListener(listener);
   }
 
-  void _configureImage(Size sourceSize) {
+  void _configureImage(Size sourceSize, {bool notify = true}) {
     final displaySize = fitGenesisMessageImageSize(
       sourceSize: sourceSize,
       maxWidth: widget.maxWidth,
     );
     if (displaySize.isEmpty) {
-      setState(() => _failed = true);
+      if (notify) {
+        setState(() => _failed = true);
+      } else {
+        _failed = true;
+      }
       return;
     }
     final source = widget.imageUrl.trim();
@@ -120,14 +128,20 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
       displaySize: displaySize,
       devicePixelRatio: _devicePixelRatio,
     );
-    setState(() {
+    void applyImage() {
       _sourceSize = sourceSize;
       _displaySize = displaySize;
       _provider = source.startsWith('assets/')
           ? AssetImage(source)
           : GenesisStaticNetworkImageProvider(imageUrl: resolvedSource);
       _failed = false;
-    });
+    }
+
+    if (notify) {
+      setState(applyImage);
+    } else {
+      applyImage();
+    }
   }
 
   @override

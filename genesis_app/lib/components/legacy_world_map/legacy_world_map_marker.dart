@@ -47,13 +47,13 @@ Offset? legacyWorldMapInitialZoomFocus(List<WorldPoint> points) {
 
 class _WorldPointMarkerGeometry {
   const _WorldPointMarkerGeometry({
-    required this.labelMaxWidth,
+    required this.labelLayout,
     required this.markerWidth,
     required this.markerHeight,
     required this.pointCenterY,
   });
 
-  final double labelMaxWidth;
+  final _WorldPointLabelLayout labelLayout;
   final double markerWidth;
   final double markerHeight;
   final double pointCenterY;
@@ -76,14 +76,59 @@ const double _worldPointAvatarTopGap = 10;
 // making the empty space between a location's label, pin and avatars tappable.
 const double _worldPointTapTargetPadding = 6;
 const TextStyle _worldPointLabelTextStyle = TextStyle(
+  inherit: false,
   fontSize: 12,
   height: 1.2,
   leadingDistribution: TextLeadingDistribution.even,
   fontWeight: FontWeight.w600,
+  color: Colors.white,
 );
 
-TextStyle _resolvedWorldPointLabelTextStyle(BuildContext context) {
-  return DefaultTextStyle.of(context).style.merge(_worldPointLabelTextStyle);
+class _WorldPointLabelLayout {
+  const _WorldPointLabelLayout({
+    required this.bubbleWidth,
+    required this.layoutWidth,
+    required this.height,
+    required this.lineCount,
+  });
+
+  final double bubbleWidth;
+  final double layoutWidth;
+  final double height;
+  final int lineCount;
+}
+
+_WorldPointLabelLayout _worldPointLabelLayout(
+  BuildContext context,
+  String text, {
+  required double maxBoxWidth,
+}) {
+  final layoutWidth = math.max(_worldPointLabelHorizontalPadding, maxBoxWidth);
+  final painter =
+      TextPainter(
+        text: TextSpan(text: text, style: _worldPointLabelTextStyle),
+        textAlign: TextAlign.center,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(
+        maxWidth: math.max(0, layoutWidth - _worldPointLabelHorizontalPadding),
+      );
+  final lines = painter.computeLineMetrics();
+  final longestLine = lines.fold<double>(
+    0,
+    (width, line) => math.max(width, line.width),
+  );
+  final paddedLongestLine =
+      longestLine.ceilToDouble() + _worldPointLabelHorizontalPadding;
+  return _WorldPointLabelLayout(
+    bubbleWidth: paddedLongestLine.clamp(
+      _worldPointLabelHorizontalPadding,
+      layoutWidth,
+    ),
+    layoutWidth: layoutWidth,
+    height: painter.height + _worldPointLabelVerticalPadding,
+    lineCount: math.max(1, lines.length),
+  );
 }
 
 _WorldPointMarkerGeometry _geometryForPoint(
@@ -102,21 +147,22 @@ _WorldPointMarkerGeometry _geometryForPoint(
     _worldPointMaxLabelBoxWidth,
     math.max(0.0, width - activityIconsWidth),
   );
-  final labelGroupWidth = math.min(labelMaxWidth + activityIconsWidth, width);
+  final labelLayout = _worldPointLabelLayout(
+    context,
+    point.name,
+    maxBoxWidth: labelMaxWidth,
+  );
+  final labelGroupWidth = math.min(
+    labelLayout.bubbleWidth + activityIconsWidth,
+    width,
+  );
   final avatarWidth = _worldPointAvatarGroupWidth(users.length);
   final visibleMarkerWidth = math.max(
     math.max(_worldPointDotSize, avatarWidth),
     labelGroupWidth,
   );
   final pointCenterY =
-      _worldPointLabelHeight(
-        context,
-        point.name,
-        maxWidth: math.max(
-          0,
-          labelMaxWidth - _worldPointLabelHorizontalPadding,
-        ),
-      ) +
+      labelLayout.height +
       _worldPointTapTargetPadding +
       _worldPointLabelToDotSpacing +
       _worldPointDotSize / 2;
@@ -128,30 +174,11 @@ _WorldPointMarkerGeometry _geometryForPoint(
       ) +
       _worldPointTapTargetPadding;
   return _WorldPointMarkerGeometry(
-    labelMaxWidth: labelMaxWidth,
+    labelLayout: labelLayout,
     markerWidth: markerWidth,
     markerHeight: markerHeight,
     pointCenterY: pointCenterY,
   );
-}
-
-double _worldPointLabelHeight(
-  BuildContext context,
-  String text, {
-  required double maxWidth,
-}) {
-  if (maxWidth <= 0) return _worldPointLabelVerticalPadding;
-  final painter = TextPainter(
-    text: TextSpan(
-      text: text,
-      style: _resolvedWorldPointLabelTextStyle(context),
-    ),
-    textAlign: TextAlign.center,
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-    locale: Localizations.maybeLocaleOf(context),
-  )..layout(maxWidth: maxWidth);
-  return painter.height + _worldPointLabelVerticalPadding;
 }
 
 double _worldPointMarkerHeight({
@@ -280,7 +307,7 @@ class LegacyWorldMapPointPositioned extends StatelessWidget {
       showRecentChatIcon: showRecentChatIcon,
       showEventIcon: showEventIcon,
     );
-    final labelMaxWidth = geometry.labelMaxWidth;
+    final labelLayout = geometry.labelLayout;
     final markerWidth = geometry.markerWidth;
     final markerHeight = geometry.markerHeight;
     final pointCenterY = geometry.pointCenterY;
@@ -310,7 +337,7 @@ class LegacyWorldMapPointPositioned extends StatelessWidget {
         showRecentChatIcon: showRecentChatIcon,
         showEventIcon: showEventIcon,
         users: users,
-        labelMaxWidth: labelMaxWidth,
+        labelLayout: labelLayout,
         markerWidth: markerWidth,
         markerHeight: markerHeight,
         pointCenterY: pointCenterY,
@@ -406,7 +433,7 @@ class _WorldPointMarker extends StatelessWidget {
     required this.showRecentChatIcon,
     required this.showEventIcon,
     required this.users,
-    required this.labelMaxWidth,
+    required this.labelLayout,
     required this.markerWidth,
     required this.markerHeight,
     required this.pointCenterY,
@@ -419,7 +446,7 @@ class _WorldPointMarker extends StatelessWidget {
   final bool showRecentChatIcon;
   final bool showEventIcon;
   final List<UserAvatar> users;
-  final double labelMaxWidth;
+  final _WorldPointLabelLayout labelLayout;
   final double markerWidth;
   final double markerHeight;
   final double pointCenterY;
@@ -470,30 +497,52 @@ class _WorldPointMarker extends StatelessWidget {
                   children: [
                     if (activityIconCount > 0)
                       SizedBox(width: activityIconsWidth),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: labelMaxWidth),
-                      child: DecoratedBox(
-                        key: ValueKey<String>(
-                          'world-map-location-label-${point.id}',
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.18),
-                              blurRadius: 6,
-                              offset: const Offset(0, 4),
+                    SizedBox(
+                      width: labelLayout.bubbleWidth,
+                      height: labelLayout.height,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              key: ValueKey<String>(
+                                'world-map-location-label-${point.id}',
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.4),
+                                borderRadius: BorderRadius.circular(4),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.18),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 3,
-                            vertical: 4,
                           ),
-                          child: _PointLabel(point: point, color: Colors.white),
-                        ),
+                          Positioned.fill(
+                            child: OverflowBox(
+                              alignment: Alignment.center,
+                              minWidth: labelLayout.layoutWidth,
+                              maxWidth: labelLayout.layoutWidth,
+                              minHeight: labelLayout.height,
+                              maxHeight: labelLayout.height,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                  vertical: 4,
+                                ),
+                                child: _PointLabel(
+                                  point: point,
+                                  color: Colors.white,
+                                  maxLines: labelLayout.lineCount,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (activityIconCount > 0)
@@ -611,19 +660,23 @@ class _WorldPointMarker extends StatelessWidget {
 }
 
 class _PointLabel extends StatelessWidget {
-  const _PointLabel({required this.point, this.color});
+  const _PointLabel({required this.point, required this.maxLines, this.color});
 
   final WorldPoint point;
+  final int maxLines;
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final textColor = color ?? Colors.black;
+    final style = _worldPointLabelTextStyle.copyWith(color: textColor);
     return Text(
       point.name,
       textAlign: TextAlign.center,
       softWrap: true,
-      style: _worldPointLabelTextStyle.copyWith(color: textColor),
+      maxLines: maxLines,
+      overflow: TextOverflow.visible,
+      style: style,
     );
   }
 }

@@ -325,6 +325,35 @@ void main() {
     expect(message.content, 'The promise-shaped key pulses.');
   });
 
+  test('V2 character history reads tick metadata from top-level fields', () {
+    final response = ChatroomMessageListResponse.fromV2Json({
+      'messages': [
+        {
+          'type': 'world_new_message',
+          'stream_type': '',
+          'world_id': 'world_001',
+          'location_id': 'loc_1_1_1',
+          'message_id': 101,
+          'location_message_id': 2,
+          'conversation_round_id': 348861,
+          'tick_no': 1,
+          'sub_tick_no': 4,
+          'sender_type': 'character',
+          'sender_id': 'char_1',
+          'payload': {'content': 'Top-level tick metadata'},
+          'err_no': 0,
+          'err_msg': '',
+        },
+      ],
+      'has_more': false,
+    });
+
+    final message = response.messages.single;
+    expect(message.tickNo, 1);
+    expect(message.subTickNo, 4);
+    expect(message.content, 'Top-level tick metadata');
+  });
+
   test('V2 character history reads top-level current time', () {
     final response = ChatroomMessageListResponse.fromV2Json({
       'messages': [

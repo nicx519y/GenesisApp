@@ -1,6 +1,7 @@
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import '../../app/config/app_flavor_config.dart';
 import '../apple_sign_in_service.dart';
 import '../google_sign_in_service.dart';
 import '../session/user_session_store.dart';
@@ -20,17 +21,20 @@ class ProviderIdentityAuthService implements IdentityAuthService {
     GoogleIdentityRefresh? googleRefresh,
     AppleIdentitySignIn? appleSignIn,
     IdentitySignOut? googleSignOut,
+    bool appleSignInEnabled = AppFlavorConfig.currentSupportsAppleSignIn,
   }) : _sessionStore = sessionStore,
        _googleSignIn = googleSignIn ?? GoogleSignInService.signIn,
        _googleRefresh = googleRefresh ?? GoogleSignInService.refreshSilently,
        _appleSignIn = appleSignIn ?? AppleSignInService.signIn,
-       _googleSignOut = googleSignOut ?? GoogleSignInService.signOut;
+       _googleSignOut = googleSignOut ?? GoogleSignInService.signOut,
+       _appleSignInEnabled = appleSignInEnabled;
 
   final UserSessionStore _sessionStore;
   final GoogleIdentitySignIn _googleSignIn;
   final GoogleIdentityRefresh _googleRefresh;
   final AppleIdentitySignIn _appleSignIn;
   final IdentitySignOut _googleSignOut;
+  final bool _appleSignInEnabled;
 
   @override
   Future<AuthSession> signIn(IdentityProvider provider) async {
@@ -39,6 +43,11 @@ class ProviderIdentityAuthService implements IdentityAuthService {
         case IdentityProvider.google:
           return _fromGoogleSession(await _googleSignIn());
         case IdentityProvider.apple:
+          if (!_appleSignInEnabled) {
+            throw UnsupportedError(
+              'Apple sign-in is not available in this app build.',
+            );
+          }
           return _fromAppleSession(
             await _appleSignIn(),
             cachedDisplayName: await _readCachedDisplayName(),

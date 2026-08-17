@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'devtools_websocket_profile.dart';
 import 'io_http_transport.dart';
+import 'websocket_capture.dart';
 
 const kLogWebSocketFrames = !bool.fromEnvironment('dart.vm.product');
 
@@ -30,17 +31,20 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
     String logName = 'NetworkWebSocket',
     String frameLogName = 'NetworkWebSocketFrame',
     WebSocketFrameLogSink? frameLogSink,
+    WebSocketCaptureController? captureController,
   }) : _client = createProxyAwareHttpClient(proxy),
        _logFrames = logFrames,
        _logName = logName,
        _frameLogName = frameLogName,
-       _frameLogSink = frameLogSink;
+       _frameLogSink = frameLogSink,
+       _captureController = captureController ?? webSocketCaptureController;
 
   final HttpClient _client;
   final bool _logFrames;
   final String _logName;
   final String _frameLogName;
   final WebSocketFrameLogSink? _frameLogSink;
+  final WebSocketCaptureController _captureController;
 
   @override
   Future<NetworkWebSocket> connect(
@@ -64,6 +68,7 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
       logName: _logName,
       frameLogName: _frameLogName,
       frameLogSink: _frameLogSink,
+      captureConnection: _captureController.openConnection(uri),
       frameProfile: const bool.fromEnvironment('dart.vm.product')
           ? null
           : DevToolsWebSocketProfile(uri),
@@ -78,11 +83,13 @@ class _IoNetworkWebSocket implements NetworkWebSocket {
     required String logName,
     required String frameLogName,
     required WebSocketFrameLogSink? frameLogSink,
+    required WebSocketCaptureConnection captureConnection,
     required DevToolsWebSocketProfile? frameProfile,
   }) : _logFrames = logFrames,
        _logName = logName,
        _frameLogName = frameLogName,
        _frameLogSink = frameLogSink,
+       _captureConnection = captureConnection,
        _frameProfile = frameProfile;
 
   final WebSocket _socket;
@@ -90,6 +97,7 @@ class _IoNetworkWebSocket implements NetworkWebSocket {
   final String _logName;
   final String _frameLogName;
   final WebSocketFrameLogSink? _frameLogSink;
+  final WebSocketCaptureConnection _captureConnection;
   final DevToolsWebSocketProfile? _frameProfile;
 
   @override
@@ -139,6 +147,16 @@ class _IoNetworkWebSocket implements NetworkWebSocket {
 
   void _logFrame(String direction, String message) {
     if (const bool.fromEnvironment('dart.vm.product')) return;
+    try {
+      _captureConnection.recordFrame(
+        direction == '=>'
+            ? WebSocketCaptureDirection.send
+            : WebSocketCaptureDirection.receive,
+        message,
+      );
+    } catch (_) {
+      // Diagnostics must never affect the real socket.
+    }
     if (_logFrames) {
       final formatted = formatWebSocketFrameLog(
         direction: direction,

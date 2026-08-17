@@ -1,16 +1,19 @@
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../config/app_config.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/firebase_crash_reporting.dart';
 import '../telemetry/firebase_performance_monitoring.dart';
+import '../telemetry/firebase_runtime.dart';
 import '../../network/devtools_http_profile.dart';
 import '../../network/genesis_http_cache_manager.dart';
 import '../../network/genesis_http_transport_pool.dart';
 import '../../network/network_runtime_factory.dart';
+import '../../network/network_capture.dart';
+import '../../network/websocket_capture.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
@@ -48,6 +51,12 @@ class AppBootstrap {
   }
 
   static Future<AppServices> initialize() async {
+    if (kDebugMode) {
+      await Future.wait<bool>(<Future<bool>>[
+        networkCaptureController.loadEnabled(),
+        webSocketCaptureController.loadSettings(),
+      ]);
+    }
     final services = createInitialServices();
     await warmUp(services);
     return services;
@@ -63,9 +72,7 @@ class AppBootstrap {
 
   static Future<void> _initializeFirebasePerformanceMonitoring() async {
     try {
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
-      }
+      await FirebaseRuntime.ensureInitialized();
       await FirebasePerformanceMonitoring.enable();
     } catch (e, st) {
       _firebasePerformanceInitialization = null;

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.3.4+34
+version: 0.4.1+41
 
 environment:
   sdk: ^3.9.0
@@ -36,7 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_staggered_grid_view: ^0.7.0
   firebase_core: ^4.1.1
-  dio: ^5.10.0
+  firebase_analytics: 12.4.3
+  dio: ^5.11.0
   dio_http2_adapter: ^2.8.0
   http: ^1.6.0
   cronet_http: ^1.9.0
@@ -91,6 +92,10 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  default-flavor: production
+
+  config:
+    enable-swift-package-manager: false
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

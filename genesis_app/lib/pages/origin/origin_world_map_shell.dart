@@ -330,7 +330,16 @@ class _OriginBottomLaunchBarLoading extends StatelessWidget {
     return ClipRect(
       key: const ValueKey<String>('origin-bottom-launch-loading'),
       child: DecoratedBox(
-        decoration: const BoxDecoration(color: Color(0xE6EDEDED)),
+        decoration: const BoxDecoration(
+          color: originWorldDetailSheetBackgroundColor,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 8,
+              offset: Offset(0, -2),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 13),
           child: GenesisBottomSafePadding(
@@ -387,6 +396,13 @@ class _OriginBottomLaunchBar extends StatelessWidget {
       key: const ValueKey<String>('origin-bottom-launch-blur'),
       decoration: const BoxDecoration(
         color: originWorldDetailSheetBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 8,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 13),

@@ -8,6 +8,7 @@ void main() {
     () {
       final candidates = worldMapBubbleCandidatesFor(
         currentTickNo: 7,
+        currentSubTickNo: 0,
         characterPositions: const [
           {
             'location_id': 'loc_a',
@@ -102,6 +103,7 @@ void main() {
   test('ignores streaming, narrator, users, and player-controlled roles', () {
     final candidates = worldMapBubbleCandidatesFor(
       currentTickNo: 3,
+      currentSubTickNo: 0,
       characterPositions: const [
         {
           'location_id': 'loc_a',
@@ -184,6 +186,7 @@ void main() {
     () {
       final candidates = worldMapBubbleCandidatesFor(
         currentTickNo: 2,
+        currentSubTickNo: 0,
         characterPositions: const [
           {
             'location_id': 'loc_a',
@@ -218,6 +221,7 @@ void main() {
   test('selects tick zero messages while the world is at tick zero', () {
     final candidates = worldMapBubbleCandidatesFor(
       currentTickNo: 0,
+      currentSubTickNo: 0,
       characterPositions: const [
         {
           'location_id': 'loc_a',
@@ -252,6 +256,7 @@ void main() {
   test('removes italic markdown content from bubble content', () {
     final candidates = worldMapBubbleCandidatesFor(
       currentTickNo: 1,
+      currentSubTickNo: 0,
       characterPositions: const [
         {
           'location_id': 'loc_a',
@@ -281,6 +286,62 @@ void main() {
     expect(candidates.single.content, 'Musk. Sit down.');
   });
 
+  test('selects only messages from the current tick and subtick', () {
+    final candidates = worldMapBubbleCandidatesFor(
+      currentTickNo: 2,
+      currentSubTickNo: 3,
+      characterPositions: const [
+        {
+          'location_id': 'loc_a',
+          'character': {
+            'char_id': 'ai_char',
+            'name': 'AI',
+            'type': 'ai',
+            'player_uid': '',
+          },
+        },
+      ],
+      messagesByLocation: {
+        'loc_a': [
+          _message(
+            id: 1,
+            tickNo: 2,
+            subTickNo: 2,
+            round: '20',
+            order: 1,
+            locationId: 'loc_a',
+            senderId: 'ai_char',
+            content: 'previous subtick',
+          ),
+          _message(
+            id: 2,
+            tickNo: 2,
+            subTickNo: 3,
+            round: '19',
+            order: 1,
+            locationId: 'loc_a',
+            senderId: 'ai_char',
+            content: 'current subtick',
+          ),
+          _message(
+            id: 3,
+            tickNo: 3,
+            subTickNo: 3,
+            round: '21',
+            order: 1,
+            locationId: 'loc_a',
+            senderId: 'ai_char',
+            content: 'different tick',
+          ),
+        ],
+      },
+    );
+
+    expect(candidates.map((candidate) => candidate.content), [
+      'current subtick',
+    ]);
+  });
+
   test('unescapes apostrophes and quotes in bubble content', () {
     expect(
       worldMapBubbleDisplayContent("He\\'s holding \\\"the key\\\"."),
@@ -292,6 +353,7 @@ void main() {
 WorldChatroomMessage _message({
   required int id,
   required int tickNo,
+  int subTickNo = 0,
   required String round,
   required int order,
   required String locationId,
@@ -307,6 +369,7 @@ WorldChatroomMessage _message({
     conversationRoundId: round,
     roundOrder: order,
     tickNo: tickNo,
+    subTickNo: subTickNo,
     locationId: locationId,
     senderType: senderType,
     senderId: senderId,

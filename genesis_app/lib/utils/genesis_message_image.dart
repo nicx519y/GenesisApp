@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 
 import '../network/genesis_http_cache_manager.dart';
+import 'genesis_image_resource.dart';
 
 const List<int> genesisMessageImageWidthTiers = <int>[
   45,
@@ -43,6 +44,7 @@ debugGenesisMessageImageOriginalSizeLoader;
 
 final Map<String, Future<ui.Size?>> _messageImageSizeRequests =
     <String, Future<ui.Size?>>{};
+final Map<String, ui.Size> _resolvedMessageImageSizes = <String, ui.Size>{};
 
 ui.Size fitGenesisMessageImageSize({
   required ui.Size sourceSize,
@@ -65,9 +67,7 @@ GenesisMessageImageTier selectGenesisMessageImageTier({
   required ui.Size displaySize,
   required double devicePixelRatio,
 }) {
-  final ratio = devicePixelRatio.isFinite && devicePixelRatio > 0
-      ? devicePixelRatio
-      : 1.0;
+  final ratio = genesisImageDevicePixelRatio(devicePixelRatio);
   final requiredTierWidth = math.max(
     displaySize.width * ratio,
     displaySize.height * ratio / 2,
@@ -148,20 +148,30 @@ Future<ui.Size?> resolveGenesisMessageImageSourceSize(String source) {
   if (normalized.isEmpty || normalized.startsWith('assets/')) {
     return Future<ui.Size?>.value(null);
   }
-  final fromUrl = genesisMessageImageSizeFromUrl(normalized);
-  if (fromUrl != null) return Future<ui.Size?>.value(fromUrl);
+  final cached = cachedGenesisMessageImageSourceSize(normalized);
+  if (cached != null) return Future<ui.Size?>.value(cached);
   final cacheKey = _stripUrlParams(normalized);
   final request = _messageImageSizeRequests.putIfAbsent(
     cacheKey,
     () => _resolveRemoteMessageImageSourceSize(normalized),
   );
   request.then((size) {
-    if (size == null &&
-        identical(_messageImageSizeRequests[cacheKey], request)) {
+    if (!identical(_messageImageSizeRequests[cacheKey], request)) return;
+    if (size == null) {
+      _messageImageSizeRequests.remove(cacheKey);
+    } else {
+      _resolvedMessageImageSizes[cacheKey] = size;
       _messageImageSizeRequests.remove(cacheKey);
     }
   });
   return request;
+}
+
+ui.Size? cachedGenesisMessageImageSourceSize(String source) {
+  final normalized = source.trim();
+  if (normalized.isEmpty || normalized.startsWith('assets/')) return null;
+  return genesisMessageImageSizeFromUrl(normalized) ??
+      _resolvedMessageImageSizes[_stripUrlParams(normalized)];
 }
 
 Future<ui.Size?> _resolveRemoteMessageImageSourceSize(String source) async {
@@ -507,4 +517,5 @@ String _stripUrlParams(String source) {
 @visibleForTesting
 void clearGenesisMessageImageSizeCache() {
   _messageImageSizeRequests.clear();
+  _resolvedMessageImageSizes.clear();
 }

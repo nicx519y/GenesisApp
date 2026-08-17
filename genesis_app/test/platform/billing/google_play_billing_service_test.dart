@@ -45,6 +45,7 @@ class _FakeBillingPlatform implements BillingPlatform {
   FutureOr<BillingProductQueryResult> Function(String storeProductId)?
   queryHandler;
   final List<String> queriedStoreProductIds = <String>[];
+  final Set<String> analyticsTransactionIds = <String>{};
 
   @override
   BillingProvider get provider => providerValue;
@@ -66,6 +67,14 @@ class _FakeBillingPlatform implements BillingPlatform {
     final error = recoverableQueryError;
     if (error != null) throw error;
     return recoverablePurchases;
+  }
+
+  @override
+  void recordVerifiedPurchaseForAnalytics(BillingPurchase purchase) {
+    if (purchase.provider == BillingProvider.appStore &&
+        purchase.transactionId.trim().isNotEmpty) {
+      analyticsTransactionIds.add(purchase.transactionId.trim());
+    }
   }
 
   @override
@@ -1626,6 +1635,7 @@ void main() {
         (record) => record.action == 'purchase_success',
       );
       expect(success.properties['transaction_id'], '2000000123456789');
+      expect(platform.analyticsTransactionIds, {'2000000123456789'});
     },
   );
 

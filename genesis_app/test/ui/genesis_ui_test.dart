@@ -31,6 +31,41 @@ void main() {
     expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, isNull);
   });
 
+  test('GenesisTheme disables Material state effects', () {
+    final theme = GenesisTheme.light();
+    const pressed = <WidgetState>{WidgetState.pressed};
+    expect(theme.splashFactory, NoSplash.splashFactory);
+    expect(theme.splashColor, Colors.transparent);
+    expect(theme.highlightColor, Colors.transparent);
+    expect(theme.hoverColor, Colors.transparent);
+    expect(theme.focusColor, Colors.transparent);
+    for (final style in <ButtonStyle?>[
+      theme.filledButtonTheme.style,
+      theme.textButtonTheme.style,
+      theme.outlinedButtonTheme.style,
+      theme.elevatedButtonTheme.style,
+      theme.iconButtonTheme.style,
+    ]) {
+      expect(style?.splashFactory, NoSplash.splashFactory);
+      expect(style?.overlayColor?.resolve(pressed), Colors.transparent);
+    }
+    expect(
+      theme.checkboxTheme.overlayColor?.resolve(pressed),
+      Colors.transparent,
+    );
+    expect(theme.radioTheme.overlayColor?.resolve(pressed), Colors.transparent);
+    expect(
+      theme.switchTheme.overlayColor?.resolve(pressed),
+      Colors.transparent,
+    );
+    expect(theme.floatingActionButtonTheme.splashColor, Colors.transparent);
+    expect(theme.tabBarTheme.splashFactory, NoSplash.splashFactory);
+    expect(
+      theme.tabBarTheme.overlayColor?.resolve(pressed),
+      Colors.transparent,
+    );
+  });
+
   test('GenesisTypography keeps text styles on the system font path', () {
     for (final style in <TextStyle>[
       GenesisTypography.pageTitle,
@@ -815,8 +850,8 @@ void main() {
       (icons[1].bytesLoader as SvgAssetLoader).assetName,
       bottomNavMessagesPressIconAsset,
     );
-    expect(icons[2].width, 28);
-    expect(icons[2].height, 28);
+    expect(icons[2].width, 22);
+    expect(icons[2].height, 22);
     expect(
       (icons[2].bytesLoader as SvgAssetLoader).assetName,
       bottomNavCreateIconAsset,
@@ -865,6 +900,82 @@ void main() {
     );
     expect(badgePosition.top, -1);
     expect(badgePosition.left, 19);
+  });
+
+  testWidgets('GenesisBottomNavigation can show an icon-only create action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.light(),
+        home: Scaffold(
+          bottomNavigationBar: GenesisBottomNavigation(
+            currentIndex: 0,
+            onTap: (_) {},
+            items: const [
+              GenesisBottomNavigationItem(
+                label: 'Create',
+                icon: Icons.add_rounded,
+                prominent: true,
+                showLabel: false,
+                iconSize: 26,
+                iconShadows: [
+                  Shadow(color: Colors.white, offset: Offset(0.5, 0)),
+                  Shadow(color: Colors.white, offset: Offset(-0.5, 0)),
+                  Shadow(color: Colors.white, offset: Offset(0, 0.5)),
+                  Shadow(color: Colors.white, offset: Offset(0, -0.5)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Create'), findsNothing);
+    expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
+
+    final createIcon = tester.widget<Icon>(find.byIcon(Icons.add_rounded));
+    expect(createIcon.size, 26);
+    expect(createIcon.color, Colors.white);
+    expect(createIcon.shadows, hasLength(4));
+
+    final decoration = tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.byKey(const ValueKey('bottom-nav-Create')),
+            matching: find.byType(Container),
+          ),
+        )
+        .map((container) => container.decoration)
+        .whereType<ShapeDecoration>()
+        .singleWhere(
+          (decoration) =>
+              decoration.color == GenesisColors.create &&
+              decoration.shape ==
+                  const ContinuousRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(20)),
+                  ),
+        );
+    expect(decoration.color, GenesisColors.create);
+
+    final createSurface = tester.widget<Container>(
+      find.descendant(
+        of: find.byKey(const ValueKey('bottom-nav-Create')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.constraints?.maxWidth == 42 &&
+              widget.constraints?.maxHeight == 33,
+        ),
+      ),
+    );
+    expect(createSurface.constraints?.maxWidth, 42);
+    expect(createSurface.constraints?.maxHeight, 33);
+    expect(
+      tester.getCenter(find.byWidget(createSurface)).dy,
+      tester.getCenter(find.byKey(const ValueKey('bottom-nav-Create'))).dy,
+    );
   });
 
   testWidgets('GenesisBottomNavigation keeps minimum bottom padding', (

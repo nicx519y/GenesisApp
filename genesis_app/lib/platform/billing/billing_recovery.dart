@@ -30,6 +30,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
       if (purchaseIdentity.isNotEmpty && !seenPurchaseKeys.add(purchaseKey)) {
         continue;
       }
+      _recordVerifiedPurchaseForAnalytics(purchase);
       await _recoverStorePurchase(
         purchase,
         billingAccountId: billingAccountId,
@@ -170,6 +171,9 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
     String? billingAccountId,
     int? sessionGeneration,
   }) async {
+    for (final purchase in purchases) {
+      _recordVerifiedPurchaseForAnalytics(purchase);
+    }
     var currentBillingAccountId = billingAccountId?.trim() ?? '';
     if (purchases.isNotEmpty && currentBillingAccountId.isEmpty) {
       try {
@@ -188,6 +192,18 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         source: source,
         billingAccountId: currentBillingAccountId,
       );
+    }
+  }
+
+  void _recordVerifiedPurchaseForAnalytics(BillingPurchase purchase) {
+    if (purchase.status != BillingPurchaseStatus.purchased &&
+        purchase.status != BillingPurchaseStatus.restored) {
+      return;
+    }
+    try {
+      _platform.recordVerifiedPurchaseForAnalytics(purchase);
+    } catch (error) {
+      debugPrint('[Billing] store transaction analytics failed: $error');
     }
   }
 

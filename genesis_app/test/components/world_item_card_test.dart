@@ -19,6 +19,7 @@ void main() {
       'updated_at': '2020-01-02T00:00:00Z',
       'last_tick': {
         'tick_no': 3,
+        'sub_tick_no': 2,
         'current_time': 'Day 3, 08:00',
         'created_at': '2999-01-01T00:00:00Z',
         'narrator': 'The city chooses a new route.',
@@ -49,7 +50,7 @@ void main() {
       8,
     );
     expect(find.text('2999-1-1'), findsOneWidget);
-    expect(find.text('Tick 3 · Day 3, 08:00'), findsOneWidget);
+    expect(find.text('Tick 3-2 · Day 3, 08:00'), findsOneWidget);
     expect(find.text('The city chooses a new route.'), findsOneWidget);
     expect(
       tester.getTopLeft(find.byIcon(MyFlutterApp.lastProgress)).dy,
@@ -75,6 +76,20 @@ void main() {
         .getTopLeft(find.text('The city chooses a new route.'))
         .dx;
     expect(bodyLeft, lessThan(titleLeft));
+  });
+
+  test('last progress omits the sub-tick suffix when it is zero', () {
+    final item = WorldListItem.fromJson(const <String, dynamic>{
+      'wid': 'w_alpha',
+      'last_tick': {
+        'tick_no': 3,
+        'sub_tick_no': 0,
+        'current_time': 'Day 3, 08:00',
+      },
+    });
+
+    expect(item.lastProgressSubTickNo, 0);
+    expect(item.progressTickTimeLabel, 'Tick 3 · Day 3, 08:00');
   });
 
   testWidgets('renders scene mine my_character without detail services', (

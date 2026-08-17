@@ -74,6 +74,9 @@ class _ChatStoryEventParagraph extends StatelessWidget {
       fontSize: (style.systemMessageTextStyle.fontSize ?? 12) - 1,
     );
     final isPublic = paragraph.visibilityLabel.trim().toLowerCase() == 'public';
+    final hasTimestamp = paragraph.timestamp.trim().isNotEmpty;
+    final hasVisibility =
+        !isPublic && paragraph.visibilityLabel.trim().isNotEmpty;
     return Container(
       key: ValueKey<String>(
         'chat-story-event-paragraph-$messageLocalId-$index',
@@ -83,26 +86,20 @@ class _ChatStoryEventParagraph extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 5,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset(
-                    eventsIconAsset,
-                    key: ValueKey<String>(
-                      'chat-story-event-icon-$messageLocalId-$index',
-                    ),
-                    width: 14,
-                    height: 14,
-                    colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
-                  ),
-                ],
+              SvgPicture.asset(
+                eventsIconAsset,
+                key: ValueKey<String>(
+                  'chat-story-event-icon-$messageLocalId-$index',
+                ),
+                width: 14,
+                height: 14,
+                colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
               ),
-              if (paragraph.timestamp.trim().isNotEmpty)
+              if (hasTimestamp) ...[
+                const SizedBox(width: 8),
                 Text(
                   genesisDisplaySafeText(paragraph.timestamp),
                   key: ValueKey<String>(
@@ -110,15 +107,20 @@ class _ChatStoryEventParagraph extends StatelessWidget {
                   ),
                   style: metadataStyle,
                 ),
-              if (!isPublic && paragraph.visibilityLabel.trim().isNotEmpty)
-                _ChatStoryEventVisibility(
-                  key: ValueKey<String>(
-                    'chat-story-event-visibility-$messageLocalId-$index',
+              ],
+              if (hasVisibility) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ChatStoryEventVisibility(
+                    key: ValueKey<String>(
+                      'chat-story-event-visibility-$messageLocalId-$index',
+                    ),
+                    label: paragraph.visibilityLabel,
+                    visibleRoles: paragraph.visibleRoles,
+                    style: style,
                   ),
-                  label: paragraph.visibilityLabel,
-                  visibleRoles: paragraph.visibleRoles,
-                  style: style,
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 5),
@@ -151,9 +153,9 @@ class _ChatStoryEventParagraph extends StatelessWidget {
                     textAlign: TextAlign.left,
                     style: style.systemMessageTextStyle.copyWith(
                       color: textColor.withValues(alpha: 0.72),
-                      fontStyle: FontStyle.italic,
                       height: 1.35,
                     ),
+                    softItalic: true,
                   ),
                 ),
               ],
@@ -228,12 +230,13 @@ class _ChatStoryEventVisibleRoleGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 240),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SvgPicture.asset(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: SvgPicture.asset(
             iconAsset,
             width: 12,
             height: 12,
@@ -246,16 +249,16 @@ class _ChatStoryEventVisibleRoleGroup extends StatelessWidget {
                   )
                 : null,
           ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              genesisDisplaySafeText(names.join(', ')),
-              softWrap: true,
-              style: TextStyle(color: textColor, fontSize: 12),
-            ),
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            genesisDisplaySafeText(names.join(', ')),
+            softWrap: true,
+            style: TextStyle(color: textColor, fontSize: 12),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

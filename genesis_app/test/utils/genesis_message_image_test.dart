@@ -83,7 +83,7 @@ void main() {
       expect(tier.height, 8640);
     });
 
-    test('builds an OSS lfit URL with the selected two-dimensional tier', () {
+    test('builds an OSS lfit URL with image DPR capped at 2', () {
       expect(
         resizeGenesisMessageImageUrl(
           'https://cdn-001.worldo.ai/chat/image.png?old=true#fragment',
@@ -91,7 +91,7 @@ void main() {
           devicePixelRatio: 3,
         ),
         'https://cdn-001.worldo.ai/chat/image.png'
-        '?x-oss-process=image/resize,m_lfit,w_1080,h_2160/format,webp',
+        '?x-oss-process=image/resize,m_lfit,w_720,h_1440/format,webp',
       );
     });
 

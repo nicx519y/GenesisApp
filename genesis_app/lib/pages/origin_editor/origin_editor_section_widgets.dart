@@ -9,7 +9,7 @@ class _SectionRow extends StatelessWidget {
     required this.completed,
     required this.onTap,
     this.modified = false,
-    this.summaryWrap = false,
+    this.wrapFirstSummaryLine = false,
     this.showDivider = true,
   });
 
@@ -19,7 +19,7 @@ class _SectionRow extends StatelessWidget {
   final bool completed;
   final VoidCallback? onTap;
   final bool modified;
-  final bool summaryWrap;
+  final bool wrapFirstSummaryLine;
   final bool showDivider;
 
   @override
@@ -44,81 +44,98 @@ class _SectionRow extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
+                    key: ValueKey<String>('section-content-$title'),
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(
-                                  title,
-                                  textAlign: TextAlign.left,
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.2,
+                                Flexible(
+                                  fit: FlexFit.loose,
+                                  child: Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.left,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.2,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                summaryWrap
-                                    ? Text(
-                                        _summarySingleLine,
-                                        textAlign: TextAlign.left,
-                                        style: const TextStyle(
-                                          color: Color(0xFF666666),
-                                          fontSize: 12,
-                                          height: 1.4,
-                                        ),
-                                      )
-                                    : Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          for (final line in _summaryLines)
-                                            Text(
-                                              line,
-                                              textAlign: TextAlign.left,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              softWrap: false,
-                                              style: const TextStyle(
-                                                color: Color(0xFF666666),
-                                                fontSize: 12,
-                                                height: 1.4,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
+                                if (completed) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '✓',
+                                    key: ValueKey<String>(
+                                      'section-completed-$title',
+                                    ),
+                                    style: const TextStyle(
+                                      color: Color(0xFF1C7D56),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1,
+                                    ),
+                                  ),
+                                ],
+                                if (modified) ...[
+                                  const SizedBox(width: 6),
+                                  _ModifiedSectionBadge(
+                                    key: ValueKey('section-modified-$title'),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          if (modified) ...[
-                            _ModifiedSectionBadge(
-                              key: ValueKey('section-modified-$title'),
-                            ),
-                            const SizedBox(width: 6),
-                          ],
-                          if (completed)
-                            const Text(
-                              '✓',
-                              style: TextStyle(
-                                color: Color(0xFF1C7D56),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                height: 1,
-                              ),
-                            ),
                           if (onTap != null) ...[
                             const SizedBox(width: 8),
-                            const Icon(
+                            Icon(
                               Icons.chevron_right,
+                              key: ValueKey<String>('section-chevron-$title'),
                               color: Color(0xFF666666),
                             ),
                           ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (
+                            int index = 0;
+                            index < _summaryLines.length;
+                            index++
+                          )
+                            SizedBox(
+                              width: double.infinity,
+                              child: Text.rich(
+                                TextSpan(
+                                  children: _summaryLineSpans(
+                                    _summaryLines[index],
+                                  ),
+                                ),
+                                key: ValueKey<String>(
+                                  'section-summary-line-$title-$index',
+                                ),
+                                textAlign: TextAlign.left,
+                                maxLines: wrapFirstSummaryLine && index == 0
+                                    ? null
+                                    : 1,
+                                overflow: wrapFirstSummaryLine && index == 0
+                                    ? null
+                                    : TextOverflow.ellipsis,
+                                softWrap: wrapFirstSummaryLine && index == 0,
+                                style: const TextStyle(
+                                  color: Color(0xFF444444),
+                                  fontSize: 12,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ],
@@ -142,8 +159,16 @@ class _SectionRow extends StatelessWidget {
         .toList(growable: false);
   }
 
-  String get _summarySingleLine {
-    return summary.trim().replaceAll(RegExp(r'\s+'), ' ');
+  List<InlineSpan> _summaryLineSpans(String line) {
+    final colonIndex = line.indexOf(':');
+    if (colonIndex < 0) return <InlineSpan>[TextSpan(text: line)];
+    return <InlineSpan>[
+      TextSpan(
+        text: line.substring(0, colonIndex + 1),
+        style: const TextStyle(color: Color(0xFF999999)),
+      ),
+      TextSpan(text: line.substring(colonIndex + 1)),
+    ];
   }
 }
 

@@ -44,6 +44,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     this.titleBottomSpacing = 20,
     this.titleTextStyle,
     this.maintainBottomViewPadding = false,
+    this.showHeader = true,
   });
 
   static const BorderRadius borderRadius = GenesisRadii.sheet;
@@ -63,6 +64,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   final double titleBottomSpacing;
   final TextStyle? titleTextStyle;
   final bool maintainBottomViewPadding;
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -80,20 +82,22 @@ class GenesisBottomSheetPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style:
-                            titleTextStyle ??
-                            GenesisBottomSheetPanel.titleStyle,
+                if (showHeader) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style:
+                              titleTextStyle ??
+                              GenesisBottomSheetPanel.titleStyle,
+                        ),
                       ),
-                    ),
-                    if (trailing != null) trailing!,
-                  ],
-                ),
-                SizedBox(height: titleBottomSpacing),
+                      if (trailing != null) trailing!,
+                    ],
+                  ),
+                  SizedBox(height: titleBottomSpacing),
+                ],
                 Expanded(child: child),
               ],
             ),
