@@ -5,6 +5,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import 'genesis_http_transport_pool.dart';
 import 'http_transport.dart';
+import 'network_capture.dart';
 import 'static_image_network_config.dart';
 
 class GenesisHttpCacheManager extends CacheManager with ImageCacheManager {
@@ -58,8 +59,16 @@ class GenesisHttpCacheManager extends CacheManager with ImageCacheManager {
 }
 
 class GenesisHttpFileService extends FileService {
-  GenesisHttpFileService({HttpTransport? transport, this.timeoutMs = 120000})
-    : _transport = transport ?? GenesisHttpTransportRegistry.current {
+  GenesisHttpFileService({
+    HttpTransport? transport,
+    this.timeoutMs = 120000,
+    bool isDebugBuild = kDebugMode,
+    NetworkCaptureController? captureController,
+  }) : _transport = debugNetworkCaptureTransport(
+         delegate: transport ?? GenesisHttpTransportRegistry.current,
+         isDebugBuild: isDebugBuild,
+         controller: captureController,
+       ) {
     concurrentFetches = genesisHttpImageConcurrentFetches;
   }
 

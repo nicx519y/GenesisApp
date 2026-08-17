@@ -134,6 +134,7 @@ class _DeveloperCaptureDetailSection extends StatelessWidget {
     required this.contentKey,
     this.copyLabel,
     this.copyKey,
+    this.selectable = false,
   });
 
   final String title;
@@ -143,6 +144,7 @@ class _DeveloperCaptureDetailSection extends StatelessWidget {
   final Key contentKey;
   final String? copyLabel;
   final Key? copyKey;
+  final bool selectable;
 
   @override
   Widget build(BuildContext context) {
@@ -197,18 +199,24 @@ class _DeveloperCaptureDetailSection extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(
-              content,
-              key: contentKey,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
-                height: 1.35,
-                color: Color(0xFF333333),
-              ),
-            ),
+            child: selectable
+                ? SelectionArea(child: _contentText())
+                : _contentText(),
           ),
       ],
+    );
+  }
+
+  Text _contentText() {
+    return Text(
+      content,
+      key: contentKey,
+      style: const TextStyle(
+        fontFamily: 'monospace',
+        fontSize: 11,
+        height: 1.35,
+        color: Color(0xFF333333),
+      ),
     );
   }
 }

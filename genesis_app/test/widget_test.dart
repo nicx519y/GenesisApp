@@ -17829,6 +17829,7 @@ void main() {
         headers: const <String, String>{'content-type': 'application/json'},
         body: '{"err_no":0,"data":{"name":"Worldo"}}',
         bodyBytes: utf8.encode('{"err_no":0,"data":{"name":"Worldo"}}'),
+        responsePayloadSizeBytes: 84 * 1024,
         httpProtocolVersion: 'h2',
       ),
     );
@@ -17861,6 +17862,11 @@ void main() {
     );
     expect(find.text('/api/v1/world'), findsOneWidget);
     expect(find.text('/api/v1/fail'), findsOneWidget);
+    final pathText = tester.widget<Text>(
+      find.byKey(ValueKey<String>('developer-network-path-$successId')),
+    );
+    expect(pathText.maxLines, isNull);
+    expect(pathText.overflow, isNull);
     final queryText = tester.widget<Text>(
       find.byKey(ValueKey<String>('developer-network-query-$successId')),
     );
@@ -17895,6 +17901,11 @@ void main() {
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('Request'), findsOneWidget);
     expect(find.text('Response'), findsOneWidget);
+    expect(find.text('84 KB'), findsOneWidget);
+
+    await tester.tap(find.text('Overview'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Response size: 84 KB'), findsOneWidget);
 
     await tester.tap(find.text('Request'));
     await tester.pumpAndSettle();
@@ -17902,12 +17913,18 @@ void main() {
       ValueKey<String>('developer-network-request-content-$successId'),
     );
     expect(requestContent, findsOneWidget);
+    expect(tester.widget<Text>(requestContent).data, contains('url'));
+    expect(tester.widget<Text>(requestContent).data, contains('id=w_test'));
+    expect(
+      find.ancestor(of: requestContent, matching: find.byType(SelectionArea)),
+      findsOneWidget,
+    );
     final networkList = find.descendant(
       of: find.byKey(
         const PageStorageKey<String>('developer-network-tab-scroll'),
       ),
       matching: find.byType(Scrollable),
-    );
+    ).first;
     final scrollPosition = tester.state<ScrollableState>(networkList).position;
     expect(scrollPosition.maxScrollExtent, greaterThan(0));
     final gesture = await tester.startGesture(
@@ -17927,6 +17944,12 @@ void main() {
     await tester.tap(find.text('Response'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Worldo'), findsOneWidget);
+    expect(
+      find.byKey(
+        ValueKey<String>('developer-network-response-content-$successId'),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(
       find.byKey(const ValueKey<String>('developer-network-copy-response')),
     );
