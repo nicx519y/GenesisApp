@@ -681,6 +681,14 @@ class _TilemapRendererState extends State<TilemapRenderer>
                     builder: (context, matrix, child) {
                       final scale = tilemapTransformScale(matrix);
                       return LegacyWorldMapZoomControl(
+                        value: scale,
+                        min: tilemapMinScale,
+                        max: tilemapMaxScale,
+                        onChanged: (targetScale) => _zoomToScaleByControl(
+                          targetScale: targetScale,
+                          viewportSize: viewportSize,
+                          dragBoundary: dragBoundary,
+                        ),
                         canZoomIn: scale < tilemapMaxScale - 0.001,
                         canZoomOut: scale > tilemapMinScale + 0.001,
                         onZoomIn: () => _zoomByControl(
@@ -1287,7 +1295,25 @@ class _TilemapRendererState extends State<TilemapRenderer>
                 : currentScale / tilemapZoomControlScaleFactor)
             .clamp(tilemapMinScale, tilemapMaxScale)
             .toDouble();
-    if ((targetScale - currentScale).abs() < 0.001) return;
+    _zoomToScaleByControl(
+      targetScale: targetScale,
+      viewportSize: viewportSize,
+      dragBoundary: dragBoundary,
+    );
+  }
+
+  void _zoomToScaleByControl({
+    required double targetScale,
+    required Size viewportSize,
+    required Rect? dragBoundary,
+  }) {
+    _hasUserTransformedMap = true;
+    final currentTransform = _transformationController.value;
+    final currentScale = tilemapTransformScale(currentTransform);
+    final clampedTargetScale = targetScale
+        .clamp(tilemapMinScale, tilemapMaxScale)
+        .toDouble();
+    if ((clampedTargetScale - currentScale).abs() < 0.001) return;
     final viewportCenter = viewportSize.center(Offset.zero);
     final sceneCenter = MatrixUtils.transformPoint(
       Matrix4.inverted(currentTransform),
@@ -1296,7 +1322,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
     final nextTransform = tilemapTransformForSceneFocalPoint(
       sceneFocalPoint: sceneCenter,
       viewportFocalPoint: viewportCenter,
-      scale: targetScale,
+      scale: clampedTargetScale,
     );
     _transformationController.value = tilemapConstrainTransformToBoundary(
       transform: nextTransform,

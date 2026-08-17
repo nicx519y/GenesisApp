@@ -359,6 +359,11 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
                 right: legacyWorldMapZoomControlRightGap,
                 bottom: legacyWorldMapZoomControlBottomGap,
                 child: LegacyWorldMapZoomControl(
+                  value: _mapZoomScale,
+                  min: LegacyWorldMapZoomableContent.minScale,
+                  max: LegacyWorldMapZoomableContent.maxScale,
+                  onChanged: (scale) =>
+                      _zoomByControl?.call(scale - _mapZoomScale),
                   canZoomIn:
                       _mapZoomScale <
                       LegacyWorldMapZoomableContent.maxScale - 0.001,

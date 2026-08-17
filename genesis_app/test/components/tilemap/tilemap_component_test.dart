@@ -1453,8 +1453,14 @@ void main() {
     final zoomControl = find.byKey(
       const ValueKey<String>('world-map-zoom-control'),
     );
+    final zoomDragArea = find.byKey(
+      const ValueKey<String>('world-map-zoom-drag-area'),
+    );
     final zoomIn = find.byKey(const ValueKey<String>('world-map-zoom-in'));
     final zoomOut = find.byKey(const ValueKey<String>('world-map-zoom-out'));
+    final dragIndicator = find.byKey(
+      const ValueKey<String>('world-map-zoom-drag-indicator'),
+    );
     final initialScale = tester
         .widget<Transform>(transformFinder)
         .transform
@@ -1463,6 +1469,7 @@ void main() {
     expect(zoomControl, findsOneWidget);
     expect(zoomIn, findsOneWidget);
     expect(zoomOut, findsOneWidget);
+    expect(dragIndicator, findsOneWidget);
     expect(tester.getBottomRight(zoomControl), const Offset(548, 510));
 
     await tester.tap(zoomIn);
@@ -1484,6 +1491,15 @@ void main() {
       tester.widget<Transform>(transformFinder).transform.getMaxScaleOnAxis(),
       closeTo(initialScale, 0.0001),
     );
+
+    await tester.drag(zoomDragArea, const Offset(0, -24));
+    await tester.pump();
+    final draggedScale = tester
+        .widget<Transform>(transformFinder)
+        .transform
+        .getMaxScaleOnAxis();
+    expect(draggedScale, greaterThan(initialScale));
+    expect(draggedScale, lessThan(initialScale * 1.7));
   });
 
   testWidgets(

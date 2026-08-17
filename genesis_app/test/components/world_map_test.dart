@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/legacy_world_map/legacy_world_map.dart';
+import 'package:genesis_flutter_android/components/legacy_world_map/legacy_world_map_gesture.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/components/world_map_interaction_notification.dart';
@@ -791,8 +792,14 @@ void main() {
     final zoomControl = find.byKey(
       const ValueKey<String>('world-map-zoom-control'),
     );
+    final zoomDragArea = find.byKey(
+      const ValueKey<String>('world-map-zoom-drag-area'),
+    );
     final zoomIn = find.byKey(const ValueKey<String>('world-map-zoom-in'));
     final zoomOut = find.byKey(const ValueKey<String>('world-map-zoom-out'));
+    final dragIndicator = find.byKey(
+      const ValueKey<String>('world-map-zoom-drag-indicator'),
+    );
     final avatar = find.byType(GenesisCharacterAvatar);
     final initialAvatarTopLeft = tester.getTopLeft(avatar);
 
@@ -815,6 +822,7 @@ void main() {
     }
 
     expect(tester.getSize(zoomControl), const Size(30, 68));
+    expect(tester.getSize(zoomDragArea), const Size(48, 88));
     expect(
       tester.getTopLeft(zoomControl).dx,
       closeTo(_mapSize.width - 42, 0.1),
@@ -823,18 +831,39 @@ void main() {
       tester.getBottomRight(zoomControl).dy,
       closeTo(_mapSize.height - 30, 0.1),
     );
+    expect(
+      tester.getBottomRight(zoomDragArea),
+      tester.getBottomRight(zoomControl),
+    );
     final zoomControlBox = tester.widget<DecoratedBox>(zoomControl);
-    final zoomControlDecoration = zoomControlBox.decoration as BoxDecoration;
-    expect(zoomControlDecoration.color, const Color(0xE6FFFFFF));
-    expect(zoomControlDecoration.borderRadius, BorderRadius.circular(12));
+    final zoomDecoration = zoomControlBox.decoration as BoxDecoration;
+    expect(zoomDecoration.color, Colors.white);
+    expect(zoomDecoration.borderRadius, BorderRadius.circular(12));
+    expect(zoomDecoration.boxShadow, isNotEmpty);
     expect(zoomInIcon().colorFilter, isNotNull);
     expect(zoomOutIcon().colorFilter, isNotNull);
+    expect(dragIndicator, findsOneWidget);
 
     await tester.tap(zoomIn);
     await tester.pump();
 
     expect(tester.getTopLeft(avatar), isNot(initialAvatarTopLeft));
     expect(zoomOutIcon().colorFilter, isNotNull);
+
+    final clickedScale = tester
+        .widget<LegacyWorldMapZoomControl>(
+          find.byType(LegacyWorldMapZoomControl),
+        )
+        .value;
+    await tester.drag(zoomDragArea, const Offset(0, -24));
+    await tester.pump();
+    final draggedScale = tester
+        .widget<LegacyWorldMapZoomControl>(
+          find.byType(LegacyWorldMapZoomControl),
+        )
+        .value;
+    expect(draggedScale, greaterThan(clickedScale));
+    expect(draggedScale, lessThan(clickedScale + 0.25));
 
     await tester.tap(zoomIn);
     await tester.pump();

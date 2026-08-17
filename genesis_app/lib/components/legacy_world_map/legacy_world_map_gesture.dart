@@ -13,6 +13,9 @@ const double legacyWorldMapZoomControlBottomGap = 30;
 const double legacyWorldMapZoomControlWidth = 30;
 const double legacyWorldMapZoomControlHeight = 68;
 const double legacyWorldMapZoomControlRadius = 12;
+const double legacyWorldMapZoomHitAreaWidth = 48;
+const double legacyWorldMapZoomHitAreaHeight = 88;
+const double legacyWorldMapZoomDragExtent = 96;
 const String legacyWorldMapZoomInIconAsset =
     'assets/custom-icons/svg/map_zoom_in.svg';
 const String legacyWorldMapZoomOutIconAsset =
@@ -519,12 +522,21 @@ class LegacyWorldMapZoomableContentState
 class LegacyWorldMapZoomControl extends StatelessWidget {
   const LegacyWorldMapZoomControl({
     super.key,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
     required this.canZoomIn,
     required this.canZoomOut,
     required this.onZoomIn,
     required this.onZoomOut,
-  });
+  }) : assert(min > 0),
+       assert(max > min);
 
+  final double value;
+  final double min;
+  final double max;
+  final ValueChanged<double> onChanged;
   final bool canZoomIn;
   final bool canZoomOut;
   final VoidCallback onZoomIn;
@@ -533,53 +545,131 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
   static const Color _enabledColor = Color(0xFF111111);
   static const Color _disabledColor = Color(0xFFC7C7C7);
 
+  double get _progress =>
+      (math.log(value / min) / math.log(max / min)).clamp(0.0, 1.0).toDouble();
+
+  void _handleVerticalDrag(DragUpdateDetails details) {
+    final targetProgress =
+        (_progress - details.delta.dy / legacyWorldMapZoomDragExtent)
+            .clamp(0.0, 1.0)
+            .toDouble();
+    onChanged(min * math.pow(max / min, targetProgress).toDouble());
+  }
+
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      key: const ValueKey<String>('world-map-zoom-control'),
-      decoration: BoxDecoration(
-        color: const Color(0xE6FFFFFF),
-        borderRadius: BorderRadius.circular(legacyWorldMapZoomControlRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(legacyWorldMapZoomControlRadius),
-        child: SizedBox(
-          width: legacyWorldMapZoomControlWidth,
-          height: legacyWorldMapZoomControlHeight,
-          child: Column(
-            children: [
-              Expanded(
-                child: _MapZoomButton(
-                  key: const ValueKey<String>('world-map-zoom-in'),
-                  iconAsset: legacyWorldMapZoomInIconAsset,
-                  label: 'Zoom in on map',
-                  color: canZoomIn ? _enabledColor : _disabledColor,
-                  onTap: canZoomIn ? onZoomIn : null,
+    return GestureDetector(
+      key: const ValueKey<String>('world-map-zoom-drag-area'),
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragUpdate: _handleVerticalDrag,
+      child: SizedBox(
+        width: legacyWorldMapZoomHitAreaWidth,
+        height: legacyWorldMapZoomHitAreaHeight,
+        child: Align(
+          alignment: Alignment.bottomRight,
+          child: DecoratedBox(
+            key: const ValueKey<String>('world-map-zoom-control'),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(
+                legacyWorldMapZoomControlRadius,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(
+                legacyWorldMapZoomControlRadius,
+              ),
+              child: SizedBox(
+                width: legacyWorldMapZoomControlWidth,
+                height: legacyWorldMapZoomControlHeight,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Column(
+                      children: [
+                        Expanded(
+                          child: _MapZoomButton(
+                            key: const ValueKey<String>('world-map-zoom-in'),
+                            iconAsset: legacyWorldMapZoomInIconAsset,
+                            label: 'Zoom in on map',
+                            color: canZoomIn ? _enabledColor : _disabledColor,
+                            onTap: canZoomIn ? onZoomIn : null,
+                          ),
+                        ),
+                        Expanded(
+                          child: _MapZoomButton(
+                            key: const ValueKey<String>('world-map-zoom-out'),
+                            iconAsset: legacyWorldMapZoomOutIconAsset,
+                            label: 'Zoom out of map',
+                            color: canZoomOut ? _enabledColor : _disabledColor,
+                            onTap: canZoomOut ? onZoomOut : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(
+                      width: 14,
+                      height: 11,
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          key: ValueKey<String>(
+                            'world-map-zoom-drag-indicator',
+                          ),
+                          painter: _MapZoomGripPainter(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Divider(height: 1, thickness: 1, color: Color(0xFFE6E6E6)),
-              Expanded(
-                child: _MapZoomButton(
-                  key: const ValueKey<String>('world-map-zoom-out'),
-                  iconAsset: legacyWorldMapZoomOutIconAsset,
-                  label: 'Zoom out of map',
-                  color: canZoomOut ? _enabledColor : _disabledColor,
-                  onTap: canZoomOut ? onZoomOut : null,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _MapZoomGripPainter extends CustomPainter {
+  const _MapZoomGripPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(3)),
+      Paint()..color = Colors.white,
+    );
+    final paint = Paint()
+      ..color = const Color(0xFF999999)
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round;
+    final center = size.center(Offset.zero);
+    canvas.drawLine(
+      Offset(center.dx - 3, center.dy - 2.5),
+      Offset(center.dx + 3, center.dy - 2.5),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(center.dx - 4.5, center.dy),
+      Offset(center.dx + 4.5, center.dy),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(center.dx - 3, center.dy + 2.5),
+      Offset(center.dx + 3, center.dy + 2.5),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_MapZoomGripPainter oldDelegate) => false;
 }
 
 class _MapZoomButton extends StatelessWidget {
