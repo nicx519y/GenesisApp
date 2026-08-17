@@ -8,7 +8,8 @@ class _InlineMarkdownText extends StatelessWidget {
     this.overflow,
     this.textAlign,
     this.softItalic = false,
-  });
+    this.softItalicPerToken = false,
+  }) : assert(!softItalic || !softItalicPerToken);
 
   final String text;
   final TextStyle style;
@@ -16,26 +17,34 @@ class _InlineMarkdownText extends StatelessWidget {
   final TextOverflow? overflow;
   final TextAlign? textAlign;
   final bool softItalic;
+  final bool softItalicPerToken;
 
   @override
   Widget build(BuildContext context) {
     final platform = Theme.of(context).platform;
-    final textStyle = softItalic
+    final usesSoftItalic = softItalic || softItalicPerToken;
+    final textStyle = usesSoftItalic
         ? genesisSoftItalicStyle(style, platform: platform)
         : GenesisTypography.withFallback(style);
+    final displayText = genesisDisplaySafeText(text);
     final textWidget = Text.rich(
       TextSpan(
         style: textStyle,
         children: _inlineMarkdownSpans(
-          genesisDisplaySafeText(text),
+          displayText,
           textStyle,
           platform,
           suppressIosEmphasisSkew: softItalic && platform == TargetPlatform.iOS,
+          softItalicPlainText:
+              softItalicPerToken && platform == TargetPlatform.iOS,
         ),
       ),
       maxLines: maxLines,
       overflow: overflow,
       textAlign: textAlign,
+      semanticsLabel: softItalicPerToken && platform == TargetPlatform.iOS
+          ? displayText
+          : null,
     );
     if (!softItalic) return textWidget;
     return genesisSoftItalicForPlatform(child: textWidget, platform: platform);
@@ -47,6 +56,7 @@ List<InlineSpan> _inlineMarkdownSpans(
   TextStyle baseStyle,
   TargetPlatform platform, {
   bool suppressIosEmphasisSkew = false,
+  bool softItalicPlainText = false,
 }) {
   final spans = <InlineSpan>[];
   final buffer = StringBuffer();
@@ -54,7 +64,19 @@ List<InlineSpan> _inlineMarkdownSpans(
 
   void flushPlain() {
     if (buffer.isEmpty) return;
-    spans.add(TextSpan(text: buffer.toString()));
+    final plainText = buffer.toString();
+    if (softItalicPlainText) {
+      spans.addAll(
+        _inlineEmphasisSpans(
+          plainText,
+          baseStyle,
+          platform,
+          color: baseStyle.color,
+        ),
+      );
+    } else {
+      spans.add(TextSpan(text: plainText));
+    }
     buffer.clear();
   }
 

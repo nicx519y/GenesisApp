@@ -1967,7 +1967,7 @@ void main() {
     );
   });
 
-  testWidgets('location chat header uses translucent backdrop blur', (
+  testWidgets('location chat header uses 90 percent glass with blur four', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -1985,10 +1985,9 @@ void main() {
       ),
     );
 
-    expect(kLocationChatStyle.headerBackdropBlurSigma, 10);
-    final gradient = kLocationChatStyle.headerBackgroundGradient;
-    expect(gradient, isNotNull);
-    expect(gradient!.colors, const [Color(0xA6111111), Color(0x33111111)]);
+    expect(kLocationChatStyle.headerBackdropBlurSigma, 4);
+    expect(kLocationChatStyle.headerBackgroundGradient, isNull);
+    expect(kLocationChatStyle.headerBackgroundColor.a, closeTo(0.9, 0.01));
     expect(
       find.descendant(
         of: find.byType(ChatHeader),
@@ -1998,7 +1997,7 @@ void main() {
     );
   });
 
-  testWidgets('location chat composer is opaque without backdrop blur', (
+  testWidgets('location chat composer uses 90 percent glass with blur four', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -2016,15 +2015,15 @@ void main() {
       ),
     );
 
-    expect(kLocationChatStyle.composerBackdropBlurSigma, 0);
+    expect(kLocationChatStyle.composerBackdropBlurSigma, 4);
     expect(kLocationChatStyle.composerBackgroundGradient, isNull);
-    expect(kLocationChatStyle.composerBackgroundColor.a, 1);
+    expect(kLocationChatStyle.composerBackgroundColor.a, closeTo(0.9, 0.01));
     expect(
       find.descendant(
         of: find.byType(ChatComposer),
         matching: find.byType(BackdropFilter),
       ),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
@@ -3234,7 +3233,15 @@ void main() {
       );
 
       final header = find.text('Tick 1-2 · Day 1, 13:50');
-      final globalText = find.text('The promise-shaped key pulses.');
+      final globalSection = find.byKey(
+        const ValueKey<String>('chat-tick-global-section'),
+      );
+      final globalText = find.descendant(
+        of: globalSection,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Text && widget.textSpan != null,
+        ),
+      );
       final eventText = find.text('Frost creeps toward Room 0.');
       final routeIcon = find.byWidgetPredicate(
         (widget) =>
@@ -3248,6 +3255,14 @@ void main() {
       expect(header, findsOneWidget);
       expect(find.text('Global'), findsNothing);
       expect(globalText, findsOneWidget);
+      expect(
+        _skewedWidgetFragmentTexts(
+          tester.widgetList<Text>(
+            find.descendant(of: globalSection, matching: find.byType(Text)),
+          ),
+        ),
+        containsAll(<String>['The', 'promise-shaped', 'key', 'pulses.']),
+      );
       expect(find.byIcon(Icons.schedule_rounded), findsNothing);
       final tickBubble = tester.widget<Container>(
         find.byKey(const ValueKey<String>('chat-tick-message-surface')),
@@ -3268,7 +3283,7 @@ void main() {
       expect(tester.widget<Text>(header).style?.color, const Color(0xFFC4DBEF));
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey<String>('chat-tick-global-section')),
+          of: globalSection,
           matching: find.byIcon(Icons.public_rounded),
         ),
         findsNothing,
@@ -3276,7 +3291,7 @@ void main() {
       expect(tester.widget<Text>(header).style?.fontWeight, FontWeight.w400);
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey<String>('chat-tick-global-section')),
+          of: globalSection,
           matching: find.byWidgetPredicate(
             (widget) =>
                 widget is SvgPicture &&
@@ -3302,7 +3317,7 @@ void main() {
                 _matchesIosInlineEmphasisSkew(widget.transform),
           ),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.text('Event'), findsNothing);
       expect(find.text('Vault'), findsNothing);
@@ -3347,10 +3362,10 @@ void main() {
       expect(find.text('Room 0'), findsOneWidget);
       expect(
         tester.getTopLeft(header).dy,
-        lessThan(tester.getTopLeft(globalText).dy),
+        lessThan(tester.getTopLeft(globalSection).dy),
       );
       expect(
-        tester.getTopLeft(globalText).dy,
+        tester.getTopLeft(globalSection).dy,
         lessThan(tester.getTopLeft(eventText).dy),
       );
       expect(
@@ -3419,6 +3434,74 @@ void main() {
       expect(chatTickMessageCopyText(message), 'Tick 0\nOriginal tick content');
     },
   );
+
+  testWidgets('tick global skews iOS multiline content per token', (
+    WidgetTester tester,
+  ) async {
+    const globalValue =
+        'First signal crosses the valley while the second signal follows.';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: SizedBox(
+            width: 220,
+            child: ChatMessageRow(
+              message: ChatMessageVm(
+                localId: 'tick-global-multiline',
+                senderId: 'tick',
+                senderName: 'Tick',
+                text: '',
+                isMe: false,
+                status: 'sent',
+                senderType: 'tick',
+                timelinePayload: const ChatTickPayloadVm(
+                  globalText: globalValue,
+                ),
+              ),
+              showDateDivider: false,
+              style: kLocationChatStyle,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final globalSection = find.byKey(
+      const ValueKey<String>('chat-tick-global-section'),
+    );
+    final richText = find.descendant(
+      of: globalSection,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Text && widget.textSpan != null,
+      ),
+    );
+    expect(richText, findsOneWidget);
+    expect(tester.getSize(richText).height, greaterThan(30));
+    expect(tester.widget<Text>(richText).semanticsLabel, globalValue);
+    expect(
+      find.ancestor(
+        of: richText,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Transform &&
+              _matchesIosInlineEmphasisSkew(widget.transform),
+        ),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: globalSection,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Transform &&
+              _matchesIosInlineEmphasisSkew(widget.transform),
+        ),
+      ),
+      findsWidgets,
+    );
+  });
 
   testWidgets('chat composer grows with text up to ten lines', (
     WidgetTester tester,

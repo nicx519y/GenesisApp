@@ -17444,8 +17444,8 @@ void main() {
     );
     expect(transparencyFinder, findsOneWidget);
     expect(blurFinder, findsOneWidget);
-    expect(tester.widget<Slider>(transparencyFinder).value, 1);
-    expect(tester.widget<Slider>(blurFinder).value, 10);
+    expect(tester.widget<Slider>(transparencyFinder).value, 0.9);
+    expect(tester.widget<Slider>(blurFinder).value, 4);
 
     tester.widget<Slider>(transparencyFinder).onChanged!(0);
     await tester.pump();

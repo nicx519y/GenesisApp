@@ -192,7 +192,7 @@ void main() {
     );
   });
 
-  test('minimum header effects disable transparency and blur', () {
+  test('minimum surface effects make header and composer transparent', () {
     final style = resolveLocationChatHeaderEffectStyle(
       baseStyle: kLocationChatStyle,
       settings: const LocationChatHeaderEffectSettings(
@@ -202,8 +202,11 @@ void main() {
     );
 
     expect(style.headerBackgroundGradient, isNull);
-    expect(style.headerBackgroundColor.a, 1);
+    expect(style.headerBackgroundColor.a, 0);
     expect(style.headerBackdropBlurSigma, 0);
+    expect(style.composerBackgroundGradient, isNull);
+    expect(style.composerBackgroundColor.a, 0);
+    expect(style.composerBackdropBlurSigma, 0);
   });
 
   testWidgets('Android 11 uses the manual keyboard inset layout', (
@@ -252,11 +255,24 @@ void main() {
         .widget<ChatHeader>(find.byType(ChatHeader))
         .style!;
     expect(disabledHeaderStyle.headerBackgroundGradient, isNull);
-    expect(disabledHeaderStyle.headerBackgroundColor.a, 1);
+    expect(disabledHeaderStyle.headerBackgroundColor.a, 0);
     expect(disabledHeaderStyle.headerBackdropBlurSigma, 0);
+    final disabledComposerStyle = tester
+        .widget<ChatComposer>(find.byType(ChatComposer))
+        .style!;
+    expect(disabledComposerStyle.composerBackgroundGradient, isNull);
+    expect(disabledComposerStyle.composerBackgroundColor.a, 0);
+    expect(disabledComposerStyle.composerBackdropBlurSigma, 0);
     expect(
       find.descendant(
         of: find.byType(ChatHeader),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(ChatComposer),
         matching: find.byType(BackdropFilter),
       ),
       findsNothing,

@@ -109,7 +109,7 @@ ChatUiStyleConfig resolveLocationChatHeaderEffectStyle({
   required ChatUiStyleConfig baseStyle,
   required LocationChatHeaderEffectSettings settings,
 }) {
-  final transparencyStrength = settings.transparencyStrength
+  final surfaceOpacity = settings.transparencyStrength
       .clamp(0.0, 1.0)
       .toDouble();
   final blurSigma = settings.blurSigma
@@ -118,47 +118,16 @@ ChatUiStyleConfig resolveLocationChatHeaderEffectStyle({
         LocationChatHeaderEffectSettings.maxBlurSigma,
       )
       .toDouble();
-  final opaqueBackground = baseStyle.conversationBackgroundColor.withValues(
-    alpha: 1,
+  final surfaceBackground = baseStyle.conversationBackgroundColor.withValues(
+    alpha: surfaceOpacity,
   );
-  if (transparencyStrength <= 0) {
-    return baseStyle.copyWith(
-      headerBackgroundColor: opaqueBackground,
-      clearHeaderBackgroundGradient: true,
-      headerBackdropBlurSigma: blurSigma,
-    );
-  }
-
-  final sourceGradient = baseStyle.headerBackgroundGradient;
-  if (sourceGradient is! LinearGradient) {
-    return baseStyle.copyWith(
-      headerBackgroundColor: Color.lerp(
-        opaqueBackground,
-        baseStyle.headerBackgroundColor,
-        transparencyStrength,
-      ),
-      clearHeaderBackgroundGradient: true,
-      headerBackdropBlurSigma: blurSigma,
-    );
-  }
   return baseStyle.copyWith(
-    headerBackgroundGradient: LinearGradient(
-      begin: sourceGradient.begin,
-      end: sourceGradient.end,
-      colors: sourceGradient.colors
-          .map(
-            (color) => Color.lerp(
-              color.withValues(alpha: 1),
-              color,
-              transparencyStrength,
-            )!,
-          )
-          .toList(growable: false),
-      stops: sourceGradient.stops,
-      tileMode: sourceGradient.tileMode,
-      transform: sourceGradient.transform,
-    ),
+    headerBackgroundColor: surfaceBackground,
+    clearHeaderBackgroundGradient: true,
     headerBackdropBlurSigma: blurSigma,
+    composerBackgroundColor: surfaceBackground,
+    clearComposerBackgroundGradient: true,
+    composerBackdropBlurSigma: blurSigma,
   );
 }
 

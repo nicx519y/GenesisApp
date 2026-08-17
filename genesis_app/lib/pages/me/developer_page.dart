@@ -493,10 +493,12 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _DeveloperSectionTitle('Location chat header'),
+                const _DeveloperSectionTitle(
+                  'Location chat header & input bar',
+                ),
                 const SizedBox(height: 8),
                 _DeveloperSliderControl(
-                  label: 'Transparency effect',
+                  label: 'Surface opacity',
                   valueLabel: transparencyLabel,
                   value: settings.transparencyStrength,
                   min: LocationChatHeaderEffectSettings.minTransparencyStrength,
