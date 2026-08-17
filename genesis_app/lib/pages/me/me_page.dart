@@ -34,6 +34,9 @@ part 'me_page_actions.dart';
 part 'me_page_models.dart';
 part 'me_page_nickname.dart';
 
+@visibleForTesting
+const Size meProfileAvatarUploadSize = Size.square(1080);
+
 class MePage extends StatefulWidget {
   const MePage({
     super.key,
