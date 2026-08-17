@@ -1,11 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 void main() {
+  test('global image DPR cap is 1.5', () {
+    expect(GenesisImageConfig.maxDevicePixelRatio, 1.5);
+    expect(
+      genesisImageDevicePixelRatio(3),
+      GenesisImageConfig.maxDevicePixelRatio,
+    );
+  });
+
+  test('supports a higher surface-specific image DPR cap', () {
+    expect(GenesisImageConfig.worldListMaxDevicePixelRatio, 2);
+    expect(GenesisImageConfig.chatAvatarMaxDevicePixelRatio, 2.4);
+    expect(GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio, 2.4);
+    expect(genesisImageDevicePixelRatio(3, maxDevicePixelRatio: 2.4), 2.4);
+  });
+
   testWidgets('GenesisListImage renders default asset for empty URL', (
     WidgetTester tester,
   ) async {
@@ -83,6 +99,42 @@ void main() {
     expect(
       image.imageUrl,
       'https://cdn.example.com/photo_800_600.webp'
+      '?x-oss-process=image/resize,w_180,image/format,webp',
+    );
+  });
+
+  testWidgets('GenesisListImage applies its surface-specific DPR cap', (
+    WidgetTester tester,
+  ) async {
+    final resource = GenesisImageResourceRegistry.register(
+      const GenesisImageResource(
+        xlUrl: 'https://cdn.example.com/list-surface.webp',
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(devicePixelRatio: 3),
+          child: Scaffold(
+            body: GenesisListImage(
+              imageUrl: resource.displayUrl,
+              width: 100,
+              height: 75,
+              maxDevicePixelRatio: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<GenesisStaticNetworkImage>(
+      find.byType(GenesisStaticNetworkImage),
+    );
+    expect(image.maxDevicePixelRatio, 2);
+    expect(
+      image.imageUrl,
+      'https://cdn.example.com/list-surface.webp'
       '?x-oss-process=image/resize,w_360,image/format,webp',
     );
   });
@@ -126,15 +178,15 @@ void main() {
     );
   });
 
-  test('resizeGenesisImageUrl caps image DPR at 2', () {
+  test('resizeGenesisImageUrl uses the global image DPR cap', () {
     expect(
       resizeGenesisImageUrl(
         'https://cdn.example.com/map.webp?old=true#frag',
-        logicalWidth: 320,
+        logicalWidth: 200,
         devicePixelRatio: 3,
       ),
       'https://cdn.example.com/map.webp'
-      '?x-oss-process=image/resize,w_720,image/format,webp',
+      '?x-oss-process=image/resize,w_360,image/format,webp',
     );
   });
 

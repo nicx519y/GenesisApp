@@ -99,6 +99,7 @@ import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_feed_cache_store.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_role_portrait_image_provider.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_layout.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
@@ -7612,7 +7613,7 @@ void main() {
     expect(expansionEvents(), hasLength(2));
   });
 
-  testWidgets('Origin role avatar CDN sizing caps device pixel ratio at 2', (
+  testWidgets('Origin role avatar CDN sizing uses global image DPR cap', (
     WidgetTester tester,
   ) async {
     tester.view.devicePixelRatio = 3;
@@ -7651,17 +7652,27 @@ void main() {
     final portrait = find.byKey(
       const ValueKey<String>('origin-setup-role-portrait-c_o_test_1'),
     );
-    final avatar = tester.widget<GenesisStaticNetworkImage>(
+    final avatar = tester.widget<Image>(
       find.descendant(
         of: portrait,
-        matching: find.byType(GenesisStaticNetworkImage),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is OriginRolePortraitImageProvider,
+        ),
       ),
     );
+    final provider = avatar.image as OriginRolePortraitImageProvider;
+    final sourceProvider =
+        provider.sourceProvider as GenesisStaticNetworkImageProvider;
     expect(
-      avatar.imageUrl,
+      sourceProvider.imageUrl,
       'https://cdn.example.com/avatar_1080x1080.jpg'
       '?x-oss-process=image/resize,w_720,image/format,webp',
     );
+    expect(provider.outputSize, 360);
+    expect(sourceProvider.cacheWidth, 360);
+    expect(sourceProvider.cacheHeight, 360);
   });
 
   testWidgets('Origin opening puts the recommended role first and marks it', (

@@ -28,7 +28,7 @@ void main() {
     expect(panel.renderBackgroundImage, isTrue);
   });
 
-  test('location chat background caps CDN sizing DPR at two', () {
+  test('location chat background uses the global image DPR cap', () {
     final resource = GenesisImageResourceRegistry.register(
       const GenesisImageResource(
         xlUrl: 'https://cdn.example.com/location-chat-cap.webp',
@@ -43,7 +43,7 @@ void main() {
         devicePixelRatio: 3,
       ),
       'https://cdn.example.com/location-chat-cap.webp'
-      '?x-oss-process=image/resize,w_1080,image/format,webp',
+      '?x-oss-process=image/resize,w_720,image/format,webp',
     );
     expect(
       resolveLocationChatBackgroundUrlForTesting(
@@ -54,6 +54,23 @@ void main() {
       ),
       'https://cdn.example.com/location-chat-cap.webp'
       '?x-oss-process=image/resize,w_720,image/format,webp',
+    );
+  });
+
+  test('location chat avatars use the 2.4 DPR cap', () {
+    final resource = GenesisImageResourceRegistry.register(
+      const GenesisImageResource(
+        xlUrl: 'https://cdn.example.com/location-chat-avatar.webp',
+      ),
+    );
+
+    expect(
+      resolveLocationChatAvatarUrlForTesting(
+        imageUrl: resource.displayUrl,
+        devicePixelRatio: 3,
+      ),
+      'https://cdn.example.com/location-chat-avatar.webp'
+      '?x-oss-process=image/resize,w_180,image/format,webp',
     );
   });
 
@@ -110,7 +127,7 @@ void main() {
         '?x-oss-process=image/resize,w_180,image/format,webp';
     const fullUrl =
         'https://cdn.example.com/location-chat-full.webp'
-        '?x-oss-process=image/resize,w_1080,image/format,webp';
+        '?x-oss-process=image/resize,w_720,image/format,webp';
     final requestedUrls = <String>{};
     final frames = <String, Completer<ImageInfo>>{};
     debugGenesisStaticNetworkImageCompleter = (key) {
@@ -192,7 +209,7 @@ void main() {
         '?x-oss-process=image/resize,w_180,image/format,webp';
     const fullUrl =
         'https://cdn.example.com/location-chat-full.webp'
-        '?x-oss-process=image/resize,w_1080,image/format,webp';
+        '?x-oss-process=image/resize,w_720,image/format,webp';
     final frames = <String, Completer<ImageInfo>>{};
     debugGenesisStaticNetworkImageCompleter = (key) {
       final frame = frames.putIfAbsent(

@@ -19,8 +19,8 @@ void main() {
   for (final entry in const <(double, int)>[
     (1, 90),
     (2, 180),
-    (3, 360),
-    (4, 360),
+    (3, 180),
+    (4, 180),
   ]) {
     testWidgets(
       'location cover selects ${entry.$2}px image at DPR ${entry.$1}',

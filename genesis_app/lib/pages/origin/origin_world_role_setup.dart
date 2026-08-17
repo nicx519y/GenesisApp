@@ -105,14 +105,10 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
       final cacheKey = '$avatarUrl@$decodeSize';
       if (!_preloadedAvatarKeys.add(cacheKey)) continue;
 
-      final ImageProvider provider = avatarUrl.startsWith('assets/')
-          ? AssetImage(avatarUrl)
-          : GenesisStaticNetworkImageProvider(
-              imageUrl: avatarUrl,
-              cacheWidth: decodeSize,
-              cacheHeight: decodeSize,
-              fit: BoxFit.cover,
-            );
+      final provider = OriginRolePortraitImageProvider.fromUrl(
+        imageUrl: avatarUrl,
+        outputSize: decodeSize,
+      );
       unawaited(
         precacheImage(
           provider,
@@ -721,20 +717,6 @@ class _OriginSetupRolePortrait extends StatelessWidget {
           width: cardWidth,
           height: cardWidth,
         ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              stops: [0.42, 0.72, 1],
-              colors: [
-                Colors.transparent,
-                Color(0x66151517),
-                Color(0xF0151517),
-              ],
-            ),
-          ),
-        ),
         Positioned(
           left: 16,
           right: 16,
@@ -910,34 +892,43 @@ class _OriginSetupRoleImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = GenesisAvatarFallback(
-      name: name,
-      width: width,
-      height: height,
-      borderRadius: 0,
+    final fallback = Stack(
+      fit: StackFit.expand,
+      children: [
+        GenesisAvatarFallback(
+          name: name,
+          width: width,
+          height: height,
+          borderRadius: 0,
+        ),
+        const DecoratedBox(
+          decoration: BoxDecoration(gradient: originRolePortraitGradient),
+        ),
+      ],
     );
     if (url.isEmpty) return fallback;
-    if (url.startsWith('assets/')) {
-      return Image.asset(
-        url,
-        width: width,
-        height: height,
-        fit: BoxFit.cover,
-        alignment: alignment,
-        errorBuilder: (context, error, stackTrace) => fallback,
-      );
-    }
-    return GenesisStaticNetworkImage(
-      imageUrl: url,
+    final devicePixelRatio = genesisImageDevicePixelRatio(
+      MediaQuery.devicePixelRatioOf(context),
+    );
+    final outputSize = (math.max(width, height) * devicePixelRatio).ceil();
+    return Image(
+      image: OriginRolePortraitImageProvider.fromUrl(
+        imageUrl: url,
+        outputSize: outputSize,
+      ),
       width: width,
       height: height,
       fit: BoxFit.cover,
       alignment: alignment,
-      placeholder: (_) => ColoredBox(
-        color: const Color(0xFF202022),
-        child: SizedBox(width: width, height: height),
-      ),
-      errorWidget: (_, _) => fallback,
+      gaplessPlayback: true,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) return child;
+        return ColoredBox(
+          color: const Color(0xFF202022),
+          child: SizedBox(width: width, height: height),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => fallback,
     );
   }
 }

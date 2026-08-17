@@ -1,5 +1,20 @@
 part of 'location_chat_page.dart';
 
+@visibleForTesting
+String resolveLocationChatAvatarUrlForTesting({
+  required String imageUrl,
+  required double devicePixelRatio,
+}) {
+  final url = imageUrl.trim();
+  final resizedUrl = resizeGenesisImageUrl(
+    url,
+    logicalWidth: _locationChatAvatarLogicalSize,
+    devicePixelRatio: devicePixelRatio,
+    maxDevicePixelRatio: GenesisImageConfig.chatAvatarMaxDevicePixelRatio,
+  );
+  return resizedUrl.isNotEmpty ? resizedUrl : url;
+}
+
 extension _LocationChatIdentity on _LocationChatPanelState {
   String _messageSenderDisplayName(
     WorldChatroomMessage message, {
@@ -38,13 +53,10 @@ extension _LocationChatIdentity on _LocationChatPanelState {
   }
 
   String _resizedLocationChatAvatarUrl(String rawUrl) {
-    final url = rawUrl.trim();
-    final resizedUrl = resizeGenesisImageUrl(
-      url,
-      logicalWidth: _locationChatAvatarLogicalSize,
+    return resolveLocationChatAvatarUrlForTesting(
+      imageUrl: rawUrl,
       devicePixelRatio: _devicePixelRatio,
     );
-    return resizedUrl.isNotEmpty ? resizedUrl : url;
   }
 
   String _localSelfDisplayName() {

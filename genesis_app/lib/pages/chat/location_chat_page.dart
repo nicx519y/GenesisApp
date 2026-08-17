@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/config/genesis_image_config.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';

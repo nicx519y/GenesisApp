@@ -1,3 +1,5 @@
+import '../app/config/genesis_image_config.dart';
+
 class GenesisImageResource {
   const GenesisImageResource({
     this.legacyUrl = '',
@@ -71,11 +73,13 @@ class GenesisImageResource {
     required double? logicalWidth,
     required double? logicalHeight,
     required double devicePixelRatio,
+    double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   }) {
     final resizedXlUrl = resizeGenesisImageUrl(
       xlUrl,
       logicalWidth: logicalWidth,
       devicePixelRatio: devicePixelRatio,
+      maxDevicePixelRatio: maxDevicePixelRatio,
     );
     if (resizedXlUrl.isNotEmpty) return resizedXlUrl;
 
@@ -87,8 +91,16 @@ class GenesisImageResource {
     if (candidates.isEmpty) return '';
     if (candidates.length == 1) return candidates.single.url;
 
-    final requiredWidth = _requiredPixels(logicalWidth, devicePixelRatio);
-    final requiredHeight = _requiredPixels(logicalHeight, devicePixelRatio);
+    final requiredWidth = _requiredPixels(
+      logicalWidth,
+      devicePixelRatio,
+      maxDevicePixelRatio,
+    );
+    final requiredHeight = _requiredPixels(
+      logicalHeight,
+      devicePixelRatio,
+      maxDevicePixelRatio,
+    );
     if (requiredWidth == null && requiredHeight == null) return displayUrl;
 
     final sizedCandidates = candidates
@@ -131,13 +143,15 @@ class GenesisImageResource {
   }
 }
 
-const double genesisMaxImageDevicePixelRatio = 2;
-
-double genesisImageDevicePixelRatio(double devicePixelRatio) {
+double genesisImageDevicePixelRatio(
+  double devicePixelRatio, {
+  double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+}) {
   if (!devicePixelRatio.isFinite || devicePixelRatio <= 0) return 1;
-  return devicePixelRatio > genesisMaxImageDevicePixelRatio
-      ? genesisMaxImageDevicePixelRatio
-      : devicePixelRatio;
+  final resolvedMax = maxDevicePixelRatio.isFinite && maxDevicePixelRatio > 0
+      ? maxDevicePixelRatio
+      : GenesisImageConfig.maxDevicePixelRatio;
+  return devicePixelRatio > resolvedMax ? resolvedMax : devicePixelRatio;
 }
 
 const List<int> _imageResizeWidthTiers = <int>[
@@ -173,12 +187,17 @@ String resizeGenesisImageUrl(
   String url, {
   required double? logicalWidth,
   required double devicePixelRatio,
+  double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
 }) {
   final source = url.trim();
   if (source.isEmpty || source.startsWith('assets/')) return '';
   final localDefaultAsset = localDefaultMapImageAssetForBackendImageUrl(source);
   if (localDefaultAsset != null) return localDefaultAsset;
-  final requiredWidth = _requiredPixels(logicalWidth, devicePixelRatio);
+  final requiredWidth = _requiredPixels(
+    logicalWidth,
+    devicePixelRatio,
+    maxDevicePixelRatio,
+  );
   if (requiredWidth == null) return '';
   final width = _ceilImageWidthTier(requiredWidth);
   return '${_stripUrlParams(source)}$_ossResizeProcessPrefix$width$_ossResizeProcessSuffix';
@@ -234,6 +253,7 @@ String selectGenesisImageUrl(
   required double? logicalWidth,
   required double? logicalHeight,
   required double devicePixelRatio,
+  double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
 }) {
   final resource = GenesisImageResourceRegistry.resolve(
     source,
@@ -243,15 +263,23 @@ String selectGenesisImageUrl(
     logicalWidth: logicalWidth,
     logicalHeight: logicalHeight,
     devicePixelRatio: devicePixelRatio,
+    maxDevicePixelRatio: maxDevicePixelRatio,
   );
   return localDefaultMapImageAssetForBackendImageUrl(selected) ?? selected;
 }
 
-double? _requiredPixels(double? logicalValue, double devicePixelRatio) {
+double? _requiredPixels(
+  double? logicalValue,
+  double devicePixelRatio,
+  double maxDevicePixelRatio,
+) {
   if (logicalValue == null || !logicalValue.isFinite || logicalValue <= 0) {
     return null;
   }
-  final ratio = genesisImageDevicePixelRatio(devicePixelRatio);
+  final ratio = genesisImageDevicePixelRatio(
+    devicePixelRatio,
+    maxDevicePixelRatio: maxDevicePixelRatio,
+  );
   return logicalValue * ratio;
 }
 

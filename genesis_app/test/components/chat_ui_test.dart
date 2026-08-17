@@ -5,8 +5,10 @@ import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/components/gems/memory_model_entry_button.dart';
+import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
@@ -25,6 +27,23 @@ class _JumpRecordingScrollController extends ScrollController {
 }
 
 void main() {
+  testWidgets('chat bubble avatars use the 2.4 DPR cap', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ChatAvatar(
+          label: 'P',
+          colors: <Color>[Colors.black, Colors.white],
+        ),
+      ),
+    );
+
+    final avatar = tester.widget<GenesisAvatar>(find.byType(GenesisAvatar));
+    expect(
+      avatar.maxDevicePixelRatio,
+      GenesisImageConfig.chatAvatarMaxDevicePixelRatio,
+    );
+  });
+
   test('private chat uses a transparent status bar with dark icons', () {
     expect(
       kChatTransparentLightSystemUiOverlayStyle.statusBarColor,
@@ -3885,9 +3904,9 @@ void main() {
 
     for (final expectation in const <(double, int)>[
       (1, 1080),
-      (2, 2160),
-      (3, 2880),
-      (4, 4320),
+      (2, 1440),
+      (3, 1440),
+      (4, 1440),
     ]) {
       clearGenesisMessageImageSizeCache();
       tester.view.devicePixelRatio = expectation.$1;

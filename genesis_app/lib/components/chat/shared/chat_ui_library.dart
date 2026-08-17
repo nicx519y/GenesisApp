@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../app/config/genesis_image_config.dart';
 import '../../../components/common/genesis_image_viewer_overlay.dart';
 import '../../../components/common/genesis_generation_wait_overlay.dart';
 import '../../../components/common/genesis_timestamp_text.dart';

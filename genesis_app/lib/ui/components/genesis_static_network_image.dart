@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+import '../../app/config/genesis_image_config.dart';
 import '../../network/genesis_http_cache_manager.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -26,6 +27,7 @@ class GenesisStaticNetworkImage extends StatefulWidget {
     this.errorWidget,
     this.onImageLoaded,
     this.cacheManager,
+    this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
   final String imageUrl;
@@ -37,6 +39,7 @@ class GenesisStaticNetworkImage extends StatefulWidget {
   final Widget Function(BuildContext context, Object error)? errorWidget;
   final VoidCallback? onImageLoaded;
   final BaseCacheManager? cacheManager;
+  final double maxDevicePixelRatio;
 
   @override
   State<GenesisStaticNetworkImage> createState() =>
@@ -53,7 +56,8 @@ class _GenesisStaticNetworkImageState extends State<GenesisStaticNetworkImage> {
         oldWidget.cacheManager != widget.cacheManager ||
         oldWidget.width != widget.width ||
         oldWidget.height != widget.height ||
-        oldWidget.fit != widget.fit) {
+        oldWidget.fit != widget.fit ||
+        oldWidget.maxDevicePixelRatio != widget.maxDevicePixelRatio) {
       _didNotifyLoaded = false;
     }
   }
@@ -70,6 +74,7 @@ class _GenesisStaticNetworkImageState extends State<GenesisStaticNetworkImage> {
       builder: (context, constraints) {
         final devicePixelRatio = genesisImageDevicePixelRatio(
           MediaQuery.devicePixelRatioOf(context),
+          maxDevicePixelRatio: widget.maxDevicePixelRatio,
         );
         final logicalWidth = _resolveLogicalDimension(
           widget.width,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/config/genesis_image_config.dart';
 import '../discuss/origin_discuss_preview_list.dart';
 import '../origin/stat_item.dart';
 import '../../app/bootstrap/app_services_scope.dart';
@@ -466,6 +467,7 @@ class _OriginImage extends StatelessWidget {
       width: width,
       height: height,
       borderRadius: BorderRadius.circular(borderRadius),
+      maxDevicePixelRatio: GenesisImageConfig.worldListMaxDevicePixelRatio,
     );
   }
 }

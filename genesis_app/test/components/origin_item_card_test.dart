@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 
 void main() {
   test('preserves returned UGC backslashes for origin cards', () {
@@ -89,6 +91,12 @@ void main() {
     expect(subtitle.style?.fontSize, 12);
     expect(subtitle.style?.height, 1.2);
     expect(subtitle.maxLines, 4);
+    expect(
+      tester
+          .widget<GenesisListImage>(find.byType(GenesisListImage))
+          .maxDevicePixelRatio,
+      GenesisImageConfig.worldListMaxDevicePixelRatio,
+    );
   });
 
   testWidgets('shows all tags that fit within two rows', (

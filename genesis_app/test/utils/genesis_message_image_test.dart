@@ -83,15 +83,15 @@ void main() {
       expect(tier.height, 8640);
     });
 
-    test('builds an OSS lfit URL with image DPR capped at 2', () {
+    test('builds an OSS lfit URL with the global image DPR cap', () {
       expect(
         resizeGenesisMessageImageUrl(
           'https://cdn-001.worldo.ai/chat/image.png?old=true#fragment',
-          displaySize: const Size(300, 150),
+          displaySize: const Size(240, 120),
           devicePixelRatio: 3,
         ),
         'https://cdn-001.worldo.ai/chat/image.png'
-        '?x-oss-process=image/resize,m_lfit,w_720,h_1440/format,webp',
+        '?x-oss-process=image/resize,m_lfit,w_360,h_720/format,webp',
       );
     });
 

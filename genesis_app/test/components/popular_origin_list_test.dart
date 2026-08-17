@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_preview_list.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/components/home/popular_origin_list.dart';
@@ -234,6 +235,20 @@ void main() {
     );
     expect(
       thumbnails.any((image) => image.width == 107 && image.height == 160.5),
+      isTrue,
+    );
+    expect(
+      thumbnails
+          .where(
+            (image) =>
+                (image.width == 60 && image.height == 60) ||
+                (image.width == 107 && image.height == 160.5),
+          )
+          .every(
+            (image) =>
+                image.maxDevicePixelRatio ==
+                GenesisImageConfig.worldListMaxDevicePixelRatio,
+          ),
       isTrue,
     );
     final titleLeft = tester.getTopLeft(find.text('#Alpha Empire').first).dx;

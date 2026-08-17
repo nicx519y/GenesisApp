@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_location_avatars.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
@@ -573,11 +574,11 @@ void main() {
     );
   });
 
-  test('tile image pixel size caps device pixel ratio at two', () {
+  test('tile image pixel size uses the global image DPR cap', () {
     final projection = TilemapProjection.fixed(mapWidth: 1, mapHeight: 1);
 
     expect(projection.tilePixelSize(scale: 12, devicePixelRatio: 1.5), 288);
-    expect(projection.tilePixelSize(scale: 12, devicePixelRatio: 3), 384);
+    expect(projection.tilePixelSize(scale: 12, devicePixelRatio: 3), 288);
   });
 
   test('projection hit tests the tile diamond', () {
@@ -2210,6 +2211,10 @@ void main() {
               shadow.spreadRadius > 0,
         ),
         isTrue,
+      );
+      expect(
+        avatar.maxDevicePixelRatio,
+        GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio,
       );
     },
   );

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../app/config/genesis_image_config.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/components/recent_chat_marker.dart';
 import '../legacy_world_map/legacy_world_map_gesture.dart';
@@ -35,7 +36,6 @@ const double tilemapMaxScale = 30;
 const double tilemapInitialScaleMin = tilemapMinScale;
 const double tilemapInitialScaleMax = tilemapMaxScale;
 const double tilemapDefaultInitialScale = 12;
-const double tilemapMaxImageDevicePixelRatio = 2;
 const double tilemapDragBoundaryPaddingTilesMin = 0;
 const double tilemapDragBoundaryPaddingTilesMax = 20;
 const double tilemapDefaultDragBoundaryPaddingTiles = 2;

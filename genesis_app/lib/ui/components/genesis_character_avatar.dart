@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/config/genesis_image_config.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../tokens/genesis_avatar_radii.dart';
 import 'genesis_avatar.dart';
@@ -18,6 +19,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
     this.showFallbackWhileLoading = false,
     this.showFallbackWhenUnavailable = true,
     this.border,
+    this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
   final String url;
@@ -31,6 +33,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
   final bool showFallbackWhileLoading;
   final bool showFallbackWhenUnavailable;
   final BoxBorder? border;
+  final double maxDevicePixelRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +61,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
                   borderRadius: borderRadius,
                   showFallbackWhileLoading: showFallbackWhileLoading,
                   showFallbackWhenUnavailable: showFallbackWhenUnavailable,
+                  maxDevicePixelRatio: maxDevicePixelRatio,
                 ),
               ),
             ),

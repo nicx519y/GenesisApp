@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/config/genesis_image_config.dart';
 import 'genesis_static_network_image.dart';
 import '../text/genesis_text_input_formatters.dart';
 import '../tokens/genesis_avatar_radii.dart';
@@ -21,6 +22,7 @@ class GenesisAvatar extends StatelessWidget {
     this.showFallbackWhileLoading = false,
     this.showFallbackWhenUnavailable = true,
     this.onVisibilityChanged,
+    this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
   final String name;
@@ -36,6 +38,7 @@ class GenesisAvatar extends StatelessWidget {
   final bool showFallbackWhileLoading;
   final bool showFallbackWhenUnavailable;
   final ValueChanged<bool>? onVisibilityChanged;
+  final double maxDevicePixelRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +52,7 @@ class GenesisAvatar extends StatelessWidget {
       logicalWidth: imageWidth,
       logicalHeight: imageHeight,
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      maxDevicePixelRatio: maxDevicePixelRatio,
     ).trim();
     final fallback = GenesisAvatarFallback(
       name: safeName,
@@ -96,6 +100,7 @@ class GenesisAvatar extends StatelessWidget {
             height: imageHeight,
             fit: fit,
             alignment: alignment,
+            maxDevicePixelRatio: maxDevicePixelRatio,
             onImageLoaded: () {
               _notifyAvatarVisibility(onVisibilityChanged, true);
             },

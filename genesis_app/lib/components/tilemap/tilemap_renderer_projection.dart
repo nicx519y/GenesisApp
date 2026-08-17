@@ -404,7 +404,7 @@ Rect tilemapRetainedSceneBounds(Rect visibleSceneBounds) {
 }
 
 double tilemapImageDevicePixelRatio(double devicePixelRatio) {
-  return math.min(devicePixelRatio, tilemapMaxImageDevicePixelRatio);
+  return math.min(devicePixelRatio, GenesisImageConfig.maxDevicePixelRatio);
 }
 
 String resolveTilemapAssetForDisplaySize(

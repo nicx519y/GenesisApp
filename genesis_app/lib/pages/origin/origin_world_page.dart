@@ -64,6 +64,7 @@ import '../world/world_map_bubble_candidates.dart';
 import '../world/world_navigation.dart';
 import '../world/world_page_result.dart';
 import 'origin_launch_flow.dart';
+import 'origin_role_portrait_image_provider.dart';
 import 'origin_world_layout.dart';
 
 part 'origin_world_map_shell.dart';

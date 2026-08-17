@@ -9,7 +9,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 void main() {
-  testWidgets('caps target decode dimensions at image DPR 2', (tester) async {
+  testWidgets('caps target decode dimensions at global image DPR', (
+    tester,
+  ) async {
     GenesisStaticNetworkImageProvider? capturedProvider;
     debugGenesisStaticNetworkImageCompleter = (provider) {
       capturedProvider = provider;
@@ -34,8 +36,41 @@ void main() {
     );
     await tester.pump();
 
-    expect(capturedProvider?.cacheWidth, 80);
-    expect(capturedProvider?.cacheHeight, 60);
+    expect(capturedProvider?.cacheWidth, 60);
+    expect(capturedProvider?.cacheHeight, 45);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('supports a surface-specific target decode DPR cap', (
+    tester,
+  ) async {
+    GenesisStaticNetworkImageProvider? capturedProvider;
+    debugGenesisStaticNetworkImageCompleter = (provider) {
+      capturedProvider = provider;
+      return OneFrameImageStreamCompleter(
+        Future<ImageInfo>.error(StateError('decode sizing probe')),
+      );
+    };
+    addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenesisStaticNetworkImage(
+            imageUrl: 'https://cache.test/dpr-surface.png',
+            width: 40,
+            height: 30,
+            maxDevicePixelRatio: 2.4,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(capturedProvider?.cacheWidth, 96);
+    expect(capturedProvider?.cacheHeight, 72);
     expect(tester.takeException(), isNull);
   });
 

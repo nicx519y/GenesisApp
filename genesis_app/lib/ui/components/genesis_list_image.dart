@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/config/genesis_image_config.dart';
 import 'genesis_static_network_image.dart';
 import '../tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -16,6 +17,7 @@ class GenesisListImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.borderRadius = GenesisImageRadii.content,
     this.placeholderAsset = genesisDefaultListImageAsset,
+    this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
   final String imageUrl;
@@ -24,6 +26,7 @@ class GenesisListImage extends StatelessWidget {
   final BoxFit fit;
   final BorderRadiusGeometry borderRadius;
   final String placeholderAsset;
+  final double maxDevicePixelRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +48,7 @@ class GenesisListImage extends StatelessWidget {
                 width: _finite(width),
                 height: _finite(height),
                 fit: fit,
+                maxDevicePixelRatio: maxDevicePixelRatio,
                 placeholder: (_) => _placeholder(),
                 errorWidget: (_, _) => _placeholder(),
               );
@@ -63,6 +67,7 @@ class GenesisListImage extends StatelessWidget {
       logicalWidth: _finite(width) ?? _finite(constraints.maxWidth),
       logicalHeight: _finite(height) ?? _finite(constraints.maxHeight),
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      maxDevicePixelRatio: maxDevicePixelRatio,
     ).trim();
   }
 

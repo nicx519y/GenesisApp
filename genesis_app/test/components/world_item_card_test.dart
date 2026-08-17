@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/components/home/world_item_card.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 
 void main() {
@@ -67,6 +69,14 @@ void main() {
             image.height == 60 &&
             image.borderRadius ==
                 BorderRadius.circular(GenesisImageRadii.contentValue),
+      ),
+      isTrue,
+    );
+    expect(
+      thumbnails.every(
+        (image) =>
+            image.maxDevicePixelRatio ==
+            GenesisImageConfig.worldListMaxDevicePixelRatio,
       ),
       isTrue,
     );
@@ -141,6 +151,12 @@ void main() {
     expect(_richTextFinder('Self Hero (Me)'), findsOneWidget);
     expect(find.text('Player'), findsOneWidget);
     expect(find.text('Goal Progress: 42%'), findsOneWidget);
+    expect(
+      tester
+          .widget<GenesisCharacterAvatar>(find.byType(GenesisCharacterAvatar))
+          .maxDevicePixelRatio,
+      GenesisImageConfig.worldListMaxDevicePixelRatio,
+    );
   });
 
   testWidgets('renders recent activity tag label after world name', (

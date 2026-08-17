@@ -86,6 +86,8 @@ class ChatAvatar extends StatelessWidget {
               textStyle: style.avatarTextStyle,
               showFallbackWhileLoading: false,
               showFallbackWhenUnavailable: imageUrl.isEmpty,
+              maxDevicePixelRatio:
+                  GenesisImageConfig.chatAvatarMaxDevicePixelRatio,
             ),
           ),
           Positioned.fill(

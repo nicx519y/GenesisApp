@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/config/genesis_image_config.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -95,6 +96,8 @@ class _TilemapLocationAvatar extends StatelessWidget {
         showStar: avatar.showStar,
         showFallbackWhileLoading: false,
         showFallbackWhenUnavailable: true,
+        maxDevicePixelRatio:
+            GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.26),
