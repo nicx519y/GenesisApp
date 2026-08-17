@@ -99,7 +99,8 @@ extension _MePageActions on _MePageState {
       MaterialPageRoute<String>(
         builder: (_) => LocalImageCropPage(
           imageBytes: bytes,
-          cropSize: const Size(512, 512),
+          cropSize: meProfileAvatarUploadSize,
+          maxOutputSize: meProfileAvatarUploadSize,
           filename: 'avatar.png',
           contentType: 'image/png',
           onUpload: (result) async {
