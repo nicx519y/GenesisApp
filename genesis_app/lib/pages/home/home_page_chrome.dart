@@ -27,6 +27,8 @@ class _HomeTabScaffold extends StatelessWidget {
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
+    required this.initialMyWorldsRenderOperation,
+    required this.initialMyWorldsRequestAttempt,
     this.initialMyWorldsData,
   });
 
@@ -35,6 +37,8 @@ class _HomeTabScaffold extends StatelessWidget {
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
+  final FirebasePerformanceOperation? initialMyWorldsRenderOperation;
+  final int initialMyWorldsRequestAttempt;
   final Map<String, dynamic>? initialMyWorldsData;
 
   @override
@@ -56,6 +60,8 @@ class _HomeTabScaffold extends StatelessWidget {
                   keepInitialNetworkFailureLoading,
               initialRequestMetricWindow: initialRequestMetricWindow,
               initialMyWorldsData: initialMyWorldsData,
+              initialMyWorldsRenderOperation: initialMyWorldsRenderOperation,
+              initialMyWorldsRequestAttempt: initialMyWorldsRequestAttempt,
             ),
           ),
         ],
@@ -95,6 +101,8 @@ class _HomeTabView extends StatelessWidget {
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
+    required this.initialMyWorldsRenderOperation,
+    required this.initialMyWorldsRequestAttempt,
     this.initialMyWorldsData,
   });
 
@@ -102,6 +110,8 @@ class _HomeTabView extends StatelessWidget {
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
+  final FirebasePerformanceOperation? initialMyWorldsRenderOperation;
+  final int initialMyWorldsRequestAttempt;
   final Map<String, dynamic>? initialMyWorldsData;
 
   @override
@@ -115,6 +125,8 @@ class _HomeTabView extends StatelessWidget {
           keepInitialNetworkFailureLoading: keepInitialNetworkFailureLoading,
           initialRequestMetricWindow: initialRequestMetricWindow,
           initialPageData: initialMyWorldsData,
+          initialPageRenderOperation: initialMyWorldsRenderOperation,
+          initialPageRequestAttempt: initialMyWorldsRequestAttempt,
         ),
         _PopularOriginFeed(
           index: 1,

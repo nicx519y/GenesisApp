@@ -8,6 +8,7 @@ import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
+import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
@@ -92,6 +93,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Object? _initialLoadError;
   _WorldPageRenderStage _renderStage = _WorldPageRenderStage.framework;
   bool _contentMountScheduled = false;
+  FirebasePerformanceOperation? _initialRequestPerformanceOperation;
+  FirebasePerformanceOperation? _initialRenderPerformanceOperation;
+  FirebasePerformanceDataSource _initialRenderDataSource =
+      FirebasePerformanceDataSource.network;
+  var _initialRequestPerformanceAttempt = 0;
+  var _initialContentRenderCompleted = false;
   WorldChatroomService? _worldChatroom;
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
@@ -262,6 +269,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       if (!mounted) return;
       final initialWorld = widget.initialWorldDetail;
       if (initialWorld != null) {
+        _initialRenderDataSource = FirebasePerformanceDataSource.prefetched;
         _applyWorldDetail(initialWorld, clearInitialLoadError: true);
         _maybeShowTick1WaitDialog();
         return;
@@ -290,7 +298,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       if (_world?.definitionVersion != 2 ||
           _tilemapVisualModeReady ||
           tilemapVisualModeController.isHydrated) {
-        _mountContentAfterDetailShell();
+        unawaited(_mountContentAfterDetailShell());
         return;
       }
       unawaited(_mountContentAfterTilemapVisualModeLoad());
@@ -301,20 +309,59 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (_world?.definitionVersion == 2) {
       await _tilemapVisualModeLoad;
     }
-    _mountContentAfterDetailShell();
+    await _mountContentAfterDetailShell();
   }
 
-  void _mountContentAfterDetailShell() {
+  Future<void> _mountContentAfterDetailShell() async {
     if (!mounted ||
         _world == null ||
         _renderStage != _WorldPageRenderStage.detailShell) {
       _contentMountScheduled = false;
       return;
     }
+    final world = _world!;
+    FirebasePerformanceOperation? renderOperation;
+    if (!_initialContentRenderCompleted &&
+        _initialRenderPerformanceOperation == null) {
+      renderOperation = await FirebasePerformanceOperation.start(
+        surface: FirebasePerformanceSurface.worldPage,
+        phase: FirebasePerformancePhase.render,
+        attempt: _initialRequestPerformanceAttempt == 0
+            ? 1
+            : _initialRequestPerformanceAttempt,
+        dataSource: _initialRenderDataSource,
+        timeout: FirebasePerformanceOperation.renderTimeout,
+      );
+      if (!mounted ||
+          !identical(_world, world) ||
+          _renderStage != _WorldPageRenderStage.detailShell) {
+        unawaited(renderOperation.cancel());
+        _contentMountScheduled = false;
+        return;
+      }
+      _initialRenderPerformanceOperation = renderOperation;
+    }
     setState(() {
       _contentMountScheduled = false;
       _renderStage = _WorldPageRenderStage.content;
     });
+    if (renderOperation != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            !identical(_initialRenderPerformanceOperation, renderOperation) ||
+            !identical(_world, world) ||
+            _renderStage != _WorldPageRenderStage.content) {
+          if (identical(_initialRenderPerformanceOperation, renderOperation)) {
+            _initialRenderPerformanceOperation = null;
+          }
+          unawaited(renderOperation?.cancel());
+          return;
+        }
+        _initialRenderPerformanceOperation = null;
+        _initialContentRenderCompleted = true;
+        unawaited(renderOperation?.succeed());
+      });
+    }
   }
 
   @override
@@ -373,6 +420,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    unawaited(_initialRequestPerformanceOperation?.cancel());
+    unawaited(_initialRenderPerformanceOperation?.cancel());
     _stopWorldTickLockPolling();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     _mainTabController.removeListener(_handleWorldMainTabChanged);

@@ -4,13 +4,46 @@ extension _WorldPageDetailSync on _WorldPageState {
   Future<void> _fetchWorld({bool isInitial = false}) async {
     if (_pollInFlight) return;
     _pollInFlight = true;
+    FirebasePerformanceOperation? requestOperation;
+    if (isInitial && !_initialContentRenderCompleted) {
+      final attempt = ++_initialRequestPerformanceAttempt;
+      requestOperation = await FirebasePerformanceOperation.start(
+        surface: FirebasePerformanceSurface.worldPage,
+        phase: FirebasePerformancePhase.request,
+        attempt: attempt,
+      );
+      if (!mounted) {
+        unawaited(requestOperation.cancel());
+        _pollInFlight = false;
+        return;
+      }
+      _initialRequestPerformanceOperation = requestOperation;
+    }
     try {
       final world = await AppServicesScope.read(
         context,
       ).api.getWorld(widget.wid);
-      if (!mounted) return;
+      if (!mounted ||
+          !identical(_initialRequestPerformanceOperation, requestOperation) &&
+              requestOperation != null) {
+        unawaited(requestOperation?.cancel());
+        return;
+      }
+      if (identical(_initialRequestPerformanceOperation, requestOperation)) {
+        _initialRequestPerformanceOperation = null;
+      }
+      unawaited(requestOperation?.succeed());
+      if (isInitial) {
+        _initialRenderDataSource = FirebasePerformanceDataSource.network;
+      }
       _applyWorldDetail(world, clearInitialLoadError: isInitial);
     } catch (e) {
+      if (identical(_initialRequestPerformanceOperation, requestOperation)) {
+        _initialRequestPerformanceOperation = null;
+      }
+      unawaited(
+        requestOperation?.fail(errorType: firebasePerformanceErrorType(e)),
+      );
       if (!mounted) return;
       debugPrint('[WorldPage] load failed wid="${widget.wid}": $e');
       if (isInitial) {

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/shared/location_chat_overlay_transition.dart';
@@ -117,6 +118,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _OriginWorldPageRenderStage.framework;
   bool _contentMountScheduled = false;
   int _originLoadGeneration = 0;
+  FirebasePerformanceOperation? _initialRequestPerformanceOperation;
+  FirebasePerformanceOperation? _initialRenderPerformanceOperation;
+  var _initialRequestPerformanceAttempt = 0;
+  var _initialContentRenderCompleted = false;
   TilemapVisualMode _tilemapVisualMode = tilemapVisualModeController.value;
   late final Future<void> _tilemapVisualModeLoad;
   bool _tilemapVisualModeReady = false;
@@ -173,6 +178,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void didUpdateWidget(covariant OriginWorldPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.oid != widget.oid) {
+      unawaited(_initialRequestPerformanceOperation?.cancel());
+      unawaited(_initialRenderPerformanceOperation?.cancel());
+      _initialRequestPerformanceOperation = null;
+      _initialRenderPerformanceOperation = null;
+      _initialRequestPerformanceAttempt = 0;
+      _initialContentRenderCompleted = false;
       _launchedPresetRolesFuture = null;
       _launchedPresetRolesPreparationFuture = null;
       _launchedPresetRolesData = null;
@@ -211,6 +222,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   @override
   void dispose() {
+    unawaited(_initialRequestPerformanceOperation?.cancel());
+    unawaited(_initialRenderPerformanceOperation?.cancel());
     _originLoadGeneration += 1;
     _cachedProfileRoleLoadGeneration += 1;
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
@@ -299,6 +312,22 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<void> _fetchOriginDetail({bool isInitial = false}) async {
     final generation = ++_originLoadGeneration;
     final requestedOriginId = widget.oid.trim();
+    FirebasePerformanceOperation? requestOperation;
+    if (isInitial && !_initialContentRenderCompleted) {
+      final attempt = ++_initialRequestPerformanceAttempt;
+      requestOperation = await FirebasePerformanceOperation.start(
+        surface: FirebasePerformanceSurface.originWorldPage,
+        phase: FirebasePerformancePhase.request,
+        attempt: attempt,
+      );
+      if (!mounted ||
+          generation != _originLoadGeneration ||
+          widget.oid.trim() != requestedOriginId) {
+        unawaited(requestOperation.cancel());
+        return;
+      }
+      _initialRequestPerformanceOperation = requestOperation;
+    }
     try {
       final origin = await AppServicesScope.read(
         context,
@@ -306,8 +335,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       if (!mounted ||
           generation != _originLoadGeneration ||
           widget.oid.trim() != requestedOriginId) {
+        unawaited(requestOperation?.cancel());
         return;
       }
+      if (identical(_initialRequestPerformanceOperation, requestOperation)) {
+        _initialRequestPerformanceOperation = null;
+      }
+      unawaited(requestOperation?.succeed());
       final shouldStageInitialContent =
           isInitial ||
           _origin == null ||
@@ -336,8 +370,15 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       if (!mounted ||
           generation != _originLoadGeneration ||
           widget.oid.trim() != requestedOriginId) {
+        unawaited(requestOperation?.cancel());
         return;
       }
+      if (identical(_initialRequestPerformanceOperation, requestOperation)) {
+        _initialRequestPerformanceOperation = null;
+      }
+      unawaited(
+        requestOperation?.fail(errorType: firebasePerformanceErrorType(error)),
+      );
       if (_origin == null) {
         setState(() => _initialLoadError = error);
       } else {
@@ -345,7 +386,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           '[OriginWorldPage] detail refresh failed: $error\n$stackTrace',
         );
         if (_renderStage == _OriginWorldPageRenderStage.detailShell) {
-          _mountContentAfterDetailShell(_origin!, generation);
+          unawaited(_mountContentAfterDetailShell(_origin!, generation));
         }
       }
     }
@@ -369,7 +410,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       if (origin.definitionVersion != 2 ||
           _tilemapVisualModeReady ||
           tilemapVisualModeController.isHydrated) {
-        _mountContentAfterDetailShell(origin, generation);
+        unawaited(_mountContentAfterDetailShell(origin, generation));
         return;
       }
       unawaited(_mountContentAfterTilemapVisualModeLoad(origin, generation));
@@ -383,10 +424,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (origin.definitionVersion == 2) {
       await _tilemapVisualModeLoad;
     }
-    _mountContentAfterDetailShell(origin, generation);
+    await _mountContentAfterDetailShell(origin, generation);
   }
 
-  void _mountContentAfterDetailShell(OriginDetail origin, int generation) {
+  Future<void> _mountContentAfterDetailShell(
+    OriginDetail origin,
+    int generation,
+  ) async {
     if (!mounted ||
         generation != _originLoadGeneration ||
         !identical(_origin, origin) ||
@@ -394,10 +438,49 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _contentMountScheduled = false;
       return;
     }
+    FirebasePerformanceOperation? renderOperation;
+    if (!_initialContentRenderCompleted &&
+        _initialRenderPerformanceOperation == null) {
+      renderOperation = await FirebasePerformanceOperation.start(
+        surface: FirebasePerformanceSurface.originWorldPage,
+        phase: FirebasePerformancePhase.render,
+        attempt: _initialRequestPerformanceAttempt == 0
+            ? 1
+            : _initialRequestPerformanceAttempt,
+        timeout: FirebasePerformanceOperation.renderTimeout,
+      );
+      if (!mounted ||
+          generation != _originLoadGeneration ||
+          !identical(_origin, origin) ||
+          _renderStage != _OriginWorldPageRenderStage.detailShell) {
+        unawaited(renderOperation.cancel());
+        _contentMountScheduled = false;
+        return;
+      }
+      _initialRenderPerformanceOperation = renderOperation;
+    }
     setState(() {
       _contentMountScheduled = false;
       _renderStage = _OriginWorldPageRenderStage.content;
     });
+    if (renderOperation != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            generation != _originLoadGeneration ||
+            !identical(_initialRenderPerformanceOperation, renderOperation) ||
+            !identical(_origin, origin) ||
+            _renderStage != _OriginWorldPageRenderStage.content) {
+          if (identical(_initialRenderPerformanceOperation, renderOperation)) {
+            _initialRenderPerformanceOperation = null;
+          }
+          unawaited(renderOperation?.cancel());
+          return;
+        }
+        _initialRenderPerformanceOperation = null;
+        _initialContentRenderCompleted = true;
+        unawaited(renderOperation?.succeed());
+      });
+    }
     _scheduleDeferredOriginPreloads(origin, generation);
   }
 

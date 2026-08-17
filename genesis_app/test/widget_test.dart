@@ -24,6 +24,8 @@ import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/recent_chat/recent_world_chat_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
+import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
+import 'package:genesis_flutter_android/app/telemetry/firebase_performance_monitoring.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
@@ -2196,6 +2198,8 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 
 void main() {
   setUp(() {
+    FirebaseAnalyticsMonitoring.resetForTesting();
+    FirebasePerformanceMonitoring.resetForTesting();
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
@@ -2208,8 +2212,438 @@ void main() {
   });
 
   tearDown(() async {
+    FirebaseAnalyticsMonitoring.resetForTesting();
+    FirebasePerformanceMonitoring.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
     BlockedUserReviewReturn.resetForTesting();
+  });
+
+  testWidgets(
+    'WorldPage request and non-Tilemap render traces finish before Tilemap',
+    (WidgetTester tester) async {
+      final traces = <_WidgetPerformanceTrace>[];
+      final analytics = _WidgetAnalyticsClient();
+      FirebasePerformanceMonitoring.setReadyForTesting(true);
+      FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
+        final trace = _WidgetPerformanceTrace(name);
+        traces.add(trace);
+        return trace;
+      });
+      FirebaseAnalyticsMonitoring.setClientForTesting(analytics);
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+      final worldMapCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'anonymous',
+        worldDefinitionVersion: 2,
+        worldMapCompleter: worldMapCompleter,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      for (var index = 0; index < 8; index += 1) {
+        await tester.pump();
+      }
+
+      final requestTrace = traces.singleWhere(
+        (trace) => trace.name == 'world_page_request',
+      );
+      final renderTrace = traces.singleWhere(
+        (trace) => trace.name == 'world_page_render',
+      );
+      expect(requestTrace.stopped, isTrue);
+      expect(renderTrace.stopped, isTrue);
+      expect(renderTrace.attributes['result'], 'success');
+      expect(transport.requestsFor('/api/v1/world/map'), hasLength(1));
+      expect(worldMapCompleter.isCompleted, isFalse);
+      expect(
+        analytics.events.where(
+          (event) => event.parameters['surface'] == 'world_page',
+        ),
+        hasLength(2),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      worldMapCompleter.complete(transport._jsonResponse({}));
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'OriginWorldPage request and render traces ignore pending Tilemap request',
+    (WidgetTester tester) async {
+      final traces = <_WidgetPerformanceTrace>[];
+      FirebasePerformanceMonitoring.setReadyForTesting(true);
+      FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
+        final trace = _WidgetPerformanceTrace(name);
+        traces.add(trace);
+        return trace;
+      });
+      FirebaseAnalyticsMonitoring.setClientForTesting(_WidgetAnalyticsClient());
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+      final originMapCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originMapCompleter: originMapCompleter,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      for (var index = 0; index < 8; index += 1) {
+        await tester.pump();
+      }
+
+      expect(
+        traces
+            .singleWhere((trace) => trace.name == 'origin_world_page_request')
+            .stopped,
+        isTrue,
+      );
+      final renderTrace = traces.singleWhere(
+        (trace) => trace.name == 'origin_world_page_render',
+      );
+      expect(renderTrace.stopped, isTrue);
+      expect(renderTrace.attributes['result'], 'success');
+      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+      expect(originMapCompleter.isCompleted, isFalse);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      originMapCompleter.complete(transport._jsonResponse({}));
+      await tester.pump();
+    },
+  );
+
+  testWidgets('WorldPage prefetched detail records render without request', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'anonymous',
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+    final initialWorld = await services.api.getWorld('w_test_1');
+    final traces = <_WidgetPerformanceTrace>[];
+    FirebasePerformanceMonitoring.setReadyForTesting(true);
+    FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
+      final trace = _WidgetPerformanceTrace(name);
+      traces.add(trace);
+      return trace;
+    });
+    FirebaseAnalyticsMonitoring.setClientForTesting(_WidgetAnalyticsClient());
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: WorldPage(wid: 'w_test_1', initialWorldDetail: initialWorld),
+        ),
+      ),
+    );
+    for (var index = 0; index < 6; index += 1) {
+      await tester.pump();
+    }
+
+    expect(
+      traces.where((trace) => trace.name == 'world_page_request'),
+      isEmpty,
+    );
+    final renderTrace = traces.singleWhere(
+      (trace) => trace.name == 'world_page_render',
+    );
+    expect(renderTrace.stopped, isTrue);
+    expect(renderTrace.attributes['data_source'], 'prefetched');
+  });
+
+  testWidgets('WorldPage disposal cancels an in-flight request trace', (
+    WidgetTester tester,
+  ) async {
+    final traces = <_WidgetPerformanceTrace>[];
+    FirebasePerformanceMonitoring.setReadyForTesting(true);
+    FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
+      final trace = _WidgetPerformanceTrace(name);
+      traces.add(trace);
+      return trace;
+    });
+    FirebaseAnalyticsMonitoring.setClientForTesting(_WidgetAnalyticsClient());
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+    final detailCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldDetailCompleter: detailCompleter,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pump();
+    final requestTrace = traces.singleWhere(
+      (trace) => trace.name == 'world_page_request',
+    );
+    expect(requestTrace.stopped, isFalse);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    expect(requestTrace.stopped, isTrue);
+    expect(requestTrace.attributes['result'], 'cancelled');
+    detailCompleter.complete(transport._jsonResponse({}));
+    await tester.pump();
+  });
+
+  testWidgets('Worldo records one network request and real content frame', (
+    WidgetTester tester,
+  ) async {
+    final traces = <_WidgetPerformanceTrace>[];
+    FirebasePerformanceMonitoring.setReadyForTesting(true);
+    FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
+      final trace = _WidgetPerformanceTrace(name);
+      traces.add(trace);
+      return trace;
+    });
+    FirebaseAnalyticsMonitoring.setClientForTesting(_WidgetAnalyticsClient());
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+    final originListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      originListCompleter: originListCompleter,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: OriginPage()),
+      ),
+    );
+    await tester.pump();
+
+    final requestTrace = traces.singleWhere(
+      (trace) => trace.name == 'worldo_first_request',
+    );
+    expect(requestTrace.stopped, isFalse);
+    expect(find.byType(GenesisListLoadingSkeleton), findsOneWidget);
+
+    originListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': [transport._originItem(0)],
+          'total': 1,
+        },
+      }),
+    );
+    for (var index = 0; index < 5; index += 1) {
+      await tester.pump();
+    }
+
+    expect(requestTrace.stopped, isTrue);
+    expect(
+      traces
+          .singleWhere((trace) => trace.name == 'worldo_first_render')
+          .stopped,
+      isTrue,
+    );
+  });
+
+  testWidgets(
+    'My Worlds cache frame does not complete the network render trace',
+    (WidgetTester tester) async {
+      final traces = <_WidgetPerformanceTrace>[];
+      FirebasePerformanceMonitoring.setReadyForTesting(true);
+      FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
+        final trace = _WidgetPerformanceTrace(name);
+        traces.add(trace);
+        return trace;
+      });
+      FirebaseAnalyticsMonitoring.setClientForTesting(_WidgetAnalyticsClient());
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+      final worldListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldListCompleter: worldListCompleter,
+      );
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+          'list': [transport._worldItem(0)],
+          'total': 1,
+        }),
+      });
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const MaterialApp(home: HomePage(initialTabIndex: 0)),
+        ),
+      );
+      for (var index = 0; index < 5; index += 1) {
+        await tester.pump();
+      }
+
+      expect(find.text('World tick narrator 1'), findsOneWidget);
+      expect(
+        traces.where((trace) => trace.name == 'my_worlds_first_render'),
+        isEmpty,
+      );
+      final requestTrace = traces.singleWhere(
+        (trace) => trace.name == 'my_worlds_first_request',
+      );
+      expect(requestTrace.stopped, isFalse);
+
+      worldListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'list': [transport._worldItem(1)],
+            'total': 1,
+          },
+        }),
+      );
+      for (var index = 0; index < 6; index += 1) {
+        await tester.pump();
+      }
+
+      expect(requestTrace.stopped, isTrue);
+      expect(
+        traces
+            .singleWhere((trace) => trace.name == 'my_worlds_first_render')
+            .stopped,
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets('Popular records its awaited first-page data and content frame', (
+    WidgetTester tester,
+  ) async {
+    final traces = <_WidgetPerformanceTrace>[];
+    FirebasePerformanceMonitoring.setReadyForTesting(true);
+    FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
+      final trace = _WidgetPerformanceTrace(name);
+      traces.add(trace);
+      return trace;
+    });
+    FirebaseAnalyticsMonitoring.setClientForTesting(_WidgetAnalyticsClient());
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+    final originListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      originListCompleter: originListCompleter,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: HomePage(initialTabIndex: 1)),
+      ),
+    );
+    for (var index = 0; index < 3; index += 1) {
+      await tester.pump();
+    }
+    final requestTrace = traces.singleWhere(
+      (trace) => trace.name == 'popular_first_request',
+    );
+    expect(requestTrace.stopped, isFalse);
+
+    originListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': [transport._originItem(0)],
+          'total': 1,
+        },
+      }),
+    );
+    for (var index = 0; index < 8; index += 1) {
+      await tester.pump();
+    }
+
+    expect(requestTrace.stopped, isTrue);
+    expect(
+      traces
+          .singleWhere((trace) => trace.name == 'popular_first_render')
+          .stopped,
+      isTrue,
+    );
+  });
+
+  testWidgets('Popular retries count separate requests and one render', (
+    WidgetTester tester,
+  ) async {
+    final traces = <_WidgetPerformanceTrace>[];
+    FirebasePerformanceMonitoring.setReadyForTesting(true);
+    FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
+      final trace = _WidgetPerformanceTrace(name);
+      traces.add(trace);
+      return trace;
+    });
+    FirebaseAnalyticsMonitoring.setClientForTesting(_WidgetAnalyticsClient());
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+    final transport = _FailFirstPathTransport(
+      path: '/api/v1/origin/list',
+      delegate: _RecordingV1ListTransport(),
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: HomePage(initialTabIndex: 1)),
+      ),
+    );
+    for (var index = 0; index < 20; index += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find.text('Load failed').evaluate().isNotEmpty) break;
+    }
+
+    expect(find.text('Load failed'), findsOneWidget);
+    final firstRequest = traces.singleWhere(
+      (trace) =>
+          trace.name == 'popular_first_request' &&
+          trace.attributes['attempt'] == '1',
+    );
+    expect(firstRequest.attributes['result'], 'failure');
+
+    await tester.tap(find.text('Retry'));
+    for (var index = 0; index < 20; index += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (traces.any(
+        (trace) => trace.name == 'popular_first_render' && trace.stopped,
+      )) {
+        break;
+      }
+    }
+
+    final requestTraces = traces
+        .where((trace) => trace.name == 'popular_first_request')
+        .toList(growable: false);
+    expect(requestTraces, hasLength(2));
+    expect(requestTraces.last.attributes['attempt'], '2');
+    expect(requestTraces.last.attributes['result'], 'success');
+    expect(
+      traces.where((trace) => trace.name == 'popular_first_render'),
+      hasLength(1),
+    );
   });
 
   testWidgets(
@@ -17690,9 +18124,13 @@ void main() {
     expect(tabsCenter, greaterThan(titleCenter));
     expect(tabsCenter - titleCenter, lessThan(48));
     expect(
-      tester.getTopLeft(
-            find.byKey(const ValueKey<String>('developer-page-sheet-close')),
-          ).dy -
+      tester
+              .getTopLeft(
+                find.byKey(
+                  const ValueKey<String>('developer-page-sheet-close'),
+                ),
+              )
+              .dy -
           tester
               .getTopLeft(
                 find.byKey(const ValueKey<String>('developer-page-sheet')),
@@ -24679,5 +25117,77 @@ class _ThrowingAuthTokenSessionStore extends MemoryUserSessionStore {
   @override
   Future<String?> readAuthToken() async {
     throw StateError('auth token unavailable');
+  }
+}
+
+class _WidgetPerformanceTrace implements AppPerformanceTrace {
+  _WidgetPerformanceTrace(this.name);
+
+  final String name;
+  final Map<String, String> attributes = <String, String>{};
+  bool stopped = false;
+
+  @override
+  void putAttribute(String name, String value) {
+    attributes[name] = value;
+  }
+
+  @override
+  void setMetric(String name, int value) {}
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> stop() async {
+    stopped = true;
+  }
+}
+
+class _WidgetAnalyticsClient implements AppAnalyticsClient {
+  final List<_WidgetAnalyticsEvent> events = <_WidgetAnalyticsEvent>[];
+
+  @override
+  Future<void> logEvent({
+    required String name,
+    Map<String, Object>? parameters,
+  }) async {
+    events.add(
+      _WidgetAnalyticsEvent(name, parameters ?? const <String, Object>{}),
+    );
+  }
+}
+
+class _WidgetAnalyticsEvent {
+  const _WidgetAnalyticsEvent(this.name, this.parameters);
+
+  final String name;
+  final Map<String, Object> parameters;
+}
+
+class _FailFirstPathTransport implements HttpTransport {
+  _FailFirstPathTransport({required this.path, required this.delegate});
+
+  final String path;
+  final HttpTransport delegate;
+  var _failed = false;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) {
+    if (!_failed && request.uri.path == path) {
+      _failed = true;
+      return Future<TransportResponse>.value(
+        TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': 50001,
+            'err_msg': 'first request failed',
+            'data': <String, Object?>{},
+          }),
+        ),
+      );
+    }
+    return delegate.send(request);
   }
 }

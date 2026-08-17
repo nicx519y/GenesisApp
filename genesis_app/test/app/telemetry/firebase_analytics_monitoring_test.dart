@@ -47,6 +47,30 @@ void main() {
     ]);
   });
 
+  test('records performance completion with its stable dimensions', () async {
+    await FirebaseAnalyticsMonitoring.recordPerformanceOperation(
+      surface: 'popular',
+      phase: 'render',
+      result: 'failure',
+      durationMs: 1200,
+      attempt: 2,
+      dataSource: 'network',
+      errorType: 'render_timeout',
+    );
+
+    expect(client.events, <_RecordedEvent>[
+      const _RecordedEvent('perf_operation_complete', <String, Object>{
+        'surface': 'popular',
+        'phase': 'render',
+        'result': 'failure',
+        'duration_ms': 1200,
+        'attempt': 2,
+        'data_source': 'network',
+        'error_type': 'render_timeout',
+      }),
+    ]);
+  });
+
   test(
     'does not wait for Firebase or log when collection is disabled',
     () async {

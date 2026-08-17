@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
+import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/discuss/origin_discuss_preview_list.dart';
@@ -101,6 +102,9 @@ class _HomePageState extends State<HomePage> {
   int? _initialTabIndex;
   Future<int>? _initialTabIndexFuture;
   Map<String, dynamic>? _resolvedInitialMyWorldsData;
+  FirebasePerformanceOperation? _initialMyWorldsRequestOperation;
+  FirebasePerformanceOperation? _resolvedInitialMyWorldsRenderOperation;
+  var _initialMyWorldsRequestAttempt = 0;
   // Feed widgets still observe this notifier for their own loading lifecycle;
   // startup permissions never change it.
   late final ValueNotifier<bool> _homeNetworkRequestsAllowed;
@@ -114,6 +118,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    unawaited(_initialMyWorldsRequestOperation?.cancel());
+    unawaited(_resolvedInitialMyWorldsRenderOperation?.cancel());
     _homeNetworkRequestsAllowed.dispose();
     super.dispose();
   }
@@ -127,6 +133,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _resolveInitialTabIndex() {
+    unawaited(_initialMyWorldsRequestOperation?.cancel());
+    unawaited(_resolvedInitialMyWorldsRenderOperation?.cancel());
+    _initialMyWorldsRequestOperation = null;
+    _resolvedInitialMyWorldsRenderOperation = null;
+    _initialMyWorldsRequestAttempt = 0;
     final requestedIndex = widget.initialTabIndex;
     _resolvedInitialMyWorldsData = null;
     if (requestedIndex != null) {
@@ -155,20 +166,54 @@ class _HomePageState extends State<HomePage> {
       return HomePage.myWorldsTabIndex;
     }
 
+    final attempt = ++_initialMyWorldsRequestAttempt;
+    final requestOperation = await FirebasePerformanceOperation.start(
+      surface: FirebasePerformanceSurface.myWorlds,
+      phase: FirebasePerformancePhase.request,
+      attempt: attempt,
+    );
+    if (!mounted) {
+      unawaited(requestOperation.cancel());
+      return HomePage.popularTabIndex;
+    }
+    _initialMyWorldsRequestOperation = requestOperation;
     try {
       final data = await services.api.v1.world.list(
         scene: 'mine',
         pn: 1,
         rn: 10,
       );
+      if (!mounted ||
+          !identical(_initialMyWorldsRequestOperation, requestOperation)) {
+        unawaited(requestOperation.cancel());
+        return HomePage.popularTabIndex;
+      }
+      _initialMyWorldsRequestOperation = null;
+      unawaited(requestOperation.succeed());
       _resolvedInitialMyWorldsData = data;
       _ignoreHomeFeedCacheWrite(
         cacheStore.save(HomeFeedCacheKind.myWorlds, data),
       );
-      return _hasMyWorldsData(data)
-          ? HomePage.myWorldsTabIndex
-          : HomePage.popularTabIndex;
-    } catch (_) {
+      if (!_hasMyWorldsData(data)) return HomePage.popularTabIndex;
+      final renderOperation = await FirebasePerformanceOperation.start(
+        surface: FirebasePerformanceSurface.myWorlds,
+        phase: FirebasePerformancePhase.render,
+        attempt: attempt,
+        timeout: FirebasePerformanceOperation.renderTimeout,
+      );
+      if (!mounted) {
+        unawaited(renderOperation.cancel());
+        return HomePage.popularTabIndex;
+      }
+      _resolvedInitialMyWorldsRenderOperation = renderOperation;
+      return HomePage.myWorldsTabIndex;
+    } catch (error) {
+      if (identical(_initialMyWorldsRequestOperation, requestOperation)) {
+        _initialMyWorldsRequestOperation = null;
+      }
+      unawaited(
+        requestOperation.fail(errorType: firebasePerformanceErrorType(error)),
+      );
       return HomePage.popularTabIndex;
     }
   }
@@ -191,6 +236,8 @@ class _HomePageState extends State<HomePage> {
         keepInitialNetworkFailureLoading: false,
         initialRequestMetricWindow: widget.initialRequestMetricWindow,
         initialMyWorldsData: widget.initialMyWorldsData,
+        initialMyWorldsRenderOperation: null,
+        initialMyWorldsRequestAttempt: 0,
       );
     }
 
@@ -209,6 +256,12 @@ class _HomePageState extends State<HomePage> {
           initialRequestMetricWindow: widget.initialRequestMetricWindow,
           initialMyWorldsData:
               widget.initialMyWorldsData ?? _resolvedInitialMyWorldsData,
+          initialMyWorldsRenderOperation: widget.initialMyWorldsData == null
+              ? _resolvedInitialMyWorldsRenderOperation
+              : null,
+          initialMyWorldsRequestAttempt: widget.initialMyWorldsData == null
+              ? _initialMyWorldsRequestAttempt
+              : 0,
         );
       },
     );

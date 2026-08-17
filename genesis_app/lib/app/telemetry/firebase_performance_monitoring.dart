@@ -1,6 +1,8 @@
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter/foundation.dart';
 
+import '../config/app_flavor_config.dart';
+
 abstract interface class AppPerformanceTrace {
   Future<void> start();
 
@@ -29,7 +31,7 @@ class FirebasePerformanceMonitoring {
   }
 
   static Future<void> _enable() async {
-    if (!kReleaseMode) {
+    if (!kReleaseMode || AppFlavorConfig.currentIsInternal) {
       try {
         await FirebasePerformance.instance.setPerformanceCollectionEnabled(
           false,
@@ -37,7 +39,7 @@ class FirebasePerformanceMonitoring {
         _ready = false;
         debugPrint(
           '[Telemetry][FirebasePerformance] collection disabled '
-          'for non-release build',
+          'for non-production build',
         );
       } catch (e, st) {
         _ready = false;

@@ -29,7 +29,7 @@ void main() {
     }
   });
 
-  test('Firebase URL filter includes only business and Tilemap images', () {
+  test('Firebase URL filter includes every HTTP/S request', () {
     expect(
       isFirebasePerformanceMetricUrl(
         Uri.parse(
@@ -43,13 +43,19 @@ void main() {
       isFirebasePerformanceMetricUrl(
         Uri.parse('https://cdn-001.worldo.ai/avatars/user.webp'),
       ),
-      false,
+      true,
     );
     expect(
       isFirebasePerformanceMetricUrl(
         Uri.parse('https://api.worldo.ai/api/v1/world/map'),
       ),
       true,
+    );
+    expect(
+      isFirebasePerformanceMetricUrl(
+        Uri.parse('wss://api.worldo.ai/aitown-chat/ws'),
+      ),
+      false,
     );
   });
 
@@ -107,7 +113,7 @@ void main() {
     expect(metric.responsePayloadSize, utf8.encode('{"ok":true}').length);
   });
 
-  test('skips manual metrics for non-business hosts by default', () async {
+  test('records manual metrics for every HTTP host by default', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
     server.listen((request) async {
@@ -138,7 +144,8 @@ void main() {
     );
 
     expect(response.statusCode, 200);
-    expect(metrics, isEmpty);
+    expect(metrics, hasLength(1));
+    expect(metrics.single.url, 'http://127.0.0.1:${server.port}/collect');
   });
 
   test('records business metric URL without adding port zero', () async {
@@ -173,6 +180,18 @@ void main() {
     expect(metrics, hasLength(1));
     expect(metrics.single.url, 'https://api.worldo.ai/api/v1/origin/list');
     expect(metrics.single.url, isNot(contains(':0')));
+  });
+
+  test('Firebase metric URL removes credentials, query, and fragment', () {
+    expect(
+      firebaseMetricUrl(
+        Uri.parse(
+          'https://user:secret@api.worldo.ai/api/v1/world/w_1'
+          '?token=secret#section',
+        ),
+      ),
+      'https://api.worldo.ai/api/v1/world/w_1',
+    );
   });
 
   test('continues request when metric creation fails', () async {
@@ -247,6 +266,102 @@ void main() {
     expect(progressEvents, isNotEmpty);
     expect(progressEvents.last.receivedBytes, responseBody.length);
     expect(progressEvents.last.totalBytes, responseBody.length);
+  });
+
+  test('records HTTP errors and stops their metric', () async {
+    final metrics = <_FakePerformanceMetric>[];
+    final transport = IoHttpTransport(
+      client: _FakeHttpClient(
+        statusCode: 401,
+        responseBody: 'unauthorized',
+        contentType: ContentType.text,
+      ),
+      performanceMetricReady: () => true,
+      performanceMetricFactory: (url, method) {
+        final metric = _FakePerformanceMetric(url: url, method: method);
+        metrics.add(metric);
+        return metric;
+      },
+    );
+
+    final response = await transport.send(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('https://api.worldo.ai/private'),
+        headers: const <String, String>{},
+        bodyBytes: null,
+        timeoutMs: 5000,
+      ),
+    );
+
+    expect(response.statusCode, 401);
+    expect(metrics.single.httpResponseCode, 401);
+    expect(metrics.single.stopped, isTrue);
+  });
+
+  test('stops metrics when opening a request times out', () async {
+    final metrics = <_FakePerformanceMetric>[];
+    final transport = IoHttpTransport(
+      client: _NeverOpeningHttpClient(),
+      performanceMetricReady: () => true,
+      performanceMetricFactory: (url, method) {
+        final metric = _FakePerformanceMetric(url: url, method: method);
+        metrics.add(metric);
+        return metric;
+      },
+    );
+
+    await expectLater(
+      transport.send(
+        TransportRequest(
+          method: 'GET',
+          uri: Uri.parse('https://api.worldo.ai/slow'),
+          headers: const <String, String>{},
+          bodyBytes: null,
+          timeoutMs: 5,
+        ),
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+
+    expect(metrics.single.started, isTrue);
+    expect(metrics.single.stopped, isTrue);
+  });
+
+  test('stops metrics when a request is cancelled', () async {
+    final client = _ControllableOpeningHttpClient();
+    final metrics = <_FakePerformanceMetric>[];
+    final cancellationToken = NetworkCancellationToken();
+    final transport = IoHttpTransport(
+      client: client,
+      performanceMetricReady: () => true,
+      performanceMetricFactory: (url, method) {
+        final metric = _FakePerformanceMetric(url: url, method: method);
+        metrics.add(metric);
+        return metric;
+      },
+    );
+
+    final sending = transport.send(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('https://api.worldo.ai/slow'),
+        headers: const <String, String>{},
+        bodyBytes: null,
+        timeoutMs: 5000,
+        cancellationToken: cancellationToken,
+      ),
+    );
+    await client.opened.future;
+    cancellationToken.cancel();
+    client.completeOpen();
+
+    await expectLater(
+      sending,
+      throwsA(isA<NetworkRequestCancelledException>()),
+    );
+    expect(metrics.single.started, isTrue);
+    expect(metrics.single.stopped, isTrue);
   });
 
   test(
@@ -352,6 +467,40 @@ class _FakeHttpClient implements HttpClient {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _NeverOpeningHttpClient implements HttpClient {
+  @override
+  Future<HttpClientRequest> openUrl(String method, Uri url) {
+    return Completer<HttpClientRequest>().future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ControllableOpeningHttpClient implements HttpClient {
+  final Completer<void> opened = Completer<void>();
+  final Completer<HttpClientRequest> _request = Completer<HttpClientRequest>();
+
+  @override
+  Future<HttpClientRequest> openUrl(String method, Uri url) {
+    opened.complete();
+    return _request.future;
+  }
+
+  void completeOpen() {
+    _request.complete(
+      _FakeHttpClientRequest(
+        statusCode: 200,
+        responseBody: 'ok',
+        contentType: ContentType.text,
+      ),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _FakeHttpClientRequest implements HttpClientRequest {
   _FakeHttpClientRequest({
     required this.statusCode,
@@ -368,6 +517,9 @@ class _FakeHttpClientRequest implements HttpClientRequest {
 
   @override
   void add(List<int> data) {}
+
+  @override
+  void abort([Object? exception, StackTrace? stackTrace]) {}
 
   @override
   Future<HttpClientResponse> close() async {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/page_header.dart';
@@ -233,6 +234,10 @@ class _OriginFeedState extends State<_OriginFeed>
   var _permissionPromptMayBeOpen = false;
   var _retryInitialLoadWhenFinished = false;
   var _hasRetriedInitialStartup = false;
+  FirebasePerformanceOperation? _activeFirstScreenRequestOperation;
+  FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
+  var _firstScreenRequestAttempt = 0;
+  var _firstScreenRenderCompleted = false;
 
   bool get _usesFirstPageCache => widget.category.scene == 'foryou';
 
@@ -303,6 +308,8 @@ class _OriginFeedState extends State<_OriginFeed>
 
   @override
   void dispose() {
+    unawaited(_activeFirstScreenRequestOperation?.cancel());
+    unawaited(_activeFirstScreenRenderOperation?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
@@ -312,6 +319,12 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   void _resetListState() {
+    unawaited(_activeFirstScreenRequestOperation?.cancel());
+    unawaited(_activeFirstScreenRenderOperation?.cancel());
+    _activeFirstScreenRequestOperation = null;
+    _activeFirstScreenRenderOperation = null;
+    _firstScreenRequestAttempt = 0;
+    _firstScreenRenderCompleted = false;
     _items.clear();
     _nextPage = 1;
     _total = 0;
@@ -327,6 +340,26 @@ class _OriginFeedState extends State<_OriginFeed>
     _permissionPromptMayBeOpen = false;
     _retryInitialLoadWhenFinished = false;
     _hasRetriedInitialStartup = false;
+  }
+
+  void _scheduleFirstScreenRenderCompletion(
+    FirebasePerformanceOperation operation,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !identical(_activeFirstScreenRenderOperation, operation) ||
+          !_isPrimaryFeed ||
+          _tabController?.index != widget.index) {
+        if (identical(_activeFirstScreenRenderOperation, operation)) {
+          _activeFirstScreenRenderOperation = null;
+        }
+        unawaited(operation.cancel());
+        return;
+      }
+      _activeFirstScreenRenderOperation = null;
+      _firstScreenRenderCompleted = true;
+      unawaited(operation.succeed());
+    });
   }
 
   void _handleTabChange() {
@@ -422,13 +455,55 @@ class _OriginFeedState extends State<_OriginFeed>
       _isRefreshing = true;
     });
 
+    FirebasePerformanceOperation? requestOperation;
+    final shouldTrackFirstScreen =
+        _isPrimaryFeed && !_firstScreenRenderCompleted;
+    if (shouldTrackFirstScreen) {
+      final attempt = ++_firstScreenRequestAttempt;
+      requestOperation = await FirebasePerformanceOperation.start(
+        surface: FirebasePerformanceSurface.worldo,
+        phase: FirebasePerformancePhase.request,
+        attempt: attempt,
+      );
+      if (!mounted) {
+        unawaited(requestOperation.cancel());
+        return;
+      }
+      _activeFirstScreenRequestOperation = requestOperation;
+    }
+
     try {
       final page = await _fetchPage(1);
-      if (!mounted) return;
+      if (!mounted) {
+        unawaited(requestOperation?.cancel());
+        return;
+      }
+      if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
+        _activeFirstScreenRequestOperation = null;
+      }
+      unawaited(requestOperation?.succeed());
       _hasCompletedFirstPageNetworkRequest = true;
       if (_usesFirstPageCache) {
         unawaited(_saveFirstPageCache(page.rawData));
       }
+      FirebasePerformanceOperation? renderOperation;
+      if (shouldTrackFirstScreen &&
+          _tabController?.index == widget.index &&
+          !_firstScreenRenderCompleted) {
+        renderOperation = await FirebasePerformanceOperation.start(
+          surface: FirebasePerformanceSurface.worldo,
+          phase: FirebasePerformancePhase.render,
+          attempt: requestOperation?.attempt ?? _firstScreenRequestAttempt,
+          timeout: FirebasePerformanceOperation.renderTimeout,
+        );
+        if (!mounted || _tabController?.index != widget.index) {
+          unawaited(renderOperation.cancel());
+          renderOperation = null;
+        } else {
+          _activeFirstScreenRenderOperation = renderOperation;
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _items
           ..clear()
@@ -439,12 +514,21 @@ class _OriginFeedState extends State<_OriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      if (renderOperation != null) {
+        _scheduleFirstScreenRenderCompletion(renderOperation);
+      }
       _initialLoadInFlight = false;
       if (_isPrimaryFeed) {
         _initialLoadCompleted = true;
         widget.onInitialLoadCompleted?.call();
       }
     } catch (error) {
+      if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
+        _activeFirstScreenRequestOperation = null;
+      }
+      unawaited(
+        requestOperation?.fail(errorType: firebasePerformanceErrorType(error)),
+      );
       if (!mounted) return;
       final shouldRetryAfterResume = _retryInitialLoadWhenFinished;
       _retryInitialLoadWhenFinished = false;

@@ -8,6 +8,8 @@ class _MyWorldFeed extends StatefulWidget {
     required this.keepInitialNetworkFailureLoading,
     this.activationListenable,
     this.initialPageData,
+    this.initialPageRenderOperation,
+    this.initialPageRequestAttempt = 0,
   });
 
   final int index;
@@ -16,6 +18,8 @@ class _MyWorldFeed extends StatefulWidget {
   final bool keepInitialNetworkFailureLoading;
   final ValueListenable<int>? activationListenable;
   final Map<String, dynamic>? initialPageData;
+  final FirebasePerformanceOperation? initialPageRenderOperation;
+  final int initialPageRequestAttempt;
 
   @override
   State<_MyWorldFeed> createState() => _MyWorldFeedState();
@@ -50,11 +54,18 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   String _activityTagUid = '';
   WorldActivityTagState? _activityTagState;
   Object? _error;
+  FirebasePerformanceOperation? _activeFirstScreenRequestOperation;
+  FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
+  var _firstScreenRequestAttempt = 0;
+  var _firstScreenRenderCompleted = false;
 
   @override
   void initState() {
     super.initState();
+    _firstScreenRequestAttempt = widget.initialPageRequestAttempt;
+    _activeFirstScreenRenderOperation = widget.initialPageRenderOperation;
     _hydrateInitialPageDataIfAvailable();
+    _scheduleInitialPageRenderCompletionIfNeeded();
     widget.activationListenable?.addListener(_handlePageActivated);
     widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
     worldActivityTagStore.listenable.addListener(_handleActivityTagsChanged);
@@ -103,6 +114,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   void dispose() {
     _startupInitialRetryTimer?.cancel();
+    unawaited(_activeFirstScreenRequestOperation?.cancel());
+    unawaited(_activeFirstScreenRenderOperation?.cancel());
     worldActivityTagStore.listenable.removeListener(_handleActivityTagsChanged);
     worldDeletionEvents.removeListener(_handleExternalWorldDeleted);
     widget.activationListenable?.removeListener(_handlePageActivated);
@@ -167,6 +180,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   void _resetListState() {
     _startupInitialRetryTimer?.cancel();
+    unawaited(_activeFirstScreenRequestOperation?.cancel());
+    unawaited(_activeFirstScreenRenderOperation?.cancel());
+    _activeFirstScreenRequestOperation = null;
+    _activeFirstScreenRenderOperation = null;
+    _firstScreenRequestAttempt = 0;
+    _firstScreenRenderCompleted = false;
     _startupInitialRetryTimer = null;
     _items.clear();
     _deletingWorldIds.clear();
@@ -186,6 +205,44 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _isRefreshing = false;
     _isSignedOut = false;
     _error = null;
+  }
+
+  void _scheduleInitialPageRenderCompletionIfNeeded() {
+    final operation = _activeFirstScreenRenderOperation;
+    if (operation == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !identical(_activeFirstScreenRenderOperation, operation) ||
+          _tabController?.index != widget.index) {
+        if (identical(_activeFirstScreenRenderOperation, operation)) {
+          _activeFirstScreenRenderOperation = null;
+        }
+        unawaited(operation.cancel());
+        return;
+      }
+      _activeFirstScreenRenderOperation = null;
+      _firstScreenRenderCompleted = true;
+      unawaited(operation.succeed());
+    });
+  }
+
+  void _scheduleFirstScreenRenderCompletion(
+    FirebasePerformanceOperation operation,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !identical(_activeFirstScreenRenderOperation, operation) ||
+          _tabController?.index != widget.index) {
+        if (identical(_activeFirstScreenRenderOperation, operation)) {
+          _activeFirstScreenRenderOperation = null;
+        }
+        unawaited(operation.cancel());
+        return;
+      }
+      _activeFirstScreenRenderOperation = null;
+      _firstScreenRenderCompleted = true;
+      unawaited(operation.succeed());
+    });
   }
 
   void _hydrateInitialPageDataIfAvailable() {
@@ -456,13 +513,54 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _isRefreshing = true;
     });
 
+    FirebasePerformanceOperation? requestOperation;
+    final shouldTrackFirstScreen = !_firstScreenRenderCompleted;
+    if (shouldTrackFirstScreen) {
+      final attempt = ++_firstScreenRequestAttempt;
+      requestOperation = await FirebasePerformanceOperation.start(
+        surface: FirebasePerformanceSurface.myWorlds,
+        phase: FirebasePerformancePhase.request,
+        attempt: attempt,
+      );
+      if (!mounted) {
+        unawaited(requestOperation.cancel());
+        return;
+      }
+      _activeFirstScreenRequestOperation = requestOperation;
+    }
+
     try {
       final page = await _fetchPage(1);
-      if (!mounted) return;
+      if (!mounted) {
+        unawaited(requestOperation?.cancel());
+        return;
+      }
+      if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
+        _activeFirstScreenRequestOperation = null;
+      }
+      unawaited(requestOperation?.succeed());
       unawaited(_syncLastTickActivityTagFromItems(page.items));
       _startupInitialRetryTimer?.cancel();
       _startupInitialRetryTimer = null;
       final shouldReplaceItems = !_worldPageMatchesCurrent(page);
+      FirebasePerformanceOperation? renderOperation;
+      if (shouldTrackFirstScreen &&
+          _tabController?.index == widget.index &&
+          !_firstScreenRenderCompleted) {
+        renderOperation = await FirebasePerformanceOperation.start(
+          surface: FirebasePerformanceSurface.myWorlds,
+          phase: FirebasePerformancePhase.render,
+          attempt: requestOperation?.attempt ?? _firstScreenRequestAttempt,
+          timeout: FirebasePerformanceOperation.renderTimeout,
+        );
+        if (!mounted || _tabController?.index != widget.index) {
+          unawaited(renderOperation.cancel());
+          renderOperation = null;
+        } else {
+          _activeFirstScreenRenderOperation = renderOperation;
+        }
+      }
+      if (!mounted) return;
       setState(() {
         if (shouldReplaceItems) {
           _items
@@ -476,7 +574,16 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      if (renderOperation != null) {
+        _scheduleFirstScreenRenderCompletion(renderOperation);
+      }
     } catch (error) {
+      if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
+        _activeFirstScreenRequestOperation = null;
+      }
+      unawaited(
+        requestOperation?.fail(errorType: firebasePerformanceErrorType(error)),
+      );
       if (!mounted) return;
       if (_shouldKeepInitialNetworkFailureLoading(error)) {
         setState(() {

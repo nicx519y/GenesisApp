@@ -23,7 +23,7 @@ PODS:
     - firebase_core
     - FirebaseAnalytics (= 12.14.0)
     - Flutter
-  - firebase_core (4.12.0):
+  - firebase_core (4.11.0):
     - Firebase/CoreOnly (= 12.14.0)
     - Flutter
   - firebase_crashlytics (5.2.4):
@@ -293,7 +293,7 @@ SPEC CHECKSUMS:
   AppCheckCore: e215d35177a9cf469927863e69c13e220df32a8b
   Firebase: 7cc10425300768ec86292688af5cb228f0604bde
   firebase_analytics: 78607564b46aa5bf030ce7c74ce82e8fd2a1f2cb
-  firebase_core: 17dc81a80760cf63b4443a2938d5612dcc2d0035
+  firebase_core: a443eb6a97ea56eee65cc9dbc607b344ae643158
   firebase_crashlytics: f7972a9d3c11a95b824b2c248beded790b55b080
   firebase_performance: 310b245ce54bf80866c8d2dec1e450c9c8826218
   FirebaseABTesting: 1645e4c026dc11b2c82e717fd02d187535e65944
@@ -332,4 +332,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 13270da88f198d35b4f8409f8e5ab85b9f4817cf
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.17.0

@@ -8,6 +8,7 @@ import 'app/bootstrap/app_bootstrap.dart';
 import 'app/bootstrap/service_registry.dart';
 import 'app/config/app_config.dart';
 import 'app/config/app_endpoint_overrides.dart';
+import 'app/config/app_flavor_config.dart';
 import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/telemetry/genesis_telemetry.dart';
@@ -20,6 +21,14 @@ export 'app/genesis_app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Start production Performance initialization as early as possible so its
+  // platform work overlaps the other startup reads below. Non-production
+  // builds keep collection disabled through their native configuration and
+  // initialize it asynchronously after runApp.
+  final productionPerformanceInitialization =
+      kReleaseMode && !AppFlavorConfig.currentIsInternal
+      ? AppBootstrap.ensureFirebasePerformanceMonitoring()
+      : null;
   await GenesisSystemUi.initialize();
   final appStartedAt = DateTime.now();
   unawaited(
@@ -55,6 +64,14 @@ Future<void> main() async {
     tilemapSettingsLoad,
     captureSettingsLoad,
   ]);
+
+  // Manual HttpMetric creation is guarded by Firebase Performance readiness,
+  // so production still joins the overlapped work before creating transports.
+  // This preserves complete first-request coverage without serializing the
+  // whole Firebase initialization after the other startup work.
+  if (productionPerformanceInitialization != null) {
+    await productionPerformanceInitialization;
+  }
 
   void runGenesisApp() {
     final services = AppBootstrap.createInitialServices(config: appConfig);

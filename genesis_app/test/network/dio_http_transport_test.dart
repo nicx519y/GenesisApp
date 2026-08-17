@@ -238,8 +238,15 @@ void main() {
       await request.response.close();
     });
 
+    final metrics = <_FakePerformanceMetric>[];
     final transport = DioHttpTransport(
-      performanceMetricUrlFilter: (_) => false,
+      performanceMetricUrlFilter: (_) => true,
+      performanceMetricReady: () => true,
+      performanceMetricFactory: (url, method) {
+        final metric = _FakePerformanceMetric(url: url, method: method);
+        metrics.add(metric);
+        return metric;
+      },
     );
 
     final response = await transport.send(
@@ -254,6 +261,49 @@ void main() {
 
     expect(response.statusCode, 401);
     expect(response.body, 'unauthorized');
+    expect(metrics.single.httpResponseCode, 401);
+    expect(metrics.single.stopped, isTrue);
+  });
+
+  test('stops metrics for timeout and cancellation failures', () async {
+    for (final type in <DioExceptionType>[
+      DioExceptionType.connectionTimeout,
+      DioExceptionType.cancel,
+    ]) {
+      final dio = Dio()..httpClientAdapter = _FailingAdapter(type);
+      final metrics = <_FakePerformanceMetric>[];
+      final transport = DioHttpTransport(
+        dio: dio,
+        performanceMetricReady: () => true,
+        performanceMetricUrlFilter: (_) => true,
+        performanceMetricFactory: (url, method) {
+          final metric = _FakePerformanceMetric(url: url, method: method);
+          metrics.add(metric);
+          return metric;
+        },
+      );
+
+      final sending = transport.send(
+        TransportRequest(
+          method: 'GET',
+          uri: Uri.parse('https://api.worldo.ai/slow'),
+          headers: const <String, String>{},
+          bodyBytes: null,
+          timeoutMs: 5,
+        ),
+      );
+
+      if (type == DioExceptionType.cancel) {
+        await expectLater(
+          sending,
+          throwsA(isA<NetworkRequestCancelledException>()),
+        );
+      } else {
+        await expectLater(sending, throwsA(isA<DioException>()));
+      }
+      expect(metrics.single.started, isTrue);
+      expect(metrics.single.stopped, isTrue);
+    }
   });
 
   test('sends multipart body bytes unchanged through ApiClient', () async {
@@ -418,6 +468,28 @@ class _RecordingAdapter implements HttpClientAdapter {
   void close({bool force = false}) {
     forceClosed = force;
   }
+}
+
+class _FailingAdapter implements HttpClientAdapter {
+  _FailingAdapter(this.type);
+
+  final DioExceptionType type;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    throw DioException(
+      requestOptions: options,
+      type: type,
+      message: type == DioExceptionType.cancel ? 'cancelled' : 'timed out',
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
 
 class _FakePerformanceMetric implements HttpRequestPerformanceMetric {

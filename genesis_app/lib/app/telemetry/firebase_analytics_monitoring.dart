@@ -1,6 +1,7 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 
+import '../config/app_flavor_config.dart';
 import 'firebase_runtime.dart';
 
 abstract interface class AppAnalyticsClient {
@@ -56,11 +57,35 @@ class FirebaseAnalyticsMonitoring {
     });
   }
 
+  static Future<void> recordPerformanceOperation({
+    required String surface,
+    required String phase,
+    required String result,
+    required int durationMs,
+    required int attempt,
+    required String dataSource,
+    String? errorType,
+  }) {
+    return _recordEvent('perf_operation_complete', <String, Object>{
+      'surface': surface,
+      'phase': phase,
+      'result': result,
+      'duration_ms': durationMs,
+      'attempt': attempt,
+      'data_source': dataSource,
+      if (errorType != null && errorType.trim().isNotEmpty)
+        'error_type': errorType.trim(),
+    });
+  }
+
   static Future<void> _recordEvent(
     String name,
     Map<String, Object> parameters,
   ) async {
-    if (!(_enabledOverride ?? kReleaseMode)) return;
+    if (!(_enabledOverride ??
+        (kReleaseMode && !AppFlavorConfig.currentIsInternal))) {
+      return;
+    }
     try {
       await _readiness();
       await _client.logEvent(name: name, parameters: parameters);

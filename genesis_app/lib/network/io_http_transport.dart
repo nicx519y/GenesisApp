@@ -7,7 +7,6 @@ import 'package:firebase_performance/firebase_performance.dart';
 
 import '../app/telemetry/firebase_performance_monitoring.dart';
 import 'http_transport.dart';
-import 'static_image_network_config.dart';
 
 typedef HttpRequestPerformanceMetricFactory =
     HttpRequestPerformanceMetric? Function(String url, HttpMethod method);
@@ -245,18 +244,12 @@ String firebaseMetricUrl(Uri uri) {
   if (uri.hasPort) {
     return Uri(
       scheme: uri.scheme,
-      userInfo: uri.userInfo,
       host: uri.host,
       port: uri.port,
       path: path,
     ).toString();
   }
-  return Uri(
-    scheme: uri.scheme,
-    userInfo: uri.userInfo,
-    host: uri.host,
-    path: path,
-  ).toString();
+  return Uri(scheme: uri.scheme, host: uri.host, path: path).toString();
 }
 
 bool isBusinessPerformanceMetricUrl(Uri uri) {
@@ -269,7 +262,8 @@ bool isBusinessPerformanceMetricUrl(Uri uri) {
 }
 
 bool isFirebasePerformanceMetricUrl(Uri uri) {
-  return isBusinessPerformanceMetricUrl(uri) || isGenesisTilemapImageUri(uri);
+  final scheme = uri.scheme.toLowerCase();
+  return (scheme == 'http' || scheme == 'https') && uri.host.isNotEmpty;
 }
 
 void recordPerformanceMetricResponse(

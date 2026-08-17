@@ -45,9 +45,7 @@
 	<false/>
 	<key>FIREBASE_ANALYTICS_COLLECTION_DEACTIVATED</key>
 	<true/>
-	<key>FirebasePerformanceCollectionEnabled</key>
-	<false/>
-	<key>FirebasePerformanceInstrumentationEnabled</key>
+	<key>firebase_performance_collection_enabled</key>
 	<false/>
 	<key>GIDClientID</key>
 	<string>$(INTERNAL_GOOGLE_IOS_CLIENT_ID)</string>

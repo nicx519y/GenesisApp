@@ -42,6 +42,10 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   var _isLoadingMore = false;
   var _isRefreshing = false;
   Object? _error;
+  FirebasePerformanceOperation? _activeFirstScreenRequestOperation;
+  FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
+  var _firstScreenRequestAttempt = 0;
+  var _firstScreenRenderCompleted = false;
 
   @override
   void initState() {
@@ -91,6 +95,8 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   @override
   void dispose() {
     _startupInitialRetryTimer?.cancel();
+    unawaited(_activeFirstScreenRequestOperation?.cancel());
+    unawaited(_activeFirstScreenRenderOperation?.cancel());
     widget.activationListenable?.removeListener(_handlePageActivated);
     widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
     _tabController?.removeListener(_handleTabChange);
@@ -102,6 +108,12 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 
   void _resetListState() {
     _startupInitialRetryTimer?.cancel();
+    unawaited(_activeFirstScreenRequestOperation?.cancel());
+    unawaited(_activeFirstScreenRenderOperation?.cancel());
+    _activeFirstScreenRequestOperation = null;
+    _activeFirstScreenRenderOperation = null;
+    _firstScreenRequestAttempt = 0;
+    _firstScreenRenderCompleted = false;
     _startupInitialRetryTimer = null;
     _items.clear();
     _discussPreviews.clear();
@@ -116,6 +128,25 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     _isLoadingMore = false;
     _isRefreshing = false;
     _error = null;
+  }
+
+  void _scheduleFirstScreenRenderCompletion(
+    FirebasePerformanceOperation operation,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !identical(_activeFirstScreenRenderOperation, operation) ||
+          _tabController?.index != widget.index) {
+        if (identical(_activeFirstScreenRenderOperation, operation)) {
+          _activeFirstScreenRenderOperation = null;
+        }
+        unawaited(operation.cancel());
+        return;
+      }
+      _activeFirstScreenRenderOperation = null;
+      _firstScreenRenderCompleted = true;
+      unawaited(operation.succeed());
+    });
   }
 
   void _handleTabChange() {
@@ -346,12 +377,53 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       _isRefreshing = true;
     });
 
+    FirebasePerformanceOperation? requestOperation;
+    final shouldTrackFirstScreen = !_firstScreenRenderCompleted;
+    if (shouldTrackFirstScreen) {
+      final attempt = ++_firstScreenRequestAttempt;
+      requestOperation = await FirebasePerformanceOperation.start(
+        surface: FirebasePerformanceSurface.popular,
+        phase: FirebasePerformancePhase.request,
+        attempt: attempt,
+      );
+      if (!mounted) {
+        unawaited(requestOperation.cancel());
+        return;
+      }
+      _activeFirstScreenRequestOperation = requestOperation;
+    }
+
     try {
       final page = await _fetchPage(1);
-      if (!mounted) return;
+      if (!mounted) {
+        unawaited(requestOperation?.cancel());
+        return;
+      }
+      if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
+        _activeFirstScreenRequestOperation = null;
+      }
+      unawaited(requestOperation?.succeed());
       _startupInitialRetryTimer?.cancel();
       _startupInitialRetryTimer = null;
       final shouldReplaceItems = !_originPageMatchesCurrent(page);
+      FirebasePerformanceOperation? renderOperation;
+      if (shouldTrackFirstScreen &&
+          _tabController?.index == widget.index &&
+          !_firstScreenRenderCompleted) {
+        renderOperation = await FirebasePerformanceOperation.start(
+          surface: FirebasePerformanceSurface.popular,
+          phase: FirebasePerformancePhase.render,
+          attempt: requestOperation?.attempt ?? _firstScreenRequestAttempt,
+          timeout: FirebasePerformanceOperation.renderTimeout,
+        );
+        if (!mounted || _tabController?.index != widget.index) {
+          unawaited(renderOperation.cancel());
+          renderOperation = null;
+        } else {
+          _activeFirstScreenRenderOperation = renderOperation;
+        }
+      }
+      if (!mounted) return;
       setState(() {
         if (shouldReplaceItems) {
           _items
@@ -367,7 +439,16 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      if (renderOperation != null) {
+        _scheduleFirstScreenRenderCompletion(renderOperation);
+      }
     } catch (error) {
+      if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
+        _activeFirstScreenRequestOperation = null;
+      }
+      unawaited(
+        requestOperation?.fail(errorType: firebasePerformanceErrorType(error)),
+      );
       if (!mounted) return;
       if (_shouldKeepInitialNetworkFailureLoading(error)) {
         setState(() {

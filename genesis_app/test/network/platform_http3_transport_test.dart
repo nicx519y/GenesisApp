@@ -153,6 +153,7 @@ void main() {
   test(
     'returns non-2xx responses without treating them as transport errors',
     () async {
+      final metrics = <_FakePerformanceMetric>[];
       final transport = PlatformHttp3Transport(
         client: _RecordingClient(
           response: http.StreamedResponse(
@@ -161,7 +162,12 @@ void main() {
           ),
         ),
         protocolResolver: (_) => 'h3',
-        performanceMetricReady: () => false,
+        performanceMetricReady: () => true,
+        performanceMetricFactory: (url, method) {
+          final metric = _FakePerformanceMetric(url: url, method: method);
+          metrics.add(metric);
+          return metric;
+        },
       );
 
       final response = await transport.send(
@@ -176,6 +182,8 @@ void main() {
 
       expect(response.statusCode, 401);
       expect(response.body, 'unauthorized');
+      expect(metrics.single.httpResponseCode, 401);
+      expect(metrics.single.stopped, isTrue);
     },
   );
 
@@ -204,10 +212,16 @@ void main() {
 
   test('maps cancellation to NetworkRequestCancelledException', () async {
     final cancellationToken = NetworkCancellationToken();
+    final metrics = <_FakePerformanceMetric>[];
     final transport = PlatformHttp3Transport(
       client: _AbortAwareClient(),
       protocolResolver: (_) => 'h3',
-      performanceMetricReady: () => false,
+      performanceMetricReady: () => true,
+      performanceMetricFactory: (url, method) {
+        final metric = _FakePerformanceMetric(url: url, method: method);
+        metrics.add(metric);
+        return metric;
+      },
     );
 
     final future = transport.send(
@@ -223,13 +237,20 @@ void main() {
     cancellationToken.cancel();
 
     await expectLater(future, throwsA(isA<NetworkRequestCancelledException>()));
+    expect(metrics.single.stopped, isTrue);
   });
 
   test('aborts native request when timeout expires', () async {
+    final metrics = <_FakePerformanceMetric>[];
     final transport = PlatformHttp3Transport(
       client: _NeverCompletingClient(),
       protocolResolver: (_) => 'h3',
-      performanceMetricReady: () => false,
+      performanceMetricReady: () => true,
+      performanceMetricFactory: (url, method) {
+        final metric = _FakePerformanceMetric(url: url, method: method);
+        metrics.add(metric);
+        return metric;
+      },
     );
 
     await expectLater(
@@ -244,6 +265,7 @@ void main() {
       ),
       throwsA(isA<TimeoutException>()),
     );
+    expect(metrics.single.stopped, isTrue);
   });
 
   test('delegates plain HTTP to the fallback transport', () async {
