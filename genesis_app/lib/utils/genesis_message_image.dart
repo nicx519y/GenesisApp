@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show immutable, visibleForTesting;
 
 import '../network/genesis_http_cache_manager.dart';
+import 'genesis_image_resource.dart';
 
 const List<int> genesisMessageImageWidthTiers = <int>[
   45,
@@ -66,9 +67,7 @@ GenesisMessageImageTier selectGenesisMessageImageTier({
   required ui.Size displaySize,
   required double devicePixelRatio,
 }) {
-  final ratio = devicePixelRatio.isFinite && devicePixelRatio > 0
-      ? devicePixelRatio
-      : 1.0;
+  final ratio = genesisImageDevicePixelRatio(devicePixelRatio);
   final requiredTierWidth = math.max(
     displaySize.width * ratio,
     displaySize.height * ratio / 2,

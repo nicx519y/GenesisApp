@@ -9,6 +9,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 void main() {
+  testWidgets('caps target decode dimensions at image DPR 2', (tester) async {
+    GenesisStaticNetworkImageProvider? capturedProvider;
+    debugGenesisStaticNetworkImageCompleter = (provider) {
+      capturedProvider = provider;
+      return OneFrameImageStreamCompleter(
+        Future<ImageInfo>.error(StateError('decode sizing probe')),
+      );
+    };
+    addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenesisStaticNetworkImage(
+            imageUrl: 'https://cache.test/dpr-capped.png',
+            width: 40,
+            height: 30,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(capturedProvider?.cacheWidth, 80);
+    expect(capturedProvider?.cacheHeight, 60);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('reuses a decoded first frame for the same URL', (tester) async {
     const imageUrl = 'https://cache.test/avatar-static-frame.png';
     const placeholderKey = ValueKey<String>('static-image-placeholder');

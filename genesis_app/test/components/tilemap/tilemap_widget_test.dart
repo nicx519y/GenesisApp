@@ -10,6 +10,7 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_performance_monitoring.dart';
 import 'package:genesis_flutter_android/components/tilemap/loading/tilemap_loading_coordinator.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
+import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
@@ -3524,6 +3525,76 @@ void main() {
       contains('root-v2.png'),
     );
   });
+
+  testWidgets(
+    'silent preload stops safely when its queue is invalidated while waiting',
+    (tester) async {
+      final backgroundStarted = Completer<void>();
+      final releaseBackground = Completer<void>();
+      var silentMapLoadCount = 0;
+      final coordinator = TilemapLoadingCoordinator(onChanged: () {});
+      addTearDown(coordinator.dispose);
+      coordinator.completeInitialEntryWithoutOverlay();
+
+      final currentConfig = TilemapConfig.fromTiles(
+        id: 'world:w_1:root',
+        width: 100,
+        height: 100,
+        tileTypes: const {
+          'visible': 'https://invalid.example.test/tile/visible.png',
+          'background': 'https://invalid.example.test/tile/background.png',
+        },
+        tiles: const [
+          TilemapCell(x: 0, y: 0, type: 'visible', locationId: 'branch'),
+          TilemapCell(x: 99, y: 99, type: 'background'),
+        ],
+      );
+      final backgroundPlan = TilemapImageLoadPlan.forConfig(
+        config: currentConfig,
+        displayTilePixelSize: 64,
+        viewportSize: const Size(320, 640),
+        preferredLocationId: 'branch',
+      );
+      expect(backgroundPlan.backgroundTileCountByAsset, isNotEmpty);
+
+      coordinator.scheduleBackgroundTilePreload(
+        config: currentConfig,
+        plan: backgroundPlan,
+        loadImage: (assetUrl) {
+          if (assetUrl.contains('/background.png?')) {
+            if (!backgroundStarted.isCompleted) backgroundStarted.complete();
+            return releaseBackground.future;
+          }
+          return Future<void>.value();
+        },
+      );
+      await backgroundStarted.future;
+      coordinator.scheduleSilentDrillDownPreload(
+        currentConfig: currentConfig,
+        locationNodes: [
+          _locationNode(
+            'branch',
+            children: [_locationNode('leaf_a'), _locationNode('leaf_b')],
+          ),
+        ],
+        displayTilePixelSize: 64,
+        loadMap: (locationId) async {
+          silentMapLoadCount += 1;
+          return null;
+        },
+        loadImage: _completeTileImageLoad,
+      );
+      await tester.pump();
+
+      coordinator.invalidatePreloadCaches();
+      releaseBackground.complete();
+      await tester.pump();
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(silentMapLoadCount, 0);
+    },
+  );
 
   testWidgets(
     'Tilemap silently preloads drillable maps and never reloads on drill/back',

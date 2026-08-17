@@ -90,7 +90,9 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     ];
     if (avatarSources.isEmpty || currentIndex >= avatarSources.length) return;
 
-    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final devicePixelRatio = genesisImageDevicePixelRatio(
+      MediaQuery.devicePixelRatioOf(context),
+    );
     final decodeSize = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
         .ceil();
     final lastIndex = math.min(currentIndex + 2, avatarSources.length - 1);
