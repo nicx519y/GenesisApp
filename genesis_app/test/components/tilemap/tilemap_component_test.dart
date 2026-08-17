@@ -1163,7 +1163,6 @@ void main() {
           height: 480,
           child: TilemapRenderer(
             config: config,
-            renderBackend: TilemapRenderBackend.widgets,
             onTileAction: (tile) async => tappedTile = tile,
             locationNameForTile: (_) => 'High School',
             showRecentChatForTile: (_) => true,
@@ -1212,7 +1211,10 @@ void main() {
       findsOneWidget,
     );
     expect(tester.renderObject(imageFlow).isRepaintBoundary, true);
-    expect(find.byType(Image), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-canvas-tile-mount')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('tile-location-pointer-High School')),
       findsNothing,
@@ -1291,7 +1293,6 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
-              renderBackend: TilemapRenderBackend.widgets,
               locationNameForTile: (_) => name,
               locationAvatarsForTile: (_) => const [avatar],
               messageBubbles: const [
@@ -1423,10 +1424,7 @@ void main() {
           child: SizedBox(
             width: 320,
             height: 480,
-            child: TilemapRenderer(
-              config: config,
-              renderBackend: TilemapRenderBackend.widgets,
-            ),
+            child: TilemapRenderer(config: config),
           ),
         ),
       ),
@@ -1503,7 +1501,6 @@ void main() {
             data: MediaQueryData(disableAnimations: disableAnimations),
             child: TilemapRenderer(
               config: config,
-              renderBackend: TilemapRenderBackend.widgets,
               showLocationImageFlow: showLocationImageFlow,
               locationNameForTile: (tile) => switch (tile.locationId) {
                 'named' => 'Named place',
@@ -1572,7 +1569,6 @@ void main() {
       MaterialApp(
         home: TilemapRenderer(
           config: config,
-          renderBackend: TilemapRenderBackend.widgets,
           locationNameForTile: (_) => 'Shadow place',
         ),
       ),
@@ -1612,7 +1608,6 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
-              renderBackend: TilemapRenderBackend.widgets,
               fogControlPoints: fogControlPoints,
             ),
           ),
@@ -1623,6 +1618,7 @@ void main() {
       await tester.pump();
 
       final fogBlend = find.byKey(const ValueKey<String>('tile-fog-blend-0-0'));
+      await _pumpUntil(tester, () => fogBlend.evaluate().isNotEmpty);
       final initialRenderObject = tester.renderObject(fogBlend);
       final initialBoundaryLayer = initialRenderObject.debugLayer;
 
@@ -1742,7 +1738,6 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
-              renderBackend: TilemapRenderBackend.widgets,
               cacheFogTileBitmaps: cacheFogTileBitmaps,
             ),
           ),
@@ -1830,10 +1825,7 @@ void main() {
         home: SizedBox(
           width: 320,
           height: 480,
-          child: TilemapRenderer(
-            config: config,
-            renderBackend: TilemapRenderBackend.widgets,
-          ),
+          child: TilemapRenderer(config: config),
         ),
       ),
     );
@@ -1887,7 +1879,6 @@ void main() {
           height: 480,
           child: TilemapRenderer(
             config: config,
-            renderBackend: TilemapRenderBackend.widgets,
             blendFogWithShadowTiles: false,
             showShadowZeroBorders: true,
           ),
@@ -1955,7 +1946,6 @@ void main() {
           height: 480,
           child: TilemapRenderer(
             config: config,
-            renderBackend: TilemapRenderBackend.widgets,
             blendFogWithShadowTiles: true,
             showShadowZeroBorders: false,
           ),
@@ -1986,8 +1976,10 @@ void main() {
       find.byKey(const ValueKey<String>('tile-fog-blend-1-0')),
       findsNothing,
     );
-    expect(find.byKey(const ValueKey<String>('tile-0-0')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('tile-1-0')), findsOneWidget);
+    expect(
+      _mountedCanvasTileKeys(tester),
+      containsAll(<String>{'tile-0-0', 'tile-1-0'}),
+    );
   });
 
   testWidgets('renderer creates tiles and labels only inside retained bounds', (
@@ -2028,7 +2020,6 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
-              renderBackend: TilemapRenderBackend.widgets,
               locationNameForTile: (tile) => tile.locationId,
               locationAvatarsForTile: (tile) => tile.locationId == 'center'
                   ? const [UserAvatar('AA', id: 'a', name: 'Ada')]
@@ -2041,10 +2032,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byKey(const ValueKey<String>('tile-50-50')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('tile-51-50')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('tile-0-0')), findsNothing);
-    expect(find.byKey(const ValueKey<String>('tile-99-99')), findsNothing);
+    expect(_mountedCanvasTileKeys(tester), <String>{
+      'tile-50-50',
+      'tile-51-50',
+    });
     expect(
       find.byKey(const ValueKey<String>('tile-fog-blend-51-50')),
       findsOneWidget,
@@ -2069,7 +2060,7 @@ void main() {
       find.byKey(const ValueKey<String>('tile-location-image-flow-0-0')),
       findsNothing,
     );
-    expect(find.byType(Image), findsNWidgets(2));
+    expect(find.byType(RawImage), findsNWidgets(2));
 
     await tester.timedDrag(
       find.byKey(const ValueKey<String>('tilemap-gesture-layer')),
@@ -2079,8 +2070,9 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byKey(const ValueKey<String>('tile-50-50')), findsNothing);
-    expect(find.byKey(const ValueKey<String>('tile-60-50')), findsOneWidget);
+    final pannedTileKeys = _mountedCanvasTileKeys(tester);
+    expect(pannedTileKeys, isNot(contains('tile-50-50')));
+    expect(pannedTileKeys, contains('tile-60-50'));
     expect(
       find.byKey(const ValueKey<String>('tile-location-label-60-50')),
       findsOneWidget,
@@ -2109,7 +2101,6 @@ void main() {
           height: 480,
           child: TilemapRenderer(
             config: config,
-            renderBackend: TilemapRenderBackend.widgets,
             onImageError: (error) => imageError = error,
           ),
         ),
@@ -2144,7 +2135,6 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
-              renderBackend: TilemapRenderBackend.widgets,
               locationNameForTile: (_) => 'June Coffee',
               locationAvatarsForTile: (_) => avatars,
             ),
@@ -2209,6 +2199,16 @@ Future<void> _primeSuccessfulTileImage(WidgetTester tester) async {
     SynchronousFuture<ImageInfo>(ImageInfo(image: image)),
   );
   addTearDown(_resetDebugTileImageCompleter);
+}
+
+Set<String> _mountedCanvasTileKeys(WidgetTester tester) {
+  final dynamic layer = tester.widget(
+    find.byKey(const ValueKey<String>('tilemap-canvas-tile-mount')),
+  );
+  return <String>{
+    for (final dynamic entry in layer.tiles as List<dynamic>)
+      'tile-${entry.record.tile.x}-${entry.record.tile.y}',
+  };
 }
 
 void _primeFailedTileImage() {

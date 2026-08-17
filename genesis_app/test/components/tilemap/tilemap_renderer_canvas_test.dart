@@ -54,12 +54,7 @@ void main() {
         ],
       );
 
-      await tester.pumpWidget(
-        _rendererHarness(
-          config: config,
-          renderBackend: TilemapRenderBackend.canvas,
-        ),
-      );
+      await tester.pumpWidget(_rendererHarness(config: config));
       await _pumpUntil(
         tester,
         () => latestStats?.tileCount == 3 && latestStats?.imageCount == 1,
@@ -129,7 +124,6 @@ void main() {
     await tester.pumpWidget(
       _rendererHarness(
         config: config,
-        renderBackend: TilemapRenderBackend.canvas,
         repaintBoundaryKey: repaintBoundaryKey,
         onViewportReady: () {
           statsSeenByReady = latestStats;
@@ -155,9 +149,7 @@ void main() {
     expect(sampledColors.hasBlue, isTrue);
   });
 
-  testWidgets('widget and canvas render backends both build explicitly', (
-    tester,
-  ) async {
+  testWidgets('canvas is the only tile rendering backend', (tester) async {
     final image = await _createSolidImage(tester, Colors.green);
     addTearDown(image.dispose);
     debugGenesisStaticNetworkImageCompleter = (_) {
@@ -168,7 +160,7 @@ void main() {
     TilemapCanvasRenderStats? latestStats;
     debugTilemapCanvasRenderStatsChanged = (stats) => latestStats = stats;
     final config = TilemapConfig.fromTiles(
-      id: 'renderer-backend-switch',
+      id: 'canvas-only-renderer',
       width: 2,
       height: 1,
       tileTypes: const {'tile': 'https://canvas.test/switch.png'},
@@ -178,45 +170,14 @@ void main() {
       ],
     );
 
-    for (final backend in TilemapRenderBackend.values) {
-      latestStats = null;
-      await tester.pumpWidget(
-        _rendererHarness(config: config, renderBackend: backend),
-      );
-      await _pumpUntil(
-        tester,
-        () => switch (backend) {
-          TilemapRenderBackend.widgets =>
-            find
-                .byKey(const ValueKey<String>('tile-1-0'))
-                .evaluate()
-                .isNotEmpty,
-          TilemapRenderBackend.canvas => latestStats?.tileCount == 2,
-        },
-      );
+    await tester.pumpWidget(_rendererHarness(config: config));
+    await _pumpUntil(tester, () => latestStats?.tileCount == 2);
 
-      final renderer = tester.widget<TilemapRenderer>(
-        find.byType(TilemapRenderer),
-      );
-      expect(renderer.renderBackend, backend);
-      switch (backend) {
-        case TilemapRenderBackend.widgets:
-          expect(
-            find.byKey(const ValueKey<String>('tilemap-canvas-tile-layer')),
-            findsNothing,
-          );
-          expect(find.byType(Image), findsNWidgets(2));
-        case TilemapRenderBackend.canvas:
-          expect(
-            find.byKey(const ValueKey<String>('tilemap-canvas-tile-layer')),
-            findsOneWidget,
-          );
-          expect(find.byType(Image), findsNothing);
-      }
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
-    }
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-canvas-tile-layer')),
+      findsOneWidget,
+    );
+    expect(find.byType(Image), findsNothing);
   });
 
   testWidgets('canvas batches only consecutive cells sharing an image', (
@@ -253,12 +214,7 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(
-      _rendererHarness(
-        config: config,
-        renderBackend: TilemapRenderBackend.canvas,
-      ),
-    );
+    await tester.pumpWidget(_rendererHarness(config: config));
     await _pumpUntil(
       tester,
       () => latestStats?.tileCount == 4 && latestStats?.imageCount == 2,
@@ -305,7 +261,6 @@ void main() {
       await tester.pumpWidget(
         _rendererHarness(
           config: config,
-          renderBackend: TilemapRenderBackend.canvas,
           repaintBoundaryKey: repaintBoundaryKey,
           devicePixelRatio: 2,
         ),
@@ -371,7 +326,6 @@ void main() {
     await tester.pumpWidget(
       _rendererHarness(
         config: config,
-        renderBackend: TilemapRenderBackend.canvas,
         repaintBoundaryKey: repaintBoundaryKey,
         devicePixelRatio: 2,
         onImageError: (_) => imageErrorCount += 1,
@@ -425,7 +379,6 @@ void main() {
                 child: TilemapRenderer(
                   key: rendererKey,
                   config: config,
-                  renderBackend: TilemapRenderBackend.canvas,
                   blendFogWithShadowTiles: false,
                   showLocationImageFlow: false,
                   onViewportReady: () => readyCount += 1,
@@ -489,7 +442,6 @@ void main() {
         builder: (context, value, _) => _rendererHarness(
           rendererKey: rendererKey,
           config: value,
-          renderBackend: TilemapRenderBackend.canvas,
           repaintBoundaryKey: repaintBoundaryKey,
           onViewportReady: () => readyCount += 1,
         ),
@@ -554,11 +506,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      _rendererHarness(
-        config: config,
-        renderBackend: TilemapRenderBackend.canvas,
-        onImageError: (_) => errorCount += 1,
-      ),
+      _rendererHarness(config: config, onImageError: (_) => errorCount += 1),
     );
     await _pumpUntil(tester, () => latestStats?.tileCount == 1);
 
@@ -597,7 +545,6 @@ void main() {
     await tester.pumpWidget(
       _rendererHarness(
         config: config,
-        renderBackend: TilemapRenderBackend.canvas,
         blendFogWithShadowTiles: true,
         showLocationImageFlow: true,
         locationNameForTile: (tile) => tile.isLocationTile ? 'Location' : null,
@@ -623,7 +570,7 @@ void main() {
     expect(find.byType(RawImage), findsNWidgets(2));
   });
 
-  testWidgets('canvas semantics preserve plain and effect paint order', (
+  testWidgets('canvas exposes semantics for plain and effect tiles', (
     tester,
   ) async {
     final image = await _createSolidImage(tester, Colors.green);
@@ -650,11 +597,10 @@ void main() {
     );
     final semantics = tester.ensureSemantics();
 
-    Future<List<String>> labelsForBackend(TilemapRenderBackend backend) async {
+    Future<List<String>> canvasLabels() async {
       await tester.pumpWidget(
         _rendererHarness(
           config: config,
-          renderBackend: backend,
           showLocationImageFlow: true,
           locationNameForTile: (tile) =>
               tile.isLocationTile ? 'Location' : null,
@@ -674,10 +620,7 @@ void main() {
           .toList(growable: false);
     }
 
-    final widgetLabels = await labelsForBackend(TilemapRenderBackend.widgets);
-    final canvasLabels = await labelsForBackend(TilemapRenderBackend.canvas);
-    expect(canvasLabels, widgetLabels);
-    expect(canvasLabels.toSet(), <String>{
+    expect((await canvasLabels()).toSet(), <String>{
       'first 0,0',
       'effect 0,1',
       'last 0,2',
@@ -709,7 +652,6 @@ void main() {
     await tester.pumpWidget(
       _rendererHarness(
         config: config,
-        renderBackend: TilemapRenderBackend.canvas,
         repaintBoundaryKey: repaintBoundaryKey,
         invertColors: true,
       ),
@@ -730,7 +672,6 @@ void main() {
 Widget _rendererHarness({
   Key? rendererKey,
   required TilemapConfig config,
-  required TilemapRenderBackend renderBackend,
   Key? repaintBoundaryKey,
   VoidCallback? onViewportReady,
   double devicePixelRatio = 1,
@@ -757,7 +698,6 @@ Widget _rendererHarness({
             child: TilemapRenderer(
               key: rendererKey,
               config: config,
-              renderBackend: renderBackend,
               blendFogWithShadowTiles: blendFogWithShadowTiles,
               showLocationImageFlow: showLocationImageFlow,
               locationNameForTile: locationNameForTile,

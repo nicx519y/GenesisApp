@@ -66,15 +66,14 @@ void main() {
         ),
       );
 
-      expect(find.byKey(const ValueKey<String>('tile-50-50')), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('tile-54-54')), findsOneWidget);
+      expect(
+        _mountedTileKeys(tester),
+        containsAll(<String>['tile-50-50', 'tile-54-54']),
+      );
       expect(readyCount, 0);
 
       visibleFrame.complete(visibleImage);
-      await tester.pump();
-      await tester.pump();
-      await tester.pump();
-      await tester.pump();
+      await _pumpUntil(tester, () => readyCount == 1);
 
       expect(readyCount, 1);
 
@@ -199,8 +198,7 @@ void main() {
       ),
     );
     initiallyVisibleFrame.complete(initiallyVisibleImage);
-    await tester.pump();
-    await tester.pump();
+    await _pumpUntil(tester, () => initialReadyCount == 1);
 
     expect(initialReadyCount, 1);
     expect(resizedReadyCount, 0);
@@ -219,8 +217,7 @@ void main() {
     expect(resizedReadyCount, 0);
 
     newlyVisibleFrame.complete(newlyVisibleImage);
-    await tester.pump();
-    await tester.pump();
+    await _pumpUntil(tester, () => resizedReadyCount == 1);
 
     expect(initialReadyCount, 1);
     expect(resizedReadyCount, 1);
@@ -297,7 +294,6 @@ Widget _rendererHarness({
           child: TilemapRenderer(
             key: rendererKey,
             config: config,
-            renderBackend: TilemapRenderBackend.widgets,
             onViewportReady: onViewportReady,
             waitForVisibleTileImageFrames: waitForVisibleTileImageFrames,
           ),
@@ -324,4 +320,21 @@ Future<ui.Image> _createImage(WidgetTester tester, Color color) async {
     canvas.drawRect(const Rect.fromLTWH(0, 0, 2, 2), Paint()..color = color);
     return recorder.endRecording().toImage(2, 2);
   }))!;
+}
+
+List<String> _mountedTileKeys(WidgetTester tester) {
+  final dynamic layer = tester.widget(
+    find.byKey(const ValueKey<String>('tilemap-canvas-tile-mount')),
+  );
+  return <String>[
+    for (final dynamic entry in layer.tiles as List<dynamic>)
+      'tile-${entry.record.tile.x}-${entry.record.tile.y}',
+  ];
+}
+
+Future<void> _pumpUntil(WidgetTester tester, bool Function() predicate) async {
+  for (var frame = 0; frame < 30 && !predicate(); frame += 1) {
+    await tester.pump();
+  }
+  expect(predicate(), isTrue);
 }

@@ -39,8 +39,79 @@ class _TilemapCanvasTileEntry {
   }
 }
 
+class _TilemapCanvasEffectTile extends StatelessWidget {
+  const _TilemapCanvasEffectTile({
+    required this.tile,
+    required this.asset,
+    required this.topLeft,
+    required this.extent,
+    required this.child,
+    this.locationImageFlowAnimation,
+    this.locationImageFlowPhase = 0,
+    this.locationImageFlowAngleDegrees =
+        tilemapDefaultLocationImageFlowAngleDegrees,
+    this.locationImageFlowGradientPoints =
+        tilemapDefaultLocationImageFlowGradientPoints,
+    this.locationImageFlowOpacity = tilemapDefaultLocationImageFlowOpacity,
+    this.locationImageFlowBlendMode = tilemapDefaultLocationImageFlowBlendMode,
+    this.fogField,
+    this.rasterizeFogComposite = false,
+  });
+
+  final TilemapCell tile;
+  final String asset;
+  final Offset topLeft;
+  final double extent;
+  final Widget child;
+  final Animation<double>? locationImageFlowAnimation;
+  final double locationImageFlowPhase;
+  final double locationImageFlowAngleDegrees;
+  final List<TilemapLocationImageFlowGradientPoint>
+  locationImageFlowGradientPoints;
+  final double locationImageFlowOpacity;
+  final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
+  final TilemapFogField? fogField;
+  final bool rasterizeFogComposite;
+
+  @override
+  Widget build(BuildContext context) {
+    final field = fogField;
+    final fogVertices = field?.shadowTileVertices[tile.cellKey];
+    final animation = locationImageFlowAnimation;
+    final imageWithFlow = animation == null
+        ? child
+        : _TilemapImageFlow(
+            key: ValueKey<String>(
+              'tile-location-image-flow-${tile.x}-${tile.y}',
+            ),
+            animation: animation,
+            phase: locationImageFlowPhase,
+            isolateRepaint: fogVertices == null,
+            angleDegrees: locationImageFlowAngleDegrees,
+            gradientPoints: locationImageFlowGradientPoints,
+            opacity: locationImageFlowOpacity,
+            blendMode: locationImageFlowBlendMode,
+            child: child,
+          );
+    return field == null || fogVertices == null
+        ? imageWithFlow
+        : _TilemapFogBlend(
+            key: ValueKey<String>('tile-fog-blend-${tile.x}-${tile.y}'),
+            vertices: fogVertices,
+            sceneTopLeft: topLeft,
+            rasterizationEnabled: rasterizeFogComposite,
+            rasterPixelRatio: _tilemapFogRasterPixelRatio(
+              asset: asset,
+              tileExtent: extent,
+            ),
+            child: imageWithFlow,
+          );
+  }
+}
+
 class _TilemapCanvasTileLayer extends StatefulWidget {
   const _TilemapCanvasTileLayer({
+    super.key,
     required this.mapSize,
     required this.frameGeneration,
     required this.tiles,
@@ -302,7 +373,7 @@ class _TilemapCanvasTileLayerState extends State<_TilemapCanvasTileLayer> {
             key: ValueKey<String>(
               'tile-${entry.record.tile.x}-${entry.record.tile.y}',
             ),
-            child: _ProjectedTileContent(
+            child: _TilemapCanvasEffectTile(
               tile: entry.record.tile,
               asset: displayedAsset ?? entry.asset,
               topLeft: entry.record.imageTopLeft,
