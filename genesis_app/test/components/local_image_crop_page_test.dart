@@ -72,6 +72,16 @@ void main() {
     expect((result.width, result.height), (320, 320));
     expect(await _decodeSize(result.bytes), const Size.square(320));
   });
+
+  test('reuses the decoded image for the crop preview', () async {
+    final sourceImage = await _solidImage(20, 30);
+    addTearDown(sourceImage.dispose);
+
+    final preview = buildLocalImageCropPreview(sourceImage);
+
+    expect(preview, isA<RawImage>());
+    expect((preview as RawImage).image, same(sourceImage));
+  });
 }
 
 Future<ui.Image> _solidImage(int width, int height) async {

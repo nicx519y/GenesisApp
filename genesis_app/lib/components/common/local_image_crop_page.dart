@@ -80,6 +80,15 @@ class LocalImageCropResult {
 }
 
 @visibleForTesting
+Widget buildLocalImageCropPreview(ui.Image image) {
+  return RawImage(
+    image: image,
+    fit: BoxFit.fill,
+    filterQuality: FilterQuality.high,
+  );
+}
+
+@visibleForTesting
 Future<LocalImageCropResult> createLocalImageCropResult({
   required ui.Image image,
   required Rect sourceRect,
@@ -242,7 +251,8 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
         child: CircularProgressIndicator(color: Colors.white),
       );
     }
-    if (_error != null || _image == null) {
+    final image = _image;
+    if (_error != null || image == null) {
       return Center(
         child: Text(
           _error ?? 'Image load failed',
@@ -285,13 +295,7 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
                 top: topLeft.dy,
                 width: scaledSize.width,
                 height: scaledSize.height,
-                child: IgnorePointer(
-                  child: Image.memory(
-                    widget.imageBytes,
-                    fit: BoxFit.fill,
-                    filterQuality: FilterQuality.high,
-                  ),
-                ),
+                child: IgnorePointer(child: buildLocalImageCropPreview(image)),
               ),
               IgnorePointer(
                 child: CustomPaint(
