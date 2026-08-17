@@ -1967,7 +1967,7 @@ void main() {
     );
   });
 
-  testWidgets('location chat header uses translucent backdrop blur', (
+  testWidgets('location chat header uses 90 percent glass with blur four', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -1985,10 +1985,9 @@ void main() {
       ),
     );
 
-    expect(kLocationChatStyle.headerBackdropBlurSigma, 10);
-    final gradient = kLocationChatStyle.headerBackgroundGradient;
-    expect(gradient, isNotNull);
-    expect(gradient!.colors, const [Color(0xA6111111), Color(0x33111111)]);
+    expect(kLocationChatStyle.headerBackdropBlurSigma, 4);
+    expect(kLocationChatStyle.headerBackgroundGradient, isNull);
+    expect(kLocationChatStyle.headerBackgroundColor.a, closeTo(0.9, 0.01));
     expect(
       find.descendant(
         of: find.byType(ChatHeader),
@@ -1998,7 +1997,7 @@ void main() {
     );
   });
 
-  testWidgets('location chat composer is opaque without backdrop blur', (
+  testWidgets('location chat composer uses 90 percent glass with blur four', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -2016,15 +2015,15 @@ void main() {
       ),
     );
 
-    expect(kLocationChatStyle.composerBackdropBlurSigma, 0);
+    expect(kLocationChatStyle.composerBackdropBlurSigma, 4);
     expect(kLocationChatStyle.composerBackgroundGradient, isNull);
-    expect(kLocationChatStyle.composerBackgroundColor.a, 1);
+    expect(kLocationChatStyle.composerBackgroundColor.a, closeTo(0.9, 0.01));
     expect(
       find.descendant(
         of: find.byType(ChatComposer),
         matching: find.byType(BackdropFilter),
       ),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
