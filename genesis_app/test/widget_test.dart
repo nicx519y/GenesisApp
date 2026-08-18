@@ -8488,14 +8488,23 @@ void main() {
       find.descendant(of: profilePortrait, matching: find.text('Identity')),
       findsNothing,
     );
-    final profileAvatar = tester.widget<GenesisStaticNetworkImage>(
+    final profileAvatar = tester.widget<Image>(
       find.descendant(
         of: profilePortrait,
-        matching: find.byType(GenesisStaticNetworkImage),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is OriginRolePortraitImageProvider,
+        ),
       ),
     );
+    final profileAvatarProvider =
+        profileAvatar.image as OriginRolePortraitImageProvider;
+    final profileAvatarSource =
+        profileAvatarProvider.sourceProvider
+            as GenesisStaticNetworkImageProvider;
     expect(
-      profileAvatar.imageUrl,
+      profileAvatarSource.imageUrl,
       contains('https://cdn.example.com/profile_1080x1080.jpg'),
     );
     expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
@@ -8587,6 +8596,90 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'Origin prewarms signed-in profile portrait before opening roles mount',
+    (WidgetTester tester) async {
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+      addTearDown(() {
+        PaintingBinding.instance.imageCache
+          ..clear()
+          ..clearLiveImages();
+      });
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      const profileAvatar = 'assets/images/map_default/l1_default.webp';
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+        originDefinitionVersion: 2,
+        originShowOpeningSheet: true,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+            initialUserInfo: const {
+              'uid': 'u_profile',
+              'name': 'Profile Hero',
+              'avatar': profileAvatar,
+            },
+          ),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+
+      final provider = OriginRolePortraitImageProvider.fromUrl(
+        imageUrl: profileAvatar,
+        outputSize: 240,
+      );
+      final tombstone = find.byKey(
+        const ValueKey<String>('origin-opening-sheet-tombstone'),
+      );
+      for (
+        var frame = 0;
+        frame < 20 && tombstone.evaluate().isEmpty;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+      expect(tombstone, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+        findsNothing,
+      );
+
+      ImageCacheStatus? cacheStatus;
+      for (var frame = 0; frame < 20; frame += 1) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+        cacheStatus = await provider.obtainCacheStatus(
+          configuration: ImageConfiguration.empty,
+        );
+        final status = cacheStatus;
+        if (status != null &&
+            !status.pending &&
+            (status.live || status.keepAlive)) {
+          break;
+        }
+      }
+
+      expect(tombstone, findsOneWidget);
+      expect(cacheStatus, isNotNull);
+      expect(cacheStatus!.pending, isFalse);
+      expect(cacheStatus.live || cacheStatus.keepAlive, isTrue);
+    },
+  );
 
   testWidgets('Origin custom card opens custom role sheet and launches', (
     WidgetTester tester,

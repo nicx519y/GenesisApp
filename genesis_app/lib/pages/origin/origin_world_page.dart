@@ -135,6 +135,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   ValueListenable<int>? _userInfoRevisionListenable;
   OriginCustomRoleDraft? _cachedProfileRole;
   int _cachedProfileRoleLoadGeneration = 0;
+  final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
   bool _launching = false;
   bool _showIntroPage = false;
   int _detailSheetCollapseRequest = 0;
@@ -264,8 +265,46 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       );
     }
     if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;
+    if (nextRole != null) {
+      _precacheProfileRoleAvatar(nextRole);
+    }
     if (_sameOriginProfileRole(_cachedProfileRole, nextRole)) return;
     setState(() => _cachedProfileRole = nextRole);
+  }
+
+  void _precacheProfileRoleAvatar(OriginCustomRoleDraft profileRole) {
+    if (!mounted) return;
+    final avatarUrl = _originRoleCardAvatarUrl(
+      context,
+      _resolveAssetUrl(profileRole.avatarUrl),
+    );
+    if (avatarUrl.isEmpty) return;
+
+    final devicePixelRatio = genesisImageDevicePixelRatio(
+      MediaQuery.devicePixelRatioOf(context),
+    );
+    final outputSize = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
+        .ceil();
+    final cacheKey = '$avatarUrl@$outputSize';
+    if (!_preloadedProfileRoleAvatarKeys.add(cacheKey)) return;
+
+    final provider = OriginRolePortraitImageProvider.fromUrl(
+      imageUrl: avatarUrl,
+      outputSize: outputSize,
+    );
+    unawaited(
+      precacheImage(
+        provider,
+        context,
+        onError: (error, stackTrace) {
+          _preloadedProfileRoleAvatarKeys.remove(cacheKey);
+          debugPrint(
+            '[OriginWorldPage] profile role avatar precache failed '
+            'url="$avatarUrl": $error',
+          );
+        },
+      ),
+    );
   }
 
   Color get _tilemapLoadingBackgroundColor =>
