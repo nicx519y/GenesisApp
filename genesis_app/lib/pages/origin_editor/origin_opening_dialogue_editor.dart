@@ -21,7 +21,7 @@ class _OpeningDialogueEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = kLocationChatStyle;
+    final style = context.genesisChatTheme.locationChat;
     final namedCharacters = characters
         .where((character) => character.name.trim().isNotEmpty)
         .toList(growable: false);
@@ -43,7 +43,7 @@ class _OpeningDialogueEditor extends StatelessWidget {
                     onChanged: onChanged,
                     focusNode: focusNode,
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                 ],
               ),
             ),
@@ -75,7 +75,7 @@ class _OpeningDialogueEditor extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
               ],
               Wrap(
                 key: const ValueKey<String>('opening-dialogue-media-buttons'),
@@ -89,8 +89,8 @@ class _OpeningDialogueEditor extends StatelessWidget {
                       paragraphIconAsset,
                       width: 14,
                       height: 14,
-                      colorFilter: const ColorFilter.mode(
-                        createFormText,
+                      colorFilter: ColorFilter.mode(
+                        context.genesisCreateColors.text,
                         BlendMode.srcIn,
                       ),
                     ),
@@ -99,9 +99,9 @@ class _OpeningDialogueEditor extends StatelessWidget {
                   _OpeningDialogueAddButton(
                     key: const ValueKey<String>('opening-add-image'),
                     label: 'Image',
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.image_outlined,
-                      color: createFormText,
+                      color: context.genesisCreateColors.text,
                       size: 16,
                     ),
                     onTap: onAddImage,
@@ -133,21 +133,21 @@ class _OpeningBestRoleSelector extends StatelessWidget {
         key: const ValueKey<String>('opening-best-role-selector'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Suggest a role for user',
             style: TextStyle(
-              color: createFormText,
+              color: context.genesisCreateColors.text,
               fontSize: 16,
               fontWeight: FontWeight.w600,
               height: 1.2,
             ),
           ),
-          const SizedBox(height: _fieldLabelInputGap),
+          SizedBox(height: _fieldLabelInputGap),
           if (characters.isEmpty)
-            const Text(
+            Text(
               'No characters available.',
               style: TextStyle(
-                color: createFormMuted,
+                color: context.genesisCreateColors.muted,
                 fontSize: 13,
                 height: 1.2,
               ),
@@ -223,14 +223,14 @@ class _OpeningBestRoleOption extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 7),
+              SizedBox(height: 7),
               Text(
                 character.name.trim(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: createFormText,
+                style: TextStyle(
+                  color: context.genesisCreateColors.text,
                   fontSize: 12,
                   height: 1.1,
                   fontWeight: FontWeight.w400,
@@ -303,7 +303,8 @@ class _OpeningNarratorEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = style.systemMessageTextStyle.color ?? Colors.white;
+    final textColor =
+        style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -335,7 +336,7 @@ class _OpeningNarratorEditor extends StatelessWidget {
                     colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
                   ),
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Expanded(
                   child: _OpeningDialogueTextField(
                     key: ValueKey<String>(
@@ -344,7 +345,7 @@ class _OpeningNarratorEditor extends StatelessWidget {
                     item: item,
                     hintText: 'Enter narrator dialogue',
                     style: style.systemMessageTextStyle,
-                    insertTextColor: const Color(0xFFF4F4F6),
+                    insertTextColor: context.genesisCreateColors.fieldFill,
                     insertBackgroundColor: textColor.withValues(alpha: 0.08),
                     onChanged: onChanged,
                     focusNode: focusNode,
@@ -399,7 +400,7 @@ class _OpeningCharacterEditor extends StatelessWidget {
               imageUrl: character.avatarUrl,
               colors: style.otherAvatarColors,
               seed: name,
-              borderColor: createFormBorder,
+              borderColor: context.genesisCreateColors.border,
               style: style,
             ),
             SizedBox(width: style.avatarBubbleGap),
@@ -419,7 +420,7 @@ class _OpeningCharacterEditor extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: style.senderNameTextStyle.copyWith(
-                            color: createFormText,
+                            color: context.genesisCreateColors.text,
                           ),
                         ),
                       ),
@@ -432,7 +433,9 @@ class _OpeningCharacterEditor extends StatelessWidget {
                     padding: style.bubblePadding,
                     decoration: BoxDecoration(
                       color: style.otherBubbleColor,
-                      border: Border.all(color: createFormBorder),
+                      border: Border.all(
+                        color: context.genesisCreateColors.border,
+                      ),
                       borderRadius: BorderRadius.circular(
                         style.bubbleBorderRadius,
                       ),
@@ -444,8 +447,9 @@ class _OpeningCharacterEditor extends StatelessWidget {
                       item: item,
                       hintText: 'Enter $name dialogue',
                       style: style.bubbleTextStyle,
-                      insertTextColor: const Color(0xFF666666),
-                      insertBackgroundColor: const Color(0xFFF4F4F6),
+                      insertTextColor: context.genesisColors.textMuted,
+                      insertBackgroundColor:
+                          context.genesisCreateColors.fieldFill,
                       onChanged: onChanged,
                       focusNode: focusNode,
                     ),
@@ -561,11 +565,12 @@ class _OpeningDialogueTextField extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               hintText: hintText,
               hintStyle: style.copyWith(
-                color: (style.color ?? createFormHint).withValues(alpha: 0.55),
+                color: (style.color ?? context.genesisCreateColors.hint)
+                    .withValues(alpha: 0.55),
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -586,7 +591,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
                           backgroundColor: insertBackgroundColor,
                           onTap: () => _insertToken('{{user}}'),
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         _OpeningDialogueInsertButton(
                           buttonKey: ValueKey<String>('${item.id}-insert-bold'),
                           label: '* *',
@@ -599,7 +604,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 '${item.controller.text.characters.length}/'
                 '$_maxCharacterCount',
@@ -746,7 +751,7 @@ class _OpeningDialogueAddButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: createFormFieldFill,
+      color: context.genesisCreateColors.fieldFill,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -755,20 +760,24 @@ class _OpeningDialogueAddButton extends StatelessWidget {
           height: 34,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            border: Border.all(color: createFormBorder),
+            border: Border.all(color: context.genesisCreateColors.border),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add, color: createFormText, size: 17),
-              const SizedBox(width: 4),
+              Icon(
+                Icons.add,
+                color: context.genesisCreateColors.text,
+                size: 17,
+              ),
+              SizedBox(width: 4),
               leading,
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Text(
                 label,
-                style: const TextStyle(
-                  color: createFormText,
+                style: TextStyle(
+                  color: context.genesisCreateColors.text,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   height: 1,

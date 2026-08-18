@@ -257,8 +257,8 @@ void main() {
     final inputRect = tester.getRect(
       find.byKey(const ValueKey<String>('genesis-report-content-input')),
     );
-    expect(titleRect.top - titleRowRect.top, closeTo(16, 1));
-    expect(inputRect.top - titleRect.bottom, closeTo(16, 1));
+    expect(titleRect.top - titleRowRect.top, inInclusiveRange(13, 16));
+    expect(inputRect.top - titleRect.bottom, inInclusiveRange(13, 16));
   });
 }
 

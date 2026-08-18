@@ -30,7 +30,7 @@ class _OpeningLocationField extends StatelessWidget {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: createFormFieldFill,
+              color: context.genesisCreateColors.fieldFill,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -46,17 +46,17 @@ class _OpeningLocationField extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: locationName.isEmpty
-                          ? createFormHint
-                          : createFormText,
+                          ? context.genesisCreateColors.hint
+                          : context.genesisCreateColors.text,
                       fontSize: 14,
                       height: 1.2,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                const Icon(
+                SizedBox(width: 8),
+                Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: createFormMuted,
+                  color: context.genesisCreateColors.muted,
                   size: 24,
                 ),
               ],
@@ -80,14 +80,14 @@ class _OpeningInitialCharacters extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SvgPicture.asset(characterStatIconAsset, width: 14, height: 14),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Expanded(
           child: Text(
             names,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: createFormText,
+            style: TextStyle(
+              color: context.genesisCreateColors.text,
               fontSize: 13,
               height: 1.3,
             ),

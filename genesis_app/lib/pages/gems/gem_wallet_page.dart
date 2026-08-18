@@ -25,6 +25,7 @@ import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 part 'gem_wallet_data_actions.dart';
 part 'gem_wallet_billing_flow.dart';
@@ -177,7 +178,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     return PopScope(
       canPop: !_billingPurchaseDialogShowing,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: context.genesisColors.pageBackground,
         appBar: GenesisBackAppBar(
           pageName: 'Buy Gems',
           systemOverlayStyle: kGenesisDefaultSystemUiOverlayStyle,
@@ -186,12 +187,12 @@ class _GemWalletPageState extends State<GemWalletPage>
               behavior: HitTestBehavior.opaque,
               onTap: () =>
                   Navigator.of(context).pushNamed(RouteNames.gemRecords),
-              child: const Padding(
-                padding: EdgeInsets.fromLTRB(12, 10, 20, 10),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 20, 10),
                 child: Text(
                   'Records',
                   style: TextStyle(
-                    color: Color(0xFF333333),
+                    color: context.genesisColors.textBody,
                     fontSize: 12,
                     height: 18 / 12,
                     fontWeight: FontWeight.w600,
@@ -214,7 +215,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       return _GemWalletError(onRetry: () => unawaited(_refreshAll()));
     }
     return RefreshIndicator(
-      color: kGemAccentColor,
+      color: context.genesisGemColors.accent,
       onRefresh: () => _refreshAll(silent: true),
       child: _GemWalletContent(
         products: _products,

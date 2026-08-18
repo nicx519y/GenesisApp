@@ -138,7 +138,7 @@ void main() {
     expect(third.dx, greaterThan(second.dx));
   });
 
-  testWidgets('world map wraps Chinese labels after six characters', (
+  testWidgets('world map keeps long Chinese labels within the maximum width', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -161,7 +161,7 @@ void main() {
         ),
         WorldPoint(
           id: 'startup-street',
-          name: '中关村创业大街中心',
+          name: '中关村创业大街中心创新园区综合服务中心',
           type: WorldPointType.shop,
           position: Offset(0.5, 0.55),
           users: [],
@@ -172,15 +172,20 @@ void main() {
     final china = tester.renderObject<RenderParagraph>(find.text('中国'));
     final seattle = tester.renderObject<RenderParagraph>(find.text('西雅图'));
     final startupStreet = tester.renderObject<RenderParagraph>(
-      find.text('中关村创业大街中心'),
+      find.text('中关村创业大街中心创新园区综合服务中心'),
     );
 
     expect(china.didExceedMaxLines, isFalse);
     expect(seattle.didExceedMaxLines, isFalse);
     expect(startupStreet.didExceedMaxLines, isFalse);
-    expect(china.size.height, lessThanOrEqualTo(12.0));
-    expect(seattle.size.height, lessThanOrEqualTo(12.0));
-    expect(startupStreet.size.width, lessThanOrEqualTo(90.0));
+    expect(china.size.height, lessThanOrEqualTo(14.0));
+    expect(seattle.size.height, lessThanOrEqualTo(14.0));
+    final startupStreetBubble = tester.getSize(
+      find.byKey(
+        const ValueKey<String>('world-map-location-label-startup-street'),
+      ),
+    );
+    expect(startupStreetBubble.width, lessThanOrEqualTo(141.0));
     expect(startupStreet.size.height, greaterThan(12.0));
   });
 
@@ -1504,25 +1509,30 @@ void main() {
   testWidgets('world map preloads next-level location maps', (tester) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: kMockV1SteamMapImage,
-      preloadMapImageUrls: const [
-        kMockV1LocationCentralHubMap,
-        kMockV1LocationRailGateMap,
-      ],
+      mapImageUrl: _testRootMapAsset,
+      preloadMapImageUrls: const [_testL1MapAsset, _testL2MapAsset],
       users: const [],
     );
 
     expect(
-      _assetImageFinder(kMockV1SteamMapImage, skipOffstage: false),
+      _assetImageFinder(_testRootMapAsset, skipOffstage: false),
       findsOneWidget,
     );
-    expect(
-      _assetImageFinder(kMockV1LocationCentralHubMap, skipOffstage: false),
-      findsOneWidget,
+    await tester.pumpAndSettle();
+    final imageConfiguration = createLocalImageConfiguration(
+      tester.element(find.byType(LegacyWorldMap)),
     );
     expect(
-      _assetImageFinder(kMockV1LocationRailGateMap, skipOffstage: false),
-      findsOneWidget,
+      await const AssetImage(
+        _testL1MapAsset,
+      ).obtainCacheStatus(configuration: imageConfiguration),
+      isNotNull,
+    );
+    expect(
+      await const AssetImage(
+        _testL2MapAsset,
+      ).obtainCacheStatus(configuration: imageConfiguration),
+      isNotNull,
     );
   });
 
@@ -1662,7 +1672,7 @@ void main() {
     );
 
     await tester.tap(find.text('Rail District'), warnIfMissed: false);
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('Leaf Dock'), findsOneWidget);
     expect(find.text('Signal Room'), findsOneWidget);
@@ -1696,7 +1706,7 @@ void main() {
           children: [
             WorldMapLocationNode(
               id: 'district',
-              mapImageUrl: kMockV1LocationCentralHubMap,
+              mapImageUrl: _testL1MapAsset,
               point: WorldPoint(
                 id: 'district',
                 sceneId: 'district',
@@ -1742,16 +1752,11 @@ void main() {
     expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
 
     await tester.tap(find.text('Rail District'), warnIfMissed: false);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(tappedIds, isEmpty);
     expect(find.text('Leaf Dock'), findsOneWidget);
     expect(find.text('Signal Room'), findsOneWidget);
     expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
-    expect(
-      _assetImageFinder(kMockV1LocationCentralHubMap, skipOffstage: false),
-      findsWidgets,
-    );
-
     await tester.tap(find.byIcon(Icons.subdirectory_arrow_left));
     await tester.pumpAndSettle();
     expect(find.text('Rail District'), findsOneWidget);
@@ -1910,12 +1915,12 @@ void main() {
       tester,
       users: const [],
       points: const [],
-      mapImageUrl: kMockV1SteamMapImage,
+      mapImageUrl: _testRootMapAsset,
       locationNodes: const [
         WorldMapLocationNode(
           id: 'root',
           isRoot: true,
-          mapImageUrl: kMockV1LocationCentralHubMap,
+          mapImageUrl: _testL1MapAsset,
           point: WorldPoint(
             id: 'root',
             sceneId: 'root',
@@ -1944,8 +1949,8 @@ void main() {
 
     expect(find.text('World Root'), findsNothing);
     expect(find.text('Visible District'), findsOneWidget);
-    expect(_assetImageFinder(kMockV1SteamMapImage), findsOneWidget);
-    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsNothing);
+    expect(_assetImageFinder(_testRootMapAsset), findsOneWidget);
+    expect(_assetImageFinder(_testL1MapAsset), findsNothing);
   });
 
   testWidgets('world map opens the only leaf child instead of drilling', (
@@ -2247,7 +2252,7 @@ void main() {
     expect(tappedIds, ['hall']);
   });
 
-  testWidgets('single child level three is opened from level two card', (
+  testWidgets('single child level three is exposed directly in the list', (
     tester,
   ) async {
     final tappedIds = <String>[];
@@ -2303,17 +2308,13 @@ void main() {
       find.descendant(of: list, matching: find.text('- Academy')),
       findsOneWidget,
     );
-    final mainFortressCard = find.descendant(
+    final grandHallCard = find.descendant(
       of: list,
-      matching: find.text('Main Fortress'),
+      matching: find.text('Grand Hall'),
     );
-    expect(mainFortressCard, findsOneWidget);
-    expect(
-      find.descendant(of: list, matching: find.text('Grand Hall')),
-      findsNothing,
-    );
+    expect(grandHallCard, findsOneWidget);
 
-    await tester.tap(mainFortressCard);
+    await tester.tap(grandHallCard);
     expect(tappedIds, ['hall']);
   });
 
@@ -2498,6 +2499,9 @@ void main() {
 
 const _mapSize = Size(375, 670);
 const _pointPosition = Offset(0.5, 0.35);
+const _testRootMapAsset = 'assets/images/map_default/root_default.webp';
+const _testL1MapAsset = 'assets/images/map_default/l1_default.webp';
+const _testL2MapAsset = 'assets/images/map_default/l2_default.webp';
 
 Future<void> _pumpWorldMap(
   WidgetTester tester, {

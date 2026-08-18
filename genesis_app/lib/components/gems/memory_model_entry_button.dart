@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../ui/theme/genesis_semantic_colors.dart';
+
 const double kMemoryModelEntryMinWidth = 82;
 const double kMemoryModelEntryMaxWidth = 96;
 
@@ -20,10 +22,13 @@ class MemoryModelEntryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = darkHeader ? Colors.white : Colors.black;
+    final colors = context.genesisColors;
+    final foreground = darkHeader
+        ? colors.textInverse
+        : colors.foregroundStrong;
     final background = darkHeader
         ? Colors.transparent
-        : Colors.white.withValues(alpha: 0.9);
+        : colors.surface.withValues(alpha: 0.9);
     final borderRadius = compact ? 11.5 : 19.0;
     final iconSize = compact ? 16.0 : 18.0;
     final labelStyle = TextStyle(

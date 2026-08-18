@@ -19,11 +19,12 @@ import '../../../ui/components/genesis_safe_area.dart';
 import '../../../ui/components/genesis_soft_italic_text.dart';
 import '../../../ui/components/genesis_static_network_image.dart';
 import '../../../ui/system/genesis_system_ui.dart';
-import '../../../ui/tokens/genesis_colors.dart';
+import '../../../ui/theme/genesis_semantic_colors.dart';
 import '../../../ui/tokens/genesis_typography.dart';
 import '../../../ui/text/genesis_text_input_formatters.dart';
 import '../../../utils/genesis_message_image.dart';
 import 'chat_ui_style_config.dart';
+import 'chat_ui_theme.dart';
 
 export 'chat_ui_style_config.dart';
 
@@ -71,7 +72,6 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
 const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
 const double _npcChatAvatarSize = 36;
-const Color _npcChatAvatarBackgroundColor = Color(0xFF4A5F7A);
 const Color _locationChatBackgroundColor = Color(0xFF111111);
 const Color _locationChatSurfaceColor = Color(0xE6111111);
 const double _locationChatSurfaceBlurSigma = 4;

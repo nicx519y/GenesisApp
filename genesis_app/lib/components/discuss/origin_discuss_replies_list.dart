@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../common/genesis_image_viewer_overlay.dart';
+import 'genesis_discuss_theme.dart';
 
 class OriginDiscussRepliesList extends StatelessWidget {
   const OriginDiscussRepliesList({
@@ -28,13 +30,18 @@ class OriginDiscussRepliesList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: Color(0xFFD9DDE2), width: 3)),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: context.genesisDiscussColors.nestedReplyRail,
+            width: 3,
+          ),
+        ),
       ),
       padding: const EdgeInsets.only(left: 8),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F6F7),
+          color: context.genesisDiscussColors.nestedReplySurface,
           borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -63,11 +70,11 @@ class OriginDiscussRepliesList extends StatelessWidget {
                         )
                       : Text(
                           'View all $remainingReplyCount replies',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             height: 1.25,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF2F4F7A),
+                            color: context.genesisDiscussColors.authorAccent,
                           ),
                         ),
                 ),
@@ -92,11 +99,11 @@ class _OriginDiscussReplyItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text.rich(
-          _replyLineSpan(reply),
+          _replyLineSpan(context, reply),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: _subtleStyle.copyWith(
-            color: const Color(0xFF60636A),
+            color: context.genesisDiscussColors.replyText,
             height: 1.35,
           ),
         ),
@@ -181,7 +188,7 @@ class _OriginDiscussReplyImageThumbnail extends StatelessWidget {
   }
 }
 
-TextSpan _replyLineSpan(Map<String, dynamic> json) {
+TextSpan _replyLineSpan(BuildContext context, Map<String, dynamic> json) {
   final author = json['author'] is Map ? asJsonMap(json['author']) : null;
   final uid = asString(author?['uid'], fallback: asString(json['uid']));
   final name = asString(
@@ -209,7 +216,7 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
         TextSpan(text: '$authorName: '),
         TextSpan(
           text: content,
-          style: const TextStyle(color: Color(0xFF111111)),
+          style: TextStyle(color: context.genesisColors.textPrimary),
         ),
       ],
     );
@@ -217,17 +224,17 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
   return TextSpan(
     children: [
       TextSpan(text: '$authorName: '),
-      const TextSpan(
+      TextSpan(
         text: 'Reply to ',
-        style: TextStyle(color: Color(0xFF111111)),
+        style: TextStyle(color: context.genesisColors.textPrimary),
       ),
       TextSpan(
         text: replyToName,
-        style: const TextStyle(color: Color(0xFF60636A)),
+        style: TextStyle(color: context.genesisDiscussColors.replyText),
       ),
       TextSpan(
         text: ': $content',
-        style: const TextStyle(color: Color(0xFF111111)),
+        style: TextStyle(color: context.genesisColors.textPrimary),
       ),
     ],
   );
@@ -256,7 +263,6 @@ List<String> _imageUrlsFrom(Object? value) {
 }
 
 const _subtleStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

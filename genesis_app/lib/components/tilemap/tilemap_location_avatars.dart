@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import '../../app/config/genesis_image_config.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
+import '../world/genesis_world_theme.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_point.dart';
 
@@ -113,8 +114,8 @@ class _TilemapLocationAvatar extends StatelessWidget {
         ],
         border: Border.all(
           color: avatar.isPlayerControlledRole
-              ? GenesisColors.brand
-              : const Color(0xFFDDDDDD),
+              ? context.genesisColors.primary
+              : context.genesisWorldColors.avatarBorder,
           width: 1,
         ),
       ),

@@ -8,10 +8,12 @@ import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/me/genesis_follow_user_list_tile.dart';
+import '../../components/messages/genesis_message_theme.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_page_header.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -180,7 +182,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
             ? null
             : () => unawaited(_openWorldFromDialog(item.bizId)),
       ),
-      actions: const [
+      actions: [
         GenesisActionBoxAction<_JoinRequestAction>(
           label: 'Approve',
           value: _JoinRequestAction.approve,
@@ -188,7 +190,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         GenesisActionBoxAction<_JoinRequestAction>(
           label: 'Reject',
           value: _JoinRequestAction.reject,
-          color: Color(0xFF111111),
+          color: context.genesisColors.textPrimary,
         ),
       ],
     );
@@ -342,7 +344,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.pageBackground,
       appBar: GenesisBackAppBar(pageName: widget.title),
       body: RefreshIndicator(
         onRefresh: _loadFirstPage,
@@ -361,11 +363,11 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           SizedBox(height: MediaQuery.sizeOf(context).height * 0.3),
-          const Center(
+          Center(
             child: Text(
               'Failed to load messages.',
               style: TextStyle(
-                color: Color(0xFF94979E),
+                color: context.genesisColors.textEmptyState,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -383,8 +385,8 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
           Center(
             child: Text(
               widget.emptyText,
-              style: const TextStyle(
-                color: Color(0xFF94979E),
+              style: TextStyle(
+                color: context.genesisColors.textEmptyState,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),

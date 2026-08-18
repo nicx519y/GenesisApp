@@ -9,6 +9,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../network/api_client.dart';
 import '../../network/dio_http_transport.dart';
 import '../../network/json_utils.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../create/create_origin_draft_store.dart';
 import 'origin_debug_draft_factory.dart';
@@ -170,15 +171,15 @@ class _OriginDebugRandomContentButtonState
           ? null
           : () => unawaited(_generate()),
       icon: _isGenerating
-          ? const SizedBox.square(
+          ? SizedBox.square(
               dimension: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Colors.white,
+                color: context.genesisColors.onPrimary,
               ),
             )
-          : const Icon(Icons.casino_outlined),
-      label: const Text('Random'),
+          : Icon(Icons.casino_outlined),
+      label: Text('Random'),
       tooltip: 'Generate random test content',
     );
   }

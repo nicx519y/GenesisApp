@@ -40,10 +40,10 @@ class _NotificationListItem extends StatelessWidget {
             ),
           ),
           if (showUnreadDot)
-            const Positioned(
+            Positioned(
               right: -13,
               top: (GenesisFollowUserListTile.itemExtent - 7) / 2,
-              child: _UnreadDot(),
+              child: const _UnreadDot(),
             ),
         ],
       );
@@ -89,8 +89,8 @@ class _UnreadDot extends StatelessWidget {
       key: const ValueKey('message-category-unread-dot'),
       width: 7,
       height: 7,
-      decoration: const BoxDecoration(
-        color: Color(0xFFFF2442),
+      decoration: BoxDecoration(
+        color: context.genesisColors.danger,
         shape: BoxShape.circle,
       ),
     );
@@ -141,10 +141,10 @@ class _JoinRequestListItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Join request',
           style: TextStyle(
-            color: Color(0xFF111111),
+            color: context.genesisColors.textPrimary,
             fontSize: 14,
             height: 1.2,
             fontWeight: FontWeight.w600,
@@ -170,8 +170,8 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text.rich(
       TextSpan(
-        style: const TextStyle(
-          color: Color(0xFF111111),
+        style: TextStyle(
+          color: context.genesisColors.textPrimary,
           fontSize: 12,
           height: 1.25,
           fontWeight: FontWeight.w400,
@@ -180,7 +180,7 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
           const TextSpan(text: 'You request to join '),
           TextSpan(
             text: item.requestWorldSummaryName,
-            style: _originBlueTextStyle,
+            style: _originBlueTextStyle(context),
           ),
           if (item.requestWorldIdLabel.trim().isNotEmpty)
             TextSpan(text: ' (${item.requestWorldIdLabel})'),
@@ -199,16 +199,22 @@ class _JoinRequestSummaryText extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text.rich(
       TextSpan(
-        style: const TextStyle(
-          color: Color(0xFF111111),
+        style: TextStyle(
+          color: context.genesisColors.textPrimary,
           fontSize: 12,
           height: 1.25,
           fontWeight: FontWeight.w400,
         ),
         children: [
-          TextSpan(text: item.requesterName, style: _originBlueTextStyle),
+          TextSpan(
+            text: item.requesterName,
+            style: _originBlueTextStyle(context),
+          ),
           const TextSpan(text: ' request to join '),
-          TextSpan(text: item.requestWorldName, style: _originBlueTextStyle),
+          TextSpan(
+            text: item.requestWorldName,
+            style: _originBlueTextStyle(context),
+          ),
           if (item.requestWorldIdLabel.trim().isNotEmpty)
             TextSpan(text: ' (${item.requestWorldIdLabel})'),
         ],
@@ -227,7 +233,9 @@ class _JoinRequestListStatusText extends StatelessWidget {
     return Text(
       item.joinRequestListStatusText,
       style: TextStyle(
-        color: item.joinRequestStatusColor,
+        color: item.joinRequestStatusIsMuted
+            ? context.genesisMessageColors.statusMuted
+            : context.genesisMessageColors.statusPositive,
         fontSize: 12,
         height: 1.2,
         fontWeight: FontWeight.w400,
@@ -246,7 +254,9 @@ class _StatusText extends StatelessWidget {
     return Text(
       item.joinRequestStatusText,
       style: TextStyle(
-        color: item.joinRequestStatusColor,
+        color: item.joinRequestStatusIsMuted
+            ? context.genesisMessageColors.statusMuted
+            : context.genesisMessageColors.statusPositive,
         fontSize: 12,
         height: 1.2,
         fontWeight: FontWeight.w400,
@@ -267,14 +277,14 @@ class _CommentNotificationListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleStyle = isComments
-        ? _commentNotificationTitleStyle
-        : _notificationTitleStyle;
+        ? _commentNotificationTitleStyle(context)
+        : _notificationTitleStyle(context);
     final bodyStyle = isComments
-        ? _commentNotificationBodyStyle
-        : _notificationBodyStyle;
+        ? _commentNotificationBodyStyle(context)
+        : _notificationBodyStyle(context);
     final metaStyle = isComments
-        ? _commentNotificationMetaStyle
-        : _notificationMetaStyle;
+        ? _commentNotificationMetaStyle(context)
+        : _notificationMetaStyle(context);
     final verticalGap = 8.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,46 +303,47 @@ class _CommentNotificationListItem extends StatelessWidget {
   }
 }
 
-const _notificationTitleStyle = TextStyle(
-  color: Color(0xFF111111),
+TextStyle _notificationTitleStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textPrimary,
   fontSize: 14,
   height: 1.18,
   fontWeight: FontWeight.w600,
 );
 
-const _notificationBodyStyle = TextStyle(
-  color: Color(0xFF111111),
+TextStyle _notificationBodyStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textPrimary,
   fontSize: 12,
   height: 1.25,
   fontWeight: FontWeight.w400,
 );
 
-const _notificationMetaStyle = TextStyle(
-  color: Color(0xFF8A8D93),
+TextStyle _notificationMetaStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textMetadata,
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
 
-const _commentNotificationTitleStyle = TextStyle(
-  color: Color(0xFF111111),
+TextStyle _commentNotificationTitleStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textPrimary,
   fontSize: 14,
   height: 1.18,
   fontWeight: FontWeight.w600,
 );
 
-const _commentNotificationBodyStyle = TextStyle(
-  color: Color(0xFF111111),
+TextStyle _commentNotificationBodyStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textPrimary,
   fontSize: 12,
   height: 1.25,
   fontWeight: FontWeight.w400,
 );
 
-const _commentNotificationMetaStyle = TextStyle(
-  color: Color(0xFF8A8D93),
+TextStyle _commentNotificationMetaStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textMetadata,
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
 
-const _originBlueTextStyle = TextStyle(color: Color(0xFF2F4F7A));
+TextStyle _originBlueTextStyle(BuildContext context) =>
+    TextStyle(color: context.genesisMessageColors.originAccent);

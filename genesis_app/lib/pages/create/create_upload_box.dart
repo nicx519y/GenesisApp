@@ -158,7 +158,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
           onTap: _isUploading ? null : () => _pickCropAndUpload(context),
           child: CustomPaint(
             painter: CreateDashedRRectPainter(
-              color: createFormDash,
+              color: context.genesisCreateColors.dash,
               radius: widget.borderRadius,
               strokeWidth: 1.2,
             ),
@@ -167,7 +167,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
               height: previewHeight,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(0x6BF4F4F6),
+                color: context.genesisCreateColors.fieldOverlaySoft,
                 borderRadius: BorderRadius.circular(widget.borderRadius),
               ),
               clipBehavior: Clip.antiAlias,

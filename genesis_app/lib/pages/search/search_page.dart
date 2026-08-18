@@ -16,6 +16,7 @@ import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_search_field.dart';
 import '../../ui/components/genesis_tab_bar.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -416,7 +417,7 @@ class _SearchPageState extends State<SearchPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.pageBackground,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -447,14 +448,14 @@ class _SearchPageState extends State<SearchPage>
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => Navigator.of(context).pop(),
-                        child: const SizedBox(
+                        child: SizedBox(
                           height: 28,
                           child: Center(
                             child: Text(
                               'Cancel',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Color(0xFF222222),
+                                color: context.genesisColors.textStrong,
                                 fontWeight: FontWeight.w400,
                               ),
                             ),

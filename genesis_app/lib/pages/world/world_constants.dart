@@ -35,16 +35,13 @@ const double worldMapContentTopOffset =
 const double worldCharacterAvatarLogicalSize = 48;
 const int worldMainPageCount = 1;
 
-const Color worldHeaderMetaColor = Color(0xFF666666);
 const TextStyle worldHeaderMetaTextStyle = TextStyle(
   fontSize: 12,
   height: 1.1,
   fontWeight: FontWeight.w400,
-  color: worldHeaderMetaColor,
 );
 const TextStyle worldDetailBodyTextStyle = TextStyle(
   fontSize: 13,
   height: 1.45,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
 );

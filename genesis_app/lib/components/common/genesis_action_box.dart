@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_modal_routes.dart';
-
-const Color _genesisActionBoxText = Color(0xFF111111);
-const Color _genesisActionBoxDestructive = Color(0xFFFF2442);
-const Color _genesisActionBoxDivider = Color(0xFFE8E8EA);
 
 class GenesisActionBoxAction<T> {
   const GenesisActionBoxAction({
@@ -39,7 +36,7 @@ Future<T?> showGenesisActionBox<T>({
 }) {
   return showGenesisDialog<T>(
     context: context,
-    barrierColor: const Color(0x52000000),
+    barrierColor: context.genesisColors.scrim.withValues(alpha: 0.32),
     builder: (dialogContext) {
       return GenesisActionBox<T>(
         title: title,
@@ -120,18 +117,18 @@ class GenesisActionBox<T> extends StatelessWidget {
       child: SizedBox(
         width: dialogWidth,
         child: useDetachedCancelStyle
-            ? _buildDetachedCancelStyle()
-            : _buildAttachedCancelStyle(),
+            ? _buildDetachedCancelStyle(context)
+            : _buildAttachedCancelStyle(context),
       ),
     );
   }
 
-  Widget _buildAttachedCancelStyle() {
+  Widget _buildAttachedCancelStyle(BuildContext context) {
     return ClipRRect(
       key: const ValueKey('genesis-action-box-attached-cancel'),
       borderRadius: _borderRadius,
       child: Material(
-        color: Colors.white,
+        color: context.genesisColors.surface,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -168,7 +165,7 @@ class GenesisActionBox<T> extends StatelessWidget {
     );
   }
 
-  Widget _buildDetachedCancelStyle() {
+  Widget _buildDetachedCancelStyle(BuildContext context) {
     return Column(
       key: const ValueKey('genesis-action-box-detached-cancel'),
       mainAxisSize: MainAxisSize.min,
@@ -176,7 +173,7 @@ class GenesisActionBox<T> extends StatelessWidget {
         ClipRRect(
           borderRadius: _borderRadius,
           child: Material(
-            color: Colors.white,
+            color: context.genesisColors.surface,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -209,7 +206,7 @@ class GenesisActionBox<T> extends StatelessWidget {
         ClipRRect(
           borderRadius: _borderRadius,
           child: Material(
-            color: Colors.white,
+            color: context.genesisColors.surface,
             child: _CancelRow(
               label: cancelLabel,
               height: cancelRowHeight,
@@ -258,8 +255,8 @@ class _TitleRow extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: _genesisActionBoxText,
+                    style: TextStyle(
+                      color: context.genesisColors.textPrimary,
                       fontSize: 15,
                       height: 1.4,
                       fontWeight: FontWeight.w600,
@@ -294,7 +291,9 @@ class _ActionRow<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final color =
         action.color ??
-        (isPreferred ? _genesisActionBoxDestructive : _genesisActionBoxText);
+        (isPreferred
+            ? context.genesisColors.danger
+            : context.genesisColors.textPrimary);
     return InkWell(
       onTap: !action.enabled
           ? null
@@ -368,8 +367,8 @@ class _CancelRow extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _genesisActionBoxText,
+              style: TextStyle(
+                color: context.genesisColors.textPrimary,
                 fontSize: 15,
                 height: 1.2,
                 fontWeight: FontWeight.w400,
@@ -396,10 +395,10 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(
+    return Divider(
       height: 1,
       thickness: 1,
-      color: _genesisActionBoxDivider,
+      color: context.genesisColors.dividerAction,
     );
   }
 }

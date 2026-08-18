@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../theme/genesis_semantic_colors.dart';
-import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_spacing.dart';
 
@@ -247,11 +246,6 @@ class GenesisPrimaryButton extends StatelessWidget {
     fontSize: 16,
     fontWeight: FontWeight.w600,
   );
-  static const Color defaultBackgroundColor = GenesisColors.brand;
-  static const Color defaultForegroundColor = GenesisColors.surface;
-  static const Color defaultDisabledBackgroundColor = GenesisColors.brandSoft;
-  static const Color defaultDisabledForegroundColor = GenesisColors.surface;
-
   final String label;
   final VoidCallback? onPressed;
   final VoidCallback? onDisabledPressed;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_center_toast.dart';
 
 class CopyableIdLabel extends StatelessWidget {
@@ -19,10 +20,7 @@ class CopyableIdLabel extends StatelessWidget {
     fontSize: 12,
     height: 1.1,
     fontWeight: FontWeight.w400,
-    color: Color(0xFF666666),
   );
-
-  static const Color iconColor = Color(0xFF666666);
 
   final String label;
   final String value;
@@ -41,9 +39,13 @@ class CopyableIdLabel extends StatelessWidget {
       onTap: enabled
           ? () => _copy(context, resolvedDisplayValue, normalizedLabel)
           : null,
-      style: customTextStyle ?? CopyableIdLabel.textStyle,
+      style:
+          customTextStyle ??
+          CopyableIdLabel.textStyle.copyWith(
+            color: context.genesisColors.textMuted,
+          ),
       trailingIcon: enabled && showCopyIcon ? Icons.copy_outlined : null,
-      trailingIconColor: customIconColor ?? CopyableIdLabel.iconColor,
+      trailingIconColor: customIconColor ?? context.genesisColors.textMuted,
       trailingGap: 6,
     );
   }
@@ -64,20 +66,20 @@ class GenesisInlineMetaLabel extends StatelessWidget {
     super.key,
     required this.text,
     this.onTap,
-    this.style = CopyableIdLabel.textStyle,
+    this.style,
     this.textAlign = TextAlign.left,
     this.trailingIcon,
-    this.trailingIconColor = CopyableIdLabel.iconColor,
+    this.trailingIconColor,
     this.trailingIconSize = 16,
     this.trailingGap = 4,
   });
 
   final String text;
   final VoidCallback? onTap;
-  final TextStyle style;
+  final TextStyle? style;
   final TextAlign textAlign;
   final IconData? trailingIcon;
-  final Color trailingIconColor;
+  final Color? trailingIconColor;
   final double trailingIconSize;
   final double trailingGap;
 
@@ -99,7 +101,11 @@ class GenesisInlineMetaLabel extends StatelessWidget {
                 child: Text(
                   text,
                   textAlign: textAlign,
-                  style: style,
+                  style:
+                      style ??
+                      CopyableIdLabel.textStyle.copyWith(
+                        color: context.genesisColors.textMuted,
+                      ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -109,7 +115,7 @@ class GenesisInlineMetaLabel extends StatelessWidget {
                 Icon(
                   trailingIcon,
                   size: trailingIconSize,
-                  color: trailingIconColor,
+                  color: trailingIconColor ?? context.genesisColors.textMuted,
                 ),
               ],
             ],
@@ -127,24 +133,24 @@ class GenesisPairedMetaRow extends StatelessWidget {
     required this.leftValue,
     this.leftDisplayValue,
     this.leftCopyEnabled = true,
-    this.leftStyle = CopyableIdLabel.textStyle,
-    this.leftIconColor = CopyableIdLabel.iconColor,
+    this.leftStyle,
+    this.leftIconColor,
     required this.rightText,
     this.rightOnTap,
-    this.rightStyle = CopyableIdLabel.textStyle,
-    this.rightIconColor = CopyableIdLabel.iconColor,
+    this.rightStyle,
+    this.rightIconColor,
   });
 
   final String leftLabel;
   final String leftValue;
   final String? leftDisplayValue;
   final bool leftCopyEnabled;
-  final TextStyle leftStyle;
-  final Color leftIconColor;
+  final TextStyle? leftStyle;
+  final Color? leftIconColor;
   final String rightText;
   final VoidCallback? rightOnTap;
-  final TextStyle rightStyle;
-  final Color rightIconColor;
+  final TextStyle? rightStyle;
+  final Color? rightIconColor;
 
   static const double _iconSize = 16;
 
@@ -176,7 +182,11 @@ class GenesisPairedMetaRow extends StatelessWidget {
                     Flexible(
                       child: Text(
                         '$normalizedLeftLabel: $resolvedLeftValue',
-                        style: leftStyle,
+                        style:
+                            leftStyle ??
+                            CopyableIdLabel.textStyle.copyWith(
+                              color: context.genesisColors.textMuted,
+                            ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -186,7 +196,7 @@ class GenesisPairedMetaRow extends StatelessWidget {
                       Icon(
                         Icons.copy_outlined,
                         size: _iconSize,
-                        color: leftIconColor,
+                        color: leftIconColor ?? context.genesisColors.textMuted,
                       ),
                     ],
                   ],
@@ -206,7 +216,11 @@ class GenesisPairedMetaRow extends StatelessWidget {
                       child: Text(
                         rightText,
                         textAlign: TextAlign.right,
-                        style: rightStyle,
+                        style:
+                            rightStyle ??
+                            CopyableIdLabel.textStyle.copyWith(
+                              color: context.genesisColors.textMuted,
+                            ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -216,7 +230,8 @@ class GenesisPairedMetaRow extends StatelessWidget {
                       Icon(
                         Icons.chevron_right,
                         size: _iconSize,
-                        color: rightIconColor,
+                        color:
+                            rightIconColor ?? context.genesisColors.textMuted,
                       ),
                     ],
                   ],

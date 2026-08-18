@@ -7,7 +7,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_page_header.dart';
-import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../legal/legal_document_page.dart';
 
 class AboutUsPage extends StatelessWidget {
@@ -32,7 +32,7 @@ class AboutUsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.pageBackground,
       appBar: const GenesisBackAppBar(pageName: 'About'),
       body: SafeArea(
         child: Column(
@@ -74,11 +74,11 @@ class _AboutVersionText extends StatelessWidget {
         return Text(
           AboutUsPage.versionLabel(versionName),
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             height: 1.2,
             fontWeight: FontWeight.w400,
-            color: Colors.black,
+            color: context.genesisColors.navigationSelected,
           ),
         );
       },
@@ -117,14 +117,15 @@ class _AboutDescriptionState extends State<_AboutDescription> {
 
   @override
   Widget build(BuildContext context) {
-    const bodyStyle = TextStyle(
+    final colors = context.genesisColors;
+    final bodyStyle = TextStyle(
       fontSize: 15,
       height: 1.55,
       fontWeight: FontWeight.w400,
-      color: Color(0xFF333333),
+      color: colors.textBody,
     );
     final emailStyle = bodyStyle.copyWith(
-      color: const Color(0xFF3E5B8A),
+      color: colors.link,
       fontWeight: FontWeight.w600,
     );
 
@@ -201,16 +202,17 @@ class _AboutLegalLinksState extends State<_AboutLegalLinks> {
 
   @override
   Widget build(BuildContext context) {
-    const bodyStyle = TextStyle(
+    final colors = context.genesisColors;
+    final bodyStyle = TextStyle(
       fontSize: 11,
       height: 1.35,
-      color: Color(0xFF6F6F6F),
+      color: colors.textSecondary,
       fontWeight: FontWeight.w400,
     );
-    const linkStyle = TextStyle(
+    final linkStyle = TextStyle(
       fontSize: 11,
       height: 1.35,
-      color: GenesisColors.brand,
+      color: colors.primary,
       fontWeight: FontWeight.w600,
     );
 

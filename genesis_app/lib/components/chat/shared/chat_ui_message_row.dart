@@ -24,7 +24,7 @@ class ChatMessageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     if (message.isAiContentDisclaimer) {
       return ChatAiContentDisclaimerMessageBubble(message: message);
     }

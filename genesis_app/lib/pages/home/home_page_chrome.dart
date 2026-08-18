@@ -145,7 +145,7 @@ class _HomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GenesisTopSafeArea(
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.pageBackground,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: SizedBox(

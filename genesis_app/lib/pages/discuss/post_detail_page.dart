@@ -9,6 +9,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/discuss/discuss_page_comment_list.dart';
+import '../../components/discuss/genesis_discuss_theme.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
 import '../../network/json_utils.dart';
@@ -17,6 +18,7 @@ import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -31,19 +33,16 @@ const String _postDetailReplyAsset =
     'assets/custom-icons/png/discuss_reply.png';
 const double _postInputReservedHeight = 96;
 const TextStyle _postDetailMetaStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
 const TextStyle _postDetailNameStyle = TextStyle(
-  color: Color(0xFF666666),
   fontSize: 14,
   height: 1.18,
   fontWeight: FontWeight.w600,
 );
 const TextStyle _postDetailBodyStyle = TextStyle(
-  color: Color(0xFF111111),
   fontSize: 14,
   height: 1.45,
   fontWeight: FontWeight.w400,
@@ -158,7 +157,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.pageBackground,
       appBar: const GenesisBackAppBar(pageName: 'Post Detail'),
       body: AnimatedBuilder(
         animation: _controller,
@@ -183,12 +182,12 @@ class _PostDetailPageState extends State<PostDetailPage> {
                       item: item,
                       onReplyTap: () => unawaited(_openReplyComposer(item)),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(vertical: 10),
                       child: Divider(
                         height: 1,
                         thickness: 1,
-                        color: Color(0xFFEDEDED),
+                        color: context.genesisColors.surfaceSheet,
                       ),
                     ),
                     _PostDetailReplies(
@@ -281,8 +280,8 @@ class _PostDetailReplies extends StatelessWidget {
       children: [
         Text(
           'All Replies $replyCount',
-          style: const TextStyle(
-            color: Color(0xFF1D1D1D),
+          style: TextStyle(
+            color: context.genesisColors.textHeading,
             fontSize: 14,
             height: 1.15,
             fontWeight: FontWeight.w600,
@@ -327,8 +326,8 @@ class _PostDetailReplies extends StatelessWidget {
                       )
                     : Text(
                         'View all ${controller.replyButtonCount(item)} replies',
-                        style: const TextStyle(
-                          color: Color(0xFF2F4F7A),
+                        style: TextStyle(
+                          color: context.genesisDiscussColors.authorAccent,
                           fontSize: 12,
                           height: 1.25,
                           fontWeight: FontWeight.w600,
@@ -380,7 +379,9 @@ class _PostReplyRow extends StatelessWidget {
                               data.authorName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: _postDetailNameStyle,
+                              style: _postDetailNameStyle.copyWith(
+                                color: context.genesisColors.textMuted,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -390,15 +391,22 @@ class _PostReplyRow extends StatelessWidget {
                     ),
                     if (data.dateLabel.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      Text(data.dateLabel, style: _postDetailMetaStyle),
+                      Text(
+                        data.dateLabel,
+                        style: _postDetailMetaStyle.copyWith(
+                          color: context.genesisColors.textTimestamp,
+                        ),
+                      ),
                     ],
                   ],
                 ),
               ),
               const SizedBox(height: 6),
               Text.rich(
-                _replyDisplayContentSpan(reply),
-                style: _postDetailBodyStyle,
+                _replyDisplayContentSpan(context, reply),
+                style: _postDetailBodyStyle.copyWith(
+                  color: context.genesisColors.textPrimary,
+                ),
               ),
               if (data.imageUrls.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -443,8 +451,8 @@ class _ReplyActionRow extends StatelessWidget {
     final normalizedDiscussId = discussId.trim();
     final likePending = controller.isLikePending(normalizedDiscussId);
     final activeColor = isLiked
-        ? const Color(0xFFFF2442)
-        : const Color(0xFF7D8178);
+        ? context.genesisColors.danger
+        : context.genesisDiscussColors.actionInactive;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -467,7 +475,7 @@ class _ReplyActionRow extends StatelessWidget {
           child: _PostDetailActionCluster(
             iconAsset: _postDetailReplyAsset,
             count: replyCount,
-            color: _postDetailMetaStyle.color ?? const Color(0xFF8B8B8B),
+            color: context.genesisColors.textTimestamp,
           ),
         ),
         const Spacer(),
@@ -592,13 +600,13 @@ class _PostDetailCommentBar extends StatelessWidget {
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F2),
+                color: context.genesisColors.inputBackground,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
+              child: Text(
                 'Write a reply',
                 style: TextStyle(
-                  color: Color(0xFF8B8B8B),
+                  color: context.genesisColors.textTimestamp,
                   fontSize: 14,
                   height: 1.2,
                   fontWeight: FontWeight.w400,
@@ -752,7 +760,10 @@ class _ReplyViewData {
   final String dateLabel;
 }
 
-TextSpan _replyDisplayContentSpan(Map<String, dynamic> json) {
+TextSpan _replyDisplayContentSpan(
+  BuildContext context,
+  Map<String, dynamic> json,
+) {
   final content = asString(json['content']);
   final parentDiscussId = asString(json['parent_discuss_id']).trim();
   final rootDiscussId = asString(json['root_discuss_id']).trim();
@@ -769,9 +780,9 @@ TextSpan _replyDisplayContentSpan(Map<String, dynamic> json) {
     children: [
       TextSpan(
         text: '@$replyToName ',
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.w400,
-          color: Color(0xFF4B6192),
+          color: context.genesisDiscussColors.actionAccent,
         ),
       ),
       TextSpan(text: content),

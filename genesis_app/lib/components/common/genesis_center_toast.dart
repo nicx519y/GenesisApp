@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/theme/genesis_semantic_colors.dart';
+
 OverlayEntry? _currentGenesisToast;
 Timer? _currentGenesisToastTimer;
 
@@ -39,7 +41,7 @@ void showGenesisToastInOverlay(
               padding: const EdgeInsets.symmetric(horizontal: 36),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.72),
+                  color: context.genesisColors.scrim.withValues(alpha: 0.72),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Padding(
@@ -50,9 +52,9 @@ void showGenesisToastInOverlay(
                   child: Text(
                     trimmedMessage,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       inherit: false,
-                      color: Colors.white,
+                      color: context.genesisColors.textInverse,
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       height: 1.35,

@@ -1,9 +1,5 @@
 part of 'chat_ui_library.dart';
 
-const Color _tickMessageBackgroundColor = Color(0xF0182430);
-const Color _tickMessageAccentColor = Color(0xFF709BC2);
-const Color _tickMessageHeaderColor = Color(0xFFC4DBEF);
-
 class ChatTickPayloadVm extends ChatTimelinePayloadVm {
   const ChatTickPayloadVm({
     this.globalText = '',
@@ -89,7 +85,7 @@ class ChatTickMessageBubble extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.left,
         style: style.systemMessageTextStyle.copyWith(
-          color: _tickMessageHeaderColor,
+          color: context.genesisChatTheme.tickHeader,
           fontWeight: FontWeight.w400,
         ),
       );
@@ -147,7 +143,7 @@ class _ChatTickSurface extends StatelessWidget {
           width: double.infinity,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: _tickMessageBackgroundColor,
+            color: context.genesisChatTheme.tickBackground,
             borderRadius: BorderRadius.circular(
               style.systemMessageBorderRadius,
             ),
@@ -161,7 +157,7 @@ class _ChatTickSurface extends StatelessWidget {
                 width: 2,
                 child: ColoredBox(
                   key: const ValueKey<String>('chat-tick-message-accent'),
-                  color: _tickMessageAccentColor,
+                  color: context.genesisChatTheme.tickAccent,
                 ),
               ),
               Padding(padding: style.systemMessagePadding, child: child),
@@ -306,8 +302,8 @@ class _ChatTickProgressTitleState extends State<_ChatTickProgressTitle> {
       key: const ValueKey<String>('chat-tick-progress-title'),
       '${widget.title}${List.filled(_dotCount, '.').join()}',
       textAlign: TextAlign.left,
-      style: const TextStyle(
-        color: _tickMessageHeaderColor,
+      style: TextStyle(
+        color: context.genesisChatTheme.tickHeader,
         fontSize: 13,
         height: 1.2,
         fontWeight: FontWeight.w600,
@@ -331,7 +327,7 @@ class _ChatTickHeader extends StatelessWidget {
           ? _tickLabel(message)
           : '${_tickLabel(message)} · ${genesisDisplaySafeText(currentTime)}',
       style: style.systemMessageTextStyle.copyWith(
-        color: _tickMessageHeaderColor,
+        color: context.genesisChatTheme.tickHeader,
         fontWeight: FontWeight.w400,
       ),
     );
@@ -346,7 +342,8 @@ class _ChatTickGlobalSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = style.systemMessageTextStyle.color ?? Colors.white;
+    final textColor =
+        style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
     return KeyedSubtree(
       key: const ValueKey<String>('chat-tick-global-section'),
       child: _InlineMarkdownText(
@@ -368,8 +365,10 @@ class _ChatTickSectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = (style.systemMessageTextStyle.color ?? Colors.white)
-        .withValues(alpha: 0.16);
+    final color =
+        (style.systemMessageTextStyle.color ??
+                context.genesisColors.textInverse)
+            .withValues(alpha: 0.16);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Divider(height: 1, thickness: 1, color: color),

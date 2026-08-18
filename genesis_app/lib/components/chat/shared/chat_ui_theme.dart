@@ -1,0 +1,91 @@
+import 'package:flutter/material.dart';
+
+import 'chat_ui_library.dart';
+
+/// Chat visual variants supplied by the active app skin.
+@immutable
+class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
+  const GenesisChatTheme({
+    required this.standard,
+    required this.whiteHeader,
+    required this.privateChat,
+    required this.privateHeaderBackground,
+    required this.locationChat,
+    required this.tickBackground,
+    required this.tickAccent,
+    required this.tickHeader,
+    required this.npcAvatarBackground,
+    required this.newMessageNoticeBackground,
+  });
+
+  factory GenesisChatTheme.light() => GenesisChatTheme(
+    standard: ChatUiStyleConfig.standard,
+    whiteHeader: kChatWhiteHeaderStyle,
+    privateChat: kPrivateChatStyle,
+    privateHeaderBackground: const Color(0xFFEDEDED),
+    locationChat: kLocationChatStyle,
+    tickBackground: const Color(0xF0182430),
+    tickAccent: const Color(0xFF709BC2),
+    tickHeader: const Color(0xFFC4DBEF),
+    npcAvatarBackground: const Color(0xFF4A5F7A),
+    newMessageNoticeBackground: const Color(0xCC1E1E24),
+  );
+
+  final ChatUiStyleConfig standard;
+  final ChatUiStyleConfig whiteHeader;
+  final ChatUiStyleConfig privateChat;
+  final Color privateHeaderBackground;
+  final ChatUiStyleConfig locationChat;
+  final Color tickBackground;
+  final Color tickAccent;
+  final Color tickHeader;
+  final Color npcAvatarBackground;
+  final Color newMessageNoticeBackground;
+
+  static GenesisChatTheme of(BuildContext context) {
+    return Theme.of(context).extension<GenesisChatTheme>() ??
+        GenesisChatTheme.light();
+  }
+
+  @override
+  GenesisChatTheme copyWith({
+    ChatUiStyleConfig? standard,
+    ChatUiStyleConfig? whiteHeader,
+    ChatUiStyleConfig? privateChat,
+    Color? privateHeaderBackground,
+    ChatUiStyleConfig? locationChat,
+    Color? tickBackground,
+    Color? tickAccent,
+    Color? tickHeader,
+    Color? npcAvatarBackground,
+    Color? newMessageNoticeBackground,
+  }) {
+    return GenesisChatTheme(
+      standard: standard ?? this.standard,
+      whiteHeader: whiteHeader ?? this.whiteHeader,
+      privateChat: privateChat ?? this.privateChat,
+      privateHeaderBackground:
+          privateHeaderBackground ?? this.privateHeaderBackground,
+      locationChat: locationChat ?? this.locationChat,
+      tickBackground: tickBackground ?? this.tickBackground,
+      tickAccent: tickAccent ?? this.tickAccent,
+      tickHeader: tickHeader ?? this.tickHeader,
+      npcAvatarBackground: npcAvatarBackground ?? this.npcAvatarBackground,
+      newMessageNoticeBackground:
+          newMessageNoticeBackground ?? this.newMessageNoticeBackground,
+    );
+  }
+
+  @override
+  GenesisChatTheme lerp(
+    covariant ThemeExtension<GenesisChatTheme>? other,
+    double t,
+  ) {
+    if (other is! GenesisChatTheme || t < 0.5) return this;
+    return other;
+  }
+}
+
+extension GenesisChatThemeContext on BuildContext {
+  GenesisChatTheme get genesisChatTheme => GenesisChatTheme.of(this);
+}

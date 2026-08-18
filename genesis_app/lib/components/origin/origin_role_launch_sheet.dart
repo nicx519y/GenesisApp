@@ -16,8 +16,9 @@ import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_colors.dart';
+import 'genesis_origin_theme.dart';
 
 typedef OriginRoleProfileLoader = Future<OriginCustomRoleDraft?> Function();
 typedef OriginRoleAvatarResolver = String Function(String avatar);
@@ -111,7 +112,7 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
       PageRouteBuilder<OriginRoleLaunchSelection>(
         opaque: false,
         barrierDismissible: false,
-        barrierColor: kGenesisSubtleModalBarrierColor,
+        barrierColor: genesisModalBarrierColor(context, subtle: true),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
         pageBuilder: (context, animation, secondaryAnimation) {
@@ -488,7 +489,7 @@ class _RoleSegmentedControl extends StatelessWidget {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: const Color(0xFFEDEDEF),
+        color: context.genesisOriginColors.launchSheetSurface,
         borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
@@ -508,9 +509,11 @@ class _RoleSegmentedControl extends StatelessWidget {
               child: Container(
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: context.genesisColors.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE3E3E7)),
+                  border: Border.all(
+                    color: context.genesisOriginColors.launchSheetBorder,
+                  ),
                 ),
               ),
             ),
@@ -569,8 +572,8 @@ class _SegmentButton extends StatelessWidget {
                 height: 1,
                 fontWeight: FontWeight.w600,
                 color: selected
-                    ? const Color(0xFF111111)
-                    : const Color(0xFF595959),
+                    ? context.genesisColors.textPrimary
+                    : context.genesisOriginColors.launchSheetSecondaryText,
               ),
             ),
           ),
@@ -597,13 +600,13 @@ class _PresetRoleGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (characters.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No preset role',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF777777),
+            color: context.genesisColors.textSubtle,
           ),
         ),
       );
@@ -698,11 +701,11 @@ class _PresetRoleTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 height: 1.1,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF111111),
+                color: context.genesisColors.textPrimary,
               ),
             ),
           ],
@@ -727,15 +730,15 @@ class _LaunchedPresetRoleGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (loading) return const Center(child: CircularProgressIndicator());
+    if (loading) return Center(child: CircularProgressIndicator());
     if (roles.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No launched world',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF777777),
+            color: context.genesisColors.textSubtle,
           ),
         ),
       );
@@ -816,20 +819,26 @@ class _LaunchedPresetRoleTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, height: 1.1),
+              style: TextStyle(fontSize: 12, height: 1.1),
             ),
             const SizedBox(height: 2),
             Text(
               role.worldId,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
+              style: TextStyle(
+                fontSize: 11,
+                color: context.genesisColors.textMuted,
+              ),
             ),
             Text(
               'Tick ${role.tickCount} · ${role.currentTime}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
+              style: TextStyle(
+                fontSize: 11,
+                color: context.genesisColors.textMuted,
+              ),
             ),
           ],
         ),
@@ -865,7 +874,10 @@ class OriginCustomRoleForm extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE1E1E6), width: 1.2),
+              border: Border.all(
+                color: context.genesisOriginColors.launchSheetInputBorder,
+                width: 1.2,
+              ),
             ),
             child: OriginCharacterFormFields(
               form: form,
@@ -899,11 +911,11 @@ class OriginCustomRoleForm extends StatelessWidget {
                   ),
                   child: Text(
                     fillingProfile ? 'Filling...' : 'Fill from my profile',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       height: 1.1,
                       fontWeight: FontWeight.w600,
-                      color: GenesisColors.brand,
+                      color: context.genesisColors.primary,
                     ),
                   ),
                 ),
@@ -955,8 +967,8 @@ class _SheetActions extends StatelessWidget {
                     key: const ValueKey<String>('origin-role-launch-icon'),
                     width: 14,
                     height: 14,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
+                    colorFilter: ColorFilter.mode(
+                      context.genesisColors.onPrimary,
                       BlendMode.srcIn,
                     ),
                   )
@@ -966,9 +978,9 @@ class _SheetActions extends StatelessWidget {
             isLoading: launching,
             height: 35,
             backgroundColor: canLaunch || launching
-                ? GenesisColors.brand
-                : const Color(0xFFC8D9D1),
-            foregroundColor: Colors.white,
+                ? context.genesisColors.primary
+                : context.genesisOriginColors.launchSheetDisabled,
+            foregroundColor: context.genesisColors.onPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),

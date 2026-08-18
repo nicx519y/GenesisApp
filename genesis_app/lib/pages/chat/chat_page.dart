@@ -16,10 +16,10 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_ugc_text.dart';
 
-const Color _privateChatHeaderBackgroundColor = Color(0xFFEDEDED);
 const String _privateChatReplyGateHint = 'Wait for a reply to send more';
 
 class ChatPage extends StatefulWidget {
@@ -589,22 +589,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final privateChatStyle = context.genesisChatTheme.privateChat;
     final peerTitle = firstNonEmpty([
       formatUidForDisplay(widget.peerName),
       formatUidForDisplay(_peerUid),
       'Direct message',
     ]);
-    final headerStyle = kPrivateChatStyle.copyWith(
-      headerBackgroundColor: _privateChatHeaderBackgroundColor,
+    final headerStyle = privateChatStyle.copyWith(
+      headerBackgroundColor: context.genesisChatTheme.privateHeaderBackground,
     );
     return GenesisBottomSystemBarStyleScope(
       style: GenesisBottomSystemBarStyle(
-        color: kPrivateChatStyle.composerBackgroundColor,
+        color: privateChatStyle.composerBackgroundColor,
       ),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: kChatTransparentLightSystemUiOverlayStyle,
         child: Scaffold(
-          backgroundColor: kPrivateChatStyle.conversationBackgroundColor,
+          backgroundColor: privateChatStyle.conversationBackgroundColor,
           resizeToAvoidBottomInset: true,
           body: Stack(
             children: [
@@ -650,7 +651,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   onSend: _send,
                   sendLabel: 'Send',
                   hintText: _composerHintText(),
-                  style: kPrivateChatStyle,
+                  style: privateChatStyle,
                   onHeightChanged: _handleComposerHeightChanged,
                 ),
               ),
@@ -687,7 +688,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Widget _buildMessages() {
-    final style = kPrivateChatStyle;
+    final style = context.genesisChatTheme.privateChat;
     final listPadding = _messageListPadding(style);
     return ValueListenableBuilder<List<String>>(
       valueListenable: _messageStore.orderedMessageIds,
@@ -737,7 +738,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         child: ChatMessageRow(
           key: ValueKey(messageId),
           message: _messageVm(failedRecord),
-          style: kPrivateChatStyle,
+          style: context.genesisChatTheme.privateChat,
           onAvatarTap: _avatarTapFor(failedRecord),
           showDateDivider: shouldShowChatDateDivider(
             previous?.createdAt,
@@ -759,7 +760,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           messageId: messageId,
           child: ChatMessageRow(
             message: _messageVm(record),
-            style: kPrivateChatStyle,
+            style: context.genesisChatTheme.privateChat,
             onAvatarTap: _avatarTapFor(record),
             showDateDivider: shouldShowChatDateDivider(
               previous?.createdAt,
@@ -796,8 +797,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   child: Text(
                     _capitalizedSentence(_latestSendFailureMessage),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF999999),
+                    style: TextStyle(
+                      color: context.genesisColors.textPlaceholder,
                       fontSize: 12,
                       height: 1.35,
                     ),
@@ -820,15 +821,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   double _privateChatHeaderHeight() {
     final topInset = GenesisSafeAreaInsets.top(context);
-    return topInset + kPrivateChatStyle.headerHeight;
+    return topInset + context.genesisChatTheme.privateChat.headerHeight;
   }
 
   double _privateChatComposerHeight() {
     final bottomInset = GenesisSafeAreaInsets.bottom(context);
     return _composerHeight > 0
         ? _composerHeight
-        : kPrivateChatStyle.composerPadding.vertical +
-              kPrivateChatStyle.inputMinHeight +
+        : context.genesisChatTheme.privateChat.composerPadding.vertical +
+              context.genesisChatTheme.privateChat.inputMinHeight +
               bottomInset;
   }
 
@@ -926,7 +927,7 @@ class _NewIncomingMessageNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black.withValues(alpha: 0.72),
+      color: context.genesisColors.scrim.withValues(alpha: 0.72),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         key: const ValueKey('chat-new-message-notice'),
@@ -936,8 +937,8 @@ class _NewIncomingMessageNotice extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(
             '$count new ${count == 1 ? 'message' : 'messages'}',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.genesisColors.textInverse,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),

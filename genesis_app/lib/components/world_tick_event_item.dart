@@ -3,7 +3,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../icons/custom_icon_assets.dart';
 import '../ui/components/genesis_soft_italic_text.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 import '../utils/genesis_timestamp_formatter.dart';
+import 'world/genesis_world_theme.dart';
 
 class WorldTickEventItem extends StatelessWidget {
   const WorldTickEventItem({
@@ -63,14 +65,14 @@ class WorldTickEventItem extends StatelessWidget {
             date: date,
             timeAgo: timeAgo,
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           _GlobalEventCard(
             body: body,
             stacked: stackedContent,
             labelStyle: contentLabelStyle,
             bodyStyle: contentTextStyle,
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           for (final paragraph in paragraphs) ...[
             _TickParagraphRow(
               paragraph: paragraph,
@@ -83,7 +85,7 @@ class WorldTickEventItem extends StatelessWidget {
               metricUnit: metricUnit,
               showClue: showParagraphClue,
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
           ],
         ],
       ),
@@ -114,7 +116,7 @@ class _TickHeader extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 30),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F5F8),
+        color: context.genesisWorldColors.tickSurface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -123,25 +125,25 @@ class _TickHeader extends StatelessWidget {
             child: Text(
               'Tick $tickNumber${subTickNumber > 0 ? '-$subTickNumber' : ''}'
               '${date.isEmpty ? '' : ' · $date'}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
+                color: context.genesisColors.textPrimary,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
           if (timeAgo.isNotEmpty) ...[
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text(
               timeAgo,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 height: 1.2,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF8F8F8F),
+                color: context.genesisColors.textLabelMuted,
               ),
             ),
           ],
@@ -166,20 +168,20 @@ class _GlobalEventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = Text('Global', style: labelStyle ?? _labelStyle);
-    final bodyText = Text(body, style: bodyStyle ?? _bodyStyle);
+    final label = Text('Global', style: labelStyle ?? _labelStyle(context));
+    final bodyText = Text(body, style: bodyStyle ?? _bodyStyle(context));
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F8F4),
+        color: context.genesisWorldColors.tickPositiveSurface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: stacked
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [label, const SizedBox(height: 4), bodyText],
+              children: [label, SizedBox(height: 4), bodyText],
             )
           : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,7 +243,7 @@ class _TickParagraphRow extends StatelessWidget {
       text: name.isEmpty ? 'Location' : name,
       style: labelStyle,
     );
-    final resolvedBodyStyle = bodyStyle ?? _bodyStyle;
+    final resolvedBodyStyle = bodyStyle ?? _bodyStyle(context);
     final bodyText = Text(body, style: resolvedBodyStyle);
     final clueText = clue.isEmpty
         ? null
@@ -270,12 +272,12 @@ class _TickParagraphRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 label,
-                const SizedBox(height: 4),
-                if (metadata != null) ...[metadata, const SizedBox(height: 2)],
+                SizedBox(height: 4),
+                if (metadata != null) ...[metadata, SizedBox(height: 2)],
                 bodyText,
-                if (clueText != null) ...[const SizedBox(height: 8), clueText],
+                if (clueText != null) ...[SizedBox(height: 8), clueText],
                 if (characterDetailsText != null) ...[
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   characterDetailsText,
                 ],
               ],
@@ -288,17 +290,11 @@ class _TickParagraphRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (metadata != null) ...[
-                        metadata,
-                        const SizedBox(height: 2),
-                      ],
+                      if (metadata != null) ...[metadata, SizedBox(height: 2)],
                       bodyText,
-                      if (clueText != null) ...[
-                        const SizedBox(height: 8),
-                        clueText,
-                      ],
+                      if (clueText != null) ...[SizedBox(height: 8), clueText],
                       if (characterDetailsText != null) ...[
-                        const SizedBox(height: 6),
+                        SizedBox(height: 6),
                         characterDetailsText,
                       ],
                     ],
@@ -318,9 +314,9 @@ class _ClueText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const iconColor = Color(0xFF444444);
+    final iconColor = context.genesisColors.textQuaternary;
     final textStyle = style.copyWith(
-      color: const Color(0xFF666666),
+      color: context.genesisColors.textMuted,
       height: 1.35,
     );
     return Row(
@@ -335,37 +331,33 @@ class _ClueText extends StatelessWidget {
             colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
           ),
         ),
-        const SizedBox(width: 5),
+        SizedBox(width: 5),
         Expanded(child: GenesisSoftItalicText(text, style: textStyle)),
       ],
     );
   }
 }
 
-const _labelStyle = TextStyle(
+TextStyle _labelStyle(BuildContext context) => TextStyle(
   fontSize: 12,
   height: 1.6,
   fontWeight: FontWeight.w600,
-  color: Color(0xFF111111),
+  color: context.genesisColors.textPrimary,
 );
 
-const _bodyStyle = TextStyle(
+TextStyle _bodyStyle(BuildContext context) => TextStyle(
   fontSize: 12,
   height: 1.6,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF444444),
+  color: context.genesisColors.textQuaternary,
 );
 
-const _timestampStyle = TextStyle(
+TextStyle _timestampStyle(BuildContext context) => TextStyle(
   fontSize: 12,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: context.genesisColors.textPrimary,
 );
-
-const _characterDetailNameColor = Color(0xFF4B6192);
-const _positiveDeltaColor = Color(0xFF338960);
-const _negativeDeltaColor = Color(0xFFFF2442);
 
 class _CharacterDetailsText extends StatelessWidget {
   const _CharacterDetailsText({required this.details, required this.style});
@@ -376,7 +368,7 @@ class _CharacterDetailsText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nameStyle = style.copyWith(
-      color: _characterDetailNameColor,
+      color: context.genesisColors.accentText,
       fontWeight: FontWeight.w600,
     );
     return Text.rich(
@@ -391,10 +383,12 @@ class _CharacterDetailsText extends StatelessWidget {
                 text: details[index].name.isEmpty
                     ? details[index].delta
                     : ' ${details[index].delta}',
-                style: details[index].deltaColor == null
+                style: details[index].deltaDirection == 0
                     ? null
                     : style.copyWith(
-                        color: details[index].deltaColor,
+                        color: details[index].deltaDirection > 0
+                            ? context.genesisColors.primary
+                            : context.genesisColors.danger,
                         fontWeight: FontWeight.w600,
                       ),
               ),
@@ -417,9 +411,13 @@ class _LocationLabel extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.place_outlined, size: 12, color: Color(0xFF111111)),
-        const SizedBox(width: 4),
-        Flexible(child: Text(text, style: style ?? _labelStyle)),
+        Icon(
+          Icons.place_outlined,
+          size: 12,
+          color: context.genesisColors.textPrimary,
+        ),
+        SizedBox(width: 4),
+        Flexible(child: Text(text, style: style ?? _labelStyle(context))),
       ],
     );
   }
@@ -433,14 +431,18 @@ class _TimestampLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedStyle = (style ?? _timestampStyle).copyWith(
+    final resolvedStyle = (style ?? _timestampStyle(context)).copyWith(
       fontWeight: FontWeight.w400,
     );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.schedule, size: 12, color: Color(0xFF111111)),
-        const SizedBox(width: 4),
+        Icon(
+          Icons.schedule,
+          size: 12,
+          color: context.genesisColors.textPrimary,
+        ),
+        SizedBox(width: 4),
         Flexible(child: Text(text, style: resolvedStyle)),
       ],
     );
@@ -493,7 +495,7 @@ class _EventMetadata extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         timestamp!,
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Expanded(child: roleGroups),
       ],
     );
@@ -513,9 +515,9 @@ class _VisibleRoleGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedStyle = (style ?? _timestampStyle).copyWith(
+    final resolvedStyle = (style ?? _timestampStyle(context)).copyWith(
       fontWeight: FontWeight.w400,
-      color: style?.color ?? const Color(0xFF444444),
+      color: style?.color ?? context.genesisColors.textQuaternary,
     );
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -531,7 +533,7 @@ class _VisibleRoleGroup extends StatelessWidget {
             excludeFromSemantics: true,
           ),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
         Flexible(child: Text(names.join(', '), style: resolvedStyle)),
       ],
     );
@@ -613,12 +615,12 @@ class _CharacterDetailLine {
   const _CharacterDetailLine({
     required this.name,
     required this.delta,
-    this.deltaColor,
+    this.deltaDirection = 0,
   });
 
   final String name;
   final String delta;
-  final Color? deltaColor;
+  final int deltaDirection;
 
   bool get isNotEmpty => name.isNotEmpty || delta.isNotEmpty;
 }
@@ -639,7 +641,7 @@ List<_CharacterDetailLine> _characterDetails(
         return _CharacterDetailLine(
           name: _mapString(detail, const ['name']),
           delta: delta,
-          deltaColor: _characterDeltaColor(rawDelta),
+          deltaDirection: _characterDeltaDirection(rawDelta),
         );
       })
       .where((line) => line.isNotEmpty)
@@ -654,12 +656,12 @@ String _characterDeltaText(Object? rawDelta, String unit) {
   return '$prefix$delta$unit';
 }
 
-Color? _characterDeltaColor(Object? rawDelta) {
+int _characterDeltaDirection(Object? rawDelta) {
   final number = _pureIntegerDelta(rawDelta);
-  if (number == null) return null;
-  if (number > 0) return _positiveDeltaColor;
-  if (number < 0) return _negativeDeltaColor;
-  return null;
+  if (number == null) return 0;
+  if (number > 0) return 1;
+  if (number < 0) return -1;
+  return 0;
 }
 
 int? _pureIntegerDelta(Object? value) {

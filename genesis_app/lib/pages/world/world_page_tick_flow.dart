@@ -292,11 +292,11 @@ extension _WorldPageTickFlow on _WorldPageState {
     final result = await showGenesisActionBox<bool>(
       context: context,
       title: 'Request to join this World?',
-      actions: const [
+      actions: [
         GenesisActionBoxAction<bool>(
           label: 'Request',
           value: true,
-          color: Color(0xFF2F9663),
+          color: context.genesisWorldColors.success,
         ),
       ],
     );

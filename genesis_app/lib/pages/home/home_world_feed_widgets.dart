@@ -109,12 +109,12 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
           children: [
             widget.child,
             if (widget.bottomSpacing > 0)
-              const Padding(
-                padding: EdgeInsets.only(top: 24, bottom: 16),
+              Padding(
+                padding: const EdgeInsets.only(top: 24, bottom: 16),
                 child: Divider(
                   height: 1,
                   thickness: 1,
-                  color: Color(0xFFEFEFEF),
+                  color: context.genesisColors.dividerMuted,
                 ),
               ),
           ],
@@ -152,18 +152,18 @@ class _MyWorldsEmptyState extends StatelessWidget {
             const SizedBox(height: 22),
             Text.rich(
               TextSpan(
-                children: const [
-                  TextSpan(text: 'Launch a '),
+                children: [
+                  const TextSpan(text: 'Launch a '),
                   TextSpan(
                     text: '#Worldo',
-                    style: TextStyle(color: Color(0xFF4B6192)),
+                    style: TextStyle(color: context.genesisColors.accentText),
                   ),
-                  TextSpan(text: ' to generate your own World'),
+                  const TextSpan(text: ' to generate your own World'),
                 ],
               ),
               textAlign: TextAlign.center,
               style: textTheme.titleMedium?.copyWith(
-                color: GenesisColors.textPrimary,
+                color: context.genesisColors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 height: 1.25,
@@ -175,7 +175,7 @@ class _MyWorldsEmptyState extends StatelessWidget {
               'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
               textAlign: TextAlign.center,
               style: textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF666666),
+                color: context.genesisColors.textMuted,
                 fontSize: 14,
                 height: 1.25,
                 letterSpacing: 0,

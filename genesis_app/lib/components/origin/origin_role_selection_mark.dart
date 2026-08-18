@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
+import 'genesis_origin_theme.dart';
 
 enum OriginRoleSelectionMarkStyle { checkbox, star }
 
@@ -43,7 +44,9 @@ class _OriginRoleStarMark extends StatelessWidget {
         child: Icon(
           selected ? Icons.star_rounded : Icons.star_border_rounded,
           size: 16,
-          color: selected ? GenesisColors.brand : const Color(0xFF999999),
+          color: selected
+              ? context.genesisColors.primary
+              : context.genesisOriginColors.roleSetupMuted,
         ),
       ),
     );
@@ -61,19 +64,25 @@ class _OriginRoleCheckboxMark extends StatelessWidget {
       width: 26,
       height: 26,
       decoration: BoxDecoration(
-        color: selected ? GenesisColors.brand : Colors.white10,
+        color: selected
+            ? context.genesisColors.primary
+            : context.genesisColors.textInverse.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [
+        border: Border.all(color: context.genesisColors.textInverse, width: 2),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x33000000),
+            color: context.genesisColors.scrim.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: Offset(0, 1),
           ),
         ],
       ),
       child: selected
-          ? const Icon(Icons.check, size: 18, color: Colors.white)
+          ? Icon(
+              Icons.check,
+              size: 18,
+              color: context.genesisColors.textInverse,
+            )
           : null,
     );
   }

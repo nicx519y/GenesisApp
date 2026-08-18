@@ -24,7 +24,6 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_search_field.dart';
 import '../../ui/components/genesis_tab_bar.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import 'home_feed_cache_store.dart';

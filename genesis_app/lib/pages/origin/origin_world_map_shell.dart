@@ -31,7 +31,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _baseStatusBarStyle,
       child: Scaffold(
-        backgroundColor: originWorldDetailSheetBackgroundColor,
+        backgroundColor: context.genesisColors.surfaceSheet,
         resizeToAvoidBottomInset: false,
         body: LayoutBuilder(
           builder: (context, constraints) {
@@ -169,8 +169,8 @@ class _OriginDetailLoadingSheet extends StatelessWidget {
           heightFactor: minChildSize,
           child: DecoratedBox(
             key: const ValueKey<String>('origin-detail-loading-sheet'),
-            decoration: const BoxDecoration(
-              color: originWorldDetailSheetBackgroundColor,
+            decoration: BoxDecoration(
+              color: context.genesisColors.surfaceSheet,
               borderRadius: GenesisRadii.sheet,
             ),
             child: ClipRRect(
@@ -307,7 +307,7 @@ class _OriginLoadingBone extends StatelessWidget {
   Widget build(BuildContext context) {
     final bone = DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFD9DDE2),
+        color: context.genesisOriginColors.loadingBone,
         borderRadius: BorderRadius.circular(radius),
       ),
       child: SizedBox(width: width, height: height),
@@ -330,11 +330,11 @@ class _OriginBottomLaunchBarLoading extends StatelessWidget {
     return ClipRect(
       key: const ValueKey<String>('origin-bottom-launch-loading'),
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: originWorldDetailSheetBackgroundColor,
+        decoration: BoxDecoration(
+          color: context.genesisColors.surfaceSheet,
           boxShadow: [
             BoxShadow(
-              color: Color(0x14000000),
+              color: context.genesisColors.shadow,
               blurRadius: 8,
               offset: Offset(0, -2),
             ),
@@ -394,11 +394,11 @@ class _OriginBottomLaunchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       key: const ValueKey<String>('origin-bottom-launch-blur'),
-      decoration: const BoxDecoration(
-        color: originWorldDetailSheetBackgroundColor,
+      decoration: BoxDecoration(
+        color: context.genesisColors.surfaceSheet,
         boxShadow: [
           BoxShadow(
-            color: Color(0x14000000),
+            color: context.genesisColors.shadow,
             blurRadius: 8,
             offset: Offset(0, -2),
           ),
@@ -421,11 +421,11 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                       key: const ValueKey<String>('origin-bottom-origin-name'),
                       maxLines: 1,
                       softWrap: false,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         height: 1.2,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF4B6192),
+                        color: context.genesisColors.accentText,
                       ),
                     ),
                   ),
@@ -438,8 +438,8 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                     key: const ValueKey<String>('origin-bottom-launch-icon'),
                     width: 14,
                     height: 14,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
+                    colorFilter: ColorFilter.mode(
+                      context.genesisColors.onPrimary,
                       BlendMode.srcIn,
                     ),
                   ),

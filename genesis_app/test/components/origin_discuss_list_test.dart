@@ -469,7 +469,7 @@ void main() {
 
     final author = tester.widget<Text>(find.text('User 1'));
     expect(author.style?.fontSize, 12);
-    expect(author.style?.fontWeight, FontWeight.w500);
+    expect(author.style?.fontWeight, FontWeight.w600);
     expect(author.style?.color, const Color(0xFF888888));
     final authorCenter = tester.getCenter(find.text('User 1'));
     final badgeCenter = tester.getCenter(find.byType(DiscussStoryBadge));

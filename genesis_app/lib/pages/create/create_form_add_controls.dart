@@ -21,7 +21,7 @@ class CreateAddButton extends StatelessWidget {
         onTap: onTap,
         child: CustomPaint(
           painter: CreateDashedRRectPainter(
-            color: createFormDash,
+            color: context.genesisCreateColors.dash,
             radius: 8,
             strokeWidth: 1.2,
           ),
@@ -31,8 +31,8 @@ class CreateAddButton extends StatelessWidget {
             child: Center(
               child: Text(
                 label,
-                style: const TextStyle(
-                  color: createFormText,
+                style: TextStyle(
+                  color: context.genesisCreateColors.text,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -75,8 +75,8 @@ class CreateInlineAddButton extends StatelessWidget {
           if (supporting.isNotEmpty)
             TextSpan(
               text: ' $supporting',
-              style: const TextStyle(
-                color: Color(0xFFA8A8AD),
+              style: TextStyle(
+                color: context.genesisCreateColors.hint,
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
               ),
@@ -84,7 +84,7 @@ class CreateInlineAddButton extends StatelessWidget {
         ],
       ),
       style: TextStyle(
-        color: createFormGreen,
+        color: context.genesisCreateColors.accent,
         fontSize: fontSize,
         fontWeight: FontWeight.w600,
         height: 1.2,

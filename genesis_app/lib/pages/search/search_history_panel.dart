@@ -22,10 +22,10 @@ class _SearchHistoryPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Search histroy',
                   style: TextStyle(
-                    color: Color(0xFF111111),
+                    color: context.genesisColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -73,7 +73,7 @@ class _SearchHistoryTag extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: maxWidth),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F3F6),
+            color: context.genesisColors.surfaceTag,
             borderRadius: BorderRadius.circular(15),
           ),
           child: Padding(
@@ -86,8 +86,8 @@ class _SearchHistoryTag extends StatelessWidget {
                   query,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF888888),
+                  style: TextStyle(
+                    color: context.genesisColors.textFaint,
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                   ),

@@ -8,9 +8,7 @@ import '../ui/theme/genesis_ui_theme.dart';
 import '../ui/tokens/genesis_typography.dart';
 import 'world_details_shell.dart';
 
-const _worldTopTabTextColor = Color(0xFF111111);
 const _worldTopOverlayHeight = genesisSearchFieldHeight;
-const _worldTopOverlayBackground = Color(0xE6FFFFFF);
 
 class WorldTopOverlayBar extends StatelessWidget {
   const WorldTopOverlayBar({
@@ -56,24 +54,27 @@ class WorldTopOverlayBar extends StatelessWidget {
           width: _worldTopOverlayHeight,
           height: _worldTopOverlayHeight,
           decoration: BoxDecoration(
-            color: _worldTopOverlayBackground,
+            color: colors.surface.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
             iconSize: 18,
             onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: colors.foregroundStrong,
+            ),
             padding: EdgeInsets.zero,
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         Expanded(
           child: IgnorePointer(
             ignoring: !tabsEnabled,
             child: Container(
               height: _worldTopOverlayHeight,
               decoration: BoxDecoration(
-                color: _worldTopOverlayBackground,
+                color: colors.surface.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: TabBar(
@@ -95,8 +96,8 @@ class WorldTopOverlayBar extends StatelessWidget {
                   height: uiTheme.tabIndicatorHeight,
                   bottomPadding: genesisTabIndicatorBottomPadding,
                 ),
-                labelColor: _worldTopTabTextColor,
-                unselectedLabelColor: _worldTopTabTextColor,
+                labelColor: colors.textPrimary,
+                unselectedLabelColor: colors.textPrimary,
                 labelStyle: GenesisTypography.bodyStrong.copyWith(fontSize: 16),
                 unselectedLabelStyle: GenesisTypography.body.copyWith(
                   fontSize: 16,
@@ -126,7 +127,7 @@ class WorldTopOverlayBar extends StatelessWidget {
                               : Icons.place_outlined,
                           size: 16,
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                         Text(
                           secondaryTabIsIntro
                               ? 'Info.'

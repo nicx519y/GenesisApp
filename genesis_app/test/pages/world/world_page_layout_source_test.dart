@@ -45,6 +45,9 @@ void main() {
     'lib/pages/world/world_bottom_sheet.dart',
   );
   final originWorldPageSource = File('lib/pages/origin/origin_world_page.dart');
+  final originWorldRoleSetupSource = File(
+    'lib/pages/origin/origin_world_role_setup.dart',
+  ).readAsStringSync();
   final worldModelsSource = File('lib/pages/world/world_models.dart');
   final worldConstantsSource = File(
     'lib/pages/world/world_constants.dart',
@@ -74,8 +77,12 @@ void main() {
 
     expect(source, contains('class WorldPage extends StatefulWidget'));
     expect(source, contains('class _WorldPageState'));
-    expect(source, contains('WorldDetailsPageScaffold('));
-    expect(source, contains('WorldBottomTags('));
+    expect(source, contains("part 'world_page_layout.dart';"));
+    expect(
+      worldPageImplementationSource,
+      contains('WorldDetailsPageScaffold('),
+    );
+    expect(worldPageImplementationSource, contains('WorldBottomTags('));
     expect(source, contains('WorldLocationChatRouterHost('));
     expect(source, isNot(contains('class WorldSingleSectionBottomSheet')));
     expect(source, isNot(contains('class WorldEventsSection')));
@@ -181,7 +188,7 @@ void main() {
     expect(tags, contains("label: 'Status'"));
     expect(tags, isNot(contains("label: 'Cast'")));
     expect(tags, isNot(contains("label: 'Map'")));
-    expect(bottomTags, contains('Color(0xFFFFFFFF)'));
+    expect(bottomTags, contains('context.genesisColors.surface'));
     expect(bottomTags, contains('alignment: Alignment.centerLeft'));
     expect(bottomTags, isNot(contains('alignment: Alignment.center,')));
     expect(bottomTags, contains('physics: const ClampingScrollPhysics()'));
@@ -215,8 +222,8 @@ void main() {
     expect(bottomTags, isNot(contains('TabBar(')));
     expect(source, contains('_openWorldBottomSheet('));
     expect(source, contains('enableDrag: false'));
-    expect(bottomTagContent, contains('Color(0xFFEBEFF2)'));
-    expect(bottomTagContent, contains('Color(0xFF666666)'));
+    expect(bottomTagContent, contains('context.genesisWorldColors.tabSurface'));
+    expect(bottomTagContent, contains('context.genesisColors.textMuted'));
     expect(
       bottomTagContent,
       contains('borderRadius: BorderRadius.circular(12)'),
@@ -248,7 +255,7 @@ void main() {
     expect(detailSection, contains("label: 'Invite'"));
     expect(detailSection, contains('width: 140'));
     expect(detailSection, contains('height: 35'));
-    expect(detailSection, contains('Color(0xFFFF2442)'));
+    expect(detailSection, contains('context.genesisColors.danger'));
     expect(detailSection, contains('Clipboard.setData'));
     expect(detailSection, contains('Link copied. Share it with your friends.'));
     expect(
@@ -269,7 +276,7 @@ void main() {
     expect(sections, contains('showCharacters: false'));
     expect(
       detailSection,
-      contains('const SizedBox(height: 4),\n        GenesisPairedMetaRow'),
+      contains('SizedBox(height: 4),\n        GenesisPairedMetaRow'),
     );
   });
 
@@ -282,7 +289,7 @@ void main() {
 
     expect(characterRow, contains('fontSize: 13'));
     expect(characterRow, contains('maxLines: 4'));
-    expect(characterRow, contains('Color(0xFFFF2442)'));
+    expect(characterRow, contains('context.genesisColors.danger'));
     expect(characterRow, contains('height: 1.4'));
     expect(characterRow, contains('SizedBox(height: 5)'));
     expect(characterRow, contains('SizedBox(width: 14)'));
@@ -504,9 +511,13 @@ void main() {
       worldPage.indexOf('void _precacheProgressWaitAvatarImages'),
       worldPage.indexOf('String _rootMapImageUrlForWorld'),
     );
-    final launchWaitAvatarPrecache = originWorldPage.substring(
-      originWorldPage.indexOf('void _precacheLaunchWaitAvatarImages'),
-      originWorldPage.indexOf('bool _sameWaitAvatars'),
+    final profileRoleAvatarPrecache = originWorldPage.substring(
+      originWorldPage.indexOf('void _precacheProfileRoleAvatar'),
+      originWorldPage.indexOf('Color get _tilemapLoadingBackgroundColor'),
+    );
+    final upcomingRoleAvatarsPrecache = originWorldRoleSetupSource.substring(
+      originWorldRoleSetupSource.indexOf('void _precacheUpcomingRoleAvatars'),
+      originWorldRoleSetupSource.indexOf('@override\n  Widget build'),
     );
 
     expect(
@@ -529,11 +540,11 @@ void main() {
       progressWaitAvatarPrecache,
       contains(').catchError((Object error, StackTrace stackTrace)'),
     );
+    expect(profileRoleAvatarPrecache, contains('onError: (error, stackTrace)'));
     expect(
-      launchWaitAvatarPrecache,
-      contains('unawaited(_precacheOriginAvatarFile(resolvedUrl))'),
+      upcomingRoleAvatarsPrecache,
+      contains('onError: (error, stackTrace)'),
     );
-    expect(launchWaitAvatarPrecache, contains('catch (error)'));
   });
 
   test('world tick completion closes other sheets before opening events', () {

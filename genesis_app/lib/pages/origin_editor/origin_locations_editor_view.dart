@@ -9,14 +9,14 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
           child: Text(
             '${_forms.length}/'
             '${_OriginLocationsEditorPageState._maxLocations} (Added / Max)',
-            style: const TextStyle(
-              color: createFormText,
+            style: TextStyle(
+              color: context.genesisCreateColors.text,
               fontSize: 14,
               height: 1.2,
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         for (int i = 0; i < _forms.length; i++) ...[
           _LocationCard(
             index: i + 1,
@@ -31,10 +31,10 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
                 _removeCharacterFromLocation(i, charId),
             onDelete: () => _requestRemoveLocation(i),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
         ],
         CreateAddButton(label: '+ Add Location', onTap: _addLocation),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
       ];
     }
 
@@ -48,32 +48,35 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
           children: [
             Text(
               'L1: $_l1LocationCount',
-              style: _OriginLocationsEditorPageState._locationCountStyle,
+              style: _OriginLocationsEditorPageState._locationCountStyle
+                  .copyWith(color: context.genesisColors.textMuted),
             ),
             Text(
               'L2: $_l2LocationCount',
-              style: _OriginLocationsEditorPageState._locationCountStyle,
+              style: _OriginLocationsEditorPageState._locationCountStyle
+                  .copyWith(color: context.genesisColors.textMuted),
             ),
             Text(
               'L3: $_l3LocationCount/'
               '${_OriginLocationsEditorPageState._maxLocations} (Added/Max)',
-              style: _OriginLocationsEditorPageState._locationCountStyle,
+              style: _OriginLocationsEditorPageState._locationCountStyle
+                  .copyWith(color: context.genesisColors.textMuted),
             ),
           ],
         ),
       ),
-      const SizedBox(height: 12),
+      SizedBox(height: 12),
       for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) ...[
         _buildL1Branch(_treeForms[l1Index], l1Index),
-        if (l1Index + 1 < _treeForms.length) const SizedBox(height: 8),
+        if (l1Index + 1 < _treeForms.length) SizedBox(height: 8),
       ],
-      if (_treeForms.isNotEmpty) const SizedBox(height: 8),
+      if (_treeForms.isNotEmpty) SizedBox(height: 8),
       _LocationTreeAddButton(
         key: const ValueKey<String>('create-add-l1-location'),
         label: '+ L1',
         onTap: _addL1Location,
       ),
-      const SizedBox(height: 6),
+      SizedBox(height: 6),
     ];
   }
 
@@ -238,16 +241,16 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
                       children: [
                         TextSpan(
                           text: ' (No. $displayId)',
-                          style: const TextStyle(
-                            color: Color(0xFFA8A8AD),
+                          style: TextStyle(
+                            color: context.genesisCreateColors.hint,
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
                       ],
                     ),
-                    style: const TextStyle(
-                      color: createFormText,
+                    style: TextStyle(
+                      color: context.genesisCreateColors.text,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
@@ -266,19 +269,19 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Row(
             children: [
-              const Text(
+              Text(
                 'Name',
                 style: TextStyle(
-                  color: createFormText,
+                  color: context.genesisCreateColors.text,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                   height: 1.2,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: CreateTextFieldBlock(
                   key: key,
@@ -332,26 +335,26 @@ class _LocationsModeSwitch extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (switchingToPreview)
-                const Icon(
+                Icon(
                   Icons.visibility_outlined,
                   size: 16,
-                  color: Color(0xFF4B6192),
+                  color: context.genesisColors.accentText,
                 )
               else
                 SvgPicture.asset(
                   editPencilLineIconAsset,
                   width: 16,
                   height: 16,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFF4B6192),
+                  colorFilter: ColorFilter.mode(
+                    context.genesisColors.accentText,
                     BlendMode.srcIn,
                   ),
                 ),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Color(0xFF4B6192),
+                style: TextStyle(
+                  color: context.genesisColors.accentText,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
@@ -401,7 +404,7 @@ class _InlineTreeLocationNameEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final prefixStyle = _inlineLocationNameStyle(level);
+    final prefixStyle = _inlineLocationNameStyle(context, level);
     final inputVerticalOffset = level == 0 ? -2.0 : -5.0;
     return KeyedSubtree(
       key: testKey,
@@ -440,7 +443,7 @@ class _InlineTreeLocationNameEditor extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Transform.translate(
                     offset: Offset(0, level == 0 ? 2.5 : 1.5),
                     child: _InlineLocationSaveButton(
@@ -448,7 +451,7 @@ class _InlineTreeLocationNameEditor extends StatelessWidget {
                       onPressed: onEditingComplete,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   Transform.translate(
                     offset: Offset(0, level == 0 ? 2.5 : 1.5),
                     child: CreateFormDeleteButton(
@@ -509,7 +512,7 @@ class _InlineTreeLocationPreviewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _inlineLocationNameStyle(level);
+    final style = _inlineLocationNameStyle(context, level);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -533,16 +536,16 @@ class _InlineTreeLocationPreviewHeader extends StatelessWidget {
   }
 }
 
-TextStyle _inlineLocationNameStyle(int level) {
+TextStyle _inlineLocationNameStyle(BuildContext context, int level) {
   if (level <= 0) {
-    return const TextStyle(
-      color: Colors.black,
+    return TextStyle(
+      color: context.genesisColors.foregroundStrong,
       fontSize: 16,
       fontWeight: FontWeight.w600,
     );
   }
-  return const TextStyle(
-    color: Colors.black,
+  return TextStyle(
+    color: context.genesisColors.foregroundStrong,
     fontSize: 14,
     height: 1.2,
     fontWeight: FontWeight.w600,
@@ -564,8 +567,10 @@ class _InlineLocationSaveButton extends StatelessWidget {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xE6F4F4F6),
-              border: Border.all(color: const Color(0xFFD8D8DE)),
+              color: context.genesisCreateColors.fieldOverlay,
+              border: Border.all(
+                color: context.genesisCreateColors.inputBorder,
+              ),
               borderRadius: BorderRadius.circular(6),
             ),
           ),
@@ -578,8 +583,8 @@ class _InlineLocationSaveButton extends StatelessWidget {
               saveLineIconAsset,
               width: 14,
               height: 14,
-              colorFilter: const ColorFilter.mode(
-                createFormGreen,
+              colorFilter: ColorFilter.mode(
+                context.genesisCreateColors.accent,
                 BlendMode.srcIn,
               ),
             ),
@@ -612,7 +617,9 @@ class _LocationTreeGuide extends StatelessWidget {
           top: 0,
           bottom: 0,
           width: 1,
-          child: const ColoredBox(color: Color(0x99338960)),
+          child: ColoredBox(
+            color: context.genesisCreateColors.accent.withValues(alpha: 0.6),
+          ),
         ),
         if (branchTop != null)
           Positioned(
@@ -620,7 +627,9 @@ class _LocationTreeGuide extends StatelessWidget {
             top: branchTop!,
             width: 12,
             height: 1,
-            child: const ColoredBox(color: Color(0x99338960)),
+            child: ColoredBox(
+              color: context.genesisCreateColors.accent.withValues(alpha: 0.6),
+            ),
           ),
         child,
       ],
@@ -635,10 +644,7 @@ class _LocationTreeVerticalGap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _LocationTreeGuide(
-      lineLeft: lineLeft,
-      child: const SizedBox(height: 8),
-    );
+    return _LocationTreeGuide(lineLeft: lineLeft, child: SizedBox(height: 8));
   }
 }
 
@@ -685,7 +691,7 @@ class _LocationTreeAddL3Button extends StatelessWidget {
           onTap: onTap,
           child: CustomPaint(
             painter: CreateDashedRRectPainter(
-              color: createFormDash,
+              color: context.genesisCreateColors.dash,
               radius: 4,
               strokeWidth: 1.2,
             ),
@@ -695,12 +701,16 @@ class _LocationTreeAddL3Button extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.add, color: createFormGreen, size: 22),
-                  const SizedBox(height: 2),
+                  Icon(
+                    Icons.add,
+                    color: context.genesisCreateColors.accent,
+                    size: 22,
+                  ),
+                  SizedBox(height: 2),
                   Text(
                     isRequired ? 'L3 *' : 'L3',
-                    style: const TextStyle(
-                      color: createFormGreen,
+                    style: TextStyle(
+                      color: context.genesisCreateColors.accent,
                       fontSize: 12,
                       height: 1.2,
                       fontWeight: FontWeight.w600,

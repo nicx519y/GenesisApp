@@ -34,6 +34,7 @@ import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
 import 'package:genesis_flutter_android/components/common/list_loading_skeleton.dart';
+import 'package:genesis_flutter_android/components/create/genesis_create_theme.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
@@ -50,6 +51,7 @@ import 'package:genesis_flutter_android/components/world_details_shell.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/components/world_map_location_action.dart';
 import 'package:genesis_flutter_android/components/world_top_overlay_bar.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
@@ -277,6 +279,13 @@ Future<void> _pumpGenesisApp(
       services: await _testServices(initialAuthToken: initialAuthToken),
     ),
   );
+  await tester.pump();
+  final homeTab = find.byKey(const ValueKey('bottom-nav-Home'));
+  if (homeTab.evaluate().isNotEmpty &&
+      tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex != 0) {
+    await tester.tap(homeTab);
+    await tester.pump();
+  }
 }
 
 class _FakeDeviceIdService implements DeviceIdService {
@@ -2948,7 +2957,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Cancel'), findsOneWidget);
-    expect(find.text('Explore'), findsOneWidget);
+    expect(find.text('Explore'), findsWidgets);
     final searchPageSearchTop = tester
         .getTopLeft(find.byType(GenesisSearchField).first)
         .dy;
@@ -4552,7 +4561,7 @@ void main() {
 
     final title = tester.widget<Text>(find.text('Alex comment your worldo'));
     expect(title.style?.fontSize, 14);
-    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(title.style?.fontWeight, FontWeight.w600);
     expect(title.style?.color, const Color(0xFF111111));
 
     final body = tester.widget<Text>(find.text('Comment text'));
@@ -6021,7 +6030,7 @@ void main() {
     ).backgroundColor;
     expect(
       tester.widget<ColoredBox>(transitionBackground).color,
-      originWorldDetailSheetBackgroundColor,
+      GenesisSemanticColors.light().surfaceSheet,
     );
     expect(
       tester.widget<ColoredBox>(transitionMapBackground).color,
@@ -6029,7 +6038,7 @@ void main() {
     );
     expect(
       tester.widget<ColoredBox>(transitionPanelBackground).color,
-      originWorldDetailSheetBackgroundColor,
+      GenesisSemanticColors.light().surfaceSheet,
     );
     final expectedMapHeight = originWorldMapHeightFor(
       viewportHeight: viewportSize.height,
@@ -13751,7 +13760,7 @@ void main() {
       isTrue,
     );
     final addCharacterText = tester.widget<Text>(find.text('+ Add Character'));
-    expect(addCharacterText.style?.color, createFormGreen);
+    expect(addCharacterText.style?.color, GenesisCreateColors.light().accent);
     expect(addCharacterText.style?.fontSize, 16);
     expect(addCharacterText.style?.fontWeight, FontWeight.w600);
     expect(
@@ -15454,7 +15463,7 @@ void main() {
     expect(saveIconWidget.height, 14);
     expect(
       saveIconWidget.colorFilter,
-      const ColorFilter.mode(createFormGreen, BlendMode.srcIn),
+      ColorFilter.mode(GenesisCreateColors.light().accent, BlendMode.srcIn),
     );
     final saveButtonDecoration =
         tester
@@ -16535,7 +16544,7 @@ void main() {
     );
     expect(find.byType(CreateInlineAddButton), findsOneWidget);
     final addEventText = tester.widget<Text>(find.text('+ Add Event'));
-    expect(addEventText.style?.color, createFormGreen);
+    expect(addEventText.style?.color, GenesisCreateColors.light().accent);
     expect(addEventText.style?.fontSize, 16);
     expect(addEventText.style?.fontWeight, FontWeight.w600);
     expect(

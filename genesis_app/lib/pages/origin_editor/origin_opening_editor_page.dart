@@ -271,7 +271,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     final selected = _selectedOption;
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.pageBackground,
       appBar: const GenesisBackAppBar(pageName: 'Opening'),
       body: Stack(
         fit: StackFit.expand,
@@ -299,19 +299,19 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Select initial location',
                                   key: ValueKey<String>(
                                     'opening-location-title',
                                   ),
                                   style: TextStyle(
-                                    color: createFormText,
+                                    color: context.genesisCreateColors.text,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     height: 1.2,
                                   ),
                                 ),
-                                const SizedBox(height: _fieldLabelInputGap),
+                                SizedBox(height: _fieldLabelInputGap),
                                 _OpeningLocationField(
                                   loading: _loading,
                                   locationName:
@@ -320,22 +320,23 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                 ),
                                 if (selected != null &&
                                     selected.characterNames.isNotEmpty) ...[
-                                  const SizedBox(height: 10),
+                                  SizedBox(height: 10),
                                   _OpeningInitialCharacters(
                                     names: selected.characterNames,
                                   ),
                                 ],
-                                const SizedBox(height: _fieldGroupGap),
+                                SizedBox(height: _fieldGroupGap),
                                 Row(
                                   children: [
-                                    const Expanded(
+                                    Expanded(
                                       child: Text(
                                         'Opening dialogue',
                                         key: ValueKey<String>(
                                           'opening-dialogue-title',
                                         ),
                                         style: TextStyle(
-                                          color: createFormText,
+                                          color:
+                                              context.genesisCreateColors.text,
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                           height: 1.2,
@@ -348,8 +349,9 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                       key: const ValueKey<String>(
                                         'opening-dialogue-count',
                                       ),
-                                      style: const TextStyle(
-                                        color: createFormMuted,
+                                      style: TextStyle(
+                                        color:
+                                            context.genesisCreateColors.muted,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w400,
                                         height: 1.2,
@@ -383,7 +385,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                               onDelete: _removeDialogueItem,
                               onChanged: () => setState(() {}),
                             ),
-                          const SizedBox(height: _fieldGroupGap),
+                          SizedBox(height: _fieldGroupGap),
                           _OpeningBestRoleSelector(
                             characters: _characters,
                             onChanged: _setBestRole,

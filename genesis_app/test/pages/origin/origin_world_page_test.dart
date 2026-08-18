@@ -334,7 +334,7 @@ void main() {
   );
 
   testWidgets(
-    'origin opening preview reveals AI notice above its first message',
+    'origin opening preview places AI notice above its first message',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -389,8 +389,8 @@ void main() {
       expect(find.text(kAiContentDisclaimerText), findsOneWidget);
       expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
       expect(
-        tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
-        lessThanOrEqualTo(tester.getBottomLeft(find.byType(ChatHeader)).dy),
+        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
+        lessThan(tester.getTopLeft(find.text('The location wakes.')).dy),
       );
 
       await tester.drag(scrollable, const Offset(0, 300));
@@ -398,8 +398,8 @@ void main() {
 
       expect(position.pixels, 0);
       expect(
-        tester.getCenter(find.text(kAiContentDisclaimerText)).dy,
-        greaterThan(tester.getBottomLeft(find.byType(ChatHeader)).dy),
+        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
+        lessThan(tester.getTopLeft(find.text('The location wakes.')).dy),
       );
     },
   );
@@ -531,8 +531,8 @@ void main() {
         source.indexOf('class _OriginCharacterPortrait'),
       );
       final bodyStyle = source.substring(
-        source.indexOf('const _bodyTextStyle'),
-        source.indexOf('const _mutedBodyTextStyle'),
+        source.indexOf('TextStyle _bodyTextStyle'),
+        source.indexOf('TextStyle _mutedBodyTextStyle'),
       );
 
       expect(characterRow, isNot(contains('visibleDescription')));
@@ -541,6 +541,7 @@ void main() {
       expect(characterRow, isNot(contains('SizedBox(height: 9)')));
       expect(characterRow, contains("Text('Goal: \$goal'"));
       expect(bodyStyle, contains('height: 1.4'));
+      expect(bodyStyle, contains('context.genesisColors.textPrimary'));
       expect(bodyStyle, isNot(contains('height: 1.45')));
       expect(bodyStyle, isNot(contains('height: 1.35')));
       expect(source, isNot(contains('bool _sameCharacterText')));

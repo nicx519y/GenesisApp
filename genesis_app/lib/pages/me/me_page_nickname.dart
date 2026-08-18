@@ -65,8 +65,9 @@ class _NickNameInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const border = UnderlineInputBorder(
-      borderSide: BorderSide(color: Color(0xFFD8D8DE)),
+    final colors = context.genesisColors;
+    final border = UnderlineInputBorder(
+      borderSide: BorderSide(color: colors.inputBorder),
     );
     return SizedBox(
       width: double.infinity,
@@ -81,15 +82,15 @@ class _NickNameInput extends StatelessWidget {
             maxLines: 1,
             maxLength: maxLength,
             textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
               counterText: '',
               enabledBorder: border,
               focusedBorder: border,
-              contentPadding: EdgeInsets.only(bottom: 5),
+              contentPadding: const EdgeInsets.only(bottom: 5),
             ),
-            style: const TextStyle(
-              color: Color(0xFF111111),
+            style: TextStyle(
+              color: colors.textPrimary,
               fontSize: 14,
               height: 1.2,
             ),
@@ -99,8 +100,8 @@ class _NickNameInput extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             '${controller.text.characters.length}/$maxLength',
-            style: const TextStyle(
-              color: Color(0xFF8C8C8C),
+            style: TextStyle(
+              color: colors.inputHint,
               fontSize: 11,
               height: 1.1,
             ),

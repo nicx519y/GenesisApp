@@ -85,12 +85,12 @@ class _SearchResultListState extends State<_SearchResultList>
 
     final rows = _displayRows(widget.tab, state.items);
     if (rows.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No results.',
           style: TextStyle(
             fontSize: 14,
-            color: Color(0xFF8D8D8D),
+            color: context.genesisColors.textTertiary,
             fontWeight: FontWeight.w400,
           ),
         ),

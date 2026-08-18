@@ -12,13 +12,13 @@ class _WorldViewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
+        _SectionTitle(
           icon: MyFlutterApp.eye,
-          iconColor: Color(0xFFFF2442),
+          iconColor: context.genesisColors.danger,
           title: 'Worldo Brief',
         ),
         const SizedBox(height: 8),
-        Text(body, style: _bodyTextStyle),
+        Text(body, style: _bodyTextStyle(context)),
         const SizedBox(height: 8),
         _OriginPreviewImage(url: _resolveAssetUrl(origin.mapImage)),
       ],
@@ -44,9 +44,12 @@ class _OriginPreviewImage extends StatelessWidget {
     final viewerUrl = url.trim();
     final imageUrl = viewerUrl;
     final fallback = Container(
-      color: const Color(0xFFEFF1F4),
+      color: context.genesisColors.imagePlaceholder,
       alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
+      child: Icon(
+        Icons.image_outlined,
+        color: context.genesisColors.imagePlaceholderIcon,
+      ),
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -127,9 +130,9 @@ class _LaunchPreviewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
+        _SectionTitle(
           icon: Icons.auto_awesome,
-          iconColor: Color(0xFF6554FF),
+          iconColor: context.genesisOriginColors.launchPreviewAccent,
           title: 'Launch Preview',
         ),
         const SizedBox(height: 8),
@@ -141,9 +144,9 @@ class _LaunchPreviewSection extends StatelessWidget {
           dateLabel: currentTime,
           timeAgoLabel: '',
           stackedContent: true,
-          contentLabelStyle: _originTickContentLabelStyle,
-          contentTextStyle: _originTickContentTextStyle,
-          contentTimestampStyle: _originTickContentTimestampStyle,
+          contentLabelStyle: _originTickContentLabelStyle(context),
+          contentTextStyle: _originTickContentTextStyle(context),
+          contentTimestampStyle: _originTickContentTimestampStyle(context),
           metricUnit: metricUnit,
         ),
       ],
@@ -249,16 +252,18 @@ class _DiscussSection extends StatelessWidget {
 }
 
 List<Widget> _originInitialDialogueSlivers(
+  BuildContext context,
   OriginDetail origin,
   _OriginInitialDialoguePreview preview,
 ) {
-  final style = kLocationChatStyle.copyWith(
-    headerTitleTextStyle: kLocationChatStyle.headerTitleTextStyle.copyWith(
-      color: const Color(0xFF111111),
+  final locationStyle = context.genesisChatTheme.locationChat;
+  final style = locationStyle.copyWith(
+    headerTitleTextStyle: locationStyle.headerTitleTextStyle.copyWith(
+      color: context.genesisColors.textPrimary,
     ),
-    headerTitleIconColor: const Color(0xFF111111),
-    senderNameTextStyle: kLocationChatStyle.senderNameTextStyle.copyWith(
-      color: const Color(0xFF111111),
+    headerTitleIconColor: context.genesisColors.textPrimary,
+    senderNameTextStyle: locationStyle.senderNameTextStyle.copyWith(
+      color: context.genesisColors.textPrimary,
     ),
   );
   final padding = style.messageListPadding;
@@ -328,10 +333,13 @@ List<Widget> _originInitialDialogueSlivers(
   ];
 }
 
-List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
+List<Widget> _originWorldoBriefSlivers(
+  BuildContext context,
+  OriginDetail origin,
+) {
   final brief = _originWorldoBrief(origin);
   if (brief.isEmpty) return const <Widget>[];
-  final padding = kLocationChatStyle.messageListPadding;
+  final padding = context.genesisChatTheme.locationChat.messageListPadding;
   return <Widget>[
     SliverToBoxAdapter(
       child: Padding(
@@ -345,13 +353,13 @@ List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(
                   MyFlutterApp.eye,
                   key: ValueKey<String>('origin-opening-worldo-brief-icon'),
                   size: 16,
-                  color: Color(0xFFFF2442),
+                  color: context.genesisColors.danger,
                 ),
                 SizedBox(width: originDetailSectionTitleIconGapForTesting),
                 Flexible(
@@ -363,7 +371,7 @@ List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
                       fontSize: 16,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF111111),
+                      color: context.genesisColors.textPrimary,
                       decoration: TextDecoration.none,
                     ),
                   ),
@@ -374,7 +382,7 @@ List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
             Text(
               brief,
               key: const ValueKey<String>('origin-opening-worldo-brief-body'),
-              style: _bodyTextStyle.copyWith(fontSize: 14),
+              style: _bodyTextStyle(context).copyWith(fontSize: 14),
             ),
           ],
         ),

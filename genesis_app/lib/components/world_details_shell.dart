@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../ui/components/genesis_safe_area.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 import '../ui/system/genesis_system_ui.dart';
 import 'world_map_interaction_notification.dart';
 
@@ -116,8 +117,6 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
   late final ScrollController _scrollController = ScrollController();
   bool _mapInteractionActive = false;
 
-  static const _transparentStatusBarColor = Color(0x00FFFFFF);
-  static const _whiteStatusBarColor = Color(0xFFFFFFFF);
   static const _initialStatusBarStyle =
       kGenesisLightStatusIconsSystemUiOverlayStyle;
 
@@ -205,8 +204,8 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
               final statusBarColor =
                   overridePresentation?.backgroundColor ??
                   Color.lerp(
-                    _transparentStatusBarColor,
-                    _whiteStatusBarColor,
+                    context.genesisColors.surface.withValues(alpha: 0),
+                    context.genesisColors.surface,
                     statusBarProgress,
                   )!;
               return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -261,7 +260,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
           SliverToBoxAdapter(child: SizedBox(height: mapHeight)),
           DecoratedSliver(
             key: const ValueKey<String>('world-details-content-background'),
-            decoration: const BoxDecoration(color: Colors.white),
+            decoration: BoxDecoration(color: context.genesisColors.surface),
             sliver: SliverMainAxisGroup(
               slivers: [
                 SliverToBoxAdapter(
@@ -333,7 +332,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
         onPullUp: widget.onPanelTopPullUp,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.genesisColors.surface,
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(widget.panelTopRadius),
             ),
@@ -482,19 +481,17 @@ class WorldDetailsShell extends StatelessWidget {
                   resolvedPadding.right,
                   resolvedPadding.bottom,
                 ),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: context.genesisColors.surface,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 ),
                 child: Column(
                   children: [
                     SizedBox(
                       height: resolvedPadding.top,
-                      child: const Center(child: WorldDetailsDragHandle()),
+                      child: Center(child: WorldDetailsDragHandle()),
                     ),
-                    const SizedBox(
-                      height: WorldDetailsShell.dragHandleTitleGap,
-                    ),
+                    SizedBox(height: WorldDetailsShell.dragHandleTitleGap),
                     Expanded(
                       child: WorldDetailsPanelScrollControllerScope(
                         controller: scrollController,
@@ -575,8 +572,8 @@ class WorldDetailsDragHandle extends StatelessWidget {
     return Container(
       width: WorldDetailsShell.dragHandleWidth,
       height: WorldDetailsShell.dragHandleHeight,
-      decoration: const BoxDecoration(
-        color: Color(0xFFD9D9D9),
+      decoration: BoxDecoration(
+        color: context.genesisColors.dragHandleSubtle,
         borderRadius: BorderRadius.all(
           Radius.circular(WorldDetailsShell.dragHandleHeight / 2),
         ),

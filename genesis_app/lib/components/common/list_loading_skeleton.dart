@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../ui/tokens/genesis_image_radii.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 enum _GenesisListSkeletonType { world, popularOrigin, originGrid }
 
@@ -53,8 +54,11 @@ class _WorldListSkeleton extends StatelessWidget {
         parent: AlwaysScrollableScrollPhysics(),
       ),
       itemCount: itemCount,
-      separatorBuilder: (context, index) =>
-          const Divider(height: 25, thickness: 1, color: Color(0xFFEFEFEF)),
+      separatorBuilder: (context, index) => Divider(
+        height: 25,
+        thickness: 1,
+        color: context.genesisColors.dividerMuted,
+      ),
       itemBuilder: (context, index) {
         return const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
@@ -125,8 +129,11 @@ class _PopularOriginListSkeleton extends StatelessWidget {
         parent: AlwaysScrollableScrollPhysics(),
       ),
       itemCount: itemCount,
-      separatorBuilder: (context, index) =>
-          const Divider(height: 25, thickness: 1, color: Color(0xFFEFEFEF)),
+      separatorBuilder: (context, index) => Divider(
+        height: 25,
+        thickness: 1,
+        color: context.genesisColors.dividerMuted,
+      ),
       itemBuilder: (context, index) {
         return const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
@@ -402,10 +409,11 @@ class _SkeletonBone extends StatelessWidget {
       width: width,
       height: height,
       child: animation == null || disableAnimations
-          ? _buildDecoratedBox(0)
+          ? _buildDecoratedBox(context, 0)
           : AnimatedBuilder(
               animation: animation,
-              builder: (context, child) => _buildDecoratedBox(animation.value),
+              builder: (context, child) =>
+                  _buildDecoratedBox(context, animation.value),
             ),
     );
 
@@ -419,7 +427,7 @@ class _SkeletonBone extends StatelessWidget {
     return child;
   }
 
-  Widget _buildDecoratedBox(double animationValue) {
+  Widget _buildDecoratedBox(BuildContext context, double animationValue) {
     final offset = -1.4 + (animationValue * 2.8);
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -427,10 +435,10 @@ class _SkeletonBone extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment(offset - 0.8, 0),
           end: Alignment(offset + 0.8, 0),
-          colors: const [
-            Color(0xFFE8EBF0),
-            Color(0xFFF6F7F9),
-            Color(0xFFE8EBF0),
+          colors: [
+            context.genesisColors.skeletonBase,
+            context.genesisColors.skeletonHighlight,
+            context.genesisColors.skeletonBase,
           ],
           stops: const [0.25, 0.5, 0.75],
         ),

@@ -3,6 +3,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 enum LegalDocument {
   terms(title: 'Terms of Service', url: 'https://worldo.ai/terms/'),
@@ -121,14 +122,17 @@ class _LegalWebErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: Colors.white,
+      color: context.genesisColors.surface,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Load failed',
-              style: TextStyle(fontSize: 16, color: Color(0xFF111111)),
+              style: TextStyle(
+                fontSize: 16,
+                color: context.genesisColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 6),
             Padding(
@@ -136,7 +140,10 @@ class _LegalWebErrorView extends StatelessWidget {
               child: Text(
                 url,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF777777)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.genesisColors.textSubtle,
+                ),
               ),
             ),
             const SizedBox(height: 12),

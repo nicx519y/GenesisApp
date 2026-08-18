@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../components/gems/gem_colors.dart';
+import '../../components/chat/shared/chat_ui_theme.dart';
+import '../../components/origin/genesis_origin_theme.dart';
+import '../../components/discuss/genesis_discuss_theme.dart';
+import '../../components/create/genesis_create_theme.dart';
+import '../../components/world/genesis_world_theme.dart';
+import '../../components/messages/genesis_message_theme.dart';
 import '../system/genesis_system_ui.dart';
 import '../tokens/genesis_palette.dart';
 import '../tokens/genesis_radii.dart';
@@ -144,7 +151,17 @@ abstract final class GenesisTheme {
       ),
       // Theme extension for custom Genesis UI components.
       // SearchField, PageTitle, BottomNavigation, TabBar, and similar components read styles from this extension first.
-      extensions: <ThemeExtension<dynamic>>[colors, GenesisUiTheme.light()],
+      extensions: <ThemeExtension<dynamic>>[
+        colors,
+        GenesisUiTheme.light(),
+        GenesisGemColors.light(),
+        GenesisChatTheme.light(),
+        GenesisOriginColors.light(),
+        GenesisDiscussColors.light(),
+        GenesisCreateColors.light(),
+        GenesisWorldColors.light(),
+        GenesisMessageColors.light(),
+      ],
     );
   }
 }

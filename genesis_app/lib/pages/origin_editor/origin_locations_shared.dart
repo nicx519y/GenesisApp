@@ -53,7 +53,7 @@ class _LocationCard extends StatelessWidget {
     final fields = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showHeader) const SizedBox(height: 6),
+        if (showHeader) SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -71,7 +71,7 @@ class _LocationCard extends StatelessWidget {
               emptyIconLabelGap: 8,
               onChanged: onChanged,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: CreateTextFieldBlock(
                 label: nameFieldLabel,
@@ -89,7 +89,7 @@ class _LocationCard extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _InitialCharactersField(
           form: form,
           characters: characters,
@@ -144,7 +144,7 @@ class _InitialCharactersField extends StatelessWidget {
           : null,
       constraints: const BoxConstraints(minHeight: 40),
       decoration: BoxDecoration(
-        color: createFormFieldFill,
+        color: context.genesisCreateColors.fieldFill,
         borderRadius: BorderRadius.circular(8),
       ),
       child: LayoutBuilder(
@@ -178,8 +178,8 @@ class _InitialCharactersField extends StatelessWidget {
                                   : 'Select initial characters',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: createFormHint,
+                              style: TextStyle(
+                                color: context.genesisCreateColors.hint,
                                 fontSize: 14,
                                 height: 1.2,
                               ),
@@ -206,11 +206,15 @@ class _InitialCharactersField extends StatelessWidget {
                         ),
                 ),
                 if (!usesInlineSelection) ...[
-                  const SizedBox(width: 4),
-                  const SizedBox(
+                  SizedBox(width: 4),
+                  SizedBox(
                     width: 38,
                     height: 32,
-                    child: Icon(Icons.add, color: createFormGreen, size: 28),
+                    child: Icon(
+                      Icons.add,
+                      color: context.genesisCreateColors.accent,
+                      size: 28,
+                    ),
                   ),
                 ],
               ],
@@ -226,13 +230,13 @@ class _InitialCharactersField extends StatelessWidget {
         Text(
           'Initial Characters (Optional)',
           style: TextStyle(
-            color: createFormText,
+            color: context.genesisCreateColors.text,
             fontSize: 14,
             fontWeight: labelFontWeight,
             height: 1.2,
           ),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         if (usesInlineSelection)
           selectionField
         else
@@ -242,26 +246,26 @@ class _InitialCharactersField extends StatelessWidget {
             onTap: onPickCharacters,
             child: selectionField,
           ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         const CreateFormNote(
           note: 'The characters who start here when the worldo begins.',
         ),
         if (usesInlineSelection) ...[
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           Align(
             key: const ValueKey('available-initial-characters-label'),
             alignment: Alignment.center,
             child: Text(
               'Available to select',
               style: TextStyle(
-                color: createFormText,
+                color: context.genesisCreateColors.text,
                 fontSize: 14,
                 height: 1.2,
                 fontWeight: labelFontWeight,
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           if (availableCharacters!.isEmpty)
             Text(
               characters.isEmpty
@@ -270,8 +274,8 @@ class _InitialCharactersField extends StatelessWidget {
                   : 'No characters available. All characters already have '
                         'an initial location.',
               key: const ValueKey('available-initial-characters-empty'),
-              style: const TextStyle(
-                color: createFormMuted,
+              style: TextStyle(
+                color: context.genesisCreateColors.muted,
                 fontSize: 13,
                 height: 1.2,
               ),
@@ -322,7 +326,7 @@ class _InitialCharactersField extends StatelessWidget {
     final textPainter = TextPainter(
       text: TextSpan(
         text: name,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       ),
       maxLines: 1,
       textDirection: Directionality.of(context),
@@ -364,9 +368,9 @@ class _AvailableInitialCharacterChip extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 180),
         padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.genesisColors.surface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0xFFD9E5DF)),
+          border: Border.all(color: context.genesisCreateColors.accentBorder),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -377,14 +381,14 @@ class _AvailableInitialCharacterChip extends StatelessWidget {
               size: 20,
               borderRadius: GenesisAvatarRadii.character,
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Flexible(
               child: Text(
                 name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: createFormText,
+                style: TextStyle(
+                  color: context.genesisCreateColors.text,
                   fontSize: 12,
                   height: 1.2,
                   fontWeight: FontWeight.w600,
@@ -421,9 +425,9 @@ class _InitialCharacterChip extends StatelessWidget {
         height: 32,
         padding: const EdgeInsets.only(left: 10, right: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.genesisColors.surface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0xFFD9E5DF)),
+          border: Border.all(color: context.genesisCreateColors.accentBorder),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -433,18 +437,22 @@ class _InitialCharacterChip extends StatelessWidget {
                 name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: createFormText,
+                style: TextStyle(
+                  color: context.genesisCreateColors.text,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
                 ),
               ),
             ),
-            const SizedBox(width: 1),
-            const Padding(
+            SizedBox(width: 1),
+            Padding(
               padding: EdgeInsets.all(3),
-              child: Icon(Icons.close, size: 14, color: createFormMuted),
+              child: Icon(
+                Icons.close,
+                size: 14,
+                color: context.genesisCreateColors.muted,
+              ),
             ),
           ],
         ),
@@ -509,26 +517,26 @@ class _CharacterPickerSheetState extends State<_CharacterPickerSheet> {
               },
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           Row(
             children: [
               Expanded(
                 child: GenesisPrimaryButton(
                   label: 'Cancel',
                   onPressed: () => Navigator.of(context).pop(),
-                  backgroundColor: Colors.white,
-                  foregroundColor: createFormText,
-                  side: const BorderSide(color: createFormBorder),
+                  backgroundColor: context.genesisColors.surface,
+                  foregroundColor: context.genesisCreateColors.text,
+                  side: BorderSide(color: context.genesisCreateColors.border),
                 ),
               ),
-              const SizedBox(width: 18),
+              SizedBox(width: 18),
               Expanded(
                 child: GenesisPrimaryButton(
                   label: 'Select',
                   onPressed: () =>
                       Navigator.of(context).pop(_selectedIds.toList()),
-                  backgroundColor: createFormGreen,
-                  foregroundColor: Colors.white,
+                  backgroundColor: context.genesisCreateColors.accent,
+                  foregroundColor: context.genesisColors.onPrimary,
                 ),
               ),
             ],
@@ -578,36 +586,49 @@ class _CharacterPickerTile extends StatelessWidget {
                     width: 26,
                     height: 26,
                     decoration: BoxDecoration(
-                      color: selected ? GenesisColors.brand : Colors.white10,
+                      color: selected
+                          ? context.genesisColors.primary
+                          : context.genesisColors.textInverse.withValues(
+                              alpha: 0.1,
+                            ),
                       borderRadius: BorderRadius.circular(7),
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: const [
+                      border: Border.all(
+                        color: context.genesisColors.textInverse,
+                        width: 2,
+                      ),
+                      boxShadow: [
                         BoxShadow(
-                          color: Color(0x33000000),
+                          color: context.genesisColors.scrim.withValues(
+                            alpha: 0.2,
+                          ),
                           blurRadius: 5,
                           offset: Offset(0, 1),
                         ),
                       ],
                     ),
                     child: selected
-                        ? const Icon(Icons.check, color: Colors.white, size: 18)
+                        ? Icon(
+                            Icons.check,
+                            color: context.genesisColors.textInverse,
+                            size: 18,
+                          )
                         : null,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 7),
+          SizedBox(height: 7),
           Text(
             character.name.trim(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.1,
               fontWeight: FontWeight.w400,
-              color: Color(0xFF111111),
+              color: context.genesisCreateColors.text,
             ),
           ),
         ],

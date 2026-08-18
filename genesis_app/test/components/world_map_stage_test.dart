@@ -281,7 +281,7 @@ void main() {
         .toList();
 
     expect(
-      colors.where((color) => color == const Color(0xE6FFFFFF)),
+      colors.where((color) => color == Colors.white.withValues(alpha: 0.9)),
       hasLength(2),
     );
   });

@@ -21,6 +21,7 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/system/genesis_system_ui.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
@@ -363,13 +364,16 @@ void main() {
 
     final tabs = tester.widget<TabBar>(find.byType(TabBar));
     expect(tabs.labelStyle?.fontSize, 14);
-    expect(tabs.labelStyle?.height, 20 / 14);
+    expect(tabs.labelStyle?.height, 1.4);
     expect(tabs.labelStyle?.fontWeight, FontWeight.w600);
-    expect(tabs.labelColor, const Color(0xFF333333));
+    expect(tabs.labelColor, GenesisSemanticColors.light().navigationSelected);
     expect(tabs.unselectedLabelStyle?.fontSize, 14);
-    expect(tabs.unselectedLabelStyle?.height, 20 / 14);
-    expect(tabs.unselectedLabelStyle?.fontWeight, FontWeight.w400);
-    expect(tabs.unselectedLabelColor, const Color(0xFF999999));
+    expect(tabs.unselectedLabelStyle?.height, 1.4);
+    expect(tabs.unselectedLabelStyle?.fontWeight, isNull);
+    expect(
+      tabs.unselectedLabelColor,
+      GenesisSemanticColors.light().navigationUnselected,
+    );
 
     final recordTitleStyle = tester
         .widget<Text>(find.text('Daily check-in'))

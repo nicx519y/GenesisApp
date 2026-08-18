@@ -27,6 +27,7 @@ import '../../utils/image_format_guards.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_page_title.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/text/genesis_text_input_formatters.dart';
 import 'settings_page.dart';
 
@@ -185,7 +186,7 @@ class _MePageState extends State<MePage> {
         final gemWalletState = AppServicesScope.of(context).gemWallet.state;
 
         return GenesisTopSafeArea(
-          backgroundColor: Colors.white,
+          backgroundColor: context.genesisColors.pageBackground,
           child: Column(
             children: [
               SizedBox(
@@ -214,7 +215,7 @@ class _MePageState extends State<MePage> {
                           IconButton(
                             onPressed: _openSettings,
                             icon: const Icon(Icons.settings, size: 24),
-                            color: Colors.black,
+                            color: context.genesisColors.foregroundStrong,
                           ),
                         ],
                       ),

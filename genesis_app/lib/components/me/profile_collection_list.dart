@@ -70,9 +70,9 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
     if (widget.items.isEmpty) {
       final empty = Text(
         widget.emptyText,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 14,
-          color: Color(0xFF8A8A8A),
+          color: context.genesisColors.textSupporting,
           fontWeight: FontWeight.w400,
         ),
         textAlign: TextAlign.center,

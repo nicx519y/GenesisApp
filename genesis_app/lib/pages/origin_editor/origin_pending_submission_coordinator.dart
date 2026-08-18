@@ -6,8 +6,10 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/genesis_navigator.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/create/genesis_create_theme.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../create/create_origin_draft_store.dart';
 import 'origin_pending_submission_store.dart';
 
@@ -415,6 +417,7 @@ class _OriginPendingSubmissionPoller {
       context: context,
       title: title,
       titleWidget: _successActionBoxTitle(
+        context,
         leadingText: 'Worldo ',
         highlightedText: '#$originName',
         trailingText: kind == OriginPendingSubmissionKind.create
@@ -501,13 +504,14 @@ class _OriginPendingSubmissionPoller {
   }
 }
 
-Widget _successActionBoxTitle({
+Widget _successActionBoxTitle(
+  BuildContext context, {
   required String leadingText,
   required String highlightedText,
   required String trailingText,
 }) {
-  const baseStyle = TextStyle(
-    color: Color(0xFF111111),
+  final baseStyle = TextStyle(
+    color: context.genesisCreateColors.text,
     fontSize: 15,
     height: 1.16,
     fontWeight: FontWeight.w600,
@@ -522,7 +526,7 @@ Widget _successActionBoxTitle({
         TextSpan(text: leadingText),
         TextSpan(
           text: highlightedText,
-          style: baseStyle.copyWith(color: const Color(0xFF4B6192)),
+          style: baseStyle.copyWith(color: context.genesisColors.accentText),
         ),
         TextSpan(text: trailingText),
       ],

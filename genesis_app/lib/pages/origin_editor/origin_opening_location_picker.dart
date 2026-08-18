@@ -36,19 +36,22 @@ class _OpeningLocationPickerSheetState
         children: [
           Expanded(
             child: widget.options.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'No saved locations',
-                      style: TextStyle(color: createFormMuted, fontSize: 14),
+                      style: TextStyle(
+                        color: context.genesisCreateColors.muted,
+                        fontSize: 14,
+                      ),
                     ),
                   )
                 : ListView.separated(
                     padding: EdgeInsets.zero,
                     itemCount: widget.options.length,
-                    separatorBuilder: (_, _) => const Divider(
+                    separatorBuilder: (_, _) => Divider(
                       height: 1,
                       thickness: 1,
-                      color: Color(0xFFEAEAEA),
+                      color: context.genesisCreateColors.divider,
                     ),
                     itemBuilder: (context, index) {
                       final option = widget.options[index];
@@ -61,19 +64,19 @@ class _OpeningLocationPickerSheetState
                     },
                   ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           Row(
             children: [
               Expanded(
                 child: GenesisPrimaryButton(
                   label: 'Cancel',
                   onPressed: () => Navigator.of(context).pop(),
-                  backgroundColor: Colors.white,
-                  foregroundColor: createFormText,
-                  side: const BorderSide(color: createFormBorder),
+                  backgroundColor: context.genesisColors.surface,
+                  foregroundColor: context.genesisCreateColors.text,
+                  side: BorderSide(color: context.genesisCreateColors.border),
                 ),
               ),
-              const SizedBox(width: 18),
+              SizedBox(width: 18),
               Expanded(
                 child: GenesisPrimaryButton(
                   label: 'Select',
@@ -82,8 +85,8 @@ class _OpeningLocationPickerSheetState
                       : () => Navigator.of(context).pop(_selection),
                   onDisabledPressed: () =>
                       showGenesisToast(context, 'Select a location first.'),
-                  backgroundColor: createFormGreen,
-                  foregroundColor: Colors.white,
+                  backgroundColor: context.genesisCreateColors.accent,
+                  foregroundColor: context.genesisColors.onPrimary,
                 ),
               ),
             ],
@@ -120,10 +123,10 @@ class _OpeningLocationOptionRow extends StatelessWidget {
               child: Icon(
                 Icons.place_outlined,
                 size: 16,
-                color: createFormText,
+                color: context.genesisCreateColors.text,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,14 +135,14 @@ class _OpeningLocationOptionRow extends StatelessWidget {
                     option.location.name.trim(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: createFormText,
+                    style: TextStyle(
+                      color: context.genesisCreateColors.text,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5),
                   Row(
                     children: [
                       if (option.characterNames.isNotEmpty) ...[
@@ -148,7 +151,7 @@ class _OpeningLocationOptionRow extends StatelessWidget {
                           width: 14,
                           height: 14,
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                       ],
                       Expanded(
                         child: Text(
@@ -157,8 +160,8 @@ class _OpeningLocationOptionRow extends StatelessWidget {
                               : option.characterNames,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF666666),
+                          style: TextStyle(
+                            color: context.genesisColors.textMuted,
                             fontSize: 13,
                             height: 1.2,
                           ),
@@ -169,20 +172,28 @@ class _OpeningLocationOptionRow extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Container(
               width: 22,
               height: 22,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: selected ? createFormGreen : Colors.transparent,
+                color: selected
+                    ? context.genesisCreateColors.accent
+                    : Colors.transparent,
                 border: Border.all(
-                  color: selected ? createFormGreen : createFormBorder,
+                  color: selected
+                      ? context.genesisCreateColors.accent
+                      : context.genesisCreateColors.border,
                   width: 1.5,
                 ),
               ),
               child: selected
-                  ? const Icon(Icons.check, size: 15, color: Colors.white)
+                  ? Icon(
+                      Icons.check,
+                      size: 15,
+                      color: context.genesisColors.onPrimary,
+                    )
                   : null,
             ),
           ],

@@ -77,9 +77,16 @@ class _DiscussImageAddTile extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE3E3E3), width: 1.4),
+          border: Border.all(
+            color: context.genesisDiscussColors.imageAddBorder,
+            width: 1.4,
+          ),
         ),
-        child: const Icon(Icons.add, size: 28, color: Color(0xFF8E8E8E)),
+        child: Icon(
+          Icons.add,
+          size: 28,
+          color: context.genesisDiscussColors.imageAddIcon,
+        ),
       ),
     );
   }
@@ -126,11 +133,13 @@ class _DiscussImageTile extends StatelessWidget {
                       ),
                     if (attachment.failed)
                       ColoredBox(
-                        color: Colors.black.withValues(alpha: 0.48),
-                        child: const Center(
+                        color: context.genesisColors.scrim.withValues(
+                          alpha: 0.48,
+                        ),
+                        child: Center(
                           child: Icon(
                             Icons.error_outline,
-                            color: Colors.white,
+                            color: context.genesisColors.textInverse,
                             size: 22,
                           ),
                         ),
@@ -151,17 +160,23 @@ class _DiscussImageTile extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4F4F4F),
+                  color: context.genesisDiscussColors.imageRemoveSurface,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.14),
+                      color: context.genesisColors.shadow.withValues(
+                        alpha: 0.14,
+                      ),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.close, color: Colors.white, size: 18),
+                child: Icon(
+                  Icons.close,
+                  color: context.genesisColors.textInverse,
+                  size: 18,
+                ),
               ),
             ),
           ),

@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../ui/theme/genesis_semantic_colors.dart';
+
 class WorldMapExitLocationButton extends StatelessWidget {
   const WorldMapExitLocationButton({
     super.key,
@@ -15,8 +17,8 @@ class WorldMapExitLocationButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayLabel = label.trim();
-    const textStyle = TextStyle(
-      color: Colors.black,
+    final textStyle = TextStyle(
+      color: context.genesisColors.foregroundStrong,
       fontSize: 13,
       height: 1.2,
       fontWeight: FontWeight.w600,
@@ -47,7 +49,7 @@ class WorldMapExitLocationButton extends StatelessWidget {
               right: displayLabel.isEmpty ? 0 : 12,
             ),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.82),
+              color: context.genesisColors.surface.withValues(alpha: 0.82),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Material(
@@ -57,12 +59,12 @@ class WorldMapExitLocationButton extends StatelessWidget {
                 onTap: onPressed,
                 child: Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 36,
                       height: 36,
                       child: Icon(
                         Icons.subdirectory_arrow_left,
-                        color: Colors.black,
+                        color: context.genesisColors.foregroundStrong,
                         size: 18,
                       ),
                     ),

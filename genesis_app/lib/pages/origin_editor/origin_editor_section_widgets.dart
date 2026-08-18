@@ -41,7 +41,7 @@ class _SectionRow extends StatelessWidget {
                       ? null
                       : SvgPicture.asset(icon!, fit: BoxFit.contain),
                 ),
-                const SizedBox(width: 14),
+                SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     key: ValueKey<String>('section-content-$title'),
@@ -59,8 +59,10 @@ class _SectionRow extends StatelessWidget {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.left,
-                                    style: const TextStyle(
-                                      color: Colors.black,
+                                    style: TextStyle(
+                                      color: context
+                                          .genesisColors
+                                          .foregroundStrong,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w400,
                                       height: 1.2,
@@ -68,14 +70,16 @@ class _SectionRow extends StatelessWidget {
                                   ),
                                 ),
                                 if (completed) ...[
-                                  const SizedBox(width: 6),
+                                  SizedBox(width: 6),
                                   Text(
                                     '✓',
                                     key: ValueKey<String>(
                                       'section-completed-$title',
                                     ),
-                                    style: const TextStyle(
-                                      color: Color(0xFF1C7D56),
+                                    style: TextStyle(
+                                      color: context
+                                          .genesisCreateColors
+                                          .successText,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                       height: 1,
@@ -83,7 +87,7 @@ class _SectionRow extends StatelessWidget {
                                   ),
                                 ],
                                 if (modified) ...[
-                                  const SizedBox(width: 6),
+                                  SizedBox(width: 6),
                                   _ModifiedSectionBadge(
                                     key: ValueKey('section-modified-$title'),
                                   ),
@@ -92,16 +96,16 @@ class _SectionRow extends StatelessWidget {
                             ),
                           ),
                           if (onTap != null) ...[
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             Icon(
                               Icons.chevron_right,
                               key: ValueKey<String>('section-chevron-$title'),
-                              color: Color(0xFF666666),
+                              color: context.genesisCreateColors.muted,
                             ),
                           ],
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -115,6 +119,7 @@ class _SectionRow extends StatelessWidget {
                               child: Text.rich(
                                 TextSpan(
                                   children: _summaryLineSpans(
+                                    context,
                                     _summaryLines[index],
                                   ),
                                 ),
@@ -129,8 +134,8 @@ class _SectionRow extends StatelessWidget {
                                     ? null
                                     : TextOverflow.ellipsis,
                                 softWrap: wrapFirstSummaryLine && index == 0,
-                                style: const TextStyle(
-                                  color: Color(0xFF444444),
+                                style: TextStyle(
+                                  color: context.genesisColors.textQuaternary,
                                   fontSize: 12,
                                   height: 1.4,
                                 ),
@@ -145,7 +150,11 @@ class _SectionRow extends StatelessWidget {
             ),
           ),
           if (showDivider)
-            const Divider(height: 1, thickness: 1, color: Color(0xFFEAEAEA)),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: context.genesisCreateColors.divider,
+            ),
         ],
       ),
     );
@@ -159,13 +168,13 @@ class _SectionRow extends StatelessWidget {
         .toList(growable: false);
   }
 
-  List<InlineSpan> _summaryLineSpans(String line) {
+  List<InlineSpan> _summaryLineSpans(BuildContext context, String line) {
     final colonIndex = line.indexOf(':');
     if (colonIndex < 0) return <InlineSpan>[TextSpan(text: line)];
     return <InlineSpan>[
       TextSpan(
         text: line.substring(0, colonIndex + 1),
-        style: const TextStyle(color: Color(0xFF999999)),
+        style: TextStyle(color: context.genesisColors.textPlaceholder),
       ),
       TextSpan(text: line.substring(colonIndex + 1)),
     ];

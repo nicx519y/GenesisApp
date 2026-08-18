@@ -35,6 +35,7 @@ import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';
@@ -613,7 +614,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
     final baseStyle = resolveLocationChatHeaderEffectStyle(
-      baseStyle: widget.style ?? kLocationChatStyle,
+      baseStyle: widget.style ?? context.genesisChatTheme.locationChat,
       settings: locationChatHeaderEffectSettings.value,
     );
     final style = baseStyle.copyWith(

@@ -118,12 +118,11 @@ void main() {
   });
 
   testWidgets(
-    'CreateTextFieldBlock uses decorative unicode visual fallback input',
+    'CreateTextFieldBlock preserves decorative unicode input',
     (WidgetTester tester) async {
       final controller = TextEditingController();
       addTearDown(controller.dispose);
       const raw = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
-      const rendered = '☛ ˙۵▤▤▤♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀°ₒ✩';
 
       await tester.pumpWidget(
         MaterialApp(
@@ -141,7 +140,7 @@ void main() {
       await tester.enterText(find.byType(TextField), raw);
       await tester.pump();
 
-      expect(controller.text, rendered);
+      expect(controller.text, raw);
       final input = tester.widget<TextField>(find.byType(TextField));
       expect(input.style?.fontFamily, isNull);
       expect(input.style?.fontFamilyFallback, isNull);
@@ -150,7 +149,7 @@ void main() {
       controller.text = raw;
       await tester.pump();
 
-      expect(controller.text, rendered);
+      expect(controller.text, raw);
     },
   );
 

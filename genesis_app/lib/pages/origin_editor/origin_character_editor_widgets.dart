@@ -68,11 +68,11 @@ class _BestRoleSelector extends StatelessWidget {
                 semanticLabel: 'Creator suggests this role for the user',
                 style: OriginRoleSelectionMarkStyle.star,
               ),
-              const SizedBox(width: 6),
-              const Text(
+              SizedBox(width: 6),
+              Text(
                 'Suggest',
                 style: TextStyle(
-                  color: Color(0xFF111111),
+                  color: context.genesisCreateColors.text,
                   fontSize: 12,
                   height: 1.2,
                   fontWeight: FontWeight.w400,

@@ -11,9 +11,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/world_map.dart';
+import '../../components/world/genesis_world_theme.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import 'world_constants.dart';
 import 'world_map_data.dart';
@@ -35,11 +37,11 @@ class WorldBottomTags extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: worldMainTabsHeight,
-      color: const Color(0xFFFFFFFF),
+      color: context.genesisColors.surface,
       alignment: Alignment.centerLeft,
       child: DefaultTextStyle(
-        style: const TextStyle(
-          color: Color(0xFF111111),
+        style: TextStyle(
+          color: context.genesisColors.textPrimary,
           fontSize: 12,
           height: 1,
           fontWeight: FontWeight.w600,
@@ -65,7 +67,7 @@ class WorldBottomTags extends StatelessWidget {
                     onTap: () => onTap(entry.$2.kind),
                   ),
                   if (entry.$1 != worldBottomTagItems.length - 1)
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                 ],
               ],
             ),
@@ -99,7 +101,7 @@ class WorldBottomTagContent extends StatelessWidget {
             height: worldBottomTagHeight,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFEBEFF2),
+              color: context.genesisWorldColors.tabSurface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -110,20 +112,24 @@ class WorldBottomTagContent extends StatelessWidget {
                     item.asset!,
                     width: 17,
                     height: 17,
-                    colorFilter: const ColorFilter.mode(
-                      Color(0xFF666666),
+                    colorFilter: ColorFilter.mode(
+                      context.genesisColors.textMuted,
                       BlendMode.srcIn,
                     ),
                   )
                 else
-                  Icon(item.icon, size: 17, color: const Color(0xFF666666)),
-                const SizedBox(width: 5),
+                  Icon(
+                    item.icon,
+                    size: 17,
+                    color: context.genesisColors.textMuted,
+                  ),
+                SizedBox(width: 5),
                 Text(
                   item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF111111),
+                  style: TextStyle(
+                    color: context.genesisColors.textPrimary,
                     fontSize: 12,
                     height: 1,
                     fontWeight: FontWeight.w600,
@@ -143,8 +149,8 @@ class WorldBottomTagContent extends StatelessWidget {
               child: Container(
                 width: 7,
                 height: 7,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFF2442),
+                decoration: BoxDecoration(
+                  color: context.genesisColors.danger,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -460,7 +466,7 @@ class WorldSingleSectionBottomSheetState
       emptyText: 'No character status yet.',
       subtitleBuilder: (character) =>
           worldMetricStatusText(world.metric, character),
-      subtitleColor: const Color(0xFF666666),
+      subtitleColor: context.genesisColors.textMuted,
       showCharacterDetails: false,
     );
   }
@@ -473,7 +479,7 @@ class WorldSingleSectionBottomSheetState
       currentUid: widget.currentUid,
       emptyText: 'No characters yet.',
       subtitleBuilder: worldCharacterDescriptionText,
-      subtitleColor: const Color(0xFF666666),
+      subtitleColor: context.genesisColors.textMuted,
       showCharacterDetails: true,
     );
   }
@@ -655,8 +661,8 @@ class WorldSingleSectionBottomSheetState
         heightFactor: _sheetHeightFactor,
         alignment: Alignment.bottomCenter,
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: context.genesisColors.surface,
             borderRadius: GenesisRadii.sheet,
           ),
           child: Column(
@@ -737,7 +743,7 @@ class WorldSingleSectionSheetHeaderState
                   width: 64,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD2D2D2),
+                    color: context.genesisColors.dragHandle,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -753,14 +759,14 @@ class WorldSingleSectionSheetHeaderState
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     WorldSheetHeaderIcon(item: widget.item),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         widget.item.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF111111),
+                        style: TextStyle(
+                          color: context.genesisColors.textPrimary,
                           fontSize: 16,
                           height: 1,
                           fontWeight: FontWeight.w600,
@@ -768,7 +774,7 @@ class WorldSingleSectionSheetHeaderState
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     SizedBox(
                       width: 28,
                       height: 28,
@@ -778,11 +784,12 @@ class WorldSingleSectionSheetHeaderState
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(28, 28),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          backgroundColor: const Color(0xFFF3F3F5),
-                          foregroundColor: const Color(0xFF111111),
+                          backgroundColor:
+                              context.genesisWorldColors.closeSurface,
+                          foregroundColor: context.genesisColors.textPrimary,
                           shape: const CircleBorder(),
                         ),
-                        child: const Icon(Icons.close_rounded, size: 17),
+                        child: Icon(Icons.close_rounded, size: 17),
                       ),
                     ),
                   ],
@@ -809,10 +816,13 @@ class WorldSheetHeaderIcon extends StatelessWidget {
         asset,
         width: 20,
         height: 20,
-        colorFilter: const ColorFilter.mode(Color(0xFF111111), BlendMode.srcIn),
+        colorFilter: ColorFilter.mode(
+          context.genesisColors.textPrimary,
+          BlendMode.srcIn,
+        ),
       );
     }
-    return Icon(item.icon, size: 20, color: const Color(0xFF111111));
+    return Icon(item.icon, size: 20, color: context.genesisColors.textPrimary);
   }
 }
 

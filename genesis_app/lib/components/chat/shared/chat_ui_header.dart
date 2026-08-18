@@ -32,7 +32,7 @@ class ChatHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     final topInset = GenesisSafeAreaInsets.top(context);
     final headerSidePadding = trailing == null
         ? style.headerTrailingPlaceholderWidth

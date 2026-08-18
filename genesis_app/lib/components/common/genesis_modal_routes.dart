@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/theme/genesis_semantic_colors.dart';
+
 export '../../ui/system/genesis_system_ui.dart';
 
-const Color kGenesisModalBarrierColor = Color(0x8A000000);
-const Color kGenesisSubtleModalBarrierColor = Color(0x61000000);
+Color genesisModalBarrierColor(BuildContext context, {bool subtle = false}) =>
+    context.genesisColors.scrim.withValues(alpha: subtle ? 0.38 : 0.54);
 
 Future<T?> showGenesisModalBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  Color barrierColor = kGenesisModalBarrierColor,
+  Color? barrierColor,
   Color? backgroundColor,
   bool isScrollControlled = false,
   bool isDismissible = true,
@@ -21,7 +23,7 @@ Future<T?> showGenesisModalBottomSheet<T>({
   return showModalBottomSheet<T>(
     context: context,
     builder: builder,
-    barrierColor: barrierColor,
+    barrierColor: barrierColor ?? genesisModalBarrierColor(context),
     backgroundColor: backgroundColor,
     isScrollControlled: isScrollControlled,
     isDismissible: isDismissible,
@@ -36,7 +38,7 @@ Future<T?> showGenesisModalBottomSheet<T>({
 Future<T?> showGenesisDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  Color barrierColor = kGenesisModalBarrierColor,
+  Color? barrierColor,
   bool barrierDismissible = true,
   bool useSafeArea = true,
   bool useRootNavigator = true,
@@ -44,7 +46,7 @@ Future<T?> showGenesisDialog<T>({
   return showDialog<T>(
     context: context,
     builder: builder,
-    barrierColor: barrierColor,
+    barrierColor: barrierColor ?? genesisModalBarrierColor(context),
     barrierDismissible: barrierDismissible,
     useSafeArea: useSafeArea,
     useRootNavigator: useRootNavigator,
@@ -54,7 +56,7 @@ Future<T?> showGenesisDialog<T>({
 Future<T?> showGenesisGeneralDialog<T>({
   required BuildContext context,
   required RoutePageBuilder pageBuilder,
-  Color barrierColor = kGenesisModalBarrierColor,
+  Color? barrierColor,
   bool barrierDismissible = false,
   String? barrierLabel,
   Duration transitionDuration = const Duration(milliseconds: 200),
@@ -64,7 +66,7 @@ Future<T?> showGenesisGeneralDialog<T>({
   return showGeneralDialog<T>(
     context: context,
     pageBuilder: pageBuilder,
-    barrierColor: barrierColor,
+    barrierColor: barrierColor ?? genesisModalBarrierColor(context),
     barrierDismissible: barrierDismissible,
     barrierLabel: barrierLabel,
     transitionDuration: transitionDuration,

@@ -143,19 +143,19 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Color(0xFF666666),
+        style: TextStyle(
+          color: context.genesisCreateColors.muted,
           fontSize: 13,
           height: 1.3,
           fontWeight: FontWeight.w400,
         ),
       ),
       titleHeight: 104,
-      actions: const [
+      actions: [
         GenesisActionBoxAction<bool>(
           label: 'Delete',
           value: true,
-          color: Color(0xFFFF2442),
+          color: context.genesisCreateColors.danger,
         ),
       ],
       cancelLabel: 'Cancel',
@@ -173,22 +173,22 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
     final confirmed = await showGenesisActionBox<bool>(
       context: context,
       title: 'Delete "$displayName"',
-      titleContent: const Text(
+      titleContent: Text(
         'This is the Opening location. Deleting it will also clear the Opening.',
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: Color(0xFF666666),
+          color: context.genesisCreateColors.muted,
           fontSize: 13,
           height: 1.3,
           fontWeight: FontWeight.w400,
         ),
       ),
       titleHeight: 120,
-      actions: const [
+      actions: [
         GenesisActionBoxAction<bool>(
           label: 'Delete',
           value: true,
-          color: Color(0xFFFF2442),
+          color: context.genesisCreateColors.danger,
         ),
       ],
       cancelLabel: 'Cancel',
@@ -535,7 +535,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      SizedBox(height: 18),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final preferredSaveWidth = _primaryActionButtonWidth(
@@ -579,7 +579,7 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                                       _l2NeedsL3Message(target.parent),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12),
                                 ],
                                 GenesisPrimaryButton(
                                   key: const ValueKey<String>(

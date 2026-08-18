@@ -29,7 +29,7 @@ void main() {
     expect(icon.size, 9);
     expect(icon.color, const Color(0xFF92400E));
     expect(text.style?.fontSize, 11);
-    expect(text.style?.fontWeight, FontWeight.w500);
+    expect(text.style?.fontWeight, FontWeight.w600);
     expect(text.style?.color, const Color(0xFF92400E));
   });
 }

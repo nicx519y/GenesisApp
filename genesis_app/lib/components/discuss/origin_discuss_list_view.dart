@@ -130,13 +130,13 @@ class _ViewMoreButton extends StatelessWidget {
                   dimension: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text(
+              : Text(
                   'View More >',
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF888888),
+                    color: context.genesisColors.textFaint,
                   ),
                 ),
         ),
@@ -164,8 +164,8 @@ class _DiscussHeader extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           'Discuss (${formatStatCount(count)})',
-          style: const TextStyle(
-            color: Color(0xFF111111),
+          style: TextStyle(
+            color: context.genesisColors.textPrimary,
             fontSize: 14,
             height: 1.1,
             fontWeight: FontWeight.w600,

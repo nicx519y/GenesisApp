@@ -112,9 +112,9 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
+        _SectionTitle(
           icon: MyFlutterApp.lastProgress,
-          iconColor: Color(0xFFFF2442),
+          iconColor: context.genesisColors.danger,
           title: 'Copy World Progress',
         ),
         const SizedBox(height: 8),
@@ -144,14 +144,14 @@ class _CopyWorldProgressCard extends StatelessWidget {
     final item = summary;
     final body = item?.summary.trim();
     if (item == null || body == null || body.isEmpty) {
-      return const Text(
+      return Text(
         'No launched world',
         key: ValueKey('copy-world-progress-empty'),
         style: TextStyle(
           fontSize: 13,
           height: 1.3,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF999999),
+          color: context.genesisColors.textPlaceholder,
         ),
       );
     }
@@ -171,11 +171,11 @@ class _CopyWorldProgressCard extends StatelessWidget {
               maxLines: 5,
               overflow: TextOverflow.ellipsis,
               strutStyle: _bodyStrutStyle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: _bodyFontSize,
                 height: _bodyLineHeight,
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF111111),
+                color: context.genesisColors.textPrimary,
               ),
             ),
           ),
@@ -223,11 +223,11 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                       'WID: ${deletedAwareIdLabel(item.worldId, deleted: item.deleted)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         height: 1.2,
                         fontWeight: FontWeight.w400,
-                        color: Color(0xFF666666),
+                        color: context.genesisColors.textMuted,
                       ),
                     ),
                   ),
@@ -245,11 +245,11 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF8C8C8C),
+                    color: context.genesisColors.inputHint,
                   ),
                 ),
               ),

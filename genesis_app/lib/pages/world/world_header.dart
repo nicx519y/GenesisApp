@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/origin/stat_item.dart';
+import '../../components/world/genesis_world_theme.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -25,13 +27,16 @@ class WorldMapBackButton extends StatelessWidget {
       width: worldMapTabsHeight,
       height: worldMapTabsHeight,
       decoration: BoxDecoration(
-        color: const Color(0xE6FFFFFF),
+        color: context.genesisColors.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(12),
       ),
       child: IconButton(
         iconSize: 18,
         onPressed: onPressed,
-        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+        icon: Icon(
+          Icons.arrow_back_ios_new,
+          color: context.genesisColors.foregroundStrong,
+        ),
         padding: EdgeInsets.zero,
       ),
     );
@@ -58,7 +63,7 @@ class WorldMapIdentityPill extends StatelessWidget {
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF).withValues(alpha: 0.86),
+          color: context.genesisColors.surface.withValues(alpha: 0.86),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Padding(
@@ -77,16 +82,15 @@ class WorldMapIdentityPill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF4B6192),
+                  style: TextStyle(
+                    color: context.genesisColors.accentText,
                     fontSize: 16,
                     height: 1.1,
                     leadingDistribution: TextLeadingDistribution.even,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              if (title.isNotEmpty && timeText.isNotEmpty)
-                const SizedBox(height: 3),
+              if (title.isNotEmpty && timeText.isNotEmpty) SizedBox(height: 3),
               if (timeText.isNotEmpty) _WorldMapTimeLabel(text: timeText),
             ],
           ),
@@ -100,7 +104,6 @@ class _WorldMapTimeLabel extends StatelessWidget {
   const _WorldMapTimeLabel({required this.text});
 
   static const _textStyle = TextStyle(
-    color: Color(0xFF111111),
     fontSize: 12,
     height: 1,
     leadingDistribution: TextLeadingDistribution.even,
@@ -131,23 +134,37 @@ class _WorldMapTimeLabel extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: _textStyle,
+            style: _textStyle.copyWith(
+              color: context.genesisColors.textPrimary,
+            ),
             strutStyle: _strutStyle,
             textHeightBehavior: _textHeightBehavior,
           ),
           if (parts.time.isNotEmpty)
-            const Text(' · ', style: _textStyle, strutStyle: _strutStyle),
+            Text(
+              ' · ',
+              style: _textStyle.copyWith(
+                color: context.genesisColors.textPrimary,
+              ),
+              strutStyle: _strutStyle,
+            ),
         ],
         if (parts.time.isNotEmpty) ...[
-          const Icon(Icons.schedule, size: 12, color: Color(0xFF111111)),
-          const SizedBox(width: 4),
+          Icon(
+            Icons.schedule,
+            size: 12,
+            color: context.genesisColors.textPrimary,
+          ),
+          SizedBox(width: 4),
           Flexible(
             child: Text(
               parts.time,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: _textStyle,
+              style: _textStyle.copyWith(
+                color: context.genesisColors.textPrimary,
+              ),
               strutStyle: _strutStyle,
               textHeightBehavior: _textHeightBehavior,
             ),
@@ -352,22 +369,22 @@ class WorldInfoHeader extends StatelessWidget {
                                   data['icon'] as String? ?? '',
                                 ),
                             iconSize: 14,
-                            iconColor: Colors.black,
+                            iconColor: context.genesisColors.foregroundStrong,
                             text: formatStatCount(
                               data['value'] is num ? data['value'] as num : 0,
                             ),
                             gap: 4,
-                            textStyle: const TextStyle(
+                            textStyle: TextStyle(
                               fontSize: 14,
                               height: 1,
                               fontWeight: FontWeight.w400,
-                              color: Colors.black,
+                              color: context.genesisColors.foregroundStrong,
                             ),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 18),
+                  SizedBox(width: 18),
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: canTapRunningProgress
@@ -386,8 +403,8 @@ class WorldInfoHeader extends StatelessWidget {
                                 ),
                                 width: 12,
                                 height: 12,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.white,
+                                colorFilter: ColorFilter.mode(
+                                  context.genesisColors.onPrimary,
                                   BlendMode.srcIn,
                                 ),
                               )
@@ -398,11 +415,12 @@ class WorldInfoHeader extends StatelessWidget {
                             : null,
                         height: 35,
                         width: 140,
-                        backgroundColor: const Color(0xFF2F9663),
-                        disabledBackgroundColor: const Color(
-                          0xFF2F9663,
-                        ).withValues(alpha: 0.62),
-                        foregroundColor: Colors.white,
+                        backgroundColor: context.genesisWorldColors.success,
+                        disabledBackgroundColor: context
+                            .genesisWorldColors
+                            .success
+                            .withValues(alpha: 0.62),
+                        foregroundColor: context.genesisColors.onPrimary,
                         fontSize: 16,
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,

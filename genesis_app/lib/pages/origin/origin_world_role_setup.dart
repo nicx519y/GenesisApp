@@ -151,15 +151,15 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                   width: 16,
                   height: 16,
                   excludeFromSemantics: true,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFF111111),
+                  colorFilter: ColorFilter.mode(
+                    context.genesisColors.textPrimary,
                     BlendMode.srcIn,
                   ),
                 ),
                 const SizedBox(
                   width: originDetailSectionTitleIconGapForTesting,
                 ),
-                const Flexible(
+                Flexible(
                   child: Text(
                     'Select Your Role',
                     maxLines: 1,
@@ -169,7 +169,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                       fontSize: 16,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF111111),
+                      color: context.genesisColors.textPrimary,
                       decoration: TextDecoration.none,
                     ),
                   ),
@@ -290,7 +290,9 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: selected ? GenesisColors.brand : const Color(0xFFB7B7B7),
+              color: selected
+                  ? context.genesisColors.primary
+                  : context.genesisOriginColors.roleSetupDisabled,
             ),
           );
         }),
@@ -312,10 +314,12 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       key: const ValueKey<String>('origin-setup-role-custom-card'),
-      color: const Color(0xCC000000),
+      color: context.genesisOriginColors.roleSetupBackdrop,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0x1FFFFFFF)),
+        side: BorderSide(
+          color: context.genesisColors.textInverse.withValues(alpha: 0.12),
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -326,14 +330,14 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               Text(
                 '+',
                 style: TextStyle(
                   fontSize: 36,
                   height: 1,
                   fontWeight: FontWeight.w300,
-                  color: Colors.white,
+                  color: context.genesisColors.textInverse,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -344,7 +348,7 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
                   fontSize: 16,
                   height: 1,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: context.genesisColors.textInverse,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -474,8 +478,10 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
       borderRadius: BorderRadius.circular(12),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFF202022),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          color: context.genesisOriginColors.roleSetupPanel,
+          border: Border.all(
+            color: context.genesisColors.textInverse.withValues(alpha: 0.12),
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -530,19 +536,22 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                             vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.68),
+                            color: context.genesisColors.scrim.withValues(
+                              alpha: 0.68,
+                            ),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.16),
+                              color: context.genesisColors.textInverse
+                                  .withValues(alpha: 0.16),
                             ),
                           ),
                           child: Text(
                             topLabel,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               height: 1,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: context.genesisColors.textInverse,
                               decoration: TextDecoration.none,
                             ),
                           ),
@@ -562,11 +571,14 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                     key: ValueKey<String>(
                       'origin-setup-role-action-background-$stableId',
                     ),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Color(0xFF505056), Color(0xFF343438)],
+                        colors: [
+                          context.genesisOriginColors.roleSetupGradientStart,
+                          context.genesisOriginColors.roleSetupGradientEnd,
+                        ],
                       ),
                     ),
                   ),
@@ -574,7 +586,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                     key: ValueKey<String>(
                       'origin-setup-role-action-scrim-$stableId',
                     ),
-                    color: Colors.black.withValues(alpha: 0.7),
+                    color: context.genesisColors.scrim.withValues(alpha: 0.7),
                   ),
                   Column(
                     children: [
@@ -597,7 +609,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                     : 'origin-setup-role-arrow-down-$stableId',
                               ),
                               size: 32,
-                              color: const Color(0xFF999999),
+                              color: context.genesisOriginColors.roleSetupMuted,
                             ),
                           ),
                         ),
@@ -614,7 +626,9 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                     key: ValueKey<String>(
                                       'origin-setup-role-edit-surface-$stableId',
                                     ),
-                                    color: const Color(0x667A7A7A),
+                                    color: context
+                                        .genesisOriginColors
+                                        .roleSetupSelectionOverlay,
                                     borderRadius: BorderRadius.circular(8),
                                     clipBehavior: Clip.antiAlias,
                                     child: InkWell(
@@ -627,9 +641,10 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                       child: Icon(
                                         Icons.edit_rounded,
                                         size: 18,
-                                        color: Colors.white.withValues(
-                                          alpha: widget.launching ? 0.6 : 1,
-                                        ),
+                                        color: context.genesisColors.textInverse
+                                            .withValues(
+                                              alpha: widget.launching ? 0.6 : 1,
+                                            ),
                                       ),
                                     ),
                                   ),
@@ -641,7 +656,9 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                   key: ValueKey<String>(
                                     'origin-setup-role-select-surface-$stableId',
                                   ),
-                                  color: const Color(0x667A7A7A),
+                                  color: context
+                                      .genesisOriginColors
+                                      .roleSetupSelectionOverlay,
                                   borderRadius: BorderRadius.circular(8),
                                   clipBehavior: Clip.antiAlias,
                                   child: InkWell(
@@ -676,11 +693,14 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                                 fontSize: 16,
                                                 height: 1,
                                                 fontWeight: FontWeight.w600,
-                                                color: Colors.white.withValues(
-                                                  alpha: widget.launching
-                                                      ? 0.6
-                                                      : 1,
-                                                ),
+                                                color: context
+                                                    .genesisColors
+                                                    .textInverse
+                                                    .withValues(
+                                                      alpha: widget.launching
+                                                          ? 0.6
+                                                          : 1,
+                                                    ),
                                                 decoration: TextDecoration.none,
                                               ),
                                             ),
@@ -741,11 +761,11 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                 content.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 1.2,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: context.genesisColors.textInverse,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -754,11 +774,13 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                 Text(
                   content.identity.trim(),
                   softWrap: true,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     height: 1.25,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xE6FFFFFF),
+                    color: context.genesisColors.textInverse.withValues(
+                      alpha: 0.9,
+                    ),
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -785,7 +807,7 @@ class _OriginSetupRoleDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.expand(
       child: ColoredBox(
-        color: const Color(0xFF202022),
+        color: context.genesisOriginColors.roleSetupPanel,
         child: SingleChildScrollView(
           key: ValueKey<String>(
             'origin-setup-role-details-scroll-${content.stableId}',
@@ -798,11 +820,11 @@ class _OriginSetupRoleDetails extends StatelessWidget {
               Text(
                 content.name.trim().isEmpty ? '—' : content.name.trim(),
                 textAlign: TextAlign.start,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 1.4,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: context.genesisColors.textInverse,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -860,11 +882,11 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
             Text(
               label,
               textAlign: TextAlign.start,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
-                color: Color(0x99FFFFFF),
+                color: context.genesisColors.textInverse.withValues(alpha: 0.6),
                 decoration: TextDecoration.none,
               ),
             ),
@@ -873,11 +895,11 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
               displayValue,
               softWrap: true,
               textAlign: TextAlign.start,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 height: 1.4,
                 fontWeight: FontWeight.w400,
-                color: Colors.white,
+                color: context.genesisColors.textInverse,
                 decoration: TextDecoration.none,
               ),
             ),
@@ -914,7 +936,7 @@ class _OriginSetupRoleImage extends StatelessWidget {
           height: height,
           borderRadius: 0,
         ),
-        const DecoratedBox(
+        DecoratedBox(
           decoration: BoxDecoration(gradient: originRolePortraitGradient),
         ),
       ],
@@ -937,7 +959,7 @@ class _OriginSetupRoleImage extends StatelessWidget {
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded || frame != null) return child;
         return ColoredBox(
-          color: const Color(0xFF202022),
+          color: context.genesisOriginColors.roleSetupPanel,
           child: SizedBox(width: width, height: height),
         );
       },

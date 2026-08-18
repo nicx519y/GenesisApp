@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../icons/custom_icon_assets.dart';
 import '../ui/components/recent_chat_marker.dart';
 import '../ui/components/genesis_list_image.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 import '../ui/tokens/genesis_image_radii.dart';
 import '../utils/genesis_image_resource.dart';
 import 'world_details_shell.dart';
@@ -266,7 +267,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
           ),
           onTap: widget.onPointTap,
         ),
-        if (index < points.length - 1) const Divider(height: 1),
+        if (index < points.length - 1) Divider(height: 1),
       ],
     ];
   }
@@ -401,7 +402,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
             ),
             onTap: widget.onPointTap,
           ),
-          if (row.showDivider) const Divider(height: 1),
+          if (row.showDivider) Divider(height: 1),
         ],
       );
     }
@@ -601,30 +602,30 @@ class _PointListItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _PointListCover(point: point),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.place_outlined,
                         size: 14,
-                        color: Colors.black,
+                        color: context.genesisColors.foregroundStrong,
                       ),
-                      const SizedBox(width: 2),
+                      SizedBox(width: 2),
                       Flexible(
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: _locationNameStyle(level),
+                          style: _locationNameStyle(context, level),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (showRecentChatIcon) ...[
-                        const SizedBox(width: 5),
+                        SizedBox(width: 5),
                         const RecentChatIcon(),
                       ],
                     ],
@@ -633,7 +634,7 @@ class _PointListItem extends StatelessWidget {
                   if (point.users.isNotEmpty)
                     _PointCharacterGroups(users: point.users),
                   if (description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     _PointSummaryRow(description: description),
                   ],
                 ],
@@ -671,13 +672,13 @@ class _NodeHeader extends StatelessWidget {
               fit: FlexFit.loose,
               child: Text(
                 '- ${point.name}',
-                style: _locationNameStyle(level),
+                style: _locationNameStyle(context, level),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             if (showRecentChatIcon) ...[
-              const SizedBox(width: 5),
+              SizedBox(width: 5),
               const RecentChatIcon(),
             ],
           ],
@@ -716,30 +717,30 @@ class _LocationCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _LocationCardCover(point: point),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.place_outlined,
                         size: 14,
-                        color: Colors.black,
+                        color: context.genesisColors.foregroundStrong,
                       ),
-                      const SizedBox(width: 2),
+                      SizedBox(width: 2),
                       Flexible(
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: _locationNameStyle(level),
+                          style: _locationNameStyle(context, level),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (showRecentChatIcon) ...[
-                        const SizedBox(width: 5),
+                        SizedBox(width: 5),
                         const RecentChatIcon(),
                       ],
                     ],
@@ -748,7 +749,7 @@ class _LocationCard extends StatelessWidget {
                   if (point.users.isNotEmpty)
                     _PointCharacterGroups(users: point.users),
                   if (description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     _PointSummaryRow(description: description),
                   ],
                 ],
@@ -761,19 +762,19 @@ class _LocationCard extends StatelessWidget {
   }
 }
 
-TextStyle _locationNameStyle(int level) {
+TextStyle _locationNameStyle(BuildContext context, int level) {
   if (level <= 0) {
-    return const TextStyle(
+    return TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
-      color: Colors.black,
+      color: context.genesisColors.foregroundStrong,
     );
   }
   return TextStyle(
     fontSize: 14,
     height: 1.2,
     fontWeight: level == 1 ? FontWeight.w600 : FontWeight.w400,
-    color: Colors.black,
+    color: context.genesisColors.foregroundStrong,
   );
 }
 
@@ -819,8 +820,7 @@ class _PointCharacterGroups extends StatelessWidget {
             iconAsset: characterStatIconAsset,
             names: aiNames,
           ),
-        if (aiNames.isNotEmpty && nonAiNames.isNotEmpty)
-          const SizedBox(height: 2),
+        if (aiNames.isNotEmpty && nonAiNames.isNotEmpty) SizedBox(height: 2),
         if (nonAiNames.isNotEmpty)
           _PointCharacterGroupRow(
             iconAsset: userStatIconAsset,
@@ -858,20 +858,23 @@ class _PointCharacterGroupRow extends StatelessWidget {
               fit: BoxFit.contain,
               excludeFromSemantics: true,
               colorFilter: iconAsset == userStatIconAsset
-                  ? const ColorFilter.mode(Colors.black, BlendMode.srcIn)
+                  ? ColorFilter.mode(
+                      context.genesisColors.foregroundStrong,
+                      BlendMode.srcIn,
+                    )
                   : null,
             ),
           ),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
         Expanded(
           child: Text(
             names.join(', '),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               height: 1.2,
               fontWeight: FontWeight.w400,
-              color: Colors.black,
+              color: context.genesisColors.foregroundStrong,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -891,11 +894,11 @@ class _PointSummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       description,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12,
         height: 1.25,
         fontWeight: FontWeight.w400,
-        color: Colors.black,
+        color: context.genesisColors.foregroundStrong,
       ),
       maxLines: 3,
       overflow: TextOverflow.ellipsis,

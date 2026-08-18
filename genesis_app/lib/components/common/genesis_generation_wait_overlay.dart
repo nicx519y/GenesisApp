@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -134,7 +135,7 @@ class _GenesisGenerationWaitOverlayState
           behavior: HitTestBehavior.opaque,
           onTap: widget.onBarrierTap,
           child: ColoredBox(
-            color: const Color(0x8A000000),
+            color: context.genesisColors.scrim.withValues(alpha: 0.54),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return Stack(
@@ -148,7 +149,7 @@ class _GenesisGenerationWaitOverlayState
                           onTap: () {},
                           child: AlertDialog(
                             key: const ValueKey('world-tick1-wait-dialog'),
-                            backgroundColor: const Color(0xFFFFFFFF),
+                            backgroundColor: context.genesisColors.surface,
                             shape: const RoundedRectangleBorder(
                               borderRadius: BorderRadius.all(
                                 Radius.circular(8),
@@ -170,10 +171,11 @@ class _GenesisGenerationWaitOverlayState
                                   Text(
                                     title,
                                     textAlign: TextAlign.left,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 16,
                                       height: 1.2,
                                       fontWeight: FontWeight.w600,
+                                      color: context.genesisColors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 14),
@@ -491,10 +493,10 @@ class _PerspectiveWaitTextState extends State<_PerspectiveWaitText>
                                   textAlign: index < widget.centeredLineCount
                                       ? TextAlign.center
                                       : TextAlign.justify,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     height: 1.32,
-                                    color: Color(0xFF2A2F33),
+                                    color: context.genesisColors.textCinematic,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),

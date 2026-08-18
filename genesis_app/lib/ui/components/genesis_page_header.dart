@@ -105,6 +105,7 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: Align(
           alignment: Alignment.centerLeft,
           child: IconButton(
+            tooltip: 'Back',
             constraints: const BoxConstraints.tightFor(width: 17, height: 17),
             padding: EdgeInsets.zero,
             icon: Icon(

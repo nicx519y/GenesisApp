@@ -162,8 +162,8 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
                     : () => widget.onItemReplyTap!(widget.item),
                 child: Text(
                   widget.item.content,
-                  style: const TextStyle(
-                    color: Color(0xFF111111),
+                  style: TextStyle(
+                    color: context.genesisColors.textPrimary,
                     fontSize: 13,
                     height: 1.45,
                     fontWeight: FontWeight.w400,
@@ -274,8 +274,8 @@ class _DiscussActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final likePending = controller.isLikePending(item.discussId);
     final activeColor = item.isLiked
-        ? const Color(0xFFFF2442)
-        : const Color(0xFF7D8178);
+        ? context.genesisColors.danger
+        : context.genesisDiscussColors.actionInactive;
     return Row(
       children: [
         GestureDetector(

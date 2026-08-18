@@ -7,6 +7,7 @@ import 'login_provider_button.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
 import '../platform/auth/auth_session.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 
 class LoginSheet extends StatefulWidget {
   const LoginSheet({super.key, required this.onLogin});
@@ -79,11 +80,11 @@ class _LoginSheetState extends State<LoginSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Create worldo, launch worlds and invite friends',
             style: TextStyle(
               fontSize: 14,
-              color: Color(0xFF666666),
+              color: context.genesisColors.textMuted,
               height: 1.35,
             ),
           ),

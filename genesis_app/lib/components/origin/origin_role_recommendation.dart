@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../network/models/origin.dart';
-import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 List<OriginCharacter> originCharactersRecommendedFirst(
   Iterable<OriginCharacter> characters,
@@ -33,15 +33,15 @@ class OriginRecommendedRoleMark extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: showBackground
-                ? const Color(0xCCFFFFFF)
+                ? context.genesisColors.textInverse.withValues(alpha: 0.8)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Center(
+          child: Center(
             child: Icon(
               Icons.star_rounded,
               size: 22,
-              color: GenesisColors.brand,
+              color: context.genesisColors.primary,
             ),
           ),
         ),

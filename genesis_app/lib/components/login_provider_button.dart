@@ -8,6 +8,7 @@ import '../app/config/app_flavor_config.dart';
 import '../platform/auth/auth_session.dart';
 import '../pages/legal/legal_document_page.dart';
 import '../routers/app_router.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 
 const String _googleOauthIconAsset = 'assets/custom-icons/svg/login_google.svg';
 const String _appleOauthIconAsset = 'assets/custom-icons/svg/login_apple.svg';
@@ -97,15 +98,15 @@ class _LoginLegalTextState extends State<LoginLegalText> {
 
   @override
   Widget build(BuildContext context) {
-    const baseStyle = TextStyle(
+    final baseStyle = TextStyle(
       fontSize: 12,
       height: 1.35,
-      color: Color(0xFF8A8A8A),
+      color: context.genesisColors.textSupporting,
     );
-    const linkStyle = TextStyle(
+    final linkStyle = TextStyle(
       fontSize: 12,
       height: 1.35,
-      color: Color(0xFF3E5B8A),
+      color: context.genesisColors.link,
     );
     return Text.rich(
       TextSpan(
@@ -145,8 +146,8 @@ class LoginProviderButton extends StatelessWidget {
     this.isLoading = false,
     this.height = 56,
     this.borderRadius = 16,
-    this.backgroundColor = const Color(0xFFF0F0F0),
-    this.foregroundColor = Colors.black,
+    this.backgroundColor,
+    this.foregroundColor,
   });
 
   final IdentityProvider provider;
@@ -155,11 +156,15 @@ class LoginProviderButton extends StatelessWidget {
   final bool isLoading;
   final double height;
   final double borderRadius;
-  final Color backgroundColor;
-  final Color foregroundColor;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor =
+        this.backgroundColor ?? context.genesisColors.controlBackground;
+    final foregroundColor =
+        this.foregroundColor ?? context.genesisColors.foregroundStrong;
     return SizedBox(
       width: double.infinity,
       height: height,

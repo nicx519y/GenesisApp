@@ -128,7 +128,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     unawaited(
       showGeneralDialog<void>(
         context: context,
-        barrierColor: kGenesisModalBarrierColor,
+        barrierColor: genesisModalBarrierColor(context),
         barrierDismissible: false,
         pageBuilder: (dialogContext, animation, secondaryAnimation) {
           return Center(

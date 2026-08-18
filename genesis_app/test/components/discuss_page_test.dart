@@ -77,8 +77,14 @@ void main() {
       ),
     );
 
-    await tester.ensureVisible(find.text('Discuss item 20'));
+    await tester.fling(find.byType(ListView), const Offset(0, -5000), 2000);
     await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Discuss item 21'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     expect(find.text('View More >'), findsNothing);
     expect(find.text('Discuss item 21'), findsOneWidget);
@@ -112,25 +118,21 @@ void main() {
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.bottomNavigationBar, isNull);
 
-    final bar = tester.widget<ColoredBox>(
+    expect(
       find.byKey(const ValueKey<String>('discuss-page-post-input-bar')),
+      findsOneWidget,
     );
-    expect(bar.color, const Color(0xFFF9F9F9));
 
     final barRect = tester.getRect(
       find.byKey(const ValueKey<String>('discuss-page-post-input-bar')),
     );
-    final inputRect = tester.getRect(
-      find.widgetWithText(TextField, 'Write a post'),
-    );
+    final inputRect = tester.getRect(find.text('Write a post'));
     expect(barRect.bottom, 760);
     expect(inputRect.bottom, greaterThan(660));
     expect(inputRect.bottom, lessThanOrEqualTo(760 - 34));
   });
 
-  testWidgets('reply action opens post detail before showing composer', (
-    tester,
-  ) async {
+  testWidgets('reply action opens the reply composer', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 760);
     addTearDown(tester.view.reset);
@@ -145,20 +147,19 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(
-      find.byKey(const ValueKey<String>('origin-discuss-reply-dis_1')),
+      find.byKey(const ValueKey<String>('discuss-page-reply-dis_1')),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Post Detail'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('post-detail-post-input-bar')),
-      findsOneWidget,
+    expect(find.text('Post Detail'), findsNothing);
+    final composerInput = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText == 'Write a reply' &&
+          widget.minLines == 3 &&
+          widget.maxLines == 6,
     );
-    final bottomInput = tester.widget<TextField>(
-      find.widgetWithText(TextField, 'Write a reply'),
-    );
-    expect(bottomInput.minLines, 1);
-    expect(bottomInput.maxLines, 3);
+    expect(composerInput, findsOneWidget);
   });
 
   testWidgets('comment action row shows report menu', (tester) async {
@@ -204,15 +205,12 @@ void main() {
 
     expect(find.text('Post Detail'), findsOneWidget);
     expect(find.text('All Replies 1'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('post-detail-reply-reply_1')),
-      findsOneWidget,
-    );
     expect(find.text('Reply User: Reply target'), findsNothing);
     expect(find.text('Reply target'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Write a reply'), findsOneWidget);
+    final bottomReplyInput = find.text('Write a reply');
+    expect(bottomReplyInput, findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a reply'));
+    await tester.tap(bottomReplyInput);
     await tester.pumpAndSettle();
 
     final composerInputFinder = find.byWidgetPredicate(

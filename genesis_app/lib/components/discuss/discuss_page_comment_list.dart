@@ -7,6 +7,7 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -16,6 +17,7 @@ import '../common/genesis_image_viewer_overlay.dart';
 import '../common/genesis_report_actions.dart';
 import '../common/genesis_timestamp_text.dart';
 import 'origin_discuss_list.dart';
+import 'genesis_discuss_theme.dart';
 import 'story_badge.dart';
 
 class DiscussPageCommentList extends StatelessWidget {
@@ -214,8 +216,8 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
               const SizedBox(height: _metaBodyGap),
               Text(
                 widget.item.content,
-                style: const TextStyle(
-                  color: Color(0xFF111111),
+                style: TextStyle(
+                  color: context.genesisColors.textPrimary,
                   fontSize: 14,
                   height: 1.45,
                   fontWeight: FontWeight.w400,
@@ -280,8 +282,8 @@ class _DiscussPageMeta extends StatelessWidget {
             item.authorName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF666666),
+            style: TextStyle(
+              color: context.genesisColors.textMuted,
               fontSize: 14,
               height: 1.18,
               fontWeight: FontWeight.w600,
@@ -318,7 +320,12 @@ class _DiscussPageMeta extends StatelessWidget {
           ),
           if (item.createdAt != null) ...[
             const SizedBox(width: 8),
-            GenesisTimestampText(timestamp: item.createdAt, style: _timeStyle),
+            GenesisTimestampText(
+              timestamp: item.createdAt,
+              style: _timeStyle.copyWith(
+                color: context.genesisColors.textTimestamp,
+              ),
+            ),
           ],
         ],
       ),
@@ -398,8 +405,8 @@ class _DiscussPageActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final likePending = controller.isLikePending(item.discussId);
     final activeColor = item.isLiked
-        ? const Color(0xFFFF2442)
-        : const Color(0xFF7D8178);
+        ? context.genesisColors.danger
+        : context.genesisDiscussColors.actionInactive;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -434,7 +441,7 @@ class _DiscussPageActions extends StatelessWidget {
           child: _DiscussActionCluster(
             iconAsset: _discussReplyAsset,
             count: item.replyCount,
-            color: _timeStyle.color ?? const Color(0xFF8B8B8B),
+            color: context.genesisColors.textTimestamp,
           ),
         ),
         const Spacer(),
@@ -570,11 +577,11 @@ class _DiscussPageReplyPreview extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(width: 3, color: const Color(0xFFD7DBE3)),
+            Container(width: 3, color: context.genesisDiscussColors.replyRail),
             Expanded(
               child: Container(
                 width: double.infinity,
-                color: const Color(0xFFF6F7F9),
+                color: context.genesisDiscussColors.replySurface,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 8,
@@ -591,11 +598,11 @@ class _DiscussPageReplyPreview extends StatelessWidget {
                       if (visibleReplies.isNotEmpty) const SizedBox(height: 6),
                       Text(
                         'View all ${item.replyCount} replies',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           height: 1.25,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF4B6192),
+                          color: context.genesisDiscussColors.actionAccent,
                         ),
                       ),
                     ],
@@ -668,9 +675,9 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
           if (showReplyTo)
             TextSpan(
               text: '@$replyToName ',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w400,
-                color: Color(0xFF4B6192),
+                color: context.genesisDiscussColors.actionAccent,
               ),
             ),
           TextSpan(text: content),
@@ -678,11 +685,11 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12,
         height: 1.25,
         fontWeight: FontWeight.w400,
-        color: Color(0xFF666666),
+        color: context.genesisColors.textMuted,
       ),
     );
   }
@@ -703,7 +710,6 @@ String _discussLikeFilledOrOutline(bool isLiked) {
 const String _discussReplyAsset = 'assets/custom-icons/png/discuss_reply.png';
 
 const _timeStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

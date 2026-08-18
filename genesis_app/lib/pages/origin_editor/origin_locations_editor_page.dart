@@ -40,7 +40,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   static const String _completeRequiredLocationMessage =
       'Please complete this location or delete it.';
   static const TextStyle _locationCountStyle = TextStyle(
-    color: Color(0xFF666666),
     fontSize: 13,
     height: 1.2,
   );
@@ -347,7 +346,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       onPointerCancel: (_) => _releaseInlineOutsideTapSuppression(),
       child: Scaffold(
         resizeToAvoidBottomInset: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.genesisColors.pageBackground,
         appBar: GenesisBackAppBar(
           pageName: 'Locations',
           actions: [

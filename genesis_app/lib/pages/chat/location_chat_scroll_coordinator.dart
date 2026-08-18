@@ -528,7 +528,7 @@ class _LocationChatAnchoredMessageListState
 
   @override
   Widget build(BuildContext context) {
-    final style = widget.style ?? ChatUiStyleConfig.standard;
+    final style = widget.style ?? context.genesisChatTheme.standard;
     final hasOldestEdgeContent =
         widget.topTitle.trim().isNotEmpty ||
         (widget.oldestEdgeNotice?.trim().isNotEmpty ?? false);

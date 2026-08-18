@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_p
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/login_provider_button.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 
 void main() {
   testWidgets('provider buttons follow the current flavor capability', (
@@ -55,7 +56,12 @@ void main() {
     );
 
     final title = tester.widget<Text>(find.text('Sign in to continue'));
-    expect(title.style, GenesisBottomSheetPanel.titleStyle);
+    expect(
+      title.style,
+      GenesisBottomSheetPanel.titleStyle.copyWith(
+        color: GenesisSemanticColors.light().textPrimary,
+      ),
+    );
   });
 
   testWidgets('login sheet keeps the global transparent status bar style', (

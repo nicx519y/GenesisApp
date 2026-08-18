@@ -26,10 +26,10 @@ class _TaskActionButton extends StatelessWidget {
     final enabled =
         !isLoading && (status == 'in_progress' || status == 'claimable');
     final foregroundColor = switch (status) {
-      'claimable' => kGemAccentColor,
-      'in_progress' => kGemTaskProgressForegroundColor,
-      'claimed' => kGemTaskClaimedForegroundColor,
-      _ => kGemTaskActionColor,
+      'claimable' => context.genesisGemColors.accent,
+      'in_progress' => context.genesisGemColors.taskProgressForeground,
+      'claimed' => context.genesisGemColors.taskClaimedForeground,
+      _ => context.genesisGemColors.taskAction,
     };
     final actionText = status == task.status
         ? task.actionText
@@ -75,13 +75,13 @@ class _GemWalletLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: SizedBox(
         width: 24,
         height: 24,
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: kGemAccentColor,
+          color: context.genesisGemColors.accent,
         ),
       ),
     );
@@ -101,14 +101,14 @@ class _GemWalletError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Unable to load gems.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 height: 20 / 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
+                color: context.genesisColors.textBody,
               ),
             ),
             const SizedBox(height: 12),
@@ -144,12 +144,12 @@ class _GemSectionStatePanel extends StatelessWidget {
       height: 96,
       child: Center(
         child: isLoading || !hasError
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: kGemAccentColor,
+                  color: context.genesisGemColors.accent,
                 ),
               )
             : Column(
@@ -157,10 +157,10 @@ class _GemSectionStatePanel extends StatelessWidget {
                 children: [
                   Text(
                     errorMessage,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       height: 16 / 12,
-                      color: Color(0xFF999999),
+                      color: context.genesisColors.textPlaceholder,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -189,16 +189,16 @@ class _GemEmptyPanel extends StatelessWidget {
       height: 96,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F8F8),
+        color: context.genesisColors.surfaceEmpty,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         message,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           height: 18 / 13,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF999999),
+          color: context.genesisColors.textPlaceholder,
         ),
       ),
     );

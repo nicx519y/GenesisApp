@@ -149,12 +149,12 @@ class _UserProfileContentState extends State<UserProfileContent>
       );
     }
     if (widget.isBlocked) {
-      return const Center(
+      return Center(
         child: Text(
           'User blocked',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF888888),
+            color: context.genesisColors.textFaint,
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
@@ -409,9 +409,9 @@ class _GemsBalanceEntry extends StatelessWidget {
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF4F6),
+          color: context.genesisColors.dangerSurface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFFFE0E6)),
+          border: Border.all(color: context.genesisColors.dangerBorder),
         ),
         child: Row(
           children: [
@@ -425,25 +425,29 @@ class _GemsBalanceEntry extends StatelessWidget {
             Text(
               balance == null ? '0' : _formatGemBalance(balance),
               key: const ValueKey('user-profile-gems-balance'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 height: 20 / 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
+                color: context.genesisColors.textBody,
               ),
             ),
             const SizedBox(width: 4),
-            const Text(
+            Text(
               'Gems',
               style: TextStyle(
                 fontSize: 12,
                 height: 18 / 12,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF666666),
+                color: context.genesisColors.textMuted,
               ),
             ),
             const Spacer(),
-            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF999999)),
+            Icon(
+              Icons.chevron_right,
+              size: 22,
+              color: context.genesisColors.textPlaceholder,
+            ),
           ],
         ),
       ),
@@ -482,7 +486,7 @@ class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return ColoredBox(
-      color: Colors.white,
+      color: context.genesisColors.surface,
       child: Column(
         children: [
           const SizedBox(height: 5),

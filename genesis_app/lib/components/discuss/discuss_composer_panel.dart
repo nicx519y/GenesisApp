@@ -31,7 +31,7 @@ class _DiscussComposerPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       key: const ValueKey('discuss-composer-sheet'),
-      color: Colors.white,
+      color: context.genesisColors.surface,
       borderRadius: GenesisBottomSheetPanel.borderRadius,
       child: SafeArea(
         top: false,
@@ -50,21 +50,21 @@ class _DiscussComposerPanel extends StatelessWidget {
                 textInputAction: TextInputAction.newline,
                 minLines: _discussComposerMinTextLines,
                 maxLines: _discussComposerMaxTextLines,
-                cursorColor: const Color(0xFF6C657A),
-                style: const TextStyle(
+                cursorColor: context.genesisDiscussColors.composerCursor,
+                style: TextStyle(
                   fontSize: _discussComposerFontSize,
                   height: _discussComposerLineHeight,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xFF111111),
+                  color: context.genesisColors.textPrimary,
                 ),
                 decoration: InputDecoration(
                   hintText: placeholder,
-                  hintStyle: const TextStyle(
+                  hintStyle: TextStyle(
                     fontSize: _discussComposerFontSize,
                     height: _discussComposerLineHeight,
                     fontWeight: FontWeight.w400,
                     letterSpacing: 0,
-                    color: Color(0xFFB8B8B8),
+                    color: context.genesisDiscussColors.composerHint,
                   ),
                   border: InputBorder.none,
                   isCollapsed: true,
@@ -92,18 +92,20 @@ class _DiscussComposerPanel extends StatelessWidget {
                       width: 36,
                       height: 36,
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.add_photo_alternate_outlined,
                       size: 30,
-                      color: Color(0xFF00834C),
+                      color: context.genesisDiscussColors.composerSubmit,
                     ),
                   ),
                   const Spacer(),
                   TextButton(
                     onPressed: canSend ? onSend : null,
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF4B5F8E),
-                      disabledForegroundColor: const Color(0xFF9BA4B8),
+                      foregroundColor:
+                          context.genesisDiscussColors.composerAction,
+                      disabledForegroundColor:
+                          context.genesisDiscussColors.composerActionDisabled,
                       textStyle: const TextStyle(
                         fontSize: 16,
                         height: 1.1,

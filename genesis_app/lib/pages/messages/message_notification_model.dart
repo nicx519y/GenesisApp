@@ -307,18 +307,8 @@ class _NotificationItem {
     }
   }
 
-  Color get joinRequestStatusColor {
-    switch (approvalStatus) {
-      case _JoinRequestApprovalStatus.approved:
-        return const Color(0xFF25845C);
-      case _JoinRequestApprovalStatus.rejected:
-        return const Color(0xFF8A8D93);
-      case _JoinRequestApprovalStatus.pending:
-        return const Color(0xFF25845C);
-      case null:
-        return const Color(0xFF25845C);
-    }
-  }
+  bool get joinRequestStatusIsMuted =>
+      approvalStatus == _JoinRequestApprovalStatus.rejected;
 
   String get discussTitleSuffix {
     final normalizedType = type.toLowerCase();

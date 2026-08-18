@@ -15,16 +15,17 @@ class _FollowStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(
+    final colors = context.genesisColors;
+    final style = TextStyle(
       fontSize: 16,
       height: 1,
-      color: Color(0xFF111111),
+      color: colors.textPrimary,
       fontWeight: FontWeight.w600,
     );
-    const labelStyle = TextStyle(
+    final labelStyle = TextStyle(
       fontSize: 14,
       height: 1,
-      color: Color(0xFF666666),
+      color: colors.textMuted,
       fontWeight: FontWeight.w400,
     );
 
@@ -99,14 +100,17 @@ class _ProfileActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = isFollowed
-        ? const Color(0xFFE5E5E5)
-        : const Color(0xFFFF2442);
-    final foregroundColor = isFollowed ? Colors.black : Colors.white;
+    final colors = context.genesisColors;
+    final backgroundColor = isFollowed ? colors.surfaceDisabled : colors.danger;
+    final foregroundColor = isFollowed
+        ? colors.foregroundStrong
+        : colors.onDanger;
     final disabledBackgroundColor = isFollowed
-        ? const Color(0xFFE5E5E5)
-        : const Color(0xFFFF2442).withValues(alpha: 0.55);
-    final disabledForegroundColor = isFollowed ? Colors.black54 : Colors.white;
+        ? colors.surfaceDisabled
+        : colors.danger.withValues(alpha: 0.55);
+    final disabledForegroundColor = isFollowed
+        ? colors.foregroundStrong.withValues(alpha: 0.54)
+        : colors.onDanger;
     const actionTextStyle = TextStyle(fontWeight: FontWeight.w600);
 
     return Row(
@@ -150,10 +154,12 @@ class _ProfileActionButtons extends StatelessWidget {
               key: const ValueKey('user-profile-message-button'),
               onPressed: onMessage,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE5E5E5),
-                disabledBackgroundColor: const Color(0xFFE5E5E5),
-                foregroundColor: Colors.black,
-                disabledForegroundColor: Colors.black54,
+                backgroundColor: colors.surfaceDisabled,
+                disabledBackgroundColor: colors.surfaceDisabled,
+                foregroundColor: colors.foregroundStrong,
+                disabledForegroundColor: colors.foregroundStrong.withValues(
+                  alpha: 0.54,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -195,35 +201,43 @@ class _Avatar extends StatelessWidget {
     if (listenableName != null) {
       return ValueListenableBuilder<String>(
         valueListenable: listenableName,
-        builder: (context, displayName, _) =>
-            _buildUrlLayer(displayName.trim().isEmpty ? name : displayName),
+        builder: (context, displayName, _) => _buildUrlLayer(
+          context,
+          displayName.trim().isEmpty ? name : displayName,
+        ),
       );
     }
-    return _buildUrlLayer(name);
+    return _buildUrlLayer(context, name);
   }
 
-  Widget _buildUrlLayer(String displayName) {
+  Widget _buildUrlLayer(BuildContext context, String displayName) {
     final avatarListenable = urlListenable;
     if (avatarListenable == null) {
-      return _buildAvatar(url, displayName, isUpdating);
+      return _buildAvatar(context, url, displayName, isUpdating);
     }
     return ValueListenableBuilder<String>(
       valueListenable: avatarListenable,
       builder: (context, avatarUrl, _) {
         final loadingListenable = updatingListenable;
         if (loadingListenable == null) {
-          return _buildAvatar(avatarUrl, displayName, isUpdating);
+          return _buildAvatar(context, avatarUrl, displayName, isUpdating);
         }
         return ValueListenableBuilder<bool>(
           valueListenable: loadingListenable,
           builder: (context, updating, _) =>
-              _buildAvatar(avatarUrl, displayName, updating),
+              _buildAvatar(context, avatarUrl, displayName, updating),
         );
       },
     );
   }
 
-  Widget _buildAvatar(String avatarUrl, String displayName, bool updating) {
+  Widget _buildAvatar(
+    BuildContext context,
+    String avatarUrl,
+    String displayName,
+    bool updating,
+  ) {
+    final colors = context.genesisColors;
     return SizedBox(
       width: _size,
       height: _size,
@@ -242,17 +256,17 @@ class _Avatar extends StatelessWidget {
               right: 2,
               bottom: 2,
               child: Material(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: colors.scrim.withValues(alpha: 0.4),
                 shape: const CircleBorder(),
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: updating ? null : onEdit,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
                     child: Icon(
                       MyFlutterApp.editImage,
                       size: 12,
-                      color: Colors.white,
+                      color: colors.textInverse,
                     ),
                   ),
                 ),
@@ -277,27 +291,27 @@ class _DisplayNameText extends StatelessWidget {
   Widget build(BuildContext context) {
     final listenable = displayNameListenable;
     if (listenable == null) {
-      return _buildName(displayName);
+      return _buildName(context, displayName);
     }
     return ValueListenableBuilder<String>(
       valueListenable: listenable,
       builder: (context, name, _) {
         final resolvedName = name.trim().isEmpty ? displayName : name;
-        return _buildName(resolvedName);
+        return _buildName(context, resolvedName);
       },
     );
   }
 
-  Widget _buildName(String name) {
+  Widget _buildName(BuildContext context, String name) {
     return Text(
       name,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
         height: 1,
         fontWeight: FontWeight.w600,
-        color: Colors.black,
+        color: context.genesisColors.foregroundStrong,
       ),
     );
   }
@@ -318,15 +332,15 @@ class _ProfileEditButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final listenable = updatingListenable;
     if (listenable == null) {
-      return _buildButton(isUpdating);
+      return _buildButton(context, isUpdating);
     }
     return ValueListenableBuilder<bool>(
       valueListenable: listenable,
-      builder: (context, updating, _) => _buildButton(updating),
+      builder: (context, updating, _) => _buildButton(context, updating),
     );
   }
 
-  Widget _buildButton(bool updating) {
+  Widget _buildButton(BuildContext context, bool updating) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: updating ? null : onTap,
@@ -339,7 +353,10 @@ class _ProfileEditButton extends StatelessWidget {
             editPencilLineIconAsset,
             width: 18,
             height: 18,
-            colorFilter: const ColorFilter.mode(Colors.black, BlendMode.srcIn),
+            colorFilter: ColorFilter.mode(
+              context.genesisColors.foregroundStrong,
+              BlendMode.srcIn,
+            ),
           ),
         ),
       ),

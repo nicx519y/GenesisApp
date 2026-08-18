@@ -322,22 +322,22 @@ void main() {
     await tester.pumpWidget(
       _rendererHarness(config: config, devicePixelRatio: 2),
     );
-    expect(pendingImages.keys.single, contains('resize,w_512'));
+    expect(pendingImages.keys.single, contains('resize,w_256'));
 
     await _zoomInAndPump(tester);
     expect(pendingImages, hasLength(1));
     await _zoomInAndPump(tester);
-    expect(pendingImages.keys.any((key) => key.contains('resize,w_640')), true);
+    expect(pendingImages.keys.any((key) => key.contains('resize,w_512')), true);
 
     await _zoomInAndPump(tester);
     expect(
-      pendingImages.keys.any((key) => key.contains('resize,w_1024')),
+      pendingImages.keys.any((key) => key.contains('resize,w_640')),
       false,
     );
 
     await _zoomInAndPump(tester);
     expect(
-      pendingImages.keys.any((key) => key.contains('resize,w_1024')),
+      pendingImages.keys.any((key) => key.contains('resize,w_640')),
       true,
     );
     expect(_mountedTileKeys(tester), hasLength(1));

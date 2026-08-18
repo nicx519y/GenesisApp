@@ -1,26 +1,32 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/theme/genesis_semantic_colors.dart';
+
 class GenesisUploadProgressOverlay extends StatelessWidget {
   const GenesisUploadProgressOverlay({
     super.key,
     required this.progress,
     this.processing = false,
     this.label,
-    this.coverColor = const Color(0x7A000000),
-    this.labelColor = const Color(0x85000000),
+    this.coverColor,
+    this.labelColor,
   });
 
   final double progress;
   final bool processing;
   final String? label;
-  final Color coverColor;
-  final Color labelColor;
+  final Color? coverColor;
+  final Color? labelColor;
 
   @override
   Widget build(BuildContext context) {
     final normalized = progress.clamp(0.0, 1.0).toDouble();
     final coverFactor = (1 - normalized).clamp(0.0, 1.0).toDouble();
     final displayLabel = label ?? '${(normalized * 100).round()}%';
+    final coverColor =
+        this.coverColor ?? context.genesisColors.scrim.withValues(alpha: 0.48);
+    final labelColor =
+        this.labelColor ?? context.genesisColors.scrim.withValues(alpha: 0.52);
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxLabelWidth = constraints.maxWidth.isFinite
@@ -48,12 +54,12 @@ class GenesisUploadProgressOverlay extends StatelessWidget {
                       ? const EdgeInsets.all(7)
                       : const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   child: processing
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.2,
-                            color: Colors.white,
+                            color: context.genesisColors.textInverse,
                           ),
                         )
                       : ConstrainedBox(
@@ -65,8 +71,8 @@ class GenesisUploadProgressOverlay extends StatelessWidget {
                             child: Text(
                               displayLabel,
                               maxLines: 1,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: context.genesisColors.textInverse,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),

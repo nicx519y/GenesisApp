@@ -37,6 +37,7 @@ class _InlineMarkdownText extends StatelessWidget {
           suppressIosEmphasisSkew: softItalic && platform == TargetPlatform.iOS,
           softItalicPlainText:
               softItalicPerToken && platform == TargetPlatform.iOS,
+          emphasisColor: context.genesisColors.textFaint,
         ),
       ),
       maxLines: maxLines,
@@ -57,6 +58,7 @@ List<InlineSpan> _inlineMarkdownSpans(
   TargetPlatform platform, {
   bool suppressIosEmphasisSkew = false,
   bool softItalicPlainText = false,
+  required Color emphasisColor,
 }) {
   final spans = <InlineSpan>[];
   final buffer = StringBuffer();
@@ -91,14 +93,14 @@ List<InlineSpan> _inlineMarkdownSpans(
               ? <InlineSpan>[
                   TextSpan(
                     text: text.substring(index + 1, end),
-                    style: baseStyle.copyWith(color: const Color(0xFF888888)),
+                    style: baseStyle.copyWith(color: emphasisColor),
                   ),
                 ]
               : _inlineEmphasisSpans(
                   text.substring(index + 1, end),
                   baseStyle,
                   platform,
-                  color: const Color(0xFF888888),
+                  color: emphasisColor,
                 ),
         );
         index = end + 1;

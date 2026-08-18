@@ -68,7 +68,8 @@ class _ChatStoryEventParagraph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = style.systemMessageTextStyle.color ?? Colors.white;
+    final textColor =
+        style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
     final metadataStyle = style.systemMessageTextStyle.copyWith(
       color: textColor.withValues(alpha: 0.72),
       fontSize: (style.systemMessageTextStyle.fontSize ?? 12) - 1,
@@ -181,7 +182,8 @@ class _ChatStoryEventVisibility extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = style.systemMessageTextStyle.color ?? Colors.white;
+    final textColor =
+        style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
     final badgeColor = textColor.withValues(alpha: 0.72);
     final aiNames = visibleRoles
         .where((role) => role.isAi)

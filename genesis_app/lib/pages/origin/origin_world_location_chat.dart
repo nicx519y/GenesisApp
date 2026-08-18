@@ -96,7 +96,7 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = kLocationChatStyle;
+    final style = context.genesisChatTheme.locationChat;
     final bottomInset = GenesisSafeAreaInsets.bottom(context);
     return ClipRect(
       child: BackdropFilter(

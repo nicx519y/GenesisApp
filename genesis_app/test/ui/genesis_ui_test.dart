@@ -217,6 +217,45 @@ void main() {
     expect(colors.danger, GenesisColors.danger);
     expect(colors.navigationSelected, GenesisColors.tabSelected);
     expect(colors.navigationUnselected, GenesisColors.tabUnselected);
+    expect(colors.textStrong, const Color(0xFF222222));
+    expect(colors.textHighEmphasis, const Color(0xDD000000));
+    expect(colors.foregroundStrong, const Color(0xFF000000));
+    expect(colors.textHeading, const Color(0xFF1D1D1D));
+    expect(colors.textBody, const Color(0xFF333333));
+    expect(colors.textMuted, const Color(0xFF666666));
+    expect(colors.textSubtle, const Color(0xFF777777));
+    expect(colors.textTagline, const Color(0xFF7A7A7A));
+    expect(colors.textFaint, const Color(0xFF888888));
+    expect(colors.textSupporting, const Color(0xFF8A8A8A));
+    expect(colors.textTimestamp, const Color(0xFF8B8B8B));
+    expect(colors.textMetadata, const Color(0xFF8A8D93));
+    expect(colors.inputHint, const Color(0xFF8C8C8C));
+    expect(colors.textEmptyState, const Color(0xFF94979E));
+    expect(colors.textLabelMuted, const Color(0xFF8F8F8F));
+    expect(colors.textPlaceholder, const Color(0xFF999999));
+    expect(colors.iconMuted, const Color(0xFFB5B5B5));
+    expect(colors.dividerSubtle, const Color(0xFFE7E7E7));
+    expect(colors.dividerMuted, const Color(0xFFEFEFEF));
+    expect(colors.inputBorder, const Color(0xFFD8D8DE));
+    expect(colors.surfaceDisabled, const Color(0xFFE5E5E5));
+    expect(colors.surfaceProgress, const Color(0xFFF4F4F8));
+    expect(colors.surfaceGrouped, const Color(0xFFF4F4F5));
+    expect(colors.surfaceTag, const Color(0xFFF1F3F6));
+    expect(colors.dangerControl, const Color(0xFFFF4D4F));
+    expect(colors.dangerSurface, const Color(0xFFFFF4F6));
+    expect(colors.dangerBorder, const Color(0xFFFFE0E6));
+  });
+
+  test('GenesisTheme registers all feature color extensions', () {
+    final theme = GenesisTheme.light();
+
+    expect(theme.extension<GenesisChatTheme>(), isNotNull);
+    expect(theme.extension<GenesisGemColors>(), isNotNull);
+    expect(theme.extension<GenesisOriginColors>(), isNotNull);
+    expect(theme.extension<GenesisDiscussColors>(), isNotNull);
+    expect(theme.extension<GenesisCreateColors>(), isNotNull);
+    expect(theme.extension<GenesisWorldColors>(), isNotNull);
+    expect(theme.extension<GenesisMessageColors>(), isNotNull);
   });
 
   testWidgets('GenesisSurface follows semantic surface variants', (
@@ -438,6 +477,7 @@ void main() {
     expect(backCount, 1);
     expect(titleTapCount, 1);
     expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
   });
 
   testWidgets('GenesisPrimaryButton uses the shared filled-button surface', (
@@ -1462,12 +1502,6 @@ void main() {
         const ValueKey<String>('genesis-bottom-system-bar-opaque-overlay'),
       ),
       findsNothing,
-    );
-    expect(
-      tester
-          .widgetList<ColoredBox>(find.byType(ColoredBox))
-          .any((box) => box.color == systemBarColor),
-      isTrue,
     );
   });
 

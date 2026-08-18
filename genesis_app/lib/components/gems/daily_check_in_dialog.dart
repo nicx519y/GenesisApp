@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 const int dailyCheckInPreviewReward = 50;
 const String dailyCheckInTaskCode = 'daily_checkin';
@@ -32,7 +33,9 @@ Future<bool> showDailyCheckInDialog(
           DailyCheckInDialogStatus.claimed => 'Claimed',
         },
         value: true,
-        color: claimed ? kGemTaskClaimedForegroundColor : kGemAccentColor,
+        color: claimed
+            ? context.genesisGemColors.taskClaimedForeground
+            : context.genesisGemColors.accent,
         enabled: !claimed,
       ),
     ],
@@ -91,8 +94,8 @@ class _GemTaskReward extends StatelessWidget {
         Text(
           '+$rewardGems',
           key: const ValueKey<String>('gem-task-reward-value'),
-          style: const TextStyle(
-            color: Color(0xFF111111),
+          style: TextStyle(
+            color: context.genesisColors.textPrimary,
             fontSize: 15,
             height: 1.2,
             fontWeight: FontWeight.w600,

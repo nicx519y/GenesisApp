@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 enum GemBillingPurchaseDialogPhase { processing, success }
 
@@ -79,12 +80,12 @@ class GemBillingPurchaseDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
                 ] else ...[
-                  const SizedBox(
+                  SizedBox(
                     width: 28,
                     height: 28,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.6,
-                      color: kGemAccentColor,
+                      color: context.genesisGemColors.accent,
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -115,19 +116,12 @@ class _GemBillingPurchaseGrantedMessage extends StatelessWidget {
 
   final String grantedText;
 
-  static const _grantedTextStyle = TextStyle(
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w400,
-    color: Color(0xFF111111),
-  );
-
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
+        Text(
           'Purchase successful!',
           key: ValueKey<String>('billing-purchase-success-title'),
           textAlign: TextAlign.center,
@@ -135,7 +129,7 @@ class _GemBillingPurchaseGrantedMessage extends StatelessWidget {
             fontSize: 16,
             height: 20 / 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF111111),
+            color: context.genesisColors.textPrimary,
           ),
         ),
         const SizedBox(
@@ -168,7 +162,7 @@ class _GemBillingPurchaseGrantedMessage extends StatelessWidget {
                   ),
                   TextSpan(
                     text: grantedText,
-                    style: const TextStyle(color: kGemAccentColor),
+                    style: TextStyle(color: context.genesisGemColors.accent),
                   ),
                   const TextSpan(text: ' Gems have been granted.'),
                 ],
@@ -176,7 +170,12 @@ class _GemBillingPurchaseGrantedMessage extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 1,
               softWrap: false,
-              style: _grantedTextStyle,
+              style: TextStyle(
+                fontSize: 14,
+                height: 20 / 14,
+                fontWeight: FontWeight.w400,
+                color: context.genesisColors.textPrimary,
+              ),
             ),
           ),
         ),
@@ -213,12 +212,12 @@ class _ProcessingPaymentTextState extends State<_ProcessingPaymentText> {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(
+    final style = TextStyle(
       fontSize: 15,
       height: 20 / 15,
       letterSpacing: 0,
       fontWeight: FontWeight.w400,
-      color: Color(0xFF111111),
+      color: context.genesisColors.textPrimary,
     );
     return SizedBox(
       width: double.infinity,
@@ -229,7 +228,7 @@ class _ProcessingPaymentTextState extends State<_ProcessingPaymentText> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'Purchasing Gems',
                 textAlign: TextAlign.center,
                 style: style,

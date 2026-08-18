@@ -389,7 +389,7 @@ class _LocationChatNewMessageNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xCC1E1E24),
+      color: context.genesisChatTheme.newMessageNoticeBackground,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         key: const ValueKey('location-chat-new-message-notice'),
@@ -399,8 +399,8 @@ class _LocationChatNewMessageNotice extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(
             '$count new message',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.genesisColors.textInverse,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),

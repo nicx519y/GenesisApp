@@ -38,7 +38,7 @@ class ChatOtherMessageBubble extends StatelessWidget {
                         colors: style.otherAvatarColors,
                         seed: message.senderName,
                         borderColor: message.isPlayerControlledRole
-                            ? GenesisColors.brand
+                            ? context.genesisColors.primary
                             : null,
                         style: style,
                       ),
@@ -62,7 +62,7 @@ class ChatOtherMessageBubble extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: message.isPlayerControlledRole
                                 ? style.senderNameTextStyle.copyWith(
-                                    color: GenesisColors.brand,
+                                    color: context.genesisColors.primary,
                                   )
                                 : style.senderNameTextStyle,
                           ),

@@ -32,7 +32,7 @@ class ChatMessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     return ListView.builder(
       controller: controller,
       reverse: reverse,

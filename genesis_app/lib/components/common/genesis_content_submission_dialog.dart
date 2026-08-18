@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/theme/genesis_semantic_colors.dart';
+
 import 'genesis_action_box.dart';
 import 'genesis_center_toast.dart';
 import 'genesis_modal_routes.dart';
@@ -18,7 +20,7 @@ Future<bool> showGenesisContentSubmissionDialog({
 }) async {
   final submitted = await showGenesisDialog<bool>(
     context: context,
-    barrierColor: const Color(0x52000000),
+    barrierColor: context.genesisColors.scrim.withValues(alpha: 0.32),
     builder: (dialogContext) {
       return _GenesisContentSubmissionDialog(
         title: title,
@@ -106,11 +108,11 @@ class _GenesisContentSubmissionDialogState
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFD8D8DE)),
+            borderSide: BorderSide(color: context.genesisColors.inputBorder),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFD8D8DE)),
+            borderSide: BorderSide(color: context.genesisColors.inputBorder),
           ),
         ),
         onChanged: (_) => setState(() {}),

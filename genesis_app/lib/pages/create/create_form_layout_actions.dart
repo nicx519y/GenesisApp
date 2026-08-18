@@ -51,8 +51,10 @@ class CreateFormDeleteButton extends StatelessWidget {
               Container(
                 key: decorationKey,
                 decoration: BoxDecoration(
-                  color: const Color(0xE6F4F4F6),
-                  border: Border.all(color: const Color(0xFFD8D8DE)),
+                  color: context.genesisCreateColors.fieldOverlay,
+                  border: Border.all(
+                    color: context.genesisCreateColors.inputBorder,
+                  ),
                   borderRadius: BorderRadius.circular(size / 4),
                 ),
               ),
@@ -65,8 +67,8 @@ class CreateFormDeleteButton extends StatelessWidget {
                   createFormDeleteIconAsset,
                   width: iconSize,
                   height: iconSize,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xFF666666),
+                  colorFilter: ColorFilter.mode(
+                    context.genesisCreateColors.muted,
                     BlendMode.srcIn,
                   ),
                 ),
@@ -111,10 +113,10 @@ class CreateFormCard extends StatelessWidget {
           ? const EdgeInsets.fromLTRB(18, 6, 18, 22)
           : const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.genesisColors.surface,
         borderRadius: BorderRadius.circular(8),
         border: showBorder
-            ? Border.all(color: createFormBorder, width: 1.2)
+            ? Border.all(color: context.genesisCreateColors.border, width: 1.2)
             : null,
       ),
       child: Column(
@@ -130,8 +132,8 @@ class CreateFormCard extends StatelessWidget {
                       if (titleSuffix?.trim().isNotEmpty == true)
                         TextSpan(
                           text: ' ${titleSuffix!.trim()}',
-                          style: const TextStyle(
-                            color: Color(0xFFA8A8AD),
+                          style: TextStyle(
+                            color: context.genesisCreateColors.hint,
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
                           ),
@@ -139,7 +141,7 @@ class CreateFormCard extends StatelessWidget {
                     ],
                   ),
                   style: TextStyle(
-                    color: createFormText,
+                    color: context.genesisCreateColors.text,
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
                     height: 1.1,
@@ -170,17 +172,17 @@ Future<bool> confirmCreateFormDelete(
       return AlertDialog(
         title: Text(
           'Delete $itemLabel?',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        content: const Text('This item has content. Delete it anyway?'),
+        content: Text('This item has content. Delete it anyway?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
+            child: Text('Delete'),
           ),
         ],
       );

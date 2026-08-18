@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/debug_floating_button_unlock.dart';
 import '../../platform/auth/auth_session.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../login_provider_button.dart';
 
 class SignedOutMeView extends StatefulWidget {
@@ -67,25 +68,25 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                             ),
                           ),
                           const SizedBox(height: 30),
-                          const Text(
+                          Text(
                             'LIVE YOUR WORLD',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 9,
-                              color: Color(0xFF7A7A7A),
+                              color: context.genesisColors.textTagline,
                             ),
                           ),
                           const SizedBox(height: 18),
-                          const Text(
+                          Text(
                             'Launch world, create worldo, invite\n'
                             'friends, and continue them anywhere.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.35,
-                              color: Color(0xFF666666),
+                              color: context.genesisColors.textMuted,
                             ),
                           ),
                         ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -64,7 +65,11 @@ class _CharacterListItem extends StatelessWidget {
         ),
         if (!isLast) ...[
           const SizedBox(height: 10),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: context.genesisColors.dividerMuted,
+          ),
           const SizedBox(height: 10),
         ] else
           const SizedBox(height: 8),
@@ -138,10 +143,10 @@ class _CharacterTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: context.genesisColors.textPrimary,
                       ),
                     ),
                   ),
@@ -159,13 +164,13 @@ class _CharacterTile extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F3F6),
+                        color: context.genesisColors.surfaceTag,
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
                         tag,
-                        style: const TextStyle(
-                          color: Color(0xFFFF2442),
+                        style: TextStyle(
+                          color: context.genesisColors.danger,
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
                         ),
@@ -180,7 +185,9 @@ class _CharacterTile extends StatelessWidget {
                   fontSize: 12,
                   height: 1.25,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black.withValues(alpha: 0.78),
+                  color: context.genesisColors.foregroundStrong.withValues(
+                    alpha: 0.78,
+                  ),
                 ),
               ),
             ],

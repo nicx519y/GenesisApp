@@ -119,7 +119,7 @@ class _OriginStoryEventsEditorPageState
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.pageBackground,
       appBar: const GenesisBackAppBar(pageName: 'Story Events'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
@@ -136,14 +136,14 @@ class _OriginStoryEventsEditorPageState
                         alignment: Alignment.centerRight,
                         child: Text(
                           '${_eventControllers.length}/$_maxEvents (Added / Max)',
-                          style: const TextStyle(
-                            color: createFormText,
+                          style: TextStyle(
+                            color: context.genesisCreateColors.text,
                             fontSize: 14,
                             height: 1.2,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       for (int i = 0; i < _eventControllers.length; i++) ...[
                         _StoryEventCard(
                           index: i + 1,
@@ -158,10 +158,9 @@ class _OriginStoryEventsEditorPageState
                           },
                         ),
                         if (i + 1 < _eventControllers.length)
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12),
                       ],
-                      if (_eventControllers.isNotEmpty)
-                        const SizedBox(height: 12),
+                      if (_eventControllers.isNotEmpty) SizedBox(height: 12),
                       CreateInlineAddButton(
                         label: '+ Add Event',
                         onTap: _addEvent,
@@ -169,7 +168,7 @@ class _OriginStoryEventsEditorPageState
                         centered: true,
                         contentPadding: const EdgeInsets.fromLTRB(0, 11, 0, 5),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                     ],
                   ),
                 ),
@@ -218,7 +217,7 @@ class _StoryEventCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           CreateTextFieldBlock(
             label: '',
             controller: controller,

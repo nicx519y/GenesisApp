@@ -113,11 +113,11 @@ class _TaskGroupSection extends StatelessWidget {
       children: [
         Text(
           group.groupTitle,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             height: 20 / 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF111111),
+            color: context.genesisColors.textPrimary,
           ),
         ),
         const SizedBox(height: 10),
@@ -180,11 +180,11 @@ class _JoinUsTaskRow extends StatelessWidget {
                 task.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 16 / 14,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111111),
+                  color: context.genesisColors.textPrimary,
                 ),
               ),
             ),
@@ -192,11 +192,11 @@ class _JoinUsTaskRow extends StatelessWidget {
             Text(
               '+${formatGemInteger(task.rewardGems)}',
               maxLines: 1,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 16 / 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
+                color: context.genesisColors.textPrimary,
               ),
             ),
             const SizedBox(width: 4),
@@ -244,9 +244,9 @@ class _TaskRow extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 62),
       padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.genesisColors.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
+        border: Border.all(color: context.genesisColors.borderSubtle),
       ),
       child: Row(
         children: [
@@ -259,21 +259,21 @@ class _TaskRow extends StatelessWidget {
                   task.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     height: 16 / 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111111),
+                    color: context.genesisColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   task.description,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     height: 14 / 12,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF888888),
+                    color: context.genesisColors.textFaint,
                   ),
                 ),
               ],
@@ -290,11 +290,11 @@ class _TaskRow extends StatelessWidget {
                   children: [
                     Text(
                       '+${formatGemInteger(task.rewardGems)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         height: 16 / 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
+                        color: context.genesisColors.textPrimary,
                       ),
                     ),
                     const SizedBox(width: 2),

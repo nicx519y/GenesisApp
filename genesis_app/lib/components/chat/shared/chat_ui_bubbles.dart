@@ -16,7 +16,7 @@ class ChatMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     final background = message.isMe
         ? style.selfBubbleColor
         : style.otherBubbleColor;
@@ -61,7 +61,7 @@ class ChatAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     final seed = this.seed?.trim();
     final imageUrl = this.imageUrl.trim();
     return SizedBox(
@@ -72,7 +72,9 @@ class ChatAvatar extends StatelessWidget {
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
+                color: context.genesisColors.textInverse.withValues(
+                  alpha: 0.12,
+                ),
                 borderRadius: BorderRadius.circular(style.avatarBorderRadius),
               ),
             ),
@@ -95,7 +97,7 @@ class ChatAvatar extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: borderColor ?? Colors.white,
+                    color: borderColor ?? context.genesisColors.textInverse,
                     width: 1,
                   ),
                   borderRadius: BorderRadius.circular(style.avatarBorderRadius),
@@ -114,19 +116,19 @@ class ChatNpcAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox.square(
+    return SizedBox.square(
       key: ValueKey('chat-npc-avatar'),
       dimension: _npcChatAvatarSize,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: _npcChatAvatarBackgroundColor,
+          color: context.genesisChatTheme.npcAvatarBackground,
           shape: BoxShape.circle,
         ),
         child: Center(
           child: Text(
             'NPC',
             style: TextStyle(
-              color: Colors.white,
+              color: context.genesisColors.textInverse,
               fontSize: 11,
               fontWeight: FontWeight.w700,
               height: 1,
@@ -145,7 +147,7 @@ class ChatAiBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     return Icon(
       MyFlutterApp.redstarCharIcon,
       size: style.aiBadgeSize,
@@ -161,7 +163,7 @@ class ChatSendingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     final indicatorSize =
         (style.sendingBadgeSize - (style.sendingBadgePadding * 2)) * (2 / 3);
     return SizedBox.square(
@@ -186,7 +188,7 @@ class ChatFailedBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     return Container(
       width: style.failedBadgeSize,
       height: style.failedBadgeSize,
@@ -214,7 +216,7 @@ class ChatDateDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     return Padding(
       padding: EdgeInsets.only(bottom: style.dateDividerBottomPadding),
       child: Center(

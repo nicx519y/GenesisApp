@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/gems/gem_colors.dart';
 import '../../network/models/gem_records.dart';
 import '../../ui/genesis_ui.dart';
 
@@ -174,7 +173,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.pageBackground,
       appBar: const GenesisBackAppBar(pageName: 'Gem Records'),
       body: SafeArea(
         child: Column(
@@ -210,7 +209,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
     }
     if (state.records.isEmpty) {
       return RefreshIndicator(
-        color: kGemAccentColor,
+        color: context.genesisGemColors.accent,
         onRefresh: () => _loadFirstPage(index: index, refreshing: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -219,7 +218,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       );
     }
     return RefreshIndicator(
-      color: kGemAccentColor,
+      color: context.genesisGemColors.accent,
       onRefresh: () => _loadFirstPage(index: index, refreshing: true),
       child: ListView.separated(
         controller: state.scrollController,
@@ -308,11 +307,11 @@ class _GemRecordTile extends StatelessWidget {
                   _recordTitle(record),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     height: 17 / 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF111111),
+                    color: context.genesisColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -334,7 +333,9 @@ class _GemRecordTile extends StatelessWidget {
               fontSize: 14,
               height: 20 / 14,
               fontWeight: FontWeight.w600,
-              color: isIncome ? kGemAccentColor : const Color(0xFF111111),
+              color: isIncome
+                  ? context.genesisGemColors.accent
+                  : context.genesisColors.textPrimary,
             ),
           ),
         ],
@@ -346,13 +347,6 @@ class _GemRecordTile extends StatelessWidget {
 class _GemRecordDetailLine extends StatelessWidget {
   const _GemRecordDetailLine(this.text, {this.copyValue});
 
-  static const _style = TextStyle(
-    fontSize: 12,
-    height: 14 / 12,
-    fontWeight: FontWeight.w400,
-    color: Color(0xFF999999),
-  );
-
   final String text;
   final String? copyValue;
 
@@ -363,7 +357,12 @@ class _GemRecordDetailLine extends StatelessWidget {
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: _style,
+      style: TextStyle(
+        fontSize: 12,
+        height: 14 / 12,
+        fontWeight: FontWeight.w400,
+        color: context.genesisColors.textPlaceholder,
+      ),
     );
     if (value == null || value.isEmpty) return child;
     return GestureDetector(
@@ -399,13 +398,13 @@ class _GemRecordsLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: SizedBox(
         width: 24,
         height: 24,
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: kGemAccentColor,
+          color: context.genesisGemColors.accent,
         ),
       ),
     );
@@ -417,15 +416,15 @@ class _GemRecordsMoreLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 18),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
       child: Center(
         child: SizedBox(
           width: 18,
           height: 18,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: kGemAccentColor,
+            color: context.genesisGemColors.accent,
           ),
         ),
       ),
@@ -438,14 +437,14 @@ class _GemRecordsEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Text(
         'No gem records yet.',
         style: TextStyle(
           fontSize: 12,
           height: 18 / 12,
           fontWeight: FontWeight.w400,
-          color: Color(0xFF999999),
+          color: context.genesisColors.textPlaceholder,
         ),
       ),
     );
@@ -474,11 +473,11 @@ class _GemRecordsMessage extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 20 / 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
+                color: context.genesisColors.textBody,
               ),
             ),
             const SizedBox(height: 12),

@@ -186,7 +186,7 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
           key: const ValueKey<String>('locations-statistics-note'),
           text: _OriginLocationsEditorPageState._statisticsNote,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
           child: Wrap(
@@ -196,21 +196,24 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
             children: [
               Text(
                 'L1: $_l1LocationCount',
-                style: _OriginLocationsEditorPageState._locationCountStyle,
+                style: _OriginLocationsEditorPageState._locationCountStyle
+                    .copyWith(color: context.genesisColors.textMuted),
               ),
               Text(
                 'L2: $_l2LocationCount',
-                style: _OriginLocationsEditorPageState._locationCountStyle,
+                style: _OriginLocationsEditorPageState._locationCountStyle
+                    .copyWith(color: context.genesisColors.textMuted),
               ),
               Text(
                 'L3: $_l3LocationCount/'
                 '${_OriginLocationsEditorPageState._maxLocations} (Added/Max)',
-                style: _OriginLocationsEditorPageState._locationCountStyle,
+                style: _OriginLocationsEditorPageState._locationCountStyle
+                    .copyWith(color: context.genesisColors.textMuted),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
       ],
     );
   }

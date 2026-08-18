@@ -49,7 +49,7 @@ extension _WorldPageSheets on _WorldPageState {
         useSafeArea: true,
         enableDrag: false,
         backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.18),
+        barrierColor: context.genesisColors.scrim.withValues(alpha: 0.18),
         builder: (context) {
           _worldBottomSheetContext = context;
           return WorldSingleSectionBottomSheet(
@@ -113,11 +113,11 @@ extension _WorldPageSheets on _WorldPageState {
       title: '',
       titleWidget: _DeleteWorldConfirmationTitle(name: world.name.trim()),
       titleHeight: 104,
-      actions: const [
+      actions: [
         GenesisActionBoxAction<bool>(
           label: 'Delete',
           value: true,
-          color: Color(0xFFFF2442),
+          color: context.genesisColors.danger,
         ),
       ],
       cancelLabel: 'Cancel',
@@ -147,13 +147,10 @@ class _DeleteWorldConfirmationTitle extends StatelessWidget {
   const _DeleteWorldConfirmationTitle({required this.name});
 
   static const _baseStyle = TextStyle(
-    color: Color(0xFF111111),
     fontSize: 15,
     height: 1.16,
     fontWeight: FontWeight.w600,
   );
-  static const _nameStyle = TextStyle(color: Color(0xFF4B6192));
-
   final String name;
 
   @override
@@ -162,10 +159,13 @@ class _DeleteWorldConfirmationTitle extends StatelessWidget {
     return Center(
       child: Text.rich(
         TextSpan(
-          style: _baseStyle,
+          style: _baseStyle.copyWith(color: context.genesisColors.textPrimary),
           children: [
             const TextSpan(text: 'Delete world '),
-            TextSpan(text: resolvedName, style: _nameStyle),
+            TextSpan(
+              text: resolvedName,
+              style: TextStyle(color: context.genesisColors.accentText),
+            ),
           ],
         ),
         textAlign: TextAlign.center,

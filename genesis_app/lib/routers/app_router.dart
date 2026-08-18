@@ -30,6 +30,7 @@ import '../network/chatroom/world_chatroom_service.dart';
 import '../network/models/world.dart';
 import '../components/discuss/origin_discuss_list.dart';
 import '../ui/components/genesis_safe_area.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 
 sealed class RouteNames {
   static const shell = '/';
@@ -719,7 +720,7 @@ class _OriginWorldRouteTransitionBackdrop extends StatelessWidget {
             ).backgroundColor;
             return ColoredBox(
               key: const ValueKey<String>('origin-route-transition-background'),
-              color: originWorldDetailSheetBackgroundColor,
+              color: context.genesisColors.surfaceSheet,
               child: Column(
                 children: [
                   SizedBox(
@@ -732,12 +733,12 @@ class _OriginWorldRouteTransitionBackdrop extends StatelessWidget {
                       color: mapBackground,
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: ColoredBox(
-                      key: ValueKey<String>(
+                      key: const ValueKey<String>(
                         'origin-route-transition-panel-background',
                       ),
-                      color: originWorldDetailSheetBackgroundColor,
+                      color: context.genesisColors.surfaceSheet,
                     ),
                   ),
                 ],
@@ -825,9 +826,9 @@ class _WorldRouteTransitionBackdrop extends StatelessWidget {
                   key: const ValueKey<String>(
                     'world-route-transition-panel-background',
                   ),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
+                  decoration: BoxDecoration(
+                    color: context.genesisColors.surface,
+                    borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(
                         WorldDetailsPageScaffold.defaultPanelTopRadius,
                       ),

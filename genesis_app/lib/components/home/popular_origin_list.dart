@@ -10,6 +10,7 @@ import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -160,9 +161,13 @@ class _PopularOriginListState extends State<PopularOriginList> {
         parent: AlwaysScrollableScrollPhysics(),
       ),
       itemCount: widget.items.length + (widget.isLoadingMore ? 1 : 0),
-      separatorBuilder: (context, index) => const Padding(
-        padding: EdgeInsets.only(top: 24, bottom: 16),
-        child: Divider(height: 1, thickness: 1, color: Color(0xFFEFEFEF)),
+      separatorBuilder: (context, index) => Padding(
+        padding: const EdgeInsets.only(top: 24, bottom: 16),
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: context.genesisColors.dividerMuted,
+        ),
       ),
       itemBuilder: (context, index) {
         if (index >= widget.items.length) {
@@ -321,7 +326,7 @@ class _WorldViewSection extends StatelessWidget {
                 body,
                 maxLines: 5,
                 overflow: TextOverflow.ellipsis,
-                style: _bodyStyle,
+                style: _bodyStyle(context),
               ),
             ],
           ),
@@ -351,8 +356,8 @@ class _OriginSummary extends StatelessWidget {
           originDisplayName(title),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF4B6192),
+          style: TextStyle(
+            color: context.genesisColors.accentText,
             fontSize: 14,
             height: 1.1,
             fontWeight: FontWeight.w600,
@@ -366,7 +371,7 @@ class _OriginSummary extends StatelessWidget {
                 'OID: ${deletedAwareIdLabel(item.oid, deleted: item.deleted)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: _metaStyle,
+                style: _metaStyle(context),
               ),
             ),
             const SizedBox(width: 24),
@@ -375,7 +380,7 @@ class _OriginSummary extends StatelessWidget {
                 'Originator: ${_originatorLabel(item)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: _metaStyle,
+                style: _metaStyle(context),
               ),
             ),
           ],
@@ -506,11 +511,11 @@ class _OriginStat extends StatelessWidget {
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconSize: 11,
-      iconColor: Colors.black,
+      iconColor: context.genesisColors.foregroundStrong,
       gap: 4,
       text: formatStatCount(value),
-      textStyle: const TextStyle(
-        color: Colors.black,
+      textStyle: TextStyle(
+        color: context.genesisColors.foregroundStrong,
         fontSize: 12,
         height: 1,
         fontWeight: FontWeight.w400,
@@ -540,15 +545,15 @@ class _SectionHeader extends StatelessWidget {
             excludeFromSemantics: true,
           )
         else
-          Icon(icon, color: const Color(0xFFFF2442), size: 14),
+          Icon(icon, color: context.genesisColors.danger, size: 14),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1D1D1D),
+            style: TextStyle(
+              color: context.genesisColors.textHeading,
               fontSize: _popularOriginSectionTitleFontSize,
               height: 1,
               fontWeight: FontWeight.w600,
@@ -650,18 +655,18 @@ class _ProgressSummaryState extends State<_ProgressSummary> {
       switchOutCurve: Curves.easeInCubic,
       child: KeyedSubtree(
         key: ValueKey(summary?.worldId ?? 'empty'),
-        child: _buildContent(summary),
+        child: _buildContent(context, summary),
       ),
     );
   }
 
-  Widget _buildContent(WorldSummaryLatestItem? summary) {
+  Widget _buildContent(BuildContext context, WorldSummaryLatestItem? summary) {
     final body = summary?.summary.trim() ?? '';
     if (summary == null || body.isEmpty) {
-      return const Text(
+      return Text(
         _emptyText,
-        key: ValueKey('popular-origin-progress-empty'),
-        style: _emptyBodyStyle,
+        key: const ValueKey('popular-origin-progress-empty'),
+        style: _emptyBodyStyle(context),
       );
     }
 
@@ -679,7 +684,7 @@ class _ProgressSummaryState extends State<_ProgressSummary> {
           height: _popularOriginProgressBodyHeight,
           child: Text(
             body,
-            style: _bodyStyle,
+            style: _bodyStyle(context),
             maxLines: 5,
             overflow: TextOverflow.ellipsis,
             strutStyle: const StrutStyle(
@@ -789,7 +794,7 @@ class _MetaRow extends StatelessWidget {
                       'WID: ${deletedAwareIdLabel(displayWorldId, deleted: worldDeleted)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _metaStyle,
+                      style: _metaStyle(context),
                     ),
                   ),
                   const SizedBox(width: 9),
@@ -806,7 +811,7 @@ class _MetaRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: _progressTimeMetaStyle,
+                  style: _progressTimeMetaStyle(context),
                 ),
               ),
             ],
@@ -822,6 +827,8 @@ class _OriginTickChip extends StatelessWidget {
 
   final int count;
 
+  // Progress status colors remain feature-owned until Home gets a feature
+  // theme; they are not neutral skin surfaces or text colors.
   static const Color _chipBackground = Color(0xFFFEF3C7);
   static const Color _chipForeground = Color(0xFF92400E);
 
@@ -868,8 +875,8 @@ class _EnterOriginRow extends StatelessWidget {
             originDisplayName(title),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF4B6192),
+            style: TextStyle(
+              color: context.genesisColors.accentText,
               fontSize: 13,
               height: 1.2,
               fontWeight: FontWeight.w600,
@@ -877,17 +884,21 @@ class _EnterOriginRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        const Text(
+        Text(
           'Enter',
           style: TextStyle(
-            color: Color(0xFF4B6192),
+            color: context.genesisColors.accentText,
             fontSize: 13,
             height: 1.2,
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 4),
-        const Icon(Icons.chevron_right, color: Color(0xFF4B6192), size: 20),
+        Icon(
+          Icons.chevron_right,
+          color: context.genesisColors.accentText,
+          size: 20,
+        ),
       ],
     );
   }
@@ -918,29 +929,29 @@ void _showCover(BuildContext context, String cover) {
   );
 }
 
-const _bodyStyle = TextStyle(
-  color: Color(0xFF111111),
+TextStyle _bodyStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textPrimary,
   fontSize: _popularOriginSectionBodyFontSize,
   height: 1.42,
   fontWeight: FontWeight.w400,
 );
 
-const _emptyBodyStyle = TextStyle(
-  color: Color(0xFF999999),
+TextStyle _emptyBodyStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textPlaceholder,
   fontSize: 13,
   height: 1.3,
   fontWeight: FontWeight.w600,
 );
 
-const _metaStyle = TextStyle(
-  color: Color(0xFF666666),
+TextStyle _metaStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textMuted,
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
 
-const _progressTimeMetaStyle = TextStyle(
-  color: Color(0xFF888888),
+TextStyle _progressTimeMetaStyle(BuildContext context) => TextStyle(
+  color: context.genesisColors.textFaint,
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

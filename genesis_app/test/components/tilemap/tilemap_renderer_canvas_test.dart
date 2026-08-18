@@ -239,12 +239,12 @@ void main() {
       debugTilemapCanvasRenderStatsChanged = (stats) => latestStats = stats;
       debugGenesisStaticNetworkImageCompleter = (key) {
         requestedUrls.add(key.imageUrl);
-        if (key.imageUrl.contains('resize,w_512')) {
+        if (key.imageUrl.contains('resize,w_256')) {
           return OneFrameImageStreamCompleter(
             Future<ImageInfo>.value(ImageInfo(image: oldTierImage.clone())),
           );
         }
-        if (key.imageUrl.contains('resize,w_640')) {
+        if (key.imageUrl.contains('resize,w_512')) {
           return OneFrameImageStreamCompleter(nextTierFrame.future);
         }
         return null;
@@ -268,7 +268,7 @@ void main() {
       await _pumpUntil(
         tester,
         () =>
-            requestedUrls.any((url) => url.contains('resize,w_512')) &&
+            requestedUrls.any((url) => url.contains('resize,w_256')) &&
             latestStats?.imageCount == 1,
       );
       var colors = await _captureDominantColors(tester, repaintBoundaryKey);
@@ -279,7 +279,7 @@ void main() {
       await _zoomInAndPump(tester);
       await _pumpUntil(
         tester,
-        () => requestedUrls.any((url) => url.contains('resize,w_640')),
+        () => requestedUrls.any((url) => url.contains('resize,w_512')),
       );
       colors = await _captureDominantColors(tester, repaintBoundaryKey);
       expect(colors.hasRed, isTrue);
@@ -304,12 +304,12 @@ void main() {
     TilemapCanvasRenderStats? latestStats;
     debugTilemapCanvasRenderStatsChanged = (stats) => latestStats = stats;
     debugGenesisStaticNetworkImageCompleter = (key) {
-      if (key.imageUrl.contains('resize,w_512')) {
+      if (key.imageUrl.contains('resize,w_256')) {
         return OneFrameImageStreamCompleter(
           Future<ImageInfo>.value(ImageInfo(image: oldTierImage.clone())),
         );
       }
-      if (key.imageUrl.contains('resize,w_640')) {
+      if (key.imageUrl.contains('resize,w_512')) {
         return OneFrameImageStreamCompleter(nextTierFrame.future);
       }
       return null;

@@ -9,6 +9,7 @@ import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
@@ -362,9 +363,9 @@ class _GemProductGridSkeleton extends StatelessWidget {
       ),
       itemBuilder: (_, _) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F7F7),
+          color: context.genesisColors.surfaceSoft,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFEBEBEB)),
+          border: Border.all(color: context.genesisColors.borderSubtle),
         ),
       ),
     );
@@ -392,8 +393,8 @@ class _GemPurchaseSheetState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF999999),
+            style: TextStyle(
+              color: context.genesisColors.textPlaceholder,
               fontSize: 13,
               height: 18 / 13,
               fontWeight: FontWeight.w600,
@@ -403,7 +404,9 @@ class _GemPurchaseSheetState extends StatelessWidget {
             const SizedBox(height: 12),
             TextButton(
               onPressed: onAction,
-              style: TextButton.styleFrom(foregroundColor: kGemAccentColor),
+              style: TextButton.styleFrom(
+                foregroundColor: context.genesisGemColors.accent,
+              ),
               child: Text(actionLabel!),
             ),
           ],

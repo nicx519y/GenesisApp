@@ -11,8 +11,8 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 18),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Color(0xFF111111),
+        style: TextStyle(
+          color: context.genesisColors.textPrimary,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
@@ -33,14 +33,14 @@ class _SearchMoreButton extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: const SizedBox(
+        child: SizedBox(
           height: 24,
           child: Align(
             alignment: Alignment.center,
             child: Text(
               'More >',
               style: TextStyle(
-                color: Color(0xFF666666),
+                color: context.genesisColors.textMuted,
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
               ),
@@ -61,19 +61,12 @@ class _SearchResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = item.tab == _SearchTab.user;
-    final titleStyle = isUser
-        ? const TextStyle(
-            color: Color(0xFF4B6192),
-            fontSize: 14,
-            height: 1.1,
-            fontWeight: FontWeight.w600,
-          )
-        : const TextStyle(
-            color: Color(0xFF4B6192),
-            fontSize: 14,
-            height: 1.1,
-            fontWeight: FontWeight.w600,
-          );
+    final titleStyle = TextStyle(
+      color: context.genesisColors.accentText,
+      fontSize: 14,
+      height: 1.1,
+      fontWeight: FontWeight.w600,
+    );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -100,15 +93,17 @@ class _SearchResultTile extends StatelessWidget {
                       'UID: ${formatCopyableIdValue(item.displaySubtitle)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: CopyableIdLabel.textStyle,
+                      style: CopyableIdLabel.textStyle.copyWith(
+                        color: context.genesisColors.textMuted,
+                      ),
                     )
                   else
                     Text(
                       item.displaySubtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
+                      style: TextStyle(
+                        color: context.genesisColors.textFaint,
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         height: 1.3,
@@ -159,6 +154,7 @@ class _ResultStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.genesisColors;
     final stats = item.tab == _SearchTab.origin
         ? [
             _StatData(iconAsset: copyStatIconAsset, value: item.copyCount),
@@ -197,11 +193,11 @@ class _ResultStats extends StatelessWidget {
             iconAsset: stat.iconAsset,
             preserveIconAssetColor: stat.preserveIconAssetColor,
             iconSize: 11,
-            iconColor: Colors.black,
+            iconColor: colors.navigationSelected,
             gap: 4,
             text: formatStatCount(stat.value),
-            textStyle: const TextStyle(
-              color: Colors.black,
+            textStyle: TextStyle(
+              color: colors.navigationSelected,
               fontSize: 12,
               height: 1,
               fontWeight: FontWeight.w400,

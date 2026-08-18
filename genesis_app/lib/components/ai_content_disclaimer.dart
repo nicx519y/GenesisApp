@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/theme/genesis_semantic_colors.dart';
+
 const String kAiContentDisclaimerText =
     'All content is AI-generated and fictional. Any resemblance to real people, events, or places is coincidental.';
 
@@ -7,7 +9,6 @@ const TextStyle kAiContentDisclaimerTextStyle = TextStyle(
   fontSize: 12,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF888888),
 );
 
 class AiContentDisclaimer extends StatelessWidget {
@@ -29,7 +30,9 @@ class AiContentDisclaimer extends StatelessWidget {
       child: Text(
         text,
         textAlign: textAlign,
-        style: kAiContentDisclaimerTextStyle,
+        style: kAiContentDisclaimerTextStyle.copyWith(
+          color: context.genesisColors.textFaint,
+        ),
       ),
     );
   }

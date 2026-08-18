@@ -197,7 +197,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
             Text(
               widget.label,
               style: TextStyle(
-                color: createFormText,
+                color: context.genesisCreateColors.text,
                 fontSize: widget.labelSize,
                 fontWeight: widget.labelFontWeight,
                 height: 1.2,
@@ -208,7 +208,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
           ],
           Container(
             decoration: BoxDecoration(
-              color: createFormFieldFill,
+              color: context.genesisCreateColors.fieldFill,
               borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -220,7 +220,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
               children: [
                 if (widget.prefix != null) ...[
                   widget.prefix!,
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                 ],
                 Expanded(
                   child: TextFieldTapRegion(
@@ -255,7 +255,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                       maxLines: widget.maxLines,
                       style: GenesisTypography.withFallback(
                         TextStyle(
-                          color: createFormText,
+                          color: context.genesisCreateColors.text,
                           fontSize: 14,
                           height: widget.inputLineHeight,
                         ),
@@ -268,7 +268,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                         contentPadding: EdgeInsets.zero,
                         hintStyle: GenesisTypography.withFallback(
                           TextStyle(
-                            color: createFormHint,
+                            color: context.genesisCreateColors.hint,
                             fontSize: 14,
                             letterSpacing: 0,
                             height: widget.inputLineHeight,
@@ -279,14 +279,14 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                   ),
                 ),
                 if (_showsCounterInside) ...[
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   _CreateFieldCounter(counter: _counterText),
                 ],
               ],
             ),
           ),
           if (_hasSupportLine) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             _CreateFieldSupportLine(
               note: widget.note,
               counter: _showsCounterOutside ? _counterText : null,
@@ -374,13 +374,13 @@ class _CreateFieldSupportLine extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (leading != null) leading!,
-        if (leading != null && hasNote) const SizedBox(width: 12),
+        if (leading != null && hasNote) SizedBox(width: 12),
         if (hasNote)
           Expanded(child: CreateFormNote(note: normalizedNote))
         else
           const Spacer(),
         if (counter != null) ...[
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           _CreateFieldCounter(counter: counter!),
         ],
       ],
@@ -405,13 +405,13 @@ class CreateFormNote extends StatelessWidget {
             createFormInfoIconAsset,
             width: 16,
             height: 16,
-            colorFilter: const ColorFilter.mode(
-              createFormNote,
+            colorFilter: ColorFilter.mode(
+              context.genesisCreateColors.note,
               BlendMode.srcIn,
             ),
           ),
         ),
-        const SizedBox(width: 5),
+        SizedBox(width: 5),
         Expanded(
           child: _CreateFormNoteText(note: note, markdown: markdown),
         ),
@@ -429,7 +429,7 @@ class _CreateFormNoteText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseStyle = createFormSupportTextStyle.copyWith(
-      color: createFormNote,
+      color: context.genesisCreateColors.note,
     );
     if (!markdown) {
       return Text(note, softWrap: true, style: baseStyle);
@@ -468,7 +468,7 @@ class _CreateFormNoteText extends StatelessWidget {
         spans.add(
           TextSpan(
             text: value.substring(nextStart + 2, end),
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(fontWeight: FontWeight.w700),
           ),
         );
         index = end + 2;
@@ -501,7 +501,7 @@ class _CreateFormNoteText extends StatelessWidget {
 
 List<InlineSpan> _inlineEmphasisSpans(String text, TargetPlatform platform) {
   final style = GenesisTypography.inlineEmphasis(
-    const TextStyle(),
+    TextStyle(),
     platform: platform,
   );
   if (platform != TargetPlatform.iOS) {
@@ -564,7 +564,9 @@ class _CreateFieldCounter extends StatelessWidget {
     return Text(
       counter,
       textAlign: TextAlign.right,
-      style: createFormSupportTextStyle.copyWith(color: createFormMuted),
+      style: createFormSupportTextStyle.copyWith(
+        color: context.genesisCreateColors.muted,
+      ),
     );
   }
 }

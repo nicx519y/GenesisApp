@@ -21,7 +21,7 @@ class _OriginCharactersSection extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         if (characters.isEmpty)
-          const Text('No characters', style: _mutedBodyTextStyle)
+          Text('No characters', style: _mutedBodyTextStyle(context))
         else
           for (int i = 0; i < sortedCharacters.length; i++) ...[
             _OriginCharacterRow(
@@ -68,30 +68,30 @@ class _OriginCharacterRow extends StatelessWidget {
             children: [
               Text(
                 character.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   height: 1.15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111111),
+                  color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
               ),
               if (identity.isNotEmpty) ...[
                 const SizedBox(height: 5),
-                Text(identity, style: _bodyTextStyle),
+                Text(identity, style: _bodyTextStyle(context)),
               ],
               if (tagline.isNotEmpty) ...[
                 const SizedBox(height: 5),
                 Text(
                   tagline,
-                  style: _bodyTextStyle.copyWith(
-                    color: const Color(0xFFFF2442),
-                  ),
+                  style: _bodyTextStyle(
+                    context,
+                  ).copyWith(color: context.genesisColors.danger),
                 ),
               ],
               if (goal.isNotEmpty) ...[
                 const SizedBox(height: 5),
-                Text('Goal: $goal', style: _characterBodyTextStyle),
+                Text('Goal: $goal', style: _characterBodyTextStyle(context)),
               ],
             ],
           ),
@@ -192,51 +192,51 @@ class _OriginCharacterPortrait extends StatelessWidget {
   }
 }
 
-const _bodyTextStyle = TextStyle(
+TextStyle _bodyTextStyle(BuildContext context) => TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: context.genesisColors.textPrimary,
   decoration: TextDecoration.none,
 );
 
-const _characterBodyTextStyle = TextStyle(
+TextStyle _characterBodyTextStyle(BuildContext context) => TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: context.genesisColors.textPrimary,
   decoration: TextDecoration.none,
 );
 
-const _mutedBodyTextStyle = TextStyle(
+TextStyle _mutedBodyTextStyle(BuildContext context) => TextStyle(
   fontSize: 13,
   height: 1.3,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF999999),
+  color: context.genesisColors.textPlaceholder,
   decoration: TextDecoration.none,
 );
 
-const _originTickContentLabelStyle = TextStyle(
+TextStyle _originTickContentLabelStyle(BuildContext context) => TextStyle(
   fontSize: 13,
   height: 1.6,
   fontWeight: FontWeight.w600,
-  color: Color(0xFF111111),
+  color: context.genesisColors.textPrimary,
   decoration: TextDecoration.none,
 );
 
-const _originTickContentTextStyle = TextStyle(
+TextStyle _originTickContentTextStyle(BuildContext context) => TextStyle(
   fontSize: 13,
   height: 1.6,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF444444),
+  color: context.genesisColors.textQuaternary,
   decoration: TextDecoration.none,
 );
 
-const _originTickContentTimestampStyle = TextStyle(
+TextStyle _originTickContentTimestampStyle(BuildContext context) => TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: context.genesisColors.textPrimary,
   decoration: TextDecoration.none,
 );
 
@@ -345,11 +345,11 @@ class _SectionTitle extends StatelessWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.2,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
+              color: context.genesisColors.textPrimary,
             ),
           ),
         ),

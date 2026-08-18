@@ -43,7 +43,7 @@ void main() {
     },
   );
 
-  testWidgets('world details page scaffold owns one continuous scroll layout', (
+  testWidgets('world details page scrolls content under fixed map overlays', (
     tester,
   ) async {
     const viewportSize = Size(400, 800);
@@ -65,7 +65,7 @@ void main() {
                 child: Text('Details'),
               ),
             ),
-            SliverToBoxAdapter(child: SizedBox(height: 300)),
+            SliverToBoxAdapter(child: SizedBox(height: 600)),
           ],
           bottomBar: SizedBox(
             key: ValueKey('bottom-bar'),
@@ -108,10 +108,14 @@ void main() {
       titleRect.top - mapRect.bottom,
       WorldDetailsPageScaffold.inlineContentTopPadding,
     );
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+    final scrollController = tester
+        .widget<CustomScrollView>(find.byType(CustomScrollView))
+        .controller!;
+    scrollController.jumpTo(120);
     await tester.pump();
 
-    expect(tester.getRect(find.byKey(const ValueKey('map'))).top, lessThan(0));
+    expect(scrollController.offset, 120);
+    expect(tester.getRect(find.byKey(const ValueKey('map'))).top, 0);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('persistent-tabs'))).dy,
       persistentTabsTop,

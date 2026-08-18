@@ -85,7 +85,6 @@ enum _DraftLeaveAction { submit, save, discard }
 enum OriginDraftSubmitStatus { idle, checkingPending, processing }
 
 const TextStyle _editSummaryLabelStyle = TextStyle(
-  color: Colors.black,
   fontSize: 14,
   fontWeight: FontWeight.w600,
   height: 1.2,
@@ -386,10 +385,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                 ? _DraftLeaveAction.save
                 : _DraftLeaveAction.submit,
           ),
-          const GenesisActionBoxAction<_DraftLeaveAction>(
+          GenesisActionBoxAction<_DraftLeaveAction>(
             label: 'Discard',
             value: _DraftLeaveAction.discard,
-            color: createFormText,
+            color: dialogContext.genesisCreateColors.text,
           ),
         ],
       );
@@ -455,7 +454,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    const disabledSubmitColor = Color(0xFFBFD8CD);
+    final disabledSubmitColor = context.genesisColors.primaryDisabled;
     final canUseSubmitButton =
         !_isSubmitting &&
         widget.submitStatus == OriginDraftSubmitStatus.idle &&
@@ -497,7 +496,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         children: [
-                          const SizedBox(height: 14),
+                          SizedBox(height: 14),
                           Expanded(
                             child: ListView(
                               padding: EdgeInsets.only(
@@ -509,9 +508,13 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 if (widget.showCurrentVersion) ...[
                                   Text(
                                     'Current Version: ${_versionLabel(_draft.basics.originVersion)}',
-                                    style: _editSummaryLabelStyle,
+                                    style: _editSummaryLabelStyle.copyWith(
+                                      color: context
+                                          .genesisColors
+                                          .foregroundStrong,
+                                    ),
                                   ),
-                                  const SizedBox(height: 20),
+                                  SizedBox(height: 20),
                                 ],
                                 _SectionRow(
                                   icon: createOriginBasicsIconAsset,
@@ -578,9 +581,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   ),
                                 ),
                                 if (widget.updateNotesController != null) ...[
-                                  const SizedBox(height: 20),
+                                  SizedBox(height: 20),
                                   const _UpdateNotesFieldLabel(),
-                                  const SizedBox(height: 8),
+                                  SizedBox(height: 8),
                                   _UpdateNotesField(
                                     controller: widget.updateNotesController!,
                                   ),
@@ -600,10 +603,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                           ? () => unawaited(_submit())
                           : null,
                       onDisabledPressed: _showSubmitDisabledReason,
-                      backgroundColor: createFormGreen,
-                      foregroundColor: Colors.white,
+                      backgroundColor: context.genesisCreateColors.accent,
+                      foregroundColor: context.genesisColors.onPrimary,
                       disabledBackgroundColor: disabledSubmitColor,
-                      disabledForegroundColor: Colors.white,
+                      disabledForegroundColor: context.genesisColors.onPrimary,
                     ),
                   ),
                 ],
@@ -811,9 +814,11 @@ class _UpdateNotesFieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
+    return Text(
       '📝Update notes (required to publish)',
-      style: _editSummaryLabelStyle,
+      style: _editSummaryLabelStyle.copyWith(
+        color: context.genesisColors.foregroundStrong,
+      ),
     );
   }
 }

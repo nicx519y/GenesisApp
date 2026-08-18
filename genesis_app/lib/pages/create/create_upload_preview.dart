@@ -22,7 +22,7 @@ class _EmptyUpload extends StatelessWidget {
       children: [
         Icon(
           Icons.add_photo_alternate_outlined,
-          color: createFormGreen,
+          color: context.genesisCreateColors.accent,
           size: iconSize,
         ),
         SizedBox(height: iconLabelGap),
@@ -30,7 +30,7 @@ class _EmptyUpload extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: createFormMuted,
+            color: context.genesisCreateColors.muted,
             fontSize: labelFontSize,
             fontWeight: labelFontWeight,
             height: 1.15,
@@ -189,15 +189,15 @@ class _PreviewPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFFEFEFF2),
+      color: context.genesisCreateColors.previewBackground,
       child: showSpinner
-          ? const Center(
+          ? Center(
               child: SizedBox(
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: createFormGreen,
+                  color: context.genesisCreateColors.accent,
                 ),
               ),
             )
@@ -211,12 +211,12 @@ class _PreviewErrorIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0xFFEFEFF2),
+    return ColoredBox(
+      color: context.genesisCreateColors.previewBackground,
       child: Center(
         child: Icon(
           Icons.broken_image_outlined,
-          color: createFormGreen,
+          color: context.genesisCreateColors.accent,
           size: 34,
         ),
       ),

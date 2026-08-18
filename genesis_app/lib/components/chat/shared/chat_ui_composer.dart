@@ -32,7 +32,7 @@ class ChatComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     final submitFromKeyboard = !style.showComposerSendButton;
     final bottomInset =
         bottomSafeAreaInset ?? GenesisSafeAreaInsets.bottom(context);

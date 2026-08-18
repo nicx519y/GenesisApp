@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 
@@ -65,13 +66,13 @@ class GemBalancePanel extends StatelessWidget {
                   height: gemLargeIconSize,
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'My Balance',
                   style: TextStyle(
                     fontSize: 14,
                     height: 18 / 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF666666),
+                    color: context.genesisColors.textMuted,
                   ),
                 ),
               ],
@@ -80,11 +81,11 @@ class GemBalancePanel extends StatelessWidget {
             Text(
               formatGemInteger(balance),
               key: balanceKey,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 30,
                 height: 40 / 30,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
+                color: context.genesisColors.textBody,
                 letterSpacing: 0,
               ),
             ),
@@ -156,17 +157,17 @@ class GemProductCard extends StatelessWidget {
     final tag = product.tagText;
     final hasBonusGems = product.bonusGems > 0;
     final defaultTagColor = isNewUserProduct
-        ? const Color(0xFFE85C39)
-        : const Color(0xFFB53B52);
+        ? context.genesisGemColors.priceGradientStart
+        : context.genesisGemColors.priceGradientEnd;
     final tagColor = _parseActivityColor(
       product.activityColor,
       fallback: defaultTagColor,
     );
-    const tagTextStyle = TextStyle(
+    final tagTextStyle = TextStyle(
       fontSize: 10,
       height: 14 / 10,
       fontWeight: FontWeight.w400,
-      color: Colors.white,
+      color: context.genesisColors.textInverse,
     );
     final tagPainter = TextPainter(
       text: TextSpan(text: tag, style: tagTextStyle),
@@ -192,9 +193,9 @@ class GemProductCard extends StatelessWidget {
             child: Container(
               clipBehavior: Clip.none,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.genesisColors.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFEBEBEB)),
+                border: Border.all(color: context.genesisColors.borderSubtle),
               ),
               child: Stack(
                 clipBehavior: Clip.none,
@@ -244,11 +245,11 @@ class GemProductCard extends StatelessWidget {
                       child: Text(
                         '+${formatGemInteger(product.totalGems)}',
                         maxLines: 1,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           height: 20 / 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF111111),
+                          color: context.genesisColors.textPrimary,
                         ),
                       ),
                     ),
@@ -264,13 +265,13 @@ class GemProductCard extends StatelessWidget {
                         child: Text(
                           formatGemInteger(product.baseGems),
                           maxLines: 1,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             height: 14 / 12,
                             fontWeight: FontWeight.w400,
-                            color: Color(0xFF888888),
+                            color: context.genesisColors.textFaint,
                             decoration: TextDecoration.lineThrough,
-                            decorationColor: Color(0xFF888888),
+                            decorationColor: context.genesisColors.textFaint,
                           ),
                         ),
                       ),
@@ -286,21 +287,23 @@ class GemProductCard extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: isSoldOut ? Colors.transparent : Colors.white,
+                        color: isSoldOut
+                            ? Colors.transparent
+                            : context.genesisColors.surface,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isSoldOut
-                              ? kGemSoldOutBorderColor
-                              : kGemAccentColor,
+                              ? context.genesisGemColors.soldOutBorder
+                              : context.genesisGemColors.accent,
                         ),
                       ),
                       child: isBuying && !isSoldOut
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 13,
                               height: 13,
                               child: CircularProgressIndicator(
                                 strokeWidth: 1.8,
-                                color: kGemAccentColor,
+                                color: context.genesisGemColors.accent,
                               ),
                             )
                           : FittedBox(
@@ -318,8 +321,10 @@ class GemProductCard extends StatelessWidget {
                                   height: 14 / 12,
                                   fontWeight: FontWeight.w600,
                                   color: isSoldOut
-                                      ? kGemSoldOutForegroundColor
-                                      : kGemAccentColor,
+                                      ? context
+                                            .genesisGemColors
+                                            .soldOutForeground
+                                      : context.genesisGemColors.accent,
                                 ),
                               ),
                             ),

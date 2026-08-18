@@ -21,7 +21,7 @@ class WorldInfoHeaderLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       key: ValueKey<String>('world-panel-info-row'),
       height: worldInfoHeaderHeight,
       child: Align(
@@ -63,7 +63,7 @@ class WorldLoadingStatBone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         WorldLoadingBone(width: 14, height: 14, radius: 7),
@@ -116,7 +116,7 @@ class WorldLoadingBone extends StatelessWidget {
   Widget build(BuildContext context) {
     final child = DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFE9EDF2),
+        color: context.genesisWorldColors.loadingSurface,
         borderRadius: BorderRadius.circular(radius),
       ),
       child: SizedBox(width: width, height: height),
@@ -172,18 +172,18 @@ class WorldDetailSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            const SizedBox(width: 38),
+            SizedBox(width: 38),
             Expanded(
               child: Text(
                 title,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   height: 1.25,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF4B6192),
+                  color: context.genesisColors.accentText,
                 ),
               ),
             ),
@@ -205,8 +205,10 @@ class WorldDetailSection extends StatelessWidget {
                       height: 1.2,
                       fontWeight: FontWeight.w400,
                       color: canDeleteWorld
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.45),
+                          ? context.genesisColors.textInverse
+                          : context.genesisColors.textInverse.withValues(
+                              alpha: 0.45,
+                            ),
                     ),
                     onSelected: () {
                       if (!canDeleteWorld) {
@@ -225,14 +227,14 @@ class WorldDetailSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         GenesisPairedMetaRow(
           leftLabel: 'WID',
           leftValue: world.worldId,
           leftDisplayValue: world.deleted ? deletedEntityDisplayText : null,
           leftCopyEnabled: !world.deleted,
           leftStyle: worldHeaderMetaTextStyle,
-          leftIconColor: worldHeaderMetaColor,
+          leftIconColor: context.genesisColors.textMuted,
           rightText: 'Owner: $owner',
           rightOnTap: ownerUid.isEmpty || world.ownerDeleted
               ? null
@@ -240,9 +242,9 @@ class WorldDetailSection extends StatelessWidget {
                   context,
                 ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
           rightStyle: worldHeaderMetaTextStyle,
-          rightIconColor: worldHeaderMetaColor,
+          rightIconColor: context.genesisColors.textMuted,
         ),
-        const SizedBox(height: 0),
+        SizedBox(height: 0),
         GenesisInlineMetaLabel(
           text: 'Source Worldo: $sourceOid · V$version',
           onTap: !canOpenSourceWorldo
@@ -256,10 +258,10 @@ class WorldDetailSection extends StatelessWidget {
                 ),
           style: CopyableIdLabel.textStyle,
           trailingIcon: canOpenSourceWorldo ? Icons.chevron_right : null,
-          trailingIconColor: worldHeaderMetaColor,
+          trailingIconColor: context.genesisColors.textMuted,
           trailingIconSize: 16,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -274,17 +276,17 @@ class WorldDetailSection extends StatelessWidget {
                   ),
                 ),
               ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             GenesisPrimaryButton(
               label: 'Invite',
               onPressed: () => _copyInviteText(context, worldName: title),
               height: 35,
               width: 140,
-              backgroundColor: const Color(0xFFFF2442),
-              disabledBackgroundColor: const Color(
-                0xFFFF2442,
-              ).withValues(alpha: 0.62),
-              foregroundColor: Colors.white,
+              backgroundColor: context.genesisColors.danger,
+              disabledBackgroundColor: context.genesisColors.danger.withValues(
+                alpha: 0.62,
+              ),
+              foregroundColor: context.genesisColors.onDanger,
               fontSize: 16,
               padding: EdgeInsets.zero,
               minimumSize: Size.zero,
@@ -292,24 +294,29 @@ class WorldDetailSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        const WorldDetailSectionTitle(
+        SizedBox(height: 24),
+        WorldDetailSectionTitle(
           icon: MyFlutterApp.eye,
-          iconColor: Color(0xFFFF2442),
+          iconColor: context.genesisColors.danger,
           title: 'World Brief',
         ),
-        const SizedBox(height: 8),
-        Text(brief, style: worldDetailBodyTextStyle),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
+        Text(
+          brief,
+          style: worldDetailBodyTextStyle.copyWith(
+            color: context.genesisColors.textPrimary,
+          ),
+        ),
+        SizedBox(height: 8),
         WorldDetailCoverImage(url: cover),
-        const SizedBox(height: 24),
-        const WorldDetailSectionTitle(
+        SizedBox(height: 24),
+        WorldDetailSectionTitle(
           asset: worldSectionCastIconAsset,
           iconSize: 17,
-          iconColor: Color(0xFF666666),
+          iconColor: context.genesisColors.textMuted,
           title: 'Cast',
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         if (showCharacters)
           WorldCharactersSection(world: world, currentUid: currentUid),
       ],
@@ -383,7 +390,7 @@ class WorldDetailSectionListView extends StatelessWidget {
             character: character,
             currentUid: currentUid,
             subtitle: worldCharacterDescriptionText(character),
-            subtitleColor: const Color(0xFF666666),
+            subtitleColor: context.genesisColors.textMuted,
             showCharacterDetails: true,
           ),
         );
@@ -455,14 +462,14 @@ class _WorldNewUserJoinNoticeText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const baseStyle = TextStyle(
-      color: Color(0xFF666666),
+    final baseStyle = TextStyle(
+      color: context.genesisColors.textMuted,
       fontSize: 12,
       height: 1.2,
       fontWeight: FontWeight.w400,
     );
-    const emphasisStyle = TextStyle(
-      color: Color(0xFF111111),
+    final emphasisStyle = TextStyle(
+      color: context.genesisColors.textPrimary,
       fontWeight: FontWeight.w600,
     );
     return LayoutBuilder(
@@ -529,17 +536,17 @@ class WorldDetailSectionTitle extends StatelessWidget {
           )
         else
           Icon(icon, size: iconSize, color: iconColor),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Flexible(
           child: Text(
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.2,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
+              color: context.genesisColors.textPrimary,
             ),
           ),
         ),
@@ -560,9 +567,12 @@ class WorldDetailCoverImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewerUrl = url.trim();
     final fallback = Container(
-      color: const Color(0xFFEFF1F4),
+      color: context.genesisColors.imagePlaceholder,
       alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
+      child: Icon(
+        Icons.image_outlined,
+        color: context.genesisColors.imagePlaceholderIcon,
+      ),
     );
 
     return LayoutBuilder(

@@ -427,8 +427,8 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                     key: const ValueKey('discuss-composer-scrim-dismiss'),
                     behavior: HitTestBehavior.opaque,
                     onTap: _handleScrimTap,
-                    child: const ColoredBox(
-                      color: kGenesisSubtleModalBarrierColor,
+                    child: ColoredBox(
+                      color: genesisModalBarrierColor(context, subtle: true),
                     ),
                   ),
                 ),

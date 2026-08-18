@@ -47,8 +47,8 @@ class _DiscussPreviewMeta extends StatelessWidget {
             item.authorName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF888888),
+            style: TextStyle(
+              color: context.genesisColors.textFaint,
               fontSize: 12,
               height: 1.18,
               fontWeight: FontWeight.w600,
@@ -93,7 +93,9 @@ class _DiscussPreviewMeta extends StatelessWidget {
             const SizedBox(width: 8),
             GenesisTimestampText(
               timestamp: item.createdAt,
-              style: _subtleStyle,
+              style: _subtleStyle.copyWith(
+                color: context.genesisColors.textTimestamp,
+              ),
             ),
           ],
         ],
@@ -157,7 +159,6 @@ class _DiscussAvatar extends StatelessWidget {
 }
 
 const _subtleStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

@@ -188,6 +188,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Tick 0-1'), findsOneWidget);
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, 300),
+      );
+      await tester.pumpAndSettle();
+
       expect(find.text(kAiContentDisclaimerText), findsOneWidget);
       expect(
         tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,

@@ -80,7 +80,8 @@ class _ChatCharacterMovementRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = style.systemMessageTextStyle.color ?? Colors.white;
+    final textColor =
+        style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
     final metadataStyle = style.systemMessageTextStyle.copyWith(
       color: textColor.withValues(alpha: 0.72),
     );

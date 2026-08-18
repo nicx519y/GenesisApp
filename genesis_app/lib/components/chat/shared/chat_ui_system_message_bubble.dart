@@ -26,7 +26,7 @@ class ChatSystemMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
+    final style = this.style ?? context.genesisChatTheme.standard;
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxBubbleWidth = fullWidth || useFullAvailableWidth
@@ -88,7 +88,8 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = style.systemMessageTextStyle.color ?? Colors.white;
+    final iconColor =
+        style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

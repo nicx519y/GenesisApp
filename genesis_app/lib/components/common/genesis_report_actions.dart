@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_content_submission_dialog.dart';
 
 const TextStyle _genesisActionMenuTextStyle = TextStyle(
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
-  color: _genesisActionMenuForegroundColor,
 );
 const String genesisReportIconAsset =
     'assets/custom-icons/svg/report-svgrepo-com.svg';
@@ -29,8 +29,6 @@ const double _genesisActionMenuVerticalLift = 4;
 const double _genesisActionMenuDownwardScreenRatio = 0.2;
 const double _genesisActionMenuShadowPadding = 12;
 const double _genesisActionMenuBorderRadius = 8;
-const Color _genesisActionMenuBackgroundColor = Color(0xFF666666);
-const Color _genesisActionMenuForegroundColor = Colors.white;
 
 enum GenesisActionMenuAppearance { standard, message }
 
@@ -55,7 +53,7 @@ class GenesisMoreActionMenuButton extends StatefulWidget {
     super.key,
     required this.items,
     this.iconSize = 18,
-    this.iconColor = Colors.black,
+    this.iconColor,
     this.buttonSize = 38,
     this.menuRightInset,
     this.menuVerticalOffset = 0,
@@ -64,7 +62,7 @@ class GenesisMoreActionMenuButton extends StatefulWidget {
 
   final List<GenesisActionMenuItem> items;
   final double iconSize;
-  final Color iconColor;
+  final Color? iconColor;
   final double buttonSize;
   final double? menuRightInset;
   final double menuVerticalOffset;
@@ -99,7 +97,7 @@ class _GenesisMoreActionMenuButtonState
         icon: Icon(
           Icons.more_horiz_sharp,
           size: widget.iconSize,
-          color: widget.iconColor,
+          color: widget.iconColor ?? context.genesisColors.foregroundStrong,
         ),
         onPressed: () => _showFromButton(context),
       ),
@@ -270,6 +268,8 @@ class _GenesisActionMenuLayout {
   _GenesisActionMenuLayout({
     required this.appearance,
     required this.textScaler,
+    required this.backgroundColor,
+    required this.foregroundColor,
     required List<GenesisActionMenuItem> items,
   }) {
     rowCount = isHorizontal ? 1 : items.length;
@@ -278,29 +278,25 @@ class _GenesisActionMenuLayout {
 
   final GenesisActionMenuAppearance appearance;
   final TextScaler textScaler;
+  final Color backgroundColor;
+  final Color foregroundColor;
   late final int rowCount;
   late final double width;
 
   bool get isHorizontal => appearance == GenesisActionMenuAppearance.message;
 
-  Color get backgroundColor => _genesisActionMenuBackgroundColor;
-
-  Color get foregroundColor => _genesisActionMenuForegroundColor;
-
   TextStyle get defaultTextStyle =>
       appearance == GenesisActionMenuAppearance.message
-      ? const TextStyle(
+      ? TextStyle(
           fontSize: 12,
           height: 1.2,
           fontWeight: FontWeight.w400,
-          color: _genesisActionMenuForegroundColor,
+          color: foregroundColor,
         )
-      : _genesisActionMenuTextStyle;
+      : _genesisActionMenuTextStyle.copyWith(color: foregroundColor);
 
-  ColorFilter get iconColorFilter => const ColorFilter.mode(
-    _genesisActionMenuForegroundColor,
-    BlendMode.srcIn,
-  );
+  ColorFilter get iconColorFilter =>
+      ColorFilter.mode(foregroundColor, BlendMode.srcIn);
 
   double _widthFor(List<GenesisActionMenuItem> items) {
     if (isHorizontal) {
@@ -422,6 +418,8 @@ _GenesisActionMenuHandle? _showGenesisActionMenuAtInternal({
   final layout = _GenesisActionMenuLayout(
     appearance: appearance,
     textScaler: MediaQuery.textScalerOf(context),
+    backgroundColor: context.genesisColors.textMuted,
+    foregroundColor: context.genesisColors.textInverse,
     items: items,
   );
   final menuWidth = layout.width;
@@ -529,6 +527,7 @@ class _GenesisActionBubble extends StatelessWidget {
           showArrow: showArrow,
           expandsDown: expandsDown,
           arrowCenterX: arrowCenterX,
+          shadowColor: context.genesisColors.shadow.withValues(alpha: 0.14),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -548,6 +547,7 @@ class _GenesisActionBubbleShadowPainter extends CustomPainter {
     required this.showArrow,
     required this.expandsDown,
     required this.arrowCenterX,
+    required this.shadowColor,
   });
 
   final int itemCount;
@@ -555,6 +555,7 @@ class _GenesisActionBubbleShadowPainter extends CustomPainter {
   final bool showArrow;
   final bool expandsDown;
   final double arrowCenterX;
+  final Color shadowColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -565,8 +566,8 @@ class _GenesisActionBubbleShadowPainter extends CustomPainter {
       expandsDown: expandsDown,
       arrowCenterX: arrowCenterX,
     );
-    final shadow = const BoxShadow(
-      color: Color(0x24000000),
+    final shadow = BoxShadow(
+      color: shadowColor,
       blurRadius: 12,
       offset: Offset(0, 4),
     );
@@ -582,7 +583,8 @@ class _GenesisActionBubbleShadowPainter extends CustomPainter {
         oldDelegate.width != width ||
         oldDelegate.showArrow != showArrow ||
         oldDelegate.expandsDown != expandsDown ||
-        oldDelegate.arrowCenterX != arrowCenterX;
+        oldDelegate.arrowCenterX != arrowCenterX ||
+        oldDelegate.shadowColor != shadowColor;
   }
 }
 
@@ -681,10 +683,12 @@ class _GenesisActionBubbleBody extends StatelessWidget {
                       },
                     ),
                     if (index != items.length - 1)
-                      const Divider(
+                      Divider(
                         height: 1,
                         thickness: 1,
-                        color: Color(0x33FFFFFF),
+                        color: context.genesisColors.textInverse.withValues(
+                          alpha: 0.2,
+                        ),
                       ),
                   ],
                 ],

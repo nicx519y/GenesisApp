@@ -214,7 +214,7 @@ class _OriginCharactersEditorPageState
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.pageBackground,
       appBar: const GenesisBackAppBar(pageName: 'Characters'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
@@ -231,14 +231,14 @@ class _OriginCharactersEditorPageState
                         alignment: Alignment.centerRight,
                         child: Text(
                           '${_forms.length}/$_maxCharacters (Added / Max)',
-                          style: const TextStyle(
-                            color: createFormText,
+                          style: TextStyle(
+                            color: context.genesisCreateColors.text,
                             fontSize: 14,
                             height: 1.2,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       for (int i = 0; i < _forms.length; i++) ...[
                         _CharacterCard(
                           index: i + 1,
@@ -253,9 +253,9 @@ class _OriginCharactersEditorPageState
                             _requestRemoveCharacter(i);
                           },
                         ),
-                        if (i + 1 < _forms.length) const SizedBox(height: 12),
+                        if (i + 1 < _forms.length) SizedBox(height: 12),
                       ],
-                      if (_forms.isNotEmpty) const SizedBox(height: 12),
+                      if (_forms.isNotEmpty) SizedBox(height: 12),
                       CreateInlineAddButton(
                         label: '+ Add Character',
                         onTap: _addCharacter,
@@ -263,7 +263,7 @@ class _OriginCharactersEditorPageState
                         centered: true,
                         contentPadding: const EdgeInsets.fromLTRB(0, 11, 0, 5),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                     ],
                   ),
                 ),

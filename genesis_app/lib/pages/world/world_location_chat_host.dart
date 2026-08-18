@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/shared/location_chat_overlay_transition.dart';
+import '../../components/world/genesis_world_theme.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/location_tree.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../chat/location_chat_background_preloader.dart';
 import '../chat/location_chat_page.dart';
 import 'world_map_data.dart';
@@ -459,7 +461,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             messageQueueInitializationCovered:
                 messageQueueInitializationCovered,
             systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,
-            style: kLocationChatStyle,
+            style: context.genesisChatTheme.locationChat,
             onBack: onBack,
             onInitialContentReady: onInitialContentReady,
             initialDraftText: initialDraftText,
@@ -485,7 +487,7 @@ class WorldLocationChatLoadingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = kLocationChatStyle;
+    final style = context.genesisChatTheme.locationChat;
     return GenesisBottomSystemBarStyleScope(
       style: GenesisBottomSystemBarStyle(color: style.composerBackgroundColor),
       child: ColoredBox(
@@ -555,12 +557,12 @@ class _LocationChatDateSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(bottom: style.dateDividerBottomPadding),
-      child: const Center(
+      child: Center(
         child: _LocationChatSkeletonBone(
           width: 72,
           height: 10,
           radius: 5,
-          color: Color(0x33777777),
+          color: context.genesisColors.textSubtle.withValues(alpha: 0.2),
         ),
       ),
     );
@@ -609,11 +611,13 @@ class _LocationChatOtherMessageSkeleton extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (style.showSenderNameAboveOtherBubble) ...[
-                  const _LocationChatSkeletonBone(
+                  _LocationChatSkeletonBone(
                     width: 76,
                     height: 12,
                     radius: 6,
-                    color: Color(0x33222222),
+                    color: context.genesisColors.textStrong.withValues(
+                      alpha: 0.2,
+                    ),
                   ),
                   SizedBox(height: style.senderNameBottomGap),
                 ],
@@ -623,7 +627,7 @@ class _LocationChatOtherMessageSkeleton extends StatelessWidget {
                   child: _LocationChatBubbleSkeleton(
                     style: style,
                     color: style.otherBubbleColor,
-                    lineColor: const Color(0xFFE5E8EC),
+                    lineColor: context.genesisWorldColors.locationLine,
                     lineWidths: lineWidths,
                   ),
                 ),
@@ -664,7 +668,7 @@ class _LocationChatSelfMessageSkeleton extends StatelessWidget {
               child: _LocationChatBubbleSkeleton(
                 style: style,
                 color: style.selfBubbleColor,
-                lineColor: const Color(0x661A6B28),
+                lineColor: context.genesisWorldColors.locationPositiveLine,
                 lineWidths: lineWidths,
               ),
             ),
@@ -709,7 +713,7 @@ class _LocationChatBubbleSkeleton extends StatelessWidget {
                 radius: 6,
                 color: lineColor,
               ),
-              if (i != lineWidths.length - 1) const SizedBox(height: 8),
+              if (i != lineWidths.length - 1) SizedBox(height: 8),
             ],
           ],
         ),
@@ -749,11 +753,11 @@ class _LocationChatComposerSkeleton extends StatelessWidget {
                   horizontal: style.inputHorizontalPadding,
                   vertical: style.inputVerticalPadding,
                 ),
-                child: const _LocationChatSkeletonBone(
+                child: _LocationChatSkeletonBone(
                   widthFactor: 0.34,
                   height: 14,
                   radius: 7,
-                  color: Color(0xFFE5E8EC),
+                  color: context.genesisWorldColors.locationLine,
                 ),
               ),
             ),

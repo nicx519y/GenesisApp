@@ -384,7 +384,7 @@ class _OriginDetailDraggableSheetState
               return DecoratedBox(
                 key: const ValueKey<String>('origin-detail-sheet-surface'),
                 decoration: BoxDecoration(
-                  color: originWorldDetailSheetBackgroundColor,
+                  color: context.genesisColors.surfaceSheet,
                   borderRadius: GenesisRadii.sheet,
                 ),
                 child: ClipRRect(
@@ -419,9 +419,10 @@ class _OriginDetailDraggableSheetState
                             ),
                           )
                         else ...[
-                          ..._originWorldoBriefSlivers(widget.origin),
+                          ..._originWorldoBriefSlivers(context, widget.origin),
                           if (initialDialoguePreview != null)
                             ..._originInitialDialogueSlivers(
+                              context,
                               widget.origin,
                               initialDialoguePreview,
                             ),
@@ -566,7 +567,7 @@ class _OriginSheetDragHandle extends StatelessWidget {
           width: 64,
           height: 5,
           decoration: BoxDecoration(
-            color: const Color(0xFFD2D2D2),
+            color: context.genesisColors.dragHandle,
             borderRadius: BorderRadius.circular(3),
           ),
         ),
@@ -593,7 +594,7 @@ class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return ColoredBox(
-      color: originWorldDetailSheetBackgroundColor,
+      color: context.genesisColors.surfaceSheet,
       child: Stack(
         children: [
           Positioned(
@@ -649,11 +650,11 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   height: 1.25,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF4B6192),
+                  color: context.genesisColors.accentText,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -693,7 +694,9 @@ class _OriginSheetHeaderContent extends StatelessWidget {
             Expanded(
               child: Text(
                 'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-                style: CopyableIdLabel.textStyle,
+                style: CopyableIdLabel.textStyle.copyWith(
+                  color: context.genesisColors.textMuted,
+                ),
               ),
             ),
             if (canEditOrigin)
@@ -758,14 +761,14 @@ class _OriginInfoStat extends StatelessWidget {
       iconSize: 14,
       iconAssetScale: 1,
       iconVerticalOffset: 0,
-      iconColor: const Color(0xFF111111),
+      iconColor: context.genesisColors.textPrimary,
       gap: 4,
       text: formatStatCount(value),
-      textStyle: const TextStyle(
+      textStyle: TextStyle(
         fontSize: 14,
         height: 1,
         fontWeight: FontWeight.w400,
-        color: Color(0xFF111111),
+        color: context.genesisColors.textPrimary,
       ),
     );
   }
@@ -773,8 +776,6 @@ class _OriginInfoStat extends StatelessWidget {
 
 class _OriginInlineEditAction extends StatelessWidget {
   const _OriginInlineEditAction({required this.onTap});
-
-  static const Color _color = Color(0xFF4B6192);
 
   final VoidCallback onTap;
 
@@ -794,16 +795,19 @@ class _OriginInlineEditAction extends StatelessWidget {
               editPencilLineIconAsset,
               width: 16,
               height: 16,
-              colorFilter: const ColorFilter.mode(_color, BlendMode.srcIn),
+              colorFilter: ColorFilter.mode(
+                context.genesisColors.accentText,
+                BlendMode.srcIn,
+              ),
             ),
             const SizedBox(width: 4),
-            const Text(
+            Text(
               'Edit Worldo',
               style: TextStyle(
                 fontSize: 14,
                 height: 1.2,
                 fontWeight: FontWeight.w500,
-                color: _color,
+                color: context.genesisColors.accentText,
                 decoration: TextDecoration.none,
               ),
             ),

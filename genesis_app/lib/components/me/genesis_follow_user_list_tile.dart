@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -39,6 +40,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cleanUid = uid.trim();
+    final colors = context.genesisColors;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: deleted
@@ -73,11 +75,11 @@ class GenesisFollowUserListTile extends StatelessWidget {
                     displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black,
+                      color: colors.foregroundStrong,
                     ),
                   ),
                   SizedBox(
@@ -86,7 +88,12 @@ class GenesisFollowUserListTile extends StatelessWidget {
                   ),
                   Text(
                     'UID: ${deletedAwareIdLabel(formatUidForDisplay(cleanUid), deleted: deleted)}',
-                    style: _uidTextStyle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.1,
+                      fontWeight: FontWeight.w400,
+                      color: colors.textSupporting,
+                    ),
                   ),
                 ],
               ),
@@ -108,17 +115,17 @@ class GenesisFollowUserListTile extends StatelessWidget {
                         fixedSize: const Size(_actionWidth, _actionHeight),
                         minimumSize: const Size(_actionWidth, _actionHeight),
                         backgroundColor: isFollowed
-                            ? const Color(0xFFE5E5E5)
-                            : const Color(0xFFFF2442),
+                            ? colors.surfaceDisabled
+                            : colors.danger,
                         disabledBackgroundColor: isFollowed
-                            ? const Color(0xFFE5E5E5)
-                            : const Color(0xFFFF2442).withValues(alpha: 0.55),
+                            ? colors.surfaceDisabled
+                            : colors.danger.withValues(alpha: 0.55),
                         foregroundColor: isFollowed
-                            ? Colors.black
-                            : Colors.white,
+                            ? colors.foregroundStrong
+                            : colors.onDanger,
                         disabledForegroundColor: isFollowed
-                            ? Colors.black54
-                            : Colors.white,
+                            ? colors.foregroundStrong.withValues(alpha: 0.54)
+                            : colors.onDanger,
                         alignment: Alignment.center,
                         padding: EdgeInsets.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -133,8 +140,10 @@ class GenesisFollowUserListTile extends StatelessWidget {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: isFollowed
-                                    ? Colors.black54
-                                    : Colors.white,
+                                    ? colors.foregroundStrong.withValues(
+                                        alpha: 0.54,
+                                      )
+                                    : colors.onDanger,
                               ),
                             )
                           : Text(
@@ -155,10 +164,3 @@ class GenesisFollowUserListTile extends StatelessWidget {
     );
   }
 }
-
-const TextStyle _uidTextStyle = TextStyle(
-  fontSize: 12,
-  height: 1.1,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF8A8A8A),
-);

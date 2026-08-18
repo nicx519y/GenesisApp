@@ -181,19 +181,19 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F2F2),
+          color: context.genesisColors.inputBackground,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           widget.placeholder,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             height: 1.2,
             fontWeight: FontWeight.w400,
             letterSpacing: 0,
-            color: Color(0xFF888888),
+            color: context.genesisColors.textFaint,
           ),
         ),
       ),

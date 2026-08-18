@@ -95,9 +95,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
         Positioned.fill(
           child: GenesisGenerationWaitOverlay(
             title: 'Creating your Worldo',
-            illustration: const Center(
-              child: GenesisLogo(height: 88, width: 152),
-            ),
+            illustration: Center(child: GenesisLogo(height: 88, width: 152)),
             perspectiveLines: _generationWaitLines,
             centeredPerspectiveLineCount: 2,
             onBackPressed: () => Navigator.of(context).maybePop(),
