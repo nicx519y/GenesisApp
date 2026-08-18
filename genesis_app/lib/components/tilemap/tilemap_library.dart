@@ -80,6 +80,7 @@ class TilemapRestorationController extends ChangeNotifier {
     required String worldId,
     required String initialLocationId,
     Iterable<String> drillableLocationIds = const <String>[],
+    bool preloadRelatedMaps = tilemapRelatedMapPreloadingEnabled,
   }) {
     final resolvedWorldId = worldId.trim();
     final resolvedInitialLocationId = initialLocationId.trim();
@@ -97,10 +98,13 @@ class TilemapRestorationController extends ChangeNotifier {
       api: api,
       worldId: resolvedWorldId,
       initialLocationId: resolvedInitialLocationId,
-      drillableLocationIds: drillableLocationIds
-          .map((locationId) => locationId.trim())
-          .where((locationId) => locationId.isNotEmpty)
-          .toSet(),
+      preloadRelatedMaps: preloadRelatedMaps,
+      drillableLocationIds: preloadRelatedMaps
+          ? drillableLocationIds
+                .map((locationId) => locationId.trim())
+                .where((locationId) => locationId.isNotEmpty)
+                .toSet()
+          : const <String>{},
       scopeKey: scopeKey,
       generation: generation,
     );
@@ -165,6 +169,7 @@ class TilemapRestorationController extends ChangeNotifier {
         generation != _worldMapPrefetchGeneration) {
       return;
     }
+    if (!prefetchRequest.preloadRelatedMaps) return;
 
     final drillableIds = prefetchRequest.drillableLocationIds;
     final relatedLocationIds = <String>[];
@@ -328,6 +333,7 @@ class _TilemapWorldMapPrefetchRequest {
     required this.api,
     required this.worldId,
     required this.initialLocationId,
+    required this.preloadRelatedMaps,
     required this.drillableLocationIds,
     required this.scopeKey,
     required this.generation,
@@ -336,6 +342,7 @@ class _TilemapWorldMapPrefetchRequest {
   final GenesisApi api;
   final String worldId;
   final String initialLocationId;
+  final bool preloadRelatedMaps;
   final Set<String> drillableLocationIds;
   final String scopeKey;
   final int generation;
@@ -391,6 +398,7 @@ class Tilemap extends StatefulWidget {
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
     this.locationImageFlowPaused = false,
+    this.relatedMapPreloadingEnabled = tilemapRelatedMapPreloadingEnabled,
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
@@ -420,6 +428,7 @@ class Tilemap extends StatefulWidget {
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
     this.locationImageFlowPaused = false,
+    this.relatedMapPreloadingEnabled = tilemapRelatedMapPreloadingEnabled,
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
@@ -448,6 +457,7 @@ class Tilemap extends StatefulWidget {
   final Set<String> eventLocationIds;
   final bool animationsPaused;
   final bool locationImageFlowPaused;
+  final bool relatedMapPreloadingEnabled;
   final int reloadRevision;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
@@ -1291,6 +1301,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   }
 
   List<String> _preferredPreloadLocationIds([TilemapConfig? config]) {
+    if (!widget.relatedMapPreloadingEnabled) return const <String>[];
     final result = <String>[];
     void add(String rawLocationId) {
       final locationId = rawLocationId.trim();
@@ -1802,6 +1813,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     TilemapConfig config, {
     required double displayTilePixelSize,
   }) {
+    if (!widget.relatedMapPreloadingEnabled) return;
     _loadingCoordinator.scheduleSilentDrillDownPreload(
       currentConfig: config,
       locationNodes: widget.locationNodes,
@@ -1901,6 +1913,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   }
 
   List<String> _preferredPrerenderMapIds([TilemapConfig? config]) {
+    if (!widget.relatedMapPreloadingEnabled) return const <String>[];
     final currentConfig = config ?? _currentConfig;
     final drillTargetIds = currentConfig == null
         ? const <String>[]

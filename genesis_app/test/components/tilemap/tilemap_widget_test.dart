@@ -641,6 +641,7 @@ void main() {
             home: Scaffold(
               body: Tilemap.origin(
                 originId: 'o_1',
+                relatedMapPreloadingEnabled: true,
                 locationNodes: [
                   _locationNode(
                     'branch',
@@ -1690,7 +1691,7 @@ void main() {
   );
 
   testWidgets(
-    'Tilemap consumes map update prefetched while location chat is open',
+    'Tilemap prefetches only the current map while location chat is open',
     (tester) async {
       final locationChatOpen = ValueNotifier<bool>(false);
       final restorationController = TilemapRestorationController();
@@ -1749,7 +1750,7 @@ void main() {
         drillableLocationIds: const ['branch'],
       );
       expect(transport.requestCount('root'), 2);
-      expect(transport.requestCount('branch'), 1);
+      expect(transport.requestCount('branch'), 0);
 
       locationChatOpen.value = false;
       for (var frame = 0; frame < 7; frame += 1) {
@@ -1757,7 +1758,7 @@ void main() {
       }
 
       expect(transport.requestCount('root'), 2);
-      expect(transport.requestCount('branch'), 1);
+      expect(transport.requestCount('branch'), 0);
       expect(
         tester
             .widget<TilemapRenderer>(_liveTilemapRendererFinder())
@@ -1790,6 +1791,7 @@ void main() {
         worldId: 'w_1',
         initialLocationId: 'root',
         drillableLocationIds: const ['branch'],
+        preloadRelatedMaps: true,
       );
       await _waitForTilemapRequestCount(transport, 'root', 1);
       for (var index = 1; index < 100; index += 1) {
@@ -1798,6 +1800,7 @@ void main() {
           worldId: 'w_1',
           initialLocationId: 'root',
           drillableLocationIds: const ['branch'],
+          preloadRelatedMaps: true,
         );
       }
       await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -2386,6 +2389,7 @@ void main() {
               body: Tilemap.world(
                 worldId: 'w_1',
                 locationNodes: [branch],
+                relatedMapPreloadingEnabled: true,
                 tileImageLoader: _completeTileImageLoad,
               ),
             ),
@@ -2468,6 +2472,7 @@ void main() {
                     worldId: 'w_1',
                     locationNodes: [branch],
                     animationsPaused: paused,
+                    relatedMapPreloadingEnabled: true,
                     tileImageLoader: (assetUrl) async {
                       loadedAssets.add(assetUrl);
                     },
@@ -2593,6 +2598,7 @@ void main() {
             body: Tilemap.world(
               worldId: 'w_1',
               locationNodes: [branch],
+              relatedMapPreloadingEnabled: true,
               tileImageLoader: _completeTileImageLoad,
             ),
           ),
@@ -2708,6 +2714,7 @@ void main() {
               body: Tilemap.world(
                 worldId: 'w_1',
                 locationNodes: locationNodes,
+                relatedMapPreloadingEnabled: true,
                 tileImageLoader: _completeTileImageLoad,
               ),
             ),
@@ -2781,6 +2788,7 @@ void main() {
                 builder: (context, revision, _) => Tilemap.world(
                   worldId: 'w_1',
                   reloadRevision: revision,
+                  relatedMapPreloadingEnabled: true,
                   locationNodes: [
                     _locationNode(
                       'branch',
@@ -3052,6 +3060,7 @@ void main() {
               builder: (context, revision, _) => Tilemap.world(
                 worldId: 'w_1',
                 reloadRevision: revision,
+                relatedMapPreloadingEnabled: true,
                 locationNodes: [
                   _locationNode(
                     'branch',
@@ -3124,6 +3133,7 @@ void main() {
               builder: (context, revision, _) => Tilemap.world(
                 worldId: 'w_1',
                 reloadRevision: revision,
+                relatedMapPreloadingEnabled: true,
                 locationNodes: [
                   _locationNode(
                     'branch',
@@ -3467,6 +3477,7 @@ void main() {
               builder: (context, revision, _) => Tilemap.world(
                 worldId: 'w_1',
                 reloadRevision: revision,
+                relatedMapPreloadingEnabled: true,
                 locationNodes: locationNodes,
                 tileImageLoader: _completeTileImageLoad,
               ),
@@ -3598,6 +3609,61 @@ void main() {
   );
 
   testWidgets(
+    'Tilemap does not preload related maps by default and loads on drill',
+    (tester) async {
+      final transport = _LocationTilemapTransport({
+        'root': _locationTilemapData('branch', assetName: 'root'),
+        'branch': _locationTilemapData('leaf_a', assetName: 'branch'),
+      });
+      final branch = _locationNode(
+        'branch',
+        children: [_locationNode('leaf_a'), _locationNode('leaf_b')],
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(transport),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Tilemap.world(
+                worldId: 'w_1',
+                locationNodes: [branch],
+                tileImageLoader: _completeTileImageLoad,
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(transport.requestCount('root'), 1);
+      expect(transport.requestCount('branch'), 0);
+      expect(_tilemapRendererForMap('world:w_1:branch'), findsNothing);
+
+      final rootRenderer = tester.widget<TilemapRenderer>(
+        _liveTilemapRendererFinder(),
+      );
+      await rootRenderer.onTileAction!(rootRenderer.config.tiles.single);
+      for (
+        var frame = 0;
+        frame < 8 && transport.requestCount('branch') == 0;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+      await tester.pump();
+
+      expect(transport.requestCount('branch'), 1);
+      expect(
+        tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
+        'world:w_1:branch',
+      );
+    },
+  );
+
+  testWidgets(
     'Tilemap silently preloads drillable maps and never reloads on drill/back',
     (tester) async {
       debugGenesisStaticNetworkImageCompleter = (_) => _failedImageCompleter();
@@ -3640,6 +3706,7 @@ void main() {
                   ),
                   _locationNode('leaf'),
                 ],
+                relatedMapPreloadingEnabled: true,
                 tileImageLoader: loadImage,
               ),
             ),
@@ -3781,6 +3848,7 @@ void main() {
               body: Tilemap.world(
                 worldId: 'w_1',
                 locationNodes: [branch],
+                relatedMapPreloadingEnabled: true,
                 tileImageLoader: _completeTileImageLoad,
               ),
             ),
@@ -3898,6 +3966,7 @@ void main() {
             body: Tilemap.origin(
               originId: 'o_1',
               locationNodes: [branch],
+              relatedMapPreloadingEnabled: true,
               tileImageLoader: _completeTileImageLoad,
             ),
           ),
@@ -3958,6 +4027,7 @@ void main() {
             body: Tilemap.world(
               worldId: 'w_1',
               locationNodes: [branch],
+              relatedMapPreloadingEnabled: true,
               tileImageLoader: loadImage,
             ),
           ),
@@ -4015,6 +4085,7 @@ void main() {
             body: Tilemap.origin(
               originId: 'o_1',
               locationNodes: [branch],
+              relatedMapPreloadingEnabled: true,
               tileImageLoader: _completeTileImageLoad,
             ),
           ),
