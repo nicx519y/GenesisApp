@@ -16,7 +16,6 @@ void main() {
   });
 
   test('supports a higher surface-specific image DPR cap', () {
-    expect(GenesisImageConfig.worldListMaxDevicePixelRatio, 2);
     expect(GenesisImageConfig.chatAvatarMaxDevicePixelRatio, 2.4);
     expect(GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio, 2.4);
     expect(genesisImageDevicePixelRatio(3, maxDevicePixelRatio: 2.4), 2.4);

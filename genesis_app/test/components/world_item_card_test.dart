@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/components/home/world_item_card.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
@@ -11,6 +10,9 @@ void main() {
   testWidgets('renders last progress time from last tick created_at', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final item = WorldListItem.fromJson(const <String, dynamic>{
       'wid': 'w_alpha',
       'name': 'Alpha World',
@@ -72,14 +74,7 @@ void main() {
       ),
       isTrue,
     );
-    expect(
-      thumbnails.every(
-        (image) =>
-            image.maxDevicePixelRatio ==
-            GenesisImageConfig.worldListMaxDevicePixelRatio,
-      ),
-      isTrue,
-    );
+    expect(thumbnails.every((image) => image.maxDevicePixelRatio == 3), isTrue);
 
     final titleLeft = tester.getTopLeft(find.text('Alpha World')).dx;
     final bodyLeft = tester
@@ -105,6 +100,9 @@ void main() {
   testWidgets('renders scene mine my_character without detail services', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final item = WorldListItem.fromJson(const <String, dynamic>{
       'info': {
         'world_id': 'w_alpha',
@@ -155,7 +153,7 @@ void main() {
       tester
           .widget<GenesisCharacterAvatar>(find.byType(GenesisCharacterAvatar))
           .maxDevicePixelRatio,
-      GenesisImageConfig.worldListMaxDevicePixelRatio,
+      3,
     );
   });
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
@@ -44,6 +43,9 @@ void main() {
   testWidgets('renders image stats on the cover overlay', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     const item = OriginListItem(
       oid: 'o_alpha',
       status: 1,
@@ -95,7 +97,7 @@ void main() {
       tester
           .widget<GenesisListImage>(find.byType(GenesisListImage))
           .maxDevicePixelRatio,
-      GenesisImageConfig.worldListMaxDevicePixelRatio,
+      3,
     );
   });
 

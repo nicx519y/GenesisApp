@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../app/config/genesis_image_config.dart';
 import '../../components/origin/stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
@@ -337,8 +336,7 @@ class _CurrentUserStatusRow extends StatelessWidget {
             showStar: isCharacterRole,
             starSize: 20,
             showFallbackWhileLoading: false,
-            maxDevicePixelRatio:
-                GenesisImageConfig.worldListMaxDevicePixelRatio,
+            maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
           ),
         ),
         const SizedBox(width: 12),
@@ -657,7 +655,7 @@ class _WorldImage extends StatelessWidget {
       width: width,
       height: height,
       borderRadius: BorderRadius.circular(borderRadius),
-      maxDevicePixelRatio: GenesisImageConfig.worldListMaxDevicePixelRatio,
+      maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
   }
 }

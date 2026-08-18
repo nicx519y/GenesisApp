@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../app/config/genesis_image_config.dart';
 import 'stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/genesis_api.dart';
@@ -142,8 +141,7 @@ class OriginItemCard extends StatelessWidget {
                 Positioned.fill(
                   child: GenesisListImage(
                     imageUrl: item.cover,
-                    maxDevicePixelRatio:
-                        GenesisImageConfig.worldListMaxDevicePixelRatio,
+                    maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
                   ),
                 ),
                 Positioned(

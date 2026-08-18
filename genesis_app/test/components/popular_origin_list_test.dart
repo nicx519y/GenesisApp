@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_preview_list.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/components/home/popular_origin_list.dart';
@@ -16,6 +15,9 @@ void main() {
   testWidgets('renders popular origin feed fields and handles taps', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     const item = OriginListItem(
       oid: 'o_alpha',
       wid: 'w_alpha',
@@ -244,11 +246,7 @@ void main() {
                 (image.width == 60 && image.height == 60) ||
                 (image.width == 107 && image.height == 160.5),
           )
-          .every(
-            (image) =>
-                image.maxDevicePixelRatio ==
-                GenesisImageConfig.worldListMaxDevicePixelRatio,
-          ),
+          .every((image) => image.maxDevicePixelRatio == 3),
       isTrue,
     );
     final titleLeft = tester.getTopLeft(find.text('#Alpha Empire').first).dx;
