@@ -9,6 +9,11 @@ class GenesisUnreadBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     if (count <= 0) return const SizedBox.shrink();
     final label = count > 99 ? '99+' : count.toString();
+    final textOffset = switch (Theme.of(context).platform) {
+      TargetPlatform.android => const Offset(0, 0.5),
+      TargetPlatform.iOS => const Offset(0, -0.5),
+      _ => Offset.zero,
+    };
     return Container(
       constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -19,7 +24,7 @@ class GenesisUnreadBadge extends StatelessWidget {
       alignment: Alignment.center,
       child: Center(
         child: Transform.translate(
-          offset: const Offset(0, 0.5),
+          offset: textOffset,
           child: Text(
             label,
             textAlign: TextAlign.center,

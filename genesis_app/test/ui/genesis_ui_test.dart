@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/components/common/genesis_action_box.dar
 import 'package:genesis_flutter_android/components/page_header.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_unread_badge.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
@@ -900,6 +901,30 @@ void main() {
     );
     expect(badgePosition.top, -1);
     expect(badgePosition.left, 19);
+  });
+
+  testWidgets('GenesisUnreadBadge applies platform optical offsets', (
+    tester,
+  ) async {
+    Future<double> textOffsetFor(TargetPlatform platform) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          key: ValueKey(platform),
+          theme: GenesisTheme.light().copyWith(platform: platform),
+          home: const Scaffold(body: GenesisUnreadBadge(count: 4)),
+        ),
+      );
+      final transform = tester.widget<Transform>(
+        find.descendant(
+          of: find.byType(GenesisUnreadBadge),
+          matching: find.byType(Transform),
+        ),
+      );
+      return transform.transform.getTranslation().y;
+    }
+
+    expect(await textOffsetFor(TargetPlatform.iOS), -0.5);
+    expect(await textOffsetFor(TargetPlatform.android), 0.5);
   });
 
   testWidgets('GenesisBottomNavigation can show an icon-only create action', (
