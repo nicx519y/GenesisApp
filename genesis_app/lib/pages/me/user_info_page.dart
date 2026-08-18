@@ -8,13 +8,14 @@ import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
-import '../../components/page_header.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/api_exception.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_page_header.dart';
+import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -503,9 +504,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
                     children: [
                       const Text('Load failed'),
                       const SizedBox(height: 8),
-                      FilledButton(
+                      GenesisButton(
+                        label: 'Retry',
                         onPressed: _refresh,
-                        child: const Text('Retry'),
+                        size: GenesisButtonSize.compact,
+                        fullWidth: false,
                       ),
                     ],
                   ),

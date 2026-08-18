@@ -8,11 +8,10 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
-import '../../components/page_header.dart';
 import '../../components/origin/origin_item_card.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/secend_tabs.dart';
+import '../../ui/genesis_ui.dart';
 import 'origin_feed_cache_store.dart';
 
 class OriginPage extends StatefulWidget {
@@ -134,9 +133,14 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
       length: categories.length,
       child: Column(
         children: [
-          PageHeader(pageName: 'Worldo'),
+          GenesisPageHeader(
+            title: 'Worldo',
+            onSearchTap: () {
+              Navigator.of(context).pushNamed(RouteNames.search);
+            },
+          ),
           const SizedBox(height: 4),
-          SecendTabs(
+          GenesisTabBar(
             labels: categories.map((item) => item.name).toList(),
             verticalPadding: 0,
           ),
@@ -602,7 +606,12 @@ class _OriginFeedState extends State<_OriginFeed>
           children: [
             const Text('Load failed'),
             const SizedBox(height: 10),
-            FilledButton(onPressed: _refreshItems, child: const Text('Retry')),
+            GenesisButton(
+              label: 'Retry',
+              onPressed: _refreshItems,
+              size: GenesisButtonSize.compact,
+              fullWidth: false,
+            ),
           ],
         ),
       );

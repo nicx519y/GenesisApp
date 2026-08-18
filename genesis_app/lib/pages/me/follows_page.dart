@@ -6,11 +6,12 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/me/genesis_follow_user_list_tile.dart';
-import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
-import '../../ui/components/secend_tabs.dart';
+import '../../ui/components/genesis_page_header.dart';
+import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_tab_bar.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -222,7 +223,7 @@ class _FollowsPageState extends State<FollowsPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // const SizedBox(height: 12),
-            SecendTabs(
+            GenesisTabBar(
               controller: _tabController,
               labels: [
                 '$followingCount Following',
@@ -308,7 +309,12 @@ class _FollowUsersPane extends StatelessWidget {
               children: [
                 const Text('Load failed'),
                 const SizedBox(height: 8),
-                FilledButton(onPressed: onRefresh, child: const Text('Retry')),
+                GenesisButton(
+                  label: 'Retry',
+                  onPressed: onRefresh,
+                  size: GenesisButtonSize.compact,
+                  fullWidth: false,
+                ),
               ],
             ),
           );

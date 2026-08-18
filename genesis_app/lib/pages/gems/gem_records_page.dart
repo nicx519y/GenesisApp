@@ -6,9 +6,8 @@ import 'package:flutter/services.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
-import '../../components/page_header.dart';
 import '../../network/models/gem_records.dart';
-import '../../ui/components/secend_tabs.dart';
+import '../../ui/genesis_ui.dart';
 
 typedef GemRecordsLoader =
     Future<GemRecordList> Function({
@@ -272,23 +271,11 @@ class _GemRecordTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SecendTabs(
+    return GenesisTabBar(
       controller: controller,
       labels: labels,
       horizontalPadding: 8,
       labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-      labelStyle: const TextStyle(
-        fontSize: 14,
-        height: 20 / 14,
-        fontWeight: FontWeight.w600,
-      ),
-      unselectedLabelStyle: const TextStyle(
-        fontSize: 14,
-        height: 20 / 14,
-        fontWeight: FontWeight.w400,
-      ),
-      labelColor: const Color(0xFF333333),
-      unselectedLabelColor: const Color(0xFF999999),
       verticalPadding: 0,
       expanded: true,
       onTap: onSelected,
@@ -495,7 +482,12 @@ class _GemRecordsMessage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onAction, child: Text(actionLabel)),
+            GenesisButton(
+              label: actionLabel,
+              onPressed: onAction,
+              size: GenesisButtonSize.compact,
+              fullWidth: false,
+            ),
           ],
         ),
       ),

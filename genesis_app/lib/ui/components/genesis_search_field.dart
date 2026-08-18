@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../icons/custom_icon_assets.dart';
 import '../text/genesis_text_input_formatters.dart';
 import '../tokens/genesis_spacing.dart';
 import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
 
 const genesisSearchFieldHeight = 38.0;
+const genesisCompactSearchFieldHeight = 36.0;
+
+enum GenesisSearchFieldVariant { standard, compact }
 
 class GenesisSearchField extends StatelessWidget {
   const GenesisSearchField({
     super.key,
+    this.variant = GenesisSearchFieldVariant.standard,
     this.hintText = 'Explore',
     this.onTap,
     this.controller,
@@ -19,7 +24,7 @@ class GenesisSearchField extends StatelessWidget {
     this.textInputAction = TextInputAction.search,
     this.readOnly = false,
     this.autofocus = false,
-    this.height = genesisSearchFieldHeight,
+    this.height,
     this.padding = const EdgeInsets.symmetric(horizontal: GenesisSpacing.xl),
     this.backgroundColor,
     this.borderColor,
@@ -31,6 +36,7 @@ class GenesisSearchField extends StatelessWidget {
     this.textStyle,
   });
 
+  final GenesisSearchFieldVariant variant;
   final String hintText;
   final VoidCallback? onTap;
   final TextEditingController? controller;
@@ -40,7 +46,7 @@ class GenesisSearchField extends StatelessWidget {
   final TextInputAction textInputAction;
   final bool readOnly;
   final bool autofocus;
-  final double height;
+  final double? height;
   final EdgeInsetsGeometry padding;
   final Color? backgroundColor;
   final Color? borderColor;
@@ -54,6 +60,21 @@ class GenesisSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
+    final compact = variant == GenesisSearchFieldVariant.compact;
+    final effectiveHeight =
+        height ??
+        (compact ? genesisCompactSearchFieldHeight : genesisSearchFieldHeight);
+    final effectiveBackgroundColor =
+        backgroundColor ??
+        (compact ? const Color(0xFFFAFAFA) : uiTheme.searchBackgroundColor);
+    final effectiveBorderColor =
+        borderColor ?? (compact ? const Color(0xFFEBEBEB) : null);
+    final effectiveBorderRadius =
+        borderRadius ??
+        (compact
+            ? const BorderRadius.all(Radius.circular(12))
+            : uiTheme.searchBorderRadius);
+    final effectiveIconAsset = iconAsset ?? (compact ? searchIconAsset : null);
     final effectiveHintStyle = GenesisTypography.withFallback(
       hintStyle ?? uiTheme.searchHintStyle,
     );
@@ -62,16 +83,18 @@ class GenesisSearchField extends StatelessWidget {
     );
     final editable = controller != null;
     final child = Container(
-      height: height,
+      height: effectiveHeight,
       padding: padding,
       decoration: BoxDecoration(
-        color: backgroundColor ?? uiTheme.searchBackgroundColor,
-        border: borderColor == null ? null : Border.all(color: borderColor!),
-        borderRadius: borderRadius ?? uiTheme.searchBorderRadius,
+        color: effectiveBackgroundColor,
+        border: effectiveBorderColor == null
+            ? null
+            : Border.all(color: effectiveBorderColor),
+        borderRadius: effectiveBorderRadius,
       ),
       child: Row(
         children: [
-          if (iconAsset == null)
+          if (effectiveIconAsset == null)
             Icon(
               Icons.search,
               color: iconColor ?? uiTheme.searchIconColor,
@@ -79,7 +102,7 @@ class GenesisSearchField extends StatelessWidget {
             )
           else
             Image.asset(
-              iconAsset!,
+              effectiveIconAsset,
               width: iconSize,
               height: iconSize,
               color: iconColor,
@@ -128,8 +151,8 @@ class GenesisSearchField extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               onTap: onClear,
               child: SizedBox(
-                width: height,
-                height: height,
+                width: effectiveHeight,
+                height: effectiveHeight,
                 child: Center(
                   child: Icon(
                     Icons.close,

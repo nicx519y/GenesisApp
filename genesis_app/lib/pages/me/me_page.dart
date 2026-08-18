@@ -12,7 +12,6 @@ import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/local_image_crop_page.dart';
-import '../../components/page_header.dart';
 import '../../components/me/signed_out_me_view.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
@@ -26,6 +25,8 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/image_format_guards.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/components/genesis_page_title.dart';
+import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/text/genesis_text_input_formatters.dart';
 import 'settings_page.dart';
 
@@ -159,7 +160,12 @@ class _MePageState extends State<MePage> {
               children: [
                 const Text('Load failed'),
                 const SizedBox(height: 8),
-                FilledButton(onPressed: _refresh, child: const Text('Retry')),
+                GenesisButton(
+                  label: 'Retry',
+                  onPressed: _refresh,
+                  size: GenesisButtonSize.compact,
+                  fullWidth: false,
+                ),
               ],
             ),
           );
@@ -190,7 +196,7 @@ class _MePageState extends State<MePage> {
                     AnimatedOpacity(
                       opacity: _profileCollapsed ? 1 : 0,
                       duration: const Duration(milliseconds: 120),
-                      child: const PageTitleText(pageName: 'Me'),
+                      child: const GenesisPageTitle(text: 'Me'),
                     ),
                     Align(
                       alignment: Alignment.centerRight,

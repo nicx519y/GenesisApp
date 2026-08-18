@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../network/models/world.dart';
 import '../ui/components/genesis_edge_swipe_back.dart';
+import '../ui/components/genesis_primary_button.dart';
 import 'common/genesis_modal_routes.dart';
 
 const Duration kWorldTick1WaitPollInterval = Duration(seconds: 2);
@@ -143,10 +144,12 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
             ),
             actions: _hasError
                 ? [
-                    FilledButton(
+                    GenesisButton(
                       key: const ValueKey('world-tick1-wait-retry'),
+                      label: 'Retry',
                       onPressed: _loading ? null : () => unawaited(_poll()),
-                      child: const Text('Retry'),
+                      size: GenesisButtonSize.compact,
+                      fullWidth: false,
                     ),
                   ]
                 : null,

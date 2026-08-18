@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
-import 'package:genesis_flutter_android/components/page_header.dart';
-import 'package:genesis_flutter_android/components/search_bar.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_unread_badge.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
@@ -226,37 +224,45 @@ void main() {
     expect(tapped, isTrue);
   });
 
-  testWidgets('SearchBarPlaceholder remains compatible with UI kit field', (
+  testWidgets('GenesisSearchField compact uses the product search asset', (
     tester,
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(body: SearchBarPlaceholder(hintText: 'Explore')),
+        home: Scaffold(
+          body: GenesisSearchField(
+            variant: GenesisSearchFieldVariant.compact,
+            hintText: 'Explore',
+          ),
+        ),
       ),
     );
 
-    expect(
-      tester.widget<SearchBarPlaceholder>(find.byType(SearchBarPlaceholder)),
-      isA<GenesisSearchField>(),
-    );
+    expect(find.byType(GenesisSearchField), findsOneWidget);
     final image = tester.widget<Image>(find.byType(Image));
     expect((image.image as AssetImage).assetName, searchIconAsset);
     expect(find.byIcon(Icons.search), findsNothing);
     expect(find.text('Explore'), findsOneWidget);
+    expect(tester.getSize(find.byType(GenesisSearchField)).height, 36);
   });
 
-  testWidgets('PageHeader reuses SearchBarPlaceholder', (tester) async {
+  testWidgets('GenesisPageHeader reuses compact GenesisSearchField', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(body: PageHeader(pageName: 'Worldo')),
+        home: Scaffold(body: GenesisPageHeader(title: 'Worldo')),
       ),
     );
 
     expect(find.text('Worldo'), findsOneWidget);
-    expect(find.byType(SearchBarPlaceholder), findsOneWidget);
+    final searchField = tester.widget<GenesisSearchField>(
+      find.byType(GenesisSearchField),
+    );
+    expect(searchField.variant, GenesisSearchFieldVariant.compact);
   });
 
-  testWidgets('PageHeader includes the top system view padding', (
+  testWidgets('GenesisPageHeader includes the top system view padding', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -268,15 +274,46 @@ void main() {
           ),
           child: Scaffold(
             body: Column(
-              children: [PageHeader(pageName: 'Origin', showSearchBar: false)],
+              children: [
+                GenesisPageHeader(title: 'Origin', showSearchField: false),
+              ],
             ),
           ),
         ),
       ),
     );
 
-    expect(tester.getSize(find.byType(PageHeader)).height, 74);
+    expect(tester.getSize(find.byType(GenesisPageHeader)).height, 74);
     expect(tester.getTopLeft(find.text('Origin')).dy, greaterThanOrEqualTo(24));
+  });
+
+  testWidgets('GenesisBackAppBar exposes back, title tap, and actions', (
+    tester,
+  ) async {
+    var backCount = 0;
+    var titleTapCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          appBar: GenesisBackAppBar(
+            pageName: 'Details',
+            onBack: () => backCount += 1,
+            onTitleTap: () => titleTapCount += 1,
+            actions: const [Icon(Icons.more_horiz)],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      const GenesisBackAppBar(pageName: 'Details').preferredSize.height,
+      kGenesisTopBarHeight,
+    );
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.text('Details'));
+    expect(backCount, 1);
+    expect(titleTapCount, 1);
+    expect(find.byIcon(Icons.more_horiz), findsOneWidget);
   });
 
   testWidgets('GenesisPrimaryButton uses the shared filled-button surface', (
@@ -361,6 +398,134 @@ void main() {
           .onPressed,
       isNull,
     );
+  });
+
+  testWidgets('GenesisButton exposes semantic variants', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              GenesisButton(
+                key: const ValueKey('primary-button'),
+                label: 'Primary',
+                onPressed: () {},
+                fullWidth: false,
+              ),
+              GenesisButton(
+                key: const ValueKey('secondary-button'),
+                label: 'Secondary',
+                onPressed: () {},
+                variant: GenesisButtonVariant.secondary,
+                fullWidth: false,
+              ),
+              GenesisButton(
+                key: const ValueKey('muted-button'),
+                label: 'Muted',
+                onPressed: () {},
+                variant: GenesisButtonVariant.muted,
+                fullWidth: false,
+              ),
+              GenesisButton(
+                key: const ValueKey('destructive-button'),
+                label: 'Delete',
+                onPressed: () {},
+                variant: GenesisButtonVariant.destructive,
+                fullWidth: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('secondary-button')),
+        matching: find.byType(OutlinedButton),
+      ),
+      findsOneWidget,
+    );
+    final muted = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const ValueKey('muted-button')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    final destructive = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const ValueKey('destructive-button')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(
+      muted.style?.backgroundColor?.resolve(const <WidgetState>{}),
+      const Color(0xFFE1E1E3),
+    );
+    expect(
+      destructive.style?.backgroundColor?.resolve(const <WidgetState>{}),
+      GenesisColors.danger,
+    );
+  });
+
+  testWidgets('GenesisButton supports compact, regular, loading, and icons', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              GenesisButton(
+                key: const ValueKey('compact-button'),
+                label: 'Retry',
+                onPressed: () {},
+                size: GenesisButtonSize.compact,
+                fullWidth: false,
+              ),
+              GenesisButton(
+                key: const ValueKey('regular-button'),
+                label: 'Continue',
+                onPressed: () {},
+                leadingIcon: const Icon(Icons.rocket_launch),
+                fullWidth: false,
+              ),
+              GenesisButton(
+                key: const ValueKey('loading-button'),
+                label: 'Saving',
+                onPressed: () {},
+                isLoading: true,
+                fullWidth: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('compact-button'))).height,
+      GenesisButton.compactHeight,
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('regular-button'))).height,
+      GenesisButton.regularHeight,
+    );
+    expect(find.byIcon(Icons.rocket_launch), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('loading-button')),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
+    final loadingButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const ValueKey('loading-button')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(loadingButton.onPressed, isNull);
   });
 
   testWidgets('GenesisActionBox attaches cancel for a single action', (
@@ -1236,7 +1401,7 @@ void main() {
     expect(tabBar.unselectedLabelColor, const Color(0xFF666666));
   });
 
-  testWidgets('SecendTabs supports an explicit controller', (tester) async {
+  testWidgets('GenesisTabBar supports an explicit controller', (tester) async {
     final controller = TabController(length: 2, vsync: tester);
     addTearDown(controller.dispose);
 
@@ -1245,7 +1410,7 @@ void main() {
         home: Scaffold(
           body: Column(
             children: [
-              SecendTabs(
+              GenesisTabBar(
                 controller: controller,
                 labels: const ['Worldo', 'World'],
               ),
@@ -1265,7 +1430,7 @@ void main() {
     expect(find.text('World'), findsOneWidget);
   });
 
-  testWidgets('SecendTabs can center scrollable tabs as a group', (
+  testWidgets('GenesisTabBar can center scrollable tabs as a group', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -1273,7 +1438,7 @@ void main() {
         home: DefaultTabController(
           length: 2,
           child: Scaffold(
-            body: SecendTabs(
+            body: GenesisTabBar(
               labels: ['My Worlds', 'Popular'],
               tabAlignment: TabAlignment.center,
             ),
@@ -1287,7 +1452,7 @@ void main() {
     expect(tabBar.tabAlignment, TabAlignment.center);
   });
 
-  testWidgets('SecendTabs can remove vertical padding', (tester) async {
+  testWidgets('GenesisTabBar can remove vertical padding', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: DefaultTabController(
@@ -1295,7 +1460,7 @@ void main() {
           child: Scaffold(
             body: Column(
               children: [
-                SecendTabs(labels: ['Worldo', 'World'], verticalPadding: 0),
+                GenesisTabBar(labels: ['Worldo', 'World'], verticalPadding: 0),
               ],
             ),
           ),
@@ -1303,7 +1468,7 @@ void main() {
       ),
     );
 
-    final element = tester.element(find.byType(SecendTabs));
+    final element = tester.element(find.byType(GenesisTabBar));
     late Widget child;
     element.visitChildren((childElement) {
       child = childElement.widget;

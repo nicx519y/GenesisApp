@@ -5,9 +5,10 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/genesis_logo.dart';
-import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
+import '../../ui/components/genesis_page_header.dart';
+import '../../ui/components/genesis_primary_button.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../create/create_origin_draft_store.dart';
@@ -169,9 +170,11 @@ class _EditOriginPageState extends State<EditOriginPage> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                FilledButton(
+                GenesisButton(
+                  label: 'Retry',
                   onPressed: _loadOrigin,
-                  child: const Text('Retry'),
+                  size: GenesisButtonSize.compact,
+                  fullWidth: false,
                 ),
               ],
             ),

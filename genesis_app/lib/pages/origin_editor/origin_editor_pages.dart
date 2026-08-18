@@ -13,7 +13,6 @@ import '../../components/chat/shared/chat_ui.dart';
 import '../../components/origin/origin_character_form.dart';
 import '../../components/origin/origin_role_recommendation.dart';
 import '../../components/origin/origin_role_selection_mark.dart';
-import '../../components/page_header.dart';
 import '../../components/world_location_list.dart';
 import '../../components/world_point.dart';
 import '../../icons/custom_icon_assets.dart';

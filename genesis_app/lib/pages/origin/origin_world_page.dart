@@ -1020,12 +1020,14 @@ class _OriginWorldPageState extends State<OriginWorldPage>
               children: [
                 const Text('Load failed'),
                 const SizedBox(height: 10),
-                FilledButton(
+                GenesisButton(
+                  label: 'Retry',
                   onPressed: () {
                     setState(() => _initialLoadError = null);
                     unawaited(_fetchOriginDetail(isInitial: true));
                   },
-                  child: const Text('Retry'),
+                  size: GenesisButtonSize.compact,
+                  fullWidth: false,
                 ),
               ],
             ),

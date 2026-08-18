@@ -12,7 +12,6 @@ export 'components/genesis_safe_area.dart';
 export 'components/genesis_search_field.dart';
 export 'components/genesis_tab_bar.dart';
 export 'components/genesis_text_fallback.dart';
-export 'components/secend_tabs.dart';
 export 'system/genesis_system_ui.dart';
 export 'text/genesis_text_input_formatters.dart';
 export 'theme/genesis_theme.dart';

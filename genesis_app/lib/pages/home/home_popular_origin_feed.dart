@@ -594,7 +594,12 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
           children: [
             const Text('Load failed'),
             const SizedBox(height: 10),
-            FilledButton(onPressed: _refreshItems, child: const Text('Retry')),
+            GenesisButton(
+              label: 'Retry',
+              onPressed: _refreshItems,
+              size: GenesisButtonSize.compact,
+              fullWidth: false,
+            ),
           ],
         ),
       );

@@ -82,7 +82,7 @@ class _HomeTabs extends StatelessWidget {
         ? null
         : uiTheme.tabUnselectedColor;
     final unselectedStyle = showSelectedState ? null : uiTheme.bodyStyle;
-    return SecendTabs(
+    return GenesisTabBar(
       labels: HomePage.tabs,
       verticalPadding: 0,
       tabAlignment: TabAlignment.center,
@@ -158,7 +158,8 @@ class _HomeHeader extends StatelessWidget {
                 const GenesisLogo(height: 32),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: SearchBarPlaceholder(
+                  child: GenesisSearchField(
+                    variant: GenesisSearchFieldVariant.compact,
                     hintText: 'Explore',
                     onTap: () {
                       Navigator.of(context).pushNamed(RouteNames.search);

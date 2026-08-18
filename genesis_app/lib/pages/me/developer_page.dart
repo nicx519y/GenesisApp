@@ -280,7 +280,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   @override
   Widget build(BuildContext context) {
     final horizontalContentPadding = widget.dismissBeforePreview ? 0.0 : 20.0;
-    final tabs = SecendTabs(
+    final tabs = GenesisTabBar(
       labels: _developerPageTabs,
       controller: _tabController,
       horizontalPadding: horizontalContentPadding,

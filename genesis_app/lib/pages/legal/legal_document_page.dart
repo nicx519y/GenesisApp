@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../components/page_header.dart';
+import '../../ui/components/genesis_page_header.dart';
+import '../../ui/components/genesis_primary_button.dart';
 
 enum LegalDocument {
   terms(title: 'Terms of Service', url: 'https://worldo.ai/terms/'),
@@ -139,7 +140,13 @@ class _LegalWebErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
+            GenesisButton(
+              label: 'Retry',
+              onPressed: onRetry,
+              variant: GenesisButtonVariant.secondary,
+              size: GenesisButtonSize.compact,
+              fullWidth: false,
+            ),
           ],
         ),
       ),

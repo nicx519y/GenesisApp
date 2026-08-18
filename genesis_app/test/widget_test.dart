@@ -82,7 +82,6 @@ import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/network/network_capture.dart';
 import 'package:genesis_flutter_android/network/websocket_capture.dart';
 import 'package:genesis_flutter_android/components/origin/stat_item.dart';
-import 'package:genesis_flutter_android/components/search_bar.dart';
 import 'package:genesis_flutter_android/components/world_map_stage.dart';
 import 'package:genesis_flutter_android/pages/app_shell_page.dart';
 import 'package:genesis_flutter_android/pages/chat/chat_page.dart';
@@ -127,6 +126,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_indicator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
@@ -2940,7 +2940,7 @@ void main() {
   ) async {
     await _pumpGenesisApp(tester);
     final homeSearchTop = tester
-        .getTopLeft(find.byType(SearchBarPlaceholder).first)
+        .getTopLeft(find.byType(GenesisSearchField).first)
         .dy;
 
     await tester.tap(find.text('Explore').first);
@@ -2950,7 +2950,7 @@ void main() {
     expect(find.text('Cancel'), findsOneWidget);
     expect(find.text('Explore'), findsOneWidget);
     final searchPageSearchTop = tester
-        .getTopLeft(find.byType(SearchBarPlaceholder).first)
+        .getTopLeft(find.byType(GenesisSearchField).first)
         .dy;
     expect(searchPageSearchTop, homeSearchTop);
   });
@@ -2961,7 +2961,12 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: SizedBox(width: 180, child: SearchBarPlaceholder()),
+          body: SizedBox(
+            width: 180,
+            child: GenesisSearchField(
+              variant: GenesisSearchFieldVariant.compact,
+            ),
+          ),
         ),
       ),
     );
@@ -18461,12 +18466,14 @@ void main() {
       find.ancestor(of: requestContent, matching: find.byType(SelectionArea)),
       findsOneWidget,
     );
-    final networkList = find.descendant(
-      of: find.byKey(
-        const PageStorageKey<String>('developer-network-tab-scroll'),
-      ),
-      matching: find.byType(Scrollable),
-    ).first;
+    final networkList = find
+        .descendant(
+          of: find.byKey(
+            const PageStorageKey<String>('developer-network-tab-scroll'),
+          ),
+          matching: find.byType(Scrollable),
+        )
+        .first;
     final scrollPosition = tester.state<ScrollableState>(networkList).position;
     expect(scrollPosition.maxScrollExtent, greaterThan(0));
     final gesture = await tester.startGesture(

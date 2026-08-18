@@ -72,7 +72,12 @@ class _SearchResultListState extends State<_SearchResultList>
           children: [
             const Text('Search failed'),
             const SizedBox(height: 10),
-            FilledButton(onPressed: widget.onRetry, child: const Text('Retry')),
+            GenesisButton(
+              label: 'Retry',
+              onPressed: widget.onRetry,
+              size: GenesisButtonSize.compact,
+              fullWidth: false,
+            ),
           ],
         ),
       );

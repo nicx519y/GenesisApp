@@ -703,25 +703,28 @@ class _DeveloperWebSocketTypeFilterSheetState
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: GenesisButton(
                   key: const ValueKey<String>(
                     'developer-websocket-type-cancel',
                   ),
+                  label: 'Cancel',
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  variant: GenesisButtonVariant.secondary,
+                  size: GenesisButtonSize.compact,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: FilledButton(
+                child: GenesisButton(
                   key: const ValueKey<String>('developer-websocket-type-apply'),
+                  label: 'Apply',
                   onPressed: () => Navigator.of(context).pop(
                     _WebSocketTypeFilterValue(
                       mode: _mode,
                       selectedTypes: Set<String>.of(_selectedTypes),
                     ),
                   ),
-                  child: const Text('Apply'),
+                  size: GenesisButtonSize.compact,
                 ),
               ),
             ],

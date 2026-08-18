@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/page_header.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_page_header.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../legal/legal_document_page.dart';
 

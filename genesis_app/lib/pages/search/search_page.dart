@@ -7,14 +7,15 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/origin/stat_item.dart';
-import '../../components/page_header.dart';
-import '../../components/search_bar.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
-import '../../ui/components/secend_tabs.dart';
+import '../../ui/components/genesis_page_header.dart';
+import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_search_field.dart';
+import '../../ui/components/genesis_tab_bar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -430,7 +431,8 @@ class _SearchPageState extends State<SearchPage>
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: SearchBarPlaceholder(
+                        child: GenesisSearchField(
+                          variant: GenesisSearchFieldVariant.compact,
                           controller: _controller,
                           focusNode: _focusNode,
                           onChanged: _onQueryChanged,
@@ -466,7 +468,7 @@ class _SearchPageState extends State<SearchPage>
             ),
             const SizedBox(height: 4),
             if (_hasInput)
-              SecendTabs(
+              GenesisTabBar(
                 controller: _tabController,
                 labels: [for (final tab in _SearchTab.values) tab.label],
                 horizontalPadding: 16,

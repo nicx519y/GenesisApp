@@ -6,8 +6,9 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
-import '../../components/page_header.dart';
 import '../../network/models/gem_model.dart';
+import '../../ui/components/genesis_page_header.dart';
+import '../../ui/components/genesis_primary_button.dart';
 
 typedef GemModelCatalogLoader =
     Future<GemModelCatalog> Function(String worldId);
@@ -584,7 +585,12 @@ class _ModelLoadError extends StatelessWidget {
             style: TextStyle(fontSize: 14, color: Color(0xFF777777)),
           ),
           const SizedBox(height: 14),
-          FilledButton(onPressed: onRetry, child: const Text('Retry')),
+          GenesisButton(
+            label: 'Retry',
+            onPressed: onRetry,
+            size: GenesisButtonSize.compact,
+            fullWidth: false,
+          ),
         ],
       ),
     );

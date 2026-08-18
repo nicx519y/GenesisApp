@@ -112,7 +112,12 @@ class _GemWalletError extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
+            GenesisButton(
+              label: 'Retry',
+              onPressed: onRetry,
+              size: GenesisButtonSize.compact,
+              fullWidth: false,
+            ),
           ],
         ),
       ),
