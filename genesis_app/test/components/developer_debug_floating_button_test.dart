@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/components/developer_debug_floating_button.dart';
 import 'package:genesis_flutter_android/pages/me/developer_page.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
   tearDown(() {
@@ -60,6 +62,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         navigatorKey: navigatorKey,
         home: AnnotatedRegion<SystemUiOverlayStyle>(
           value: transparentPageStyle,
@@ -78,6 +81,13 @@ void main() {
 
     final sheetSize = tester.getSize(find.byType(DeveloperPageSheet));
     expect(sheetSize.height, closeTo(480, 0.01));
+    final sheetContext = tester.element(find.byType(DeveloperPageContent));
+    final sheetTheme = Theme.of(sheetContext);
+    expect(sheetTheme.brightness, Brightness.light);
+    expect(
+      sheetTheme.extension<GenesisSemanticColors>()!.pageBackground,
+      Colors.white,
+    );
 
     expect(SystemChrome.latestStyle?.statusBarColor, Colors.transparent);
     expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);

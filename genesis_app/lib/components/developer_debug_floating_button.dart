@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/debug_floating_button_visibility.dart';
 import '../pages/me/developer_page.dart';
 import '../ui/components/genesis_safe_area.dart';
+import '../ui/theme/genesis_theme.dart';
 import 'common/genesis_modal_routes.dart';
 
 class DeveloperDebugFloatingButton extends StatefulWidget {
@@ -129,9 +130,12 @@ class _DeveloperDebugFloatingButtonState
         context: navigatorContext,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => const FractionallySizedBox(
-          heightFactor: 4 / 5,
-          child: DeveloperPageSheet(),
+        builder: (_) => Theme(
+          data: GenesisTheme.light(),
+          child: const FractionallySizedBox(
+            heightFactor: 4 / 5,
+            child: DeveloperPageSheet(),
+          ),
         ),
       );
     } finally {
