@@ -12,6 +12,10 @@ typedef TilemapSilentMapLoader =
     Future<TilemapConfig?> Function(String locationId);
 typedef TilemapPreloadImage = Future<void> Function(String assetUrl);
 
+/// Temporary kill switch for parent/child map preloading.
+///
+/// This does not affect the current map or its visible/background tile images.
+const bool tilemapRelatedMapPreloadingEnabled = false;
 const int tilemapSilentPreloadMaxPendingTargets = 2;
 const int tilemapSilentPreloadMaxRememberedKeys = 16;
 const int tilemapInitialImagePreloadConcurrency = 2;
