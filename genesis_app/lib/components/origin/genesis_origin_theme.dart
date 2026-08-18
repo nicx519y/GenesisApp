@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_palette.dart';
+
 /// Colors owned by the Origin/Worldo experience rather than by global UI.
 @immutable
 class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
@@ -35,6 +37,23 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
     loadingBone: Color(0xFFD9DDE2),
     launchSheetSecondaryText: Color(0xFF595959),
     launchSheetInputBorder: Color(0xFFE1E1E6),
+  );
+
+  factory GenesisOriginColors.worldoRedesign() => const GenesisOriginColors(
+    launchPreviewAccent: GenesisPalette.redesignAccentSoft,
+    roleSetupBackdrop: GenesisPalette.redesignBlack85,
+    roleSetupPanel: GenesisPalette.redesignRaised,
+    roleSetupGradientStart: GenesisPalette.redesignGradientStart,
+    roleSetupGradientEnd: GenesisPalette.redesignInk,
+    roleSetupMuted: GenesisPalette.redesignWhite55,
+    roleSetupDisabled: GenesisPalette.redesignWhite32,
+    roleSetupSelectionOverlay: GenesisPalette.redesignAccent40,
+    launchSheetSurface: GenesisPalette.redesignRaised,
+    launchSheetBorder: GenesisPalette.redesignWhite12,
+    launchSheetDisabled: GenesisPalette.redesignWhite08,
+    loadingBone: GenesisPalette.redesignSkeletonBase,
+    launchSheetSecondaryText: GenesisPalette.redesignWhite72,
+    launchSheetInputBorder: GenesisPalette.redesignWhite18,
   );
 
   final Color launchPreviewAccent;

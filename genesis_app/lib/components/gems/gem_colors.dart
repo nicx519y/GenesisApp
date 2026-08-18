@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_palette.dart';
+
 /// Gem product and state colors supplied by the active app skin.
 @immutable
 class GenesisGemColors extends ThemeExtension<GenesisGemColors> {
@@ -31,6 +33,21 @@ class GenesisGemColors extends ThemeExtension<GenesisGemColors> {
     selectionDisabled: Color(0xFFCCCCCC),
     priceGradientStart: Color(0xFFE85C39),
     priceGradientEnd: Color(0xFFB53B52),
+  );
+
+  factory GenesisGemColors.worldoRedesign() => const GenesisGemColors(
+    accent: GenesisPalette.redesignAccent,
+    soldOutBorder: GenesisPalette.redesignAccent30,
+    soldOutForeground: GenesisPalette.redesignWhite45,
+    taskAction: GenesisPalette.redesignAccentSoft,
+    taskClaimedForeground: GenesisPalette.redesignWhite45,
+    taskProgressForeground: GenesisPalette.redesignAccentSoft,
+    success: GenesisPalette.redesignAccentSoft,
+    reward: GenesisPalette.redesignAccentSoft,
+    selectionSurface: GenesisPalette.redesignAccent14,
+    selectionDisabled: GenesisPalette.redesignWhite32,
+    priceGradientStart: GenesisPalette.redesignAccentSoft,
+    priceGradientEnd: GenesisPalette.redesignAccent,
   );
 
   final Color accent;

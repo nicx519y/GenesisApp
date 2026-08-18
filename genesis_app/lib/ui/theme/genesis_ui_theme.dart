@@ -26,6 +26,8 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
     );
   }
 
+  factory GenesisUiTheme.worldoRedesign() => GenesisUiTheme.light();
+
   final BorderRadius searchBorderRadius;
   final double tabIndicatorWidth;
   final double tabIndicatorHeight;

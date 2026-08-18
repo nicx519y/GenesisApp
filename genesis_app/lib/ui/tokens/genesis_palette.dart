@@ -14,6 +14,53 @@ abstract final class GenesisPalette {
   static const Color brandSoft = Color(0xFFBFD8CD);
   static const Color create = Color(0xFFFF2442);
 
+  // Worldo redesign palette. These values come from the approved dark visual
+  // system and are mapped to semantic roles by the theme builders below.
+  static const Color redesignBackground = Color(0xFF17151B);
+  static const Color redesignInk = Color(0xFF131215);
+  static const Color redesignRaised = Color(0xFF1F1D24);
+  static const Color redesignPaper = Color(0xFFF7F5F2);
+  static const Color redesignAccent = Color(0xFFF82B3C);
+  static const Color redesignAccentSoft = Color(0xFFFF8A9A);
+  static const Color redesignTextSecondary = Color(0xFF5C5862);
+  static const Color redesignNavigationInactive = Color(0xFFA9A29B);
+  static const Color redesignSkeletonBase = Color(0xFF28252D);
+  static const Color redesignSkeletonHighlight = Color(0xFF35313B);
+  static const Color redesignGradientStart = Color(0xFF2B2830);
+
+  static const Color redesignBackground90 = Color(0xE617151B);
+  static const Color redesignBackground42 = Color(0x6B17151B);
+  static const Color redesignInk90 = Color(0xE6131215);
+  static const Color redesignRaised90 = Color(0xE61F1D24);
+  static const Color redesignAccent42 = Color(0x6BF82B3C);
+  static const Color redesignAccent40 = Color(0x66F82B3C);
+  static const Color redesignAccent30 = Color(0x4DF82B3C);
+  static const Color redesignAccent14 = Color(0x24F82B3C);
+  static const Color redesignAccentSoft40 = Color(0x66FF8A9A);
+  static const Color redesignBlack85 = Color(0xD9000000);
+  static const Color redesignBlack40 = Color(0x66000000);
+
+  static const Color redesignWhite88 = Color(0xE0FFFFFF);
+  static const Color redesignWhite82 = Color(0xD1FFFFFF);
+  static const Color redesignWhite72 = Color(0xB8FFFFFF);
+  static const Color redesignWhite60 = Color(0x99FFFFFF);
+  static const Color redesignWhite55 = Color(0x8CFFFFFF);
+  static const Color redesignWhite50 = Color(0x80FFFFFF);
+  static const Color redesignWhite45 = Color(0x73FFFFFF);
+  static const Color redesignWhite40 = Color(0x66FFFFFF);
+  static const Color redesignWhite32 = Color(0x52FFFFFF);
+  static const Color redesignWhite22 = Color(0x38FFFFFF);
+  static const Color redesignWhite18 = Color(0x2EFFFFFF);
+  static const Color redesignWhite14 = Color(0x24FFFFFF);
+  static const Color redesignWhite13 = Color(0x21FFFFFF);
+  static const Color redesignWhite12 = Color(0x1FFFFFFF);
+  static const Color redesignWhite10 = Color(0x1AFFFFFF);
+  static const Color redesignWhite09 = Color(0x17FFFFFF);
+  static const Color redesignWhite08 = Color(0x14FFFFFF);
+  static const Color redesignWhite07 = Color(0x12FFFFFF);
+  static const Color redesignWhite06 = Color(0x0FFFFFFF);
+  static const Color redesignWhite05 = Color(0x0DFFFFFF);
+
   static const Color surfaceMuted = Color(0xFFF9F9F9);
   static const Color surfaceEmpty = Color(0xFFF8F8F8);
   static const Color surfaceSoft = Color(0xFFF7F7F7);

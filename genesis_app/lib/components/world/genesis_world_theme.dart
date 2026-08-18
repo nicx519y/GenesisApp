@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_palette.dart';
+
 /// Colors owned by world details, progress, and map-adjacent controls.
 @immutable
 class GenesisWorldColors extends ThemeExtension<GenesisWorldColors> {
@@ -27,6 +29,19 @@ class GenesisWorldColors extends ThemeExtension<GenesisWorldColors> {
     locationPositiveLine: Color(0x661A6B28),
     closeSurface: Color(0xFFF3F3F5),
     avatarBorder: Color(0xFFDDDDDD),
+  );
+
+  factory GenesisWorldColors.worldoRedesign() => const GenesisWorldColors(
+    tickSurface: GenesisPalette.redesignWhite08,
+    tickPositiveSurface: GenesisPalette.redesignAccent14,
+    success: GenesisPalette.redesignAccentSoft,
+    tabSurface: GenesisPalette.redesignWhite10,
+    tickDivider: GenesisPalette.redesignWhite12,
+    loadingSurface: GenesisPalette.redesignSkeletonBase,
+    locationLine: GenesisPalette.redesignWhite10,
+    locationPositiveLine: GenesisPalette.redesignAccentSoft40,
+    closeSurface: GenesisPalette.redesignWhite10,
+    avatarBorder: GenesisPalette.redesignWhite18,
   );
 
   final Color tickSurface;

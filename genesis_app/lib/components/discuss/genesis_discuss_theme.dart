@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_palette.dart';
+
 /// Colors with discussion-specific meaning.
 @immutable
 class GenesisDiscussColors extends ThemeExtension<GenesisDiscussColors> {
@@ -39,6 +41,25 @@ class GenesisDiscussColors extends ThemeExtension<GenesisDiscussColors> {
     imageAddBorder: Color(0xFFE3E3E3),
     imageAddIcon: Color(0xFF8E8E8E),
     imageRemoveSurface: Color(0xFF4F4F4F),
+  );
+
+  factory GenesisDiscussColors.worldoRedesign() => const GenesisDiscussColors(
+    authorAccent: GenesisPalette.redesignAccentSoft,
+    actionAccent: GenesisPalette.redesignAccentSoft,
+    actionInactive: GenesisPalette.redesignWhite45,
+    composerCursor: GenesisPalette.redesignAccentSoft,
+    composerHint: GenesisPalette.redesignWhite45,
+    composerSubmit: GenesisPalette.redesignAccent,
+    composerAction: GenesisPalette.redesignWhite72,
+    composerActionDisabled: GenesisPalette.redesignWhite32,
+    replyRail: GenesisPalette.redesignWhite12,
+    replySurface: GenesisPalette.redesignWhite08,
+    replyText: GenesisPalette.redesignWhite72,
+    nestedReplyRail: GenesisPalette.redesignWhite10,
+    nestedReplySurface: GenesisPalette.redesignWhite06,
+    imageAddBorder: GenesisPalette.redesignWhite18,
+    imageAddIcon: GenesisPalette.redesignWhite55,
+    imageRemoveSurface: GenesisPalette.redesignRaised,
   );
 
   final Color authorAccent;

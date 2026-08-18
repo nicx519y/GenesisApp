@@ -181,7 +181,9 @@ class _GemWalletPageState extends State<GemWalletPage>
         backgroundColor: context.genesisColors.pageBackground,
         appBar: GenesisBackAppBar(
           pageName: 'Buy Gems',
-          systemOverlayStyle: kGenesisDefaultSystemUiOverlayStyle,
+          systemOverlayStyle: GenesisSystemUi.forThemeBrightness(
+            Theme.of(context).brightness,
+          ),
           actions: [
             GestureDetector(
               behavior: HitTestBehavior.opaque,

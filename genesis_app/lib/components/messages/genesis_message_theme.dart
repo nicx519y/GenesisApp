@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_palette.dart';
+
 /// Colors with message-center-specific meaning.
 @immutable
 class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
@@ -19,6 +21,15 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
     statusPositive: Color(0xFF25845C),
     statusMuted: Color(0xFF8A8D93),
     originAccent: Color(0xFF2F4F7A),
+  );
+
+  factory GenesisMessageColors.worldoRedesign() => const GenesisMessageColors(
+    notificationsSurface: GenesisPalette.redesignAccent14,
+    followersSurface: GenesisPalette.redesignWhite10,
+    commentsSurface: GenesisPalette.redesignWhite10,
+    statusPositive: GenesisPalette.redesignAccentSoft,
+    statusMuted: GenesisPalette.redesignWhite45,
+    originAccent: GenesisPalette.redesignAccentSoft,
   );
 
   final Color notificationsSurface;

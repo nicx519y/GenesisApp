@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../ui/tokens/genesis_palette.dart';
 import 'chat_ui_library.dart';
 
 /// Chat visual variants supplied by the active app skin.
@@ -29,6 +30,19 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
     tickHeader: const Color(0xFFC4DBEF),
     npcAvatarBackground: const Color(0xFF4A5F7A),
     newMessageNoticeBackground: const Color(0xCC1E1E24),
+  );
+
+  factory GenesisChatTheme.worldoRedesign() => GenesisChatTheme(
+    standard: _worldoRedesignChatStyle(ChatUiStyleConfig.standard),
+    whiteHeader: _worldoRedesignChatStyle(kChatWhiteHeaderStyle),
+    privateChat: _worldoRedesignChatStyle(kPrivateChatStyle),
+    privateHeaderBackground: GenesisPalette.redesignBackground,
+    locationChat: _worldoRedesignChatStyle(kLocationChatStyle),
+    tickBackground: GenesisPalette.redesignInk90,
+    tickAccent: GenesisPalette.redesignAccentSoft,
+    tickHeader: GenesisPalette.white,
+    npcAvatarBackground: GenesisPalette.redesignRaised,
+    newMessageNoticeBackground: GenesisPalette.redesignRaised90,
   );
 
   final ChatUiStyleConfig standard;
@@ -84,6 +98,54 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
     if (other is! GenesisChatTheme || t < 0.5) return this;
     return other;
   }
+}
+
+ChatUiStyleConfig _worldoRedesignChatStyle(ChatUiStyleConfig base) {
+  return base.copyWith(
+    conversationBackgroundColor: GenesisPalette.redesignBackground,
+    headerBackgroundColor: GenesisPalette.redesignBackground,
+    clearHeaderBackgroundGradient: true,
+    composerBackgroundColor: GenesisPalette.redesignBackground,
+    clearComposerBackgroundGradient: true,
+    headerTitleTextStyle: base.headerTitleTextStyle.copyWith(
+      color: GenesisPalette.white,
+    ),
+    headerSubtitleTextStyle: base.headerSubtitleTextStyle.copyWith(
+      color: GenesisPalette.redesignWhite72,
+    ),
+    headerTitleIconColor: GenesisPalette.white,
+    headerStatusIconColor: GenesisPalette.redesignWhite72,
+    composerIconColor: GenesisPalette.redesignWhite82,
+    composerSendButtonColor: GenesisPalette.redesignAccent,
+    composerSendButtonDisabledColor: GenesisPalette.redesignAccent40,
+    composerSendButtonIconColor: GenesisPalette.white,
+    inputBackgroundColor: GenesisPalette.redesignWhite07,
+    inputTextStyle: base.inputTextStyle.copyWith(color: GenesisPalette.white),
+    topTitleTextStyle: base.topTitleTextStyle.copyWith(
+      color: GenesisPalette.redesignWhite82,
+    ),
+    statusTextStyle: base.statusTextStyle.copyWith(
+      color: GenesisPalette.redesignWhite45,
+    ),
+    senderNameTextStyle: base.senderNameTextStyle.copyWith(
+      color: GenesisPalette.redesignWhite72,
+    ),
+    selfBubbleColor: GenesisPalette.redesignAccent42,
+    otherBubbleColor: GenesisPalette.redesignWhite13,
+    bubbleTextStyle: base.bubbleTextStyle.copyWith(color: GenesisPalette.white),
+    avatarTextStyle: base.avatarTextStyle.copyWith(color: GenesisPalette.white),
+    aiBadgeColor: GenesisPalette.redesignAccent,
+    sendingBadgeColor: GenesisPalette.redesignWhite45,
+    failedBadgeColor: GenesisPalette.redesignAccent,
+    failedBadgeIconColor: GenesisPalette.white,
+    dateDividerTextStyle: base.dateDividerTextStyle.copyWith(
+      color: GenesisPalette.redesignWhite45,
+    ),
+    systemMessageBackgroundColor: GenesisPalette.redesignWhite08,
+    systemMessageTextStyle: base.systemMessageTextStyle.copyWith(
+      color: GenesisPalette.redesignWhite60,
+    ),
+  );
 }
 
 extension GenesisChatThemeContext on BuildContext {

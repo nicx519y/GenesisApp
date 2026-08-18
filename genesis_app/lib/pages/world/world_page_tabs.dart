@@ -36,7 +36,7 @@ extension _WorldPageTabs on _WorldPageState {
     }
     if ((index ?? _worldMainTabIndex) != 0) {
       WorldDetailsStatusBarOverride.setStyle(
-        kGenesisDefaultSystemUiOverlayStyle,
+        GenesisSystemUi.forThemeBrightness(Theme.of(context).brightness),
         backgroundColor: context.genesisColors.surface,
       );
       return;

@@ -14,33 +14,75 @@ import '../tokens/genesis_typography.dart';
 import 'genesis_semantic_colors.dart';
 import 'genesis_ui_theme.dart';
 
-// GenesisTheme is the single entry point for app-level ThemeData.
-// This class connects the Flutter Material theme with the custom Genesis UI component theme.
 abstract final class GenesisTheme {
-  // Only the light theme is currently defined. A future dark theme can add dark() and reuse the same token and extension structure.
-  static ThemeData light() {
-    final colors = GenesisSemanticColors.light();
-    // The base palette for Material components; seedColor determines derived Material colors such as default button and state colors.
-    final colorScheme = ColorScheme.fromSeed(
-      // Use the bright brand green as the seed color for the Material ColorScheme.
-      seedColor: GenesisPalette.brandBright,
-      // The current product uses light backgrounds, so Brightness.light is fixed here.
-      brightness: Brightness.light,
+  static ThemeData light() => _build(
+    colors: GenesisSemanticColors.light(),
+    brightness: Brightness.light,
+    seedColor: GenesisPalette.brandBright,
+    uiTheme: GenesisUiTheme.light(),
+    featureThemes: <ThemeExtension<dynamic>>[
+      GenesisGemColors.light(),
+      GenesisChatTheme.light(),
+      GenesisOriginColors.light(),
+      GenesisDiscussColors.light(),
+      GenesisCreateColors.light(),
+      GenesisWorldColors.light(),
+      GenesisMessageColors.light(),
+    ],
+  );
+
+  static ThemeData worldoRedesign() => _build(
+    colors: GenesisSemanticColors.worldoRedesign(),
+    brightness: Brightness.dark,
+    seedColor: GenesisPalette.redesignAccent,
+    uiTheme: GenesisUiTheme.worldoRedesign(),
+    featureThemes: <ThemeExtension<dynamic>>[
+      GenesisGemColors.worldoRedesign(),
+      GenesisChatTheme.worldoRedesign(),
+      GenesisOriginColors.worldoRedesign(),
+      GenesisDiscussColors.worldoRedesign(),
+      GenesisCreateColors.worldoRedesign(),
+      GenesisWorldColors.worldoRedesign(),
+      GenesisMessageColors.worldoRedesign(),
+    ],
+  );
+
+  static ThemeData _build({
+    required GenesisSemanticColors colors,
+    required Brightness brightness,
+    required Color seedColor,
+    required GenesisUiTheme uiTheme,
+    required List<ThemeExtension<dynamic>> featureThemes,
+  }) {
+    final generatedColorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: brightness,
     );
+    final colorScheme = brightness == Brightness.dark
+        ? generatedColorScheme.copyWith(
+            primary: colors.primary,
+            onPrimary: colors.onPrimary,
+            surface: colors.surface,
+            onSurface: colors.textPrimary,
+            error: colors.danger,
+            onError: colors.onDanger,
+            outline: colors.border,
+            outlineVariant: colors.borderSubtle,
+            shadow: colors.shadow,
+            scrim: colors.scrim,
+          )
+        : generatedColorScheme;
+    final systemOverlayStyle = GenesisSystemUi.forThemeBrightness(brightness);
 
     return ThemeData(
-      // The standard color system consumed by Flutter Material components.
       colorScheme: colorScheme,
-      // Product interactions use state changes rather than Material ripple,
-      // pressed, hover, or focus overlays.
+      brightness: brightness,
       splashFactory: NoSplash.splashFactory,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       hoverColor: Colors.transparent,
       focusColor: Colors.transparent,
-      // The default page background color, used when a Scaffold does not set one explicitly.
       scaffoldBackgroundColor: colors.pageBackground,
-      // The standard app TextTheme, available to regular Text widgets through Theme.of(context).textTheme.
       textTheme: GenesisTypography.textTheme.copyWith(
         titleMedium: GenesisTypography.pageTitle.copyWith(
           color: colors.textPrimary,
@@ -54,29 +96,53 @@ abstract final class GenesisTheme {
           color: colors.textPrimary,
         ),
       ),
-      // Keep Material 3 enabled to avoid mixing legacy and current Material defaults.
       useMaterial3: true,
       appBarTheme: AppBarTheme(
         backgroundColor: colors.surface,
         foregroundColor: colors.textPrimary,
-        systemOverlayStyle: GenesisSystemUi.forThemeBrightness(
-          Brightness.light,
+        systemOverlayStyle: systemOverlayStyle,
+      ),
+      dialogTheme: DialogThemeData(backgroundColor: colors.surfaceRaised),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: colors.surfaceSheet,
+        modalBackgroundColor: colors.surfaceSheet,
+      ),
+      cardTheme: CardThemeData(
+        color: colors.surfaceRaised,
+        shadowColor: colors.shadow,
+      ),
+      dividerColor: colors.divider,
+      dividerTheme: DividerThemeData(color: colors.divider),
+      iconTheme: IconThemeData(color: colors.textPrimary),
+      primaryIconTheme: IconThemeData(color: colors.textPrimary),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colors.primary,
+        linearTrackColor: colors.surfaceProgress,
+        circularTrackColor: colors.surfaceProgress,
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: colors.primary,
+        selectionColor: colors.primary.withValues(alpha: 0.32),
+        selectionHandleColor: colors.primary,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: colors.surfaceRaised,
+        textStyle: GenesisTypography.body.copyWith(color: colors.textPrimary),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: colors.surfaceRaised,
+        contentTextStyle: GenesisTypography.body.copyWith(
+          color: colors.textPrimary,
         ),
       ),
-      // The global default FilledButton style, also inherited by GenesisPrimaryButton.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          // Primary button background color when enabled.
           backgroundColor: colors.primary,
-          // Primary button background color when disabled.
           disabledBackgroundColor: colors.primaryDisabled,
-          // Primary button text and icon foreground color.
           foregroundColor: colors.onPrimary,
-          // Use an 8dp radius for all buttons; locally sized buttons should follow the same radius rule.
           shape: const RoundedRectangleBorder(
             borderRadius: GenesisRadii.button,
           ),
-          // Default primary button text style.
           textStyle: GenesisTypography.bodyStrong,
           overlayColor: Colors.transparent,
           splashFactory: NoSplash.splashFactory,
@@ -136,31 +202,19 @@ abstract final class GenesisTheme {
         overlayColor: WidgetStatePropertyAll<Color>(Colors.transparent),
         splashFactory: NoSplash.splashFactory,
       ),
-      // The default TextField and InputDecorator style; editable GenesisSearchField instances reuse part of it.
       inputDecorationTheme: InputDecorationTheme(
-        // Do not draw a Material border by default; the outer container provides the background and radius.
         border: InputBorder.none,
-        // Collapse the default TextField height so Material padding does not make the search field too tall.
         isCollapsed: true,
-        // Default input placeholder style.
         hintStyle: TextStyle(
           color: colors.textDisabled,
           fontSize: 14,
           letterSpacing: 0,
         ),
       ),
-      // Theme extension for custom Genesis UI components.
-      // SearchField, PageTitle, BottomNavigation, TabBar, and similar components read styles from this extension first.
       extensions: <ThemeExtension<dynamic>>[
         colors,
-        GenesisUiTheme.light(),
-        GenesisGemColors.light(),
-        GenesisChatTheme.light(),
-        GenesisOriginColors.light(),
-        GenesisDiscussColors.light(),
-        GenesisCreateColors.light(),
-        GenesisWorldColors.light(),
-        GenesisMessageColors.light(),
+        uiTheme,
+        ...featureThemes.cast<dynamic>(),
       ],
     );
   }

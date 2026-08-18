@@ -611,7 +611,7 @@ class _AppShellPageState extends State<AppShellPage>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: kGenesisDefaultSystemUiOverlayStyle,
+      value: GenesisSystemUi.forThemeBrightness(Theme.of(context).brightness),
       child: Scaffold(
         body: _buildBody(),
         bottomNavigationBar: ValueListenableBuilder<UnreadSummary>(

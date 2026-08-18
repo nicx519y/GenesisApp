@@ -28,7 +28,7 @@ class GenesisApp extends StatelessWidget {
         child: MaterialApp(
           title: 'Worldo',
           debugShowCheckedModeBanner: false,
-          theme: GenesisTheme.light(),
+          theme: GenesisTheme.worldoRedesign(),
           initialRoute: RouteNames.home,
           navigatorKey: genesisNavigatorKey,
           navigatorObservers: [genesisRouteObserver, genesisPageRouteObserver],

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_palette.dart';
+
 /// Colors shared by create and editor forms.
 @immutable
 class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
@@ -41,6 +43,26 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
     selectedFill: Color(0xFFE0EEE8),
     successText: Color(0xFF1C7D56),
     divider: Color(0xFFEAEAEA),
+  );
+
+  factory GenesisCreateColors.worldoRedesign() => const GenesisCreateColors(
+    accent: GenesisPalette.redesignAccent,
+    fieldFill: GenesisPalette.redesignWhite07,
+    hint: GenesisPalette.redesignWhite45,
+    text: GenesisPalette.white,
+    muted: GenesisPalette.redesignWhite72,
+    note: GenesisPalette.redesignWhite55,
+    border: GenesisPalette.redesignWhite12,
+    dash: GenesisPalette.redesignWhite32,
+    danger: GenesisPalette.redesignAccent,
+    fieldOverlay: GenesisPalette.redesignBackground90,
+    fieldOverlaySoft: GenesisPalette.redesignBackground42,
+    inputBorder: GenesisPalette.redesignWhite18,
+    previewBackground: GenesisPalette.redesignRaised,
+    accentBorder: GenesisPalette.redesignAccent40,
+    selectedFill: GenesisPalette.redesignAccent14,
+    successText: GenesisPalette.redesignAccentSoft,
+    divider: GenesisPalette.redesignWhite07,
   );
 
   final Color accent;

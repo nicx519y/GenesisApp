@@ -135,12 +135,10 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
     return (_scrollController.offset / scrollDistance).clamp(0.0, 1.0);
   }
 
-  SystemUiOverlayStyle _statusBarStyle(double progress) {
+  SystemUiOverlayStyle _statusBarStyle(double progress, Brightness brightness) {
     if (progress <= 0) return _initialStatusBarStyle;
-    final useDarkIcons = progress >= 0.55;
-    return useDarkIcons
-        ? kGenesisDefaultSystemUiOverlayStyle
-        : kGenesisLightStatusIconsSystemUiOverlayStyle;
+    if (progress < 0.55) return kGenesisLightStatusIconsSystemUiOverlayStyle;
+    return GenesisSystemUi.forThemeBrightness(brightness);
   }
 
   @override
@@ -211,7 +209,10 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
               return AnnotatedRegion<SystemUiOverlayStyle>(
                 value:
                     overridePresentation?.style ??
-                    _statusBarStyle(statusBarProgress),
+                    _statusBarStyle(
+                      statusBarProgress,
+                      Theme.of(context).brightness,
+                    ),
                 child: _buildPanelShell(
                   mapHeight: mapHeight,
                   panelTopOverlap: panelTopOverlap,
