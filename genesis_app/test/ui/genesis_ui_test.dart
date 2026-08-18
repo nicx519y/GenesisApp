@@ -27,7 +27,7 @@ void main() {
       GenesisTypography.body.fontSize,
     );
     expect(materialApp.theme?.textTheme.bodyMedium?.fontFamilyFallback, isNull);
-    expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, isNull);
+    expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, isNot('Inter'));
   });
 
   test('GenesisTheme disables Material state effects', () {
@@ -75,6 +75,7 @@ void main() {
     ]) {
       expect(style.fontFamily, isNull);
       expect(style.fontFamilyFallback, isNull);
+      expect(style.color, isNull);
     }
   });
 
@@ -100,28 +101,47 @@ void main() {
     expect(richText.text.style?.fontFamilyFallback, isNull);
   });
 
-  testWidgets('Genesis UI components read styles from GenesisUiTheme', (
+  testWidgets('Genesis UI components read colors from semantic theme roles', (
     tester,
   ) async {
     const searchColor = Color(0xFF123456);
     const titleColor = Color(0xFF654321);
-    final uiTheme = GenesisUiTheme.light().copyWith(
-      searchBackgroundColor: searchColor,
-      pageTitleStyle: GenesisTypography.pageTitle.copyWith(color: titleColor),
-      bottomNavigationProminentColor: Colors.orange,
+    const primaryColor = Color(0xFF246824);
+    const selectedColor = Color(0xFF135790);
+    const unselectedColor = Color(0xFF975310);
+    final semanticColors = GenesisSemanticColors.light().copyWith(
+      inputBackground: searchColor,
+      textPrimary: titleColor,
+      danger: Colors.orange,
+      primary: primaryColor,
+      navigationSelected: selectedColor,
+      navigationUnselected: unselectedColor,
     );
 
     await tester.pumpWidget(
       MaterialApp(
         theme: GenesisTheme.light().copyWith(
-          extensions: <ThemeExtension<dynamic>>[uiTheme],
+          extensions: <ThemeExtension<dynamic>>[
+            semanticColors,
+            GenesisUiTheme.light(),
+          ],
         ),
         home: Scaffold(
-          body: const Column(
-            children: [
-              GenesisPageTitle(text: 'Styled title'),
-              GenesisSearchField(hintText: 'Styled search'),
-            ],
+          body: DefaultTabController(
+            length: 2,
+            child: Column(
+              children: [
+                const GenesisPageTitle(text: 'Styled title'),
+                const GenesisSearchField(hintText: 'Styled search'),
+                const GenesisTabBar(labels: ['One', 'Two']),
+                GenesisButton(
+                  key: const ValueKey('semantic-primary-button'),
+                  label: 'Continue',
+                  onPressed: () {},
+                  fullWidth: false,
+                ),
+              ],
+            ),
           ),
           bottomNavigationBar: GenesisBottomNavigation(
             currentIndex: 0,
@@ -151,7 +171,111 @@ void main() {
     expect(searchDecoration.color, searchColor);
 
     final icon = tester.widget<Icon>(find.byIcon(Icons.add_circle_outline));
-    expect(icon.color, Colors.orange);
+    expect(icon.color, semanticColors.onDanger);
+    final prominentSurface = tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.byType(GenesisBottomNavigation),
+            matching: find.byType(Container),
+          ),
+        )
+        .map((container) => container.decoration)
+        .whereType<ShapeDecoration>()
+        .single;
+    expect(prominentSurface.color, Colors.orange);
+
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.labelColor, selectedColor);
+    expect(tabBar.unselectedLabelColor, unselectedColor);
+    expect(
+      (tabBar.indicator! as GenesisFixedUnderlineIndicator).color,
+      Colors.orange,
+    );
+
+    final primaryButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const ValueKey('semantic-primary-button')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(
+      primaryButton.style?.backgroundColor?.resolve(const <WidgetState>{}),
+      primaryColor,
+    );
+  });
+
+  test('Genesis light semantic roles preserve the existing palette', () {
+    final colors = GenesisSemanticColors.light();
+
+    expect(colors.pageBackground, GenesisColors.surface);
+    expect(colors.surface, GenesisColors.surface);
+    expect(colors.inputBackground, GenesisColors.surfaceInput);
+    expect(colors.textPrimary, GenesisColors.textPrimary);
+    expect(colors.textSecondary, GenesisColors.textSecondary);
+    expect(colors.primary, GenesisColors.brand);
+    expect(colors.primaryDisabled, GenesisColors.brandSoft);
+    expect(colors.danger, GenesisColors.danger);
+    expect(colors.navigationSelected, GenesisColors.tabSelected);
+    expect(colors.navigationUnselected, GenesisColors.tabUnselected);
+  });
+
+  testWidgets('GenesisSurface follows semantic surface variants', (
+    tester,
+  ) async {
+    const cardColor = Color(0xFF110001);
+    const raisedColor = Color(0xFF220002);
+    const mutedColor = Color(0xFF330003);
+    const borderColor = Color(0xFF440004);
+    final semanticColors = GenesisSemanticColors.light().copyWith(
+      surface: cardColor,
+      surfaceRaised: raisedColor,
+      surfaceMuted: mutedColor,
+      border: borderColor,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.light().copyWith(
+          extensions: <ThemeExtension<dynamic>>[
+            semanticColors,
+            GenesisUiTheme.light(),
+          ],
+        ),
+        home: const Column(
+          children: [
+            GenesisSurface(key: ValueKey('card'), child: SizedBox()),
+            GenesisSurface(
+              key: ValueKey('raised'),
+              variant: GenesisSurfaceVariant.raised,
+              child: SizedBox(),
+            ),
+            GenesisSurface(
+              key: ValueKey('muted'),
+              variant: GenesisSurfaceVariant.muted,
+              showBorder: true,
+              child: SizedBox(),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    BoxDecoration decorationFor(String key) {
+      return tester
+              .widget<Container>(
+                find.descendant(
+                  of: find.byKey(ValueKey(key)),
+                  matching: find.byType(Container),
+                ),
+              )
+              .decoration!
+          as BoxDecoration;
+    }
+
+    expect(decorationFor('card').color, cardColor);
+    expect(decorationFor('raised').color, raisedColor);
+    expect(decorationFor('muted').color, mutedColor);
+    expect(decorationFor('muted').border?.top.color, borderColor);
   });
 
   testWidgets('GenesisSearchField keeps placeholder on one line', (

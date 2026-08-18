@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
 import 'genesis_page_title.dart';
 import 'genesis_safe_area.dart';
@@ -31,7 +32,7 @@ class GenesisPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GenesisTopSafeArea(
-      backgroundColor: Colors.white,
+      backgroundColor: context.genesisColors.surface,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           horizontalPadding,
@@ -90,9 +91,10 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.genesisColors;
     return AppBar(
       toolbarHeight: kGenesisTopBarHeight,
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surface,
       elevation: 0,
       scrolledUnderElevation: 0,
       systemOverlayStyle: systemOverlayStyle,
@@ -105,9 +107,9 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
           child: IconButton(
             constraints: const BoxConstraints.tightFor(width: 17, height: 17),
             padding: EdgeInsets.zero,
-            icon: const Icon(
+            icon: Icon(
               Icons.arrow_back_ios_new,
-              color: Colors.black,
+              color: colors.navigationSelected,
               size: 17,
             ),
             onPressed: onBack ?? () => Navigator.of(context).maybePop(),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
+import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
 import 'genesis_fixed_underline_indicator.dart';
 
@@ -51,16 +53,17 @@ class GenesisTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
+    final colors = context.genesisColors;
     final resolvedLabelStyle =
         labelStyle ??
         (labelFontSize == null
-            ? uiTheme.bodyStrongStyle
-            : uiTheme.bodyStrongStyle.copyWith(fontSize: labelFontSize));
+            ? GenesisTypography.bodyStrong
+            : GenesisTypography.bodyStrong.copyWith(fontSize: labelFontSize));
     final resolvedUnselectedLabelStyle =
         unselectedLabelStyle ??
         (labelFontSize == null
-            ? uiTheme.bodyStyle
-            : uiTheme.bodyStyle.copyWith(fontSize: labelFontSize));
+            ? GenesisTypography.body
+            : GenesisTypography.body.copyWith(fontSize: labelFontSize));
     return Padding(
       padding: EdgeInsets.symmetric(vertical: verticalPadding),
       child: Padding(
@@ -79,14 +82,14 @@ class GenesisTabBar extends StatelessWidget {
           onTap: onTap,
           indicatorSize: TabBarIndicatorSize.label,
           indicator: GenesisFixedUnderlineIndicator(
-            color: indicatorColor ?? uiTheme.tabIndicatorColor,
+            color: indicatorColor ?? colors.danger,
             width: indicatorWidth ?? uiTheme.tabIndicatorWidth,
             height: indicatorHeight ?? uiTheme.tabIndicatorHeight,
             bottomPadding: genesisTabIndicatorBottomPadding,
           ),
-          labelColor: labelColor ?? uiTheme.tabSelectedColor,
+          labelColor: labelColor ?? colors.navigationSelected,
           unselectedLabelColor:
-              unselectedLabelColor ?? uiTheme.tabUnselectedColor,
+              unselectedLabelColor ?? colors.navigationUnselected,
           labelStyle: resolvedLabelStyle,
           unselectedLabelStyle: resolvedUnselectedLabelStyle,
           tabs: [

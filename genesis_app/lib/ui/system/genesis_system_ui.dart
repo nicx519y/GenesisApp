@@ -35,6 +35,16 @@ const SystemUiOverlayStyle kGenesisLightSystemUiOverlayStyle =
     );
 
 abstract final class GenesisSystemUi {
+  /// Resolves the global system chrome for the active app theme.
+  ///
+  /// Light remains the only production theme today, but callers no longer
+  /// need to know which concrete overlay constant a future skin requires.
+  static SystemUiOverlayStyle forThemeBrightness(Brightness brightness) {
+    return brightness == Brightness.dark
+        ? kGenesisLightSystemUiOverlayStyle
+        : kGenesisDefaultSystemUiOverlayStyle;
+  }
+
   static Future<void> initialize() async {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);

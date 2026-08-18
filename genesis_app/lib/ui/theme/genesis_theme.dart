@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../system/genesis_system_ui.dart';
-import '../tokens/genesis_colors.dart';
+import '../tokens/genesis_palette.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_typography.dart';
+import 'genesis_semantic_colors.dart';
 import 'genesis_ui_theme.dart';
 
 // GenesisTheme is the single entry point for app-level ThemeData.
@@ -11,10 +12,11 @@ import 'genesis_ui_theme.dart';
 abstract final class GenesisTheme {
   // Only the light theme is currently defined. A future dark theme can add dark() and reuse the same token and extension structure.
   static ThemeData light() {
+    final colors = GenesisSemanticColors.light();
     // The base palette for Material components; seedColor determines derived Material colors such as default button and state colors.
     final colorScheme = ColorScheme.fromSeed(
       // Use the bright brand green as the seed color for the Material ColorScheme.
-      seedColor: GenesisColors.brandBright,
+      seedColor: GenesisPalette.brandBright,
       // The current product uses light backgrounds, so Brightness.light is fixed here.
       brightness: Brightness.light,
     );
@@ -30,23 +32,39 @@ abstract final class GenesisTheme {
       hoverColor: Colors.transparent,
       focusColor: Colors.transparent,
       // The default page background color, used when a Scaffold does not set one explicitly.
-      scaffoldBackgroundColor: GenesisColors.surface,
+      scaffoldBackgroundColor: colors.pageBackground,
       // The standard app TextTheme, available to regular Text widgets through Theme.of(context).textTheme.
-      textTheme: GenesisTypography.textTheme,
+      textTheme: GenesisTypography.textTheme.copyWith(
+        titleMedium: GenesisTypography.pageTitle.copyWith(
+          color: colors.textPrimary,
+        ),
+        bodyLarge: GenesisTypography.body.copyWith(color: colors.textPrimary),
+        bodyMedium: GenesisTypography.body.copyWith(color: colors.textPrimary),
+        bodySmall: GenesisTypography.supporting.copyWith(
+          color: colors.textSecondary,
+        ),
+        labelSmall: GenesisTypography.tabLabel.copyWith(
+          color: colors.textPrimary,
+        ),
+      ),
       // Keep Material 3 enabled to avoid mixing legacy and current Material defaults.
       useMaterial3: true,
-      appBarTheme: const AppBarTheme(
-        systemOverlayStyle: kGenesisDefaultSystemUiOverlayStyle,
+      appBarTheme: AppBarTheme(
+        backgroundColor: colors.surface,
+        foregroundColor: colors.textPrimary,
+        systemOverlayStyle: GenesisSystemUi.forThemeBrightness(
+          Brightness.light,
+        ),
       ),
       // The global default FilledButton style, also inherited by GenesisPrimaryButton.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           // Primary button background color when enabled.
-          backgroundColor: GenesisColors.brand,
+          backgroundColor: colors.primary,
           // Primary button background color when disabled.
-          disabledBackgroundColor: GenesisColors.brandSoft,
+          disabledBackgroundColor: colors.primaryDisabled,
           // Primary button text and icon foreground color.
-          foregroundColor: GenesisColors.surface,
+          foregroundColor: colors.onPrimary,
           // Use an 8dp radius for all buttons; locally sized buttons should follow the same radius rule.
           shape: const RoundedRectangleBorder(
             borderRadius: GenesisRadii.button,
@@ -112,21 +130,21 @@ abstract final class GenesisTheme {
         splashFactory: NoSplash.splashFactory,
       ),
       // The default TextField and InputDecorator style; editable GenesisSearchField instances reuse part of it.
-      inputDecorationTheme: const InputDecorationTheme(
+      inputDecorationTheme: InputDecorationTheme(
         // Do not draw a Material border by default; the outer container provides the background and radius.
         border: InputBorder.none,
         // Collapse the default TextField height so Material padding does not make the search field too tall.
         isCollapsed: true,
         // Default input placeholder style.
         hintStyle: TextStyle(
-          color: GenesisColors.textDisabled,
+          color: colors.textDisabled,
           fontSize: 14,
           letterSpacing: 0,
         ),
       ),
       // Theme extension for custom Genesis UI components.
       // SearchField, PageTitle, BottomNavigation, TabBar, and similar components read styles from this extension first.
-      extensions: <ThemeExtension<dynamic>>[GenesisUiTheme.light()],
+      extensions: <ThemeExtension<dynamic>>[colors, GenesisUiTheme.light()],
     );
   }
 }

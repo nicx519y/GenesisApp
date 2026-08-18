@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_spacing.dart';
@@ -71,10 +72,11 @@ class GenesisButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.genesisColors;
     final disabled = isLoading || onPressed == null;
-    final effectiveForeground = foregroundColor ?? _defaultForeground;
+    final effectiveForeground = foregroundColor ?? _defaultForeground(colors);
     final effectiveDisabledForeground =
-        disabledForegroundColor ?? _defaultDisabledForeground;
+        disabledForegroundColor ?? _defaultDisabledForeground(colors);
     final effectiveHeight =
         height ??
         (size == GenesisButtonSize.compact ? compactHeight : regularHeight);
@@ -123,9 +125,7 @@ class GenesisButton extends StatelessWidget {
                   disabledBackgroundColor ?? Colors.transparent,
               foregroundColor: effectiveForeground,
               disabledForegroundColor: effectiveDisabledForeground,
-              side:
-                  side ??
-                  const BorderSide(color: Color(0xFFD9D9DF), width: 1.2),
+              side: side ?? BorderSide(color: colors.borderStrong, width: 1.2),
               textStyle: effectiveTextStyle,
               shape: RoundedRectangleBorder(
                 borderRadius: borderRadius ?? defaultBorderRadius,
@@ -139,10 +139,10 @@ class GenesisButton extends StatelessWidget {
         : FilledButton(
             onPressed: effectiveOnPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: backgroundColor ?? _defaultBackground,
+              backgroundColor: backgroundColor ?? _defaultBackground(colors),
               foregroundColor: effectiveForeground,
               disabledBackgroundColor:
-                  disabledBackgroundColor ?? _defaultDisabledBackground,
+                  disabledBackgroundColor ?? _defaultDisabledBackground(colors),
               disabledForegroundColor: effectiveDisabledForeground,
               side: side,
               textStyle: effectiveTextStyle,
@@ -176,35 +176,41 @@ class GenesisButton extends StatelessWidget {
     );
   }
 
-  Color get _defaultBackground => switch (variant) {
-    GenesisButtonVariant.primary => GenesisColors.brand,
+  Color _defaultBackground(GenesisSemanticColors colors) => switch (variant) {
+    GenesisButtonVariant.primary => colors.primary,
     GenesisButtonVariant.secondary => Colors.transparent,
-    GenesisButtonVariant.muted => const Color(0xFFE1E1E3),
-    GenesisButtonVariant.destructive => GenesisColors.danger,
+    GenesisButtonVariant.muted => colors.controlMuted,
+    GenesisButtonVariant.destructive => colors.danger,
   };
 
-  Color get _defaultForeground => switch (variant) {
-    GenesisButtonVariant.primary ||
-    GenesisButtonVariant.destructive => Colors.white,
+  Color _defaultForeground(GenesisSemanticColors colors) => switch (variant) {
+    GenesisButtonVariant.primary || GenesisButtonVariant.destructive =>
+      variant == GenesisButtonVariant.primary
+          ? colors.onPrimary
+          : colors.onDanger,
     GenesisButtonVariant.secondary ||
-    GenesisButtonVariant.muted => GenesisColors.textPrimary,
+    GenesisButtonVariant.muted => colors.textPrimary,
   };
 
-  Color get _defaultDisabledBackground => switch (variant) {
-    GenesisButtonVariant.primary => GenesisColors.brandSoft,
-    GenesisButtonVariant.secondary => Colors.transparent,
-    GenesisButtonVariant.muted => const Color(0xFFE1E1E3),
-    GenesisButtonVariant.destructive => GenesisColors.danger.withValues(
-      alpha: 0.55,
-    ),
-  };
+  Color _defaultDisabledBackground(GenesisSemanticColors colors) =>
+      switch (variant) {
+        GenesisButtonVariant.primary => colors.primaryDisabled,
+        GenesisButtonVariant.secondary => Colors.transparent,
+        GenesisButtonVariant.muted => colors.controlMuted,
+        GenesisButtonVariant.destructive => colors.danger.withValues(
+          alpha: 0.55,
+        ),
+      };
 
-  Color get _defaultDisabledForeground => switch (variant) {
-    GenesisButtonVariant.primary ||
-    GenesisButtonVariant.destructive => Colors.white,
-    GenesisButtonVariant.secondary ||
-    GenesisButtonVariant.muted => GenesisColors.textDisabled,
-  };
+  Color _defaultDisabledForeground(GenesisSemanticColors colors) =>
+      switch (variant) {
+        GenesisButtonVariant.primary || GenesisButtonVariant.destructive =>
+          variant == GenesisButtonVariant.primary
+              ? colors.onPrimary
+              : colors.onDanger,
+        GenesisButtonVariant.secondary ||
+        GenesisButtonVariant.muted => colors.textDisabled,
+      };
 }
 
 class GenesisPrimaryButton extends StatelessWidget {
@@ -242,9 +248,9 @@ class GenesisPrimaryButton extends StatelessWidget {
     fontWeight: FontWeight.w600,
   );
   static const Color defaultBackgroundColor = GenesisColors.brand;
-  static const Color defaultForegroundColor = Colors.white;
+  static const Color defaultForegroundColor = GenesisColors.surface;
   static const Color defaultDisabledBackgroundColor = GenesisColors.brandSoft;
-  static const Color defaultDisabledForegroundColor = Colors.white;
+  static const Color defaultDisabledForegroundColor = GenesisColors.surface;
 
   final String label;
   final VoidCallback? onPressed;
@@ -304,9 +310,9 @@ class GenesisSecondaryButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
-    this.foregroundColor = const Color(0xFF111111),
+    this.foregroundColor,
     this.disabledForegroundColor,
-    this.side = const BorderSide(color: Color(0xFFD9D9DF), width: 1.2),
+    this.side,
     this.height,
     this.width,
     this.fontWeight,

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../theme/genesis_ui_theme.dart';
+import '../theme/genesis_semantic_colors.dart';
+import '../tokens/genesis_typography.dart';
 
 class GenesisPageTitle extends StatelessWidget {
   const GenesisPageTitle({super.key, required this.text, this.style});
@@ -12,7 +13,9 @@ class GenesisPageTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: GenesisUiTheme.of(context).pageTitleStyle.merge(style),
+      style: GenesisTypography.pageTitle
+          .copyWith(color: context.genesisColors.textPrimary)
+          .merge(style),
     );
   }
 }

@@ -47,6 +47,17 @@ void main() {
     );
   });
 
+  test('theme brightness resolves the matching global system UI style', () {
+    expect(
+      GenesisSystemUi.forThemeBrightness(Brightness.light),
+      kGenesisDefaultSystemUiOverlayStyle,
+    );
+    expect(
+      GenesisSystemUi.forThemeBrightness(Brightness.dark),
+      kGenesisLightSystemUiOverlayStyle,
+    );
+  });
+
   testWidgets(
     'startup enables edge-to-edge before applying the default style',
     (tester) async {

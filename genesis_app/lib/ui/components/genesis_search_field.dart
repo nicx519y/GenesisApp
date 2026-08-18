@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../icons/custom_icon_assets.dart';
 import '../text/genesis_text_input_formatters.dart';
+import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
 import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
@@ -60,15 +61,16 @@ class GenesisSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
+    final colors = context.genesisColors;
     final compact = variant == GenesisSearchFieldVariant.compact;
     final effectiveHeight =
         height ??
         (compact ? genesisCompactSearchFieldHeight : genesisSearchFieldHeight);
     final effectiveBackgroundColor =
         backgroundColor ??
-        (compact ? const Color(0xFFFAFAFA) : uiTheme.searchBackgroundColor);
+        (compact ? colors.surfaceSubtle : colors.inputBackground);
     final effectiveBorderColor =
-        borderColor ?? (compact ? const Color(0xFFEBEBEB) : null);
+        borderColor ?? (compact ? colors.borderSubtle : null);
     final effectiveBorderRadius =
         borderRadius ??
         (compact
@@ -76,10 +78,14 @@ class GenesisSearchField extends StatelessWidget {
             : uiTheme.searchBorderRadius);
     final effectiveIconAsset = iconAsset ?? (compact ? searchIconAsset : null);
     final effectiveHintStyle = GenesisTypography.withFallback(
-      hintStyle ?? uiTheme.searchHintStyle,
+      hintStyle ??
+          GenesisTypography.body.copyWith(
+            color: colors.textDisabled,
+            letterSpacing: 0,
+          ),
     );
     final effectiveTextStyle = GenesisTypography.withFallback(
-      textStyle ?? uiTheme.searchTextStyle,
+      textStyle ?? GenesisTypography.body.copyWith(color: colors.textPrimary),
     );
     final editable = controller != null;
     final child = Container(
@@ -97,7 +103,7 @@ class GenesisSearchField extends StatelessWidget {
           if (effectiveIconAsset == null)
             Icon(
               Icons.search,
-              color: iconColor ?? uiTheme.searchIconColor,
+              color: iconColor ?? colors.textDisabled,
               size: iconSize,
             )
           else
@@ -157,7 +163,7 @@ class GenesisSearchField extends StatelessWidget {
                   child: Icon(
                     Icons.close,
                     size: 18,
-                    color: iconColor ?? uiTheme.searchIconColor,
+                    color: iconColor ?? colors.textDisabled,
                   ),
                 ),
               ),

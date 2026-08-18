@@ -4,8 +4,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import 'genesis_safe_area.dart';
 import 'genesis_unread_badge.dart';
+import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
-import '../theme/genesis_ui_theme.dart';
+import '../tokens/genesis_typography.dart';
 
 class GenesisBottomNavigationItem {
   const GenesisBottomNavigationItem({
@@ -52,15 +53,12 @@ class GenesisBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.genesisColors;
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: colors.navigationBackground,
         boxShadow: [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
+          BoxShadow(color: colors.shadow, blurRadius: 8, offset: Offset(0, -2)),
         ],
       ),
       child: GenesisBottomSafePadding(
@@ -98,12 +96,12 @@ class GenesisBottomNavigationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uiTheme = GenesisUiTheme.of(context);
+    final colors = context.genesisColors;
     final color = item.prominent
-        ? uiTheme.bottomNavigationProminentColor
+        ? colors.danger
         : selected
-        ? uiTheme.bottomNavigationSelectedColor
-        : uiTheme.bottomNavigationUnselectedColor;
+        ? colors.navigationSelected
+        : colors.navigationUnselected;
     final iconSize =
         item.iconSize ??
         (item.prominent
@@ -149,6 +147,7 @@ class GenesisBottomNavigationTile extends StatelessWidget {
                   size: iconSize,
                   shadows: item.iconShadows,
                   backgroundColor: color,
+                  foregroundColor: colors.onDanger,
                 )
               else
                 _BadgedIcon(
@@ -165,7 +164,7 @@ class GenesisBottomNavigationTile extends StatelessWidget {
                   item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: uiTheme.tabLabelStyle.copyWith(
+                  style: GenesisTypography.tabLabel.copyWith(
                     color: color,
                     fontWeight: FontWeight.w600,
                   ),
@@ -186,6 +185,7 @@ class _ProminentNavigationIcon extends StatelessWidget {
     required this.size,
     required this.shadows,
     required this.backgroundColor,
+    required this.foregroundColor,
   });
 
   final IconData? icon;
@@ -193,6 +193,7 @@ class _ProminentNavigationIcon extends StatelessWidget {
   final double size;
   final List<Shadow>? shadows;
   final Color backgroundColor;
+  final Color foregroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -213,8 +214,8 @@ class _ProminentNavigationIcon extends StatelessWidget {
                     width: size,
                     height: size,
                     fit: BoxFit.contain,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
+                    colorFilter: ColorFilter.mode(
+                      foregroundColor,
                       BlendMode.srcIn,
                     ),
                   )
@@ -223,9 +224,9 @@ class _ProminentNavigationIcon extends StatelessWidget {
                     width: size,
                     height: size,
                     fit: BoxFit.contain,
-                    color: Colors.white,
+                    color: foregroundColor,
                   )
-          : Icon(icon, color: Colors.white, size: size, shadows: shadows),
+          : Icon(icon, color: foregroundColor, size: size, shadows: shadows),
     );
   }
 }

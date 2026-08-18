@@ -21,6 +21,7 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/system/genesis_system_ui.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 const _wrappingTaskDescription =
@@ -153,7 +154,10 @@ void main() {
     );
 
     final pageTitleStyle = tester.widget<Text>(find.text('Buy Gems')).style;
-    expect(pageTitleStyle, GenesisTypography.pageTitle);
+    expect(
+      pageTitleStyle,
+      GenesisTypography.pageTitle.copyWith(color: GenesisColors.textPrimary),
+    );
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-panel'))).dy -
           tester.getRect(find.text('Buy Gems')).bottom,
@@ -343,7 +347,10 @@ void main() {
 
     expect(find.text('Gem Records'), findsOneWidget);
     final recordsTitle = tester.widget<Text>(find.text('Gem Records'));
-    expect(recordsTitle.style, GenesisTypography.pageTitle);
+    expect(
+      recordsTitle.style,
+      GenesisTypography.pageTitle.copyWith(color: GenesisColors.textPrimary),
+    );
     expect(
       tester.getTopLeft(find.byType(TabBar)).dy -
           tester.getRect(find.text('Gem Records')).bottom,

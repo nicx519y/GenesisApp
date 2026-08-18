@@ -77,11 +77,10 @@ class _HomeTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uiTheme = GenesisUiTheme.of(context);
     final unselectedColor = showSelectedState
         ? null
-        : uiTheme.tabUnselectedColor;
-    final unselectedStyle = showSelectedState ? null : uiTheme.bodyStyle;
+        : context.genesisColors.navigationUnselected;
+    final unselectedStyle = showSelectedState ? null : GenesisTypography.body;
     return GenesisTabBar(
       labels: HomePage.tabs,
       verticalPadding: 0,

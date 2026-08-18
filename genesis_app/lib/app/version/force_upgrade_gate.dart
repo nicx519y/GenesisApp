@@ -147,6 +147,7 @@ class ForceUpgradePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.genesisColors;
     final title = response.title.isEmpty ? 'Update required' : response.title;
     final content = response.content.isEmpty
         ? 'Please update to the latest version to continue using Worldo.'
@@ -156,7 +157,7 @@ class ForceUpgradePage extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: GenesisColors.surface,
+        backgroundColor: colors.pageBackground,
         body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -170,37 +171,46 @@ class ForceUpgradePage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.system_update_alt_rounded,
                       size: 48,
-                      color: GenesisColors.brand,
+                      color: colors.primary,
                     ),
                     const SizedBox(height: GenesisSpacing.section),
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: GenesisTypography.pageTitle,
+                      style: GenesisTypography.pageTitle.copyWith(
+                        color: colors.textPrimary,
+                      ),
                     ),
                     if (latestVersionName.isNotEmpty) ...[
                       const SizedBox(height: GenesisSpacing.md),
                       Text(
                         'Version $latestVersionName',
                         textAlign: TextAlign.center,
-                        style: GenesisTypography.supporting,
+                        style: GenesisTypography.supporting.copyWith(
+                          color: colors.textSecondary,
+                        ),
                       ),
                     ],
                     const SizedBox(height: GenesisSpacing.page),
                     Text(
                       content,
                       textAlign: TextAlign.center,
-                      style: GenesisTypography.body.copyWith(height: 1.45),
+                      style: GenesisTypography.body.copyWith(
+                        color: colors.textPrimary,
+                        height: 1.45,
+                      ),
                     ),
                     if (hasCheckError) ...[
                       const SizedBox(height: GenesisSpacing.xl),
                       Text(
                         'Unable to refresh update status. Please update to continue.',
                         textAlign: TextAlign.center,
-                        style: GenesisTypography.supporting,
+                        style: GenesisTypography.supporting.copyWith(
+                          color: colors.textSecondary,
+                        ),
                       ),
                     ],
                     const SizedBox(height: GenesisSpacing.section),

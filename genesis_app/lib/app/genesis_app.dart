@@ -53,7 +53,9 @@ class GenesisApp extends StatelessWidget {
           },
           builder: (context, child) {
             return AnnotatedRegion<SystemUiOverlayStyle>(
-              value: kGenesisDefaultSystemUiOverlayStyle,
+              value: GenesisSystemUi.forThemeBrightness(
+                Theme.of(context).brightness,
+              ),
               child: GenesisTelemetryTapRegion(
                 child: GenesisBottomSystemBarBoundary(
                   child: InternalBuildIndicator(

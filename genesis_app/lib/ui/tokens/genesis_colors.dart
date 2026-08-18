@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
 
+import 'genesis_palette.dart';
+
+/// Compatibility aliases for code that has not yet migrated to semantic
+/// theme roles. New widgets should use `context.genesisColors` instead.
 abstract final class GenesisColors {
-  static const Color brand = Color(0xFF338960);
-  static const Color brandBright = Color(0xFF00C27A);
-  static const Color brandSoft = Color(0xFFBFD8CD);
-  static const Color create = Color(0xFFFF2442);
+  static const Color brand = GenesisPalette.brand;
+  static const Color brandBright = GenesisPalette.brandBright;
+  static const Color brandSoft = GenesisPalette.brandSoft;
+  static const Color create = GenesisPalette.create;
 
-  static const Color surface = Colors.white;
-  static const Color surfaceMuted = Color(0xFFF9F9F9);
-  static const Color surfaceInput = Color(0xFFF2F2F2);
-  static const Color surfacePanel = Color(0xFFF5F5F7);
+  static const Color surface = GenesisPalette.white;
+  static const Color surfaceMuted = GenesisPalette.surfaceMuted;
+  static const Color surfaceInput = GenesisPalette.surfaceInput;
+  static const Color surfacePanel = GenesisPalette.surfacePanel;
 
-  static const Color textPrimary = Color(0xFF111111);
-  static const Color textSecondary = Color(0xFF6F6F6F);
-  static const Color textTertiary = Color(0xFF8D8D8D);
-  static const Color textDisabled = Color(0xFF9E9E9E);
-  static const Color tabSelected = Color(0xFF000000);
-  static const Color tabUnselected = Color(0xFF666666);
+  static const Color textPrimary = GenesisPalette.textPrimary;
+  static const Color textSecondary = GenesisPalette.textSecondary;
+  static const Color textTertiary = GenesisPalette.textTertiary;
+  static const Color textDisabled = GenesisPalette.textDisabled;
+  static const Color tabSelected = GenesisPalette.navigationSelected;
+  static const Color tabUnselected = GenesisPalette.navigationUnselected;
 
-  static const Color border = Color(0xFFE6E6E8);
-  static const Color borderStrong = Color(0xFFDCDCDC);
-  static const Color danger = Color(0xFFFF2442);
+  static const Color border = GenesisPalette.border;
+  static const Color borderStrong = GenesisPalette.legacyBorderStrong;
+  static const Color danger = GenesisPalette.create;
 }

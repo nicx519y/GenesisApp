@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/genesis_semantic_colors.dart';
+
 class GenesisUnreadBadge extends StatelessWidget {
   const GenesisUnreadBadge({super.key, required this.count});
 
@@ -18,7 +20,7 @@ class GenesisUnreadBadge extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF2442),
+        color: context.genesisColors.danger,
         borderRadius: BorderRadius.circular(999),
       ),
       alignment: Alignment.center,
@@ -28,8 +30,8 @@ class GenesisUnreadBadge extends StatelessWidget {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.genesisColors.onDanger,
               fontSize: 10,
               height: 1,
               fontWeight: FontWeight.w600,

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../ui/components/genesis_fixed_underline_indicator.dart';
 import '../ui/components/genesis_search_field.dart';
 import '../ui/components/genesis_tab_bar.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 import '../ui/theme/genesis_ui_theme.dart';
+import '../ui/tokens/genesis_typography.dart';
 import 'world_details_shell.dart';
 
 const _worldTopTabTextColor = Color(0xFF111111);
@@ -47,6 +49,7 @@ class WorldTopOverlayBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
+    final colors = context.genesisColors;
     return Row(
       children: [
         Container(
@@ -87,15 +90,17 @@ class WorldTopOverlayBar extends StatelessWidget {
                 indicatorSize: TabBarIndicatorSize.label,
                 onTap: (index) => _handleTabTap(context, index),
                 indicator: GenesisFixedUnderlineIndicator(
-                  color: uiTheme.tabIndicatorColor,
+                  color: colors.danger,
                   width: uiTheme.tabIndicatorWidth,
                   height: uiTheme.tabIndicatorHeight,
                   bottomPadding: genesisTabIndicatorBottomPadding,
                 ),
                 labelColor: _worldTopTabTextColor,
                 unselectedLabelColor: _worldTopTabTextColor,
-                labelStyle: uiTheme.bodyStrongStyle.copyWith(fontSize: 16),
-                unselectedLabelStyle: uiTheme.bodyStyle.copyWith(fontSize: 16),
+                labelStyle: GenesisTypography.bodyStrong.copyWith(fontSize: 16),
+                unselectedLabelStyle: GenesisTypography.body.copyWith(
+                  fontSize: 16,
+                ),
                 tabs: [
                   const Tab(
                     height: _worldTopOverlayHeight,
