@@ -180,53 +180,66 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
           const SizedBox(height: 8),
           SizedBox(
             height: cardWidth + _OriginSetupRoleSection._buttonHeight,
-            child: ListView.separated(
+            child: ListView.builder(
               key: const ValueKey<String>('origin-setup-role-cards'),
               controller: _cardsController,
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 10),
               itemCount: cardCount,
-              separatorBuilder: (context, index) =>
-                  const SizedBox(width: cardGap),
+              itemExtent: _cardStride,
+              // Keep every role card laid out so scrolling never rebuilds a
+              // previously visited card.
+              scrollCacheExtent: ScrollCacheExtent.pixels(
+                _cardStride * cardCount,
+              ),
               itemBuilder: (context, index) {
                 if (profileRole != null && index == 0) {
-                  return SizedBox(
-                    width: cardWidth,
-                    child: _OriginSetupRoleCard(
-                      content: _OriginSetupRoleCardContent.fromProfile(
-                        profileRole,
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: cardWidth,
+                      child: _OriginSetupRoleCard(
+                        content: _OriginSetupRoleCardContent.fromProfile(
+                          profileRole,
+                        ),
+                        cardWidth: cardWidth,
+                        buttonHeight: _OriginSetupRoleSection._buttonHeight,
+                        launching: widget.launching,
+                        onEdit: widget.onEditProfileRole,
+                        onSelect: () =>
+                            unawaited(widget.onSelectProfileRole(profileRole)),
                       ),
-                      cardWidth: cardWidth,
-                      buttonHeight: _OriginSetupRoleSection._buttonHeight,
-                      launching: widget.launching,
-                      onEdit: widget.onEditProfileRole,
-                      onSelect: () =>
-                          unawaited(widget.onSelectProfileRole(profileRole)),
                     ),
                   );
                 }
                 final characterIndex = index - profileCardCount;
                 if (characterIndex == characters.length) {
-                  return SizedBox(
-                    width: cardWidth,
-                    child: _OriginSetupCustomRoleCard(
-                      launching: widget.launching,
-                      onTap: widget.onCustomizeRole,
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: cardWidth,
+                      child: _OriginSetupCustomRoleCard(
+                        launching: widget.launching,
+                        onTap: widget.onCustomizeRole,
+                      ),
                     ),
                   );
                 }
                 final character = characters[characterIndex];
-                return SizedBox(
-                  width: cardWidth,
-                  child: _OriginSetupRoleCard(
-                    content: _OriginSetupRoleCardContent.fromCharacter(
-                      character,
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    width: cardWidth,
+                    child: _OriginSetupRoleCard(
+                      content: _OriginSetupRoleCardContent.fromCharacter(
+                        character,
+                      ),
+                      cardWidth: cardWidth,
+                      buttonHeight: _OriginSetupRoleSection._buttonHeight,
+                      launching: widget.launching,
+                      onSelect: () => unawaited(widget.onSelectRole(character)),
                     ),
-                    cardWidth: cardWidth,
-                    buttonHeight: _OriginSetupRoleSection._buttonHeight,
-                    launching: widget.launching,
-                    onSelect: () => unawaited(widget.onSelectRole(character)),
                   ),
                 );
               },

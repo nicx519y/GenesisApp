@@ -6400,7 +6400,7 @@ void main() {
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
   });
 
-  testWidgets('origin detail sheet only pauses Tilemap location image flow', (
+  testWidgets('origin detail sheet pauses all Tilemap animations', (
     WidgetTester tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -6436,9 +6436,9 @@ void main() {
 
     await tester.drag(sheet, const Offset(0, -500));
     await tester.pumpAndSettle();
-    expect(currentTilemap().animationsPaused, isFalse);
+    expect(currentTilemap().animationsPaused, isTrue);
     expect(currentTilemap().locationImageFlowPaused, isTrue);
-    expect(currentTilemapTickerMode().enabled, isTrue);
+    expect(currentTilemapTickerMode().enabled, isFalse);
 
     await tester.drag(sheet, const Offset(0, 700));
     await tester.pumpAndSettle();
@@ -7723,6 +7723,11 @@ void main() {
     final regularRole = find.byKey(
       const ValueKey<String>('origin-setup-role-c_regular'),
     );
+    final roleCards = tester.widget<ListView>(
+      find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+    );
+    expect(roleCards.itemExtent, 252);
+    expect(roleCards.scrollCacheExtent?.value, 252 * 3);
     expect(recommendedRole, findsOneWidget);
     expect(regularRole, findsOneWidget);
     expect(
