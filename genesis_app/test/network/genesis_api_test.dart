@@ -3053,7 +3053,7 @@ void main() {
 
   for (final provider in IdentityProvider.values) {
     test(
-      'successful ${provider.name} login records the once login event',
+      'successful ${provider.name} login records login and login_first',
       () async {
         final analytics = _RecordingFirebaseAnalyticsClient();
         FirebaseAnalyticsMonitoring.resetForTesting();
@@ -3111,6 +3111,10 @@ void main() {
 
         expect(analytics.events, <_FirebaseAnalyticsEvent>[
           _FirebaseAnalyticsEvent('login', <String, Object>{
+            'method': provider.name,
+            'device_id': 'test-device-id',
+          }),
+          _FirebaseAnalyticsEvent('login_first', <String, Object>{
             'method': provider.name,
             'device_id': 'test-device-id',
           }),

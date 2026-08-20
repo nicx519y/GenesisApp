@@ -293,41 +293,54 @@ void main() {
     await platform.close();
   });
 
-  test('first purchased callback records purchase only once', () async {
-    final firebaseAnalytics = _RecordingFirebaseAnalyticsClient();
-    FirebaseAnalyticsMonitoring.resetForTesting();
-    FirebaseAnalyticsMonitoring.setClientForTesting(firebaseAnalytics);
-    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
-      _MemoryFirebaseAnalyticsOnceEventStore(),
-    );
-    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
-    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
-    FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
-      () async => 'test-device-id',
-    );
-    addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+  test(
+    'purchased callbacks repeat purchase and record purchase_first once',
+    () async {
+      final firebaseAnalytics = _RecordingFirebaseAnalyticsClient();
+      FirebaseAnalyticsMonitoring.resetForTesting();
+      FirebaseAnalyticsMonitoring.setClientForTesting(firebaseAnalytics);
+      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+        _MemoryFirebaseAnalyticsOnceEventStore(),
+      );
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+      FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+        () async => 'test-device-id',
+      );
+      addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
 
-    await service.start();
-    platform.emit(_purchase(BillingPurchaseStatus.purchased));
-    await _settle();
-    platform.emit(
-      _purchase(
-        BillingPurchaseStatus.purchased,
-        purchaseToken: 'purchase-token-2',
-        transactionId: 'GPA.2',
-        originalJson: '{"purchaseToken":"purchase-token-2"}',
-      ),
-    );
-    await _settle();
+      await service.start();
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await _settle();
+      platform.emit(
+        _purchase(
+          BillingPurchaseStatus.purchased,
+          purchaseToken: 'purchase-token-2',
+          transactionId: 'GPA.2',
+          originalJson: '{"purchaseToken":"purchase-token-2"}',
+        ),
+      );
+      await _settle();
 
-    expect(firebaseAnalytics.events, <_FirebaseAnalyticsRecord>[
-      const _FirebaseAnalyticsRecord('purchase', <String, Object>{
-        'provider': 'google',
-        'product_id': 'worldo_gems_500',
-        'device_id': 'test-device-id',
-      }),
-    ]);
-  });
+      expect(firebaseAnalytics.events, <_FirebaseAnalyticsRecord>[
+        const _FirebaseAnalyticsRecord('purchase', <String, Object>{
+          'provider': 'google',
+          'product_id': 'worldo_gems_500',
+          'device_id': 'test-device-id',
+        }),
+        const _FirebaseAnalyticsRecord('purchase_first', <String, Object>{
+          'provider': 'google',
+          'product_id': 'worldo_gems_500',
+          'device_id': 'test-device-id',
+        }),
+        const _FirebaseAnalyticsRecord('purchase', <String, Object>{
+          'provider': 'google',
+          'product_id': 'worldo_gems_500',
+          'device_id': 'test-device-id',
+        }),
+      ]);
+    },
+  );
 
   test(
     'start only initializes billing and recovery reports local orders',

@@ -1625,7 +1625,9 @@ void main() {
   testWidgets(
     'location chat records one message_sent across transport retries',
     (WidgetTester tester) async {
-      final analytics = _enableLocationChatAnalyticsForTesting();
+      final analytics = _enableLocationChatAnalyticsForTesting(
+        initialMessageSentCount: 9,
+      );
       final harness = await _connectedLocationChatTestService(
         ackTimeout: const Duration(milliseconds: 10),
       );
@@ -1658,7 +1660,11 @@ void main() {
       unawaited(tester.widget<ChatComposer>(composerFinder).onSend());
       await _pumpUntilLocationChatTest(
         tester,
-        () => socket.sendMessageCount == 1 && analytics.events.isNotEmpty,
+        () =>
+            socket.sendMessageCount == 1 &&
+            analytics.events.any(
+              (event) => event.name == 'message_sent_10_first',
+            ),
       );
 
       expect(analytics.events, <_LocationChatAnalyticsEvent>[
@@ -1667,13 +1673,29 @@ void main() {
           'location_id': 'location-current',
           'device_id': 'test-device-id',
         }),
+        const _LocationChatAnalyticsEvent(
+          'message_sent_first',
+          <String, Object>{
+            'world_id': 'world-current',
+            'location_id': 'location-current',
+            'device_id': 'test-device-id',
+          },
+        ),
+        const _LocationChatAnalyticsEvent(
+          'message_sent_10_first',
+          <String, Object>{
+            'world_id': 'world-current',
+            'location_id': 'location-current',
+            'device_id': 'test-device-id',
+          },
+        ),
       ]);
 
       // The chatroom client retries a missing ACK internally. Those transport
       // attempts must not create additional business-level Analytics events.
       await tester.pump(const Duration(milliseconds: 35));
       expect(socket.sendMessageCount, 3);
-      expect(analytics.events, hasLength(1));
+      expect(analytics.events, hasLength(3));
       await tester.pump(const Duration(seconds: 3));
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -1831,6 +1853,11 @@ void main() {
     expect(service.sendAttempts, 1);
     expect(analytics.events, <_LocationChatAnalyticsEvent>[
       const _LocationChatAnalyticsEvent('message_sent', <String, Object>{
+        'world_id': 'world-sync-failure',
+        'location_id': 'location-sync-failure',
+        'device_id': 'test-device-id',
+      }),
+      const _LocationChatAnalyticsEvent('message_sent_first', <String, Object>{
         'world_id': 'world-sync-failure',
         'location_id': 'location-sync-failure',
         'device_id': 'test-device-id',
@@ -4814,8 +4841,11 @@ _connectedLocationChatTestService({
   return (services: services, service: service, socket: socket);
 }
 
-_LocationChatAnalyticsClient _enableLocationChatAnalyticsForTesting() {
+_LocationChatAnalyticsClient _enableLocationChatAnalyticsForTesting({
+  int initialMessageSentCount = 0,
+}) {
   final client = _LocationChatAnalyticsClient();
+  var messageSentCount = initialMessageSentCount;
   FirebaseAnalyticsMonitoring.setClientForTesting(client);
   FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
     _LocationChatOnceEventStore(),
@@ -4824,6 +4854,12 @@ _LocationChatAnalyticsClient _enableLocationChatAnalyticsForTesting() {
   FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
   FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
     () async => 'test-device-id',
+  );
+  FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
+    () async {
+      messageSentCount += 1;
+      return messageSentCount;
+    },
   );
   return client;
 }

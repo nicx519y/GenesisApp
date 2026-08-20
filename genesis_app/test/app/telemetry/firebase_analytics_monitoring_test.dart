@@ -6,10 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late _FakeAnalyticsClient client;
+  late int messageSentCount;
 
   setUp(() {
     FirebaseAnalyticsMonitoring.resetForTesting();
     client = _FakeAnalyticsClient();
+    messageSentCount = 0;
     FirebaseAnalyticsMonitoring.setClientForTesting(client);
     FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
       _MemoryOnceEventStore(),
@@ -19,27 +21,100 @@ void main() {
     FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
       () async => 'test-device-id',
     );
+    FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
+      () async {
+        messageSentCount += 1;
+        return messageSentCount;
+      },
+    );
   });
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
 
-  test('records the five once events with their exact parameters', () async {
+  test(
+    'records the five base and first events with exact parameters',
+    () async {
+      await FirebaseAnalyticsMonitoring.recordLaunch(
+        originId: 'origin-1',
+        roleType: 'preset',
+      );
+      await FirebaseAnalyticsMonitoring.recordLaunchSuccess(
+        originId: 'origin-2',
+        roleType: 'custom',
+        worldId: 'world-2',
+      );
+      await FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-3',
+        locationId: 'location-3',
+      );
+      await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+      await FirebaseAnalyticsMonitoring.recordPurchase(
+        provider: 'google',
+        productId: 'worldo_gems_500',
+      );
+
+      expect(client.events, <_RecordedEvent>[
+        const _RecordedEvent('launch', <String, Object>{
+          'origin_id': 'origin-1',
+          'role_type': 'preset',
+          'device_id': 'test-device-id',
+        }),
+        const _RecordedEvent('launch_first', <String, Object>{
+          'origin_id': 'origin-1',
+          'role_type': 'preset',
+          'device_id': 'test-device-id',
+        }),
+        const _RecordedEvent('launch_success', <String, Object>{
+          'origin_id': 'origin-2',
+          'role_type': 'custom',
+          'world_id': 'world-2',
+          'device_id': 'test-device-id',
+        }),
+        const _RecordedEvent('launch_success_first', <String, Object>{
+          'origin_id': 'origin-2',
+          'role_type': 'custom',
+          'world_id': 'world-2',
+          'device_id': 'test-device-id',
+        }),
+        const _RecordedEvent('message_sent', <String, Object>{
+          'world_id': 'world-3',
+          'location_id': 'location-3',
+          'device_id': 'test-device-id',
+        }),
+        const _RecordedEvent('message_sent_first', <String, Object>{
+          'world_id': 'world-3',
+          'location_id': 'location-3',
+          'device_id': 'test-device-id',
+        }),
+        const _RecordedEvent('login', <String, Object>{
+          'method': 'google',
+          'device_id': 'test-device-id',
+        }),
+        const _RecordedEvent('login_first', <String, Object>{
+          'method': 'google',
+          'device_id': 'test-device-id',
+        }),
+        const _RecordedEvent('purchase', <String, Object>{
+          'provider': 'google',
+          'product_id': 'worldo_gems_500',
+          'device_id': 'test-device-id',
+        }),
+        const _RecordedEvent('purchase_first', <String, Object>{
+          'provider': 'google',
+          'product_id': 'worldo_gems_500',
+          'device_id': 'test-device-id',
+        }),
+      ]);
+    },
+  );
+
+  test('base event repeats while first event skips later triggers', () async {
     await FirebaseAnalyticsMonitoring.recordLaunch(
       originId: 'origin-1',
       roleType: 'preset',
     );
-    await FirebaseAnalyticsMonitoring.recordLaunchSuccess(
+    await FirebaseAnalyticsMonitoring.recordLaunch(
       originId: 'origin-2',
       roleType: 'custom',
-      worldId: 'world-2',
-    );
-    await FirebaseAnalyticsMonitoring.recordMessageSent(
-      worldId: 'world-3',
-      locationId: 'location-3',
-    );
-    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
-    await FirebaseAnalyticsMonitoring.recordPurchase(
-      provider: 'google',
-      productId: 'worldo_gems_500',
     );
 
     expect(client.events, <_RecordedEvent>[
@@ -48,66 +123,100 @@ void main() {
         'role_type': 'preset',
         'device_id': 'test-device-id',
       }),
-      const _RecordedEvent('launch_success', <String, Object>{
+      const _RecordedEvent('launch_first', <String, Object>{
+        'origin_id': 'origin-1',
+        'role_type': 'preset',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('launch', <String, Object>{
         'origin_id': 'origin-2',
         'role_type': 'custom',
-        'world_id': 'world-2',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('message_sent', <String, Object>{
-        'world_id': 'world-3',
-        'location_id': 'location-3',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('login', <String, Object>{
-        'method': 'google',
-        'device_id': 'test-device-id',
-      }),
-      const _RecordedEvent('purchase', <String, Object>{
-        'provider': 'google',
-        'product_id': 'worldo_gems_500',
         'device_id': 'test-device-id',
       }),
     ]);
   });
 
-  test('once events skip later triggers after the first success', () async {
-    await FirebaseAnalyticsMonitoring.recordLaunch(
-      originId: 'origin-1',
-      roleType: 'preset',
-    );
-    await FirebaseAnalyticsMonitoring.recordLaunch(
-      originId: 'origin-2',
-      roleType: 'custom',
-    );
+  test(
+    'concurrent triggers keep both base events and share one first',
+    () async {
+      final first = FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-1',
+        locationId: 'location-1',
+      );
+      final second = FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-2',
+        locationId: 'location-2',
+      );
+      await Future.wait<void>(<Future<void>>[first, second]);
 
-    expect(client.events, <_RecordedEvent>[
-      const _RecordedEvent('launch', <String, Object>{
-        'origin_id': 'origin-1',
-        'role_type': 'preset',
-        'device_id': 'test-device-id',
-      }),
+      expect(
+        client.events.where((event) => event.name == 'message_sent'),
+        hasLength(2),
+      );
+      expect(
+        client.events.where((event) => event.name == 'message_sent_first'),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'records message_sent threshold events at ten and twenty only once',
+    () async {
+      for (var count = 1; count <= 21; count += 1) {
+        await FirebaseAnalyticsMonitoring.recordMessageSent(
+          worldId: 'world-$count',
+          locationId: 'location-$count',
+        );
+      }
+
+      expect(
+        client.events.where(
+          (event) =>
+              event.name == 'message_sent_10_first' ||
+              event.name == 'message_sent_20_first',
+        ),
+        <_RecordedEvent>[
+          const _RecordedEvent('message_sent_10_first', <String, Object>{
+            'world_id': 'world-10',
+            'location_id': 'location-10',
+            'device_id': 'test-device-id',
+          }),
+          const _RecordedEvent('message_sent_20_first', <String, Object>{
+            'world_id': 'world-20',
+            'location_id': 'location-20',
+            'device_id': 'test-device-id',
+          }),
+        ],
+      );
+    },
+  );
+
+  test('concurrent sends serialize the persisted threshold count', () async {
+    messageSentCount = 8;
+
+    await Future.wait<void>(<Future<void>>[
+      FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-9',
+        locationId: 'location-9',
+      ),
+      FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-10',
+        locationId: 'location-10',
+      ),
     ]);
-  });
 
-  test('concurrent once-event triggers share one recording', () async {
-    final releaseLog = Completer<void>();
-    client.beforeLog = () => releaseLog.future;
-
-    final first = FirebaseAnalyticsMonitoring.recordMessageSent(
-      worldId: 'world-1',
-      locationId: 'location-1',
+    expect(messageSentCount, 10);
+    expect(
+      client.events.where((event) => event.name == 'message_sent_10_first'),
+      <_RecordedEvent>[
+        const _RecordedEvent('message_sent_10_first', <String, Object>{
+          'world_id': 'world-10',
+          'location_id': 'location-10',
+          'device_id': 'test-device-id',
+        }),
+      ],
     );
-    final second = FirebaseAnalyticsMonitoring.recordMessageSent(
-      worldId: 'world-2',
-      locationId: 'location-2',
-    );
-    await Future<void>.delayed(Duration.zero);
-
-    expect(client.attempts, 1);
-    releaseLog.complete();
-    await Future.wait<void>(<Future<void>>[first, second]);
-    expect(client.events, hasLength(1));
   });
 
   test('failed logging remains eligible for a later retry', () async {
@@ -117,9 +226,13 @@ void main() {
     client.error = null;
     await FirebaseAnalyticsMonitoring.recordLogin(method: 'apple');
 
-    expect(client.attempts, 2);
+    expect(client.attempts, 4);
     expect(client.events, <_RecordedEvent>[
       const _RecordedEvent('login', <String, Object>{
+        'method': 'apple',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('login_first', <String, Object>{
         'method': 'apple',
         'device_id': 'test-device-id',
       }),
@@ -137,9 +250,13 @@ void main() {
     shouldFail = false;
     await FirebaseAnalyticsMonitoring.recordLogin(method: 'apple');
 
-    expect(client.attempts, 1);
+    expect(client.attempts, 2);
     expect(client.events, <_RecordedEvent>[
       const _RecordedEvent('login', <String, Object>{
+        'method': 'apple',
+        'device_id': 'recovered-device-id',
+      }),
+      const _RecordedEvent('login_first', <String, Object>{
         'method': 'apple',
         'device_id': 'recovered-device-id',
       }),
@@ -161,16 +278,23 @@ void main() {
     expect(
       preferences.getInt(
         '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
-        'purchase',
+        'purchase_first',
       ),
       1,
+    );
+    expect(
+      preferences.getInt(
+        '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
+        'purchase',
+      ),
+      isNull,
     );
   });
 
   test('persisted integer one skips the event after a new app run', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
-              'message_sent':
+              'message_sent_first':
           1,
     });
     FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
@@ -182,8 +306,78 @@ void main() {
       locationId: 'location-1',
     );
 
-    expect(client.events, isEmpty);
+    expect(client.events, <_RecordedEvent>[
+      const _RecordedEvent('message_sent', <String, Object>{
+        'world_id': 'world-1',
+        'location_id': 'location-1',
+        'device_id': 'test-device-id',
+      }),
+    ]);
   });
+
+  test(
+    'persists message count and threshold once marker across runs',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        SharedPreferencesFirebaseAnalyticsMessageSentCounter.storageKey: 9,
+      });
+      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+        const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
+      );
+      FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
+        const SharedPreferencesFirebaseAnalyticsMessageSentCounter().increment,
+      );
+
+      await FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-10',
+        locationId: 'location-10',
+      );
+
+      var preferences = await SharedPreferences.getInstance();
+      expect(
+        preferences.getInt(
+          SharedPreferencesFirebaseAnalyticsMessageSentCounter.storageKey,
+        ),
+        10,
+      );
+      expect(
+        preferences.getInt(
+          '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
+          'message_sent_10_first',
+        ),
+        1,
+      );
+
+      FirebaseAnalyticsMonitoring.resetForTesting();
+      client = _FakeAnalyticsClient();
+      FirebaseAnalyticsMonitoring.setClientForTesting(client);
+      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+        const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
+      );
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+      FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+        () async => 'test-device-id',
+      );
+
+      await FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-11',
+        locationId: 'location-11',
+      );
+
+      preferences = await SharedPreferences.getInstance();
+      expect(
+        preferences.getInt(
+          SharedPreferencesFirebaseAnalyticsMessageSentCounter.storageKey,
+        ),
+        11,
+      );
+      expect(
+        client.events.where((event) => event.name == 'message_sent_10_first'),
+        isEmpty,
+      );
+    },
+  );
 
   test('records performance completion with its stable dimensions', () async {
     await FirebaseAnalyticsMonitoring.recordPerformanceOperation(
@@ -270,7 +464,7 @@ void main() {
     readiness.complete();
     await recording;
 
-    expect(client.events, hasLength(1));
+    expect(client.events, hasLength(2));
   });
 
   test('Firebase failures stay best-effort', () async {
@@ -281,7 +475,7 @@ void main() {
       roleType: 'preset',
     );
 
-    expect(client.attempts, 1);
+    expect(client.attempts, 2);
   });
 
   test('Firebase readiness failures stay best-effort', () async {
@@ -309,7 +503,6 @@ class _FakeAnalyticsClient implements AppAnalyticsClient {
   final List<_RecordedEvent> events = <_RecordedEvent>[];
   Object? error;
   int attempts = 0;
-  Future<void> Function()? beforeLog;
 
   @override
   Future<void> logEvent({
@@ -317,7 +510,6 @@ class _FakeAnalyticsClient implements AppAnalyticsClient {
     Map<String, Object>? parameters,
   }) async {
     attempts += 1;
-    await beforeLog?.call();
     final failure = error;
     if (failure != null) throw failure;
     events.add(_RecordedEvent(name, parameters ?? const <String, Object>{}));
