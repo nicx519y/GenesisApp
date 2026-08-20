@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../app/config/genesis_image_config.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_avatar_radii.dart';
+import '../tokens/genesis_image_metrics.dart';
 import 'genesis_avatar.dart';
 
 class GenesisCharacterAvatar extends StatelessWidget {

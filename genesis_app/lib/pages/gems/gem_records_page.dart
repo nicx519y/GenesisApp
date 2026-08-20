@@ -7,8 +7,8 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../network/models/gem_records.dart';
-import '../../ui/components/genesis_control_icons.dart';
-import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_app_bar.dart';
+import '../../ui/components/genesis_state_view.dart';
 import '../../ui/components/genesis_tab_bar.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 
@@ -178,7 +178,13 @@ class _GemRecordsPageState extends State<GemRecordsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.genesisColors.pageBackground,
-      appBar: const _GemRecordsAppBar(),
+      appBar: const GenesisAppBar(
+        title: 'Gem Records',
+        variant: GenesisAppBarVariant.leadingTitle,
+        height: 46,
+        leadingWidth: 54,
+        titleSpacing: 12,
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -203,11 +209,15 @@ class _GemRecordsPageState extends State<GemRecordsPage>
 
   Widget _buildBody(int index) {
     final state = _tabStates[index];
-    if (state.isInitialLoading) return const _GemRecordsLoading();
+    if (state.isInitialLoading) {
+      return GenesisStateView.loading(
+        progressColor: context.genesisGemColors.accent,
+      );
+    }
     if (state.error != null && state.records.isEmpty) {
-      return _GemRecordsMessage(
-        title: 'Unable to load records.',
-        actionLabel: 'Retry',
+      return GenesisStateView.error(
+        message: 'Unable to load records.',
+        horizontalPadding: 32,
         onAction: () => unawaited(_loadFirstPage(index: index)),
       );
     }
@@ -217,7 +227,18 @@ class _GemRecordsPageState extends State<GemRecordsPage>
         onRefresh: () => _loadFirstPage(index: index, refreshing: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [SizedBox(height: 180), _GemRecordsEmpty()],
+          children: [
+            const SizedBox(height: 180),
+            GenesisStateView.empty(
+              message: 'No gem records yet.',
+              textStyle: TextStyle(
+                fontSize: 12,
+                height: 18 / 12,
+                fontWeight: FontWeight.w400,
+                color: context.genesisColors.textPlaceholder,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -236,52 +257,18 @@ class _GemRecordsPageState extends State<GemRecordsPage>
         ),
         itemBuilder: (context, itemIndex) {
           if (itemIndex >= state.records.length) {
-            return const _GemRecordsMoreLoading();
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Center(
+                child: GenesisLoadingIndicator(
+                  variant: GenesisLoadingIndicatorVariant.loadMore,
+                  color: context.genesisGemColors.accent,
+                ),
+              ),
+            );
           }
           return _GemRecordTile(record: state.records[itemIndex]);
         },
-      ),
-    );
-  }
-}
-
-class _GemRecordsAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _GemRecordsAppBar();
-
-  static const double _height = 46;
-
-  @override
-  Size get preferredSize => const Size.fromHeight(_height);
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.genesisColors;
-    return AppBar(
-      automaticallyImplyLeading: false,
-      toolbarHeight: _height,
-      backgroundColor: colors.surface,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      centerTitle: false,
-      leadingWidth: 54,
-      titleSpacing: 12,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 20),
-        child: Center(
-          child: GenesisBackButton(
-            foregroundColor: colors.navigationSelected,
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-        ),
-      ),
-      title: Text(
-        'Gem Records',
-        style: TextStyle(
-          fontSize: 17,
-          height: 1,
-          fontWeight: FontWeight.w800,
-          color: colors.textPrimary,
-        ),
       ),
     );
   }
@@ -483,107 +470,6 @@ class _GemRecordDetail {
 
   final String text;
   final String? copyValue;
-}
-
-class _GemRecordsLoading extends StatelessWidget {
-  const _GemRecordsLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.5,
-          color: context.genesisGemColors.accent,
-        ),
-      ),
-    );
-  }
-}
-
-class _GemRecordsMoreLoading extends StatelessWidget {
-  const _GemRecordsMoreLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Center(
-        child: SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: context.genesisGemColors.accent,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GemRecordsEmpty extends StatelessWidget {
-  const _GemRecordsEmpty();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'No gem records yet.',
-        style: TextStyle(
-          fontSize: 12,
-          height: 18 / 12,
-          fontWeight: FontWeight.w400,
-          color: context.genesisColors.textPlaceholder,
-        ),
-      ),
-    );
-  }
-}
-
-class _GemRecordsMessage extends StatelessWidget {
-  const _GemRecordsMessage({
-    required this.title,
-    required this.actionLabel,
-    required this.onAction,
-  });
-
-  final String title;
-  final String actionLabel;
-  final VoidCallback onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 20 / 14,
-                fontWeight: FontWeight.w600,
-                color: context.genesisColors.textBody,
-              ),
-            ),
-            const SizedBox(height: 12),
-            GenesisButton(
-              label: actionLabel,
-              onPressed: onAction,
-              size: GenesisButtonSize.compact,
-              fullWidth: false,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 Future<void> _copyGemRecordText(BuildContext context, String text) async {

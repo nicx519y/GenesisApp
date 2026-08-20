@@ -3,6 +3,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/components/genesis_skeleton.dart';
 
 enum _GenesisListSkeletonType { world, popularOrigin, originGrid }
 
@@ -342,107 +343,5 @@ class _SkeletonLineRow extends StatelessWidget {
   }
 }
 
-class _SkeletonShimmer extends StatefulWidget {
-  const _SkeletonShimmer({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_SkeletonShimmer> createState() => _SkeletonShimmerState();
-}
-
-class _SkeletonShimmerState extends State<_SkeletonShimmer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _SkeletonAnimation(animation: _controller, child: widget.child);
-  }
-}
-
-class _SkeletonAnimation extends InheritedWidget {
-  const _SkeletonAnimation({required this.animation, required super.child});
-
-  final Animation<double> animation;
-
-  static Animation<double>? maybeOf(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<_SkeletonAnimation>()
-        ?.animation;
-  }
-
-  @override
-  bool updateShouldNotify(covariant _SkeletonAnimation oldWidget) {
-    return animation != oldWidget.animation;
-  }
-}
-
-class _SkeletonBone extends StatelessWidget {
-  const _SkeletonBone({
-    super.key,
-    this.width,
-    this.widthFactor,
-    this.height,
-    this.borderRadius = 4,
-  }) : assert(width == null || widthFactor == null);
-
-  final double? width;
-  final double? widthFactor;
-  final double? height;
-  final double borderRadius;
-
-  @override
-  Widget build(BuildContext context) {
-    final animation = _SkeletonAnimation.maybeOf(context);
-    final disableAnimations = MediaQuery.disableAnimationsOf(context);
-    Widget child = SizedBox(
-      width: width,
-      height: height,
-      child: animation == null || disableAnimations
-          ? _buildDecoratedBox(context, 0)
-          : AnimatedBuilder(
-              animation: animation,
-              builder: (context, child) =>
-                  _buildDecoratedBox(context, animation.value),
-            ),
-    );
-
-    if (widthFactor case final factor?) {
-      child = FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: factor,
-        child: child,
-      );
-    }
-    return child;
-  }
-
-  Widget _buildDecoratedBox(BuildContext context, double animationValue) {
-    final offset = -1.4 + (animationValue * 2.8);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        gradient: LinearGradient(
-          begin: Alignment(offset - 0.8, 0),
-          end: Alignment(offset + 0.8, 0),
-          colors: [
-            context.genesisColors.skeletonBase,
-            context.genesisColors.skeletonHighlight,
-            context.genesisColors.skeletonBase,
-          ],
-          stops: const [0.25, 0.5, 0.75],
-        ),
-      ),
-    );
-  }
-}
+typedef _SkeletonShimmer = GenesisShimmer;
+typedef _SkeletonBone = GenesisSkeletonBone;

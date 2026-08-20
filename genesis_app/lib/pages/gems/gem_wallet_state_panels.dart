@@ -70,61 +70,6 @@ class _TaskActionButton extends StatelessWidget {
   }
 }
 
-class _GemWalletLoading extends StatelessWidget {
-  const _GemWalletLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.5,
-          color: context.genesisGemColors.accent,
-        ),
-      ),
-    );
-  }
-}
-
-class _GemWalletError extends StatelessWidget {
-  const _GemWalletError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Unable to load gems.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 20 / 14,
-                fontWeight: FontWeight.w600,
-                color: context.genesisColors.textBody,
-              ),
-            ),
-            const SizedBox(height: 12),
-            GenesisButton(
-              label: 'Retry',
-              onPressed: onRetry,
-              size: GenesisButtonSize.compact,
-              fullWidth: false,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _GemSectionStatePanel extends StatelessWidget {
   const _GemSectionStatePanel({
     required this.isLoading,
@@ -144,13 +89,9 @@ class _GemSectionStatePanel extends StatelessWidget {
       height: 96,
       child: Center(
         child: isLoading || !hasError
-            ? SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: context.genesisGemColors.accent,
-                ),
+            ? GenesisLoadingIndicator(
+                variant: GenesisLoadingIndicatorVariant.section,
+                color: context.genesisGemColors.accent,
               )
             : Column(
                 mainAxisSize: MainAxisSize.min,

@@ -84,9 +84,11 @@ class WorldTopOverlayBar extends StatelessWidget {
                       fontSize: 17,
                       height: 1.1,
                       fontWeight: FontWeight.w800,
-                      shadows: const [
+                      shadows: [
                         Shadow(
-                          color: Color(0x99000000),
+                          color: context.genesisColors.scrim.withValues(
+                            alpha: 0.6,
+                          ),
                           blurRadius: 6,
                           offset: Offset(0, 1),
                         ),
@@ -108,9 +110,11 @@ class WorldTopOverlayBar extends StatelessWidget {
                           fontSize: 9.5,
                           height: 1.3,
                           fontWeight: FontWeight.w500,
-                          shadows: const [
+                          shadows: [
                             Shadow(
-                              color: Color(0xB3000000),
+                              color: context.genesisColors.scrim.withValues(
+                                alpha: 0.7,
+                              ),
                               blurRadius: 4,
                               offset: Offset(0, 1),
                             ),

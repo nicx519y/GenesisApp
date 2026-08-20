@@ -9,6 +9,7 @@ import 'genesis_navigator.dart';
 import 'telemetry/genesis_telemetry.dart';
 import 'version/force_upgrade_gate.dart';
 import '../routers/app_router.dart';
+import '../network/genesis_http_cache_manager.dart';
 import '../ui/genesis_ui.dart';
 import 'bootstrap/app_services_scope.dart';
 import 'bootstrap/service_registry.dart';
@@ -21,6 +22,9 @@ class GenesisApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    GenesisStaticNetworkImageProvider.configureDefaultCacheManager(
+      GenesisHttpCacheManager.new,
+    );
     var initialRoutePending = true;
     return AppServicesScope(
       services: services ?? ServiceRegistry.build(),
@@ -56,13 +60,23 @@ class GenesisApp extends StatelessWidget {
               value: GenesisSystemUi.forThemeBrightness(
                 Theme.of(context).brightness,
               ),
-              child: GenesisTelemetryTapRegion(
-                child: GenesisBottomSystemBarBoundary(
-                  child: InternalBuildIndicator(
-                    child: ForceUpgradeGate(
-                      child: DeveloperDebugFloatingButton(
-                        navigatorKey: genesisNavigatorKey,
-                        child: child ?? const SizedBox.shrink(),
+              child: GenesisUiInteractionScope(
+                onButtonInteraction: (interaction) {
+                  GenesisTelemetry.click(
+                    actionId: interaction.actionId,
+                    component: interaction.component,
+                    enabled: interaction.enabled,
+                    data: interaction.data,
+                  );
+                },
+                child: GenesisTelemetryTapRegion(
+                  child: GenesisBottomSystemBarBoundary(
+                    child: InternalBuildIndicator(
+                      child: ForceUpgradeGate(
+                        child: DeveloperDebugFloatingButton(
+                          navigatorKey: genesisNavigatorKey,
+                          child: child ?? const SizedBox.shrink(),
+                        ),
                       ),
                     ),
                   ),

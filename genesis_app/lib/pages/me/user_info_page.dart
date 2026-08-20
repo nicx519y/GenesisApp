@@ -16,6 +16,7 @@ import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_skeleton.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
@@ -703,116 +704,8 @@ class _UserInfoCollectionSkeletonItem extends StatelessWidget {
   }
 }
 
-class _UserInfoSkeletonShimmer extends StatefulWidget {
-  const _UserInfoSkeletonShimmer({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_UserInfoSkeletonShimmer> createState() =>
-      _UserInfoSkeletonShimmerState();
-}
-
-class _UserInfoSkeletonShimmerState extends State<_UserInfoSkeletonShimmer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _UserInfoSkeletonAnimation(
-      animation: _controller,
-      child: widget.child,
-    );
-  }
-}
-
-class _UserInfoSkeletonAnimation extends InheritedWidget {
-  const _UserInfoSkeletonAnimation({
-    required this.animation,
-    required super.child,
-  });
-
-  final Animation<double> animation;
-
-  static Animation<double>? maybeOf(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<_UserInfoSkeletonAnimation>()
-        ?.animation;
-  }
-
-  @override
-  bool updateShouldNotify(covariant _UserInfoSkeletonAnimation oldWidget) {
-    return animation != oldWidget.animation;
-  }
-}
-
-class _UserInfoSkeletonBone extends StatelessWidget {
-  const _UserInfoSkeletonBone({
-    this.width,
-    this.widthFactor,
-    this.height,
-    this.borderRadius = 4,
-  }) : assert(width == null || widthFactor == null);
-
-  final double? width;
-  final double? widthFactor;
-  final double? height;
-  final double borderRadius;
-
-  @override
-  Widget build(BuildContext context) {
-    final animation = _UserInfoSkeletonAnimation.maybeOf(context);
-    final disableAnimations = MediaQuery.disableAnimationsOf(context);
-    Widget child = SizedBox(
-      width: width,
-      height: height,
-      child: animation == null || disableAnimations
-          ? _decoratedBox(context, 0)
-          : AnimatedBuilder(
-              animation: animation,
-              builder: (context, child) =>
-                  _decoratedBox(context, animation.value),
-            ),
-    );
-
-    if (widthFactor case final factor?) {
-      child = FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: factor,
-        child: child,
-      );
-    }
-    return child;
-  }
-
-  Widget _decoratedBox(BuildContext context, double animationValue) {
-    final offset = -1.4 + (animationValue * 2.8);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        gradient: LinearGradient(
-          begin: Alignment(offset - 0.8, 0),
-          end: Alignment(offset + 0.8, 0),
-          colors: [
-            context.genesisColors.skeletonBase,
-            context.genesisColors.skeletonHighlight,
-            context.genesisColors.skeletonBase,
-          ],
-          stops: const [0.25, 0.5, 0.75],
-        ),
-      ),
-    );
-  }
-}
+typedef _UserInfoSkeletonShimmer = GenesisShimmer;
+typedef _UserInfoSkeletonBone = GenesisSkeletonBone;
 
 String _originSubtitle(OriginSummary item) {
   final oid = deletedAwareIdLabel(item.oid, deleted: item.deleted);

@@ -36,6 +36,52 @@ class GenesisTabBar extends StatelessWidget {
     this.onTap,
   });
 
+  factory GenesisTabBar.scrollable({
+    Key? key,
+    required List<String> labels,
+    TabController? controller,
+    ValueChanged<int>? onTap,
+  }) {
+    return GenesisTabBar(
+      key: key,
+      labels: labels,
+      controller: controller,
+      onTap: onTap,
+    );
+  }
+
+  factory GenesisTabBar.expanded({
+    Key? key,
+    required List<String> labels,
+    TabController? controller,
+    ValueChanged<int>? onTap,
+  }) {
+    return GenesisTabBar(
+      key: key,
+      labels: labels,
+      controller: controller,
+      expanded: true,
+      onTap: onTap,
+    );
+  }
+
+  factory GenesisTabBar.compact({
+    Key? key,
+    required List<String> labels,
+    TabController? controller,
+    ValueChanged<int>? onTap,
+  }) {
+    return GenesisTabBar(
+      key: key,
+      labels: labels,
+      controller: controller,
+      verticalPadding: 0,
+      horizontalPadding: 0,
+      tabHeight: 28,
+      onTap: onTap,
+    );
+  }
+
   final List<String> labels;
   final TabController? controller;
   final double verticalPadding;

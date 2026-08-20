@@ -42,6 +42,57 @@ class GenesisSearchField extends StatelessWidget {
     this.textStyle,
   });
 
+  factory GenesisSearchField.launcher({
+    Key? key,
+    GenesisSearchFieldVariant variant = GenesisSearchFieldVariant.standard,
+    String hintText = 'Explore',
+    required VoidCallback onTap,
+    double? height,
+    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
+      horizontal: GenesisSpacing.xl,
+    ),
+  }) {
+    return GenesisSearchField(
+      key: key,
+      variant: variant,
+      hintText: hintText,
+      onTap: onTap,
+      readOnly: true,
+      height: height,
+      padding: padding,
+    );
+  }
+
+  factory GenesisSearchField.editable({
+    Key? key,
+    GenesisSearchFieldVariant variant = GenesisSearchFieldVariant.standard,
+    String hintText = 'Explore',
+    required TextEditingController controller,
+    FocusNode? focusNode,
+    ValueChanged<String>? onChanged,
+    VoidCallback? onClear,
+    TextInputAction textInputAction = TextInputAction.search,
+    bool autofocus = false,
+    double? height,
+    EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
+      horizontal: GenesisSpacing.xl,
+    ),
+  }) {
+    return GenesisSearchField(
+      key: key,
+      variant: variant,
+      hintText: hintText,
+      controller: controller,
+      focusNode: focusNode,
+      onChanged: onChanged,
+      onClear: onClear,
+      textInputAction: textInputAction,
+      autofocus: autofocus,
+      height: height,
+      padding: padding,
+    );
+  }
+
   final GenesisSearchFieldVariant variant;
   final String hintText;
   final VoidCallback? onTap;
@@ -72,7 +123,9 @@ class GenesisSearchField extends StatelessWidget {
     final compact = variant == GenesisSearchFieldVariant.compact;
     final effectiveHeight =
         height ??
-        (compact ? genesisCompactSearchFieldHeight : genesisSearchFieldHeight);
+        (compact
+            ? uiTheme.compactSearchFieldHeight
+            : uiTheme.searchFieldHeight);
     final effectiveBackgroundColor =
         backgroundColor ??
         (compact ? colors.surfaceSubtle : colors.inputBackground);

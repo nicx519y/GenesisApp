@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../app/config/genesis_image_config.dart';
 import 'genesis_static_network_image.dart';
+import '../tokens/genesis_image_metrics.dart';
 import '../tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 

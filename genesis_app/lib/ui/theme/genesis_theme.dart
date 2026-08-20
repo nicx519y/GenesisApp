@@ -13,14 +13,20 @@ import '../tokens/genesis_palette.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_typography.dart';
 import 'genesis_semantic_colors.dart';
+import 'genesis_skin.dart';
 import 'genesis_ui_theme.dart';
 
 abstract final class GenesisTheme {
+  static ThemeData forSkin(GenesisSkin skin) => switch (skin) {
+    GenesisSkin.worldoRedesign => worldoRedesign(),
+  };
+
   static ThemeData light() => _build(
     colors: GenesisSemanticColors.light(),
     brightness: Brightness.light,
     seedColor: GenesisPalette.brandBright,
     uiTheme: GenesisUiTheme.light(),
+    skinTheme: const GenesisSkinTheme.unskinned(),
     featureThemes: <ThemeExtension<dynamic>>[
       GenesisGemColors.light(),
       GenesisChatTheme.light(),
@@ -37,6 +43,7 @@ abstract final class GenesisTheme {
     brightness: Brightness.dark,
     seedColor: GenesisPalette.redesignAccent,
     uiTheme: GenesisUiTheme.worldoRedesign(),
+    skinTheme: const GenesisSkinTheme(skin: GenesisSkin.worldoRedesign),
     featureThemes: <ThemeExtension<dynamic>>[
       GenesisGemColors.worldoRedesign(),
       GenesisChatTheme.worldoRedesign(),
@@ -53,6 +60,7 @@ abstract final class GenesisTheme {
     required Brightness brightness,
     required Color seedColor,
     required GenesisUiTheme uiTheme,
+    required GenesisSkinTheme skinTheme,
     required List<ThemeExtension<dynamic>> featureThemes,
   }) {
     final generatedColorScheme = ColorScheme.fromSeed(
@@ -246,6 +254,7 @@ abstract final class GenesisTheme {
       extensions: <ThemeExtension<dynamic>>[
         colors,
         uiTheme,
+        skinTheme,
         ...featureThemes.cast<dynamic>(),
       ],
     );

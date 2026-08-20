@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../app/config/genesis_image_config.dart';
 import 'genesis_static_network_image.dart';
 import '../text/genesis_text_input_formatters.dart';
 import '../tokens/genesis_avatar_radii.dart';
+import '../tokens/genesis_image_metrics.dart';
 import '../theme/genesis_semantic_colors.dart';
 import '../../utils/genesis_image_resource.dart';
 

@@ -10,7 +10,7 @@ import '../../network/api_exception.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_page_header.dart';
-import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_state_view.dart';
 import '../../ui/components/genesis_tab_bar.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/api_error_message.dart';
@@ -301,23 +301,14 @@ class _FollowUsersPane extends StatelessWidget {
         final items = snapshot.data ?? const <_FollowUserItem>[];
         if (snapshot.connectionState == ConnectionState.waiting &&
             items.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const GenesisStateView.loading();
         }
         if (snapshot.hasError && items.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Load failed'),
-                const SizedBox(height: 8),
-                GenesisButton(
-                  label: 'Retry',
-                  onPressed: onRefresh,
-                  size: GenesisButtonSize.compact,
-                  fullWidth: false,
-                ),
-              ],
-            ),
+          return GenesisStateView.error(
+            message: 'Load failed',
+            compact: true,
+            textStyle: Theme.of(context).textTheme.bodyMedium,
+            onAction: onRefresh,
           );
         }
         if (items.isEmpty) {

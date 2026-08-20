@@ -19,6 +19,22 @@ abstract final class GenesisTypography {
     letterSpacing: -0.36,
   );
 
+  static const TextStyle navigationTitle = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 17,
+    fontWeight: FontWeight.w800,
+    height: 1,
+  );
+
+  static const TextStyle sectionTitle = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 15,
+    fontWeight: FontWeight.w800,
+    height: 1.2,
+  );
+
   static const TextStyle body = TextStyle(
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
@@ -46,6 +62,29 @@ abstract final class GenesisTypography {
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 11,
     height: 1.4,
+  );
+
+  static const TextStyle label = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
+    height: 1.2,
+  );
+
+  static const TextStyle caption = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 10,
+    fontWeight: FontWeight.w500,
+    height: 1.2,
+  );
+
+  static const TextStyle button = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
   );
 
   static TextTheme get textTheme => const TextTheme(

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
@@ -22,6 +23,10 @@ import 'package:genesis_flutter_android/platform/platform_services.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+  });
+
   testWidgets('settings back button reuses the Worldo detail glass control', (
     tester,
   ) async {

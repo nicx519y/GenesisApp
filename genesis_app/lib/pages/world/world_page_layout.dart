@@ -33,9 +33,9 @@ extension _WorldPageLayout on _WorldPageState {
           panelTopOverlap: 8,
           panelTopBandHeight: worldPanelHandleBandHeight,
           panelTopChild: const Center(child: WorldDetailsDragHandle()),
-          panelTopShadow: const <BoxShadow>[
+          panelTopShadow: <BoxShadow>[
             BoxShadow(
-              color: Color(0x99000000),
+              color: context.genesisColors.scrim.withValues(alpha: 0.6),
               blurRadius: 40,
               offset: Offset(0, -14),
             ),

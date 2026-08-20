@@ -298,6 +298,19 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
   final Color scrim;
   final Color shadow;
 
+  // Canonical semantic vocabulary for new components. Existing fields remain
+  // available while pages migrate away from older, overlapping role names.
+  Color get background => pageBackground;
+  Color get raisedSurface => surfaceRaised;
+  Color get subtleSurface => surfaceSubtle;
+  Color get inputSurface => inputBackground;
+  Color get sheetSurface => surfaceSheet;
+  Color get disabledSurface => surfaceDisabled;
+  Color get borderDefault => border;
+  Color get borderFocus => inputBorder;
+  Color get accent => primary;
+  Color get onAccent => onPrimary;
+
   static GenesisSemanticColors of(BuildContext context) {
     return Theme.of(context).extension<GenesisSemanticColors>() ??
         GenesisSemanticColors.light();

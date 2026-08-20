@@ -8,7 +8,7 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../network/models/gem_model.dart';
-import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_state_view.dart';
 import '../../ui/system/genesis_system_ui.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 
@@ -207,18 +207,22 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     final catalog = _catalog;
     if (catalog == null && _loading) {
       return Center(
-        child: SizedBox.square(
-          dimension: 24,
-          child: CircularProgressIndicator(
-            key: ValueKey('gem-model-page-loading'),
-            strokeWidth: 2,
-            color: context.genesisGemColors.accent,
-          ),
+        child: GenesisLoadingIndicator(
+          indicatorKey: const ValueKey('gem-model-page-loading'),
+          color: context.genesisGemColors.accent,
         ),
       );
     }
     if (catalog == null && _error != null) {
-      return _ModelLoadError(onRetry: () => unawaited(_refresh()));
+      return GenesisStateView.error(
+        message: 'Load failed',
+        actionSpacing: 14,
+        textStyle: TextStyle(
+          fontSize: 14,
+          color: context.genesisColors.textSubtle,
+        ),
+        onAction: () => unawaited(_refresh()),
+      );
     }
     if (catalog == null || catalog.groups.isEmpty) {
       return RefreshIndicator(
@@ -686,37 +690,6 @@ class _GemModelSelectionIndicator extends StatelessWidget {
               child: SizedBox.square(dimension: 9),
             )
           : null,
-    );
-  }
-}
-
-class _ModelLoadError extends StatelessWidget {
-  const _ModelLoadError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Load failed',
-            style: TextStyle(
-              fontSize: 14,
-              color: context.genesisColors.textSubtle,
-            ),
-          ),
-          const SizedBox(height: 14),
-          GenesisButton(
-            label: 'Retry',
-            onPressed: onRetry,
-            size: GenesisButtonSize.compact,
-            fullWidth: false,
-          ),
-        ],
-      ),
     );
   }
 }

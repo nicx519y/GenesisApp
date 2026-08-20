@@ -26,7 +26,7 @@ import '../../utils/entity_deleted.dart';
 import '../../utils/image_format_guards.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_page_title.dart';
-import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_state_view.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/text/genesis_text_input_formatters.dart';
 import 'settings_page.dart';
@@ -152,23 +152,14 @@ class _MePageState extends State<MePage> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const GenesisStateView.loading();
         }
         if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Load failed'),
-                const SizedBox(height: 8),
-                GenesisButton(
-                  label: 'Retry',
-                  onPressed: _refresh,
-                  size: GenesisButtonSize.compact,
-                  fullWidth: false,
-                ),
-              ],
-            ),
+          return GenesisStateView.error(
+            message: 'Load failed',
+            compact: true,
+            textStyle: Theme.of(context).textTheme.bodyMedium,
+            onAction: _refresh,
           );
         }
 

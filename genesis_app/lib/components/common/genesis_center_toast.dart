@@ -44,7 +44,9 @@ void showGenesisToastInOverlay(
                   color: context.genesisColors.scrim.withValues(alpha: 0.88),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: context.genesisColors.onPrimary.withValues(
+                      alpha: 0.12,
+                    ),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -66,7 +68,7 @@ void showGenesisToastInOverlay(
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       inherit: false,
-                      color: Colors.white,
+                      color: context.genesisColors.onPrimary,
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       height: 1.35,

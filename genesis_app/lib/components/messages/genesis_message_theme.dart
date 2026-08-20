@@ -12,6 +12,7 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
     required this.statusPositive,
     required this.statusMuted,
     required this.originAccent,
+    required this.conversationPreview,
   });
 
   factory GenesisMessageColors.light() => const GenesisMessageColors(
@@ -21,6 +22,7 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
     statusPositive: Color(0xFF25845C),
     statusMuted: Color(0xFF8A8D93),
     originAccent: Color(0xFF2F4F7A),
+    conversationPreview: Color(0xFF9A949F),
   );
 
   factory GenesisMessageColors.worldoRedesign() => const GenesisMessageColors(
@@ -30,6 +32,7 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
     statusPositive: GenesisPalette.redesignAccentSoft,
     statusMuted: GenesisPalette.redesignWhite45,
     originAccent: GenesisPalette.redesignAccentSoft,
+    conversationPreview: GenesisPalette.redesignFeedTabInactive,
   );
 
   final Color notificationsSurface;
@@ -38,6 +41,7 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
   final Color statusPositive;
   final Color statusMuted;
   final Color originAccent;
+  final Color conversationPreview;
 
   static GenesisMessageColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisMessageColors>() ??
@@ -51,6 +55,7 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
     Color? statusPositive,
     Color? statusMuted,
     Color? originAccent,
+    Color? conversationPreview,
   }) => GenesisMessageColors(
     notificationsSurface: notificationsSurface ?? this.notificationsSurface,
     followersSurface: followersSurface ?? this.followersSurface,
@@ -58,6 +63,7 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
     statusPositive: statusPositive ?? this.statusPositive,
     statusMuted: statusMuted ?? this.statusMuted,
     originAccent: originAccent ?? this.originAccent,
+    conversationPreview: conversationPreview ?? this.conversationPreview,
   );
 
   @override
@@ -81,6 +87,11 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
       statusPositive: Color.lerp(statusPositive, other.statusPositive, t)!,
       statusMuted: Color.lerp(statusMuted, other.statusMuted, t)!,
       originAccent: Color.lerp(originAccent, other.originAccent, t)!,
+      conversationPreview: Color.lerp(
+        conversationPreview,
+        other.conversationPreview,
+        t,
+      )!,
     );
   }
 }

@@ -394,7 +394,18 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: context.genesisColors.pageBackground,
-      appBar: const _BasicsAppBar(),
+      appBar: GenesisAppBar(
+        title: 'Basics',
+        variant: GenesisAppBarVariant.leadingTitle,
+        height: 64,
+        leadingWidth: 56,
+        titleSpacing: 0,
+        backButtonKey: const ValueKey('basics-back-button'),
+        backForegroundColor: context.genesisCreateColors.text,
+        titleStyle: GenesisTypography.navigationTitle.copyWith(
+          color: context.genesisCreateColors.text,
+        ),
+      ),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,
@@ -691,45 +702,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   }
 }
 
-class _BasicsAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _BasicsAppBar();
-
-  @override
-  Size get preferredSize => const Size.fromHeight(64);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      toolbarHeight: preferredSize.height,
-      backgroundColor: context.genesisColors.surface,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      automaticallyImplyLeading: false,
-      titleSpacing: 20,
-      centerTitle: false,
-      title: Row(
-        children: [
-          GenesisBackButton(
-            key: const ValueKey('basics-back-button'),
-            foregroundColor: context.genesisCreateColors.text,
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'Basics',
-            style: TextStyle(
-              color: context.genesisCreateColors.text,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _BasicsTextField extends StatelessWidget {
   const _BasicsTextField({
     required this.label,
@@ -845,17 +817,10 @@ class _BasicsFieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text.rich(
-      TextSpan(
-        text: text,
-        children: [
-          if (requiredIndicator)
-            TextSpan(
-              text: ' *',
-              style: TextStyle(color: context.genesisCreateColors.accent),
-            ),
-        ],
-      ),
+    return GenesisFieldLabel(
+      text: text,
+      requiredIndicator: requiredIndicator,
+      requiredColor: context.genesisCreateColors.accent,
       style: TextStyle(
         color: context.genesisCreateColors.text,
         fontSize: 13,
@@ -1001,7 +966,7 @@ class _TimeProgressOption extends StatelessWidget {
     return Material(
       key: ValueKey('time-progress-option-$label'),
       color: selected
-          ? const Color(0xFFF7F5F2)
+          ? context.genesisCreateColors.selectedOptionSurface
           : context.genesisCreateColors.fieldFill,
       borderRadius: BorderRadius.circular(11),
       child: InkWell(
@@ -1014,7 +979,7 @@ class _TimeProgressOption extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: selected
-                  ? const Color(0xFF131215)
+                  ? context.genesisCreateColors.selectedOptionText
                   : context.genesisCreateColors.text.withValues(alpha: 0.8),
               fontSize: 12,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,

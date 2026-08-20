@@ -23,6 +23,8 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
     required this.selectedFill,
     required this.successText,
     required this.divider,
+    required this.selectedOptionSurface,
+    required this.selectedOptionText,
   });
 
   factory GenesisCreateColors.light() => const GenesisCreateColors(
@@ -43,6 +45,8 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
     selectedFill: Color(0xFFE0EEE8),
     successText: Color(0xFF1C7D56),
     divider: Color(0xFFEAEAEA),
+    selectedOptionSurface: Color(0xFFF7F5F2),
+    selectedOptionText: Color(0xFF131215),
   );
 
   factory GenesisCreateColors.worldoRedesign() => const GenesisCreateColors(
@@ -63,6 +67,8 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
     selectedFill: GenesisPalette.redesignAccent14,
     successText: GenesisPalette.redesignAccentSoft,
     divider: GenesisPalette.redesignWhite07,
+    selectedOptionSurface: GenesisPalette.redesignPaper,
+    selectedOptionText: GenesisPalette.redesignInk,
   );
 
   final Color accent;
@@ -82,6 +88,8 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
   final Color selectedFill;
   final Color successText;
   final Color divider;
+  final Color selectedOptionSurface;
+  final Color selectedOptionText;
 
   static GenesisCreateColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisCreateColors>() ??
@@ -106,6 +114,8 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
     Color? selectedFill,
     Color? successText,
     Color? divider,
+    Color? selectedOptionSurface,
+    Color? selectedOptionText,
   }) => GenesisCreateColors(
     accent: accent ?? this.accent,
     fieldFill: fieldFill ?? this.fieldFill,
@@ -124,6 +134,8 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
     selectedFill: selectedFill ?? this.selectedFill,
     successText: successText ?? this.successText,
     divider: divider ?? this.divider,
+    selectedOptionSurface: selectedOptionSurface ?? this.selectedOptionSurface,
+    selectedOptionText: selectedOptionText ?? this.selectedOptionText,
   );
 
   @override
@@ -158,6 +170,16 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
       selectedFill: Color.lerp(selectedFill, other.selectedFill, t)!,
       successText: Color.lerp(successText, other.successText, t)!,
       divider: Color.lerp(divider, other.divider, t)!,
+      selectedOptionSurface: Color.lerp(
+        selectedOptionSurface,
+        other.selectedOptionSurface,
+        t,
+      )!,
+      selectedOptionText: Color.lerp(
+        selectedOptionText,
+        other.selectedOptionText,
+        t,
+      )!,
     );
   }
 }

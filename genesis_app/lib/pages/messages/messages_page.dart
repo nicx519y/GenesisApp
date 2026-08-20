@@ -15,6 +15,7 @@ import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_unread_badge.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/theme/genesis_skin.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -167,7 +168,7 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     final unreadSummary = widget.unreadSummary;
-    final worldoRedesign = Theme.of(context).brightness == Brightness.dark;
+    final worldoRedesign = context.isWorldoRedesign;
     return Scaffold(
       backgroundColor: context.genesisColors.pageBackground,
       body: Column(
@@ -316,7 +317,7 @@ class _MessageMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final worldoRedesign = Theme.of(context).brightness == Brightness.dark;
+    final worldoRedesign = context.isWorldoRedesign;
     final visibleLabel = displayLabel ?? label;
     if (worldoRedesign) {
       final colors = context.genesisColors;
@@ -478,7 +479,7 @@ class _ConversationList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final worldoRedesign = Theme.of(context).brightness == Brightness.dark;
+    final worldoRedesign = context.isWorldoRedesign;
     return ListView.separated(
       controller: controller,
       physics: const BouncingScrollPhysics(
@@ -540,7 +541,7 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final worldoRedesign = Theme.of(context).brightness == Brightness.dark;
+    final worldoRedesign = context.isWorldoRedesign;
     final avatarSize = worldoRedesign ? 44.0 : _avatarSize;
     final avatarBorderRadius = worldoRedesign ? 14.0 : _avatarBorderRadius;
     final displayPeerName = formatUidForDisplay(
@@ -627,7 +628,7 @@ class _ConversationTile extends StatelessWidget {
                           height: worldoRedesign ? 1.45 : null,
                           fontWeight: FontWeight.w400,
                           color: worldoRedesign
-                              ? const Color(0xFF9A949F)
+                              ? context.genesisMessageColors.conversationPreview
                               : context.genesisColors.textMuted,
                         ),
                       ),

@@ -229,37 +229,27 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.label.isNotEmpty) ...[
-            Text.rich(
-              TextSpan(
-                text: widget.label,
-                children: [
-                  if (widget.requiredIndicator)
-                    TextSpan(
-                      text: ' *',
-                      style: TextStyle(
-                        color: context.genesisCreateColors.accent,
-                      ),
-                    ),
-                ],
-                style: TextStyle(
-                  color: context.genesisCreateColors.text,
-                  fontSize: widget.labelSize,
-                  fontWeight: widget.labelFontWeight,
-                  height: 1.2,
-                ),
+            GenesisFieldLabel(
+              text: widget.label,
+              requiredIndicator: widget.requiredIndicator,
+              requiredColor: context.genesisCreateColors.accent,
+              style: TextStyle(
+                color: context.genesisCreateColors.text,
+                fontSize: widget.labelSize,
+                fontWeight: widget.labelFontWeight,
+                height: 1.2,
               ),
             ),
             // Field internal spacing: label -> input box.
             SizedBox(height: widget.labelInputGap),
           ],
-          Container(
+          GenesisFieldSurface(
             constraints: widget.minimumHeight == null
                 ? null
                 : BoxConstraints(minHeight: widget.minimumHeight!),
-            decoration: BoxDecoration(
-              color: context.genesisCreateColors.fieldFill,
-              borderRadius: BorderRadius.circular(widget.fieldBorderRadius),
-            ),
+            backgroundColor: context.genesisCreateColors.fieldFill,
+            borderRadius: BorderRadius.circular(widget.fieldBorderRadius),
+            showBorder: false,
             padding: widget.fieldPadding,
             alignment: _isSingleLine ? Alignment.center : Alignment.topCenter,
             child: Row(

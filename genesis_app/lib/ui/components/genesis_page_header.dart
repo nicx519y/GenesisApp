@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
-import 'genesis_control_icons.dart';
+import 'genesis_app_bar.dart';
 import 'genesis_page_title.dart';
 import 'genesis_safe_area.dart';
 import 'genesis_search_field.dart';
@@ -92,31 +92,16 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.genesisColors;
-    return AppBar(
-      toolbarHeight: kGenesisTopBarHeight,
-      backgroundColor: colors.surface,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      systemOverlayStyle: systemOverlayStyle,
-      centerTitle: true,
-      leadingWidth: 54,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 20),
-        child: Center(
-          child: GenesisBackButton(
-            foregroundColor: colors.navigationSelected,
-            onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-          ),
-        ),
-      ),
-      title: GestureDetector(
-        key: titleKey,
-        behavior: HitTestBehavior.translucent,
-        onTap: onTitleTap,
-        child: GenesisPageTitle(text: pageName, style: titleStyle),
-      ),
+    return GenesisAppBar(
+      title: pageName,
+      variant: GenesisAppBarVariant.centered,
+      height: kGenesisTopBarHeight,
+      onBack: onBack,
       actions: actions,
+      titleKey: titleKey,
+      onTitleTap: onTitleTap,
+      titleStyle: titleStyle,
+      systemOverlayStyle: systemOverlayStyle,
     );
   }
 }

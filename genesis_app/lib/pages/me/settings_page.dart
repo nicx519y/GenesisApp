@@ -128,7 +128,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
                 child: Column(
                   children: [
-                    _SettingsNavigationRow(
+                    GenesisNavigationRow(
                       label: 'About us',
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -136,19 +136,19 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       ),
                     ),
-                    _SettingsNavigationRow(
+                    GenesisNavigationRow(
                       label: 'Account',
                       onTap: () => _openAccountPage(context),
                     ),
-                    _SettingsNavigationRow(
+                    GenesisNavigationRow(
                       label: 'Blocked users',
                       onTap: () => _openBlockedUsersPage(context),
                     ),
-                    _SettingsNavigationRow(
+                    GenesisNavigationRow(
                       label: 'Feedback',
                       onTap: () => _showFeedbackDialog(context),
                     ),
-                    _SettingsNavigationRow(
+                    GenesisNavigationRow(
                       label: 'Join Discord',
                       onTap: _openDiscord,
                       labelTrailing: SvgPicture.asset(
@@ -232,57 +232,6 @@ class _SettingsHeader extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsNavigationRow extends StatelessWidget {
-  const _SettingsNavigationRow({
-    required this.label,
-    required this.onTap,
-    this.labelTrailing,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-  final Widget? labelTrailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.genesisColors;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.divider)),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 47,
-          child: Row(
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1,
-                  fontWeight: FontWeight.w600,
-                  color: colors.foregroundStrong,
-                ),
-              ),
-              if (labelTrailing != null) ...[
-                const SizedBox(width: 9),
-                labelTrailing!,
-              ],
-              const Spacer(),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 14,
-                color: colors.textTimestamp,
-              ),
-            ],
-          ),
         ),
       ),
     );

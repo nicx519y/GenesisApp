@@ -16,7 +16,6 @@ import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';

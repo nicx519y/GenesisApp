@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../discuss/origin_discuss_preview_list.dart';
 import '../origin/stat_item.dart';
@@ -155,7 +156,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
       key: widget.storageKey,
       controller: widget.controller,
       primary: false,
-      cacheExtent: 900,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
       padding: const EdgeInsets.only(top: 10, bottom: 24),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),

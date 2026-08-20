@@ -62,24 +62,15 @@ class _SearchResultListState extends State<_SearchResultList>
     final state = widget.state;
 
     if (state.isInitialLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const GenesisStateView.loading();
     }
 
     if (state.error != null && state.items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Search failed'),
-            const SizedBox(height: 10),
-            GenesisButton(
-              label: 'Retry',
-              onPressed: widget.onRetry,
-              size: GenesisButtonSize.compact,
-              fullWidth: false,
-            ),
-          ],
-        ),
+      return GenesisStateView.error(
+        message: 'Search failed',
+        actionSpacing: 10,
+        textStyle: Theme.of(context).textTheme.bodyMedium,
+        onAction: widget.onRetry,
       );
     }
 
@@ -101,7 +92,7 @@ class _SearchResultListState extends State<_SearchResultList>
     return ListView.builder(
       controller: _scrollController,
       primary: false,
-      cacheExtent: 900,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
       physics: const BouncingScrollPhysics(
@@ -113,9 +104,8 @@ class _SearchResultListState extends State<_SearchResultList>
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 18),
             child: Center(
-              child: SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+              child: GenesisLoadingIndicator(
+                variant: GenesisLoadingIndicatorVariant.section,
               ),
             ),
           );

@@ -33,6 +33,37 @@ void main() {
           'reason.\n${violations.join('\n')}',
     );
   });
+
+  test('design-system layer does not depend on app, network, or routes', () {
+    final violations = <String>[];
+    final forbiddenImport = RegExp(
+      r'''import\s+['\"][^'\"]*(?:/app/|/network/|/routers/)[^'\"]*['\"]''',
+    );
+    for (final file in Directory(
+      'lib/ui',
+    ).listSync(recursive: true).whereType<File>()) {
+      if (!file.path.endsWith('.dart')) continue;
+      if (forbiddenImport.hasMatch(file.readAsStringSync())) {
+        violations.add(file.path);
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'The design system must remain application agnostic.\n'
+          '${violations.join('\n')}',
+    );
+  });
+
+  test('Worldo skin identity is not inferred from Material brightness', () {
+    final source = File(
+      'lib/pages/messages/messages_page.dart',
+    ).readAsStringSync();
+    expect(source, contains('context.isWorldoRedesign'));
+    expect(source, isNot(contains('brightness == Brightness.dark')));
+  });
 }
 
 final RegExp _physicalColorPattern = RegExp(
@@ -66,6 +97,12 @@ bool _allowsPhysicalColors(String path) {
     'lib/components/gems/gem_purchase_catalog.dart',
     'lib/components/home/popular_origin_list.dart',
     'lib/ui/components/recent_chat_marker.dart',
+
+    // World-map overlays and role setup gradients are rendered content. They
+    // remain feature-owned until the high-risk World/Origin migration.
+    'lib/components/world_map_location_marker.dart',
+    'lib/pages/world/world_page.dart',
+    'lib/pages/origin/origin_world_role_setup.dart',
 
     // Diagnostic affordances keep fixed warning/status colors.
     'lib/components/internal_build_indicator.dart',

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../app/telemetry/genesis_telemetry.dart';
 import '../theme/genesis_semantic_colors.dart';
+import '../theme/genesis_ui_theme.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_spacing.dart';
+import 'genesis_ui_interaction.dart';
 
 enum GenesisButtonVariant { primary, secondary, muted, destructive }
 
@@ -76,9 +77,12 @@ class GenesisButton extends StatelessWidget {
     final effectiveForeground = foregroundColor ?? _defaultForeground(colors);
     final effectiveDisabledForeground =
         disabledForegroundColor ?? _defaultDisabledForeground(colors);
+    final uiTheme = GenesisUiTheme.of(context);
     final effectiveHeight =
         height ??
-        (size == GenesisButtonSize.compact ? compactHeight : regularHeight);
+        (size == GenesisButtonSize.compact
+            ? uiTheme.compactButtonHeight
+            : uiTheme.regularButtonHeight);
     final effectiveTextStyle = TextStyle(
       fontSize: fontSize ?? (size == GenesisButtonSize.compact ? 14.0 : 16.0),
       fontWeight: fontWeight ?? FontWeight.w600,
@@ -107,10 +111,13 @@ class GenesisButton extends StatelessWidget {
     final VoidCallback? effectiveOnPressed = disabled
         ? null
         : () {
-            GenesisTelemetry.click(
-              actionId: 'button.${variant.name}.${_actionSlug(label)}',
-              component: telemetryComponent,
-              enabled: true,
+            GenesisUiInteractionScope.notifyButton(
+              context,
+              GenesisButtonInteraction(
+                actionId: 'button.${variant.name}.${_actionSlug(label)}',
+                component: telemetryComponent,
+                enabled: true,
+              ),
             );
             onPressed!();
           };
@@ -159,10 +166,13 @@ class GenesisButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: disabled && onDisabledPressed != null
           ? () {
-              GenesisTelemetry.click(
-                actionId: 'button.${variant.name}.${_actionSlug(label)}',
-                component: telemetryComponent,
-                enabled: false,
+              GenesisUiInteractionScope.notifyButton(
+                context,
+                GenesisButtonInteraction(
+                  actionId: 'button.${variant.name}.${_actionSlug(label)}',
+                  component: telemetryComponent,
+                  enabled: false,
+                ),
               );
               onDisabledPressed!();
             }

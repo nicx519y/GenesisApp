@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../app/telemetry/genesis_telemetry.dart';
 import 'genesis_safe_area.dart';
 import 'genesis_unread_badge.dart';
+import 'genesis_ui_interaction.dart';
 import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
 import '../tokens/genesis_typography.dart';
@@ -123,14 +123,17 @@ class GenesisBottomNavigationTile extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: item.enabled
             ? () {
-                GenesisTelemetry.click(
-                  actionId: 'bottom_tab.${_actionSlug(item.label)}',
-                  component: 'GenesisBottomNavigationTile',
-                  enabled: true,
-                  data: <String, Object?>{
-                    'label': item.label,
-                    'selected': selected,
-                  },
+                GenesisUiInteractionScope.notify(
+                  context,
+                  GenesisUiInteraction(
+                    actionId: 'bottom_tab.${_actionSlug(item.label)}',
+                    component: 'GenesisBottomNavigationTile',
+                    enabled: true,
+                    data: <String, Object?>{
+                      'label': item.label,
+                      'selected': selected,
+                    },
+                  ),
                 );
                 onTap();
               }

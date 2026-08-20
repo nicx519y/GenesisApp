@@ -24,7 +24,7 @@ import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_control_icons.dart';
-import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_state_view.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 
 part 'gem_wallet_data_actions.dart';
@@ -245,10 +245,16 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   Widget _buildBody(ValueListenable<GemWalletState> walletStateListenable) {
     if (!_hasPageData && (_productsLoading || _tasksLoading)) {
-      return const _GemWalletLoading();
+      return GenesisStateView.loading(
+        progressColor: context.genesisGemColors.accent,
+      );
     }
     if (!_hasPageData && _productsError != null && _tasksError != null) {
-      return _GemWalletError(onRetry: () => unawaited(_refreshAll()));
+      return GenesisStateView.error(
+        message: 'Unable to load gems.',
+        horizontalPadding: 32,
+        onAction: () => unawaited(_refreshAll()),
+      );
     }
     return RefreshIndicator(
       color: context.genesisGemColors.accent,
