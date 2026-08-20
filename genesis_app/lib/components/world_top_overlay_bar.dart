@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_fixed_underline_indicator.dart';
+import '../ui/components/genesis_control_icons.dart';
 import '../ui/components/genesis_search_field.dart';
 import '../ui/components/genesis_tab_bar.dart';
 import '../ui/theme/genesis_semantic_colors.dart';
@@ -61,15 +62,9 @@ class WorldTopOverlayBar extends StatelessWidget {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WorldoTopGlassButton(
+          GenesisBackButton(
             key: const ValueKey<String>('worldo-title-back-button'),
-            width: 34,
-            onTap: onBack ?? () => Navigator.of(context).maybePop(),
-            child: Icon(
-              Icons.arrow_back_ios_new,
-              size: 14,
-              color: colors.foregroundStrong,
-            ),
+            onPressed: onBack ?? () => Navigator.of(context).maybePop(),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -147,22 +142,8 @@ class WorldTopOverlayBar extends StatelessWidget {
     }
     return Row(
       children: [
-        Container(
-          width: _worldTopOverlayHeight,
-          height: _worldTopOverlayHeight,
-          decoration: BoxDecoration(
-            color: colors.surface.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: IconButton(
-            iconSize: 18,
-            onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-            icon: Icon(
-              Icons.arrow_back_ios_new,
-              color: colors.foregroundStrong,
-            ),
-            padding: EdgeInsets.zero,
-          ),
+        GenesisBackButton(
+          onPressed: onBack ?? () => Navigator.of(context).maybePop(),
         ),
         SizedBox(width: 10),
         Expanded(
@@ -249,13 +230,11 @@ class _WorldoTopGlassButton extends StatelessWidget {
     required this.child,
     required this.onTap,
     this.horizontalPadding = 0,
-    this.width,
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final double horizontalPadding;
-  final double? width;
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +247,6 @@ class _WorldoTopGlassButton extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             child: SizedBox(
-              width: width,
               height: 34,
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),

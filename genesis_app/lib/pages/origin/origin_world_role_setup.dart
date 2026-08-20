@@ -571,16 +571,14 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                           behavior: HitTestBehavior.opaque,
                           onTap: _toggleDetails,
                           child: Center(
-                            child: Icon(
-                              _showDetails
-                                  ? Icons.keyboard_arrow_up_rounded
-                                  : Icons.keyboard_arrow_down_rounded,
+                            child: GenesisChevronDownIcon(
                               key: ValueKey<String>(
                                 _showDetails
                                     ? 'origin-setup-role-arrow-up-$stableId'
                                     : 'origin-setup-role-arrow-down-$stableId',
                               ),
-                              size: 20,
+                              pointUp: _showDetails,
+                              width: 16,
                               color: GenesisPalette.redesignWhite72,
                             ),
                           ),

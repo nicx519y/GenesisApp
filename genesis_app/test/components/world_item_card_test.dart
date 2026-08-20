@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/components/home/world_item_card.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
@@ -56,6 +58,22 @@ void main() {
     expect(find.text('2999-1-1'), findsOneWidget);
     expect(find.text('Tick 3-2 · Day 3, 08:00'), findsOneWidget);
     expect(find.text('The city chooses a new route.'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.text('The city chooses a new route.'))
+          .style
+          ?.height,
+      1.25,
+    );
+    expect(
+      tester
+          .widgetList<SvgPicture>(find.byType(SvgPicture))
+          .any(
+            (svg) =>
+                svg.bytesLoader.toString().contains(homeCharacterStatIconAsset),
+          ),
+      isTrue,
+    );
     expect(
       tester.getTopLeft(find.byIcon(MyFlutterApp.lastProgress)).dy,
       tester.getRect(find.byType(GenesisListImage).first).bottom + 16,

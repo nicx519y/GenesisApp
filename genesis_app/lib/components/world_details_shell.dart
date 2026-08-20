@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../ui/components/genesis_safe_area.dart';
+import '../ui/components/genesis_modal_border.dart';
 import '../ui/theme/genesis_semantic_colors.dart';
 import '../ui/system/genesis_system_ui.dart';
 import 'world_map_interaction_notification.dart';
+
+const double worldDetailsPanelTopBorderOpacity = 0.08;
+const double worldDetailsPanelTopBorderWidth = 1;
 
 @immutable
 class WorldDetailsStatusBarPresentation {
@@ -267,7 +271,9 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
           SliverToBoxAdapter(child: SizedBox(height: mapHeight)),
           DecoratedSliver(
             key: const ValueKey<String>('world-details-content-background'),
-            decoration: BoxDecoration(color: context.genesisColors.surface),
+            decoration: BoxDecoration(
+              color: context.genesisColors.pageBackground,
+            ),
             sliver: SliverMainAxisGroup(
               slivers: [
                 SliverToBoxAdapter(
@@ -329,18 +335,31 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
   }
 
   Widget _buildPanelTopBand(double panelTopOverlap) {
+    final panelTopBorderRadius = BorderRadius.vertical(
+      top: Radius.circular(widget.panelTopRadius),
+    );
     return OverflowBox(
       minHeight: widget.panelTopBandHeight + panelTopOverlap,
       maxHeight: widget.panelTopBandHeight + panelTopOverlap,
       alignment: Alignment.bottomCenter,
       child: _WorldDetailsPanelTopPullGesture(
         onPullUp: widget.onPanelTopPullUp,
-        child: DecoratedBox(
+        child: Container(
+          key: const ValueKey<String>('world-details-panel-top-surface'),
           decoration: BoxDecoration(
-            color: context.genesisColors.surface,
+            color: context.genesisColors.pageBackground,
             boxShadow: widget.panelTopShadow,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(widget.panelTopRadius),
+            borderRadius: panelTopBorderRadius,
+          ),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: panelTopBorderRadius,
+            border: Border(
+              top: BorderSide(
+                color: context.genesisColors.textPrimary.withValues(
+                  alpha: worldDetailsPanelTopBorderOpacity,
+                ),
+                width: worldDetailsPanelTopBorderWidth,
+              ),
             ),
           ),
           child: SizedBox.expand(child: widget.panelTopChild),
@@ -491,6 +510,13 @@ class WorldDetailsShell extends StatelessWidget {
                   color: context.genesisColors.surface,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 ),
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(8),
+                  ),
+                  border: genesisModalBorder(context),
+                ),
+                clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
                     SizedBox(

@@ -19,7 +19,7 @@ class ChatComposer extends StatelessWidget {
     this.onInputTap,
     this.leadingShortcutLabel,
     this.onLeadingShortcutPressed,
-    this.sendIcon = ChatComposerSendIcon.send,
+    this.sendIcon = ChatComposerSendIcon.arrowUp,
   });
 
   final TextEditingController controller;

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/components/genesis_control_icons.dart';
+import '../../ui/components/genesis_modal_border.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 
@@ -28,9 +30,8 @@ class GenesisBottomSheetCloseButton extends StatelessWidget {
           maximumSize: const Size.square(24),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        icon: Icon(
-          Icons.close,
-          size: 24,
+        icon: GenesisCloseIcon(
+          size: 14,
           color: context.genesisColors.textPrimary,
         ),
       ),
@@ -55,9 +56,9 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   static const BorderRadius borderRadius = GenesisRadii.sheet;
 
   static const TextStyle titleStyle = TextStyle(
-    fontSize: 18,
-    height: 24 / 18,
-    fontWeight: FontWeight.w600,
+    fontSize: 17,
+    height: 20 / 17,
+    fontWeight: FontWeight.w800,
   );
 
   final String title;
@@ -74,7 +75,8 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: context.genesisColors.surface,
-      borderRadius: borderRadius,
+      shape: genesisModalShape(context, borderRadius: borderRadius),
+      clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
         maintainBottomViewPadding: maintainBottomViewPadding,

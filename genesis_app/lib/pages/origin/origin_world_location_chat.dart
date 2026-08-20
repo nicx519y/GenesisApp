@@ -105,6 +105,7 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
           sigmaY: style.composerBackdropBlurSigma,
         ),
         child: Container(
+          key: const ValueKey<String>('origin-location-chat-launch-bar'),
           padding: style.composerPadding.copyWith(
             bottom: style.composerPadding.bottom + bottomInset,
           ),
@@ -114,18 +115,20 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
                 : null,
             gradient: style.composerBackgroundGradient,
           ),
-          child: Center(
-            child: SizedBox(
-              width: MediaQuery.sizeOf(context).width * 0.7,
-              child: GenesisPrimaryButton(
-                label: launching ? 'Launching...' : 'Launch to send',
-                onPressed: launching ? null : onLaunch,
-                height: style.inputMinHeight,
-                borderRadius: BorderRadius.circular(
-                  style.systemMessageBorderRadius,
-                ),
-              ),
-            ),
+          child: GenesisPrimaryButton(
+            key: const ValueKey<String>('origin-location-chat-launch-button'),
+            label: 'Launch to send',
+            onPressed: launching ? null : onLaunch,
+            height: 44,
+            borderRadius: BorderRadius.circular(14),
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            isLoading: launching,
+            loadingSize: 22,
+            loadingStrokeWidth: 2.4,
           ),
         ),
       ),

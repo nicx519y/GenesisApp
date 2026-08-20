@@ -96,24 +96,9 @@ class _CreateCharactersAppBar extends StatelessWidget
       leading: Padding(
         padding: const EdgeInsets.only(left: 20),
         child: Center(
-          child: SizedBox.square(
-            dimension: 34,
-            child: IconButton(
-              tooltip: 'Back',
-              padding: EdgeInsets.zero,
-              style: IconButton.styleFrom(
-                backgroundColor: GenesisPalette.redesignWhite07,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(11),
-                ),
-              ),
-              icon: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: 14,
-                color: GenesisPalette.white,
-              ),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
+          child: GenesisBackButton(
+            foregroundColor: GenesisPalette.white,
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
         ),
       ),

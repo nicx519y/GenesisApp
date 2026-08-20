@@ -205,7 +205,7 @@ void main() {
     expect(tags, contains("label: 'Status'"));
     expect(tags, isNot(contains("label: 'Cast'")));
     expect(tags, isNot(contains("label: 'Map'")));
-    expect(bottomTags, contains('context.genesisColors.surface'));
+    expect(bottomTags, contains('context.genesisColors.pageBackground'));
     expect(bottomTags, contains('alignment: Alignment.centerLeft'));
     expect(bottomTags, isNot(contains('alignment: Alignment.center,')));
     expect(bottomTags, contains('physics: const ClampingScrollPhysics()'));

@@ -7,6 +7,8 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
@@ -628,6 +630,7 @@ void main() {
       addTearDown(scrollController.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          theme: GenesisTheme.worldoRedesign(),
           home: Scaffold(
             body: SizedBox(
               height: 180,
@@ -677,6 +680,10 @@ void main() {
       expect(scrollController.offset, greaterThan(320));
       expect(buttonOpacity().opacity, 1);
       expect(tester.getSize(button), const Size.square(36));
+      expect(
+        tester.widget<Material>(button).color,
+        GenesisPalette.redesignWhite10,
+      );
       final buttonIcon = tester.widget<Icon>(
         find.descendant(of: button, matching: find.byType(Icon)),
       );

@@ -261,20 +261,6 @@ class _OriginDetailDraggableSheetState
       commandGeneration: commandGeneration,
       expanded: true,
     );
-    if (!_isExtentCommandCurrent(commandGeneration) || !mounted) return;
-    await _waitForNextFrame();
-    if (!_isExtentCommandCurrent(commandGeneration) || !mounted) return;
-    final scrollController = _sheetScrollController;
-    if (scrollController == null || !scrollController.hasClients) return;
-    final target = scrollController.position.maxScrollExtent;
-    if ((scrollController.offset - target).abs() <= _extentUpdateEpsilon) {
-      return;
-    }
-    await scrollController.animateTo(
-      target,
-      duration: _snapAnimationDuration,
-      curve: Curves.easeOutCubic,
-    );
   }
 
   Future<void> _animateToRequestedExtent({
@@ -938,43 +924,19 @@ class _OriginInfoLaunchAction extends StatelessWidget {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          ExcludeSemantics(
-            child: Container(
-              key: const ValueKey<String>('origin-info-bookmark-icon'),
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: colors.surfaceTag,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.bookmark_border_rounded,
-                size: 20,
-                color: colors.foregroundStrong.withValues(alpha: 0.78),
-              ),
-            ),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: GenesisPrimaryButton(
-              label: 'Enter world',
-              onPressed: launching ? null : onLaunch,
-              height: 44,
-              borderRadius: BorderRadius.circular(14),
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              isLoading: launching,
-              loadingSize: 22,
-              loadingStrokeWidth: 2.4,
-            ),
-          ),
-        ],
+      child: GenesisPrimaryButton(
+        label: 'Enter world',
+        onPressed: launching ? null : onLaunch,
+        height: 44,
+        borderRadius: BorderRadius.circular(14),
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        isLoading: launching,
+        loadingSize: 22,
+        loadingStrokeWidth: 2.4,
       ),
     );
   }
@@ -1382,8 +1344,7 @@ class _OriginInfoHeaderActions extends StatelessWidget {
           _OriginInfoHeaderCircle(
             key: const ValueKey<String>('origin-info-close-button'),
             onTap: onClose,
-            child: Icon(
-              Icons.close_rounded,
+            child: GenesisCloseIcon(
               size: 12,
               color: context.genesisColors.foregroundStrong.withValues(
                 alpha: 0.72,

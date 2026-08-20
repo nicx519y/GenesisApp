@@ -54,9 +54,14 @@ class ChatOtherMessageBubble extends StatelessWidget {
                   SizedBox(
                     width: maxBubbleWidth,
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
+                            key: ValueKey<String>(
+                              'chat-sender-name-${message.localId}',
+                            ),
                             senderName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -70,11 +75,21 @@ class ChatOtherMessageBubble extends StatelessWidget {
                         if (currentTime.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Text(
+                            key: ValueKey<String>(
+                              'chat-sender-time-${message.localId}',
+                            ),
                             currentTime,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.right,
-                            style: style.senderNameTextStyle,
+                            style:
+                                GenesisTypography.withFallback(
+                                  style.senderNameTextStyle,
+                                ).copyWith(
+                                  color: context.genesisColors.textSubtle,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1,
+                                ),
                           ),
                         ],
                       ],

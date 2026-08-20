@@ -1,7 +1,7 @@
 const double originWorldMapPanelTopGap = 50;
 const double originWorldMapCollapsedHeightOffset = 60;
 const double originWorldMapSheetOverlap = originWorldMapCollapsedHeightOffset;
-const double originWorldMapDefaultExposedChildSize = 0.31;
+const double originWorldMapDefaultExposedChildSize = 0.315;
 
 double originWorldMapHeightFor({
   required double viewportHeight,

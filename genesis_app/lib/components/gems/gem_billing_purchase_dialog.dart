@@ -8,6 +8,7 @@ import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/components/genesis_modal_border.dart';
 
 enum GemBillingPurchaseDialogPhase { processing, success }
 
@@ -126,9 +127,7 @@ class _GemBillingPurchaseSuccessDialog extends StatelessWidget {
         decoration: BoxDecoration(
           color: context.genesisColors.surfaceRaised,
           borderRadius: borderRadius,
-          border: Border.all(
-            color: context.genesisColors.textPrimary.withValues(alpha: 0.14),
-          ),
+          border: genesisModalBorder(context),
           boxShadow: [
             BoxShadow(
               color: context.genesisColors.shadow.withValues(alpha: 0.55),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../icons/custom_icon_assets.dart';
+import 'genesis_control_icons.dart';
 import '../text/genesis_text_input_formatters.dart';
 import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
@@ -81,6 +83,7 @@ class GenesisSearchField extends StatelessWidget {
             ? const BorderRadius.all(Radius.circular(12))
             : uiTheme.searchBorderRadius);
     final effectiveIconAsset = iconAsset ?? (compact ? searchIconAsset : null);
+    final effectiveIconColor = iconColor ?? colors.iconMuted;
     final effectiveHintStyle = GenesisTypography.withFallback(
       hintStyle ??
           GenesisTypography.body.copyWith(
@@ -105,19 +108,26 @@ class GenesisSearchField extends StatelessWidget {
       child: Row(
         children: [
           if (effectiveIconAsset == null)
-            Icon(
-              Icons.search,
-              color: iconColor ?? colors.textDisabled,
-              size: iconSize,
-            )
+            Icon(Icons.search, color: effectiveIconColor, size: iconSize)
           else
-            Image.asset(
-              effectiveIconAsset,
-              width: iconSize,
-              height: iconSize,
-              color: iconColor,
-              excludeFromSemantics: true,
-            ),
+            effectiveIconAsset.toLowerCase().endsWith('.svg')
+                ? SvgPicture.asset(
+                    effectiveIconAsset,
+                    width: iconSize,
+                    height: iconSize,
+                    colorFilter: ColorFilter.mode(
+                      effectiveIconColor,
+                      BlendMode.srcIn,
+                    ),
+                    excludeFromSemantics: true,
+                  )
+                : Image.asset(
+                    effectiveIconAsset,
+                    width: iconSize,
+                    height: iconSize,
+                    color: effectiveIconColor,
+                    excludeFromSemantics: true,
+                  ),
           SizedBox(width: iconGap),
           Expanded(
             child: editable
@@ -164,11 +174,7 @@ class GenesisSearchField extends StatelessWidget {
                 width: effectiveHeight,
                 height: effectiveHeight,
                 child: Center(
-                  child: Icon(
-                    Icons.close,
-                    size: 18,
-                    color: iconColor ?? colors.textDisabled,
-                  ),
+                  child: GenesisCloseIcon(size: 14, color: effectiveIconColor),
                 ),
               ),
             ),

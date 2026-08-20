@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'legacy_world_map/legacy_world_map.dart';
 import 'legacy_world_map/legacy_world_map_config.dart';
 import 'tilemap/tilemap.dart';
+import '../ui/tokens/genesis_palette.dart';
 import 'world_map_contract.dart';
 import 'world_point.dart';
 
@@ -22,7 +23,7 @@ export 'world_map_avatar_logic.dart';
 export 'world_map_contract.dart';
 export 'world_point.dart';
 
-const Color kWorldMapLoadingBackgroundColor = Color(0xFF37362E);
+const Color kWorldMapLoadingBackgroundColor = GenesisPalette.redesignBackground;
 
 @immutable
 class WorldMapTilemapOptions {

@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../app/config/genesis_image_config.dart';
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/tokens/genesis_palette.dart';
 import '../legacy_world_map/legacy_world_map_gesture.dart';
 import '../world_map_location_marker.dart';
 import '../world_map_contract.dart';
@@ -167,7 +168,7 @@ const TilemapVisualStyle tilemapLightVisualStyle = TilemapVisualStyle(
   gridLineColor: Color(0xFFD7D6D2),
 );
 const TilemapVisualStyle tilemapDarkVisualStyle = TilemapVisualStyle(
-  backgroundColor: Color(0xFF37362E),
+  backgroundColor: GenesisPalette.redesignBackground,
   gridLineColor: Color(0xFF2E2D26),
 );
 

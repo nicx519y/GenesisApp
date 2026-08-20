@@ -602,8 +602,6 @@ class _WorldStatusProgressBar extends StatelessWidget {
     required this.valueColor,
   });
 
-  static const double _minimumVisibleFillWidth = 12;
-
   final Key progressKey;
   final double value;
   final String semanticsValue;
@@ -612,29 +610,16 @@ class _WorldStatusProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actualValue = value.clamp(0.0, 1.0);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth;
-        final minimumVisibleValue =
-            availableWidth.isFinite && availableWidth > 0
-            ? (_minimumVisibleFillWidth / availableWidth).clamp(0.0, 1.0)
-            : 0.0;
-        final visualValue = actualValue <= 0
-            ? 0.0
-            : math.max(actualValue, minimumVisibleValue);
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
-            key: progressKey,
-            value: visualValue,
-            semanticsValue: semanticsValue,
-            minHeight: 5,
-            backgroundColor: backgroundColor,
-            valueColor: AlwaysStoppedAnimation<Color>(valueColor),
-          ),
-        );
-      },
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(3),
+      child: LinearProgressIndicator(
+        key: progressKey,
+        value: value.clamp(0.0, 1.0),
+        semanticsValue: semanticsValue,
+        minHeight: 5,
+        backgroundColor: backgroundColor,
+        valueColor: AlwaysStoppedAnimation<Color>(valueColor),
+      ),
     );
   }
 }
@@ -725,15 +710,8 @@ double worldMetricProgressValue(
   final value = worldMetricNumber(
     worldResolvedMetricValue(character['metric_value'], metric['default']),
   );
-  final range = metric['range'];
-  final minimum = range is List && range.isNotEmpty
-      ? worldMetricNumber(range.first) ?? 0
-      : 0;
-  final maximum = range is List && range.length > 1
-      ? worldMetricNumber(range[1]) ?? 100
-      : 100;
-  if (value == null || maximum <= minimum) return 0;
-  return ((value - minimum) / (maximum - minimum)).clamp(0, 1).toDouble();
+  if (value == null) return 0;
+  return (value / 100).clamp(0, 1).toDouble();
 }
 
 String worldMetricProgressText(

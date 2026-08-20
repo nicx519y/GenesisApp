@@ -23,6 +23,7 @@ import '../../network/models/gem_task_action.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_control_icons.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 
@@ -190,24 +191,9 @@ class _GemWalletPageState extends State<GemWalletPage>
           ),
           title: Row(
             children: [
-              GestureDetector(
+              GenesisBackButton(
                 key: const ValueKey('gem-wallet-back'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).maybePop(),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: context.genesisColors.controlMuted,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 14,
-                    color: context.genesisColors.textPrimary,
-                  ),
-                ),
+                onPressed: () => Navigator.of(context).maybePop(),
               ),
               const SizedBox(width: 12),
               Expanded(

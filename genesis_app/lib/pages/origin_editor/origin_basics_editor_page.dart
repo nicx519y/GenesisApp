@@ -709,25 +709,10 @@ class _BasicsAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: false,
       title: Row(
         children: [
-          Material(
-            color: context.genesisCreateColors.fieldFill,
-            borderRadius: BorderRadius.circular(11),
-            child: Tooltip(
-              message: 'Back',
-              child: InkWell(
-                key: const ValueKey('basics-back-button'),
-                borderRadius: BorderRadius.circular(11),
-                onTap: () => Navigator.of(context).maybePop(),
-                child: SizedBox.square(
-                  dimension: 34,
-                  child: Icon(
-                    Icons.arrow_back_ios_new,
-                    color: context.genesisCreateColors.text,
-                    size: 14,
-                  ),
-                ),
-              ),
-            ),
+          GenesisBackButton(
+            key: const ValueKey('basics-back-button'),
+            foregroundColor: context.genesisCreateColors.text,
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
           const SizedBox(width: 12),
           Text(

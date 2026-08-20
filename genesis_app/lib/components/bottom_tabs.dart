@@ -29,7 +29,7 @@ class BottomTabs extends StatelessWidget {
           iconSize: 22,
         ),
         const GenesisBottomNavigationItem(
-          label: '#Worldo',
+          label: 'Worlds',
           iconAsset: bottomNavOriginIconAsset,
           selectedIconAsset: bottomNavOriginPressIconAsset,
           iconSize: 22,

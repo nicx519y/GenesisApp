@@ -78,6 +78,7 @@ class _SettingsPageState extends State<SettingsPage> {
       contentInputKey: const ValueKey<String>('genesis-feedback-content-input'),
       successMessage: 'Feedback submitted',
       failureMessage: 'Feedback failed',
+      borderColor: context.genesisColors.textPrimary.withValues(alpha: 0.14),
       onSubmit: (content) => api.v1.feedback.create(content: content),
     );
   }
@@ -211,22 +212,9 @@ class _SettingsHeader extends StatelessWidget {
         height: 34,
         child: Row(
           children: [
-            Material(
-              color: colors.controlMuted,
-              borderRadius: BorderRadius.circular(11),
-              child: InkWell(
-                key: const ValueKey<String>('settings-back-button'),
-                onTap: onBack,
-                borderRadius: BorderRadius.circular(11),
-                child: SizedBox.square(
-                  dimension: 34,
-                  child: Icon(
-                    Icons.arrow_back_ios_new,
-                    size: 14,
-                    color: colors.foregroundStrong,
-                  ),
-                ),
-              ),
+            GenesisBackButton(
+              key: const ValueKey<String>('settings-back-button'),
+              onPressed: onBack,
             ),
             const SizedBox(width: 12),
             GestureDetector(

@@ -166,13 +166,11 @@ class ChatHeader extends StatelessWidget {
                                 style.headerTitleIconColor,
                           ),
                         )
-                      : IconButton(
+                      : GenesisBackButton(
                           onPressed: onBack,
-                          icon: Icon(
-                            Icons.arrow_back_ios_new,
-                            size: style.headerBackIconSize,
-                            color: style.headerTitleTextStyle.color,
-                          ),
+                          foregroundColor:
+                              style.headerTitleTextStyle.color ??
+                              style.headerTitleIconColor,
                         ),
                 ),
                 Positioned(
@@ -211,10 +209,11 @@ class ChatHeader extends StatelessWidget {
                     alignment: Alignment.centerRight,
                     child: IconButton(
                       onPressed: () {},
-                      icon: Icon(
-                        Icons.more_horiz,
+                      icon: GenesisMoreIcon(
                         size: style.headerMoreIconSize,
-                        color: style.headerTitleTextStyle.color,
+                        color:
+                            style.headerTitleTextStyle.color ??
+                            style.headerTitleIconColor,
                       ),
                     ),
                   )
@@ -292,54 +291,11 @@ class _CompactChatHeaderBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
+    return GenesisBackButton(
       key: const ValueKey<String>('chat-header-compact-back-button'),
-      dimension: 30,
-      child: IconButton(
-        style: IconButton.styleFrom(
-          fixedSize: const Size.square(30),
-          minimumSize: const Size.square(30),
-          padding: EdgeInsets.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          backgroundColor: color.withValues(alpha: 0.13),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        onPressed: onPressed,
-        icon: CustomPaint(
-          size: const Size.square(14),
-          painter: _ChatHeaderBackChevronPainter(color: color),
-        ),
-      ),
+      onPressed: onPressed,
+      foregroundColor: color,
     );
-  }
-}
-
-class _ChatHeaderBackChevronPainter extends CustomPainter {
-  const _ChatHeaderBackChevronPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final scale = size.width / 16;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8 * scale
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final path = Path()
-      ..moveTo(10 * scale, 2.8 * scale)
-      ..lineTo(4.6 * scale, 8 * scale)
-      ..lineTo(10 * scale, 13.2 * scale);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ChatHeaderBackChevronPainter oldDelegate) {
-    return oldDelegate.color != color;
   }
 }
 

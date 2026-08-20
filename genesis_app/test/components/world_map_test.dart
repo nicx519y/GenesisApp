@@ -2576,7 +2576,7 @@ Finder _assetSvgFinder(String path, {bool skipOffstage = true}) {
 
 Finder _mapPlaceholderFinder({bool skipOffstage = true}) {
   return find.byWidgetPredicate(
-    (widget) => widget is ColoredBox && widget.color == const Color(0xFFF3F4F6),
+    (widget) => widget is ColoredBox && widget.color == const Color(0xFF17151B),
     skipOffstage: skipOffstage,
   );
 }

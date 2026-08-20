@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../ui/components/genesis_modal_border.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import 'genesis_content_submission_dialog.dart';
 
 const TextStyle _genesisActionMenuTextStyle = TextStyle(
@@ -146,201 +149,45 @@ class _GenesisMoreActionMenuButtonState
 
 enum _GenesisActionMenuPlacement { anchoredBubble, leftOfTrigger }
 
-class _GenesisActionMenuPosition {
-  const _GenesisActionMenuPosition({
-    required this.left,
-    required this.top,
-    required this.expandsDown,
-    required this.arrowCenterX,
-    required this.width,
-    required this.showArrow,
-  });
-
-  final double left;
-  final double top;
-  final bool expandsDown;
-  final double arrowCenterX;
-  final double width;
-  final bool showArrow;
-}
-
-_GenesisActionMenuPosition _genesisActionMenuPosition({
-  required Offset globalPosition,
-  required Size overlaySize,
-  required int itemCount,
-  required double menuWidth,
-}) {
-  final menuHeight = itemCount * _genesisActionMenuRowHeight;
-  final totalHeight = menuHeight + _genesisActionMenuArrowHeight;
-  final minArrowCenterX = _genesisActionMenuArrowWidth / 2;
-  final maxArrowCenterX = menuWidth - _genesisActionMenuArrowWidth / 2;
-  final desiredLeft = globalPosition.dx - menuWidth / 2;
-  final maxLeft =
-      overlaySize.width - menuWidth - _genesisActionMenuScreenPadding;
-  final maxTop =
-      overlaySize.height - totalHeight - _genesisActionMenuScreenPadding;
-  final expandsDown =
-      globalPosition.dy <=
-      overlaySize.height * _genesisActionMenuDownwardScreenRatio;
-  final desiredTop = expandsDown
-      ? globalPosition.dy +
-            _genesisActionMenuTriggerGap -
-            _genesisActionMenuVerticalLift
-      : globalPosition.dy -
-            _genesisActionMenuTriggerGap -
-            totalHeight -
-            _genesisActionMenuVerticalLift;
-  final left = desiredLeft
-      .clamp(
-        _genesisActionMenuScreenPadding,
-        maxLeft < _genesisActionMenuScreenPadding
-            ? _genesisActionMenuScreenPadding
-            : maxLeft,
-      )
-      .toDouble();
-  final top = desiredTop
-      .clamp(
-        _genesisActionMenuScreenPadding,
-        maxTop < _genesisActionMenuScreenPadding
-            ? _genesisActionMenuScreenPadding
-            : maxTop,
-      )
-      .toDouble();
-  final arrowCenterX = (globalPosition.dx - left)
-      .clamp(minArrowCenterX, maxArrowCenterX)
-      .toDouble();
-
-  return _GenesisActionMenuPosition(
-    left: left,
-    top: top,
-    expandsDown: expandsDown,
-    arrowCenterX: arrowCenterX,
-    width: menuWidth,
-    showArrow: true,
-  );
-}
-
-_GenesisActionMenuPosition _genesisActionMenuLeftPosition({
-  required Rect triggerRect,
-  required Size overlaySize,
-  required int itemCount,
-  required double menuWidth,
-  double? rightInset,
-  double verticalOffset = 0,
-}) {
-  final menuHeight = itemCount * _genesisActionMenuRowHeight;
-  final maxLeft =
-      overlaySize.width - menuWidth - _genesisActionMenuScreenPadding;
-  final desiredLeft = rightInset == null
-      ? triggerRect.left - menuWidth
-      : overlaySize.width - rightInset - menuWidth;
-  final maxTop =
-      overlaySize.height - menuHeight - _genesisActionMenuScreenPadding;
-  // Keep the first action row aligned with the trigger. Additional rows then
-  // expand below it, so a two-item profile menu keeps Block below Report.
-  final desiredTop =
-      triggerRect.center.dy - _genesisActionMenuRowHeight / 2 + verticalOffset;
-  return _GenesisActionMenuPosition(
-    left: desiredLeft
-        .clamp(
-          _genesisActionMenuScreenPadding,
-          maxLeft < _genesisActionMenuScreenPadding
-              ? _genesisActionMenuScreenPadding
-              : maxLeft,
-        )
-        .toDouble(),
-    top: desiredTop
-        .clamp(
-          _genesisActionMenuScreenPadding,
-          maxTop < _genesisActionMenuScreenPadding
-              ? _genesisActionMenuScreenPadding
-              : maxTop,
-        )
-        .toDouble(),
-    expandsDown: true,
-    arrowCenterX: 0,
-    width: menuWidth,
-    showArrow: false,
-  );
-}
-
 class _GenesisActionMenuLayout {
   _GenesisActionMenuLayout({
     required this.appearance,
-    required this.textScaler,
     required this.backgroundColor,
     required this.foregroundColor,
-    required List<GenesisActionMenuItem> items,
-  }) {
-    rowCount = isHorizontal ? 1 : items.length;
-    width = _widthFor(items);
-  }
+  });
 
   final GenesisActionMenuAppearance appearance;
-  final TextScaler textScaler;
   final Color backgroundColor;
   final Color foregroundColor;
-  late final int rowCount;
-  late final double width;
 
   bool get isHorizontal => appearance == GenesisActionMenuAppearance.message;
 
-  TextStyle get defaultTextStyle =>
-      appearance == GenesisActionMenuAppearance.message
-      ? TextStyle(
-          fontSize: 12,
-          height: 1.2,
-          fontWeight: FontWeight.w400,
-          color: foregroundColor,
-        )
-      : _genesisActionMenuTextStyle.copyWith(color: foregroundColor);
+  TextStyle get defaultTextStyle => GenesisTypography.withFallback(
+    appearance == GenesisActionMenuAppearance.message
+        ? TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            fontWeight: FontWeight.w400,
+            color: foregroundColor,
+          )
+        : _genesisActionMenuTextStyle.copyWith(color: foregroundColor),
+  );
+
+  TextStyle itemTextStyle(GenesisActionMenuItem item) =>
+      GenesisTypography.withFallback(item.textStyle ?? defaultTextStyle);
 
   ColorFilter get iconColorFilter =>
       ColorFilter.mode(foregroundColor, BlendMode.srcIn);
-
-  double _widthFor(List<GenesisActionMenuItem> items) {
-    if (isHorizontal) {
-      final total = items.fold<double>(0, (sum, item) => sum + itemWidth(item));
-      return total < _genesisActionMenuMinWidth
-          ? _genesisActionMenuMinWidth
-          : total;
-    }
-    var width = _genesisActionMenuMinWidth;
-    for (final item in items) {
-      final itemWidth = this.itemWidth(item);
-      if (itemWidth > width) width = itemWidth;
-    }
-    return width;
-  }
-
-  double itemWidth(GenesisActionMenuItem item) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: item.label,
-        style: item.textStyle ?? defaultTextStyle,
-      ),
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-      maxLines: 1,
-    )..layout();
-    final hasIcon = item.iconAsset != null || item.iconData != null;
-    final iconWidth = !hasIcon
-        ? 0
-        : _genesisActionMenuIconSize + _genesisActionMenuIconGap;
-    return (_genesisActionMenuHorizontalPadding * 2 + iconWidth + painter.width)
-            .ceilToDouble() +
-        2;
-  }
 }
 
 class _GenesisActionMenuHandle {
   _GenesisActionMenuHandle({
     required OverlayEntry entry,
     required Completer<void> completer,
-    required Rect menuBounds,
+    required GlobalKey menuKey,
   }) : _entry = entry,
        _completer = completer,
-       _menuBounds = menuBounds {
+       _menuKey = menuKey {
     GestureBinding.instance.pointerRouter.addGlobalRoute(_handlePointerEvent);
   }
 
@@ -348,7 +195,7 @@ class _GenesisActionMenuHandle {
 
   final OverlayEntry _entry;
   final Completer<void> _completer;
-  final Rect _menuBounds;
+  final GlobalKey _menuKey;
 
   Future<void> get closed => _completer.future;
 
@@ -370,7 +217,16 @@ class _GenesisActionMenuHandle {
 
   void _handlePointerEvent(PointerEvent event) {
     if (event is! PointerDownEvent) return;
-    if (_menuBounds.contains(event.position)) return;
+    final context = _menuKey.currentContext;
+    final box = context?.findRenderObject();
+    if (box is RenderBox && box.hasSize) {
+      final bounds = box.localToGlobal(Offset.zero) & box.size;
+      if (bounds
+          .inflate(_genesisActionMenuShadowPadding)
+          .contains(event.position)) {
+        return;
+      }
+    }
     close();
   }
 }
@@ -415,63 +271,28 @@ _GenesisActionMenuHandle? _showGenesisActionMenuAtInternal({
     completer.complete();
   }
 
+  final colors = context.genesisColors;
+  final backgroundColor = appearance == GenesisActionMenuAppearance.standard
+      ? Color.alphaBlend(colors.textMuted, colors.pageBackground)
+      : colors.textMuted;
   final layout = _GenesisActionMenuLayout(
     appearance: appearance,
-    textScaler: MediaQuery.textScalerOf(context),
-    backgroundColor: context.genesisColors.textMuted,
-    foregroundColor: context.genesisColors.textInverse,
-    items: items,
+    backgroundColor: backgroundColor,
+    foregroundColor: colors.textInverse,
   );
-  final menuWidth = layout.width;
-  final rowCount = layout.rowCount;
-  final position =
-      placement == _GenesisActionMenuPlacement.leftOfTrigger &&
-          triggerRect != null
-      ? _genesisActionMenuLeftPosition(
-          triggerRect: triggerRect,
-          overlaySize: overlayBox.size,
-          itemCount: rowCount,
-          menuWidth: menuWidth,
-          rightInset: rightInset,
-          verticalOffset: verticalOffset,
-        )
-      : _genesisActionMenuPosition(
-          globalPosition: globalPosition,
-          overlaySize: overlayBox.size,
-          itemCount: rowCount,
-          menuWidth: menuWidth,
-        );
-  final totalMenuHeight =
-      rowCount * _genesisActionMenuRowHeight +
-      (position.showArrow ? _genesisActionMenuArrowHeight : 0);
-  final menuBounds = Rect.fromLTWH(
-    position.left - _genesisActionMenuShadowPadding,
-    position.top - _genesisActionMenuShadowPadding,
-    position.width + _genesisActionMenuShadowPadding * 2,
-    totalMenuHeight + _genesisActionMenuShadowPadding * 2,
-  );
+  final menuKey = GlobalKey();
   entry = OverlayEntry(
     builder: (context) {
-      return Stack(
-        children: [
-          Positioned(
-            left: position.left - _genesisActionMenuShadowPadding,
-            top: position.top - _genesisActionMenuShadowPadding,
-            width: position.width + _genesisActionMenuShadowPadding * 2,
-            child: Padding(
-              padding: const EdgeInsets.all(_genesisActionMenuShadowPadding),
-              child: _GenesisActionBubble(
-                items: items,
-                layout: layout,
-                width: position.width,
-                expandsDown: position.expandsDown,
-                showArrow: position.showArrow,
-                arrowCenterX: position.arrowCenterX,
-                onDismiss: close,
-              ),
-            ),
-          ),
-        ],
+      return _GenesisActionMenuOverlay(
+        items: items,
+        layout: layout,
+        menuKey: menuKey,
+        globalPosition: globalPosition,
+        placement: placement,
+        triggerRect: triggerRect,
+        rightInset: rightInset,
+        verticalOffset: verticalOffset,
+        onDismiss: close,
       );
     },
   );
@@ -479,220 +300,275 @@ _GenesisActionMenuHandle? _showGenesisActionMenuAtInternal({
   final handle = _GenesisActionMenuHandle(
     entry: entry,
     completer: completer,
-    menuBounds: menuBounds,
+    menuKey: menuKey,
   );
   handle.activate();
   return handle;
 }
 
-class _GenesisActionBubble extends StatelessWidget {
-  const _GenesisActionBubble({
+enum _GenesisActionMenuChild { body, arrow }
+
+class _GenesisActionMenuOverlay extends StatelessWidget {
+  const _GenesisActionMenuOverlay({
     required this.items,
     required this.layout,
-    required this.width,
-    required this.expandsDown,
-    required this.showArrow,
-    required this.arrowCenterX,
+    required this.menuKey,
+    required this.globalPosition,
+    required this.placement,
+    required this.triggerRect,
+    required this.rightInset,
+    required this.verticalOffset,
     required this.onDismiss,
   });
 
   final List<GenesisActionMenuItem> items;
   final _GenesisActionMenuLayout layout;
-  final double width;
-  final bool expandsDown;
-  final bool showArrow;
-  final double arrowCenterX;
+  final GlobalKey menuKey;
+  final Offset globalPosition;
+  final _GenesisActionMenuPlacement placement;
+  final Rect? triggerRect;
+  final double? rightInset;
+  final double verticalOffset;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
-    final arrow = _GenesisActionBubbleArrow(
-      width: width,
-      pointsUp: expandsDown,
-      centerX: arrowCenterX,
-      color: layout.backgroundColor,
-    );
-    final body = _GenesisActionBubbleBody(
-      items: items,
-      layout: layout,
-      width: width,
-      onDismiss: onDismiss,
-    );
-    return Material(
-      color: Colors.transparent,
-      child: CustomPaint(
-        painter: _GenesisActionBubbleShadowPainter(
-          itemCount: layout.rowCount,
-          width: width,
-          showArrow: showArrow,
-          expandsDown: expandsDown,
-          arrowCenterX: arrowCenterX,
-          shadowColor: context.genesisColors.shadow.withValues(alpha: 0.14),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: showArrow
-              ? (expandsDown ? [arrow, body] : [body, arrow])
-              : [body],
-        ),
+    final showArrow = placement == _GenesisActionMenuPlacement.anchoredBubble;
+    final expandsDown =
+        showArrow &&
+        globalPosition.dy <=
+            MediaQuery.sizeOf(context).height *
+                _genesisActionMenuDownwardScreenRatio;
+    return CustomMultiChildLayout(
+      delegate: _GenesisActionMenuOverlayDelegate(
+        globalPosition: globalPosition,
+        placement: placement,
+        triggerRect: triggerRect,
+        rightInset: rightInset,
+        verticalOffset: verticalOffset,
+        showArrow: showArrow,
+        expandsDown: expandsDown,
       ),
+      children: [
+        LayoutId(
+          id: _GenesisActionMenuChild.body,
+          child: Material(
+            key: menuKey,
+            color: Colors.transparent,
+            child: _GenesisActionBubbleBody(
+              items: items,
+              layout: layout,
+              shadowColor: context.genesisColors.shadow.withValues(alpha: 0.14),
+              onDismiss: onDismiss,
+            ),
+          ),
+        ),
+        if (showArrow)
+          LayoutId(
+            id: _GenesisActionMenuChild.arrow,
+            child: _GenesisActionBubbleArrow(
+              pointsUp: expandsDown,
+              color: layout.backgroundColor,
+              borderColor: genesisModalBorderColor(context),
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _GenesisActionBubbleShadowPainter extends CustomPainter {
-  const _GenesisActionBubbleShadowPainter({
-    required this.itemCount,
-    required this.width,
+class _GenesisActionMenuOverlayDelegate extends MultiChildLayoutDelegate {
+  _GenesisActionMenuOverlayDelegate({
+    required this.globalPosition,
+    required this.placement,
+    required this.triggerRect,
+    required this.rightInset,
+    required this.verticalOffset,
     required this.showArrow,
     required this.expandsDown,
-    required this.arrowCenterX,
-    required this.shadowColor,
   });
 
-  final int itemCount;
-  final double width;
+  final Offset globalPosition;
+  final _GenesisActionMenuPlacement placement;
+  final Rect? triggerRect;
+  final double? rightInset;
+  final double verticalOffset;
   final bool showArrow;
   final bool expandsDown;
-  final double arrowCenterX;
-  final Color shadowColor;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final path = _genesisActionBubblePath(
-      itemCount: itemCount,
-      width: width,
-      showArrow: showArrow,
-      expandsDown: expandsDown,
-      arrowCenterX: arrowCenterX,
+  void performLayout(Size size) {
+    final maxMenuWidth = math.max(
+      0.0,
+      size.width - _genesisActionMenuScreenPadding * 2,
     );
-    final shadow = BoxShadow(
-      color: shadowColor,
-      blurRadius: 12,
-      offset: Offset(0, 4),
+    final maxMenuHeight = math.max(
+      0.0,
+      size.height -
+          _genesisActionMenuScreenPadding * 2 -
+          (showArrow ? _genesisActionMenuArrowHeight : 0),
     );
-    canvas.save();
-    canvas.translate(shadow.offset.dx, shadow.offset.dy);
-    canvas.drawPath(path, shadow.toPaint());
-    canvas.restore();
+    final bodySize = layoutChild(
+      _GenesisActionMenuChild.body,
+      BoxConstraints(maxWidth: maxMenuWidth, maxHeight: maxMenuHeight),
+    );
+    final arrowSize = showArrow
+        ? layoutChild(
+            _GenesisActionMenuChild.arrow,
+            const BoxConstraints.tightFor(
+              width: _genesisActionMenuArrowWidth,
+              height: _genesisActionMenuArrowHeight,
+            ),
+          )
+        : Size.zero;
+
+    final totalHeight = bodySize.height + arrowSize.height;
+    final maxLeft = math.max(
+      _genesisActionMenuScreenPadding,
+      size.width - bodySize.width - _genesisActionMenuScreenPadding,
+    );
+    final maxTop = math.max(
+      _genesisActionMenuScreenPadding,
+      size.height - totalHeight - _genesisActionMenuScreenPadding,
+    );
+
+    final left = _desiredLeft(
+      size,
+      bodySize.width,
+    ).clamp(_genesisActionMenuScreenPadding, maxLeft).toDouble();
+    final top = _desiredTop(
+      totalHeight,
+    ).clamp(_genesisActionMenuScreenPadding, maxTop).toDouble();
+    final bodyTop = top + (showArrow && expandsDown ? arrowSize.height : 0);
+    positionChild(_GenesisActionMenuChild.body, Offset(left, bodyTop));
+
+    if (showArrow) {
+      final arrowCenterX = globalPosition.dx
+          .clamp(
+            left + arrowSize.width / 2,
+            left + bodySize.width - arrowSize.width / 2,
+          )
+          .toDouble();
+      final arrowTop = expandsDown ? top : top + bodySize.height;
+      positionChild(
+        _GenesisActionMenuChild.arrow,
+        Offset(arrowCenterX - arrowSize.width / 2, arrowTop),
+      );
+    }
+  }
+
+  double _desiredLeft(Size overlaySize, double menuWidth) {
+    if (placement == _GenesisActionMenuPlacement.leftOfTrigger &&
+        triggerRect != null) {
+      return rightInset == null
+          ? triggerRect!.left - menuWidth
+          : overlaySize.width - rightInset! - menuWidth;
+    }
+    return globalPosition.dx - menuWidth / 2;
+  }
+
+  double _desiredTop(double totalHeight) {
+    if (placement == _GenesisActionMenuPlacement.leftOfTrigger &&
+        triggerRect != null) {
+      return triggerRect!.center.dy -
+          _genesisActionMenuRowHeight / 2 +
+          verticalOffset;
+    }
+    return expandsDown
+        ? globalPosition.dy +
+              _genesisActionMenuTriggerGap -
+              _genesisActionMenuVerticalLift
+        : globalPosition.dy -
+              _genesisActionMenuTriggerGap -
+              totalHeight -
+              _genesisActionMenuVerticalLift;
   }
 
   @override
-  bool shouldRepaint(covariant _GenesisActionBubbleShadowPainter oldDelegate) {
-    return oldDelegate.itemCount != itemCount ||
-        oldDelegate.width != width ||
+  bool shouldRelayout(covariant _GenesisActionMenuOverlayDelegate oldDelegate) {
+    return oldDelegate.globalPosition != globalPosition ||
+        oldDelegate.placement != placement ||
+        oldDelegate.triggerRect != triggerRect ||
+        oldDelegate.rightInset != rightInset ||
+        oldDelegate.verticalOffset != verticalOffset ||
         oldDelegate.showArrow != showArrow ||
-        oldDelegate.expandsDown != expandsDown ||
-        oldDelegate.arrowCenterX != arrowCenterX ||
-        oldDelegate.shadowColor != shadowColor;
+        oldDelegate.expandsDown != expandsDown;
   }
-}
-
-Path _genesisActionBubblePath({
-  required int itemCount,
-  required double width,
-  required bool showArrow,
-  required bool expandsDown,
-  required double arrowCenterX,
-}) {
-  final bodyHeight = itemCount * _genesisActionMenuRowHeight;
-  final bodyTop = showArrow && expandsDown
-      ? _genesisActionMenuArrowHeight
-      : 0.0;
-  final bodyRect = Rect.fromLTWH(0, bodyTop, width, bodyHeight);
-  final path = Path()
-    ..addRRect(
-      RRect.fromRectAndRadius(
-        bodyRect,
-        const Radius.circular(_genesisActionMenuBorderRadius),
-      ),
-    );
-  if (!showArrow) return path;
-  if (expandsDown) {
-    path
-      ..moveTo(arrowCenterX, 0)
-      ..lineTo(
-        arrowCenterX + _genesisActionMenuArrowWidth / 2,
-        _genesisActionMenuArrowHeight,
-      )
-      ..lineTo(
-        arrowCenterX - _genesisActionMenuArrowWidth / 2,
-        _genesisActionMenuArrowHeight,
-      )
-      ..close();
-  } else {
-    final arrowTop = bodyHeight;
-    path
-      ..moveTo(arrowCenterX - _genesisActionMenuArrowWidth / 2, arrowTop)
-      ..lineTo(arrowCenterX + _genesisActionMenuArrowWidth / 2, arrowTop)
-      ..lineTo(arrowCenterX, arrowTop + _genesisActionMenuArrowHeight)
-      ..close();
-  }
-  return path;
 }
 
 class _GenesisActionBubbleBody extends StatelessWidget {
   const _GenesisActionBubbleBody({
     required this.items,
     required this.layout,
-    required this.width,
+    required this.shadowColor,
     required this.onDismiss,
   });
 
   final List<GenesisActionMenuItem> items;
   final _GenesisActionMenuLayout layout;
-  final double width;
+  final Color shadowColor;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
+    final content = layout.isHorizontal
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final item in items)
+                _GenesisActionBubbleRow(
+                  item: item,
+                  layout: layout,
+                  onTap: () {
+                    onDismiss();
+                    item.onSelected();
+                  },
+                ),
+            ],
+          )
+        : IntrinsicWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var index = 0; index < items.length; index++) ...[
+                  _GenesisActionBubbleRow(
+                    item: items[index],
+                    layout: layout,
+                    onTap: () {
+                      onDismiss();
+                      items[index].onSelected();
+                    },
+                  ),
+                  if (index != items.length - 1)
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: context.genesisColors.textInverse.withValues(
+                        alpha: 0.2,
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: layout.backgroundColor,
         borderRadius: BorderRadius.circular(_genesisActionMenuBorderRadius),
+        border: genesisModalBorder(context),
+        boxShadow: [
+          BoxShadow(color: shadowColor, blurRadius: 12, offset: Offset(0, 4)),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(_genesisActionMenuBorderRadius),
-        child: layout.isHorizontal
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final item in items)
-                    _GenesisActionBubbleRow(
-                      item: item,
-                      layout: layout,
-                      width: layout.itemWidth(item),
-                      onTap: () {
-                        onDismiss();
-                        item.onSelected();
-                      },
-                    ),
-                ],
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var index = 0; index < items.length; index++) ...[
-                    _GenesisActionBubbleRow(
-                      item: items[index],
-                      layout: layout,
-                      width: width,
-                      onTap: () {
-                        onDismiss();
-                        items[index].onSelected();
-                      },
-                    ),
-                    if (index != items.length - 1)
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: context.genesisColors.textInverse.withValues(
-                          alpha: 0.2,
-                        ),
-                      ),
-                  ],
-                ],
-              ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: _genesisActionMenuMinWidth,
+          ),
+          child: content,
+        ),
       ),
     );
   }
@@ -702,13 +578,11 @@ class _GenesisActionBubbleRow extends StatelessWidget {
   const _GenesisActionBubbleRow({
     required this.item,
     required this.layout,
-    required this.width,
     required this.onTap,
   });
 
   final GenesisActionMenuItem item;
   final _GenesisActionMenuLayout layout;
-  final double width;
   final VoidCallback onTap;
 
   @override
@@ -718,7 +592,6 @@ class _GenesisActionBubbleRow extends StatelessWidget {
       onTap: onTap,
       child: SizedBox(
         height: _genesisActionMenuRowHeight,
-        width: width,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: _genesisActionMenuHorizontalPadding,
@@ -745,7 +618,8 @@ class _GenesisActionBubbleRow extends StatelessWidget {
               Text(
                 item.label,
                 maxLines: 1,
-                style: item.textStyle ?? layout.defaultTextStyle,
+                softWrap: false,
+                style: layout.itemTextStyle(item),
               ),
             ],
           ),
@@ -757,40 +631,26 @@ class _GenesisActionBubbleRow extends StatelessWidget {
 
 class _GenesisActionBubbleArrow extends StatelessWidget {
   const _GenesisActionBubbleArrow({
-    required this.width,
     required this.pointsUp,
-    required this.centerX,
     required this.color,
+    required this.borderColor,
   });
 
-  final double width;
   final bool pointsUp;
-  final double centerX;
   final Color color;
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: _genesisActionMenuArrowHeight,
-      width: width,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: centerX - _genesisActionMenuArrowWidth / 2,
-            top: 0,
-            child: CustomPaint(
-              size: const Size(
-                _genesisActionMenuArrowWidth,
-                _genesisActionMenuArrowHeight,
-              ),
-              painter: _GenesisActionBubbleArrowPainter(
-                pointsUp: pointsUp,
-                color: color,
-              ),
-            ),
-          ),
-        ],
+    return CustomPaint(
+      size: const Size(
+        _genesisActionMenuArrowWidth,
+        _genesisActionMenuArrowHeight,
+      ),
+      painter: _GenesisActionBubbleArrowPainter(
+        pointsUp: pointsUp,
+        color: color,
+        borderColor: borderColor,
       ),
     );
   }
@@ -800,10 +660,12 @@ class _GenesisActionBubbleArrowPainter extends CustomPainter {
   const _GenesisActionBubbleArrowPainter({
     required this.pointsUp,
     required this.color,
+    required this.borderColor,
   });
 
   final bool pointsUp;
   final Color color;
+  final Color borderColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -822,11 +684,32 @@ class _GenesisActionBubbleArrowPainter extends CustomPainter {
         ..close();
     }
     canvas.drawPath(path, Paint()..color = color);
+    final outline = Path();
+    if (pointsUp) {
+      outline
+        ..moveTo(0, size.height)
+        ..lineTo(size.width / 2, 0)
+        ..lineTo(size.width, size.height);
+    } else {
+      outline
+        ..moveTo(0, 0)
+        ..lineTo(size.width / 2, size.height)
+        ..lineTo(size.width, 0);
+    }
+    canvas.drawPath(
+      outline,
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = genesisModalBorderWidth,
+    );
   }
 
   @override
   bool shouldRepaint(covariant _GenesisActionBubbleArrowPainter oldDelegate) {
-    return oldDelegate.pointsUp != pointsUp || oldDelegate.color != color;
+    return oldDelegate.pointsUp != pointsUp ||
+        oldDelegate.color != color ||
+        oldDelegate.borderColor != borderColor;
   }
 }
 

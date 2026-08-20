@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_palette.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -333,6 +334,6 @@ class _MapBackgroundPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(color: Color(0xFFF3F4F6));
+    return const ColoredBox(color: GenesisPalette.redesignBackground);
   }
 }

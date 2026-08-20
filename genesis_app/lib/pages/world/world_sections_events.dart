@@ -417,9 +417,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
                   label: 'Back to top',
                   child: Material(
                     key: const ValueKey<String>('world-events-scroll-to-top'),
-                    color: context.genesisColors.foregroundStrong.withValues(
-                      alpha: 0.72,
-                    ),
+                    color: context.genesisColors.controlMuted,
                     elevation: 2,
                     shadowColor: context.genesisColors.shadow,
                     shape: const CircleBorder(),

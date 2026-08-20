@@ -7,6 +7,7 @@ import '../../components/discuss/genesis_discuss_theme.dart';
 import '../../components/create/genesis_create_theme.dart';
 import '../../components/world/genesis_world_theme.dart';
 import '../../components/messages/genesis_message_theme.dart';
+import '../components/genesis_modal_border.dart';
 import '../system/genesis_system_ui.dart';
 import '../tokens/genesis_palette.dart';
 import '../tokens/genesis_radii.dart';
@@ -104,10 +105,30 @@ abstract final class GenesisTheme {
         foregroundColor: colors.textPrimary,
         systemOverlayStyle: systemOverlayStyle,
       ),
-      dialogTheme: DialogThemeData(backgroundColor: colors.surfaceRaised),
+      dialogTheme: DialogThemeData(
+        backgroundColor: colors.surfaceRaised,
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(18)),
+          side: BorderSide(
+            color: colors.textPrimary.withValues(
+              alpha: genesisModalBorderOpacity,
+            ),
+            width: genesisModalBorderWidth,
+          ),
+        ),
+      ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: colors.surfaceSheet,
         modalBackgroundColor: colors.surfaceSheet,
+        shape: RoundedRectangleBorder(
+          borderRadius: GenesisRadii.sheet,
+          side: BorderSide(
+            color: colors.textPrimary.withValues(
+              alpha: genesisModalBorderOpacity,
+            ),
+            width: genesisModalBorderWidth,
+          ),
+        ),
       ),
       cardTheme: CardThemeData(
         color: colors.surfaceRaised,
@@ -129,6 +150,15 @@ abstract final class GenesisTheme {
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: colors.surfaceRaised,
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.all(GenesisRadii.sm),
+          side: BorderSide(
+            color: colors.textPrimary.withValues(
+              alpha: genesisModalBorderOpacity,
+            ),
+            width: genesisModalBorderWidth,
+          ),
+        ),
         textStyle: GenesisTypography.body.copyWith(color: colors.textPrimary),
       ),
       snackBarTheme: SnackBarThemeData(

@@ -338,29 +338,37 @@ class _MessageMenuButton extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      visibleLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textPrimary,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        visibleLabel,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1,
+                          fontWeight: FontWeight.w700,
+                          color: colors.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 7),
-                    Text(
-                      statusText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        height: 1,
-                        fontWeight: FontWeight.w500,
-                        color: unreadCount > 0
-                            ? colors.danger
-                            : colors.textTertiary,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        statusText,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          height: 1,
+                          fontWeight: FontWeight.w500,
+                          color: unreadCount > 0
+                              ? colors.danger
+                              : colors.textTertiary,
+                        ),
                       ),
                     ),
                   ],

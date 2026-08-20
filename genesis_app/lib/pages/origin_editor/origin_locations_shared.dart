@@ -448,8 +448,7 @@ class _InitialCharacterChip extends StatelessWidget {
             SizedBox(width: 1),
             Padding(
               padding: EdgeInsets.all(3),
-              child: Icon(
-                Icons.close,
+              child: GenesisCloseIcon(
                 size: 14,
                 color: context.genesisCreateColors.muted,
               ),

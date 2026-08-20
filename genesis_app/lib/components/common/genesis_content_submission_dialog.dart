@@ -17,6 +17,7 @@ Future<bool> showGenesisContentSubmissionDialog({
   required GenesisContentSubmitter onSubmit,
   required String successMessage,
   required String failureMessage,
+  Color? borderColor,
 }) async {
   final submitted = await showGenesisDialog<bool>(
     context: context,
@@ -28,6 +29,7 @@ Future<bool> showGenesisContentSubmissionDialog({
         onSubmit: onSubmit,
         successMessage: successMessage,
         failureMessage: failureMessage,
+        borderColor: borderColor,
       );
     },
   );
@@ -41,6 +43,7 @@ class _GenesisContentSubmissionDialog extends StatefulWidget {
     required this.onSubmit,
     required this.successMessage,
     required this.failureMessage,
+    this.borderColor,
   });
 
   final String title;
@@ -48,6 +51,7 @@ class _GenesisContentSubmissionDialog extends StatefulWidget {
   final GenesisContentSubmitter onSubmit;
   final String successMessage;
   final String failureMessage;
+  final Color? borderColor;
 
   @override
   State<_GenesisContentSubmissionDialog> createState() =>
@@ -122,6 +126,7 @@ class _GenesisContentSubmissionDialogState
       ],
       onActionSelected: (_) => unawaited(_submit()),
       onCancel: () => Navigator.of(context).pop(false),
+      borderColor: widget.borderColor,
     );
   }
 }

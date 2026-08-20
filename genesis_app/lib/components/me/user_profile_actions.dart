@@ -280,11 +280,18 @@ class _Avatar extends StatelessWidget {
           ),
           if (onEdit != null)
             Positioned(
-              right: 2,
-              bottom: 2,
+              right: redesigned ? -4 : 2,
+              bottom: redesigned ? -4 : 2,
               child: Material(
-                color: colors.scrim.withValues(alpha: 0.4),
-                shape: const CircleBorder(),
+                key: const ValueKey<String>('profile-avatar-edit-button'),
+                color: redesigned
+                    ? colors.surfaceRaised
+                    : colors.scrim.withValues(alpha: 0.4),
+                shape: CircleBorder(
+                  side: redesigned
+                      ? BorderSide(color: colors.borderStrong)
+                      : BorderSide.none,
+                ),
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: updating ? null : onEdit,
@@ -293,7 +300,9 @@ class _Avatar extends StatelessWidget {
                     child: Icon(
                       MyFlutterApp.editImage,
                       size: 12,
-                      color: colors.textInverse,
+                      color: redesigned
+                          ? colors.textPrimary
+                          : colors.textInverse,
                     ),
                   ),
                 ),

@@ -120,7 +120,7 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
       textInverse: GenesisPalette.white,
       accentText: GenesisPalette.accentText,
       link: GenesisPalette.link,
-      iconMuted: GenesisPalette.iconMuted,
+      iconMuted: GenesisPalette.redesignTextSecondary,
       imagePlaceholderIcon: GenesisPalette.imagePlaceholderIcon,
       border: GenesisPalette.border,
       borderNeutral: GenesisPalette.borderNeutral,

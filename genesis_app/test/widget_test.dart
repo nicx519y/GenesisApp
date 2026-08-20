@@ -18,6 +18,7 @@ import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
@@ -2926,7 +2927,7 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
-    expect(find.text('#Worldo'), findsOneWidget);
+    expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Create'), findsNothing);
     expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
@@ -3772,6 +3773,10 @@ void main() {
   testWidgets('unread summary renders redesigned messages indicators', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
     await tester.pumpAndSettle();
 
@@ -3829,6 +3834,16 @@ void main() {
       ),
     );
     expect(commentsTitle.style?.color, Colors.white);
+    for (final label in const ['Notifications', 'Followers', 'Comments']) {
+      final title = tester.widget<Text>(find.text(label));
+      expect(title.maxLines, 1);
+      expect(title.softWrap, isFalse);
+      expect(title.overflow, isNull);
+      expect(
+        find.ancestor(of: find.text(label), matching: find.byType(FittedBox)),
+        findsOneWidget,
+      );
+    }
 
     final privateChatsStyle = tester
         .widget<Text>(find.text('Private chats'))
@@ -4644,7 +4659,7 @@ void main() {
     }
   });
 
-  testWidgets('tap #Worldo switches to Worldo page', (
+  testWidgets('tap Worlds switches to Worldo page', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
@@ -4654,11 +4669,11 @@ void main() {
 
     expect(find.text('Popular'), findsOneWidget);
 
-    await tester.tap(find.text('#Worldo'));
+    await tester.tap(find.text('Worlds'));
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('#Worldo'), findsOneWidget);
+    expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Worlds, tags, characters'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
   });
@@ -5209,7 +5224,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
-    await tester.tap(find.text('#Worldo'));
+    await tester.tap(find.text('Worlds'));
     await tester.pumpAndSettle();
 
     originRequests = transport.requestsFor('/api/v1/origin/list');
@@ -5241,6 +5256,7 @@ void main() {
     expect(searchField.height, 44);
     expect(searchField.padding, const EdgeInsets.symmetric(horizontal: 14));
     expect(searchField.borderRadius, BorderRadius.circular(14));
+    expect(searchField.iconAsset, searchIconAsset);
     expect(searchField.iconSize, 15);
     expect(searchField.iconGap, 9);
     expect(searchField.borderWidth, 1.5);
@@ -6147,7 +6163,7 @@ void main() {
     expect(transitionBackground, findsNothing);
     expect(tester.getRect(mapBackground).left, closeTo(restingMapLeft, 0.01));
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.pumpAndSettle();
     expect(find.text('Open Origin'), findsOneWidget);
     expect(find.byType(OriginWorldPage), findsNothing);
@@ -6579,6 +6595,17 @@ void main() {
         find.byKey(const ValueKey<String>('origin-setup-role-cards')),
         findsOneWidget,
       );
+      final openingPageScrollView = tester.widget<CustomScrollView>(
+        find
+            .descendant(
+              of: find.byKey(
+                const ValueKey<String>('origin-detail-sheet-page-Opening'),
+              ),
+              matching: find.byType(CustomScrollView),
+            )
+            .first,
+      );
+      expect(openingPageScrollView.controller?.position.pixels, 0);
 
       for (
         var attempt = 0;
@@ -8287,13 +8314,14 @@ void main() {
       find.descendant(of: roleToggle, matching: find.byType(InkWell)),
       findsNothing,
     );
-    final downArrow = tester.widget<Icon>(
+    final downArrow = tester.widget<GenesisChevronDownIcon>(
       find.byKey(
         const ValueKey<String>('origin-setup-role-arrow-down-$roleId'),
       ),
     );
-    expect(downArrow.size, 20);
+    expect(downArrow.width, 16);
     expect(downArrow.color, const Color(0xB8FFFFFF));
+    expect(downArrow.pointUp, isFalse);
     expect(find.descendant(of: portrait, matching: roleToggle), findsNothing);
     await tester.ensureVisible(roleToggle);
     await tester.pumpAndSettle();
@@ -8497,10 +8525,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey<String>('origin-info-bookmark-icon')),
-      findsOneWidget,
+      findsNothing,
     );
     final launchButtonFinder = find.widgetWithText(FilledButton, 'Enter world');
     expect(tester.getSize(launchButtonFinder).height, 44);
+    expect(
+      tester.getSize(launchButtonFinder).width,
+      closeTo(tester.getSize(infoLaunchAction).width, 0.01),
+    );
     final launchButton = tester.widget<FilledButton>(launchButtonFinder);
     expect(
       launchButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
@@ -9376,6 +9408,37 @@ void main() {
         matching: find.text('Launch to send'),
       );
       expect(chatLaunch, findsOneWidget);
+      final launchBar = find.byKey(
+        const ValueKey<String>('origin-location-chat-launch-bar'),
+      );
+      final launchButton = find.byKey(
+        const ValueKey<String>('origin-location-chat-launch-button'),
+      );
+      expect(
+        tester.getSize(launchButton).width,
+        greaterThan(tester.getSize(launchBar).width * 0.85),
+      );
+      expect(tester.getSize(launchButton).height, 44);
+      final launchFilledButton = tester.widget<FilledButton>(
+        find.descendant(of: launchButton, matching: find.byType(FilledButton)),
+      );
+      expect(
+        launchFilledButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
+        13,
+      );
+      expect(
+        launchFilledButton.style?.textStyle
+            ?.resolve(<WidgetState>{})
+            ?.fontWeight,
+        FontWeight.w700,
+      );
+      final launchShape = launchFilledButton.style?.shape?.resolve(
+        <WidgetState>{},
+      );
+      expect(
+        (launchShape as RoundedRectangleBorder).borderRadius,
+        BorderRadius.circular(14),
+      );
 
       await tester.tap(chatLaunch);
       await tester.pumpAndSettle();
@@ -9405,7 +9468,9 @@ void main() {
 
       final launchedLocationBack = find.descendant(
         of: launchedLocationChat,
-        matching: find.byIcon(Icons.arrow_back_ios_new),
+        matching: find.byKey(
+          const ValueKey<String>('chat-header-compact-back-button'),
+        ),
       );
       expect(launchedLocationBack, findsOneWidget);
       await tester.tap(launchedLocationBack);
@@ -10443,7 +10508,7 @@ void main() {
     await tester.tap(find.text('World Location').last);
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.pumpAndSettle();
 
     expect(find.text('World detail w_test_1'), findsNothing);
@@ -11677,6 +11742,50 @@ void main() {
     expect(find.byIcon(Icons.photo_camera_outlined), findsNothing);
     expect(find.byIcon(Icons.add_photo_alternate_outlined), findsNothing);
     expect(find.byIcon(Icons.edit_document), findsNothing);
+  });
+
+  testWidgets('Worldo profile avatar edit button sits on outer corner', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: UserProfileContent(
+            appearance: UserProfileAppearance.worldoMe,
+            data: const UserProfileData(
+              avatarUrl: '',
+              displayName: 'Short',
+              uid: 'u_cached',
+              followingCount: 7,
+              followerCount: 11,
+              origins: <UserProfileOriginItem>[],
+              worlds: <UserProfileWorldItem>[],
+            ),
+            onEditAvatar: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final buttonFinder = find.byKey(
+      const ValueKey<String>('profile-avatar-edit-button'),
+    );
+    final position = tester.widget<Positioned>(
+      find.ancestor(of: buttonFinder, matching: find.byType(Positioned)),
+    );
+    expect(position.right, -4);
+    expect(position.bottom, -4);
+
+    final button = tester.widget<Material>(buttonFinder);
+    final colors = tester.element(buttonFinder).genesisColors;
+    expect(button.color, colors.surfaceRaised);
+    expect((button.shape! as CircleBorder).side.color, colors.borderStrong);
+    expect(
+      tester.widget<Icon>(find.byIcon(MyFlutterApp.editImage)).color,
+      colors.textPrimary,
+    );
   });
 
   testWidgets('profile content scrolls header away and pins tabs', (
@@ -14108,7 +14217,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: Text('Replacement page'))),
     );
@@ -14796,7 +14905,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.pumpAndSettle();
 
     expect(find.text('Open Locations'), findsOneWidget);
@@ -17075,7 +17184,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).first, 'Unsaved Origin');
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.pumpAndSettle();
 
     final draft = await CreateOriginDraftStore.load();
@@ -17993,7 +18102,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.tap(find.byType(GenesisBackIcon));
       await tester.pumpAndSettle();
       expect(find.text('Publish changes before leaving?'), findsNothing);
       expect(find.text('Open edit'), findsOneWidget);
@@ -19925,7 +20034,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Block').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.pumpAndSettle();
 
     expect(find.text('Home tab: popular'), findsOneWidget);
@@ -21245,12 +21354,12 @@ void main() {
       of: selectedDetailTab,
       matching: find.text('Detail'),
     );
-    final selectedTabDecoration =
-        tester.widget<Container>(selectedDetailTab).decoration!
-            as BoxDecoration;
-    expect(selectedTabDecoration.color, GenesisPalette.white);
     expect(
-      tester.widget<Text>(selectedDetailLabel).style!.color,
+      find.byKey(const ValueKey<String>('world-bottom-tab-indicator')),
+      findsOneWidget,
+    );
+    expect(
+      DefaultTextStyle.of(tester.element(selectedDetailLabel)).style.color,
       GenesisPalette.redesignInk,
     );
     expect(
@@ -21333,18 +21442,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getSize(detailIndicator).width, 4);
     expect(tester.getSize(locationsIndicator).width, 26);
-    final selectedLocationsTab =
-        tester
-                .widget<Container>(
-                  find.byKey(
-                    const ValueKey<String>(
-                      'world-bottom-tab-WorldBottomSheetKind.locations',
-                    ),
-                  ),
-                )
-                .decoration!
-            as BoxDecoration;
-    expect(selectedLocationsTab.color, GenesisPalette.white);
+    final selectedLocationsLabel = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>(
+          'world-bottom-tab-WorldBottomSheetKind.locations',
+        ),
+      ),
+      matching: find.text('Locations'),
+    );
+    expect(
+      DefaultTextStyle.of(tester.element(selectedLocationsLabel)).style.color,
+      GenesisPalette.redesignInk,
+    );
     expect(
       find.byKey(const ValueKey<String>('world-detail-sheet-safe-area')),
       findsNothing,
@@ -21354,7 +21463,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: sheetSurface,
-        matching: find.byIcon(Icons.close_rounded),
+        matching: find.byType(GenesisCloseIcon),
       ),
     );
     await tester.pump();
@@ -21403,22 +21512,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getSize(detailIndicator).width, 4);
     expect(tester.getSize(locationsIndicator).width, 26);
-    final reopenedLocationsDecoration =
-        tester
-                .widget<Container>(
-                  find.byKey(
-                    const ValueKey<String>(
-                      'world-bottom-tab-WorldBottomSheetKind.locations',
-                    ),
-                  ),
-                )
-                .decoration!
-            as BoxDecoration;
-    expect(reopenedLocationsDecoration.color, GenesisPalette.white);
+    final reopenedLocationsLabel = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>(
+          'world-bottom-tab-WorldBottomSheetKind.locations',
+        ),
+      ),
+      matching: find.text('Locations'),
+    );
+    expect(
+      DefaultTextStyle.of(tester.element(reopenedLocationsLabel)).style.color,
+      GenesisPalette.redesignInk,
+    );
     await tester.tap(
       find.descendant(
         of: sheetSurface,
-        matching: find.byIcon(Icons.close_rounded),
+        matching: find.byType(GenesisCloseIcon),
       ),
     );
     await tester.pumpAndSettle();
@@ -22285,7 +22394,7 @@ void main() {
       final requestCountBeforeReopen = transport
           .requestsFor('/api/v1/world/tick/list')
           .length;
-      await tester.tap(find.byIcon(Icons.close_rounded).last);
+      await tester.tap(find.byType(GenesisCloseIcon).last);
       await tester.pumpAndSettle();
       await tester.tap(eventsTab);
       await tester.pump();

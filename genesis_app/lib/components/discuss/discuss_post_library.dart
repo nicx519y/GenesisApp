@@ -14,6 +14,7 @@ import '../common/genesis_upload_progress_overlay.dart';
 import '../../platform/native_image_picker.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/components/genesis_modal_border.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';

@@ -13,9 +13,10 @@ abstract final class GenesisTypography {
   static const TextStyle pageTitle = TextStyle(
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
-    fontSize: 18,
-    fontWeight: FontWeight.w600,
-    height: 1.4,
+    fontSize: 24,
+    fontWeight: FontWeight.w900,
+    height: 1.1,
+    letterSpacing: -0.36,
   );
 
   static const TextStyle body = TextStyle(

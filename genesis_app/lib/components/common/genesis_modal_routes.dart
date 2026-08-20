@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_radii.dart';
 
 export '../../ui/system/genesis_system_ui.dart';
 
@@ -19,7 +20,13 @@ Future<T?> showGenesisModalBottomSheet<T>({
   bool useRootNavigator = false,
   BoxConstraints? constraints,
   AnimationStyle? sheetAnimationStyle,
+  ShapeBorder? shape,
 }) {
+  final effectiveShape =
+      shape ??
+      (backgroundColor == Colors.transparent
+          ? const RoundedRectangleBorder(borderRadius: GenesisRadii.sheet)
+          : null);
   return showModalBottomSheet<T>(
     context: context,
     builder: builder,
@@ -32,6 +39,7 @@ Future<T?> showGenesisModalBottomSheet<T>({
     useRootNavigator: useRootNavigator,
     constraints: constraints,
     sheetAnimationStyle: sheetAnimationStyle,
+    shape: effectiveShape,
   );
 }
 

@@ -9,9 +9,11 @@ import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_message_image.dart';
 
@@ -615,20 +617,33 @@ void main() {
     final decoration = bubble.decoration! as BoxDecoration;
     expect(decoration.color, const Color(0x21FFFFFF));
     expect((decoration.borderRadius! as BorderRadius).topLeft.x, 18);
-    expect(
-      tester.getSize(
-        find.byKey(const ValueKey<String>('chat-user-enter-location-icon')),
-      ),
-      const Size.square(11),
+    final icon = find.byKey(
+      const ValueKey<String>('chat-user-enter-location-icon'),
     );
+    expect(tester.getSize(icon), const Size.square(11));
+    expect(
+      Theme.of(
+        tester.element(icon),
+      ).extension<GenesisChatTheme>()?.enterLocationIcon,
+      GenesisPalette.redesignWhite60,
+    );
+    expect(find.text('Adrian entered Grand Ballroom'), findsNothing);
     final text = tester.widget<Text>(
-      find.text('Adrian entered Grand Ballroom'),
+      find.text('Adrian came to Grand Ballroom'),
     );
     expect(text.textAlign, TextAlign.left);
     expect(text.textSpan?.style?.color, Colors.white);
-    expect(text.textSpan?.style?.fontWeight, FontWeight.w500);
+    expect(text.textSpan?.style?.fontWeight, FontWeight.w700);
+    final spans = (text.textSpan! as TextSpan).children!.cast<TextSpan>();
+    expect(spans.map((span) => span.text), [
+      'Adrian',
+      ' came to ',
+      'Grand Ballroom',
+    ]);
+    expect(spans[1].style?.color, GenesisPalette.redesignWhite60);
+    expect(spans[1].style?.fontWeight, FontWeight.w500);
 
-    await tester.longPress(find.text('Adrian entered Grand Ballroom'));
+    await tester.longPress(find.text('Adrian came to Grand Ballroom'));
     await tester.pump();
     expect(longPressCount, 1);
   });
@@ -2210,12 +2225,17 @@ void main() {
     expect(style.headerBackdropBlurSigma, 0);
     expect(style.headerBackgroundGradient, isNull);
     expect(style.headerBackgroundColor, Colors.transparent);
+    final headerBackButton = find.descendant(
+      of: find.byType(ChatHeader),
+      matching: find.byType(GenesisBackButton),
+    );
+    expect(headerBackButton, findsOneWidget);
     expect(
       find.descendant(
-        of: find.byType(ChatHeader),
+        of: headerBackButton,
         matching: find.byType(BackdropFilter),
       ),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
@@ -2344,15 +2364,14 @@ void main() {
       const ValueKey<String>('chat-header-compact-back-button'),
     );
     final backRect = tester.getRect(backButton);
-    expect(backRect.size, const Size.square(30));
+    expect(backRect.size, const Size.square(34));
     expect(backRect.left, closeTo(headerRect.left + 16, 0.01));
     expect(tester.getRect(find.text('Grand Ballroom (1)')).left, 56);
     expect(
       find.descendant(
         of: backButton,
         matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is CustomPaint && widget.size == const Size.square(14),
+          (widget) => widget is GenesisBackIcon && widget.size == 14,
         ),
       ),
       findsOneWidget,
@@ -2518,6 +2537,57 @@ void main() {
     final name = tester.widget<Text>(find.text('Peer Name'));
     expect(name.style?.color, GenesisColors.brand);
   });
+
+  testWidgets(
+    'location chat places the timestamp directly after the sender name',
+    (WidgetTester tester) async {
+      const messageId = 'location-message-metadata';
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.worldoRedesign(),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ChatMessageRow(
+                message: ChatMessageVm(
+                  localId: messageId,
+                  senderId: 'character-sebastian',
+                  senderName: 'Sebastian',
+                  text: 'A quiet reply.',
+                  currentTime: '23:04 | 01/07/2026',
+                  isMe: false,
+                  status: 'sent',
+                  senderType: 'character',
+                ),
+                showDateDivider: false,
+                style: context.genesisChatTheme.locationChat,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final nameFinder = find.byKey(
+        const ValueKey<String>('chat-sender-name-$messageId'),
+      );
+      final timeFinder = find.byKey(
+        const ValueKey<String>('chat-sender-time-$messageId'),
+      );
+      final name = tester.widget<Text>(nameFinder);
+      final time = tester.widget<Text>(timeFinder);
+      final nameRect = tester.getRect(nameFinder);
+      final timeRect = tester.getRect(timeFinder);
+
+      expect(timeRect.left - nameRect.right, closeTo(8, 0.01));
+      expect(name.style?.fontFamily, GenesisTypography.fontFamily);
+      expect(name.style?.fontSize, 12);
+      expect(name.style?.fontWeight, FontWeight.w700);
+      expect(name.style?.color, GenesisPalette.white);
+      expect(time.style?.fontFamily, GenesisTypography.fontFamily);
+      expect(time.style?.fontSize, 9.5);
+      expect(time.style?.fontWeight, FontWeight.w400);
+      expect(time.style?.color, GenesisPalette.redesignWhite55);
+    },
+  );
 
   testWidgets('self chat message places avatar on the right', (
     WidgetTester tester,
@@ -2977,7 +3047,7 @@ void main() {
     final decoration = bubble.decoration! as BoxDecoration;
     expect(decoration.color, const Color(0x33FFFFFF));
     final radius = decoration.borderRadius! as BorderRadius;
-    expect(radius.topLeft.x, 6);
+    expect(radius.topLeft, Radius.zero);
     expect(radius.topRight.x, 14);
     expect(radius.bottomRight.x, 14);
     expect(radius.bottomLeft.x, 14);
@@ -3029,6 +3099,11 @@ void main() {
       (userBubble.decoration! as BoxDecoration).color,
       const Color(0x21FFFFFF),
     );
+    expect(
+      ((userBubble.decoration! as BoxDecoration).borderRadius! as BorderRadius)
+          .topLeft,
+      Radius.zero,
+    );
     expect(find.byType(BackdropFilter), findsNothing);
 
     await tester.pumpWidget(
@@ -3059,6 +3134,12 @@ void main() {
     expect(
       (playerRoleBubble.decoration! as BoxDecoration).color,
       const Color(0x21FFFFFF),
+    );
+    expect(
+      ((playerRoleBubble.decoration! as BoxDecoration).borderRadius!
+              as BorderRadius)
+          .topLeft,
+      Radius.zero,
     );
     expect(find.byType(BackdropFilter), findsNothing);
   });
@@ -3097,7 +3178,7 @@ void main() {
     expect(decoration.color, const Color(0x6BF82B3C));
     final radius = decoration.borderRadius! as BorderRadius;
     expect(radius.topLeft.x, 14);
-    expect(radius.topRight.x, 6);
+    expect(radius.topRight, Radius.zero);
     expect(radius.bottomRight.x, 14);
     expect(radius.bottomLeft.x, 14);
     final text = tester.widget<Text>(
@@ -4334,7 +4415,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(TextButton), findsOneWidget);
-    expect(find.byIcon(Icons.send), findsOneWidget);
+    expect(find.byIcon(Icons.send), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-composer-send-button')),
+        matching: find.byType(CustomPaint),
+      ),
+      findsWidgets,
+    );
     expect(
       ChatUiStyleConfig.standard.composerSendButtonColor,
       GenesisColors.brand,
@@ -4349,7 +4437,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
 
     expect(sendCount, 1);
@@ -4414,7 +4502,7 @@ void main() {
     await tester.showKeyboard(find.byType(TextField));
     expect(tester.testTextInput.isVisible, isTrue);
 
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
 
     expect(sendCount, 1);
@@ -4486,7 +4574,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
 
     expect(sendCount, 0);

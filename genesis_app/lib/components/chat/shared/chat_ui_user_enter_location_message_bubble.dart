@@ -20,6 +20,17 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
     }
     final chatTheme = context.genesisChatTheme;
     final usesScenePlate = chatTheme.tickBlurSigma > 0;
+    final displayParts = usesScenePlate
+        ? _chatEnterLocationDisplayParts(payload.text)
+        : null;
+    final mainTextStyle = GenesisTypography.withFallback(
+      style.systemMessageTextStyle.copyWith(
+        color: chatTheme.enterLocationForeground,
+        fontSize: 13,
+        fontWeight: usesScenePlate ? FontWeight.w700 : FontWeight.w600,
+        height: usesScenePlate ? 1 : 16 / 13,
+      ),
+    );
     return Center(
       child: GestureDetector(
         onLongPressStart: onLongPressStart,
@@ -47,18 +58,29 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
               ),
               const SizedBox(width: 7),
               Flexible(
-                child: _InlineMarkdownText(
-                  text: payload.text,
-                  textAlign: TextAlign.left,
-                  style: style.systemMessageTextStyle.copyWith(
-                    color: chatTheme.enterLocationForeground,
-                    fontSize: 13,
-                    fontWeight: usesScenePlate
-                        ? FontWeight.w500
-                        : FontWeight.w600,
-                    height: usesScenePlate ? 1 : 16 / 13,
-                  ),
-                ),
+                child: displayParts == null
+                    ? _InlineMarkdownText(
+                        text: payload.text,
+                        textAlign: TextAlign.left,
+                        style: mainTextStyle,
+                      )
+                    : Text.rich(
+                        TextSpan(
+                          style: mainTextStyle,
+                          children: [
+                            TextSpan(text: displayParts.characterName),
+                            TextSpan(
+                              text: ' came to ',
+                              style: mainTextStyle.copyWith(
+                                color: chatTheme.enterLocationIcon,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            TextSpan(text: displayParts.locationName),
+                          ],
+                        ),
+                        textAlign: TextAlign.left,
+                      ),
               ),
             ],
           ),
@@ -66,6 +88,21 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+({String characterName, String locationName})? _chatEnterLocationDisplayParts(
+  String text,
+) {
+  final displayText = genesisDisplaySafeText(text).trim();
+  final match = RegExp(
+    r'^(.+?)\s+(?:entered|came\s+to)\s+(.+)$',
+    caseSensitive: false,
+  ).firstMatch(displayText);
+  if (match == null) return null;
+  return (
+    characterName: match.group(1)!.trim(),
+    locationName: match.group(2)!.trim(),
+  );
 }
 
 class _ChatEnterLocationIconPainter extends CustomPainter {

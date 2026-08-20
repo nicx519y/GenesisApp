@@ -32,9 +32,9 @@ void main() {
     expect(progress.value, 0.56);
   });
 
-  testWidgets(
-    'small positive status progress stays visibly distinct from zero',
-    (tester) async {
+  testWidgets('status progress follows the displayed percentage exactly', (
+    tester,
+  ) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
       addTearDown(tester.view.reset);
@@ -52,15 +52,14 @@ void main() {
       );
 
       expect(find.text('3%'), findsOneWidget);
-      final progressFinder = find.byKey(
-        const ValueKey<String>('world-status-progress-character-me'),
+      final progress = tester.widget<LinearProgressIndicator>(
+        find.byKey(
+          const ValueKey<String>('world-status-progress-character-me'),
+        ),
       );
-      final progress = tester.widget<LinearProgressIndicator>(progressFinder);
-      final trackWidth = tester.getSize(progressFinder).width;
 
       expect(progress.semanticsValue, '3%');
-      expect(progress.value, greaterThan(0.03));
-      expect(progress.value! * trackWidth, greaterThanOrEqualTo(12));
+      expect(progress.value, 0.03);
     },
   );
 
@@ -163,7 +162,7 @@ WorldDetail _worldDetail({num metricValue = 56}) {
     metric: const <String, dynamic>{
       'label': 'Goal Progress',
       'unit': '%',
-      'range': <int>[0, 100],
+      'range': <int>[-100, 100],
       'default': 0,
     },
     inviteToken: '',

@@ -119,17 +119,16 @@ void main() {
       ),
     );
 
-    final outline = tester.widget<DecoratedBox>(
-      find.byKey(const ValueKey<String>('login-sheet-outline')),
+    final panel = find.byKey(const ValueKey<String>('login-sheet-outline'));
+    final material = tester.widget<Material>(
+      find.descendant(of: panel, matching: find.byType(Material)).first,
     );
-    final decoration = outline.decoration as BoxDecoration;
-    final border = decoration.border! as Border;
+    final shape = material.shape! as RoundedRectangleBorder;
 
-    expect(outline.position, DecorationPosition.foreground);
-    expect(decoration.borderRadius, GenesisBottomSheetPanel.borderRadius);
-    expect(border.top.width, 1);
+    expect(shape.borderRadius, GenesisBottomSheetPanel.borderRadius);
+    expect(shape.side.width, 1);
     expect(
-      border.top.color,
+      shape.side.color,
       GenesisSemanticColors.light().textPrimary.withValues(alpha: 0.14),
     );
   });

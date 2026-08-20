@@ -34,6 +34,30 @@ void main() {
       materialApp.theme?.textTheme.bodyMedium?.fontFamily,
       GenesisTypography.fontFamily,
     );
+    final dialogShape = materialApp.theme?.dialogTheme.shape;
+    expect(dialogShape, isA<RoundedRectangleBorder>());
+    final roundedDialogShape = dialogShape! as RoundedRectangleBorder;
+    expect(roundedDialogShape.side.width, genesisModalBorderWidth);
+    expect(
+      roundedDialogShape.side.color,
+      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+    );
+    final popupShape = materialApp.theme?.popupMenuTheme.shape;
+    expect(popupShape, isA<RoundedRectangleBorder>());
+    final roundedPopupShape = popupShape! as RoundedRectangleBorder;
+    expect(roundedPopupShape.side.width, genesisModalBorderWidth);
+    expect(
+      roundedPopupShape.side.color,
+      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+    );
+    final bottomSheetShape = materialApp.theme?.bottomSheetTheme.shape;
+    expect(bottomSheetShape, isA<RoundedRectangleBorder>());
+    final roundedBottomSheetShape = bottomSheetShape! as RoundedRectangleBorder;
+    expect(roundedBottomSheetShape.side.width, genesisModalBorderWidth);
+    expect(
+      roundedBottomSheetShape.side.color,
+      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+    );
   });
 
   test('GenesisTheme disables Material state effects', () {
@@ -83,6 +107,10 @@ void main() {
       expect(style.fontFamilyFallback, GenesisTypography.fontFamilyFallback);
       expect(style.color, isNull);
     }
+    expect(GenesisTypography.pageTitle.fontSize, 24);
+    expect(GenesisTypography.pageTitle.fontWeight, FontWeight.w900);
+    expect(GenesisTypography.pageTitle.height, 1.1);
+    expect(GenesisTypography.pageTitle.letterSpacing, -0.36);
   });
 
   testWidgets('GenesisTextFallback keeps explicit Text styles unchanged', (
@@ -239,7 +267,7 @@ void main() {
     expect(colors.textEmptyState, const Color(0xFF94979E));
     expect(colors.textLabelMuted, const Color(0xFF8F8F8F));
     expect(colors.textPlaceholder, const Color(0xFF999999));
-    expect(colors.iconMuted, const Color(0xFFB5B5B5));
+    expect(colors.iconMuted, const Color(0xFF5C5862));
     expect(colors.dividerSubtle, const Color(0xFFE7E7E7));
     expect(colors.dividerMuted, const Color(0xFFEFEFEF));
     expect(colors.inputBorder, const Color(0xFFD8D8DE));
@@ -414,8 +442,8 @@ void main() {
     );
 
     expect(find.byType(GenesisSearchField), findsOneWidget);
-    final image = tester.widget<Image>(find.byType(Image));
-    expect((image.image as AssetImage).assetName, searchIconAsset);
+    final icon = tester.widget<SvgPicture>(find.byType(SvgPicture));
+    expect((icon.bytesLoader as SvgAssetLoader).assetName, searchIconAsset);
     expect(find.byIcon(Icons.search), findsNothing);
     expect(find.text('Explore'), findsOneWidget);
     expect(tester.getSize(find.byType(GenesisSearchField)).height, 36);
@@ -484,7 +512,13 @@ void main() {
       const GenesisBackAppBar(pageName: 'Details').preferredSize.height,
       kGenesisTopBarHeight,
     );
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    final backButton = find.byType(GenesisBackButton);
+    expect(tester.getSize(backButton), const Size.square(34));
+    expect(
+      find.descendant(of: backButton, matching: find.byType(BackdropFilter)),
+      findsOneWidget,
+    );
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.tap(find.text('Details'));
     expect(backCount, 1);
     expect(titleTapCount, 1);
@@ -746,6 +780,17 @@ void main() {
       find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
       findsOneWidget,
     );
+    final attachedBorderContainer = tester.widget<Container>(
+      find.byKey(const ValueKey('genesis-action-box-attached-border')),
+    );
+    final attachedDecoration =
+        attachedBorderContainer.foregroundDecoration! as BoxDecoration;
+    final attachedBorder = attachedDecoration.border! as Border;
+    expect(attachedBorder.top.width, genesisModalBorderWidth);
+    expect(
+      attachedBorder.top.color,
+      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+    );
     expect(
       tester.getSize(
         find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
@@ -931,6 +976,21 @@ void main() {
       find.byKey(const ValueKey('genesis-action-box-detached-cancel')),
       findsOneWidget,
     );
+    for (final key in const <String>[
+      'genesis-action-box-detached-main-border',
+      'genesis-action-box-detached-cancel-border',
+    ]) {
+      final borderContainer = tester.widget<Container>(
+        find.byKey(ValueKey(key)),
+      );
+      final decoration = borderContainer.foregroundDecoration! as BoxDecoration;
+      final border = decoration.border! as Border;
+      expect(border.top.width, genesisModalBorderWidth);
+      expect(
+        border.top.color,
+        const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+      );
+    }
     expect(
       tester
           .getSize(
@@ -1110,7 +1170,7 @@ void main() {
     );
     final shape =
         button.style?.shape?.resolve(<WidgetState>{}) as RoundedRectangleBorder;
-    expect(shape.borderRadius, BorderRadius.circular(8));
+    expect(shape.borderRadius, GenesisRadii.button);
     final textStyle = button.style?.textStyle?.resolve(<WidgetState>{});
     expect(textStyle?.fontSize, 16);
     expect(textStyle?.fontWeight, FontWeight.w600);

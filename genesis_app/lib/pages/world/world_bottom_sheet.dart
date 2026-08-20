@@ -15,6 +15,7 @@ import '../../components/world/genesis_world_theme.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/components/genesis_control_icons.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
@@ -23,8 +24,12 @@ import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_sections.dart';
 
-class WorldBottomTags extends StatelessWidget {
+const Duration worldBottomTabSelectionDuration = Duration(milliseconds: 180);
+const Curve worldBottomTabSelectionCurve = Curves.easeOutCubic;
+
+class WorldBottomTags extends StatefulWidget {
   const WorldBottomTags({
+    super.key,
     required this.onTap,
     this.eventsUnread = false,
     this.showDetailUnreadDot = false,
@@ -39,10 +44,132 @@ class WorldBottomTags extends StatelessWidget {
   final String tabKeyPrefix;
 
   @override
+  State<WorldBottomTags> createState() => _WorldBottomTagsState();
+}
+
+class _WorldBottomTagsState extends State<WorldBottomTags>
+    with SingleTickerProviderStateMixin {
+  final GlobalKey _trackKey = GlobalKey();
+  final Map<WorldBottomSheetKind, GlobalKey> _tabKeys = {
+    for (final item in worldBottomTagItems) item.kind: GlobalKey(),
+  };
+  late final AnimationController _indicatorController = AnimationController(
+    vsync: this,
+    duration: worldBottomTabSelectionDuration,
+  )..addStatusListener(_handleIndicatorStatus);
+
+  Map<WorldBottomSheetKind, Rect> _tabRects = const {};
+  Rect? _settledIndicatorRect;
+  RectTween? _indicatorTween;
+  bool _geometrySyncScheduled = false;
+  bool _animateNextGeometrySync = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleGeometrySync();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scheduleGeometrySync();
+  }
+
+  @override
+  void didUpdateWidget(covariant WorldBottomTags oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleGeometrySync(
+      animateSelection: oldWidget.selectedKind != widget.selectedKind,
+    );
+  }
+
+  @override
+  void dispose() {
+    _indicatorController
+      ..removeStatusListener(_handleIndicatorStatus)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleIndicatorStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || !mounted) return;
+    final end = _indicatorTween?.end;
+    if (end == null) return;
+    setState(() {
+      _settledIndicatorRect = end;
+      _indicatorTween = null;
+    });
+  }
+
+  Rect? get _currentIndicatorRect {
+    final tween = _indicatorTween;
+    if (tween == null) return _settledIndicatorRect;
+    return tween.lerp(
+      worldBottomTabSelectionCurve.transform(_indicatorController.value),
+    );
+  }
+
+  void _scheduleGeometrySync({bool animateSelection = false}) {
+    _animateNextGeometrySync |= animateSelection;
+    if (_geometrySyncScheduled) return;
+    _geometrySyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _geometrySyncScheduled = false;
+      if (!mounted) return;
+      final shouldAnimate = _animateNextGeometrySync;
+      _animateNextGeometrySync = false;
+      _syncGeometry(animateSelection: shouldAnimate);
+    });
+  }
+
+  void _syncGeometry({required bool animateSelection}) {
+    final trackBox = _trackKey.currentContext?.findRenderObject();
+    if (trackBox is! RenderBox || !trackBox.hasSize) return;
+    final nextRects = <WorldBottomSheetKind, Rect>{};
+    for (final entry in _tabKeys.entries) {
+      final tabBox = entry.value.currentContext?.findRenderObject();
+      if (tabBox is! RenderBox || !tabBox.hasSize) continue;
+      final offset = tabBox.localToGlobal(Offset.zero, ancestor: trackBox);
+      nextRects[entry.key] = offset & tabBox.size;
+    }
+    final targetRect = widget.selectedKind == null
+        ? null
+        : nextRects[widget.selectedKind!];
+    final currentRect = _currentIndicatorRect;
+
+    if (targetRect == null) {
+      _indicatorController.stop();
+      setState(() {
+        _tabRects = nextRects;
+        _settledIndicatorRect = null;
+        _indicatorTween = null;
+      });
+      return;
+    }
+    if (animateSelection && currentRect != null && currentRect != targetRect) {
+      setState(() {
+        _tabRects = nextRects;
+        _settledIndicatorRect = currentRect;
+        _indicatorTween = RectTween(begin: currentRect, end: targetRect);
+      });
+      _indicatorController.forward(from: 0);
+      return;
+    }
+    _indicatorController.stop();
+    setState(() {
+      _tabRects = nextRects;
+      _settledIndicatorRect = targetRect;
+      _indicatorTween = null;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final hasMeasuredGeometry = _tabRects.length == worldBottomTagItems.length;
     return Container(
       height: worldMainTabsHeight,
-      color: context.genesisColors.surface,
+      color: context.genesisColors.pageBackground,
       alignment: Alignment.centerLeft,
       child: DefaultTextStyle(
         style: GenesisTypography.bodyStrong.copyWith(
@@ -57,24 +184,49 @@ class WorldBottomTags extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Stack(
+              key: _trackKey,
               children: [
-                for (final entry in worldBottomTagItems.indexed) ...[
-                  WorldBottomTagContent(
-                    item: entry.$2,
-                    tabKeyPrefix: tabKeyPrefix,
-                    selected: entry.$2.kind == selectedKind,
-                    showUnreadDot:
-                        eventsUnread &&
-                            entry.$2.kind == WorldBottomSheetKind.events ||
-                        showDetailUnreadDot &&
-                            entry.$2.kind == WorldBottomSheetKind.detail,
-                    onTap: () => onTap(entry.$2.kind),
+                if (hasMeasuredGeometry)
+                  Positioned.fill(
+                    child: AnimatedBuilder(
+                      animation: _indicatorController,
+                      builder: (context, _) => CustomPaint(
+                        key: ValueKey<String>(
+                          '${widget.tabKeyPrefix}-indicator',
+                        ),
+                        painter: _WorldBottomTabsIndicatorPainter(
+                          tabRects: _tabRects.values.toList(growable: false),
+                          indicatorRect: _currentIndicatorRect,
+                          tabColor: context.genesisColors.surfaceTag,
+                          indicatorColor:
+                              context.genesisColors.foregroundStrong,
+                        ),
+                      ),
+                    ),
                   ),
-                  if (entry.$1 != worldBottomTagItems.length - 1)
-                    SizedBox(width: 7),
-                ],
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final entry in worldBottomTagItems.indexed) ...[
+                      WorldBottomTagContent(
+                        key: _tabKeys[entry.$2.kind],
+                        item: entry.$2,
+                        tabKeyPrefix: widget.tabKeyPrefix,
+                        selected: entry.$2.kind == widget.selectedKind,
+                        paintBackground: !hasMeasuredGeometry,
+                        showUnreadDot:
+                            widget.eventsUnread &&
+                                entry.$2.kind == WorldBottomSheetKind.events ||
+                            widget.showDetailUnreadDot &&
+                                entry.$2.kind == WorldBottomSheetKind.detail,
+                        onTap: () => widget.onTap(entry.$2.kind),
+                      ),
+                      if (entry.$1 != worldBottomTagItems.length - 1)
+                        SizedBox(width: 7),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
@@ -86,11 +238,13 @@ class WorldBottomTags extends StatelessWidget {
 
 class WorldBottomTagContent extends StatelessWidget {
   const WorldBottomTagContent({
+    super.key,
     required this.item,
     required this.onTap,
     required this.tabKeyPrefix,
     this.selected = false,
     this.showUnreadDot = false,
+    this.paintBackground = true,
   });
 
   final WorldBottomTagItem item;
@@ -98,18 +252,23 @@ class WorldBottomTagContent extends StatelessWidget {
   final String tabKeyPrefix;
   final bool selected;
   final bool showUnreadDot;
+  final bool paintBackground;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
         key: ValueKey<String>('$tabKeyPrefix-${item.kind}'),
+        duration: worldBottomTabSelectionDuration,
+        curve: worldBottomTabSelectionCurve,
         height: worldBottomTagHeight,
         padding: const EdgeInsets.symmetric(horizontal: 13),
         decoration: BoxDecoration(
-          color: selected
+          color: !paintBackground
+              ? Colors.transparent
+              : selected
               ? context.genesisColors.foregroundStrong
               : context.genesisColors.surfaceTag,
           borderRadius: BorderRadius.circular(11),
@@ -117,18 +276,24 @@ class WorldBottomTagContent extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: selected
-                    ? context.genesisColors.textInverse
-                    : context.genesisColors.textSecondary,
-                fontSize: 11,
-                height: 1,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.none,
+            AnimatedDefaultTextStyle(
+              duration: worldBottomTabSelectionDuration,
+              curve: worldBottomTabSelectionCurve,
+              style: GenesisTypography.withFallback(
+                TextStyle(
+                  color: selected
+                      ? context.genesisColors.textInverse
+                      : context.genesisColors.textSecondary,
+                  fontSize: 11,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+              child: Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             if (showUnreadDot) ...[
@@ -161,6 +326,43 @@ class WorldBottomTagContent extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _WorldBottomTabsIndicatorPainter extends CustomPainter {
+  const _WorldBottomTabsIndicatorPainter({
+    required this.tabRects,
+    required this.indicatorRect,
+    required this.tabColor,
+    required this.indicatorColor,
+  });
+
+  final List<Rect> tabRects;
+  final Rect? indicatorRect;
+  final Color tabColor;
+  final Color indicatorColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final radius = Radius.circular(11);
+    final tabPaint = Paint()..color = tabColor;
+    for (final rect in tabRects) {
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, radius), tabPaint);
+    }
+    final indicatorRect = this.indicatorRect;
+    if (indicatorRect == null) return;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(indicatorRect, radius),
+      Paint()..color = indicatorColor,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _WorldBottomTabsIndicatorPainter oldDelegate) {
+    return !listEquals(oldDelegate.tabRects, tabRects) ||
+        oldDelegate.indicatorRect != indicatorRect ||
+        oldDelegate.tabColor != tabColor ||
+        oldDelegate.indicatorColor != indicatorColor;
   }
 }
 
@@ -1064,7 +1266,10 @@ class WorldSingleSectionSheetHeaderState
                           foregroundColor: context.genesisColors.textPrimary,
                           shape: const CircleBorder(),
                         ),
-                        child: Icon(Icons.close_rounded, size: 14),
+                        child: GenesisCloseIcon(
+                          size: 14,
+                          color: context.genesisColors.textPrimary,
+                        ),
                       ),
                     ),
                   ],

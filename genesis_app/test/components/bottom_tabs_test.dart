@@ -31,6 +31,8 @@ void main() {
     ]);
     expect(icons.map((icon) => icon.width), <double>[22, 22, 16, 22, 22]);
     expect(icons.map((icon) => icon.height), <double>[22, 22, 16, 22, 22]);
+    expect(find.text('Worlds'), findsOneWidget);
+    expect(find.text('#Worldo'), findsNothing);
 
     final navigationHeight = tester
         .widgetList<SizedBox>(

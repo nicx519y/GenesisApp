@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../ui/components/genesis_modal_border.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_modal_routes.dart';
 
@@ -128,11 +129,16 @@ class GenesisActionBox<T> extends StatelessWidget {
   }
 
   Widget _buildAttachedCancelStyle(BuildContext context) {
+    final effectiveBorderColor =
+        borderColor ?? genesisModalBorderColor(context);
     return Container(
       key: const ValueKey('genesis-action-box-attached-border'),
       foregroundDecoration: BoxDecoration(
         borderRadius: _borderRadius,
-        border: borderColor == null ? null : Border.all(color: borderColor!),
+        border: Border.all(
+          color: effectiveBorderColor,
+          width: genesisModalBorderWidth,
+        ),
       ),
       child: ClipRRect(
         key: const ValueKey('genesis-action-box-attached-cancel'),
@@ -178,51 +184,71 @@ class GenesisActionBox<T> extends StatelessWidget {
   }
 
   Widget _buildDetachedCancelStyle(BuildContext context) {
+    final effectiveBorderColor =
+        borderColor ?? genesisModalBorderColor(context);
+    final effectiveBorder = Border.all(
+      color: effectiveBorderColor,
+      width: genesisModalBorderWidth,
+    );
     return Column(
       key: const ValueKey('genesis-action-box-detached-cancel'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        ClipRRect(
-          borderRadius: _borderRadius,
-          child: Material(
-            color: context.genesisColors.surface,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _TitleRow(
-                  title: title,
-                  height: titleHeight,
-                  titleWidget: titleWidget,
-                  content: titleContent,
-                  contentSpacing: titleContentSpacing,
-                  horizontalPadding: titleHorizontalPadding,
-                ),
-                if (content case final content?) content,
-                if (actions.isNotEmpty) ...[
-                  const _Divider(),
-                  for (var index = 0; index < actions.length; index++) ...[
-                    _ActionRow<T>(
-                      action: actions[index],
-                      height: actionRowHeight,
-                      isPreferred: index == 0,
-                      onSelected: onActionSelected,
-                    ),
-                    if (index != actions.length - 1) const _Divider(),
+        Container(
+          key: const ValueKey('genesis-action-box-detached-main-border'),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: _borderRadius,
+            border: effectiveBorder,
+          ),
+          child: ClipRRect(
+            borderRadius: _borderRadius,
+            child: Material(
+              color: context.genesisColors.surface,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _TitleRow(
+                    title: title,
+                    height: titleHeight,
+                    titleWidget: titleWidget,
+                    content: titleContent,
+                    contentSpacing: titleContentSpacing,
+                    horizontalPadding: titleHorizontalPadding,
+                  ),
+                  if (content case final content?) content,
+                  if (actions.isNotEmpty) ...[
+                    const _Divider(),
+                    for (var index = 0; index < actions.length; index++) ...[
+                      _ActionRow<T>(
+                        action: actions[index],
+                        height: actionRowHeight,
+                        isPreferred: index == 0,
+                        onSelected: onActionSelected,
+                      ),
+                      if (index != actions.length - 1) const _Divider(),
+                    ],
                   ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
         const SizedBox(height: 14),
-        ClipRRect(
-          borderRadius: _borderRadius,
-          child: Material(
-            color: context.genesisColors.surface,
-            child: _CancelRow(
-              label: cancelLabel,
-              height: cancelRowHeight,
-              onCancel: onCancel,
+        Container(
+          key: const ValueKey('genesis-action-box-detached-cancel-border'),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: _borderRadius,
+            border: effectiveBorder,
+          ),
+          child: ClipRRect(
+            borderRadius: _borderRadius,
+            child: Material(
+              color: context.genesisColors.surface,
+              child: _CancelRow(
+                label: cancelLabel,
+                height: cancelRowHeight,
+                onCancel: onCancel,
+              ),
             ),
           ),
         ),

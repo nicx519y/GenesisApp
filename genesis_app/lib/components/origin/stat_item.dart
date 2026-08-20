@@ -77,7 +77,7 @@ class StatItem extends StatelessWidget {
 }
 
 bool _isCharacterAsset(String? asset) {
-  return asset == characterStatIconAsset;
+  return asset == characterStatIconAsset || asset == homeCharacterStatIconAsset;
 }
 
 class _StatAssetIcon extends StatelessWidget {

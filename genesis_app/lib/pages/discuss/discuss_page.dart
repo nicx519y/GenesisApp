@@ -11,6 +11,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_control_icons.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
@@ -324,27 +325,9 @@ class _DiscussPageAppBar extends StatelessWidget
             padding: const EdgeInsets.only(left: 20),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: SizedBox.square(
+              child: GenesisBackButton(
                 key: const ValueKey<String>('discuss-page-back-button'),
-                dimension: 34,
-                child: IconButton(
-                  tooltip: 'Back',
-                  padding: EdgeInsets.zero,
-                  style: IconButton.styleFrom(
-                    backgroundColor: colors.foregroundStrong.withValues(
-                      alpha: 0.07,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                  ),
-                  icon: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 14,
-                    color: colors.foregroundStrong,
-                  ),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                ),
+                onPressed: () => Navigator.of(context).maybePop(),
               ),
             ),
           ),

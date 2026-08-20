@@ -45,4 +45,24 @@ void main() {
     expect(svg.width, 14);
     expect(svg.height, 14);
   });
+
+  testWidgets('uses character sizing for the home character icon', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: StatItem(
+          iconAsset: homeCharacterStatIconAsset,
+          preserveIconAssetColor: true,
+          iconSize: 14,
+          text: '6',
+        ),
+      ),
+    );
+
+    final svg = tester.widget<SvgPicture>(find.byType(SvgPicture));
+    expect(svg.width, moreOrLessEquals(17.5));
+    expect(svg.height, moreOrLessEquals(17.5));
+  });
 }

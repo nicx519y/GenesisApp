@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
+import 'genesis_control_icons.dart';
 import 'genesis_page_title.dart';
 import 'genesis_safe_area.dart';
 import 'genesis_search_field.dart';
@@ -99,20 +100,12 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
       scrolledUnderElevation: 0,
       systemOverlayStyle: systemOverlayStyle,
       centerTitle: true,
-      leadingWidth: 37,
+      leadingWidth: 54,
       leading: Padding(
         padding: const EdgeInsets.only(left: 20),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: IconButton(
-            tooltip: 'Back',
-            constraints: const BoxConstraints.tightFor(width: 17, height: 17),
-            padding: EdgeInsets.zero,
-            icon: Icon(
-              Icons.arrow_back_ios_new,
-              color: colors.navigationSelected,
-              size: 17,
-            ),
+        child: Center(
+          child: GenesisBackButton(
+            foregroundColor: colors.navigationSelected,
             onPressed: onBack ?? () => Navigator.of(context).maybePop(),
           ),
         ),

@@ -32,7 +32,11 @@ class _DiscussComposerPanel extends StatelessWidget {
     return Material(
       key: const ValueKey('discuss-composer-sheet'),
       color: context.genesisColors.surface,
-      borderRadius: GenesisBottomSheetPanel.borderRadius,
+      shape: genesisModalShape(
+        context,
+        borderRadius: GenesisBottomSheetPanel.borderRadius,
+      ),
+      clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
         child: Padding(

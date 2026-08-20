@@ -6,6 +6,9 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/common/genesis_report_actions.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_modal_border.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
 void main() {
   testWidgets('report button menu appears to the left with icon', (
@@ -38,6 +41,21 @@ void main() {
               decoration.color == const Color(0xFF666666);
         });
     expect(darkBody, isTrue);
+    final borderedBody = tester
+        .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+        .map((box) => box.decoration)
+        .whereType<BoxDecoration>()
+        .singleWhere(
+          (decoration) =>
+              decoration.color == const Color(0xFF666666) &&
+              decoration.border != null,
+        );
+    final border = borderedBody.border! as Border;
+    expect(border.top.width, genesisModalBorderWidth);
+    expect(
+      border.top.color,
+      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+    );
     final buttonRect = tester.getRect(
       find.byKey(const ValueKey<String>('report-menu-button')),
     );
@@ -48,6 +66,27 @@ void main() {
       tester.getCenter(find.text('Block')).dy,
       greaterThan(tester.getCenter(find.text('Report')).dy),
     );
+  });
+
+  testWidgets('Worldo report menu uses an opaque background', (tester) async {
+    await tester.pumpWidget(
+      _testApp(const _ReportMenuHost(), theme: GenesisTheme.worldoRedesign()),
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('report-menu-button')));
+    await tester.pump();
+
+    final expectedBackground = Color.alphaBlend(
+      GenesisPalette.redesignWhite60,
+      GenesisPalette.redesignBackground,
+    );
+    final menuBackgrounds = tester
+        .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+        .map((box) => box.decoration)
+        .whereType<BoxDecoration>()
+        .where((decoration) => decoration.color == expectedBackground);
+    expect(menuBackgrounds, isNotEmpty);
+    expect(expectedBackground.a, 1);
   });
 
   testWidgets('report button menu disappears when host page is removed', (
@@ -142,6 +181,8 @@ void main() {
     final reportText = tester.widget<Text>(find.text('Report'));
     expect(copyText.style?.fontSize, 12);
     expect(reportText.style?.fontSize, 12);
+    expect(copyText.style?.fontFamily, 'Inter');
+    expect(reportText.style?.fontFamily, 'Inter');
     expect(copyText.style?.color, Colors.white);
     expect(reportText.style?.color, Colors.white);
     expect(copyText.overflow, isNull);
@@ -161,10 +202,14 @@ void main() {
   testWidgets('message action menu keeps labels visible when text is scaled', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       _testApp(
         const _MessageActionMenuHost(),
         textScaler: const TextScaler.linear(1.8),
+        theme: GenesisTheme.worldoRedesign(),
       ),
     );
 
@@ -175,6 +220,7 @@ void main() {
     expect(find.text('Report'), findsOneWidget);
     expect(tester.getSize(find.text('Copy')).width, greaterThan(35));
     expect(tester.getSize(find.text('Report')).width, greaterThan(60));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('message action menu expands down only in the top 20 percent', (
@@ -262,10 +308,15 @@ void main() {
   });
 }
 
-Widget _testApp(Widget home, {TextScaler textScaler = TextScaler.noScaling}) {
+Widget _testApp(
+  Widget home, {
+  TextScaler textScaler = TextScaler.noScaling,
+  ThemeData? theme,
+}) {
   return AppServicesScope(
     services: ServiceRegistry.build(config: const AppConfig(useMock: true)),
     child: MaterialApp(
+      theme: theme,
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: textScaler),

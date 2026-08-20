@@ -54,10 +54,9 @@ class _OpeningLocationField extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 8),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
+                GenesisChevronDownIcon(
                   color: context.genesisCreateColors.muted,
-                  size: 24,
+                  width: 16,
                 ),
               ],
             ),

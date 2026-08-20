@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../ui/tokens/genesis_palette.dart';
+import '../../../ui/tokens/genesis_typography.dart';
 import 'chat_ui_library.dart';
 
 /// Chat visual variants supplied by the active app skin.
@@ -90,7 +91,7 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
     aiRoleBubbleBlurSigma: 14,
     enterLocationBackground: GenesisPalette.redesignWhite13,
     enterLocationForeground: GenesisPalette.white,
-    enterLocationIcon: GenesisPalette.redesignWhite72,
+    enterLocationIcon: GenesisPalette.redesignWhite60,
     narratorBackground: GenesisPalette.transparent,
     narratorForeground: GenesisPalette.redesignWhite85,
     narratorIcon: GenesisPalette.redesignWhite60,
@@ -290,6 +291,13 @@ ChatUiStyleConfig _worldoRedesignLocationChatStyle(ChatUiStyleConfig base) {
       height: 1.3,
     ),
     headerSubtitleTopGap: 3,
+    senderNameTextStyle:
+        GenesisTypography.withFallback(themed.senderNameTextStyle).copyWith(
+          color: GenesisPalette.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          height: 1,
+        ),
     composerBackgroundColor: GenesisPalette.transparent,
     composerBackdropBlurSigma: 0,
     composerSendButtonWidth: 46,

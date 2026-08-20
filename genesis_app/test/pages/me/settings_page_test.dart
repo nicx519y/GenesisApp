@@ -22,6 +22,26 @@ import 'package:genesis_flutter_android/platform/platform_services.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
+  testWidgets('settings back button reuses the Worldo detail glass control', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _feedbackTestServices(_RecordingFeedbackTransport()),
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pump();
+
+    final backButton = find.byKey(const ValueKey('settings-back-button'));
+    expect(tester.widget<GenesisBackButton>(backButton).dimension, 34);
+    expect(tester.widget<GenesisBackButton>(backButton).iconSize, 14);
+    expect(
+      find.descendant(of: backButton, matching: find.byType(BackdropFilter)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('settings feedback opens shared dialog and submits', (
     tester,
   ) async {
@@ -74,6 +94,13 @@ void main() {
     expect(
       tester.getSize(find.byKey(const ValueKey('settings-back-button'))),
       const Size.square(34),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('settings-back-button')),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsOneWidget,
     );
     final title = tester.widget<Text>(
       find.descendant(
@@ -191,7 +218,7 @@ void main() {
 
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.pumpAndSettle();
 
     final logoutButtonTopBeforeKeyboard = tester
@@ -203,6 +230,14 @@ void main() {
 
     expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
     expect(find.text('Feedback'), findsWidgets);
+    final feedbackBorderContainer = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('genesis-action-box-attached-border')),
+    );
+    final feedbackDecoration =
+        feedbackBorderContainer.foregroundDecoration! as BoxDecoration;
+    final feedbackBorder = feedbackDecoration.border! as Border;
+    expect(feedbackBorder.top.width, 1);
+    expect(feedbackBorder.top.color.a, closeTo(0.14, 0.01));
     final inputFinder = find.byKey(
       const ValueKey<String>('genesis-feedback-content-input'),
     );

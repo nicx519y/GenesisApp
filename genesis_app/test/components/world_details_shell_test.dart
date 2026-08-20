@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
 void main() {
   testWidgets(
@@ -142,6 +144,50 @@ void main() {
       const BoxDecoration(color: Colors.white),
     );
   });
+
+  testWidgets(
+    'Worldo collapsed panel uses the design background and top outline',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.worldoRedesign(),
+          home: const WorldDetailsPageScaffold(
+            panelTopRadius: 24,
+            map: ColoredBox(color: Colors.green),
+            panelTopChild: SizedBox.expand(),
+            slivers: [SliverToBoxAdapter(child: SizedBox(height: 80))],
+          ),
+        ),
+      );
+
+      final panel = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('world-details-panel-top-surface')),
+      );
+      final decoration = panel.decoration! as BoxDecoration;
+      final foregroundDecoration = panel.foregroundDecoration! as BoxDecoration;
+      final border = foregroundDecoration.border! as Border;
+
+      expect(decoration.color, GenesisPalette.redesignBackground);
+      expect(
+        decoration.borderRadius,
+        const BorderRadius.vertical(top: Radius.circular(24)),
+      );
+      expect(
+        foregroundDecoration.borderRadius,
+        const BorderRadius.vertical(top: Radius.circular(24)),
+      );
+      expect(border.top.width, worldDetailsPanelTopBorderWidth);
+      expect(
+        border.top.color,
+        GenesisPalette.white.withValues(
+          alpha: worldDetailsPanelTopBorderOpacity,
+        ),
+      );
+      expect(border.left.style, BorderStyle.none);
+      expect(border.right.style, BorderStyle.none);
+      expect(border.bottom.style, BorderStyle.none);
+    },
+  );
 
   testWidgets('world details page scaffold uses explicit map height settings', (
     tester,

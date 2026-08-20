@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_world_layout.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 
@@ -24,7 +25,21 @@ void main() {
     expect(originDetailSheetHeaderHeightForTesting, 30);
     expect(originDetailSheetHeaderBodyGapForTesting, 0);
     expect(originDetailSheetHandleTopOffsetForTesting, 2);
-    expect(GenesisRadii.sheetTopRadiusValue, 18);
+    expect(GenesisRadii.sheetTopRadiusValue, 24);
+  });
+
+  test('origin resting map and sheet match the 9m design proportions', () {
+    const viewportHeight = 844.0;
+    const bottomSafeArea = 34.0;
+    final mapHeight = originWorldMapHeightFor(
+      viewportHeight: viewportHeight,
+      bottomSafeArea: bottomSafeArea,
+    );
+    final sheetHeight = viewportHeight - mapHeight + originWorldMapSheetOverlap;
+    final visibleMapHeight = viewportHeight - sheetHeight;
+
+    expect(sheetHeight, closeTo(300, 0.2));
+    expect(visibleMapHeight, closeTo(544, 0.2));
   });
 
   test('origin detail sections use main ui spacing', () {

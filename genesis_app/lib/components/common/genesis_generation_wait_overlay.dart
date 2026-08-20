@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/components/genesis_modal_border.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
@@ -150,8 +151,9 @@ class _GenesisGenerationWaitOverlayState
                           child: AlertDialog(
                             key: const ValueKey('world-tick1-wait-dialog'),
                             backgroundColor: context.genesisColors.surface,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.all(
+                            shape: genesisModalShape(
+                              context,
+                              borderRadius: const BorderRadius.all(
                                 Radius.circular(8),
                               ),
                             ),

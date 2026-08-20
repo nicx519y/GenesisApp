@@ -698,8 +698,7 @@ class _NodeHeader extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Flexible(
-              fit: FlexFit.loose,
+            Expanded(
               child: Text(
                 compactSheetStyle ? point.name : '- ${point.name}',
                 style: _locationNameStyle(
@@ -712,7 +711,7 @@ class _NodeHeader extends StatelessWidget {
               ),
             ),
             if (compactSheetStyle) ...[
-              const Spacer(),
+              const SizedBox(width: 12),
               Text(
                 point.users.isEmpty ? 'Empty' : '${point.users.length} here',
                 style: TextStyle(

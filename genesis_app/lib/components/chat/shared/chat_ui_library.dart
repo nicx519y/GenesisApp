@@ -14,6 +14,7 @@ import '../../../components/ai_content_disclaimer.dart';
 import '../../../icons/custom_icon_assets.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
+import '../../../ui/components/genesis_control_icons.dart';
 import '../../../ui/components/genesis_list_image.dart';
 import '../../../ui/components/genesis_safe_area.dart';
 import '../../../ui/components/genesis_soft_italic_text.dart';

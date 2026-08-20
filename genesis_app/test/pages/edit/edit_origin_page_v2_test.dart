@@ -22,6 +22,7 @@ import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
@@ -392,7 +393,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(bestRole);
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.pumpAndSettle();
 
     expect(

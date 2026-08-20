@@ -4,6 +4,7 @@ import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
@@ -80,10 +81,10 @@ void main() {
       const ValueKey<String>('world-map-back-button'),
     );
     expect(tester.getSize(backButtonFinder), const Size.square(34));
-    final backIcon = tester.widget<Icon>(
+    final backIcon = tester.widget<GenesisBackIcon>(
       find.descendant(
         of: backButtonFinder,
-        matching: find.byIcon(Icons.arrow_back_ios_new),
+        matching: find.byType(GenesisBackIcon),
       ),
     );
     expect(backIcon.size, 14);

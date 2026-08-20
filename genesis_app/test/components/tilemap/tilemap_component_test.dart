@@ -30,7 +30,7 @@ void main() {
     );
     expect(
       tilemapVisualStyleFor(TilemapVisualMode.dark).backgroundColor,
-      const Color(0xFF37362E),
+      const Color(0xFF17151B),
     );
     expect(
       tilemapVisualStyleFor(TilemapVisualMode.dark).gridLineColor,

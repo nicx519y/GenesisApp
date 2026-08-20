@@ -258,7 +258,7 @@ class WorldItemCard extends StatelessWidget {
             style: TextStyle(
               color: context.genesisColors.textPrimary,
               fontSize: 13,
-              height: 1.4,
+              height: 1.25,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -549,7 +549,7 @@ class _WorldStatsRow extends StatelessWidget {
         _Stat(iconAsset: tickStatIconAsset, value: item.tickCnt),
         _Stat(iconAsset: connectStatIconAsset, value: item.connectCnt),
         _Stat(
-          iconAsset: characterStatIconAsset,
+          iconAsset: homeCharacterStatIconAsset,
           preserveIconAssetColor: true,
           value: item.aiCharacterCnt,
         ),

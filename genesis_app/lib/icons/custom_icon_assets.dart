@@ -1,5 +1,13 @@
 const String discussIconAsset = 'assets/custom-icons/png/discuss.png';
-const String searchIconAsset = 'assets/custom-icons/png/search_icon.png';
+const String searchIconAsset = 'assets/custom-icons/svg/search.svg';
+const String controlBackIconAsset =
+    'assets/custom-icons/svg/control_chevron_left.svg';
+const String controlCloseIconAsset =
+    'assets/custom-icons/svg/control_close.svg';
+const String controlChevronDownIconAsset =
+    'assets/custom-icons/svg/control_chevron_down.svg';
+const String controlMoreIconAsset =
+    'assets/custom-icons/svg/control_more_horizontal.svg';
 
 double customIconAssetRenderSize(String assetName, double baseSize) {
   return assetName == connectStatIconAsset ? baseSize + 2 : baseSize;
@@ -15,6 +23,8 @@ const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
 const String launchIconAsset = 'assets/custom-icons/svg/launch_icon.svg';
 const String characterStatIconAsset =
     'assets/custom-icons/svg/ai_char_icon.svg';
+const String homeCharacterStatIconAsset =
+    'assets/custom-icons/svg/home_ai_char_icon.svg';
 const String originFeedPlayIconAsset =
     'assets/custom-icons/svg/origin_feed_play.svg';
 const String originFeedCommentIconAsset =

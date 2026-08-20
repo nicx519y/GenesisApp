@@ -731,24 +731,6 @@ class _DeveloperPageBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 24,
-      child: IconButton(
-        tooltip: 'Back',
-        onPressed: onPressed,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-        style: IconButton.styleFrom(
-          minimumSize: const Size.square(24),
-          maximumSize: const Size.square(24),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        icon: const Icon(
-          Icons.arrow_back_ios_new,
-          color: Colors.black,
-          size: 17,
-        ),
-      ),
-    );
+    return GenesisBackButton(onPressed: onPressed);
   }
 }

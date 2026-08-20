@@ -7,6 +7,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../network/models/gem_records.dart';
+import '../../ui/components/genesis_control_icons.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_tab_bar.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
@@ -267,24 +268,9 @@ class _GemRecordsAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading: Padding(
         padding: const EdgeInsets.only(left: 20),
         child: Center(
-          child: SizedBox.square(
-            dimension: 34,
-            child: IconButton(
-              tooltip: 'Back',
-              padding: EdgeInsets.zero,
-              style: IconButton.styleFrom(
-                backgroundColor: colors.controlMuted,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(11),
-                ),
-              ),
-              icon: Icon(
-                Icons.arrow_back_ios_new_rounded,
-                size: 14,
-                color: colors.navigationSelected,
-              ),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
+          child: GenesisBackButton(
+            foregroundColor: colors.navigationSelected,
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
         ),
       ),

@@ -1,11 +1,10 @@
 // ignore_for_file: use_key_in_widget_constructors
 
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_control_icons.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
@@ -22,27 +21,10 @@ class WorldMapBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.genesisColors;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(11),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Material(
-          color: colors.surface.withValues(alpha: 0.5),
-          child: InkWell(
-            key: const ValueKey<String>('world-map-back-button'),
-            onTap: onPressed,
-            child: SizedBox.square(
-              dimension: worldMapHeaderButtonSize,
-              child: Icon(
-                Icons.arrow_back_ios_new,
-                size: 14,
-                color: colors.foregroundStrong,
-              ),
-            ),
-          ),
-        ),
-      ),
+    return GenesisBackButton(
+      key: const ValueKey<String>('world-map-back-button'),
+      onPressed: onPressed,
+      dimension: worldMapHeaderButtonSize,
     );
   }
 }

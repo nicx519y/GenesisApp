@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_location_list.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
@@ -224,5 +225,57 @@ void main() {
       scrollable: find.byType(Scrollable),
     );
     expect(find.text('Location 79'), findsOneWidget);
+  });
+
+  testWidgets('compact group name uses the space before Empty', (tester) async {
+    const groupName = 'Student Council Room';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: WorldLocationList(
+              points: <WorldPoint>[],
+              locationNodes: <WorldMapLocationNode>[
+                WorldMapLocationNode(
+                  id: 'group',
+                  point: WorldPoint(
+                    id: 'group',
+                    name: groupName,
+                    type: WorldPointType.castle,
+                    position: Offset.zero,
+                    users: <UserAvatar>[],
+                    isLeafLocation: false,
+                  ),
+                  children: <WorldMapLocationNode>[
+                    WorldMapLocationNode(
+                      id: 'child',
+                      point: WorldPoint(
+                        id: 'child',
+                        name: 'Meeting Room',
+                        type: WorldPointType.castle,
+                        position: Offset.zero,
+                        users: <UserAvatar>[],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              compactSheetStyle: true,
+              enableOuterScrollHandoff: false,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final nameParagraph = tester.renderObject<RenderParagraph>(
+      find.text(groupName),
+    );
+    expect(nameParagraph.didExceedMaxLines, isFalse);
+    expect(
+      tester.getRect(find.text(groupName)).right,
+      lessThan(tester.getRect(find.text('Empty')).left),
+    );
   });
 }

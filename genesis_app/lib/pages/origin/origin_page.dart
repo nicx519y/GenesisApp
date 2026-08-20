@@ -9,6 +9,7 @@ import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/origin/origin_item_card.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
@@ -144,7 +145,8 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                 backgroundColor: context.genesisColors.inputBackground,
                 borderColor: context.genesisColors.borderStrong,
                 borderRadius: BorderRadius.circular(14),
-                iconColor: context.genesisColors.primary,
+                iconColor: context.genesisColors.iconMuted,
+                iconAsset: searchIconAsset,
                 iconSize: 15,
                 iconGap: 9,
                 borderWidth: 1.5,
