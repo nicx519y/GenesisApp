@@ -147,7 +147,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(14),
                 iconColor: context.genesisColors.primary,
                 iconAsset: searchIconAsset,
-                iconSize: 15,
+                iconSize: genesisSearchIconSize,
                 iconGap: 9,
                 borderWidth: 1.5,
                 hintText: 'Worlds, tags, characters',

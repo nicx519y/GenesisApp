@@ -2965,6 +2965,8 @@ void main() {
       homeSearchField.iconColor,
       tester.element(homeSearchFinder).genesisColors.primary,
     );
+    expect(homeSearchField.iconAsset, searchIconAsset);
+    expect(homeSearchField.iconSize, genesisSearchIconSize);
 
     await tester.tap(find.text('Explore').first);
     await tester.pump();
@@ -2976,6 +2978,11 @@ void main() {
         .getTopLeft(find.byType(GenesisSearchField).first)
         .dy;
     expect(searchPageSearchTop, homeSearchTop);
+    final searchPageSearchField = tester.widget<GenesisSearchField>(
+      find.byType(GenesisSearchField).first,
+    );
+    expect(searchPageSearchField.iconAsset, homeSearchField.iconAsset);
+    expect(searchPageSearchField.iconSize, homeSearchField.iconSize);
   });
 
   testWidgets('search bar placeholder stays single line with ellipsis', (
@@ -5279,7 +5286,7 @@ void main() {
           .genesisColors
           .primary,
     );
-    expect(searchField.iconSize, 15);
+    expect(searchField.iconSize, genesisSearchIconSize);
     expect(searchField.iconGap, 9);
     expect(searchField.borderWidth, 1.5);
 

@@ -33,6 +33,7 @@ import '../../network/models/world.dart';
 import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/components/genesis_modal_border.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';

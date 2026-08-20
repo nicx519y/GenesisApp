@@ -11,6 +11,7 @@ import '../theme/genesis_ui_theme.dart';
 
 const genesisSearchFieldHeight = 38.0;
 const genesisCompactSearchFieldHeight = 36.0;
+const genesisSearchIconSize = 15.0;
 
 enum GenesisSearchFieldVariant { standard, compact }
 
@@ -33,7 +34,7 @@ class GenesisSearchField extends StatelessWidget {
     this.borderColor,
     this.borderRadius,
     this.iconColor,
-    this.iconSize = 20,
+    this.iconSize = genesisSearchIconSize,
     this.iconGap = GenesisSpacing.md,
     this.iconAsset,
     this.borderWidth = 1,

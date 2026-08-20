@@ -32,6 +32,7 @@ import 'package:genesis_flutter_android/platform/device/android_sdk_version.dart
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
 String _readLocationChatImplementationSource() {
   return [
@@ -862,7 +863,10 @@ void main() {
       final noticeSurface = tester.widget<Material>(
         find.byKey(const ValueKey('location-chat-new-message-notice-surface')),
       );
-      expect(noticeSurface.color, const Color(0xFFF82B3C));
+      expect(noticeSurface.color, GenesisPalette.redesignSkeletonHighlight);
+      final noticeShape = noticeSurface.shape as RoundedRectangleBorder;
+      expect(noticeShape.side.color, Colors.white.withValues(alpha: 0.14));
+      expect(noticeShape.side.width, 1);
       final noticeText = tester.widget<Text>(find.text('1 new message'));
       expect(noticeText.style?.color, Colors.white);
 

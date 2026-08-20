@@ -384,6 +384,8 @@ void main() {
     expect(find.byType(GenesisSearchField), findsOneWidget);
     final icon = tester.widget<SvgPicture>(find.byType(SvgPicture));
     expect((icon.bytesLoader as SvgAssetLoader).assetName, searchIconAsset);
+    expect(icon.width, genesisSearchIconSize);
+    expect(icon.height, genesisSearchIconSize);
     expect(find.byIcon(Icons.search), findsNothing);
     expect(find.text('Explore'), findsOneWidget);
     expect(tester.getSize(find.byType(GenesisSearchField)).height, 36);
@@ -1255,10 +1257,8 @@ void main() {
     expect(badgePosition.left, 19);
   });
 
-  testWidgets('GenesisUnreadBadge applies platform optical offsets', (
-    tester,
-  ) async {
-    Future<double> textOffsetFor(TargetPlatform platform) async {
+  testWidgets('GenesisUnreadBadge has no platform text offset', (tester) async {
+    Future<void> expectCenteredLabel(TargetPlatform platform) async {
       await tester.pumpWidget(
         MaterialApp(
           key: ValueKey(platform),
@@ -1266,17 +1266,19 @@ void main() {
           home: const Scaffold(body: GenesisUnreadBadge(count: 4)),
         ),
       );
-      final transform = tester.widget<Transform>(
-        find.descendant(
-          of: find.byType(GenesisUnreadBadge),
-          matching: find.byType(Transform),
-        ),
+      final badge = find.byType(GenesisUnreadBadge);
+      expect(
+        find.descendant(of: badge, matching: find.byType(Transform)),
+        findsNothing,
       );
-      return transform.transform.getTranslation().y;
+      expect(
+        tester.getCenter(find.text('4')).dy,
+        closeTo(tester.getCenter(badge).dy, 0.01),
+      );
     }
 
-    expect(await textOffsetFor(TargetPlatform.iOS), -0.5);
-    expect(await textOffsetFor(TargetPlatform.android), 0.5);
+    await expectCenteredLabel(TargetPlatform.iOS);
+    await expectCenteredLabel(TargetPlatform.android);
   });
 
   testWidgets('GenesisBottomNavigation can show an icon-only create action', (

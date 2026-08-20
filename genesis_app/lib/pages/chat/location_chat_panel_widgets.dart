@@ -409,7 +409,11 @@ class _LocationChatNewMessageNotice extends StatelessWidget {
     return Material(
       key: const ValueKey('location-chat-new-message-notice-surface'),
       color: context.genesisChatTheme.newMessageNoticeBackground,
-      borderRadius: BorderRadius.circular(16),
+      shape: genesisModalShape(
+        context,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: const ValueKey('location-chat-new-message-notice'),
         borderRadius: BorderRadius.circular(16),

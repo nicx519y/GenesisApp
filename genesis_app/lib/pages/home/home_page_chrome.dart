@@ -159,6 +159,8 @@ class _HomeHeader extends StatelessWidget {
                 Expanded(
                   child: GenesisSearchField(
                     variant: GenesisSearchFieldVariant.compact,
+                    iconAsset: searchIconAsset,
+                    iconSize: genesisSearchIconSize,
                     iconColor: context.genesisColors.primary,
                     hintText: 'Explore',
                     onTap: () {

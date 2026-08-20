@@ -434,6 +434,8 @@ class _SearchPageState extends State<SearchPage>
                       Expanded(
                         child: GenesisSearchField(
                           variant: GenesisSearchFieldVariant.compact,
+                          iconAsset: searchIconAsset,
+                          iconSize: genesisSearchIconSize,
                           controller: _controller,
                           focusNode: _focusNode,
                           onChanged: _onQueryChanged,

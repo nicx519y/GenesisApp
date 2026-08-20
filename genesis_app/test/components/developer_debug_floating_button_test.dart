@@ -37,6 +37,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('debug floating button starts centered on the right edge', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final navigatorKey = GlobalKey<NavigatorState>();
+    showGenesisDebugFloatingButton();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: DeveloperDebugFloatingButton(
+          navigatorKey: navigatorKey,
+          child: const Scaffold(),
+        ),
+      ),
+    );
+
+    expect(tester.getCenter(find.text('debug')), const Offset(371, 400));
+  });
+
   testWidgets('opening debug sheet keeps the current status bar style', (
     tester,
   ) async {

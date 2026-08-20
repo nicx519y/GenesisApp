@@ -95,7 +95,7 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
     narratorBackground: GenesisPalette.transparent,
     narratorForeground: GenesisPalette.redesignWhite85,
     narratorIcon: GenesisPalette.redesignWhite60,
-    newMessageNoticeBackground: GenesisPalette.redesignAccent,
+    newMessageNoticeBackground: GenesisPalette.redesignSkeletonHighlight,
     newMessageNoticeForeground: GenesisPalette.white,
   );
 
