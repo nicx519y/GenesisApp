@@ -14,6 +14,7 @@ abstract interface class AppAnalyticsClient {
 }
 
 typedef FirebaseReadiness = Future<void> Function();
+typedef FirebaseAnalyticsMessageSentCountIncrementer = Future<int> Function();
 
 abstract interface class FirebaseAnalyticsOnceEventStore {
   Future<bool> wasSent(String eventName);
@@ -45,6 +46,25 @@ class SharedPreferencesFirebaseAnalyticsOnceEventStore
   static String _storageKey(String eventName) => '$storageKeyPrefix$eventName';
 }
 
+class SharedPreferencesFirebaseAnalyticsMessageSentCounter {
+  const SharedPreferencesFirebaseAnalyticsMessageSentCounter();
+
+  static const String storageKey = 'firebase_analytics_message_sent_count_v1';
+
+  Future<int> increment() async {
+    final preferences = await SharedPreferences.getInstance();
+    final storedCount = preferences.getInt(storageKey) ?? 0;
+    final nextCount = (storedCount < 0 ? 0 : storedCount) + 1;
+    final saved = await preferences.setInt(storageKey, nextCount);
+    if (!saved) {
+      throw StateError(
+        'Failed to persist Firebase Analytics message sent count',
+      );
+    }
+    return nextCount;
+  }
+}
+
 /// Best-effort Firebase Analytics events owned by the app.
 ///
 /// Automatic Firebase events are controlled by the native build configuration.
@@ -57,9 +77,12 @@ class FirebaseAnalyticsMonitoring {
   static FirebaseReadiness _readiness = FirebaseRuntime.ensureInitialized;
   static FirebaseAnalyticsOnceEventStore _onceEventStore =
       const SharedPreferencesFirebaseAnalyticsOnceEventStore();
+  static var _messageSentCountIncrementer =
+      const SharedPreferencesFirebaseAnalyticsMessageSentCounter().increment;
   static Future<String> Function() _deviceIdReader = _readNativeDeviceId;
   static final Map<String, Future<void>> _onceEventRecordings =
       <String, Future<void>>{};
+  static Future<void> _messageSentCountQueue = Future<void>.value();
   static bool? _enabledOverride;
 
   static Future<void> recordLaunch({
@@ -87,11 +110,37 @@ class FirebaseAnalyticsMonitoring {
   static Future<void> recordMessageSent({
     required String worldId,
     required String locationId,
-  }) {
-    return _recordEventWithFirst('message_sent', <String, Object>{
-      'world_id': worldId,
-      'location_id': locationId,
-    });
+  }) async {
+    if (!_isEnabled) return;
+    try {
+      final deviceId = (await _deviceIdReader()).trim();
+      final parameters = <String, Object>{
+        'world_id': worldId,
+        'location_id': locationId,
+        'device_id': deviceId.isEmpty ? 'unknown' : deviceId,
+      };
+      int? messageSentCount;
+      try {
+        messageSentCount = await _incrementMessageSentCount();
+      } catch (e, st) {
+        debugPrint(
+          '[Telemetry][FirebaseAnalytics] message_sent count failed: $e',
+        );
+        debugPrint('[Telemetry][FirebaseAnalytics] stacktrace:\n$st');
+      }
+
+      await Future.wait<void>(<Future<void>>[
+        _recordEvent('message_sent', parameters),
+        _recordEventOnce('message_sent_first', parameters),
+        if (messageSentCount != null && messageSentCount >= 10)
+          _recordEventOnce('message_sent_10_first', parameters),
+        if (messageSentCount != null && messageSentCount >= 20)
+          _recordEventOnce('message_sent_20_first', parameters),
+      ]);
+    } catch (e, st) {
+      debugPrint('[Telemetry][FirebaseAnalytics] message_sent failed: $e');
+      debugPrint('[Telemetry][FirebaseAnalytics] stacktrace:\n$st');
+    }
   }
 
   static Future<void> recordLogin({required String method}) {
@@ -199,6 +248,17 @@ class FirebaseAnalyticsMonitoring {
     }
   }
 
+  static Future<int> _incrementMessageSentCount() {
+    final increment = _messageSentCountQueue.then(
+      (_) => _messageSentCountIncrementer(),
+    );
+    _messageSentCountQueue = increment.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    return increment;
+  }
+
   static bool get _isEnabled =>
       _enabledOverride ?? (kReleaseMode && !AppFlavorConfig.currentIsInternal);
 
@@ -231,12 +291,23 @@ class FirebaseAnalyticsMonitoring {
   }
 
   @visibleForTesting
+  static void setMessageSentCountIncrementerForTesting(
+    FirebaseAnalyticsMessageSentCountIncrementer value,
+  ) {
+    _messageSentCountIncrementer = value;
+    _messageSentCountQueue = Future<void>.value();
+  }
+
+  @visibleForTesting
   static void resetForTesting() {
     _client = const _FirebaseAppAnalyticsClient();
     _readiness = FirebaseRuntime.ensureInitialized;
     _onceEventStore = const SharedPreferencesFirebaseAnalyticsOnceEventStore();
+    _messageSentCountIncrementer =
+        const SharedPreferencesFirebaseAnalyticsMessageSentCounter().increment;
     _deviceIdReader = _readNativeDeviceId;
     _onceEventRecordings.clear();
+    _messageSentCountQueue = Future<void>.value();
     _enabledOverride = null;
   }
 

@@ -6,10 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late _FakeAnalyticsClient client;
+  late int messageSentCount;
 
   setUp(() {
     FirebaseAnalyticsMonitoring.resetForTesting();
     client = _FakeAnalyticsClient();
+    messageSentCount = 0;
     FirebaseAnalyticsMonitoring.setClientForTesting(client);
     FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
       _MemoryOnceEventStore(),
@@ -18,6 +20,12 @@ void main() {
     FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
     FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
       () async => 'test-device-id',
+    );
+    FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
+      () async {
+        messageSentCount += 1;
+        return messageSentCount;
+      },
     );
   });
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
@@ -152,6 +160,65 @@ void main() {
     },
   );
 
+  test(
+    'records message_sent threshold events at ten and twenty only once',
+    () async {
+      for (var count = 1; count <= 21; count += 1) {
+        await FirebaseAnalyticsMonitoring.recordMessageSent(
+          worldId: 'world-$count',
+          locationId: 'location-$count',
+        );
+      }
+
+      expect(
+        client.events.where(
+          (event) =>
+              event.name == 'message_sent_10_first' ||
+              event.name == 'message_sent_20_first',
+        ),
+        <_RecordedEvent>[
+          const _RecordedEvent('message_sent_10_first', <String, Object>{
+            'world_id': 'world-10',
+            'location_id': 'location-10',
+            'device_id': 'test-device-id',
+          }),
+          const _RecordedEvent('message_sent_20_first', <String, Object>{
+            'world_id': 'world-20',
+            'location_id': 'location-20',
+            'device_id': 'test-device-id',
+          }),
+        ],
+      );
+    },
+  );
+
+  test('concurrent sends serialize the persisted threshold count', () async {
+    messageSentCount = 8;
+
+    await Future.wait<void>(<Future<void>>[
+      FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-9',
+        locationId: 'location-9',
+      ),
+      FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-10',
+        locationId: 'location-10',
+      ),
+    ]);
+
+    expect(messageSentCount, 10);
+    expect(
+      client.events.where((event) => event.name == 'message_sent_10_first'),
+      <_RecordedEvent>[
+        const _RecordedEvent('message_sent_10_first', <String, Object>{
+          'world_id': 'world-10',
+          'location_id': 'location-10',
+          'device_id': 'test-device-id',
+        }),
+      ],
+    );
+  });
+
   test('failed logging remains eligible for a later retry', () async {
     client.error = StateError('log failed');
     await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
@@ -247,6 +314,70 @@ void main() {
       }),
     ]);
   });
+
+  test(
+    'persists message count and threshold once marker across runs',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        SharedPreferencesFirebaseAnalyticsMessageSentCounter.storageKey: 9,
+      });
+      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+        const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
+      );
+      FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
+        const SharedPreferencesFirebaseAnalyticsMessageSentCounter().increment,
+      );
+
+      await FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-10',
+        locationId: 'location-10',
+      );
+
+      var preferences = await SharedPreferences.getInstance();
+      expect(
+        preferences.getInt(
+          SharedPreferencesFirebaseAnalyticsMessageSentCounter.storageKey,
+        ),
+        10,
+      );
+      expect(
+        preferences.getInt(
+          '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
+          'message_sent_10_first',
+        ),
+        1,
+      );
+
+      FirebaseAnalyticsMonitoring.resetForTesting();
+      client = _FakeAnalyticsClient();
+      FirebaseAnalyticsMonitoring.setClientForTesting(client);
+      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+        const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
+      );
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+      FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+        () async => 'test-device-id',
+      );
+
+      await FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-11',
+        locationId: 'location-11',
+      );
+
+      preferences = await SharedPreferences.getInstance();
+      expect(
+        preferences.getInt(
+          SharedPreferencesFirebaseAnalyticsMessageSentCounter.storageKey,
+        ),
+        11,
+      );
+      expect(
+        client.events.where((event) => event.name == 'message_sent_10_first'),
+        isEmpty,
+      );
+    },
+  );
 
   test('records performance completion with its stable dimensions', () async {
     await FirebaseAnalyticsMonitoring.recordPerformanceOperation(
