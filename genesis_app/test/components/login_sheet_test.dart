@@ -9,6 +9,15 @@ import 'package:genesis_flutter_android/components/login_provider_button.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 
 void main() {
+  test('Apple login icon asset is pure white', () async {
+    final svg = await rootBundle.loadString(
+      'assets/custom-icons/svg/login_apple.svg',
+    );
+
+    expect(svg, contains('fill="#FFFFFF"'));
+    expect(svg, isNot(contains('fill="#000000"')));
+  });
+
   testWidgets('provider buttons follow the current flavor capability', (
     tester,
   ) async {
@@ -46,6 +55,45 @@ void main() {
     expect(find.text('Continue with Apple'), findsNothing);
   });
 
+  testWidgets('provider icons and left-aligned labels share one axis', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            child: LoginProviderButtons(
+              loggingInProvider: null,
+              onLogin: (_) {},
+              showApple: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final googleIconSlot = find.byKey(
+      const ValueKey<String>('login-provider-icon-slot-google'),
+    );
+    final appleIconSlot = find.byKey(
+      const ValueKey<String>('login-provider-icon-slot-apple'),
+    );
+    final googleLabel = find.text('Continue with Google');
+    final appleLabel = find.text('Continue with Apple');
+
+    expect(
+      tester.getCenter(googleIconSlot).dx,
+      closeTo(tester.getCenter(appleIconSlot).dx, 0.01),
+    );
+    expect(
+      tester.getTopLeft(googleLabel).dx,
+      closeTo(tester.getTopLeft(appleLabel).dx, 0.01),
+    );
+    expect(tester.widget<Text>(googleLabel).textAlign, TextAlign.left);
+    expect(tester.widget<Text>(appleLabel).textAlign, TextAlign.left);
+  });
+
   testWidgets('login sheet inherits the standard panel title style', (
     tester,
   ) async {
@@ -61,6 +109,28 @@ void main() {
       GenesisBottomSheetPanel.titleStyle.copyWith(
         color: GenesisSemanticColors.light().textPrimary,
       ),
+    );
+  });
+
+  testWidgets('login sheet has the shared subtle outline', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: LoginSheet(onLogin: (_) async => false)),
+      ),
+    );
+
+    final outline = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('login-sheet-outline')),
+    );
+    final decoration = outline.decoration as BoxDecoration;
+    final border = decoration.border! as Border;
+
+    expect(outline.position, DecorationPosition.foreground);
+    expect(decoration.borderRadius, GenesisBottomSheetPanel.borderRadius);
+    expect(border.top.width, 1);
+    expect(
+      border.top.color,
+      GenesisSemanticColors.light().textPrimary.withValues(alpha: 0.14),
     );
   });
 

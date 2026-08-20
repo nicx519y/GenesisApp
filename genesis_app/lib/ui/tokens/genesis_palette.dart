@@ -21,9 +21,11 @@ abstract final class GenesisPalette {
   static const Color redesignRaised = Color(0xFF1F1D24);
   static const Color redesignPaper = Color(0xFFF7F5F2);
   static const Color redesignAccent = Color(0xFFF82B3C);
+  static const Color redesignAccentDark = Color(0xFFC41F2E);
   static const Color redesignAccentSoft = Color(0xFFFF8A9A);
   static const Color redesignTextSecondary = Color(0xFF5C5862);
   static const Color redesignNavigationInactive = Color(0xFFA9A29B);
+  static const Color redesignFeedTabInactive = Color(0xFF9A949F);
   static const Color redesignSkeletonBase = Color(0xFF28252D);
   static const Color redesignSkeletonHighlight = Color(0xFF35313B);
   static const Color redesignGradientStart = Color(0xFF2B2830);
@@ -31,6 +33,11 @@ abstract final class GenesisPalette {
   static const Color redesignBackground90 = Color(0xE617151B);
   static const Color redesignBackground42 = Color(0x6B17151B);
   static const Color redesignInk90 = Color(0xE6131215);
+  static const Color redesignInk88 = Color(0xE0131215);
+  static const Color redesignInk80 = Color(0xCC131215);
+  static const Color redesignInk60 = Color(0x99131215);
+  static const Color redesignInk50 = Color(0x80131215);
+  static const Color redesignInk42 = Color(0x6B131215);
   static const Color redesignRaised90 = Color(0xE61F1D24);
   static const Color redesignAccent42 = Color(0x6BF82B3C);
   static const Color redesignAccent40 = Color(0x66F82B3C);
@@ -41,6 +48,7 @@ abstract final class GenesisPalette {
   static const Color redesignBlack40 = Color(0x66000000);
 
   static const Color redesignWhite88 = Color(0xE0FFFFFF);
+  static const Color redesignWhite85 = Color(0xD9FFFFFF);
   static const Color redesignWhite82 = Color(0xD1FFFFFF);
   static const Color redesignWhite72 = Color(0xB8FFFFFF);
   static const Color redesignWhite60 = Color(0x99FFFFFF);
@@ -50,7 +58,9 @@ abstract final class GenesisPalette {
   static const Color redesignWhite40 = Color(0x66FFFFFF);
   static const Color redesignWhite32 = Color(0x52FFFFFF);
   static const Color redesignWhite22 = Color(0x38FFFFFF);
+  static const Color redesignWhite20 = Color(0x33FFFFFF);
   static const Color redesignWhite18 = Color(0x2EFFFFFF);
+  static const Color redesignWhite16 = Color(0x29FFFFFF);
   static const Color redesignWhite14 = Color(0x24FFFFFF);
   static const Color redesignWhite13 = Color(0x21FFFFFF);
   static const Color redesignWhite12 = Color(0x1FFFFFFF);

@@ -12,6 +12,8 @@ class DiscussPostInput extends StatefulWidget {
     this.imageUploader,
     this.onSubmitted,
     this.requireLogin = true,
+    this.compact = false,
+    this.showCurrentUserAvatar = false,
   });
 
   final String bizId;
@@ -23,6 +25,8 @@ class DiscussPostInput extends StatefulWidget {
   final DiscussImageUploader? imageUploader;
   final VoidCallback? onSubmitted;
   final bool requireLogin;
+  final bool compact;
+  final bool showCurrentUserAvatar;
 
   @override
   State<DiscussPostInput> createState() => _DiscussPostInputState();
@@ -173,30 +177,154 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _openComposer,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 48),
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
-          color: context.genesisColors.inputBackground,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          widget.placeholder,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 14,
-            height: 1.2,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0,
-            color: context.genesisColors.textFaint,
-          ),
+    final compact = widget.compact;
+    final input = Container(
+      constraints: compact
+          ? const BoxConstraints.tightFor(height: 40)
+          : const BoxConstraints(minHeight: 48),
+      alignment: Alignment.centerLeft,
+      padding: compact
+          ? const EdgeInsets.symmetric(horizontal: 13)
+          : const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: compact
+            ? context.genesisColors.foregroundStrong.withValues(alpha: 0.07)
+            : context.genesisColors.inputBackground,
+        borderRadius: BorderRadius.circular(compact ? 13 : 8),
+      ),
+      child: Text(
+        widget.placeholder,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: compact ? 12 : 14,
+          height: compact ? 1 : 1.2,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0,
+          color: compact
+              ? context.genesisColors.foregroundStrong.withValues(alpha: 0.40)
+              : context.genesisColors.textFaint,
         ),
       ),
     );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _openComposer,
+      child: widget.showCurrentUserAvatar
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _DiscussCurrentUserAvatar(size: compact ? 36 : 40),
+                const SizedBox(width: 8),
+                Expanded(child: input),
+              ],
+            )
+          : input,
+    );
   }
+}
+
+class _DiscussCurrentUserAvatar extends StatefulWidget {
+  const _DiscussCurrentUserAvatar({required this.size});
+
+  final double size;
+
+  @override
+  State<_DiscussCurrentUserAvatar> createState() =>
+      _DiscussCurrentUserAvatarState();
+}
+
+class _DiscussCurrentUserAvatarState extends State<_DiscussCurrentUserAvatar> {
+  ValueListenable<int>? _userInfoRevision;
+  var _loadGeneration = 0;
+  var _avatarUrl = '';
+  var _displayName = 'User';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final revision = AppServicesScope.read(
+      context,
+    ).sessionStore.userInfoRevision;
+    if (identical(_userInfoRevision, revision)) return;
+    _userInfoRevision?.removeListener(_handleUserInfoChanged);
+    _userInfoRevision = revision..addListener(_handleUserInfoChanged);
+    _loadCachedUserInfo();
+  }
+
+  @override
+  void dispose() {
+    _loadGeneration += 1;
+    _userInfoRevision?.removeListener(_handleUserInfoChanged);
+    super.dispose();
+  }
+
+  void _handleUserInfoChanged() => _loadCachedUserInfo();
+
+  Future<void> _loadCachedUserInfo() async {
+    final generation = ++_loadGeneration;
+    final sessionStore = AppServicesScope.read(context).sessionStore;
+    final userInfo = await sessionStore.readUserInfo();
+    final uid = (await sessionStore.readUid())?.trim() ?? '';
+    final nextName = _firstCachedUserString(userInfo, const [
+      'name',
+      'nickname',
+      'user_name',
+      'display_name',
+    ]);
+    final nextAvatar = asImageUrl(
+      userInfo?['avatar'],
+      fallback:
+          userInfo?['avatar_url'] ??
+          userInfo?['photoUrl'] ??
+          userInfo?['photo_url'] ??
+          userInfo?['picture'],
+    );
+    if (!mounted || generation != _loadGeneration) return;
+    final resolvedName = nextName.isNotEmpty
+        ? nextName
+        : uid.isNotEmpty && !uid.startsWith('guest_')
+        ? uid
+        : 'User';
+    if (_avatarUrl == nextAvatar && _displayName == resolvedName) return;
+    setState(() {
+      _avatarUrl = nextAvatar;
+      _displayName = resolvedName;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = widget.size;
+    return Container(
+      key: const ValueKey<String>('discuss-post-current-user-avatar'),
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(1.5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.genesisColors.danger, width: 1.5),
+      ),
+      child: GenesisAvatar(
+        name: _displayName,
+        url: _avatarUrl,
+        size: size - 3,
+        borderRadius: 9.5,
+        fallbackBackgroundColor: context.genesisColors.inputBackground,
+        showFallbackWhileLoading: true,
+      ),
+    );
+  }
+}
+
+String _firstCachedUserString(
+  Map<String, dynamic>? userInfo,
+  Iterable<String> keys,
+) {
+  if (userInfo == null) return '';
+  for (final key in keys) {
+    final value = userInfo[key];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+  }
+  return '';
 }

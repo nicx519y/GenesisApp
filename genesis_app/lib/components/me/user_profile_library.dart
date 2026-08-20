@@ -28,3 +28,5 @@ part 'user_profile_models.dart';
 part 'user_profile_origin_collection.dart';
 part 'user_profile_world_collection.dart';
 part 'user_profile_actions.dart';
+
+enum UserProfileAppearance { standard, worldoMe }

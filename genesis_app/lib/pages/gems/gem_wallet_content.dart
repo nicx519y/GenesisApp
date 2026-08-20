@@ -39,7 +39,7 @@ class _GemWalletContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
       children: [
         ValueListenableBuilder<GemWalletState>(
           valueListenable: walletStateListenable,
@@ -63,7 +63,7 @@ class _GemWalletContent extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 26),
+        const SizedBox(height: 22),
         if (taskGroups == null)
           _GemSectionStatePanel(
             isLoading: tasksLoading,
@@ -81,7 +81,7 @@ class _GemWalletContent extends StatelessWidget {
                 onTaskTap: onTaskTap,
                 onJoinUsTap: onJoinUsTap,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 13),
             ],
       ],
     );
@@ -114,13 +114,13 @@ class _TaskGroupSection extends StatelessWidget {
         Text(
           group.groupTitle,
           style: TextStyle(
-            fontSize: 16,
-            height: 20 / 16,
-            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            height: 1,
+            fontWeight: FontWeight.w800,
             color: context.genesisColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 11),
         for (final task in group.tasks) ...[
           if (isJoinUs)
             _JoinUsTaskRow(
@@ -137,7 +137,7 @@ class _TaskGroupSection extends StatelessWidget {
               isLoading: isTaskLoading(task.taskCode),
               onTap: () => onTaskTap(task),
             ),
-          SizedBox(height: isJoinUs ? 10 : 12),
+          const SizedBox(height: 9),
         ],
       ],
     );
@@ -165,57 +165,45 @@ class _JoinUsTaskRow extends StatelessWidget {
       key: ValueKey<String>('gem-join-us-row-${task.taskCode}'),
       behavior: HitTestBehavior.opaque,
       onTap: onRowTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 62),
+        padding: const EdgeInsets.fromLTRB(15, 13, 15, 13),
+        decoration: BoxDecoration(
+          color: context.genesisColors.surfaceSubtle,
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Row(
           children: [
             SvgPicture.asset(
               'assets/custom-icons/svg/discord-svgrepo-com.svg',
-              width: 22,
-              height: 22,
+              width: 16,
+              height: 16,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 11),
             Expanded(
               child: Text(
                 task.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 14,
-                  height: 16 / 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  height: 1.25,
+                  fontWeight: FontWeight.w800,
                   color: context.genesisColors.textPrimary,
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              '+${formatGemInteger(task.rewardGems)}',
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 14,
-                height: 16 / 14,
-                fontWeight: FontWeight.w600,
-                color: context.genesisColors.textPrimary,
-              ),
-            ),
-            const SizedBox(width: 4),
-            SvgPicture.asset(
-              gemIconAsset,
-              key: ValueKey<String>('gem-task-reward-icon-${task.taskCode}'),
-              width: gemSmallIconSize,
-              height: gemSmallIconSize,
-            ),
+            _TaskReward(task: task),
             const SizedBox(width: 10),
             _TaskActionButton(
               task: task,
               status: status,
               isLoading: isLoading,
               onTap: onButtonTap,
-              width: 64,
-              height: 24,
-              borderRadius: 10,
-              textHeight: 14 / 12,
+              height: 28,
+              borderRadius: 9,
+              textHeight: 1,
             ),
           ],
         ),
@@ -241,12 +229,11 @@ class _TaskRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: ValueKey<String>('gem-task-row-${task.taskCode}'),
-      constraints: const BoxConstraints(minHeight: 62),
-      padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+      constraints: const BoxConstraints(minHeight: 70),
+      padding: const EdgeInsets.fromLTRB(15, 13, 15, 13),
       decoration: BoxDecoration(
-        color: context.genesisColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: context.genesisColors.borderSubtle),
+        color: context.genesisColors.surfaceSubtle,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
@@ -260,9 +247,9 @@ class _TaskRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 14,
-                    height: 16 / 14,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    height: 1.25,
+                    fontWeight: FontWeight.w800,
                     color: context.genesisColors.textPrimary,
                   ),
                 ),
@@ -270,60 +257,67 @@ class _TaskRow extends StatelessWidget {
                 Text(
                   task.description,
                   style: TextStyle(
-                    fontSize: 12,
-                    height: 14 / 12,
+                    fontSize: 11,
+                    height: 1.45,
                     fontWeight: FontWeight.w400,
-                    color: context.genesisColors.textFaint,
+                    color: context.genesisColors.textMuted,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 64,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '+${formatGemInteger(task.rewardGems)}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 16 / 14,
-                        fontWeight: FontWeight.w600,
-                        color: context.genesisColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    SvgPicture.asset(
-                      gemIconAsset,
-                      key: ValueKey<String>(
-                        'gem-task-reward-icon-${task.taskCode}',
-                      ),
-                      width: gemSmallIconSize,
-                      height: gemSmallIconSize,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                _TaskActionButton(
-                  task: task,
-                  status: status,
-                  isLoading: isLoading,
-                  onTap: onTap,
-                  width: 64,
-                  height: 24,
-                  borderRadius: 10,
-                  textHeight: 14 / 12,
-                ),
-              ],
-            ),
+          const SizedBox(width: 14),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _TaskReward(task: task),
+              const SizedBox(width: 10),
+              _TaskActionButton(
+                task: task,
+                status: status,
+                isLoading: isLoading,
+                onTap: onTap,
+                height: 28,
+                borderRadius: 9,
+                textHeight: 1,
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TaskReward extends StatelessWidget {
+  const _TaskReward({required this.task});
+
+  final GemTask task;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: ValueKey<String>('gem-task-reward-${task.taskCode}'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SvgPicture.asset(
+          gemIconAsset,
+          key: ValueKey<String>('gem-task-reward-icon-${task.taskCode}'),
+          width: 9,
+          height: 14,
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '+${formatGemInteger(task.rewardGems)}',
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1,
+            fontWeight: FontWeight.w800,
+            color: context.genesisColors.textPrimary,
+          ),
+        ),
+      ],
     );
   }
 }

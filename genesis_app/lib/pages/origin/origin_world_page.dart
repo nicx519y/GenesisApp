@@ -22,6 +22,7 @@ import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
+import '../../components/map_detail_sheet_surface.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/origin_role_recommendation.dart';
 import '../../components/origin/genesis_origin_theme.dart';
@@ -44,14 +45,11 @@ import '../../network/models/origin.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_bottom_navigation.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/components/genesis_search_field.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_radii.dart';
+import '../../ui/tokens/genesis_palette.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../utils/entity_deleted.dart';
@@ -89,10 +87,13 @@ class OriginWorldPage extends StatefulWidget {
 }
 
 @visibleForTesting
-const double originDetailSheetHorizontalPaddingForTesting = 12;
+const double originDetailSheetHorizontalPaddingForTesting = 20;
 
 @visibleForTesting
 const double originDetailSheetHeaderHeightForTesting = 30;
+
+@visibleForTesting
+const double originInfoPinnedHeaderHeightForTesting = 76;
 
 @visibleForTesting
 const double originDetailSheetHeaderBodyGapForTesting = 0;
@@ -101,7 +102,7 @@ const double originDetailSheetHeaderBodyGapForTesting = 0;
 const double originDetailSheetHandleTopOffsetForTesting = 2;
 
 @visibleForTesting
-const double originDetailSectionGapForTesting = 24;
+const double originDetailSectionGapForTesting = 20;
 
 @visibleForTesting
 const double originDetailSectionTitleIconGapForTesting = 8;
@@ -140,8 +141,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
   bool _launching = false;
   bool _showIntroPage = false;
-  int _detailSheetCollapseRequest = 0;
+  final int _detailSheetCollapseRequest = 0;
   int _detailSheetExpandRequest = 0;
+  int _detailSheetRequestedPage = _originOpeningPageIndex;
+  int _detailSheetPageRequest = 0;
   bool _entryDetailResponsePending = true;
   bool _waitingForOpeningSheetExpansion = false;
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
@@ -203,6 +206,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _locationChatBackgroundPreloader.preload(const <Object?>[]);
       _showIntroPage = false;
       _detailSheetExpandRequest = 0;
+      _detailSheetRequestedPage = _originOpeningPageIndex;
+      _detailSheetPageRequest += 1;
       _entryDetailResponsePending = true;
       _waitingForOpeningSheetExpansion = false;
       _detailSheetRaisedNotifier.value = false;
@@ -285,7 +290,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final devicePixelRatio = genesisImageDevicePixelRatio(
       MediaQuery.devicePixelRatioOf(context),
     );
-    final outputSize = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
+    final outputSize = (_OriginSetupRoleSection._cardHeight * devicePixelRatio)
         .ceil();
     final cacheKey = '$avatarUrl@$outputSize';
     if (!_preloadedProfileRoleAvatarKeys.add(cacheKey)) return;
@@ -560,7 +565,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           (character) => selectGenesisImageUrl(
             _resolveAssetUrl(character.avatar),
             logicalWidth: _OriginSetupRoleSection._cardWidth,
-            logicalHeight: _OriginSetupRoleSection._cardWidth,
+            logicalHeight: _OriginSetupRoleSection._cardHeight,
             devicePixelRatio: mediaQuery.devicePixelRatio,
           ).trim(),
         )
@@ -655,17 +660,29 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     _closeLocationChat();
   }
 
-  void _handleMapModeTabTap(int index) {
-    final nextShowsIntroPage = index == 1;
+  void _openOriginInfoSheet() {
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
-      action: nextShowsIntroPage ? 'worldo_detail_intro' : 'worldo_map',
+      action: 'worldo_detail_intro',
       object1: widget.oid,
     );
     setState(() {
-      _showIntroPage = nextShowsIntroPage;
-      _detailSheetCollapseRequest += 1;
+      _detailSheetRequestedPage = _originInfoPageIndex;
+      _detailSheetPageRequest += 1;
+      _detailSheetExpandRequest += 1;
     });
+  }
+
+  void _handleOriginDetailSheetPageChanged(int page) {
+    if (!mounted || page == _detailSheetRequestedPage) return;
+    _detailSheetRequestedPage = page;
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: page == _originInfoPageIndex
+          ? 'worldo_detail_intro'
+          : 'worldo_opening',
+      object1: widget.oid,
+    );
   }
 
   Future<void> _showLaunchRoleSheet(
@@ -1154,6 +1171,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 mapImageUrl: mapImageUrl,
                 dimmed: _showIntroPage,
                 showPointsList: _showIntroPage,
+                showZoomControl: false,
                 pointsListBuilder: _showIntroPage
                     ? (context) => _OriginIntroList(
                         origin: origin,
@@ -1161,7 +1179,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                         onOriginChanged: _refreshOriginDetail,
                       )
                     : null,
-                initialZoomScale: _showIntroPage ? 1 : 1.2,
+                initialZoomScale: 1,
+                initialZoomFocus: const Offset(0.5, 0.5),
+                initialViewportVerticalOffsetFraction: 0.05,
                 enableAvatarScaleReboundHint: true,
                 pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,
@@ -1175,9 +1195,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 preferredFocusLocationId:
                     origin.initLocationGroup?.locationId.trim() ?? '',
                 showVisualModeToggle: !_showIntroPage,
+                showZoomControl: false,
+                centerInitialViewport: true,
+                initialScaleOverride: tilemapInitialScaleMin,
+                initialViewportVerticalOffsetFraction: 0.05,
                 animationsPaused: detailSheetRaised,
                 locationImageFlowPaused: detailSheetRaised,
-                visualModeToggleTop: topPadding + 8,
+                visualModeToggleTop: topPadding + 58,
                 visualModeToggleRight: 12,
                 onMapTap: () => _recordWorldoTilemapClick(origin),
                 onCurrentLocationsChanged:
@@ -1196,6 +1220,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         topPadding: topPadding,
         mapOverlay: _buildPersistentMapOverlay(
           topPadding,
+          origin: origin,
           locationCount: locationCount,
           tabsInteractive: !_waitingForOpeningSheetExpansion,
         ),
@@ -1205,6 +1230,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
               minChildSize: minChildSize,
               collapseRequest: _detailSheetCollapseRequest,
               expandRequest: _detailSheetExpandRequest,
+              requestedPage: _detailSheetRequestedPage,
+              pageRequest: _detailSheetPageRequest,
+              onPageChanged: _handleOriginDetailSheetPageChanged,
               autoExpansionPending: _waitingForOpeningSheetExpansion,
               onRaisedChanged: _handleDetailSheetRaisedChanged,
               onFullyExpanded: _handleOpeningSheetFullyExpanded,
@@ -1224,12 +1252,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
               ),
               onCustomizeRole: () =>
                   _showLaunchRoleSheet(origin, initialCustomTab: true),
+              onLaunch: () => _showLaunchRoleSheet(origin),
             ),
-        bottomOverlay: _OriginBottomLaunchBar(
-          origin: origin,
-          launching: _launching,
-          onLaunch: () => _showLaunchRoleSheet(origin),
-        ),
         topOverlay: _buildLocationChatOverlay(origin),
         map: WorldKeepAlivePage(child: map),
       ),

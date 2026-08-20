@@ -57,6 +57,11 @@ class GenesisBottomNavigation extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.navigationBackground,
+        border: Border(
+          top: BorderSide(
+            color: colors.foregroundStrong.withValues(alpha: 0.1),
+          ),
+        ),
         boxShadow: [
           BoxShadow(color: colors.shadow, blurRadius: 8, offset: Offset(0, -2)),
         ],

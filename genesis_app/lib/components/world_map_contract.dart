@@ -175,6 +175,7 @@ class WorldMapCommonConfig {
   const WorldMapCommonConfig({
     this.locationNodes = const <WorldMapLocationNode>[],
     this.drillExitTop = 68,
+    this.foregroundOverlay,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
     this.onDrillIntoLocation,
@@ -184,6 +185,7 @@ class WorldMapCommonConfig {
 
   final List<WorldMapLocationNode> locationNodes;
   final double drillExitTop;
+  final Widget? foregroundOverlay;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
   final VoidCallback? onDrillIntoLocation;

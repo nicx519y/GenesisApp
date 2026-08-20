@@ -4,10 +4,12 @@ class UserProfileCollectionState<T> {
   const UserProfileCollectionState({
     required this.items,
     required this.isLoading,
+    this.total = 0,
   });
 
   final List<T> items;
   final bool isLoading;
+  final int total;
 }
 
 class UserProfileData {

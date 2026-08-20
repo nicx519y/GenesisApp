@@ -14,6 +14,7 @@ extension _WorldPageSheets on _WorldPageState {
     WorldBottomSheetKind kind, {
     bool scrollEventsToLatest = false,
     int? eventsTargetTickNumber,
+    bool preserveSelection = false,
   }) {
     final world = _world;
     if (world == null) return;
@@ -29,68 +30,52 @@ extension _WorldPageSheets on _WorldPageState {
         (_hasUnreadNewUserJoin || _pendingNewUserJoinNotice != null)) {
       _setWorldPageState(_activateDetailNewUserJoinNotices);
     }
-    if (scrollEventsToLatest) {
-      _eventsLatestRevision += 1;
+    if (!preserveSelection) {
+      if (scrollEventsToLatest) {
+        _eventsLatestRevision += 1;
+      }
+      _eventsTargetTickNumber = eventsTargetTickNumber;
+      _worldBottomSheetSelection.value = WorldBottomSheetSelection(
+        kind: kind,
+        eventsLatestRevision: _eventsLatestRevision,
+        eventsTargetTickNumber: _eventsTargetTickNumber,
+      );
     }
-    _eventsTargetTickNumber = eventsTargetTickNumber;
     _sectionsWorldNotifier.value = world;
-    final services = AppServicesScope.read(context);
-    _worldBottomSheetSelection.value = WorldBottomSheetSelection(
-      kind: kind,
-      eventsLatestRevision: _eventsLatestRevision,
-      eventsTargetTickNumber: _eventsTargetTickNumber,
-    );
     if (_worldBottomSheetOpen) return;
     _setWorldPageState(() => _worldBottomSheetOpen = true);
-    unawaited(
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        enableDrag: false,
-        backgroundColor: Colors.transparent,
-        barrierColor: context.genesisColors.scrim.withValues(alpha: 0.18),
-        builder: (context) {
-          _worldBottomSheetContext = context;
-          return WorldSingleSectionBottomSheet(
-            selectionListenable: _worldBottomSheetSelection,
-            services: services,
-            initialWorld: world,
-            worldListenable: _sectionsWorldNotifier,
-            newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
-            eventsCache: _sectionsEventsCache,
-            currentUid: _currentUid,
-            recentChatLocationIds: _recentChatLocationIds,
-            onLocationTap: _handleBottomSheetLocationTap,
-            onDeleteWorld: _confirmAndDeleteWorldFromDetail,
-          );
-        },
-      ).whenComplete(() {
-        if (mounted) {
-          _setWorldPageState(() {
-            _worldBottomSheetOpen = false;
-            _worldBottomSheetContext = null;
-            _applyDeferredBottomSheetMapChatroomState();
-          });
-        } else {
-          _worldBottomSheetOpen = false;
-          _worldBottomSheetContext = null;
-          _deferredBottomSheetMapChatroomState = null;
-        }
-        final openEvents = _openEventsAfterCurrentBottomSheetClosed;
-        final targetTickNumber =
-            _eventsAfterCurrentBottomSheetClosedTargetTickNumber;
-        _openEventsAfterCurrentBottomSheetClosed = false;
-        _eventsAfterCurrentBottomSheetClosedTargetTickNumber = null;
-        if (openEvents && mounted && !_shouldSuppressAutoEventsAfterTick) {
-          _openWorldBottomSheet(
-            WorldBottomSheetKind.events,
-            scrollEventsToLatest: true,
-            eventsTargetTickNumber: targetTickNumber,
-          );
-        }
-      }),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_worldBottomSheetOpen) return;
+      _worldBottomSheetKey.currentState?.open();
+    });
+  }
+
+  void _reopenSelectedWorldBottomSheet() {
+    final selection = _worldBottomSheetSelection.value;
+    _openWorldBottomSheet(selection.kind, preserveSelection: true);
+  }
+
+  void _requestWorldBottomSheetClose() {
+    if (!_worldBottomSheetOpen) return;
+    final sheet = _worldBottomSheetKey.currentState;
+    if (sheet == null) {
+      _handleWorldBottomSheetCollapsed();
+      return;
+    }
+    unawaited(sheet.close());
+  }
+
+  void _handleWorldBottomSheetCollapsed() {
+    if (!_worldBottomSheetOpen) return;
+    if (mounted) {
+      _setWorldPageState(() {
+        _worldBottomSheetOpen = false;
+        _applyDeferredBottomSheetMapChatroomState();
+      });
+      return;
+    }
+    _worldBottomSheetOpen = false;
+    _deferredBottomSheetMapChatroomState = null;
   }
 
   Future<void> _confirmAndDeleteWorldFromDetail(
@@ -127,11 +112,6 @@ extension _WorldPageSheets on _WorldPageState {
 
     try {
       await api.v1.world.deleteLaunched(worldId: worldId);
-      if (!mounted) return;
-      final bottomSheetContext = _worldBottomSheetContext;
-      if (bottomSheetContext != null && bottomSheetContext.mounted) {
-        await Navigator.of(bottomSheetContext).maybePop();
-      }
       if (!mounted) return;
       Navigator.of(
         context,

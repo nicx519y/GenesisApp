@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_center_toast.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
   testWidgets('shows centered translucent toast with 12px text', (
@@ -8,6 +9,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         home: Builder(
           builder: (context) {
             return TextButton(
@@ -35,7 +37,13 @@ void main() {
       find.ancestor(of: toastText, matching: find.byType(DecoratedBox)).first,
     );
     final decoration = decoratedBox.decoration as BoxDecoration;
-    expect(decoration.color, Colors.black.withValues(alpha: 0.72));
+    expect(decoration.color, Colors.black.withValues(alpha: 0.88));
+    expect(
+      (decoration.border! as Border).top.color,
+      Colors.white.withValues(alpha: 0.12),
+    );
+    expect(decoration.borderRadius, BorderRadius.circular(8));
+    expect(decoration.boxShadow, hasLength(1));
 
     final screenCenter = tester.getCenter(find.byType(MaterialApp));
     final toastCenter = tester.getCenter(toastText);

@@ -45,6 +45,10 @@ OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
     ),
     copyCount: asInt(stats['copy_cnt']),
     interactCount: asInt(stats['connect_cnt']),
+    commentCount: asInt(
+      stats['discuss_cnt'],
+      fallback: asInt(stats['connect_cnt']),
+    ),
     characterCount: asInt(stats['character_cnt']),
     tags: _tagsFromV1(origin['tags']),
     createdAt: _apiDateTime(origin['created_at']),

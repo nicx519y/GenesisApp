@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 void main() {
@@ -119,6 +121,47 @@ void main() {
     );
   });
 
+  testWidgets('empty location chat background uses the redesign solid color', (
+    tester,
+  ) async {
+    final requestedUrls = <String>[];
+    debugGenesisStaticNetworkImageCompleter = (key) {
+      requestedUrls.add(key.imageUrl);
+      return OneFrameImageStreamCompleter(Completer<ImageInfo>().future);
+    };
+
+    await tester.pumpWidget(
+      _backgroundHarness(backgroundImageUrl: '', backgroundPreviewImageUrl: ''),
+    );
+    await tester.pump();
+
+    expect(requestedUrls, isEmpty);
+    expect(find.byType(GenesisStaticNetworkImage), findsNothing);
+    expect(find.byType(Image), findsNothing);
+    final background = tester.widget<ColoredBox>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('location-chat-background')),
+        matching: find.byType(ColoredBox),
+      ),
+    );
+    expect(background.color, GenesisPalette.redesignBackground);
+    final overlay = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('location-chat-background-overlay')),
+    );
+    final gradient = (overlay.decoration as BoxDecoration).gradient!;
+    expect(gradient, isA<LinearGradient>());
+    final linearGradient = gradient as LinearGradient;
+    expect(linearGradient.begin, Alignment.topCenter);
+    expect(linearGradient.end, Alignment.bottomCenter);
+    expect(linearGradient.stops, const <double>[0, 0.32, 0.64, 1]);
+    expect(linearGradient.colors, const <Color>[
+      GenesisPalette.redesignInk80,
+      GenesisPalette.redesignInk42,
+      GenesisPalette.redesignInk50,
+      GenesisPalette.redesignInk88,
+    ]);
+  });
+
   testWidgets('location chat shows preview before fading in the full image', (
     tester,
   ) async {
@@ -150,6 +193,14 @@ void main() {
     expect(requestedUrls, {previewUrl});
     expect(
       find.byKey(const ValueKey<String>('location-chat-background-preview')),
+      findsOneWidget,
+    );
+    final backgroundLayers = tester.widget<Stack>(
+      find.byKey(const ValueKey<String>('location-chat-background-layers')),
+    );
+    expect(backgroundLayers.children.last, isA<IgnorePointer>());
+    expect(
+      find.byKey(const ValueKey<String>('location-chat-background-overlay')),
       findsOneWidget,
     );
     expect(
@@ -265,6 +316,7 @@ Widget _backgroundHarness({
   bool renderBackgroundImage = true,
 }) {
   return MaterialApp(
+    theme: GenesisTheme.worldoRedesign(),
     home: Align(
       alignment: Alignment.topLeft,
       child: SizedBox(

@@ -98,6 +98,7 @@ class WorldEventsSection extends StatefulWidget {
     required this.targetTickNumber,
     required this.contentPadding,
     required this.onLoadMore,
+    this.scrollController,
   });
 
   final WorldDetail world;
@@ -110,22 +111,21 @@ class WorldEventsSection extends StatefulWidget {
   final int? targetTickNumber;
   final EdgeInsetsGeometry contentPadding;
   final VoidCallback onLoadMore;
+  final ScrollController? scrollController;
 
   @override
   State<WorldEventsSection> createState() => WorldEventsSectionState();
 }
 
 class WorldEventsSectionState extends State<WorldEventsSection> {
-  static const int _loadMorePageThreshold = 3;
-  static const Duration _pageTurnDuration = Duration(milliseconds: 260);
+  static const double _loadMoreExtentThreshold = 240;
+  static const double _scrollToTopVisibilityThreshold = 320;
+  static const Duration _scrollToTopDuration = Duration(milliseconds: 300);
 
-  late final PageController _pageController = PageController();
-  final _tickCardResetRevisions = <String, int>{};
-  final _tickCardAlignLatestSubTick = <String, bool>{};
-  var _currentPage = 0;
-  var _currentTickIdentity = '';
-  var _animatingPage = false;
-  var _showLatestWhenTicksArrive = true;
+  final ScrollController _fallbackScrollController = ScrollController();
+  final Map<int, GlobalKey> _tickAnchors = <int, GlobalKey>{};
+  var _loadMoreRequested = false;
+  var _showScrollToTop = false;
 
   int? get _requestedTickNumber {
     final target = widget.targetTickNumber;
@@ -135,9 +135,8 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
   @override
   void initState() {
     super.initState();
-    if (_setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
-      _jumpToCurrentPage();
-    }
+    _scheduleScrollToTargetOrLatest();
+    _maybeLoadPendingTarget();
   }
 
   @override
@@ -145,220 +144,170 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     super.didUpdateWidget(oldWidget);
     final worldChanged = oldWidget.world.worldId != widget.world.worldId;
     if (worldChanged) {
-      _currentPage = 0;
-      _currentTickIdentity = '';
-      _showLatestWhenTicksArrive = true;
-      if (_setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
-        _jumpToCurrentPage();
-      }
+      _tickAnchors.clear();
+      _loadMoreRequested = false;
+      _showScrollToTop = false;
+      _scheduleScrollToTargetOrLatest();
+      _maybeLoadPendingTarget();
       return;
+    }
+
+    final ticksChanged = oldWidget.ticks.length != widget.ticks.length;
+    final loadingCycleFinished = oldWidget.loadingMore && !widget.loadingMore;
+    if (ticksChanged || loadingCycleFinished) {
+      _loadMoreRequested = false;
     }
 
     if (oldWidget.latestRevision != widget.latestRevision ||
-        oldWidget.targetTickNumber != widget.targetTickNumber) {
-      _showLatestWhenTicksArrive = true;
-      if (_setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
-        _jumpToCurrentPage();
-        _maybeLoadPendingTarget();
-      }
-      return;
+        oldWidget.targetTickNumber != widget.targetTickNumber ||
+        (ticksChanged && _requestedTickNumber != null)) {
+      _scheduleScrollToTargetOrLatest();
     }
-
-    if (_currentTickIdentity.isEmpty) {
-      if (_setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
-        _jumpToCurrentPage();
-        _maybeLoadMoreForPage(_currentPage);
-      }
-      return;
-    }
-
-    final nextIndex = _findPageByIdentity(_currentTickIdentity);
-    if (_isPendingTargetIdentity(_currentTickIdentity)) {
-      _maybeLoadPendingTarget();
-    }
-    if (nextIndex < 0) {
-      if (_isPendingTargetIdentity(_currentTickIdentity) &&
-          _setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
-        _jumpToCurrentPage();
-        _maybeLoadMoreForPage(_currentPage);
-        _maybeLoadPendingTarget();
-        return;
-      }
-      _currentPage = _currentPage.clamp(0, _maxRenderedPage).toInt();
-      _currentTickIdentity = _pageIdentityAt(_currentPage);
-      _bumpTickCardResetRevisionAt(_currentPage);
-      _jumpToCurrentPage();
-      return;
-    }
-    if (nextIndex != _currentPage) {
-      _currentPage = nextIndex;
-      _bumpTickCardResetRevisionAt(_currentPage);
-      _jumpToCurrentPage();
-      _maybeLoadMoreForPage(_currentPage);
-    }
+    _maybeLoadPendingTarget();
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _fallbackScrollController.dispose();
     super.dispose();
   }
 
-  List<List<Map<String, dynamic>>> get _visibleTickPages {
-    return worldEventTickPagesAscending(widget.ticks);
-  }
-
-  int get _maxRenderedPage => math.max(0, _pageCount - 1);
-
-  int get _pageCount {
-    final pendingTargetPage = _pendingTargetPage;
-    if (pendingTargetPage == null) return _visibleTickPages.length;
-    return _visibleTickPages.length + 1;
-  }
-
-  int? get _pendingTargetPage {
+  bool get _hasPendingTarget {
     final target = _requestedTickNumber;
-    if (target == null || _pageIndexForTickNumber(target) != null) {
-      return null;
-    }
+    if (target == null || _containsTickNumber(target)) return false;
     if (!widget.initialLoading && !widget.loadingMore && !widget.hasMore) {
-      return null;
+      return false;
     }
-    return _insertionPageForTickNumber(target);
-  }
-
-  bool _setCurrentPageToRequestedTargetOrLatestIfAvailable() {
-    final visibleTickPages = _visibleTickPages;
-    final requestedTickNumber = _requestedTickNumber;
-    if (requestedTickNumber != null) {
-      final resolvedTargetPage = _pageIndexForTickNumber(requestedTickNumber);
-      final pendingTargetPage = _pendingTargetPage;
-      if (resolvedTargetPage != null || pendingTargetPage != null) {
-        final targetPage = resolvedTargetPage ?? pendingTargetPage!;
-        _currentPage = targetPage.clamp(0, _maxRenderedPage).toInt();
-        _currentTickIdentity = _pageIdentityAt(_currentPage);
-        _showLatestWhenTicksArrive = false;
-        _bumpTickCardResetRevisionAt(_currentPage, alignLatestSubTick: true);
-        return _pageCount > 0;
-      }
-    }
-    if (visibleTickPages.isEmpty) return false;
-    final target = _showLatestWhenTicksArrive ? _maxRenderedPage : _currentPage;
-    _currentPage = target.clamp(0, _maxRenderedPage).toInt();
-    _currentTickIdentity = _pageIdentityAt(_currentPage);
-    _showLatestWhenTicksArrive = false;
-    _bumpTickCardResetRevisionAt(_currentPage, alignLatestSubTick: true);
     return true;
   }
 
-  void _jumpToCurrentPage() {
+  ScrollController get _scrollController =>
+      widget.scrollController ?? _fallbackScrollController;
+
+  bool _containsTickNumber(int tickNumber) {
+    return widget.ticks.any((tick) => worldEventTickNumber(tick) == tickNumber);
+  }
+
+  void _scheduleScrollToTargetOrLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (!_pageController.hasClients) {
-        _jumpToCurrentPage();
+      final target = _requestedTickNumber;
+      if (target != null && _containsTickNumber(target)) {
+        final targetContext = _tickAnchors[target]?.currentContext;
+        if (targetContext != null) {
+          unawaited(
+            Scrollable.ensureVisible(
+              targetContext,
+              alignment: 0,
+              duration: Duration.zero,
+            ),
+          );
+          return;
+        }
+      }
+      if (!_scrollController.hasClients) {
+        _scheduleScrollToTargetOrLatest();
         return;
       }
-      final target = _currentPage.clamp(0, _maxRenderedPage).toInt();
-      _pageController.jumpToPage(target);
+      _scrollController.jumpTo(0);
     });
   }
 
-  void _handlePageChanged(int page) {
-    _currentPage = page.clamp(0, _maxRenderedPage).toInt();
-    _currentTickIdentity = _pageIdentityAt(_currentPage);
-    _maybeLoadMoreForPage(_currentPage);
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    final showScrollToTop =
+        notification.metrics.pixels > _scrollToTopVisibilityThreshold;
+    if (showScrollToTop != _showScrollToTop) {
+      setState(() => _showScrollToTop = showScrollToTop);
+    }
+    final towardOlderEvents =
+        notification is UserScrollNotification &&
+            notification.direction == ScrollDirection.reverse ||
+        notification is ScrollUpdateNotification &&
+            (notification.scrollDelta ?? 0) > 0 ||
+        notification is OverscrollNotification && notification.overscroll > 0;
+    if (towardOlderEvents &&
+        notification.metrics.extentAfter <= _loadMoreExtentThreshold) {
+      _requestLoadMore();
+    }
+    return false;
   }
 
-  void _maybeLoadMoreForPage(int page) {
-    if (!widget.hasMore || widget.loadingMore || widget.initialLoading) return;
-    if (page <= _loadMorePageThreshold) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted ||
-            !widget.hasMore ||
-            widget.loadingMore ||
-            widget.initialLoading) {
-          return;
-        }
-        widget.onLoadMore();
-      });
-    }
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    unawaited(
+      _scrollController.animateTo(
+        0,
+        duration: _scrollToTopDuration,
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _maybeLoadPendingTarget() {
     if (_requestedTickNumber == null ||
-        _pendingTargetPage == null ||
+        !_hasPendingTarget ||
         !widget.hasMore ||
         widget.loadingMore ||
         widget.initialLoading) {
       return;
     }
+    _requestLoadMore();
+  }
+
+  void _requestLoadMore() {
+    if (_loadMoreRequested ||
+        !widget.hasMore ||
+        widget.loadingMore ||
+        widget.initialLoading) {
+      return;
+    }
+    _loadMoreRequested = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          _requestedTickNumber == null ||
-          _pendingTargetPage == null ||
-          !widget.hasMore ||
-          widget.loadingMore ||
-          widget.initialLoading) {
+      if (!mounted) return;
+      if (!widget.hasMore || widget.loadingMore || widget.initialLoading) {
+        _loadMoreRequested = false;
         return;
       }
       widget.onLoadMore();
     });
   }
 
-  void _bumpTickCardResetRevisionAt(
-    int page, {
-    bool alignLatestSubTick = false,
-  }) {
-    final identity = _pageIdentityAt(page);
-    if (identity.isEmpty) return;
-    _tickCardResetRevisions[identity] =
-        (_tickCardResetRevisions[identity] ?? 0) + 1;
-    _tickCardAlignLatestSubTick[identity] = alignLatestSubTick;
-  }
-
-  void _turnPage(int delta) {
-    if (_animatingPage || !_pageController.hasClients) return;
-    final target = (_currentPage + delta).clamp(0, _maxRenderedPage).toInt();
-    if (target == _currentPage) {
-      _maybeLoadMoreForPage(_currentPage);
-      return;
-    }
-    _animatingPage = true;
-    setState(
-      () => _bumpTickCardResetRevisionAt(target, alignLatestSubTick: delta < 0),
-    );
-    unawaited(
-      _pageController
-          .animateToPage(
-            target,
-            duration: _pageTurnDuration,
-            curve: Curves.easeOutCubic,
-          )
-          .whenComplete(() {
-            if (!mounted) return;
-            _animatingPage = false;
-          }),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final pendingTargetPage = _pendingTargetPage;
-    final hasPendingTargetPage = pendingTargetPage != null;
-    if (widget.ticks.isEmpty &&
-        widget.initialLoading &&
-        !hasPendingTargetPage) {
-      return Padding(
-        padding: widget.contentPadding,
-        child: const WorldEventLoadingSkeleton(),
+    final hasPendingTarget = _hasPendingTarget;
+    if (widget.ticks.isEmpty && widget.initialLoading && !hasPendingTarget) {
+      return CustomScrollView(
+        controller: _scrollController,
+        physics: const ClampingScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: widget.contentPadding,
+              child: const WorldEventLoadingSkeleton(),
+            ),
+          ),
+        ],
       );
     }
-    if (widget.ticks.isEmpty && !hasPendingTargetPage) {
-      return Padding(
-        padding: widget.contentPadding,
-        child: WorldEmptySection(
-          text: widget.error == null ? 'No events yet.' : 'Load events failed.',
-        ),
+    if (widget.ticks.isEmpty && !hasPendingTarget) {
+      return CustomScrollView(
+        controller: _scrollController,
+        physics: const ClampingScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: widget.contentPadding,
+              child: WorldEmptySection(
+                text: widget.error == null
+                    ? 'No events yet.'
+                    : 'Load events failed.',
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -373,142 +322,199 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     }..remove('');
     final fallbackBody = worldEventBody(widget.world);
     final metricUnit = worldMapString(widget.world.metric, const ['unit']);
-    final visibleTickPages = _visibleTickPages;
+    final entries = _buildListEntries();
 
     return Stack(
       children: [
-        PageView.builder(
-          key: const ValueKey<String>('world-events-tick-pager'),
-          controller: _pageController,
-          scrollDirection: Axis.vertical,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _pageCount,
-          onPageChanged: _handlePageChanged,
-          itemBuilder: (context, index) {
-            if (index == pendingTargetPage) {
-              final tickNumber = _requestedTickNumber ?? widget.world.tickCount;
-              return WorldTickEventCardPage(
-                key: ValueKey<String>('world-event-tick-pending-$tickNumber'),
-                resetRevision:
-                    _tickCardResetRevisions['pending_tick:$tickNumber'] ?? 0,
-                hasTopEdgePage: index > 0,
-                hasBottomEdgePage: index < _pageCount - 1,
-                padding: widget.contentPadding,
-                onTurnPage: _turnPage,
-                child: WorldTickPendingEventPage(tickNumber: tickNumber),
-              );
-            }
-            final tickPageIndex = _tickPageIndexForPage(index);
-            if (tickPageIndex == null) return const SizedBox.shrink();
-            final ticks = visibleTickPages[tickPageIndex];
-            final pageIdentity = worldEventTickPageIdentity(ticks);
-            final tickNumber = worldTickEventNumber(
-              ticks.first,
-              fallback: tickPageIndex + 1,
-            );
-            final showsAiDisclaimer = tickPageIndex == 0 && !widget.hasMore;
-            return WorldTickEventCardPage(
-              key: ValueKey<String>('world-event-tick-$pageIdentity'),
-              resetRevision: _tickCardResetRevisions[pageIdentity] ?? 0,
-              alignLastItemToTop:
-                  _tickCardAlignLatestSubTick[pageIdentity] ?? false,
-              hasTopEdgePage: index > 0,
-              hasBottomEdgePage: index < _pageCount - 1,
-              padding: widget.contentPadding,
-              onTurnPage: _turnPage,
-              itemCount: ticks.length + (showsAiDisclaimer ? 1 : 0),
-              itemBuilder: (context, itemIndex) {
-                if (showsAiDisclaimer && itemIndex == 0) {
-                  return const AiContentDisclaimer(
-                    padding: EdgeInsets.fromLTRB(10, 0, 10, 18),
-                    textAlign: TextAlign.left,
-                  );
-                }
-                final subTickIndex = itemIndex - (showsAiDisclaimer ? 1 : 0);
-                final tick = ticks[subTickIndex];
-                return WorldTickEventItem(
-                  key: ValueKey<String>(
-                    'world-event-tick-item-${worldEventTickIdentity(tick)}',
+        Positioned.fill(
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: CustomScrollView(
+              key: const ValueKey<String>('world-events-tick-list'),
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: widget.contentPadding,
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final entry = entries[index];
+                      if (entry.pendingTickNumber != null) {
+                        return KeyedSubtree(
+                          key: ValueKey<String>(
+                            'world-event-tick-pending-${entry.pendingTickNumber}',
+                          ),
+                          child: WorldTickPendingEventPage(
+                            tickNumber: entry.pendingTickNumber!,
+                          ),
+                        );
+                      }
+                      if (entry.showsAiDisclaimer) {
+                        return const AiContentDisclaimer(
+                          padding: EdgeInsets.fromLTRB(10, 0, 10, 18),
+                          textAlign: TextAlign.left,
+                        );
+                      }
+
+                      final tick = entry.tick!;
+                      final tickNumber = worldTickEventNumber(tick);
+                      final item = WorldTickEventItem(
+                        key: ValueKey<String>(
+                          'world-event-tick-item-${worldEventTickIdentity(tick)}',
+                        ),
+                        tick: tick,
+                        tickNumber: tickNumber,
+                        subTickNumber: worldEventSubTickNumber(tick),
+                        fallbackBody: fallbackBody,
+                        locationsById: locationsById,
+                        charactersById: charactersById,
+                        dateLabel: worldTickParagraphTimestamp(tick),
+                        stackedContent: true,
+                        contentLabelStyle: _worldEventContentLabelStyle(
+                          context,
+                        ),
+                        contentTextStyle: _worldEventContentTextStyle(context),
+                        contentTimestampStyle: _worldEventContentTimestampStyle(
+                          context,
+                        ),
+                        metricUnit: metricUnit,
+                        showParagraphClue: true,
+                        timelineStyle: true,
+                        isLast: entry.isLastInTick,
+                      );
+                      if (!entry.isFirstInTick) return item;
+                      final anchor = _tickAnchors.putIfAbsent(
+                        tickNumber,
+                        GlobalKey.new,
+                      );
+                      return KeyedSubtree(key: anchor, child: item);
+                    }, childCount: entries.length),
                   ),
-                  tick: tick,
-                  tickNumber: tickNumber,
-                  subTickNumber: worldEventSubTickNumber(tick),
-                  fallbackBody: fallbackBody,
-                  locationsById: locationsById,
-                  charactersById: charactersById,
-                  dateLabel: worldTickParagraphTimestamp(tick),
-                  stackedContent: true,
-                  contentLabelStyle: _worldEventContentLabelStyle(context),
-                  contentTextStyle: _worldEventContentTextStyle(context),
-                  contentTimestampStyle: _worldEventContentTimestampStyle(
-                    context,
+                ),
+                if (widget.loadingMore)
+                  const SliverToBoxAdapter(
+                    child: WorldEventsLoadingMoreIndicator(),
                   ),
-                  metricUnit: metricUnit,
-                  showParagraphClue: true,
-                  isLast: subTickIndex == ticks.length - 1,
-                );
-              },
-            );
-          },
-        ),
-        if (widget.loadingMore)
-          const IgnorePointer(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: WorldEventsLoadingMoreIndicator(),
+              ],
             ),
           ),
+        ),
+        Positioned(
+          right: 20,
+          bottom: 20,
+          child: IgnorePointer(
+            ignoring: !_showScrollToTop,
+            child: AnimatedOpacity(
+              opacity: _showScrollToTop ? 1 : 0,
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              child: AnimatedScale(
+                scale: _showScrollToTop ? 1 : 0.86,
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOut,
+                child: Semantics(
+                  button: true,
+                  label: 'Back to top',
+                  child: Material(
+                    key: const ValueKey<String>('world-events-scroll-to-top'),
+                    color: context.genesisColors.foregroundStrong.withValues(
+                      alpha: 0.72,
+                    ),
+                    elevation: 2,
+                    shadowColor: context.genesisColors.shadow,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: _scrollToTop,
+                      child: SizedBox.square(
+                        dimension: 36,
+                        child: Icon(
+                          Icons.keyboard_double_arrow_up_rounded,
+                          size: 22,
+                          color: context.genesisColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  int? _tickPageIndexForPage(int page) {
-    final pendingTargetPage = _pendingTargetPage;
-    final tickPageIndex = pendingTargetPage != null && page > pendingTargetPage
-        ? page - 1
-        : page;
-    if (tickPageIndex < 0 || tickPageIndex >= _visibleTickPages.length) {
-      return null;
+  List<_WorldEventListEntry> _buildListEntries() {
+    final ticks = worldEventTicksAscending(widget.ticks).reversed.toList();
+    final entries = <_WorldEventListEntry>[];
+    final pendingTickNumber = _hasPendingTarget ? _requestedTickNumber : null;
+    final earliestTickNumber = ticks.isEmpty
+        ? null
+        : worldEventTickNumber(ticks.last);
+    var pendingAdded = false;
+    var disclaimerAdded = false;
+
+    for (var index = 0; index < ticks.length; index += 1) {
+      final tick = ticks[index];
+      final tickNumber = worldEventTickNumber(tick);
+      if (!pendingAdded &&
+          pendingTickNumber != null &&
+          pendingTickNumber > tickNumber) {
+        entries.add(_WorldEventListEntry.pending(pendingTickNumber));
+        pendingAdded = true;
+      }
+      final isFirstInTick =
+          index == 0 || worldEventTickNumber(ticks[index - 1]) != tickNumber;
+      if (!disclaimerAdded &&
+          !widget.hasMore &&
+          isFirstInTick &&
+          tickNumber == earliestTickNumber) {
+        entries.add(const _WorldEventListEntry.disclaimer());
+        disclaimerAdded = true;
+      }
+      final isLastInTick =
+          index == ticks.length - 1 ||
+          worldEventTickNumber(ticks[index + 1]) != tickNumber;
+      entries.add(
+        _WorldEventListEntry.tick(
+          tick,
+          isFirstInTick: isFirstInTick,
+          isLastInTick: isLastInTick,
+        ),
+      );
     }
-    return tickPageIndex;
-  }
-
-  String _pageIdentityAt(int page) {
-    final pendingTargetPage = _pendingTargetPage;
-    if (pendingTargetPage != null && page == pendingTargetPage) {
-      return 'pending_tick:${_requestedTickNumber ?? 0}';
+    if (!pendingAdded && pendingTickNumber != null) {
+      entries.add(_WorldEventListEntry.pending(pendingTickNumber));
     }
-    final tickPageIndex = _tickPageIndexForPage(page);
-    if (tickPageIndex == null) return '';
-    return worldEventTickPageIdentity(_visibleTickPages[tickPageIndex]);
+    return entries;
   }
+}
 
-  int _findPageByIdentity(String identity) {
-    for (var page = 0; page < _pageCount; page += 1) {
-      if (_pageIdentityAt(page) == identity) return page;
-    }
-    return -1;
-  }
+class _WorldEventListEntry {
+  const _WorldEventListEntry.tick(
+    this.tick, {
+    required this.isFirstInTick,
+    required this.isLastInTick,
+  }) : pendingTickNumber = null,
+       showsAiDisclaimer = false;
 
-  bool _isPendingTargetIdentity(String identity) {
-    final target = _requestedTickNumber;
-    return target != null && identity == 'pending_tick:$target';
-  }
+  const _WorldEventListEntry.pending(this.pendingTickNumber)
+    : tick = null,
+      isFirstInTick = false,
+      isLastInTick = false,
+      showsAiDisclaimer = false;
 
-  int? _pageIndexForTickNumber(int targetTickNumber) {
-    final tickPageIndex = _visibleTickPages.indexWhere(
-      (ticks) => worldTickEventNumber(ticks.first) == targetTickNumber,
-    );
-    if (tickPageIndex < 0) return null;
-    return tickPageIndex;
-  }
+  const _WorldEventListEntry.disclaimer()
+    : tick = null,
+      pendingTickNumber = null,
+      isFirstInTick = false,
+      isLastInTick = false,
+      showsAiDisclaimer = true;
 
-  int _insertionPageForTickNumber(int targetTickNumber) {
-    final visibleTickPages = _visibleTickPages;
-    for (var index = 0; index < visibleTickPages.length; index += 1) {
-      final tickNumber = worldTickEventNumber(visibleTickPages[index].first);
-      if (tickNumber >= targetTickNumber) return index;
-    }
-    return visibleTickPages.length;
-  }
+  final Map<String, dynamic>? tick;
+  final int? pendingTickNumber;
+  final bool isFirstInTick;
+  final bool isLastInTick;
+  final bool showsAiDisclaimer;
 }

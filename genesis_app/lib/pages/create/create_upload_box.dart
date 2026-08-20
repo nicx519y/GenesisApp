@@ -26,6 +26,11 @@ class CreateUploadBox extends StatefulWidget {
     this.showRemoveLinkWhenFilled = true,
     this.emptyLabelFontWeight = FontWeight.w600,
     this.emptyLabelFontSize = 12,
+    this.emptyBackgroundColor,
+    this.emptyIconColor,
+    this.emptyLabelColor,
+    this.dashColor,
+    this.dashStrokeWidth = 1.2,
     this.removeLinkFontWeight = FontWeight.w600,
     this.emptyIconLabelGap = 12,
   });
@@ -50,6 +55,11 @@ class CreateUploadBox extends StatefulWidget {
   final bool showRemoveLinkWhenFilled;
   final FontWeight emptyLabelFontWeight;
   final double emptyLabelFontSize;
+  final Color? emptyBackgroundColor;
+  final Color? emptyIconColor;
+  final Color? emptyLabelColor;
+  final Color? dashColor;
+  final double dashStrokeWidth;
   final FontWeight removeLinkFontWeight;
   final double emptyIconLabelGap;
 
@@ -158,16 +168,19 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
           onTap: _isUploading ? null : () => _pickCropAndUpload(context),
           child: CustomPaint(
             painter: CreateDashedRRectPainter(
-              color: context.genesisCreateColors.dash,
+              color: widget.dashColor ?? context.genesisCreateColors.dash,
               radius: widget.borderRadius,
-              strokeWidth: 1.2,
+              strokeWidth: widget.dashStrokeWidth,
             ),
             child: Container(
               width: previewWidth,
               height: previewHeight,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: context.genesisCreateColors.fieldOverlaySoft,
+                color: hasImage
+                    ? context.genesisCreateColors.fieldOverlaySoft
+                    : widget.emptyBackgroundColor ??
+                          context.genesisCreateColors.fieldOverlaySoft,
                 borderRadius: BorderRadius.circular(widget.borderRadius),
               ),
               clipBehavior: Clip.antiAlias,
@@ -178,6 +191,8 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                       widget.emptyLabelFontWeight,
                       widget.emptyLabelFontSize,
                       widget.emptyIconLabelGap,
+                      widget.emptyIconColor,
+                      widget.emptyLabelColor,
                     )
                   : _Preview(
                       imageUrl: imageUrl,

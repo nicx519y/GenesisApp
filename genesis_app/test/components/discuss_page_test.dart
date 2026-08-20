@@ -15,8 +15,87 @@ import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.dart';
+import 'package:genesis_flutter_android/components/discuss/discuss_post_input.dart';
+import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 
 void main() {
+  testWidgets('comments page matches the compact redesign metrics', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    final transport = _DiscussPageTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: _discussTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Comments'), findsOneWidget);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('discuss-page-back-button')),
+      ),
+      const Size.square(34),
+    );
+    final count = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('discuss-page-comment-count')),
+    );
+    expect(count.data, '40');
+    expect(count.style?.fontSize, 9.5);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('discuss-page-origin-cover')),
+      ),
+      const Size(44, 66),
+    );
+
+    final firstRow = find.byKey(
+      const ValueKey<String>('discuss-page-comment-row-dis_1'),
+    );
+    final firstRowContainer = tester.widget<Container>(firstRow);
+    final rowBorder =
+        (firstRowContainer.decoration! as BoxDecoration).border! as Border;
+    expect(rowBorder.top.width, 1);
+    final avatar = tester.widget<GenesisAvatar>(
+      find.descendant(of: firstRow, matching: find.byType(GenesisAvatar)),
+    );
+    expect(avatar.size, 34);
+    expect(avatar.borderRadius, 11);
+    final body = tester.widget<Text>(
+      find.descendant(of: firstRow, matching: find.text('Discuss item 1')),
+    );
+    expect(body.style?.fontSize, 13);
+    expect(body.style?.height, 1.6);
+    final storyBadge = tester.widget<DiscussStoryBadge>(
+      find.descendant(of: firstRow, matching: find.byType(DiscussStoryBadge)),
+    );
+    expect(storyBadge.compactRed, isTrue);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('discuss-page-post-input')),
+      ),
+      const Size(350, 40),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('discuss-post-current-user-avatar')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<DiscussPostInput>(
+            find.byKey(const ValueKey<String>('discuss-page-post-input')),
+          )
+          .compact,
+      isTrue,
+    );
+  });
+
   testWidgets('shows skeleton instead of progress indicator while loading', (
     tester,
   ) async {

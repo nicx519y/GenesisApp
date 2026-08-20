@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 class GenesisFixedUnderlineIndicator extends Decoration {
   const GenesisFixedUnderlineIndicator({
     required this.color,
-    required this.width,
+    this.width,
     this.height = 3,
     this.radius = 2,
     this.bottomPadding = 0,
   });
 
   final Color color;
-  final double width;
+  final double? width;
   final double height;
   final double radius;
   final double bottomPadding;
@@ -37,7 +37,7 @@ class _GenesisFixedUnderlinePainter extends BoxPainter {
   });
 
   final Color color;
-  final double width;
+  final double? width;
   final double height;
   final double radius;
   final double bottomPadding;
@@ -47,9 +47,10 @@ class _GenesisFixedUnderlinePainter extends BoxPainter {
     final size = configuration.size;
     if (size == null) return;
 
-    final left = offset.dx + (size.width - width) / 2;
+    final resolvedWidth = width ?? size.width;
+    final left = offset.dx + (size.width - resolvedWidth) / 2;
     final top = offset.dy + size.height - height - bottomPadding;
-    final rect = Rect.fromLTWH(left, top, width, height);
+    final rect = Rect.fromLTWH(left, top, resolvedWidth, height);
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
 
     final paint = Paint()

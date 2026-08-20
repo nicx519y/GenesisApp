@@ -37,14 +37,13 @@ void main() {
     expect(redesign.panelBorderRadius, light.panelBorderRadius);
   });
 
-  test('Worldo redesign keeps chat geometry unchanged', () {
+  test('Worldo redesign keeps shared chat geometry unchanged', () {
     final light = GenesisChatTheme.light();
     final redesign = GenesisChatTheme.worldoRedesign();
 
     for (final pair in <(ChatUiStyleConfig, ChatUiStyleConfig)>[
       (light.standard, redesign.standard),
       (light.privateChat, redesign.privateChat),
-      (light.locationChat, redesign.locationChat),
     ]) {
       expect(pair.$2.headerHeight, pair.$1.headerHeight);
       expect(pair.$2.composerPadding, pair.$1.composerPadding);
@@ -54,6 +53,18 @@ void main() {
       expect(pair.$2.bubblePadding, pair.$1.bubblePadding);
       expect(pair.$2.avatarSize, pair.$1.avatarSize);
     }
+
+    expect(redesign.locationChat.headerHeight, 54);
+    expect(redesign.locationChat.inputMinHeight, 46);
+    expect(
+      redesign.locationChat.messageListPadding,
+      light.locationChat.messageListPadding,
+    );
+    expect(
+      redesign.locationChat.rowBottomPadding,
+      light.locationChat.rowBottomPadding,
+    );
+    expect(redesign.locationChat.avatarSize, light.locationChat.avatarSize);
   });
 
   test('Worldo redesign registers every feature color extension', () {

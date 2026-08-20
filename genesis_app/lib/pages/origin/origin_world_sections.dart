@@ -12,15 +12,26 @@ class _WorldViewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(
-          icon: MyFlutterApp.eye,
-          iconColor: context.genesisColors.danger,
-          title: 'Worldo Brief',
+        const _OriginInfoSectionHeading(title: 'World brief'),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(top: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: context.genesisColors.foregroundStrong.withValues(
+                  alpha: 0.14,
+                ),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Text(
+            body,
+            style: _bodyTextStyle(context).copyWith(fontSize: 12, height: 1.65),
+          ),
         ),
-        const SizedBox(height: 8),
-        Text(body, style: _bodyTextStyle(context)),
-        const SizedBox(height: 8),
-        _OriginPreviewImage(url: _resolveAssetUrl(origin.mapImage)),
       ],
     );
   }
@@ -32,12 +43,21 @@ String _originWorldoBrief(OriginDetail origin) {
 }
 
 class _OriginPreviewImage extends StatelessWidget {
-  const _OriginPreviewImage({required this.url});
+  const _OriginPreviewImage({
+    super.key,
+    required this.url,
+    this.width,
+    this.height,
+    this.borderRadius = 8,
+  });
 
   static const double _maxHeight = 360;
   static const double _aspectRatio = 2 / 3;
 
   final String url;
+  final double? width;
+  final double? height;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +71,57 @@ class _OriginPreviewImage extends StatelessWidget {
         color: context.genesisColors.imagePlaceholderIcon,
       ),
     );
+    Widget buildPreview(double width, double height) {
+      final preview = Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(borderRadius),
+            child: imageUrl.isEmpty
+                ? fallback
+                : imageUrl.startsWith('assets/')
+                ? Image.asset(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => fallback,
+                  )
+                : GenesisStaticNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_) => fallback,
+                    errorWidget: (_, _) => fallback,
+                  ),
+          ),
+        ),
+      );
+      if (viewerUrl.isEmpty) return preview;
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showGenesisImageViewer(
+          context,
+          imageUrls: [viewerUrl],
+          previewImageProviders: [
+            genesisImageViewerPreviewProvider(
+              context,
+              imageUrl: imageUrl,
+              logicalWidth: width,
+              logicalHeight: height,
+              fit: BoxFit.cover,
+            ),
+          ],
+        ),
+        child: preview,
+      );
+    }
+
+    final explicitWidth = width;
+    final explicitHeight = height;
+    if (explicitWidth != null && explicitHeight != null) {
+      return buildPreview(explicitWidth, explicitHeight);
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final mediaHeight = MediaQuery.sizeOf(context).height;
@@ -62,49 +133,57 @@ class _OriginPreviewImage extends StatelessWidget {
             : maxHeight * _aspectRatio;
         final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
         final height = width / _aspectRatio;
-        final preview = Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: imageUrl.isEmpty
-                  ? fallback
-                  : imageUrl.startsWith('assets/')
-                  ? Image.asset(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => fallback,
-                    )
-                  : GenesisStaticNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (_) => fallback,
-                      errorWidget: (_, _) => fallback,
-                    ),
+        return buildPreview(width, height);
+      },
+    );
+  }
+}
+
+class _OriginInfoSectionHeading extends StatelessWidget {
+  const _OriginInfoSectionHeading({
+    required this.title,
+    this.count,
+    this.trailing,
+  });
+
+  final String title;
+  final String? count;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.genesisColors;
+    return Row(
+      children: [
+        Transform(
+          transform: Matrix4.skewX(-0.16),
+          alignment: Alignment.center,
+          child: Container(width: 9, height: 9, color: colors.danger),
+        ),
+        const SizedBox(width: 7),
+        Text(
+          title,
+          style: TextStyle(
+            color: colors.foregroundStrong,
+            fontSize: 15,
+            height: 1,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        if (count case final count?) ...[
+          const SizedBox(width: 4),
+          Text(
+            count,
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 9.5,
+              height: 1,
+              fontWeight: FontWeight.w400,
             ),
           ),
-        );
-        if (viewerUrl.isEmpty) return preview;
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => showGenesisImageViewer(
-            context,
-            imageUrls: [viewerUrl],
-            previewImageProviders: [
-              genesisImageViewerPreviewProvider(
-                context,
-                imageUrl: imageUrl,
-                logicalWidth: width,
-                logicalHeight: height,
-                fit: BoxFit.cover,
-              ),
-            ],
-          ),
-          child: preview,
-        );
-      },
+        ],
+        if (trailing != null) ...[const Spacer(), trailing!],
+      ],
     );
   }
 }
@@ -177,6 +256,11 @@ class _DiscussSection extends StatelessWidget {
     );
   }
 
+  Future<void> _handleSeeAllTap(BuildContext context) async {
+    if (!await ensureGenesisLogin(context) || !context.mounted) return;
+    await _openDiscussPage(context);
+  }
+
   Future<void> _openPostComposer(BuildContext context) async {
     final submitted = await showDiscussPostComposer(
       context: context,
@@ -217,21 +301,43 @@ class _DiscussSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SectionTitle(
-                      iconAsset: discussIconAsset,
-                      title: 'Discuss (${origin.discussCount})',
+                    _OriginInfoSectionHeading(
+                      title: 'Comments',
+                      count: '(${origin.discussCount})',
+                      trailing: GestureDetector(
+                        key: const ValueKey<String>('origin-discuss-see-all'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => unawaited(_handleSeeAllTap(context)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'See all',
+                                style: TextStyle(
+                                  color: context.genesisColors.foregroundStrong
+                                      .withValues(alpha: 0.72),
+                                  fontSize: 9.5,
+                                  height: 1,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 9,
+                                color: context.genesisColors.foregroundStrong
+                                    .withValues(alpha: 0.72),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                     if (showDiscussList) ...[
-                      const SizedBox(height: 8),
-                      OriginDiscussList(
-                        controller: controller,
-                        count: origin.discussCount,
-                        showHeader: false,
-                        showActions: false,
-                        showReplies: false,
-                        disableAvatarProfileTap: true,
-                        onViewMoreTap: () => _openDiscussPage(context),
-                      ),
+                      const SizedBox(height: 21),
+                      _OriginInfoCommentsPreview(controller: controller),
                     ],
                   ],
                 ),
@@ -241,12 +347,81 @@ class _DiscussSection extends StatelessWidget {
               const SizedBox(height: 8),
               DiscussPostInput(
                 bizId: origin.oid,
+                compact: true,
+                showCurrentUserAvatar: true,
                 onSubmitted: () => unawaited(controller.refreshFirstPage()),
               ),
             ],
           ],
         );
       },
+    );
+  }
+}
+
+class _OriginInfoCommentsPreview extends StatelessWidget {
+  const _OriginInfoCommentsPreview({required this.controller});
+
+  final OriginDiscussListController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.isInitialLoading && controller.items.isEmpty) {
+      return const SizedBox.square(
+        dimension: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    if (controller.error != null && controller.items.isEmpty) {
+      return TextButton(
+        onPressed: controller.retryInitial,
+        child: const Text('Retry'),
+      );
+    }
+    final comments = controller.items.take(3).toList(growable: false);
+    final colors = context.genesisColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final (index, comment) in comments.indexed) ...[
+          if (index > 0) const SizedBox(height: 11),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: comment.authorName,
+                      style: TextStyle(
+                        color: colors.accentText,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    TextSpan(text: '  ${comment.content}'),
+                  ],
+                ),
+                style: TextStyle(
+                  color: colors.foregroundStrong.withValues(alpha: 0.92),
+                  fontSize: 12,
+                  height: 1.6,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                '${comment.likeCount} likes',
+                style: TextStyle(
+                  color: colors.foregroundStrong.withValues(alpha: 0.50),
+                  fontSize: 10,
+                  height: 1,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -258,12 +433,32 @@ List<Widget> _originInitialDialogueSlivers(
 ) {
   final locationStyle = context.genesisChatTheme.locationChat;
   final style = locationStyle.copyWith(
+    messageListPadding: const EdgeInsets.fromLTRB(22, 11, 22, 10),
+    rowBottomPadding: 10,
+    avatarSize: 32,
+    avatarSideSpacerWidth: 32,
     headerTitleTextStyle: locationStyle.headerTitleTextStyle.copyWith(
-      color: context.genesisColors.textPrimary,
+      color: context.genesisColors.foregroundStrong,
+      fontSize: 13,
+      height: 1,
+      fontWeight: FontWeight.w600,
     ),
-    headerTitleIconColor: context.genesisColors.textPrimary,
+    headerTitleIconColor: context.genesisColors.textSecondary,
     senderNameTextStyle: locationStyle.senderNameTextStyle.copyWith(
-      color: context.genesisColors.textPrimary,
+      color: context.genesisColors.foregroundStrong,
+      fontSize: 12,
+      height: 1,
+      fontWeight: FontWeight.w700,
+    ),
+    bubbleTextStyle: locationStyle.bubbleTextStyle.copyWith(
+      fontSize: 13,
+      height: 1.6,
+    ),
+    systemMessageTextStyle: locationStyle.systemMessageTextStyle.copyWith(
+      color: context.genesisColors.textHighEmphasis,
+      fontSize: 13,
+      height: 1.6,
+      fontStyle: FontStyle.italic,
     ),
   );
   final padding = style.messageListPadding;
@@ -274,16 +469,16 @@ List<Widget> _originInitialDialogueSlivers(
         key: const ValueKey<String>('origin-opening-location'),
         padding: EdgeInsets.fromLTRB(
           padding.left,
-          brief.isEmpty ? 6 : 0,
+          brief.isEmpty ? 6 : 11,
           padding.right,
-          8,
+          7,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Icon(
               Icons.place_outlined,
-              size: style.headerTitleIconSize,
+              size: 14,
               color: style.headerTitleIconColor,
             ),
             SizedBox(width: style.headerTitleIconGap),
@@ -293,7 +488,7 @@ List<Widget> _originInitialDialogueSlivers(
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.left,
-                style: style.headerTitleTextStyle.copyWith(fontSize: 16),
+                style: style.headerTitleTextStyle,
               ),
             ),
           ],
@@ -302,12 +497,7 @@ List<Widget> _originInitialDialogueSlivers(
     ),
     SliverPadding(
       key: const ValueKey<String>('origin-opening-dialogue'),
-      padding: EdgeInsets.fromLTRB(
-        padding.left,
-        0,
-        padding.right,
-        originDetailSectionGapForTesting,
-      ),
+      padding: EdgeInsets.fromLTRB(padding.left, 0, padding.right, 10),
       sliver: SliverList.builder(
         itemCount: preview.messages.length,
         itemBuilder: (context, index) {
@@ -339,52 +529,66 @@ List<Widget> _originWorldoBriefSlivers(
 ) {
   final brief = _originWorldoBrief(origin);
   if (brief.isEmpty) return const <Widget>[];
-  final padding = context.genesisChatTheme.locationChat.messageListPadding;
   return <Widget>[
     SliverToBoxAdapter(
       child: Padding(
         key: const ValueKey<String>('origin-opening-worldo-brief'),
-        padding: EdgeInsets.fromLTRB(
-          padding.left,
-          6,
-          padding.right,
-          originDetailSectionGapForTesting,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  MyFlutterApp.eye,
-                  key: ValueKey<String>('origin-opening-worldo-brief-icon'),
-                  size: 16,
-                  color: context.genesisColors.danger,
-                ),
-                SizedBox(width: originDetailSectionTitleIconGapForTesting),
-                Flexible(
-                  child: Text(
-                    'Worldo Brief',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.2,
-                      fontWeight: FontWeight.w600,
-                      color: context.genesisColors.textPrimary,
-                      decoration: TextDecoration.none,
+        padding: const EdgeInsets.fromLTRB(22, 6, 22, 0),
+        child: Container(
+          padding: const EdgeInsets.only(bottom: 11),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: context.genesisColors.dividerAction),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Transform(
+                    key: const ValueKey<String>(
+                      'origin-opening-worldo-brief-icon',
+                    ),
+                    transform: Matrix4.skewY(-0.24),
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      color: context.genesisColors.danger,
                     ),
                   ),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      'World brief',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1,
+                        fontWeight: FontWeight.w800,
+                        color: context.genesisColors.foregroundStrong,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 9),
+              Text(
+                brief,
+                key: const ValueKey<String>('origin-opening-worldo-brief-body'),
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.65,
+                  fontWeight: FontWeight.w400,
+                  color: context.genesisColors.textHighEmphasis,
+                  decoration: TextDecoration.none,
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              brief,
-              key: const ValueKey<String>('origin-opening-worldo-brief-body'),
-              style: _bodyTextStyle(context).copyWith(fontSize: 14),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -395,7 +599,7 @@ String _originRoleCardAvatarUrl(BuildContext context, String sourceUrl) {
   return selectGenesisImageUrl(
     sourceUrl,
     logicalWidth: _OriginSetupRoleSection._cardWidth,
-    logicalHeight: _OriginSetupRoleSection._cardWidth,
+    logicalHeight: _OriginSetupRoleSection._cardHeight,
     devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
   ).trim();
 }

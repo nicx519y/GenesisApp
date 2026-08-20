@@ -55,6 +55,7 @@ class OriginSummary {
     this.versionNum = 0,
     required this.copyCount,
     required this.interactCount,
+    this.commentCount,
     this.characterCount = 0,
     required this.tags,
     required this.createdAt,
@@ -75,6 +76,7 @@ class OriginSummary {
   final int versionNum;
   final int copyCount;
   final int interactCount;
+  final int? commentCount;
   final int characterCount;
   final List<String> tags;
   final DateTime? createdAt;
@@ -105,6 +107,10 @@ class OriginSummary {
       versionNum: asInt(json['version_num']),
       copyCount: asInt(json['copy_count']),
       interactCount: asInt(json['interact_count']),
+      commentCount: asInt(
+        json['comment_count'],
+        fallback: asInt(json['interact_count']),
+      ),
       characterCount: asInt(json['character_count']),
       tags: _splitTags(asString(json['tags'])),
       createdAt: asDateTime(json['created_at']),

@@ -105,14 +105,11 @@ Widget? buildOriginDebugRandomContentButton({
   required Future<void> Function() onGenerated,
 }) {
   if (!kDebugMode || generator == null) return null;
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 64),
-    child: _OriginDebugRandomContentButton(
-      repository: repository,
-      generator: generator,
-      enabled: enabled,
-      onGenerated: onGenerated,
-    ),
+  return _OriginDebugRandomContentButton(
+    repository: repository,
+    generator: generator,
+    enabled: enabled,
+    onGenerated: onGenerated,
   );
 }
 
@@ -164,23 +161,58 @@ class _OriginDebugRandomContentButtonState
 
   @override
   Widget build(BuildContext context) {
-    return FloatingActionButton.extended(
-      key: const ValueKey<String>('origin-debug-random-content-button'),
-      heroTag: null,
-      onPressed: _isGenerating || !widget.enabled
-          ? null
-          : () => unawaited(_generate()),
-      icon: _isGenerating
-          ? SizedBox.square(
-              dimension: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: context.genesisColors.onPrimary,
+    final enabled = !_isGenerating && widget.enabled;
+    final accent = context.genesisColors.accentText;
+    return Opacity(
+      opacity: enabled || _isGenerating ? 1 : 0.45,
+      child: Material(
+        color: context.genesisColors.controlBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: context.genesisColors.textPrimary.withValues(alpha: 0.14),
+          ),
+        ),
+        child: Tooltip(
+          message: 'Generate random test content',
+          child: InkWell(
+            key: const ValueKey<String>('origin-debug-random-content-button'),
+            onTap: enabled ? () => unawaited(_generate()) : null,
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              height: 30,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isGenerating)
+                      SizedBox.square(
+                        dimension: 13,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.6,
+                          color: accent,
+                        ),
+                      )
+                    else
+                      Icon(Icons.casino_outlined, size: 13, color: accent),
+                    const SizedBox(width: 6),
+                    Text(
+                      'debug Random',
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 11,
+                        height: 1,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            )
-          : Icon(Icons.casino_outlined),
-      label: Text('Random'),
-      tooltip: 'Generate random test content',
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

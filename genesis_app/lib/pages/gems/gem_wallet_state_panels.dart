@@ -6,7 +6,6 @@ class _TaskActionButton extends StatelessWidget {
     required this.status,
     required this.isLoading,
     required this.onTap,
-    required this.width,
     required this.height,
     required this.borderRadius,
     required this.textHeight,
@@ -16,7 +15,6 @@ class _TaskActionButton extends StatelessWidget {
   final String status;
   final bool isLoading;
   final VoidCallback onTap;
-  final double width;
   final double height;
   final double borderRadius;
   final double textHeight;
@@ -25,12 +23,6 @@ class _TaskActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled =
         !isLoading && (status == 'in_progress' || status == 'claimable');
-    final foregroundColor = switch (status) {
-      'claimable' => context.genesisGemColors.accent,
-      'in_progress' => context.genesisGemColors.taskProgressForeground,
-      'claimed' => context.genesisGemColors.taskClaimedForeground,
-      _ => context.genesisGemColors.taskAction,
-    };
     final actionText = status == task.status
         ? task.actionText
         : switch (status) {
@@ -38,6 +30,10 @@ class _TaskActionButton extends StatelessWidget {
             'claimed' => 'Claimed',
             _ => task.actionText,
           };
+    final emphasized =
+        enabled &&
+        (status == 'claimable' ||
+            actionText.trim().toLowerCase() == 'check in');
     return Semantics(
       button: true,
       enabled: enabled,
@@ -46,11 +42,13 @@ class _TaskActionButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: enabled ? onTap : () {},
         child: Container(
-          width: width,
           height: height,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.transparent,
+            color: emphasized
+                ? context.genesisGemColors.accent
+                : context.genesisColors.surfaceTag,
             borderRadius: BorderRadius.circular(borderRadius),
           ),
           child: Text(
@@ -58,10 +56,12 @@ class _TaskActionButton extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               height: textHeight,
-              fontWeight: FontWeight.w600,
-              color: foregroundColor,
+              fontWeight: FontWeight.w700,
+              color: emphasized
+                  ? context.genesisColors.onDanger
+                  : context.genesisColors.textHighEmphasis,
             ),
           ),
         ),

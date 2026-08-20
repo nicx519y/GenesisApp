@@ -15,21 +15,32 @@ class _OriginCharactersSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(
-          iconAsset: characterStatIconAsset,
-          title: 'Characters (${characters.length})',
+        _OriginInfoSectionHeading(
+          title: 'Cast',
+          count: '(${characters.length})',
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         if (characters.isEmpty)
           Text('No characters', style: _mutedBodyTextStyle(context))
         else
-          for (int i = 0; i < sortedCharacters.length; i++) ...[
-            _OriginCharacterRow(
-              character: sortedCharacters[i],
-              imageUrls: characterAvatarUrls,
+          for (final character in sortedCharacters)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: context.genesisColors.foregroundStrong.withValues(
+                      alpha: 0.14,
+                    ),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: _OriginCharacterRow(
+                character: character,
+                imageUrls: characterAvatarUrls,
+              ),
             ),
-            if (i != sortedCharacters.length - 1) const SizedBox(height: 20),
-          ],
       ],
     );
   }
@@ -61,7 +72,7 @@ class _OriginCharacterRow extends StatelessWidget {
           imageUrls: imageUrls,
           recommended: character.isRecommended,
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 11),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,29 +80,47 @@ class _OriginCharacterRow extends StatelessWidget {
               Text(
                 character.name,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   height: 1.15,
-                  fontWeight: FontWeight.w600,
-                  color: context.genesisColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  color: context.genesisColors.foregroundStrong,
                   decoration: TextDecoration.none,
                 ),
               ),
               if (identity.isNotEmpty) ...[
-                const SizedBox(height: 5),
-                Text(identity, style: _bodyTextStyle(context)),
+                const SizedBox(height: 6),
+                Text(identity, style: _characterBodyTextStyle(context)),
               ],
               if (tagline.isNotEmpty) ...[
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
                 Text(
                   tagline,
-                  style: _bodyTextStyle(
+                  style: _characterBodyTextStyle(
                     context,
-                  ).copyWith(color: context.genesisColors.danger),
+                  ).copyWith(color: context.genesisColors.accentText),
                 ),
               ],
               if (goal.isNotEmpty) ...[
-                const SizedBox(height: 5),
-                Text('Goal: $goal', style: _characterBodyTextStyle(context)),
+                const SizedBox(height: 4),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Goal ',
+                        style: TextStyle(
+                          color: context.genesisColors.foregroundStrong,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      TextSpan(text: goal),
+                    ],
+                  ),
+                  style: _characterBodyTextStyle(context).copyWith(
+                    color: context.genesisColors.foregroundStrong.withValues(
+                      alpha: 0.72,
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
@@ -110,8 +139,8 @@ class _OriginCharacterPortrait extends StatelessWidget {
     required this.recommended,
   });
 
-  static const double _width = 86;
-  static const double _borderRadius = GenesisAvatarRadii.character;
+  static const double _width = 40;
+  static const double _borderRadius = 12;
 
   final String characterId;
   final String url;
@@ -134,14 +163,16 @@ class _OriginCharacterPortrait extends StatelessWidget {
         ? Image.asset(
             resolvedUrl,
             width: _width,
-            fit: BoxFit.fitWidth,
+            height: _width,
+            fit: BoxFit.cover,
             alignment: Alignment.topCenter,
             errorBuilder: (context, error, stackTrace) => fallback,
           )
         : GenesisStaticNetworkImage(
             imageUrl: resolvedUrl,
             width: _width,
-            fit: BoxFit.fitWidth,
+            height: _width,
+            fit: BoxFit.cover,
             alignment: Alignment.topCenter,
             placeholder: (_) => const SizedBox(width: _width, height: _width),
             errorWidget: (_, _) => fallback,
@@ -152,6 +183,7 @@ class _OriginCharacterPortrait extends StatelessWidget {
       children: [
         SizedBox(
           width: _width,
+          height: _width,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(_borderRadius),
             child: image,
@@ -182,7 +214,8 @@ class _OriginCharacterPortrait extends StatelessWidget {
               context,
               imageUrl: _originRoleCardAvatarUrl(context, imageUrl),
               logicalWidth: _width,
-              fit: BoxFit.fitWidth,
+              logicalHeight: _width,
+              fit: BoxFit.cover,
             ),
         ],
         initialIndex: initialIndex < 0 ? 0 : initialIndex,
@@ -201,10 +234,10 @@ TextStyle _bodyTextStyle(BuildContext context) => TextStyle(
 );
 
 TextStyle _characterBodyTextStyle(BuildContext context) => TextStyle(
-  fontSize: 13,
-  height: 1.4,
+  fontSize: 12,
+  height: 1.5,
   fontWeight: FontWeight.w400,
-  color: context.genesisColors.textPrimary,
+  color: context.genesisColors.foregroundStrong.withValues(alpha: 0.92),
   decoration: TextDecoration.none,
 );
 

@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug_floating_button_unlock.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -15,6 +16,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../platform/app/app_metadata_service.dart';
 import '../../ui/genesis_ui.dart';
 import '../../utils/display_name_formatter.dart';
 import 'about_us_page.dart';
@@ -28,7 +30,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   static const int _debugButtonUnlockTapCount = 10;
-  static const double _logoutButtonWidthFactor = 0.7;
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
 
   int _debugUnlockTapCount = 0;
@@ -111,182 +112,253 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
     return Scaffold(
+      backgroundColor: colors.pageBackground,
       resizeToAvoidBottomInset: false,
-      appBar: GenesisBackAppBar(
-        pageName: 'Settings',
-        onBack: () => Navigator.of(context).maybePop(false),
-        titleKey: const ValueKey<String>('settings-debug-title-unlock-area'),
-        onTitleTap: _handleDebugUnlockTap,
+      body: GenesisTopSafeArea(
+        backgroundColor: colors.pageBackground,
+        child: Column(
+          children: [
+            _SettingsHeader(
+              onBack: () => Navigator.of(context).maybePop(false),
+              onTitleTap: _handleDebugUnlockTap,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(22, 16, 22, 0),
+                child: Column(
+                  children: [
+                    _SettingsNavigationRow(
+                      label: 'About us',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AboutUsPage(),
+                        ),
+                      ),
+                    ),
+                    _SettingsNavigationRow(
+                      label: 'Account',
+                      onTap: () => _openAccountPage(context),
+                    ),
+                    _SettingsNavigationRow(
+                      label: 'Blocked users',
+                      onTap: () => _openBlockedUsersPage(context),
+                    ),
+                    _SettingsNavigationRow(
+                      label: 'Feedback',
+                      onTap: () => _showFeedbackDialog(context),
+                    ),
+                    _SettingsNavigationRow(
+                      label: 'Join Discord',
+                      onTap: _openDiscord,
+                      labelTrailing: SvgPicture.asset(
+                        'assets/custom-icons/svg/discord-svgrepo-com.svg',
+                        key: const ValueKey<String>('settings-discord-icon'),
+                        width: 12,
+                        height: 12,
+                        colorFilter: ColorFilter.mode(
+                          colors.foregroundStrong,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            GenesisBottomSafePadding(
+              minimum: 34,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: Column(
+                  children: [
+                    GenesisPrimaryButton(
+                      label: 'Log out',
+                      onPressed: () => _confirmLogout(context),
+                      height: 46,
+                      backgroundColor: colors.controlBackground,
+                      foregroundColor: colors.foregroundStrong,
+                      side: BorderSide(color: colors.borderNeutral),
+                      borderRadius: BorderRadius.circular(14),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    const SizedBox(height: 14),
+                    const _SettingsFooterMeta(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
+    );
+  }
+}
+
+class _SettingsHeader extends StatelessWidget {
+  const _SettingsHeader({required this.onBack, required this.onTitleTap});
+
+  final VoidCallback onBack;
+  final VoidCallback onTitleTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.genesisColors;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: SizedBox(
+        height: 34,
+        child: Row(
+          children: [
+            Material(
+              color: colors.controlMuted,
+              borderRadius: BorderRadius.circular(11),
+              child: InkWell(
+                key: const ValueKey<String>('settings-back-button'),
+                onTap: onBack,
+                borderRadius: BorderRadius.circular(11),
+                child: SizedBox.square(
+                  dimension: 34,
+                  child: Icon(
+                    Icons.arrow_back_ios_new,
+                    size: 14,
+                    color: colors.foregroundStrong,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              key: const ValueKey<String>('settings-debug-title-unlock-area'),
+              behavior: HitTestBehavior.translucent,
+              onTap: onTitleTap,
+              child: Text(
+                'Settings',
+                style: TextStyle(
+                  fontSize: 17,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  color: colors.foregroundStrong,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsNavigationRow extends StatelessWidget {
+  const _SettingsNavigationRow({
+    required this.label,
+    required this.onTap,
+    this.labelTrailing,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final Widget? labelTrailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.genesisColors;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.divider)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 47,
+          child: Row(
             children: [
-              const SizedBox(height: 18),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const AboutUsPage()),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'About us',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colors.navigationSelected,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: colors.iconMuted,
-                        size: 30,
-                      ),
-                    ],
-                  ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  color: colors.foregroundStrong,
                 ),
               ),
-              Divider(height: 1, color: colors.dividerSubtle),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _openAccountPage(context),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Account',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colors.navigationSelected,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: colors.iconMuted,
-                        size: 30,
-                      ),
-                    ],
-                  ),
-                ),
+              if (labelTrailing != null) ...[
+                const SizedBox(width: 9),
+                labelTrailing!,
+              ],
+              const Spacer(),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: colors.textTimestamp,
               ),
-              Divider(height: 1, color: colors.dividerSubtle),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _openBlockedUsersPage(context),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Blocked users',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colors.navigationSelected,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: colors.iconMuted,
-                        size: 30,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Divider(height: 1, color: colors.dividerSubtle),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _showFeedbackDialog(context),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Feedback',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colors.navigationSelected,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: colors.iconMuted,
-                        size: 30,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Divider(height: 1, color: colors.dividerSubtle),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _openDiscord,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Join Discord',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: colors.navigationSelected,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          SvgPicture.asset(
-                            'assets/custom-icons/svg/discord-svgrepo-com.svg',
-                            width: 28,
-                            height: 28,
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      Icon(
-                        Icons.chevron_right,
-                        color: colors.iconMuted,
-                        size: 30,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Divider(height: 1, color: colors.dividerSubtle),
-              const Expanded(child: SizedBox.shrink()),
-              GenesisPrimaryButton(
-                label: 'Log out',
-                width:
-                    MediaQuery.sizeOf(context).width * _logoutButtonWidthFactor,
-                onPressed: () => _confirmLogout(context),
-                backgroundColor: colors.controlMuted,
-                foregroundColor: colors.navigationSelected,
-              ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _SettingsFooterMeta extends StatefulWidget {
+  const _SettingsFooterMeta();
+
+  @override
+  State<_SettingsFooterMeta> createState() => _SettingsFooterMetaState();
+}
+
+class _SettingsFooterMetaState extends State<_SettingsFooterMeta> {
+  AppServices? _services;
+  Future<_SettingsFooterData>? _dataFuture;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final services = AppServicesScope.maybeOf(context);
+    if (_dataFuture != null && identical(_services, services)) return;
+    _services = services;
+    _dataFuture = _loadData(services);
+  }
+
+  Future<_SettingsFooterData> _loadData(AppServices? services) async {
+    final version = await AppMetadataService.appVersion();
+    var uid = '';
+    try {
+      uid = (await services?.sessionStore.readUid())?.trim() ?? '';
+    } catch (_) {}
+    return _SettingsFooterData(versionName: version.versionName, uid: uid);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_SettingsFooterData>(
+      future: _dataFuture,
+      builder: (context, snapshot) {
+        final data = snapshot.data ?? const _SettingsFooterData();
+        final version = AboutUsPage.versionLabel(data.versionName);
+        final label = data.uid.isEmpty ? version : '$version · ${data.uid}';
+        return Text(
+          label,
+          key: const ValueKey<String>('settings-version-uid'),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 9.5,
+            height: 1,
+            fontWeight: FontWeight.w500,
+            color: context.genesisColors.textDisabled,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SettingsFooterData {
+  const _SettingsFooterData({this.versionName = '', this.uid = ''});
+
+  final String versionName;
+  final String uid;
 }
 
 class BlockedUsersPage extends StatefulWidget {

@@ -53,7 +53,6 @@ class GemBillingPurchaseDialog extends StatelessWidget {
   final ValueListenable<GemBillingPurchaseDialogState> state;
   final VoidCallback onConfirm;
   static const double _processingHeight = 202;
-  static const double _successContentHeight = 150;
   static const double _titleHorizontalPadding = 24;
 
   @override
@@ -65,121 +64,207 @@ class GemBillingPurchaseDialog extends StatelessWidget {
         return PopScope(
           // The purchase result must be acknowledged explicitly with OK.
           canPop: false,
-          child: GenesisActionBox<bool>(
-            title: '',
-            titleHeight: isSuccess ? _successContentHeight : _processingHeight,
-            titleHorizontalPadding: _titleHorizontalPadding,
-            titleWidget: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isSuccess) ...[
-                  SvgPicture.asset(
-                    gemStackIconAsset,
-                    width: gemStackIconWidth,
-                    height: gemStackIconHeight,
+          child: isSuccess
+              ? _GemBillingPurchaseSuccessDialog(
+                  grantedText: value.grantedText,
+                  onConfirm: onConfirm,
+                )
+              : GenesisActionBox<bool>(
+                  title: '',
+                  titleHeight: _processingHeight,
+                  titleHorizontalPadding: _titleHorizontalPadding,
+                  titleWidget: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.6,
+                          color: context.genesisGemColors.accent,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const _ProcessingPaymentText(),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                ] else ...[
-                  SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.6,
-                      color: context.genesisGemColors.accent,
-                    ),
+                  actions: const [],
+                  showCancel: false,
+                  borderColor: context.genesisColors.textPrimary.withValues(
+                    alpha: 0.14,
                   ),
-                  const SizedBox(height: 18),
-                ],
-                if (isSuccess)
-                  _GemBillingPurchaseGrantedMessage(
-                    grantedText: value.grantedText,
-                  )
-                else
-                  const _ProcessingPaymentText(),
-              ],
-            ),
-            actions: isSuccess
-                ? const [GenesisActionBoxAction<bool>(label: 'OK', value: true)]
-                : const [],
-            showCancel: false,
-            onActionSelected: (_) => onConfirm(),
-            onCancel: onConfirm,
-          ),
+                  onActionSelected: (_) => onConfirm(),
+                  onCancel: onConfirm,
+                ),
         );
       },
     );
   }
 }
 
-class _GemBillingPurchaseGrantedMessage extends StatelessWidget {
-  const _GemBillingPurchaseGrantedMessage({required this.grantedText});
+class _GemBillingPurchaseSuccessDialog extends StatelessWidget {
+  const _GemBillingPurchaseSuccessDialog({
+    required this.grantedText,
+    required this.onConfirm,
+  });
 
   final String grantedText;
+  final VoidCallback onConfirm;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Purchase successful!',
-          key: ValueKey<String>('billing-purchase-success-title'),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            height: 20 / 16,
-            fontWeight: FontWeight.w600,
-            color: context.genesisColors.textPrimary,
+    final amountText = grantedText.isEmpty ? '' : '+$grantedText';
+    const borderRadius = BorderRadius.all(Radius.circular(20));
+    return Dialog(
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      constraints: const BoxConstraints.tightFor(width: 250),
+      backgroundColor: Colors.transparent,
+      child: Container(
+        key: const ValueKey<String>('billing-purchase-success-dialog'),
+        width: 250,
+        decoration: BoxDecoration(
+          color: context.genesisColors.surfaceRaised,
+          borderRadius: borderRadius,
+          border: Border.all(
+            color: context.genesisColors.textPrimary.withValues(alpha: 0.14),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: context.genesisColors.shadow.withValues(alpha: 0.55),
+              blurRadius: 44,
+              offset: const Offset(0, 18),
+            ),
+          ],
         ),
-        const SizedBox(
-          key: ValueKey<String>('billing-purchase-success-line-gap'),
-          height: 12,
-        ),
-        SizedBox(
-          width: double.infinity,
-          child: FittedBox(
-            key: const ValueKey<String>('billing-purchase-granted-fit'),
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.center,
-            child: Text.rich(
-              key: const ValueKey<String>('billing-purchase-granted-line'),
-              TextSpan(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 2),
-                      child: SvgPicture.asset(
-                        gemIconAsset,
+                  SvgPicture.asset(
+                    gemIconAsset,
+                    key: const ValueKey<String>(
+                      'billing-purchase-granted-icon',
+                    ),
+                    width: 38,
+                    height: 59,
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Purchase successful!',
+                    key: const ValueKey<String>(
+                      'billing-purchase-success-title',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 17,
+                      height: 1,
+                      fontWeight: FontWeight.w800,
+                      color: context.genesisColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(
+                    key: ValueKey<String>('billing-purchase-success-line-gap'),
+                    height: 14,
+                  ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      key: const ValueKey<String>(
+                        'billing-purchase-granted-fit',
+                      ),
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: Row(
                         key: const ValueKey<String>(
-                          'billing-purchase-granted-icon',
+                          'billing-purchase-granted-line',
                         ),
-                        width: 12,
-                        height: 12,
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            amountText,
+                            key: const ValueKey<String>(
+                              'billing-purchase-granted-amount',
+                            ),
+                            style: TextStyle(
+                              fontSize: 30,
+                              height: 1,
+                              fontWeight: FontWeight.w900,
+                              color: context.genesisColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Text(
+                            'Gems',
+                            key: const ValueKey<String>(
+                              'billing-purchase-granted-unit',
+                            ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1,
+                              fontWeight: FontWeight.w500,
+                              color: context.genesisColors.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  TextSpan(
-                    text: grantedText,
-                    style: TextStyle(color: context.genesisGemColors.accent),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Added to your balance',
+                    key: const ValueKey<String>(
+                      'billing-purchase-granted-subtitle',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.45,
+                      fontWeight: FontWeight.w400,
+                      color: context.genesisColors.textMuted,
+                    ),
                   ),
-                  const TextSpan(text: ' Gems have been granted.'),
                 ],
               ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              softWrap: false,
-              style: TextStyle(
-                fontSize: 14,
-                height: 20 / 14,
-                fontWeight: FontWeight.w400,
-                color: context.genesisColors.textPrimary,
+            ),
+            Container(
+              key: const ValueKey<String>('billing-purchase-success-divider'),
+              width: double.infinity,
+              height: 1,
+              color: context.genesisColors.dividerAction,
+            ),
+            Semantics(
+              button: true,
+              child: InkWell(
+                key: const ValueKey<String>('billing-purchase-success-confirm'),
+                onTap: onConfirm,
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 51,
+                  child: Center(
+                    child: Text(
+                      'OK',
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1,
+                        fontWeight: FontWeight.w700,
+                        color: context.genesisGemColors.accent,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

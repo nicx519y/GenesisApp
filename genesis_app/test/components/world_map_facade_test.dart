@@ -55,11 +55,15 @@ void main() {
         users: <UserAvatar>[],
       ),
     );
+    const foregroundOverlay = SizedBox(
+      key: ValueKey<String>('test-world-map-foreground-overlay'),
+    );
     final map = WorldMap.origin(
       definitionVersion: 2,
       originId: 'o_1',
       common: WorldMapCommonConfig(
         drillExitTop: 91,
+        foregroundOverlay: foregroundOverlay,
         messageBubbles: const [
           WorldMapMessageBubble(characterId: 'char_1', content: 'Hello'),
         ],
@@ -90,6 +94,7 @@ void main() {
     expect(tilemap.locationNodes, <WorldMapLocationNode>[tilemapLocationNode]);
     expect(tilemap.drillExitTop, 91);
     expect(tilemap.drillExitMaxWidth, 204);
+    expect(tilemap.foregroundOverlay, same(foregroundOverlay));
     expect(tilemap.showVisualModeToggle, isFalse);
     expect(tilemap.visualModeToggleTop, 17);
     expect(tilemap.visualModeToggleRight, 12);

@@ -93,10 +93,29 @@ class CreateTextFieldBlock extends StatefulWidget {
     this.minLines = 1,
     this.maxLines,
     this.prefix,
+    this.requiredIndicator = false,
     this.labelSize = 14,
     this.labelFontWeight = FontWeight.w600,
     this.labelInputGap = 10,
+    this.fieldBorderRadius = 8,
+    this.fieldPadding = const EdgeInsets.symmetric(
+      horizontal: 10,
+      vertical: 10,
+    ),
+    this.minimumHeight,
+    this.inputFontSize = 14,
+    this.hintFontSize,
     this.inputLineHeight = 1.42,
+    this.textAlign = TextAlign.start,
+    this.prefixGap = 8,
+    this.supportLineGap = 8,
+    this.supportItemGap = 12,
+    this.supportTextStyle,
+    this.supportTextColor,
+    this.supportIconColor,
+    this.supportIconSize = 16,
+    this.supportIconGap = 5,
+    this.counterTextStyle,
     this.textInputAction,
     this.onEditingComplete,
     this.onSubmitted,
@@ -119,10 +138,26 @@ class CreateTextFieldBlock extends StatefulWidget {
   final int minLines;
   final int? maxLines;
   final Widget? prefix;
+  final bool requiredIndicator;
   final double labelSize;
   final FontWeight labelFontWeight;
   final double labelInputGap;
+  final double fieldBorderRadius;
+  final EdgeInsets fieldPadding;
+  final double? minimumHeight;
+  final double inputFontSize;
+  final double? hintFontSize;
   final double inputLineHeight;
+  final TextAlign textAlign;
+  final double prefixGap;
+  final double supportLineGap;
+  final double supportItemGap;
+  final TextStyle? supportTextStyle;
+  final Color? supportTextColor;
+  final Color? supportIconColor;
+  final double supportIconSize;
+  final double supportIconGap;
+  final TextStyle? counterTextStyle;
   final TextInputAction? textInputAction;
   final VoidCallback? onEditingComplete;
   final ValueChanged<String>? onSubmitted;
@@ -194,24 +229,38 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.label.isNotEmpty) ...[
-            Text(
-              widget.label,
-              style: TextStyle(
-                color: context.genesisCreateColors.text,
-                fontSize: widget.labelSize,
-                fontWeight: widget.labelFontWeight,
-                height: 1.2,
+            Text.rich(
+              TextSpan(
+                text: widget.label,
+                children: [
+                  if (widget.requiredIndicator)
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(
+                        color: context.genesisCreateColors.accent,
+                      ),
+                    ),
+                ],
+                style: TextStyle(
+                  color: context.genesisCreateColors.text,
+                  fontSize: widget.labelSize,
+                  fontWeight: widget.labelFontWeight,
+                  height: 1.2,
+                ),
               ),
             ),
             // Field internal spacing: label -> input box.
             SizedBox(height: widget.labelInputGap),
           ],
           Container(
+            constraints: widget.minimumHeight == null
+                ? null
+                : BoxConstraints(minHeight: widget.minimumHeight!),
             decoration: BoxDecoration(
               color: context.genesisCreateColors.fieldFill,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(widget.fieldBorderRadius),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            padding: widget.fieldPadding,
             alignment: _isSingleLine ? Alignment.center : Alignment.topCenter,
             child: Row(
               crossAxisAlignment: _isSingleLine
@@ -220,7 +269,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
               children: [
                 if (widget.prefix != null) ...[
                   widget.prefix!,
-                  SizedBox(width: 8),
+                  SizedBox(width: widget.prefixGap),
                 ],
                 Expanded(
                   child: TextFieldTapRegion(
@@ -253,10 +302,11 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                       maxLength: widget.maxLength,
                       minLines: widget.minLines,
                       maxLines: widget.maxLines,
+                      textAlign: widget.textAlign,
                       style: GenesisTypography.withFallback(
                         TextStyle(
                           color: context.genesisCreateColors.text,
-                          fontSize: 14,
+                          fontSize: widget.inputFontSize,
                           height: widget.inputLineHeight,
                         ),
                       ),
@@ -269,7 +319,8 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                         hintStyle: GenesisTypography.withFallback(
                           TextStyle(
                             color: context.genesisCreateColors.hint,
-                            fontSize: 14,
+                            fontSize:
+                                widget.hintFontSize ?? widget.inputFontSize,
                             letterSpacing: 0,
                             height: widget.inputLineHeight,
                           ),
@@ -280,17 +331,27 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                 ),
                 if (_showsCounterInside) ...[
                   SizedBox(width: 8),
-                  _CreateFieldCounter(counter: _counterText),
+                  _CreateFieldCounter(
+                    counter: _counterText,
+                    textStyle: widget.counterTextStyle,
+                  ),
                 ],
               ],
             ),
           ),
           if (_hasSupportLine) ...[
-            SizedBox(height: 8),
+            SizedBox(height: widget.supportLineGap),
             _CreateFieldSupportLine(
               note: widget.note,
               counter: _showsCounterOutside ? _counterText : null,
               leading: widget.supportLeading,
+              itemGap: widget.supportItemGap,
+              noteTextStyle: widget.supportTextStyle,
+              noteTextColor: widget.supportTextColor,
+              noteIconColor: widget.supportIconColor,
+              noteIconSize: widget.supportIconSize,
+              noteIconGap: widget.supportIconGap,
+              counterTextStyle: widget.counterTextStyle,
             ),
           ],
           if (widget.visibilityBottomPadding > 0)
@@ -338,11 +399,25 @@ class _CreateFieldSupportLine extends StatelessWidget {
     required this.note,
     required this.counter,
     required this.leading,
+    required this.itemGap,
+    required this.noteTextStyle,
+    required this.noteTextColor,
+    required this.noteIconColor,
+    required this.noteIconSize,
+    required this.noteIconGap,
+    required this.counterTextStyle,
   });
 
   final String? note;
   final String? counter;
   final Widget? leading;
+  final double itemGap;
+  final TextStyle? noteTextStyle;
+  final Color? noteTextColor;
+  final Color? noteIconColor;
+  final double noteIconSize;
+  final double noteIconGap;
+  final TextStyle? counterTextStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -351,7 +426,10 @@ class _CreateFieldSupportLine extends StatelessWidget {
     if (!hasNote && leading == null) {
       return Align(
         alignment: Alignment.centerRight,
-        child: _CreateFieldCounter(counter: counter ?? ''),
+        child: _CreateFieldCounter(
+          counter: counter ?? '',
+          textStyle: counterTextStyle,
+        ),
       );
     }
     if (!hasNote && leading != null) {
@@ -363,7 +441,10 @@ class _CreateFieldSupportLine extends StatelessWidget {
             if (counter != null)
               Align(
                 alignment: Alignment.topRight,
-                child: _CreateFieldCounter(counter: counter!),
+                child: _CreateFieldCounter(
+                  counter: counter!,
+                  textStyle: counterTextStyle,
+                ),
               ),
           ],
         ),
@@ -374,14 +455,23 @@ class _CreateFieldSupportLine extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (leading != null) leading!,
-        if (leading != null && hasNote) SizedBox(width: 12),
+        if (leading != null && hasNote) SizedBox(width: itemGap),
         if (hasNote)
-          Expanded(child: CreateFormNote(note: normalizedNote))
+          Expanded(
+            child: CreateFormNote(
+              note: normalizedNote,
+              textStyle: noteTextStyle,
+              textColor: noteTextColor,
+              iconColor: noteIconColor,
+              iconSize: noteIconSize,
+              iconGap: noteIconGap,
+            ),
+          )
         else
           const Spacer(),
         if (counter != null) ...[
-          SizedBox(width: 12),
-          _CreateFieldCounter(counter: counter!),
+          SizedBox(width: itemGap),
+          _CreateFieldCounter(counter: counter!, textStyle: counterTextStyle),
         ],
       ],
     );
@@ -389,10 +479,24 @@ class _CreateFieldSupportLine extends StatelessWidget {
 }
 
 class CreateFormNote extends StatelessWidget {
-  const CreateFormNote({super.key, required this.note, this.markdown = false});
+  const CreateFormNote({
+    super.key,
+    required this.note,
+    this.markdown = false,
+    this.textStyle,
+    this.textColor,
+    this.iconColor,
+    this.iconSize = 16,
+    this.iconGap = 5,
+  });
 
   final String note;
   final bool markdown;
+  final TextStyle? textStyle;
+  final Color? textColor;
+  final Color? iconColor;
+  final double iconSize;
+  final double iconGap;
 
   @override
   Widget build(BuildContext context) {
@@ -403,17 +507,22 @@ class CreateFormNote extends StatelessWidget {
           padding: const EdgeInsets.only(top: 0),
           child: SvgPicture.asset(
             createFormInfoIconAsset,
-            width: 16,
-            height: 16,
+            width: iconSize,
+            height: iconSize,
             colorFilter: ColorFilter.mode(
-              context.genesisCreateColors.note,
+              iconColor ?? context.genesisCreateColors.note,
               BlendMode.srcIn,
             ),
           ),
         ),
-        SizedBox(width: 5),
+        SizedBox(width: iconGap),
         Expanded(
-          child: _CreateFormNoteText(note: note, markdown: markdown),
+          child: _CreateFormNoteText(
+            note: note,
+            markdown: markdown,
+            textStyle: textStyle,
+            textColor: textColor,
+          ),
         ),
       ],
     );
@@ -421,15 +530,22 @@ class CreateFormNote extends StatelessWidget {
 }
 
 class _CreateFormNoteText extends StatelessWidget {
-  const _CreateFormNoteText({required this.note, required this.markdown});
+  const _CreateFormNoteText({
+    required this.note,
+    required this.markdown,
+    required this.textStyle,
+    required this.textColor,
+  });
 
   final String note;
   final bool markdown;
+  final TextStyle? textStyle;
+  final Color? textColor;
 
   @override
   Widget build(BuildContext context) {
-    final baseStyle = createFormSupportTextStyle.copyWith(
-      color: context.genesisCreateColors.note,
+    final baseStyle = (textStyle ?? createFormSupportTextStyle).copyWith(
+      color: textColor ?? textStyle?.color ?? context.genesisCreateColors.note,
     );
     if (!markdown) {
       return Text(note, softWrap: true, style: baseStyle);
@@ -555,17 +671,18 @@ bool _shouldSplitEmphasisPiece(String piece) {
 const int _valueNotFound = -1;
 
 class _CreateFieldCounter extends StatelessWidget {
-  const _CreateFieldCounter({required this.counter});
+  const _CreateFieldCounter({required this.counter, this.textStyle});
 
   final String counter;
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
     return Text(
       counter,
       textAlign: TextAlign.right,
-      style: createFormSupportTextStyle.copyWith(
-        color: context.genesisCreateColors.muted,
+      style: (textStyle ?? createFormSupportTextStyle).copyWith(
+        color: textStyle?.color ?? context.genesisCreateColors.muted,
       ),
     );
   }

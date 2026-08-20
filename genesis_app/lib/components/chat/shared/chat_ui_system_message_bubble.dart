@@ -9,6 +9,10 @@ class ChatSystemMessage extends StatelessWidget {
     this.singleLine = false,
     this.textAlign = TextAlign.center,
     this.leadingIconAsset,
+    this.backgroundColor,
+    this.textStyle,
+    this.leadingIconColor,
+    this.softItalic = false,
     this.bubbleKey = const ValueKey('chat-system-message-bubble'),
     this.onLongPressStart,
     this.style,
@@ -20,6 +24,10 @@ class ChatSystemMessage extends StatelessWidget {
   final bool singleLine;
   final TextAlign textAlign;
   final String? leadingIconAsset;
+  final Color? backgroundColor;
+  final TextStyle? textStyle;
+  final Color? leadingIconColor;
+  final bool softItalic;
   final Key bubbleKey;
   final GestureLongPressStartCallback? onLongPressStart;
   final ChatUiStyleConfig? style;
@@ -45,7 +53,7 @@ class ChatSystemMessage extends StatelessWidget {
                 margin: style.systemMessageMargin,
                 padding: style.systemMessagePadding,
                 decoration: BoxDecoration(
-                  color: style.systemMessageBackgroundColor,
+                  color: backgroundColor ?? style.systemMessageBackgroundColor,
                   borderRadius: BorderRadius.circular(
                     style.systemMessageBorderRadius,
                   ),
@@ -56,13 +64,17 @@ class ChatSystemMessage extends StatelessWidget {
                         maxLines: singleLine ? 1 : null,
                         overflow: singleLine ? TextOverflow.ellipsis : null,
                         textAlign: textAlign,
-                        style: style.systemMessageTextStyle,
+                        style: textStyle ?? style.systemMessageTextStyle,
+                        softItalic: softItalic,
                       )
                     : _SystemMessageWithLeadingIcon(
                         iconAsset: leadingIconAsset!,
                         text: text,
                         textAlign: textAlign,
                         style: style,
+                        textStyle: textStyle,
+                        iconColor: leadingIconColor,
+                        softItalic: softItalic,
                       ),
               ),
             ),
@@ -79,17 +91,26 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
     required this.text,
     required this.textAlign,
     required this.style,
+    this.textStyle,
+    this.iconColor,
+    this.softItalic = false,
   });
 
   final String iconAsset;
   final String text;
   final TextAlign textAlign;
   final ChatUiStyleConfig style;
+  final TextStyle? textStyle;
+  final Color? iconColor;
+  final bool softItalic;
 
   @override
   Widget build(BuildContext context) {
-    final iconColor =
-        style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
+    final resolvedTextStyle = textStyle ?? style.systemMessageTextStyle;
+    final resolvedIconColor =
+        iconColor ??
+        resolvedTextStyle.color ??
+        context.genesisColors.textInverse;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -100,7 +121,7 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
             width: 14,
             height: 14,
             fit: BoxFit.contain,
-            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            colorFilter: ColorFilter.mode(resolvedIconColor, BlendMode.srcIn),
             excludeFromSemantics: true,
           ),
         ),
@@ -109,7 +130,8 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
           child: _InlineMarkdownText(
             text: text,
             textAlign: textAlign,
-            style: style.systemMessageTextStyle,
+            style: resolvedTextStyle,
+            softItalic: softItalic,
           ),
         ),
       ],

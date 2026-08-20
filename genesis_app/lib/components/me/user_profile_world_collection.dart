@@ -9,6 +9,7 @@ class _WorldProfileCollectionList extends StatefulWidget {
     required this.recentChatWorldId,
     required this.canDeleteWorlds,
     required this.onWorldDeleted,
+    this.redesigned = false,
   });
 
   final List<UserProfileWorldItem> items;
@@ -19,6 +20,7 @@ class _WorldProfileCollectionList extends StatefulWidget {
   final String recentChatWorldId;
   final bool canDeleteWorlds;
   final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
+  final bool redesigned;
 
   @override
   State<_WorldProfileCollectionList> createState() =>
@@ -74,30 +76,49 @@ class _WorldProfileCollectionListState
               animationKey: item.wid,
               imageUrl: item.imageUrl,
               title: item.title,
-              subtitle: item.subtitle,
+              subtitle: widget.redesigned
+                  ? _splitWorldSubtitle(item.subtitle)
+                  : item.subtitle,
               showRecentChatTag: item.wid == widget.recentChatWorldId,
               isCollapsing: _collapsingWorldIds.contains(item.wid),
               showPressedBackground: false,
               enableFeedback: false,
-              stats: [
-                GenesisProfileCollectionStat(
-                  iconAsset: tickStatIconAsset,
-                  value: item.progressCount,
-                ),
-                GenesisProfileCollectionStat(
-                  iconAsset: connectStatIconAsset,
-                  value: item.interactCount,
-                ),
-                GenesisProfileCollectionStat(
-                  iconAsset: characterStatIconAsset,
-                  preserveIconAssetColor: true,
-                  value: item.characterCount,
-                ),
-                GenesisProfileCollectionStat(
-                  iconAsset: userStatIconAsset,
-                  value: item.playerCount,
-                ),
-              ],
+              useRedesignedLayout: widget.redesigned,
+              stats: widget.redesigned
+                  ? [
+                      GenesisProfileCollectionStat(
+                        iconAsset: originFeedPlayIconAsset,
+                        value: item.progressCount,
+                      ),
+                      GenesisProfileCollectionStat(
+                        iconAsset: originFeedCommentIconAsset,
+                        value: item.interactCount,
+                      ),
+                      GenesisProfileCollectionStat(
+                        iconAsset: originFeedRoleIconAsset,
+                        preserveIconAssetColor: true,
+                        value: item.characterCount,
+                      ),
+                    ]
+                  : [
+                      GenesisProfileCollectionStat(
+                        iconAsset: tickStatIconAsset,
+                        value: item.progressCount,
+                      ),
+                      GenesisProfileCollectionStat(
+                        iconAsset: connectStatIconAsset,
+                        value: item.interactCount,
+                      ),
+                      GenesisProfileCollectionStat(
+                        iconAsset: characterStatIconAsset,
+                        preserveIconAssetColor: true,
+                        value: item.characterCount,
+                      ),
+                      GenesisProfileCollectionStat(
+                        iconAsset: userStatIconAsset,
+                        value: item.playerCount,
+                      ),
+                    ],
               onTap:
                   item.deleted ||
                       _deletingWorldIds.contains(item.wid) ||
@@ -113,6 +134,7 @@ class _WorldProfileCollectionListState
       loadingKey: const ValueKey('profile-world-list-loading'),
       onRefresh: widget.onRefresh,
       refreshKey: const ValueKey('profile-world-list-refresh'),
+      redesigned: widget.redesigned,
     );
   }
 
@@ -153,6 +175,14 @@ class _WorldProfileCollectionListState
   }
 }
 
+String _splitWorldSubtitle(String subtitle) {
+  const separator = '  Owner:';
+  final separatorIndex = subtitle.indexOf(separator);
+  if (separatorIndex < 0) return subtitle;
+  return '${subtitle.substring(0, separatorIndex)}\n'
+      'Owner:${subtitle.substring(separatorIndex + separator.length)}';
+}
+
 class UserProfileOriginItem {
   const UserProfileOriginItem({
     required this.originId,
@@ -163,6 +193,7 @@ class UserProfileOriginItem {
     required this.imageUrl,
     required this.copyCount,
     required this.interactCount,
+    this.commentCount,
     required this.characterCount,
   });
 
@@ -174,6 +205,7 @@ class UserProfileOriginItem {
   final String imageUrl;
   final int copyCount;
   final int interactCount;
+  final int? commentCount;
   final int characterCount;
 }
 

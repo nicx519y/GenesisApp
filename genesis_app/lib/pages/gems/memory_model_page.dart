@@ -1,14 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../network/models/gem_model.dart';
-import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/system/genesis_system_ui.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 
 typedef GemModelCatalogLoader =
@@ -179,30 +180,26 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.genesisColors.pageBackground,
-      appBar: GenesisBackAppBar(
-        pageName: 'Model',
-        titleStyle: TextStyle(
-          color: context.genesisColors.textPrimary,
-          fontSize: 16,
-          height: 22 / 16,
-          fontWeight: FontWeight.w600,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: GenesisSystemUi.forThemeBrightness(Theme.of(context).brightness),
+      child: Scaffold(
+        backgroundColor: context.genesisColors.pageBackground,
+        body: Column(
+          children: [
+            _MemoryModelHeader(
+              onBack: _closePage,
+              saving: _saving,
+              saveEnabled:
+                  !_loading &&
+                  _pendingModelCode.trim().isNotEmpty &&
+                  _pendingModelCode.trim() !=
+                      (_catalog?.selectedModelCode.trim() ?? ''),
+              onSave: _submitSelection,
+            ),
+            Expanded(child: SafeArea(top: false, child: _buildBody())),
+          ],
         ),
-        onBack: _closePage,
-        actions: [
-          _ModelSaveAction(
-            saving: _saving,
-            enabled:
-                !_loading &&
-                _pendingModelCode.trim().isNotEmpty &&
-                _pendingModelCode.trim() !=
-                    (_catalog?.selectedModelCode.trim() ?? ''),
-            onPressed: _submitSelection,
-          ),
-        ],
       ),
-      body: SafeArea(child: _buildBody()),
     );
   }
 
@@ -247,7 +244,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     return RefreshIndicator(
       onRefresh: () => _refresh(preserveContent: true),
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: catalog.groups.length,
         itemBuilder: (context, index) {
@@ -270,6 +267,108 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   }
 }
 
+class _MemoryModelHeader extends StatelessWidget {
+  const _MemoryModelHeader({
+    required this.onBack,
+    required this.saving,
+    required this.saveEnabled,
+    required this.onSave,
+  });
+
+  final VoidCallback onBack;
+  final bool saving;
+  final bool saveEnabled;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.genesisColors;
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        child: SizedBox(
+          height: 34,
+          child: Row(
+            children: [
+              Material(
+                key: const ValueKey('gem-model-back'),
+                color: colors.textPrimary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(11),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onBack,
+                  splashFactory: NoSplash.splashFactory,
+                  overlayColor: WidgetStatePropertyAll<Color>(
+                    colors.textPrimary.withValues(alpha: 0.08),
+                  ),
+                  child: SizedBox.square(
+                    dimension: 34,
+                    child: Center(
+                      child: CustomPaint(
+                        key: const ValueKey('gem-model-back-chevron'),
+                        size: const Size(8, 14),
+                        painter: _ModelBackChevronPainter(
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Model',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 17,
+                    height: 20 / 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _ModelSaveAction(
+                saving: saving,
+                enabled: saveEnabled,
+                onPressed: onSave,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModelBackChevronPainter extends CustomPainter {
+  const _ModelBackChevronPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path()
+      ..moveTo(size.width - 0.8, 0.8)
+      ..lineTo(0.8, size.height / 2)
+      ..lineTo(size.width - 0.8, size.height - 0.8);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ModelBackChevronPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
 class _ModelSaveAction extends StatelessWidget {
   const _ModelSaveAction({
     required this.saving,
@@ -283,34 +382,36 @@ class _ModelSaveAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 64,
-      child: TextButton(
-        key: const ValueKey('gem-model-save'),
-        onPressed: enabled && !saving ? onPressed : null,
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.only(right: 20),
-          backgroundColor: Colors.transparent,
-          overlayColor: Colors.transparent,
-          foregroundColor: context.genesisColors.textPrimary,
-          disabledForegroundColor: context.genesisColors.textPlaceholder,
-          textStyle: const TextStyle(
-            fontSize: 14,
-            height: 18 / 14,
-            fontWeight: FontWeight.w600,
-          ),
+    return TextButton(
+      key: const ValueKey('gem-model-save'),
+      onPressed: enabled && !saving ? onPressed : null,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 28),
+        maximumSize: const Size(double.infinity, 28),
+        padding: const EdgeInsets.symmetric(horizontal: 13),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: context.genesisGemColors.accent,
+        disabledBackgroundColor: context.genesisGemColors.accent,
+        overlayColor: context.genesisColors.textPrimary.withValues(alpha: 0.08),
+        foregroundColor: context.genesisColors.onPrimary,
+        disabledForegroundColor: context.genesisColors.onPrimary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        textStyle: const TextStyle(
+          fontSize: 11,
+          height: 1,
+          fontWeight: FontWeight.w700,
         ),
-        child: saving
-            ? SizedBox.square(
-                key: ValueKey('gem-model-save-loading'),
-                dimension: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: context.genesisGemColors.accent,
-                ),
-              )
-            : const Text('Save'),
       ),
+      child: saving
+          ? SizedBox.square(
+              key: ValueKey('gem-model-save-loading'),
+              dimension: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: context.genesisColors.onPrimary,
+              ),
+            )
+          : const Text('Save'),
     );
   }
 }
@@ -338,13 +439,13 @@ class _GemModelGroupSection extends StatelessWidget {
         Text(
           group.groupTitle,
           style: TextStyle(
-            fontSize: 16,
-            height: 20 / 16,
-            fontWeight: FontWeight.w600,
-            color: context.genesisColors.textBody,
+            fontSize: 9.5,
+            height: 12 / 9.5,
+            fontWeight: FontWeight.w500,
+            color: context.genesisColors.textTertiary,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         for (var index = 0; index < group.models.length; index += 1) ...[
           _GemModelTile(
             model: group.models[index],
@@ -380,7 +481,7 @@ class _GemModelTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final borderColor = selected
         ? context.genesisGemColors.accent
-        : context.genesisColors.borderNeutral;
+        : context.genesisColors.textPrimary.withValues(alpha: 0.14);
     return Semantics(
       button: true,
       selected: selected,
@@ -388,19 +489,21 @@ class _GemModelTile extends StatelessWidget {
       child: Material(
         key: ValueKey<String>('gem-model-${model.modelCode}'),
         color: selected
-            ? context.genesisGemColors.selectionSurface
-            : context.genesisColors.surface,
+            ? context.genesisGemColors.accent.withValues(alpha: 0.10)
+            : context.genesisColors.surfaceSubtle,
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: borderColor, width: selected ? 1.2 : 1),
-          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: borderColor, width: selected ? 1.5 : 1),
+          borderRadius: BorderRadius.circular(14),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: enabled ? onTap : null,
           splashFactory: NoSplash.splashFactory,
-          overlayColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
+          overlayColor: WidgetStatePropertyAll<Color>(
+            context.genesisColors.textPrimary.withValues(alpha: 0),
+          ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+            padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -410,7 +513,7 @@ class _GemModelTile extends StatelessWidget {
                     isCurrentModel: isCurrentModel,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
                   child: _GemModelSelectionIndicator(selected: selected),
@@ -460,20 +563,20 @@ class _GemModelTileContent extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 14,
-                  height: 16 / 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  height: 18 / 15,
+                  fontWeight: FontWeight.w800,
                   color: context.genesisColors.textPrimary,
                 ),
               ),
             ),
             for (final tag in model.tags) ...[
-              const SizedBox(width: 5),
+              const SizedBox(width: 8),
               _GemModelTag(label: tag),
             ],
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 9),
         Align(
           alignment: Alignment.centerLeft,
           child: Text.rich(
@@ -482,16 +585,21 @@ class _GemModelTileContent extends StatelessWidget {
               children: [
                 TextSpan(
                   text: '${model.estimatedNextMessageGems} gems',
-                  style: TextStyle(color: context.genesisGemColors.accent),
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1,
+                    fontWeight: FontWeight.w700,
+                    color: context.genesisGemColors.reward,
+                  ),
                 ),
               ],
             ),
             key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
             style: TextStyle(
-              fontSize: 12,
-              height: 12 / 12,
+              fontSize: 11,
+              height: 1,
               fontWeight: FontWeight.w400,
-              color: context.genesisColors.textMuted,
+              color: context.genesisColors.textSubtle,
             ),
           ),
         ),
@@ -499,10 +607,10 @@ class _GemModelTileContent extends StatelessWidget {
         Text(
           model.description,
           style: TextStyle(
-            fontSize: 12,
-            height: 14 / 12,
+            fontSize: 11,
+            height: 1.5,
             fontWeight: FontWeight.w400,
-            color: context.genesisColors.textMuted,
+            color: context.genesisColors.textPrimary.withValues(alpha: 0.62),
           ),
         ),
       ],
@@ -521,25 +629,28 @@ class _GemModelTag extends StatelessWidget {
     final displayLabel = normalizedLabel.isEmpty
         ? ''
         : '${normalizedLabel[0].toUpperCase()}${normalizedLabel.substring(1)}';
-    final backgroundColor = normalizedLabel == 'hot'
-        ? context.genesisGemColors.reward
-        : context.genesisGemColors.accent;
+    final hot = normalizedLabel == 'hot';
     return Container(
       key: ValueKey<String>('gem-model-tag-$normalizedLabel'),
-      height: 20,
+      height: 19,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
+        color: hot
+            ? context.genesisColors.textPrimary.withValues(alpha: 0)
+            : context.genesisGemColors.accent,
+        border: hot ? Border.all(color: context.genesisGemColors.reward) : null,
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         displayLabel,
         style: TextStyle(
           fontSize: 10,
-          height: 14 / 10,
-          fontWeight: FontWeight.w600,
-          color: context.genesisColors.textInverse,
+          height: 1,
+          fontWeight: FontWeight.w700,
+          color: hot
+              ? context.genesisGemColors.reward
+              : context.genesisColors.onPrimary,
         ),
       ),
     );
@@ -554,15 +665,15 @@ class _GemModelSelectionIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 15,
-      height: 15,
+      width: 20,
+      height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
           color: selected
               ? context.genesisGemColors.accent
               : context.genesisGemColors.selectionDisabled,
-          width: 1,
+          width: selected ? 2 : 1.5,
         ),
       ),
       alignment: Alignment.center,

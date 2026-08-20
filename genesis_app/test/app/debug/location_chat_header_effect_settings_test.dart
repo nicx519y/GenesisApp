@@ -10,6 +10,13 @@ void main() {
 
   tearDown(locationChatHeaderEffectSettings.resetForTesting);
 
+  test('defaults keep the location scene overlay unobstructed', () async {
+    final settings = await locationChatHeaderEffectSettings.load();
+
+    expect(settings.transparencyStrength, 0);
+    expect(settings.blurSigma, 0);
+  });
+
   test('loads and clamps persisted LocationChat header effects', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       LocationChatHeaderEffectSettingsController.transparencyStorageKey: -1.0,

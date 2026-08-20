@@ -21,6 +21,7 @@ class GenesisProfileCollectionItemData {
     this.onTap,
     this.onLongPress,
     this.onCollapsed,
+    this.useRedesignedLayout = false,
   });
 
   final Object? animationKey;
@@ -35,6 +36,7 @@ class GenesisProfileCollectionItemData {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onCollapsed;
+  final bool useRedesignedLayout;
 }
 
 class GenesisProfileCollectionStat {
@@ -65,6 +67,7 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final redesigned = item.useRedesignedLayout;
     return Material(
       color: context.genesisColors.surface,
       shape: _shape,
@@ -77,11 +80,13 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
               children: [
                 GenesisListImage(
                   imageUrl: item.imageUrl,
-                  width: 52,
-                  height: 52,
-                  borderRadius: GenesisImageRadii.content,
+                  width: redesigned ? 60 : 52,
+                  height: redesigned ? 78 : 52,
+                  borderRadius: redesigned
+                      ? BorderRadius.circular(12)
+                      : GenesisImageRadii.content,
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: redesigned ? 12 : 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,10 +100,14 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 14,
-                                height: 1.1,
-                                fontWeight: FontWeight.w600,
-                                color: context.genesisColors.accentText,
+                                fontSize: redesigned ? 15 : 14,
+                                height: redesigned ? 1.15 : 1.1,
+                                fontWeight: redesigned
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                                color: redesigned
+                                    ? context.genesisColors.foregroundStrong
+                                    : context.genesisColors.accentText,
                               ),
                             ),
                           ),
@@ -109,19 +118,10 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 5),
-                      Text(
-                        item.subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: context.genesisColors.textSecondary,
-                          height: 1.3,
-                        ),
-                      ),
+                      _Subtitle(text: item.subtitle, redesigned: redesigned),
                       if (item.stats.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _StatsRow(stats: item.stats),
+                        SizedBox(height: redesigned ? 7 : 8),
+                        _StatsRow(stats: item.stats, redesigned: redesigned),
                       ],
                     ],
                   ),
@@ -148,15 +148,62 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
   }
 }
 
+class _Subtitle extends StatelessWidget {
+  const _Subtitle({required this.text, required this.redesigned});
+
+  final String text;
+  final bool redesigned;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: redesigned ? 10 : 12,
+      color: redesigned
+          ? context.genesisColors.textFaint
+          : context.genesisColors.textSecondary,
+      height: redesigned ? 1.4 : 1.3,
+    );
+    if (!redesigned || !text.contains('\n')) {
+      return Text(
+        text,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    final lines = text.split('\n');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          lines.first,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+        const SizedBox(height: 3),
+        Text(
+          lines.skip(1).join(' '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+      ],
+    );
+  }
+}
+
 class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.stats});
+  const _StatsRow({required this.stats, required this.redesigned});
 
   final List<GenesisProfileCollectionStat> stats;
+  final bool redesigned;
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 10,
+      spacing: redesigned ? 12 : 10,
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: stats
@@ -166,6 +213,7 @@ class _StatsRow extends StatelessWidget {
               iconAsset: stat.iconAsset,
               preserveIconAssetColor: stat.preserveIconAssetColor,
               value: stat.value,
+              redesigned: redesigned,
             ),
           )
           .toList(growable: false),
@@ -179,28 +227,37 @@ class _Stat extends StatelessWidget {
     this.iconAsset,
     this.preserveIconAssetColor = false,
     required this.value,
+    required this.redesigned,
   }) : assert(icon != null || iconAsset != null);
 
   final IconData? icon;
   final String? iconAsset;
   final bool preserveIconAssetColor;
   final int value;
+  final bool redesigned;
 
   @override
   Widget build(BuildContext context) {
+    final usesAccent = redesigned && preserveIconAssetColor;
+    final color = usesAccent
+        ? context.genesisColors.accentText
+        : redesigned
+        ? context.genesisColors.textFaint
+        : context.genesisColors.navigationSelected;
     return StatItem(
       icon: icon,
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconSize: 11,
-      iconColor: context.genesisColors.navigationSelected,
+      iconColor: color,
+      iconVerticalOffset: redesigned ? 0 : -0.8,
       gap: 4,
       text: formatStatCount(value),
       textStyle: TextStyle(
-        color: context.genesisColors.navigationSelected,
-        fontSize: 12,
+        color: color,
+        fontSize: redesigned ? 10 : 12,
         height: 1,
-        fontWeight: FontWeight.w400,
+        fontWeight: redesigned ? FontWeight.w500 : FontWeight.w400,
       ),
     );
   }

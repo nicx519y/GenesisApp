@@ -241,17 +241,6 @@ extension _WorldPageTickFlow on _WorldPageState {
   }
 
   void _showOrSelectEventsAfterTick() {
-    if (_worldBottomSheetOpen &&
-        _worldBottomSheetSelection.value.kind != WorldBottomSheetKind.events) {
-      final sheetContext = _worldBottomSheetContext;
-      if (sheetContext != null) {
-        _openEventsAfterCurrentBottomSheetClosed = true;
-        _eventsAfterCurrentBottomSheetClosedTargetTickNumber =
-            _world?.tickCount;
-        unawaited(Navigator.of(sheetContext).maybePop());
-        return;
-      }
-    }
     _openWorldBottomSheet(
       WorldBottomSheetKind.events,
       scrollEventsToLatest: true,

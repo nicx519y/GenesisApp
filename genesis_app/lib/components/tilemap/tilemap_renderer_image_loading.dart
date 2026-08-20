@@ -16,6 +16,8 @@ class TilemapImageLoadPlan {
     double dragBoundaryPaddingTiles = tilemapDefaultDragBoundaryPaddingTiles,
     TilemapLocationAvatarsResolver? locationAvatarsForTile,
     String preferredLocationId = '',
+    bool centerInitialViewport = false,
+    double initialViewportVerticalOffsetFraction = 0,
   }) {
     // Flutter coalesces identical NetworkImage requests. Keep one request per
     // resolved asset, but weight its completion by every tile that becomes
@@ -54,12 +56,16 @@ class TilemapImageLoadPlan {
     final contentBounds = projection.imageBoundsForTiles(
       tilemapInitialContentTiles(config.tiles),
     );
-    final initialFocusTile = tilemapInitialFocusLocationTile(
-      tiles: config.tiles,
-      locationAvatarsForTile: locationAvatarsForTile,
-      preferredLocationId: preferredLocationId,
-    );
-    final initialFocus = initialFocusTile == null
+    final initialFocusTile = centerInitialViewport
+        ? null
+        : tilemapInitialFocusLocationTile(
+            tiles: config.tiles,
+            locationAvatarsForTile: locationAvatarsForTile,
+            preferredLocationId: preferredLocationId,
+          );
+    final initialFocus = centerInitialViewport
+        ? contentBounds.center
+        : initialFocusTile == null
         ? null
         : projection.centerForTile(initialFocusTile);
     final dragBoundary = tilemapDragBoundaryForShadowTiles(
@@ -74,6 +80,9 @@ class TilemapImageLoadPlan {
         contentBounds: contentBounds,
         focus: initialFocus,
         initialScale: initialScale,
+        viewportVerticalOffset:
+            viewportSize.height *
+            initialViewportVerticalOffsetFraction.clamp(-0.25, 0.25),
       ),
       viewportSize: viewportSize,
       sceneBoundary: dragBoundary,

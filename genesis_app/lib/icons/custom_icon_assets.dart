@@ -15,6 +15,12 @@ const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
 const String launchIconAsset = 'assets/custom-icons/svg/launch_icon.svg';
 const String characterStatIconAsset =
     'assets/custom-icons/svg/ai_char_icon.svg';
+const String originFeedPlayIconAsset =
+    'assets/custom-icons/svg/origin_feed_play.svg';
+const String originFeedCommentIconAsset =
+    'assets/custom-icons/svg/origin_feed_comment.svg';
+const String originFeedRoleIconAsset =
+    'assets/custom-icons/svg/origin_feed_role.svg';
 const String locationChatCharacterIconAsset =
     'assets/custom-icons/svg/location_chat_ai_char_icon.svg';
 const String userStatIconAsset = 'assets/custom-icons/svg/user_icon.svg';
@@ -28,6 +34,16 @@ const String createOriginLocationsIconAsset =
     'assets/custom-icons/svg/create_origin_locations.svg';
 const String createOriginStoryEventsIconAsset =
     'assets/custom-icons/svg/create_origin_story_events.svg';
+const String createOriginHubBasicsIconAsset =
+    'assets/custom-icons/svg/create_origin_hub_basics.svg';
+const String createOriginHubCharactersIconAsset =
+    'assets/custom-icons/svg/create_origin_hub_characters.svg';
+const String createOriginHubLocationsIconAsset =
+    'assets/custom-icons/svg/create_origin_hub_locations.svg';
+const String createOriginHubOpeningIconAsset =
+    'assets/custom-icons/svg/create_origin_hub_opening.svg';
+const String createOriginHubStoryEventsIconAsset =
+    'assets/custom-icons/svg/create_origin_hub_story_events.svg';
 const String refreshModifiedIconAsset = 'assets/custom-icons/svg/refresh_2.svg';
 const String editPencilLineIconAsset =
     'assets/custom-icons/svg/edit_pencil_line.svg';

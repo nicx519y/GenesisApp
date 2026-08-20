@@ -71,6 +71,9 @@ class WorldDetailsPageScaffold extends StatefulWidget {
     this.panelCollapsedHeightOffset = defaultPanelCollapsedHeightOffset,
     this.panelTopRadius = defaultPanelTopRadius,
     this.panelTopOverlap = 0,
+    this.panelTopBandHeight = inlineContentTopPadding,
+    this.panelTopChild,
+    this.panelTopShadow = const <BoxShadow>[],
     this.scrollPhysics,
     this.bottomBar,
     this.fixedCollapsedPanelHeight,
@@ -97,6 +100,9 @@ class WorldDetailsPageScaffold extends StatefulWidget {
   final double panelCollapsedHeightOffset;
   final double panelTopRadius;
   final double panelTopOverlap;
+  final double panelTopBandHeight;
+  final Widget? panelTopChild;
+  final List<BoxShadow> panelTopShadow;
   final ScrollPhysics? scrollPhysics;
   final Widget? bottomBar;
   final double? fixedCollapsedPanelHeight;
@@ -266,7 +272,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
               slivers: [
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: WorldDetailsPageScaffold.inlineContentTopPadding,
+                    height: widget.panelTopBandHeight,
                     child: _buildPanelTopBand(panelTopOverlap),
                   ),
                 ),
@@ -324,21 +330,20 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
 
   Widget _buildPanelTopBand(double panelTopOverlap) {
     return OverflowBox(
-      minHeight:
-          WorldDetailsPageScaffold.inlineContentTopPadding + panelTopOverlap,
-      maxHeight:
-          WorldDetailsPageScaffold.inlineContentTopPadding + panelTopOverlap,
+      minHeight: widget.panelTopBandHeight + panelTopOverlap,
+      maxHeight: widget.panelTopBandHeight + panelTopOverlap,
       alignment: Alignment.bottomCenter,
       child: _WorldDetailsPanelTopPullGesture(
         onPullUp: widget.onPanelTopPullUp,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: context.genesisColors.surface,
+            boxShadow: widget.panelTopShadow,
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(widget.panelTopRadius),
             ),
           ),
-          child: const SizedBox.expand(),
+          child: SizedBox.expand(child: widget.panelTopChild),
         ),
       ),
     );

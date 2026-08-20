@@ -7,6 +7,8 @@ class _EmptyUpload extends StatelessWidget {
     this.labelFontWeight,
     this.labelFontSize,
     this.iconLabelGap,
+    this.iconColor,
+    this.labelColor,
   );
 
   final String label;
@@ -14,6 +16,8 @@ class _EmptyUpload extends StatelessWidget {
   final FontWeight labelFontWeight;
   final double labelFontSize;
   final double iconLabelGap;
+  final Color? iconColor;
+  final Color? labelColor;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +26,7 @@ class _EmptyUpload extends StatelessWidget {
       children: [
         Icon(
           Icons.add_photo_alternate_outlined,
-          color: context.genesisCreateColors.accent,
+          color: iconColor ?? context.genesisCreateColors.accent,
           size: iconSize,
         ),
         SizedBox(height: iconLabelGap),
@@ -30,7 +34,7 @@ class _EmptyUpload extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: context.genesisCreateColors.muted,
+            color: labelColor ?? context.genesisCreateColors.muted,
             fontSize: labelFontSize,
             fontWeight: labelFontWeight,
             height: 1.15,

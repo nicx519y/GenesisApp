@@ -84,6 +84,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       onSubmit: _onCreate,
       submitStatus: _submitStatus,
       reloadSignal: _reloadSignal,
+      createHubStyle: true,
       debugDraftGenerator: createOriginDebugDraftGenerator(),
       confirmLeaveWithDraftOptions: true,
       onDiscardDraft: (_) => CreateOriginDraftStore.clear(),

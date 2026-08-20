@@ -10,6 +10,7 @@ class CreateCharactersPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return const OriginCharactersEditorPage(
       repository: CreateOriginDraftRepository(),
+      createWorldoStyle: true,
     );
   }
 }

@@ -33,6 +33,7 @@ Future<T?> showGenesisActionBox<T>({
   double titleHeight = GenesisActionBox.defaultTitleHeight,
   double actionRowHeight = GenesisActionBox.defaultRowHeight,
   double cancelRowHeight = GenesisActionBox.defaultRowHeight,
+  Color? borderColor,
 }) {
   return showGenesisDialog<T>(
     context: context,
@@ -52,6 +53,7 @@ Future<T?> showGenesisActionBox<T>({
         titleHeight: titleHeight,
         actionRowHeight: actionRowHeight,
         cancelRowHeight: cancelRowHeight,
+        borderColor: borderColor,
         onActionSelected: (value) => Navigator.of(dialogContext).pop(value),
         onCancel: () => Navigator.of(dialogContext).pop(),
       );
@@ -77,6 +79,7 @@ class GenesisActionBox<T> extends StatelessWidget {
     this.titleHeight = defaultTitleHeight,
     this.actionRowHeight = defaultRowHeight,
     this.cancelRowHeight = defaultRowHeight,
+    this.borderColor,
   });
 
   static const double defaultRowHeight = 51;
@@ -101,6 +104,7 @@ class GenesisActionBox<T> extends StatelessWidget {
   final double titleHeight;
   final double actionRowHeight;
   final double cancelRowHeight;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -124,42 +128,50 @@ class GenesisActionBox<T> extends StatelessWidget {
   }
 
   Widget _buildAttachedCancelStyle(BuildContext context) {
-    return ClipRRect(
-      key: const ValueKey('genesis-action-box-attached-cancel'),
-      borderRadius: _borderRadius,
-      child: Material(
-        color: context.genesisColors.surface,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _TitleRow(
-              title: title,
-              height: titleHeight,
-              titleWidget: titleWidget,
-              content: titleContent,
-              contentSpacing: titleContentSpacing,
-              horizontalPadding: titleHorizontalPadding,
-            ),
-            if (content case final content?) content,
-            if (actions.isNotEmpty) ...[
-              const _Divider(),
-              for (var index = 0; index < actions.length; index++) ...[
-                _ActionRow<T>(
-                  action: actions[index],
-                  height: actionRowHeight,
-                  isPreferred: true,
-                  onSelected: onActionSelected,
-                ),
-                if (showCancel || index != actions.length - 1) const _Divider(),
-              ],
-            ],
-            if (showCancel)
-              _CancelRow(
-                label: cancelLabel,
-                height: cancelRowHeight,
-                onCancel: onCancel,
+    return Container(
+      key: const ValueKey('genesis-action-box-attached-border'),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: _borderRadius,
+        border: borderColor == null ? null : Border.all(color: borderColor!),
+      ),
+      child: ClipRRect(
+        key: const ValueKey('genesis-action-box-attached-cancel'),
+        borderRadius: _borderRadius,
+        child: Material(
+          color: context.genesisColors.surface,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _TitleRow(
+                title: title,
+                height: titleHeight,
+                titleWidget: titleWidget,
+                content: titleContent,
+                contentSpacing: titleContentSpacing,
+                horizontalPadding: titleHorizontalPadding,
               ),
-          ],
+              if (content case final content?) content,
+              if (actions.isNotEmpty) ...[
+                const _Divider(),
+                for (var index = 0; index < actions.length; index++) ...[
+                  _ActionRow<T>(
+                    action: actions[index],
+                    height: actionRowHeight,
+                    isPreferred: true,
+                    onSelected: onActionSelected,
+                  ),
+                  if (showCancel || index != actions.length - 1)
+                    const _Divider(),
+                ],
+              ],
+              if (showCancel)
+                _CancelRow(
+                  label: cancelLabel,
+                  height: cancelRowHeight,
+                  onCancel: onCancel,
+                ),
+            ],
+          ),
         ),
       ),
     );

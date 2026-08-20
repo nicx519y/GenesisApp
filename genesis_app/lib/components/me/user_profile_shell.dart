@@ -25,6 +25,7 @@ class UserProfileContent extends StatefulWidget {
     this.isBlocking = false,
     this.isBlocked = false,
     this.recentChatWorldId = '',
+    this.appearance = UserProfileAppearance.standard,
   });
 
   final UserProfileData data;
@@ -51,6 +52,7 @@ class UserProfileContent extends StatefulWidget {
   final bool isBlocking;
   final bool isBlocked;
   final String recentChatWorldId;
+  final UserProfileAppearance appearance;
 
   @override
   State<UserProfileContent> createState() => _UserProfileContentState();
@@ -120,21 +122,42 @@ class _UserProfileContentState extends State<UserProfileContent>
               delegate: _ProfileTabsHeaderDelegate(
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: GenesisTabBar(
-                    verticalPadding: 0,
-                    controller: _tabController,
-                    labels: const ['#Worldo', 'World'],
-                    horizontalPadding: 8,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                    labelFontSize: widget.tabLabelFontSize,
-                    onTap: _reportCollectionTab,
-                  ),
+                  child: _buildCollectionTabs(data),
                 ),
+                appearance: widget.appearance,
               ),
             ),
         ];
       },
       body: _buildCollectionBody(data),
+    );
+  }
+
+  Widget _buildCollectionTabs(UserProfileData data) {
+    Widget buildTabs() {
+      final originState = widget.originsListenable?.value;
+      final worldState = widget.worldsListenable?.value;
+      return _ProfileCollectionTabs(
+        controller: _tabController,
+        appearance: widget.appearance,
+        originCount: originState?.total ?? 0,
+        worldCount: worldState?.total ?? 0,
+        labelFontSize: widget.tabLabelFontSize,
+        onTap: _reportCollectionTab,
+      );
+    }
+
+    if (widget.appearance != UserProfileAppearance.worldoMe) {
+      return buildTabs();
+    }
+    final countListenables = <Listenable>[
+      if (widget.originsListenable case final listenable?) listenable,
+      if (widget.worldsListenable case final listenable?) listenable,
+    ];
+    if (countListenables.isEmpty) return buildTabs();
+    return AnimatedBuilder(
+      animation: Listenable.merge(countListenables),
+      builder: (context, _) => buildTabs(),
     );
   }
 
@@ -162,8 +185,9 @@ class _UserProfileContentState extends State<UserProfileContent>
       );
     }
 
+    final isWorldoMe = widget.appearance == UserProfileAppearance.worldoMe;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: isWorldoMe ? 22 : 16),
       child: TabBarView(
         controller: _tabController,
         children: [
@@ -172,6 +196,7 @@ class _UserProfileContentState extends State<UserProfileContent>
             isLoading: widget.originsLoading,
             listenable: widget.originsListenable,
             onRefresh: widget.onRefreshOrigins,
+            redesigned: isWorldoMe,
           ),
           _WorldProfileCollectionList(
             items: data.worlds,
@@ -181,6 +206,7 @@ class _UserProfileContentState extends State<UserProfileContent>
             recentChatWorldId: widget.recentChatWorldId,
             canDeleteWorlds: data.isSelf,
             onWorldDeleted: widget.onWorldDeleted,
+            redesigned: isWorldoMe,
           ),
         ],
       ),
@@ -192,6 +218,9 @@ class _UserProfileContentState extends State<UserProfileContent>
     bool isFollowed,
     int followerCount,
   ) {
+    if (widget.appearance == UserProfileAppearance.worldoMe) {
+      return _buildWorldoMeProfileHeader(data, isFollowed, followerCount);
+    }
     return KeyedSubtree(
       key: _profileHeaderKey,
       child: Column(
@@ -286,6 +315,121 @@ class _UserProfileContentState extends State<UserProfileContent>
             ),
           ],
           const SizedBox(height: 5),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorldoMeProfileHeader(
+    UserProfileData data,
+    bool isFollowed,
+    int followerCount,
+  ) {
+    return KeyedSubtree(
+      key: _profileHeaderKey,
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Padding(
+            key: const ValueKey<String>('worldo-me-profile-identity'),
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _Avatar(
+                  url: data.avatarUrl,
+                  name: data.displayName,
+                  urlListenable: widget.avatarUrlListenable,
+                  nameListenable: widget.displayNameListenable,
+                  isUpdating: widget.isUpdatingProfile,
+                  updatingListenable: widget.isUpdatingProfileListenable,
+                  onEdit: widget.onEditAvatar,
+                  size: 72,
+                  radius: 22,
+                  redesigned: true,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: _DisplayNameText(
+                              displayName: data.displayName,
+                              displayNameListenable:
+                                  widget.displayNameListenable,
+                              redesigned: true,
+                            ),
+                          ),
+                          if (widget.onEditDisplayName != null) ...[
+                            const SizedBox(width: 4),
+                            _ProfileEditButton(
+                              isUpdating: widget.isUpdatingProfile,
+                              updatingListenable:
+                                  widget.isUpdatingProfileListenable,
+                              onTap: widget.onEditDisplayName!,
+                              compact: true,
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      CopyableIdLabel(
+                        label: 'UID',
+                        value: data.uid,
+                        displayValue: data.deleted
+                            ? deletedEntityDisplayText
+                            : formatUidForDisplay(data.uid),
+                        enabled: !data.deleted,
+                        showCopyIcon: false,
+                        customTextStyle: TextStyle(
+                          fontSize: 10,
+                          height: 1,
+                          fontWeight: FontWeight.w500,
+                          color: context.genesisColors.textFaint,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _FollowStats(
+                        followingCount: data.followingCount,
+                        followerCount: followerCount,
+                        onFollowingTap: () => _openFollows(0),
+                        onFollowersTap: () => _openFollows(1),
+                        compact: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (data.isSelf) ...[
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: _GemsBalanceEntry(
+                stateListenable: widget.gemWalletStateListenable,
+                redesigned: true,
+              ),
+            ),
+          ],
+          if (!data.isSelf) ...[
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: _ProfileActionButtons(
+                isFollowed: isFollowed,
+                followLoading: _followLoading,
+                onFollowToggle: () => _toggleFollow(isFollowed),
+                onMessage: () => unawaited(_openMessages()),
+              ),
+            ),
+          ],
+          const SizedBox(height: 22),
         ],
       ),
     );
@@ -386,9 +530,10 @@ class _UserProfileContentState extends State<UserProfileContent>
 }
 
 class _GemsBalanceEntry extends StatelessWidget {
-  const _GemsBalanceEntry({this.stateListenable});
+  const _GemsBalanceEntry({this.stateListenable, this.redesigned = false});
 
   final ValueListenable<GemWalletState>? stateListenable;
+  final bool redesigned;
 
   @override
   Widget build(BuildContext context) {
@@ -401,6 +546,7 @@ class _GemsBalanceEntry extends StatelessWidget {
   }
 
   Widget _buildEntry(BuildContext context, int? balance) {
+    if (redesigned) return _buildRedesignedEntry(context, balance);
     return GestureDetector(
       key: const ValueKey('user-profile-gems-entry'),
       behavior: HitTestBehavior.opaque,
@@ -415,11 +561,11 @@ class _GemsBalanceEntry extends StatelessWidget {
         ),
         child: Row(
           children: [
-            SvgPicture.asset(
-              gemIconAsset,
+            SizedBox(
               key: const ValueKey('user-profile-gem-icon'),
               width: gemLargeIconSize,
               height: gemLargeIconSize,
+              child: SvgPicture.asset(gemIconAsset, fit: BoxFit.contain),
             ),
             const SizedBox(width: 8),
             Text(
@@ -453,6 +599,100 @@ class _GemsBalanceEntry extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildRedesignedEntry(BuildContext context, int? balance) {
+    final colors = context.genesisColors;
+    return GestureDetector(
+      key: const ValueKey('user-profile-gems-entry'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).pushNamed(RouteNames.gemWallet),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: colors.surfaceSoft,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.borderNeutral),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Balance',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      height: 1,
+                      fontWeight: FontWeight.w500,
+                      color: colors.textFaint,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Row(
+                    children: [
+                      SizedBox(
+                        key: const ValueKey('user-profile-gem-icon'),
+                        width: 15,
+                        height: 23,
+                        child: SvgPicture.asset(
+                          gemIconAsset,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Flexible(
+                        child: Text(
+                          balance == null ? '0' : _formatGemBalance(balance),
+                          key: const ValueKey('user-profile-gems-balance'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 24,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                            color: colors.foregroundStrong,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        'Gems',
+                        style: TextStyle(
+                          fontSize: 11,
+                          height: 1,
+                          fontWeight: FontWeight.w500,
+                          color: colors.textSubtle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.danger,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Top up',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1,
+                  fontWeight: FontWeight.w700,
+                  color: colors.onDanger,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 String _formatGemBalance(int value) {
@@ -467,17 +707,24 @@ String _formatGemBalance(int value) {
 }
 
 class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _ProfileTabsHeaderDelegate({required this.child});
+  const _ProfileTabsHeaderDelegate({
+    required this.child,
+    required this.appearance,
+  });
 
-  static const double _height = 5 + genesisTabHeight;
+  static const double _standardHeight = 5 + genesisTabHeight;
+  static const double _worldoMeHeight = 39;
 
   final Widget child;
+  final UserProfileAppearance appearance;
+
+  bool get _isWorldoMe => appearance == UserProfileAppearance.worldoMe;
 
   @override
-  double get minExtent => _height;
+  double get minExtent => _isWorldoMe ? _worldoMeHeight : _standardHeight;
 
   @override
-  double get maxExtent => _height;
+  double get maxExtent => minExtent;
 
   @override
   Widget build(
@@ -485,19 +732,87 @@ class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return ColoredBox(
-      color: context.genesisColors.surface,
-      child: Column(
-        children: [
-          const SizedBox(height: 5),
-          SizedBox(height: genesisTabHeight, child: child),
-        ],
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: context.genesisColors.surface,
+        border: _isWorldoMe
+            ? Border(
+                bottom: BorderSide(color: context.genesisColors.dividerAction),
+              )
+            : null,
       ),
+      child: _isWorldoMe
+          ? Align(alignment: Alignment.bottomLeft, child: child)
+          : Column(
+              children: [
+                const SizedBox(height: 5),
+                SizedBox(height: genesisTabHeight, child: child),
+              ],
+            ),
     );
   }
 
   @override
   bool shouldRebuild(covariant _ProfileTabsHeaderDelegate oldDelegate) {
-    return child != oldDelegate.child;
+    return child != oldDelegate.child || appearance != oldDelegate.appearance;
+  }
+}
+
+class _ProfileCollectionTabs extends StatelessWidget {
+  const _ProfileCollectionTabs({
+    required this.controller,
+    required this.appearance,
+    required this.originCount,
+    required this.worldCount,
+    required this.labelFontSize,
+    required this.onTap,
+  });
+
+  final TabController controller;
+  final UserProfileAppearance appearance;
+  final int originCount;
+  final int worldCount;
+  final double? labelFontSize;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (appearance != UserProfileAppearance.worldoMe) {
+      return GenesisTabBar(
+        verticalPadding: 0,
+        controller: controller,
+        labels: const ['#Worldo', 'World'],
+        horizontalPadding: 8,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+        labelFontSize: labelFontSize,
+        onTap: onTap,
+      );
+    }
+
+    return GenesisTabBar(
+      verticalPadding: 0,
+      controller: controller,
+      labels: ['Creation $originCount', 'Playing $worldCount'],
+      horizontalPadding: 22,
+      labelPadding: const EdgeInsets.only(right: 20),
+      labelFontSize: 15,
+      labelStyle: const TextStyle(
+        fontSize: 15,
+        height: 1.2,
+        fontWeight: FontWeight.w700,
+      ),
+      unselectedLabelStyle: const TextStyle(
+        fontSize: 15,
+        height: 1.2,
+        fontWeight: FontWeight.w500,
+      ),
+      labelColor: context.genesisColors.textPrimary,
+      unselectedLabelColor: context.genesisColors.textMuted,
+      indicatorHeight: 2.5,
+      indicatorBottomPadding: 0,
+      indicatorMatchesLabelWidth: true,
+      tabHeight: 39,
+      onTap: onTap,
+    );
   }
 }

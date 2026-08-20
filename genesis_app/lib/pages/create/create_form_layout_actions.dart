@@ -25,6 +25,10 @@ class CreateFormDeleteButton extends StatelessWidget {
     this.iconSize = 14,
     this.enabled = true,
     this.onDisabledPressed,
+    this.backgroundColor,
+    this.borderColor,
+    this.borderRadius,
+    this.iconColor,
   });
 
   final VoidCallback onPressed;
@@ -34,6 +38,10 @@ class CreateFormDeleteButton extends StatelessWidget {
   final double iconSize;
   final bool enabled;
   final VoidCallback? onDisabledPressed;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final double? borderRadius;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -51,11 +59,14 @@ class CreateFormDeleteButton extends StatelessWidget {
               Container(
                 key: decorationKey,
                 decoration: BoxDecoration(
-                  color: context.genesisCreateColors.fieldOverlay,
+                  color:
+                      backgroundColor ??
+                      context.genesisCreateColors.fieldOverlay,
                   border: Border.all(
-                    color: context.genesisCreateColors.inputBorder,
+                    color:
+                        borderColor ?? context.genesisCreateColors.inputBorder,
                   ),
-                  borderRadius: BorderRadius.circular(size / 4),
+                  borderRadius: BorderRadius.circular(borderRadius ?? size / 4),
                 ),
               ),
               IconButton(
@@ -68,7 +79,7 @@ class CreateFormDeleteButton extends StatelessWidget {
                   width: iconSize,
                   height: iconSize,
                   colorFilter: ColorFilter.mode(
-                    context.genesisCreateColors.muted,
+                    iconColor ?? context.genesisCreateColors.muted,
                     BlendMode.srcIn,
                   ),
                 ),
@@ -94,6 +105,17 @@ class CreateFormCard extends StatelessWidget {
     this.showBorder = true,
     this.titleFontSize = 16,
     this.titleSuffix,
+    this.padding,
+    this.backgroundColor,
+    this.titleFontWeight = FontWeight.w600,
+    this.titleColor,
+    this.headerBottomSpacing = 0,
+    this.deleteButtonSize = 24,
+    this.deleteIconSize = 14,
+    this.deleteBackgroundColor,
+    this.deleteBorderColor,
+    this.deleteBorderRadius,
+    this.deleteIconColor,
   });
 
   final String title;
@@ -104,16 +126,29 @@ class CreateFormCard extends StatelessWidget {
   final bool showBorder;
   final double titleFontSize;
   final String? titleSuffix;
+  final EdgeInsetsGeometry? padding;
+  final Color? backgroundColor;
+  final FontWeight titleFontWeight;
+  final Color? titleColor;
+  final double headerBottomSpacing;
+  final double deleteButtonSize;
+  final double deleteIconSize;
+  final Color? deleteBackgroundColor;
+  final Color? deleteBorderColor;
+  final double? deleteBorderRadius;
+  final Color? deleteIconColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: showBorder
-          ? const EdgeInsets.fromLTRB(18, 6, 18, 22)
-          : const EdgeInsets.symmetric(vertical: 8),
+      padding:
+          padding ??
+          (showBorder
+              ? const EdgeInsets.fromLTRB(18, 6, 18, 22)
+              : const EdgeInsets.symmetric(vertical: 8)),
       decoration: BoxDecoration(
-        color: context.genesisColors.surface,
+        color: backgroundColor ?? context.genesisColors.surface,
         borderRadius: BorderRadius.circular(8),
         border: showBorder
             ? Border.all(color: context.genesisCreateColors.border, width: 1.2)
@@ -141,9 +176,9 @@ class CreateFormCard extends StatelessWidget {
                     ],
                   ),
                   style: TextStyle(
-                    color: context.genesisCreateColors.text,
+                    color: titleColor ?? context.genesisCreateColors.text,
                     fontSize: titleFontSize,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: titleFontWeight,
                     height: 1.1,
                   ),
                 ),
@@ -152,9 +187,16 @@ class CreateFormCard extends StatelessWidget {
                 onPressed: onDelete,
                 enabled: deleteEnabled,
                 onDisabledPressed: onDeleteDisabled,
+                size: deleteButtonSize,
+                iconSize: deleteIconSize,
+                backgroundColor: deleteBackgroundColor,
+                borderColor: deleteBorderColor,
+                borderRadius: deleteBorderRadius,
+                iconColor: deleteIconColor,
               ),
             ],
           ),
+          if (headerBottomSpacing > 0) SizedBox(height: headerBottomSpacing),
           child,
         ],
       ),

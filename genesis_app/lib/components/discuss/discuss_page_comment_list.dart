@@ -8,7 +8,6 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../auth/login_guard.dart';
@@ -56,16 +55,30 @@ class DiscussPageCommentList extends StatelessWidget {
 
         return Column(
           children: [
-            for (final entry in comments.indexed) ...[
-              DiscussPagePostRow(
-                controller: controller,
-                item: entry.$2,
-                onItemReplyTap: onItemReplyTap,
-                onReplyTap: onReplyTap,
-                onViewAllRepliesTap: onViewAllRepliesTap,
+            for (final item in comments)
+              Container(
+                key: ValueKey<String>(
+                  'discuss-page-comment-row-${item.discussId}',
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: context.genesisColors.foregroundStrong.withValues(
+                        alpha: 0.14,
+                      ),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: DiscussPagePostRow(
+                  controller: controller,
+                  item: item,
+                  onItemReplyTap: onItemReplyTap,
+                  onReplyTap: onReplyTap,
+                  onViewAllRepliesTap: onViewAllRepliesTap,
+                ),
               ),
-              if (entry.$1 != comments.length - 1) const SizedBox(height: 28),
-            ],
           ],
         );
       },
@@ -96,8 +109,8 @@ class DiscussPagePostRow extends StatefulWidget {
 }
 
 class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
-  static const double _avatarSize = 40;
-  static const double _avatarTextGap = 14;
+  static const double _avatarSize = 34;
+  static const double _avatarTextGap = 11;
   static const double _metaBodyGap = 6;
   static const double _bodyImageGap = 8;
   static const double _storyBadgeOffsetY = 0;
@@ -217,9 +230,11 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
               Text(
                 widget.item.content,
                 style: TextStyle(
-                  color: context.genesisColors.textPrimary,
-                  fontSize: 14,
-                  height: 1.45,
+                  color: context.genesisColors.foregroundStrong.withValues(
+                    alpha: 0.92,
+                  ),
+                  fontSize: 13,
+                  height: 1.6,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -243,7 +258,7 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
                   ),
                 ),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 9),
               _DiscussPageActions(
                 controller: widget.controller,
                 item: widget.item,
@@ -283,17 +298,17 @@ class _DiscussPageMeta extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: context.genesisColors.textMuted,
-              fontSize: 14,
-              height: 1.18,
-              fontWeight: FontWeight.w600,
+              color: context.genesisColors.foregroundStrong,
+              fontSize: 12,
+              height: 1,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 7),
         Transform.translate(
           offset: const Offset(0, _DiscussPagePostRowState._storyBadgeOffsetY),
-          child: DiscussStoryBadge(count: item.storyCount),
+          child: DiscussStoryBadge(count: item.storyCount, compactRed: true),
         ),
       ],
     );
@@ -323,7 +338,9 @@ class _DiscussPageMeta extends StatelessWidget {
             GenesisTimestampText(
               timestamp: item.createdAt,
               style: _timeStyle.copyWith(
-                color: context.genesisColors.textTimestamp,
+                color: context.genesisColors.foregroundStrong.withValues(
+                  alpha: 0.50,
+                ),
               ),
             ),
           ],
@@ -344,7 +361,7 @@ class _ProfileAvatarLink extends StatelessWidget {
       url: item.avatar.trim(),
       name: item.authorName,
       size: _DiscussPagePostRowState._avatarSize,
-      borderRadius: GenesisAvatarRadii.user,
+      borderRadius: 11,
     );
     if (item.authorUid.trim().isEmpty || item.authorDeleted) return avatar;
     return GestureDetector(
@@ -420,7 +437,7 @@ class _DiscussPageActions extends StatelessWidget {
             color: activeColor,
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 14),
         GestureDetector(
           key: ValueKey('discuss-page-reply-${item.discussId}'),
           behavior: HitTestBehavior.opaque,
@@ -441,14 +458,19 @@ class _DiscussPageActions extends StatelessWidget {
           child: _DiscussActionCluster(
             iconAsset: _discussReplyAsset,
             count: item.replyCount,
-            color: context.genesisColors.textTimestamp,
+            color: context.genesisColors.foregroundStrong.withValues(
+              alpha: 0.55,
+            ),
           ),
         ),
         const Spacer(),
         GenesisMoreActionMenuButton(
           key: ValueKey('discuss-page-report-${item.discussId}'),
           buttonSize: 28,
-          iconSize: 18,
+          iconSize: 14,
+          iconColor: context.genesisColors.foregroundStrong.withValues(
+            alpha: 0.50,
+          ),
           items: [
             genesisReportMenuItem(
               context: context,
@@ -505,7 +527,7 @@ class _DiscussActionCluster extends StatelessWidget {
     required this.color,
   });
 
-  static const double _iconSize = 15;
+  static const double _iconSize = 13;
 
   final String iconAsset;
   final int count;
@@ -513,31 +535,30 @@ class _DiscussActionCluster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, right: 10, bottom: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Image.asset(
-            iconAsset,
-            width: _iconSize,
-            height: _iconSize,
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.high,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Image.asset(
+          iconAsset,
+          width: _iconSize,
+          height: _iconSize,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          color: color,
+          colorBlendMode: BlendMode.srcIn,
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '$count',
+          style: TextStyle(
+            fontSize: 10,
+            height: 1,
+            fontWeight: FontWeight.w500,
+            color: color,
           ),
-          const SizedBox(width: 5),
-          Text(
-            '$count',
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.2,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -710,7 +731,7 @@ String _discussLikeFilledOrOutline(bool isLiked) {
 const String _discussReplyAsset = 'assets/custom-icons/png/discuss_reply.png';
 
 const _timeStyle = TextStyle(
-  fontSize: 12,
-  height: 1.2,
+  fontSize: 9.5,
+  height: 1,
   fontWeight: FontWeight.w400,
 );

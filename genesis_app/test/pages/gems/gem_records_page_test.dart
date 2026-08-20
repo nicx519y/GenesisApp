@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/gem_records.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_records_page.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_indicator.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
   test('formats record time with the full date and time', () {
@@ -33,6 +35,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         home: GemRecordsPage(
           recordsLoader: ({required scene, required pn, required rn}) async =>
               GemRecordList(
@@ -72,6 +75,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    final indicator = tabBar.indicator! as GenesisFixedUnderlineIndicator;
+    expect(indicator.width, isNull);
+
     expect(find.byKey(const ValueKey('gem-records-footer')), findsNothing);
     expect(find.byKey(const ValueKey('gem-record-primary-icon')), findsNothing);
     expect(find.byKey(const ValueKey('gem-record-amount-icon')), findsNothing);
@@ -79,7 +86,7 @@ void main() {
     expect(
       tester.getTopLeft(find.text('Daily check-in')).dy -
           tester.getBottomLeft(find.byType(TabBar)).dy,
-      closeTo(24, 0.1),
+      closeTo(17, 0.1),
     );
     expect(
       tester.getTopLeft(find.text('Daily check-in')).dy -
@@ -88,34 +95,35 @@ void main() {
                 find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
               )
               .dy,
-      closeTo(12, 0.1),
+      closeTo(14, 0.1),
     );
-    final textBlockCenter =
-        (tester.getTopLeft(find.text('Daily check-in')).dy +
-            tester.getBottomLeft(find.text('w_daily')).dy) /
-        2;
     final recordTime = find.text(formatGemRecordTimestamp(1)).first;
     expect(
       tester.getTopLeft(recordTime).dy -
           tester.getBottomLeft(find.text('Daily check-in')).dy,
-      closeTo(8, 0.1),
+      closeTo(6, 0.1),
     );
     expect(
       tester.getTopLeft(find.text('w_daily')).dy -
           tester.getBottomLeft(recordTime).dy,
-      closeTo(8, 0.1),
+      closeTo(5, 0.1),
     );
     expect(
-      tester.getCenter(find.text('+50')).dy,
-      closeTo(textBlockCenter, 0.1),
+      tester.getTopLeft(find.text('+50')).dy -
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
+              )
+              .dy,
+      closeTo(15, 0.1),
     );
     expect(
       tester.getTopLeft(find.text('Message')).dy -
           tester.getTopLeft(find.text('Daily check-in')).dy,
-      closeTo(85, 0.1),
+      closeTo(78, 0.1),
     );
     final messageWorldId = tester.widget<Text>(find.text('w_moonlit'));
-    expect(messageWorldId.style?.color, const Color(0xFF999999));
+    expect(messageWorldId.style?.color, const Color(0x52FFFFFF));
     expect(find.text('Daily task'), findsNothing);
     expect(find.text('Moonlit Market'), findsNothing);
     expect(find.text('ID: order-1'), findsNothing);
@@ -135,7 +143,7 @@ void main() {
             find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
           )
           .height,
-      closeTo(85, 0.1),
+      closeTo(77, 0.1),
     );
     expect(
       tester
@@ -143,7 +151,7 @@ void main() {
             find.byKey(const ValueKey<String>('gem-record-item-ledger-2')),
           )
           .height,
-      closeTo(85, 0.1),
+      closeTo(77, 0.1),
     );
   });
 
@@ -152,6 +160,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         home: GemRecordsPage(
           recordsLoader: ({required scene, required pn, required rn}) async =>
               const GemRecordList(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
+import 'package:genesis_flutter_android/components/world_tick_event_item.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
@@ -10,7 +11,7 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
   testWidgets(
-    'events pager renders sub ticks for one tick number on one page',
+    'events list renders ticks and sub ticks in reverse chronological order',
     (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -60,26 +61,24 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final pager = tester.widget<PageView>(
-        find.byKey(const ValueKey<String>('world-events-tick-pager')),
+      expect(
+        find.byKey(const ValueKey<String>('world-events-tick-list')),
+        findsOneWidget,
       );
-      expect(pager.childrenDelegate.estimatedChildCount, 2);
+      expect(find.byType(PageView), findsNothing);
       expect(find.text('Tick 4-2'), findsOneWidget);
       expect(find.text('Tick 4 sub tick 2 body'), findsOneWidget);
-      expect(find.text('Tick 4-1'), findsNothing);
-
-      await tester.drag(
-        find.byType(CustomScrollView).last,
-        const Offset(0, 300),
-      );
-      await tester.pumpAndSettle();
-
       expect(find.text('Tick 4-1'), findsOneWidget);
       expect(find.text('Tick 4 sub tick 1 body'), findsOneWidget);
+      final renderedTicks = tester
+          .widgetList<WorldTickEventItem>(find.byType(WorldTickEventItem))
+          .map((item) => (item.tickNumber, item.subTickNumber))
+          .toList();
+      expect(renderedTicks, [(4, 2), (4, 1), (3, 1)]);
     },
   );
 
-  testWidgets('events pager groups tick zero events on one page', (
+  testWidgets('events list keeps tick zero sub ticks in descending order', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -121,19 +120,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final pager = tester.widget<PageView>(
-      find.byKey(const ValueKey<String>('world-events-tick-pager')),
-    );
-    expect(pager.childrenDelegate.estimatedChildCount, 1);
     expect(find.text('Tick 0-2'), findsOneWidget);
     expect(find.text('Tick zero sub tick 2 body'), findsOneWidget);
-    expect(find.text('Tick 0-1'), findsNothing);
-
-    await tester.drag(find.byType(CustomScrollView).last, const Offset(0, 300));
-    await tester.pumpAndSettle();
-
     expect(find.text('Tick 0-1'), findsOneWidget);
     expect(find.text('Tick zero sub tick 1 body'), findsOneWidget);
+    final renderedTicks = tester
+        .widgetList<WorldTickEventItem>(find.byType(WorldTickEventItem))
+        .map((item) => item.subTickNumber)
+        .toList();
+    expect(renderedTicks, [2, 1]);
   });
 
   testWidgets(
@@ -179,25 +174,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Tick 1-1'), findsOneWidget);
-      expect(find.text(kAiContentDisclaimerText), findsNothing);
-
-      await tester.drag(
-        find.byType(CustomScrollView).last,
-        const Offset(0, 300),
-      );
-      await tester.pumpAndSettle();
-
       expect(find.text('Tick 0-1'), findsOneWidget);
-      await tester.drag(
-        find.byType(CustomScrollView).last,
-        const Offset(0, 300),
-      );
-      await tester.pumpAndSettle();
-
       expect(find.text(kAiContentDisclaimerText), findsOneWidget);
       expect(
         tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
         lessThan(tester.getTopLeft(find.text('Tick 0-1')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
+        greaterThan(tester.getTopLeft(find.text('Tick 1-1')).dy),
       );
     },
   );
@@ -354,15 +339,15 @@ void main() {
     expect(find.text('Iris'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Day 4, 20:25')).style?.color,
-      const Color(0xFF666666),
+      const Color(0xFF6F6F6F),
     );
     expect(
       tester.widget<Text>(find.text(aiRoleName)).style?.color,
-      const Color(0xFF666666),
+      const Color(0xFF6F6F6F),
     );
     expect(
       tester.widget<Text>(find.text('Iris')).style?.color,
-      const Color(0xFF666666),
+      const Color(0xFF6F6F6F),
     );
     final aiIcon = find.byWidgetPredicate(
       (widget) =>
@@ -378,21 +363,26 @@ void main() {
     expect(userIcon, findsOneWidget);
     expect(
       tester.getTopLeft(find.text('Day 4, 20:25')).dy,
-      closeTo(tester.getTopLeft(find.text(aiRoleName)).dy, 2),
+      lessThan(tester.getTopLeft(find.text(aiRoleName)).dy),
     );
     expect(tester.getSize(find.text(aiRoleName)).width, greaterThan(224));
-    expect(tester.getSize(find.text(aiRoleName)).height, greaterThan(20));
+    expect(
+      tester.getSize(find.text(aiRoleName)).height,
+      greaterThanOrEqualTo(11),
+    );
     expect(
       tester.getTopLeft(aiIcon).dy,
       closeTo(tester.getTopLeft(find.text(aiRoleName)).dy + 2, 0.1),
     );
     expect(
       tester.getTopLeft(find.text('Iris')).dy,
-      greaterThan(tester.getTopLeft(find.text(aiRoleName)).dy),
+      greaterThanOrEqualTo(tester.getTopLeft(find.text(aiRoleName)).dy),
     );
   });
 
-  testWidgets('latest sub-tick starts a 500 sub-tick page', (tester) async {
+  testWidgets('latest sub-tick starts a lazy 500 sub-tick list', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -429,40 +419,34 @@ void main() {
 
     expect(find.text('Sub tick 500 body'), findsOneWidget);
     expect(find.text('Sub tick 1 body'), findsNothing);
-    expect(
-      tester
-          .getTopLeft(
-            find.byKey(
-              const ValueKey<String>(
-                'world-event-tick-item-id:tick_4_500:sub:500',
-              ),
-            ),
-          )
-          .dy,
-      0,
-    );
+    final firstRenderedTick = tester
+        .widgetList<WorldTickEventItem>(find.byType(WorldTickEventItem))
+        .first;
+    expect(firstRenderedTick.tickNumber, 4);
+    expect(firstRenderedTick.subTickNumber, 500);
     expect(find.textContaining('Sub tick').evaluate().length, lessThan(500));
   });
 
-  testWidgets('previous tick opens at its latest sub-tick', (tester) async {
+  testWidgets('upward scroll reveals the previous tick in the same list', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
-            height: 320,
+            height: 140,
             child: WorldEventsSection(
               world: _worldDetail(),
-              ticks: [
-                for (var index = 1; index <= 500; index += 1)
-                  {
-                    'tick_id': 'tick_3_$index',
-                    'tick_no': 3,
-                    'sub_tick_no': index,
-                    'tick_result': {
-                      'narrator': 'Previous sub tick $index body',
-                      'paragraphs': <Object?>[],
-                    },
+              ticks: const [
+                {
+                  'tick_id': 'tick_3_1',
+                  'tick_no': 3,
+                  'sub_tick_no': 1,
+                  'tick_result': {
+                    'narrator': 'Previous tick body',
+                    'paragraphs': <Object?>[],
                   },
+                },
                 {
                   'tick_id': 'tick_4_1',
                   'tick_no': 4,
@@ -490,16 +474,222 @@ void main() {
 
     expect(find.text('Latest tick body'), findsOneWidget);
 
-    await tester.drag(find.byType(CustomScrollView).last, const Offset(0, 300));
+    final list = find.byKey(const ValueKey<String>('world-events-tick-list'));
+    expect(find.byType(PageView), findsNothing);
+    final initialOffset = tester
+        .widget<Scrollable>(
+          find.descendant(of: list, matching: find.byType(Scrollable)),
+        )
+        .controller!
+        .offset;
+    await tester.drag(list, const Offset(0, -300));
     await tester.pumpAndSettle();
 
-    const latestPreviousSubTickKey = ValueKey<String>(
-      'world-event-tick-item-id:tick_3_500:sub:500',
+    expect(find.text('Previous tick body'), findsOneWidget);
+    expect(
+      tester
+          .widget<Scrollable>(
+            find.descendant(of: list, matching: find.byType(Scrollable)),
+          )
+          .controller!
+          .offset,
+      greaterThan(initialOffset),
     );
-    expect(find.text('Previous sub tick 500 body'), findsOneWidget);
-    expect(find.text('Previous sub tick 1 body'), findsNothing);
-    expect(tester.getTopLeft(find.byKey(latestPreviousSubTickKey)).dy, 0);
   });
+
+  testWidgets('upward pull near the history edge requests older ticks', (
+    tester,
+  ) async {
+    var loadMoreCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 320,
+            child: WorldEventsSection(
+              world: _worldDetail(),
+              ticks: [
+                for (var tickNumber = 1; tickNumber <= 4; tickNumber += 1)
+                  {
+                    'tick_id': 'tick_${tickNumber}_1',
+                    'tick_no': tickNumber,
+                    'sub_tick_no': 1,
+                    'tick_result': {
+                      'narrator': 'Tick $tickNumber body',
+                      'paragraphs': <Object?>[],
+                    },
+                  },
+              ],
+              initialLoading: false,
+              loadingMore: false,
+              hasMore: true,
+              error: null,
+              latestRevision: 0,
+              targetTickNumber: null,
+              contentPadding: EdgeInsets.zero,
+              onLoadMore: () => loadMoreCount += 1,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Tick 4 body'), findsOneWidget);
+    await tester.drag(
+      find.byType(CustomScrollView).last,
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tick 3 body'), findsOneWidget);
+    expect(loadMoreCount, greaterThanOrEqualTo(1));
+  });
+
+  testWidgets('loaded older ticks append without resetting list position', (
+    tester,
+  ) async {
+    final scrollController = ScrollController();
+    addTearDown(scrollController.dispose);
+    var ticks = <Map<String, dynamic>>[
+      for (var tickNumber = 1; tickNumber <= 4; tickNumber += 1)
+        {
+          'tick_id': 'tick_${tickNumber}_1',
+          'tick_no': tickNumber,
+          'sub_tick_no': 1,
+          'tick_result': {
+            'narrator': 'Tick $tickNumber body',
+            'paragraphs': <Object?>[],
+          },
+        },
+    ];
+    var hasMore = true;
+    var loadMoreCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 180,
+            child: StatefulBuilder(
+              builder: (context, setState) => WorldEventsSection(
+                world: _worldDetail(),
+                ticks: ticks,
+                initialLoading: false,
+                loadingMore: false,
+                hasMore: hasMore,
+                error: null,
+                latestRevision: 0,
+                targetTickNumber: null,
+                contentPadding: EdgeInsets.zero,
+                scrollController: scrollController,
+                onLoadMore: () {
+                  loadMoreCount += 1;
+                  setState(() {
+                    ticks = [
+                      {
+                        'tick_id': 'tick_0_1',
+                        'tick_no': 0,
+                        'sub_tick_no': 1,
+                        'tick_result': {
+                          'narrator': 'Loaded older tick body',
+                          'paragraphs': <Object?>[],
+                        },
+                      },
+                      ...ticks,
+                    ];
+                    hasMore = false;
+                  });
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final list = find.byKey(const ValueKey<String>('world-events-tick-list'));
+    await tester.drag(list, const Offset(0, -1000));
+    await tester.pumpAndSettle();
+
+    expect(loadMoreCount, 1);
+    expect(scrollController.offset, greaterThan(0));
+    expect(find.byType(PageView), findsNothing);
+    await tester.drag(list, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(find.text('Loaded older tick body'), findsOneWidget);
+  });
+
+  testWidgets(
+    'scroll-to-top button appears after scrolling and returns latest',
+    (tester) async {
+      final scrollController = ScrollController();
+      addTearDown(scrollController.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 180,
+              child: WorldEventsSection(
+                world: _worldDetail(),
+                ticks: [
+                  for (var tickNumber = 1; tickNumber <= 20; tickNumber += 1)
+                    {
+                      'tick_id': 'tick_${tickNumber}_1',
+                      'tick_no': tickNumber,
+                      'sub_tick_no': 1,
+                      'tick_result': {
+                        'narrator': 'Tick $tickNumber body',
+                        'paragraphs': <Object?>[],
+                      },
+                    },
+                ],
+                initialLoading: false,
+                loadingMore: false,
+                hasMore: false,
+                error: null,
+                latestRevision: 0,
+                targetTickNumber: null,
+                contentPadding: EdgeInsets.zero,
+                scrollController: scrollController,
+                onLoadMore: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final list = find.byKey(const ValueKey<String>('world-events-tick-list'));
+      final button = find.byKey(
+        const ValueKey<String>('world-events-scroll-to-top'),
+      );
+      AnimatedOpacity buttonOpacity() => tester.widget<AnimatedOpacity>(
+        find.ancestor(of: button, matching: find.byType(AnimatedOpacity)),
+      );
+
+      expect(button, findsOneWidget);
+      expect(buttonOpacity().opacity, 0);
+      await tester.drag(list, const Offset(0, -700));
+      await tester.pumpAndSettle();
+
+      expect(scrollController.offset, greaterThan(320));
+      expect(buttonOpacity().opacity, 1);
+      expect(tester.getSize(button), const Size.square(36));
+      final buttonIcon = tester.widget<Icon>(
+        find.descendant(of: button, matching: find.byType(Icon)),
+      );
+      expect(buttonIcon.icon, Icons.keyboard_double_arrow_up_rounded);
+      expect(buttonIcon.size, 22);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(scrollController.offset, 0);
+      expect(buttonOpacity().opacity, 0);
+      expect(find.text('Tick 20 body'), findsOneWidget);
+    },
+  );
 }
 
 bool _matchesIosInlineEmphasisSkew(Matrix4 transform) {

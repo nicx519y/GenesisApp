@@ -15,6 +15,7 @@ class LegacyWorldMapConfig {
     this.fallbackOnEmptyMapUrl = true,
     this.dimmed = false,
     this.showPointsList = false,
+    this.showZoomControl = true,
     this.pointsListBuilder,
     this.pointsListPhysics,
     this.pointsListOuterScrollHandoff = true,
@@ -23,6 +24,8 @@ class LegacyWorldMapConfig {
     this.onHorizontalPanStateChanged,
     this.activeBubble,
     this.initialZoomScale = 1,
+    this.initialZoomFocus,
+    this.initialViewportVerticalOffsetFraction = 0,
     this.enableAvatarScaleReboundHint = false,
     this.recentChatLocationIds = const <String>{},
     this.recentChatMapLocationIds = const <String>{},
@@ -38,6 +41,7 @@ class LegacyWorldMapConfig {
   final bool fallbackOnEmptyMapUrl;
   final bool dimmed;
   final bool showPointsList;
+  final bool showZoomControl;
   final WidgetBuilder? pointsListBuilder;
   final ScrollPhysics? pointsListPhysics;
   final bool pointsListOuterScrollHandoff;
@@ -46,6 +50,8 @@ class LegacyWorldMapConfig {
   final ValueChanged<WorldMapHorizontalPanState>? onHorizontalPanStateChanged;
   final WorldMapMessageBubble? activeBubble;
   final double initialZoomScale;
+  final Offset? initialZoomFocus;
+  final double initialViewportVerticalOffsetFraction;
   final bool enableAvatarScaleReboundHint;
   final Set<String> recentChatLocationIds;
   final Set<String> recentChatMapLocationIds;

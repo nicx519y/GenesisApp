@@ -8,8 +8,8 @@ import '../../ui/theme/genesis_semantic_colors.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 
-const double kGemProductCardHeight = 132;
-const double kGemPriceButtonHeight = 24;
+const double kGemProductCardHeight = 126;
+const double kGemPriceButtonHeight = 28;
 
 class GemPurchaseCatalogSection extends StatelessWidget {
   const GemPurchaseCatalogSection({
@@ -29,7 +29,17 @@ class GemPurchaseCatalogSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GemBalancePanel(balance: balance, balanceKey: balanceKey),
-        const SizedBox(height: 10),
+        const SizedBox(height: 22),
+        Text(
+          'Gem packs',
+          style: TextStyle(
+            fontSize: 15,
+            height: 1,
+            fontWeight: FontWeight.w800,
+            color: context.genesisColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 11),
         catalog,
       ],
     );
@@ -51,46 +61,56 @@ class GemBalancePanel extends StatelessWidget {
     return SizedBox(
       key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
-      height: 88,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                SvgPicture.asset(
-                  gemIconAsset,
-                  key: const ValueKey('gem-balance-icon'),
-                  width: gemLargeIconSize,
-                  height: gemLargeIconSize,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'My balance',
+            style: TextStyle(
+              fontSize: 11,
+              height: 1,
+              fontWeight: FontWeight.w500,
+              color: context.genesisColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              SvgPicture.asset(
+                gemIconAsset,
+                key: const ValueKey('gem-balance-icon'),
+                width: 20,
+                height: 31,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                formatGemInteger(balance),
+                key: balanceKey,
+                style: TextStyle(
+                  fontSize: 30,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                  color: context.genesisColors.textPrimary,
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  'My Balance',
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  'Gems',
                   style: TextStyle(
-                    fontSize: 14,
-                    height: 18 / 14,
-                    fontWeight: FontWeight.w600,
-                    color: context.genesisColors.textMuted,
+                    fontSize: 12,
+                    height: 1,
+                    fontWeight: FontWeight.w500,
+                    color: context.genesisColors.textSubtle,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              formatGemInteger(balance),
-              key: balanceKey,
-              style: TextStyle(
-                fontSize: 30,
-                height: 40 / 30,
-                fontWeight: FontWeight.w600,
-                color: context.genesisColors.textBody,
-                letterSpacing: 0,
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -117,9 +137,9 @@ class GemProductGrid extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         itemCount: products.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+          crossAxisCount: 2,
           crossAxisSpacing: 10,
-          mainAxisSpacing: 12,
+          mainAxisSpacing: 10,
           mainAxisExtent: kGemProductCardHeight,
         ),
         itemBuilder: (context, index) {
@@ -154,8 +174,14 @@ class GemProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isNewUserProduct = product.productId.trim() == 'gem_pack_500';
     final isSoldOut = isNewUserProduct && !product.canPurchase;
-    final tag = product.tagText;
+    final enabled = product.canPurchase && !isPurchaseInProgress;
     final hasBonusGems = product.bonusGems > 0;
+    final tag = product.tagText;
+    final normalizedTag = tag.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    final usesStandardPromotionTagWidth =
+        normalizedTag == 'new user' ||
+        normalizedTag == 'first top-up' ||
+        normalizedTag == 'first top up';
     final defaultTagColor = isNewUserProduct
         ? context.genesisGemColors.priceGradientStart
         : context.genesisGemColors.priceGradientEnd;
@@ -163,19 +189,144 @@ class GemProductCard extends StatelessWidget {
       product.activityColor,
       fallback: defaultTagColor,
     );
-    final tagTextStyle = TextStyle(
-      fontSize: 10,
-      height: 14 / 10,
-      fontWeight: FontWeight.w400,
-      color: context.genesisColors.textInverse,
+    final card = Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: EdgeInsets.fromLTRB(14, tag.isEmpty ? 15 : 22, 14, 13),
+          decoration: BoxDecoration(
+            color: isSoldOut
+                ? context.genesisColors.surfaceSubtle
+                : context.genesisColors.inputBackground,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            children: [
+              SvgPicture.asset(
+                gemStackIconAsset,
+                key: ValueKey<String>('gem-product-icon-${product.productId}'),
+                width: 42,
+                height: 34,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '+${formatGemInteger(product.totalGems)}',
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 17,
+                          height: 1,
+                          fontWeight: FontWeight.w800,
+                          color: context.genesisColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    hasBonusGems ? formatGemInteger(product.baseGems) : 'Gems',
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 1,
+                      fontWeight: FontWeight.w400,
+                      color: context.genesisColors.textFaint,
+                      decoration: hasBonusGems
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                      decorationColor: context.genesisColors.textFaint,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Container(
+                key: ValueKey<String>('gem-product-price-${product.productId}'),
+                width: double.infinity,
+                height: kGemPriceButtonHeight,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSoldOut
+                      ? context.genesisColors.surfaceSubtle
+                      : context.genesisGemColors.accent,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: isBuying && !isSoldOut
+                    ? SizedBox(
+                        width: 13,
+                        height: 13,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.8,
+                          color: context.genesisColors.onDanger,
+                        ),
+                      )
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          isSoldOut
+                              ? 'Sold Out'
+                              : formatGemPrice(
+                                  product.priceAmount,
+                                  product.priceCurrencyCode,
+                                ),
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1,
+                            fontWeight: FontWeight.w700,
+                            color: isSoldOut
+                                ? context.genesisColors.textDisabled
+                                : context.genesisColors.onDanger,
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+        if (tag.isNotEmpty)
+          Positioned(
+            left: -1,
+            top: -1,
+            child: Container(
+              key: ValueKey<String>('gem-product-tag-${product.productId}'),
+              width: usesStandardPromotionTagWidth ? 68 : null,
+              height: usesStandardPromotionTagWidth ? 20 : null,
+              constraints: const BoxConstraints(maxWidth: 86),
+              padding: usesStandardPromotionTagWidth
+                  ? null
+                  : const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+              alignment: usesStandardPromotionTagWidth
+                  ? Alignment.center
+                  : null,
+              decoration: BoxDecoration(
+                color: tagColor,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                tag,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 14 / 10,
+                  fontWeight: FontWeight.w400,
+                  color: context.genesisColors.onDanger,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
-    final tagPainter = TextPainter(
-      text: TextSpan(text: tag, style: tagTextStyle),
-      maxLines: 1,
-      textDirection: TextDirection.ltr,
-    )..layout();
-    final tagWidth = (tagPainter.width + 8).clamp(46.0, 86.0).toDouble();
-    final enabled = product.canPurchase && !isPurchaseInProgress;
+
     return Semantics(
       button: true,
       enabled: enabled,
@@ -187,152 +338,10 @@ class GemProductCard extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: enabled ? onPurchase : null,
         child: Opacity(
-          opacity: product.canPurchase || isSoldOut ? 1 : 0.45,
+          opacity: isSoldOut ? 0.4 : (product.canPurchase ? 1 : 0.45),
           child: _UnavailableProductFilter(
             unavailable: !product.canPurchase && !isSoldOut,
-            child: Container(
-              clipBehavior: Clip.none,
-              decoration: BoxDecoration(
-                color: context.genesisColors.surface,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: context.genesisColors.borderSubtle),
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  if (tag.isNotEmpty)
-                    Positioned(
-                      left: -1,
-                      top: -1,
-                      child: SizedBox(
-                        width: tagWidth,
-                        height: 20,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: tagColor,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(tag, maxLines: 1, style: tagTextStyle),
-                          ),
-                        ),
-                      ),
-                    ),
-                  Positioned(
-                    top: 30,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: SvgPicture.asset(
-                        gemStackIconAsset,
-                        key: ValueKey<String>(
-                          'gem-product-icon-${product.productId}',
-                        ),
-                        width: gemStackIconWidth,
-                        height: gemStackIconHeight,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 60,
-                    left: 8,
-                    right: 8,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        '+${formatGemInteger(product.totalGems)}',
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 20 / 14,
-                          fontWeight: FontWeight.w600,
-                          color: context.genesisColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (hasBonusGems)
-                    Positioned(
-                      top: 80,
-                      bottom: 38,
-                      left: 8,
-                      right: 8,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          formatGemInteger(product.baseGems),
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 14 / 12,
-                            fontWeight: FontWeight.w400,
-                            color: context.genesisColors.textFaint,
-                            decoration: TextDecoration.lineThrough,
-                            decorationColor: context.genesisColors.textFaint,
-                          ),
-                        ),
-                      ),
-                    ),
-                  Positioned(
-                    left: 10,
-                    right: 10,
-                    bottom: 10,
-                    height: kGemPriceButtonHeight,
-                    child: Container(
-                      key: ValueKey<String>(
-                        'gem-product-price-${product.productId}',
-                      ),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isSoldOut
-                            ? Colors.transparent
-                            : context.genesisColors.surface,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isSoldOut
-                              ? context.genesisGemColors.soldOutBorder
-                              : context.genesisGemColors.accent,
-                        ),
-                      ),
-                      child: isBuying && !isSoldOut
-                          ? SizedBox(
-                              width: 13,
-                              height: 13,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.8,
-                                color: context.genesisGemColors.accent,
-                              ),
-                            )
-                          : FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                isSoldOut
-                                    ? 'Sold Out'
-                                    : formatGemPrice(
-                                        product.priceAmount,
-                                        product.priceCurrencyCode,
-                                      ),
-                                maxLines: 1,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  height: 14 / 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSoldOut
-                                      ? context
-                                            .genesisGemColors
-                                            .soldOutForeground
-                                      : context.genesisGemColors.accent,
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: card,
           ),
         ),
       ),

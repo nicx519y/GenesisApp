@@ -392,7 +392,12 @@ class Tilemap extends StatefulWidget {
     this.preferredFocusLocationId = '',
     this.drillExitTop = 68,
     this.drillExitMaxWidth,
+    this.foregroundOverlay,
     this.showVisualModeToggle = true,
+    this.showZoomControl = true,
+    this.centerInitialViewport = false,
+    this.initialScaleOverride,
+    this.initialViewportVerticalOffsetFraction = 0,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
@@ -422,7 +427,12 @@ class Tilemap extends StatefulWidget {
     this.preferredFocusLocationId = '',
     this.drillExitTop = 68,
     this.drillExitMaxWidth,
+    this.foregroundOverlay,
     this.showVisualModeToggle = true,
+    this.showZoomControl = true,
+    this.centerInitialViewport = false,
+    this.initialScaleOverride,
+    this.initialViewportVerticalOffsetFraction = 0,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
@@ -451,7 +461,12 @@ class Tilemap extends StatefulWidget {
   final String preferredFocusLocationId;
   final double drillExitTop;
   final double? drillExitMaxWidth;
+  final Widget? foregroundOverlay;
   final bool showVisualModeToggle;
+  final bool showZoomControl;
+  final bool centerInitialViewport;
+  final double? initialScaleOverride;
+  final double initialViewportVerticalOffsetFraction;
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
   final Set<String> recentChatLocationIds;
@@ -538,6 +553,9 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   bool _settingsReady = false;
   Timer? _settingsSaveTimer;
   Future<void> _settingsPersistence = Future<void>.value();
+
+  double get _effectiveInitialScale =>
+      tilemapResolvedInitialScale(widget.initialScaleOverride ?? _initialScale);
 
   @override
   void initState() {
@@ -1347,7 +1365,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
         config,
         displayTilePixelSize:
             tilemapBaseTileExtent *
-            _initialScale *
+            _effectiveInitialScale *
             tilemapImageDevicePixelRatio(devicePixelRatio),
       );
     });
@@ -1800,13 +1818,16 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       config: config,
       displayTilePixelSize:
           tilemapBaseTileExtent *
-          _initialScale *
+          _effectiveInitialScale *
           tilemapImageDevicePixelRatio(devicePixelRatio),
       viewportSize: viewportSize,
-      initialScale: _initialScale,
+      initialScale: _effectiveInitialScale,
       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
       locationAvatarsForTile: _locationAvatarsForTile,
       preferredLocationId: _preferredVisibleFocusLocationId(config),
+      centerInitialViewport: widget.centerInitialViewport,
+      initialViewportVerticalOffsetFraction:
+          widget.initialViewportVerticalOffsetFraction,
     );
   }
 
@@ -1875,6 +1896,11 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       waitForVisibleTileImageFrames: widget.tileImageLoader == null,
       isForeground: foreground,
       animationsPaused: widget.animationsPaused,
+      foregroundOverlay: foreground ? widget.foregroundOverlay : null,
+      showZoomControl: widget.showZoomControl,
+      centerInitialViewport: widget.centerInitialViewport,
+      initialViewportVerticalOffsetFraction:
+          widget.initialViewportVerticalOffsetFraction,
       locationImageFlowPaused: widget.locationImageFlowPaused,
       visualMode: _visualMode,
       fogControlPoints: _fogControlPoints,
@@ -1887,7 +1913,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       locationImageFlowOpacity: _locationImageFlowOpacity,
       locationImageFlowDurationSeconds: _locationImageFlowDurationSeconds,
       locationImageFlowBlendMode: _locationImageFlowBlendMode,
-      initialScale: _initialScale,
+      initialScale: _effectiveInitialScale,
       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
     );
   }
@@ -2139,6 +2165,9 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
           : widget.preferredFocusLocationId,
       Object.hashAll(widget.messageBubbles.map(_messageBubbleEnvironmentHash)),
       widget.messageBubblePlaybackPaused,
+      widget.centerInitialViewport,
+      widget.initialScaleOverride,
+      widget.initialViewportVerticalOffsetFraction,
       locale,
       textScale,
     ].join('|');
@@ -2270,7 +2299,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _scheduleCurrentLocationsChanged(config);
       final displayTilePixelSize =
           tilemapBaseTileExtent *
-          _initialScale *
+          _effectiveInitialScale *
           tilemapImageDevicePixelRatio(MediaQuery.devicePixelRatioOf(context));
       _scheduleSilentDrillDownPreload(
         config,

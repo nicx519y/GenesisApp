@@ -14,11 +14,24 @@ class ChatNarratorMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usesScenePlate = style.useScenePlateBubbleGeometry;
+    final chatTheme = context.genesisChatTheme;
     return ChatSystemMessage(
       text: message.text,
       fullWidth: true,
       textAlign: TextAlign.left,
       leadingIconAsset: paragraphIconAsset,
+      backgroundColor: usesScenePlate ? chatTheme.narratorBackground : null,
+      textStyle: usesScenePlate
+          ? style.systemMessageTextStyle.copyWith(
+              color: chatTheme.narratorForeground,
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              height: 1.6,
+            )
+          : null,
+      leadingIconColor: usesScenePlate ? chatTheme.narratorIcon : null,
+      softItalic: usesScenePlate,
       style: style,
       onLongPressStart: onLongPressStart,
     );

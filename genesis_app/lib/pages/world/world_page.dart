@@ -134,9 +134,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _eventsUnread = false;
   bool _worldBottomSheetOpen = false;
   bool _hasUnreadNewUserJoin = false;
-  bool _openEventsAfterCurrentBottomSheetClosed = false;
-  int? _eventsAfterCurrentBottomSheetClosedTargetTickNumber;
-  BuildContext? _worldBottomSheetContext;
+  final GlobalKey<WorldSingleSectionBottomSheetState> _worldBottomSheetKey =
+      GlobalKey<WorldSingleSectionBottomSheetState>();
   int _worldMainTabIndex = 0;
   int? _worldMainSwipePointer;
   Offset? _worldMainSwipeStartPosition;
@@ -559,6 +558,24 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           locationNodes: locationNodes,
           drillExitTop:
               topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
+          foregroundOverlay: const IgnorePointer(
+            child: DecoratedBox(
+              key: ValueKey<String>('world-map-cinematic-gradient'),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    Color(0xAD000000),
+                    Color(0x00000000),
+                    Color(0x00000000),
+                    Color(0xDB131215),
+                  ],
+                  stops: <double>[0, 0.26, 0.62, 1],
+                ),
+              ),
+            ),
+          ),
           messageBubbles:
               (_activeChatLocationId.isEmpty || preparingInitialTilemap) &&
                   _mapBubbleMessagesReady
@@ -635,19 +652,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         _worldChatroom != null ||
         shouldConnectWorldChatroom(world.relationStatus);
     final mountedSlivers = <Widget>[
-      const SliverToBoxAdapter(
-        child: SizedBox(height: worldStatsTopSpacerHeight),
-      ),
       WorldFeedContent(
         world: world,
+        currentUid: _currentUid,
         worldActionRunning: _worldActionRunning,
         onWorldAction: _runWorldAction,
-        onPullUp: () => _openWorldBottomSheet(WorldBottomSheetKind.events),
+        onPullUp: _reopenSelectedWorldBottomSheet,
       ),
     ];
 
     return PopScope(
-      canPop: _activeChatLocationId.isEmpty,
+      canPop: _activeChatLocationId.isEmpty && !_worldBottomSheetOpen,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleWorldPopBlocked();
@@ -663,6 +678,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               backgroundColor: _tilemapLoadingBackgroundColor,
               panelTopGap: 50,
               panelCollapsedHeightOffset: 120,
+              panelTopRadius: 24,
+              panelTopOverlap: 8,
+              panelTopBandHeight: worldPanelHandleBandHeight,
+              panelTopChild: const Center(child: WorldDetailsDragHandle()),
+              panelTopShadow: const <BoxShadow>[
+                BoxShadow(
+                  color: Color(0x99000000),
+                  blurRadius: 40,
+                  offset: Offset(0, -14),
+                ),
+              ],
               scrollPhysics: const NeverScrollableScrollPhysics(),
               persistentTopOverlay: _buildPersistentMapOverlay(
                 topPadding,
@@ -675,10 +701,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               fixedCollapsedPanelHeight: collapsedPanelHeight,
               fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
               contentBottomPaddingOverride: 0,
-              onPanelTopPullUp: () =>
-                  _openWorldBottomSheet(WorldBottomSheetKind.events),
+              onPanelTopPullUp: _reopenSelectedWorldBottomSheet,
               slivers: mountedSlivers,
             ),
+            _buildWorldBottomSafeAreaBackground(),
             if (_worldMainTabIndex != 0)
               Positioned(
                 left: 0,
@@ -695,13 +721,34 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
-            _buildWorldBottomTagsOverlay(
-              collapsedPanelHeight: collapsedPanelHeight,
-              interactive: true,
-            ),
+            _buildWorldBottomTagsOverlay(interactive: true),
             Positioned.fill(
               key: const ValueKey<String>('world-location-chat-host-layer'),
               child: _buildWorldLocationChatHost(),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                key: const ValueKey<String>('world-detail-sheet-overlay'),
+                ignoring: !_worldBottomSheetOpen,
+                child: Opacity(
+                  opacity: _worldBottomSheetOpen ? 1 : 0,
+                  child: WorldSingleSectionBottomSheet(
+                    key: _worldBottomSheetKey,
+                    selectionListenable: _worldBottomSheetSelection,
+                    services: AppServicesScope.read(context),
+                    initialWorld: world,
+                    worldListenable: _sectionsWorldNotifier,
+                    newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
+                    eventsCache: _sectionsEventsCache,
+                    currentUid: _currentUid,
+                    recentChatLocationIds: _recentChatLocationIds,
+                    onLocationTap: _handleBottomSheetLocationTap,
+                    onTabTap: _openWorldBottomSheet,
+                    onCollapsed: _handleWorldBottomSheetCollapsed,
+                    onDeleteWorld: _confirmAndDeleteWorldFromDetail,
+                  ),
+                ),
+              ),
             ),
             if (canShowWorldTickProgress &&
                 _worldTickInProgress &&

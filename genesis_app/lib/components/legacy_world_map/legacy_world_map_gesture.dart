@@ -16,6 +16,12 @@ const double legacyWorldMapZoomControlRadius = 12;
 const double legacyWorldMapZoomHitAreaWidth = 48;
 const double legacyWorldMapZoomHitAreaHeight = 88;
 const double legacyWorldMapZoomDragExtent = 96;
+const Color legacyWorldMapZoomControlBackgroundColor = Color(0x8C131215);
+const Color legacyWorldMapZoomControlBorderColor = Color(0x80FFFFFF);
+const Color legacyWorldMapZoomControlEnabledColor = Color(0xFFFFFFFF);
+const Color legacyWorldMapZoomControlDisabledColor = Color(0xFF777777);
+const Color legacyWorldMapZoomGripBackgroundColor = Color(0x00131215);
+const Color legacyWorldMapZoomGripLineColor = Color(0xFFFFFFFF);
 const String legacyWorldMapZoomInIconAsset =
     'assets/custom-icons/svg/map_zoom_in.svg';
 const String legacyWorldMapZoomOutIconAsset =
@@ -37,6 +43,7 @@ class LegacyWorldMapZoomableContent extends StatefulWidget {
     required this.contentSize,
     required this.initialScale,
     required this.initialFocus,
+    this.initialViewportVerticalOffsetFraction = 0,
     required this.initialTransformKey,
     required this.initialViewportSize,
     required this.overlayBuilder,
@@ -54,6 +61,7 @@ class LegacyWorldMapZoomableContent extends StatefulWidget {
   final Size contentSize;
   final double initialScale;
   final Offset? initialFocus;
+  final double initialViewportVerticalOffsetFraction;
   final String initialTransformKey;
   final Size initialViewportSize;
   final LegacyWorldMapOverlayBuilder overlayBuilder;
@@ -169,7 +177,13 @@ class LegacyWorldMapZoomableContentState
       widget.contentSize.width * clampedFocus.dx,
       widget.contentSize.height * clampedFocus.dy,
     );
-    final center = Offset(size.width / 2, size.height / 2);
+    final verticalOffsetFraction = widget.initialViewportVerticalOffsetFraction
+        .clamp(-0.25, 0.25)
+        .toDouble();
+    final center = Offset(
+      size.width / 2,
+      size.height * (0.5 + verticalOffsetFraction),
+    );
     return _transformMatrixForSize(
       size: size,
       scale: scale,
@@ -542,9 +556,6 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
 
-  static const Color _enabledColor = Color(0xFF111111);
-  static const Color _disabledColor = Color(0xFFC7C7C7);
-
   double get _progress =>
       (math.log(value / min) / math.log(max / min)).clamp(0.0, 1.0).toDouble();
 
@@ -570,9 +581,13 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
           child: DecoratedBox(
             key: const ValueKey<String>('world-map-zoom-control'),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: legacyWorldMapZoomControlBackgroundColor,
               borderRadius: BorderRadius.circular(
                 legacyWorldMapZoomControlRadius,
+              ),
+              border: Border.all(
+                color: legacyWorldMapZoomControlBorderColor,
+                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
@@ -599,7 +614,9 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
                             key: const ValueKey<String>('world-map-zoom-in'),
                             iconAsset: legacyWorldMapZoomInIconAsset,
                             label: 'Zoom in on map',
-                            color: canZoomIn ? _enabledColor : _disabledColor,
+                            color: canZoomIn
+                                ? legacyWorldMapZoomControlEnabledColor
+                                : legacyWorldMapZoomControlDisabledColor,
                             onTap: canZoomIn ? onZoomIn : null,
                           ),
                         ),
@@ -608,7 +625,9 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
                             key: const ValueKey<String>('world-map-zoom-out'),
                             iconAsset: legacyWorldMapZoomOutIconAsset,
                             label: 'Zoom out of map',
-                            color: canZoomOut ? _enabledColor : _disabledColor,
+                            color: canZoomOut
+                                ? legacyWorldMapZoomControlEnabledColor
+                                : legacyWorldMapZoomControlDisabledColor,
                             onTap: canZoomOut ? onZoomOut : null,
                           ),
                         ),
@@ -644,10 +663,10 @@ class _MapZoomGripPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.drawRRect(
       RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(3)),
-      Paint()..color = Colors.white,
+      Paint()..color = legacyWorldMapZoomGripBackgroundColor,
     );
     final paint = Paint()
-      ..color = const Color(0xFF999999)
+      ..color = legacyWorldMapZoomGripLineColor
       ..strokeWidth = 1
       ..strokeCap = StrokeCap.round;
     final center = size.center(Offset.zero);

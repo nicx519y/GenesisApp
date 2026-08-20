@@ -16,6 +16,7 @@ import '../platform/auth/auth_session.dart';
 import '../platform/billing/billing_models.dart';
 import '../platform/privacy/app_tracking_transparency_service.dart';
 import '../ui/system/genesis_system_ui.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_feed_cache_store.dart';
 import 'home/home_page.dart';
@@ -339,9 +340,7 @@ class _AppShellPageState extends State<AppShellPage>
     if (index == 2) {
       if (!await _ensureMainTabLogin()) return;
       if (!mounted) return;
-      await Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const CreateOriginPage()));
+      await _showCreateWorldoSheet();
       return;
     }
 
@@ -359,6 +358,27 @@ class _AppShellPageState extends State<AppShellPage>
       _selectTab(4);
       return;
     }
+  }
+
+  Future<void> _showCreateWorldoSheet() {
+    final colors = context.genesisColors;
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.88;
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colors.pageBackground,
+      barrierColor: colors.scrim.withValues(alpha: 0.62),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+        side: BorderSide(color: colors.textPrimary.withValues(alpha: 0.14)),
+      ),
+      builder: (_) => SizedBox(
+        key: const ValueKey<String>('create-worldo-bottom-sheet'),
+        height: sheetHeight,
+        child: const CreateOriginPage(),
+      ),
+    );
   }
 
   Future<bool> _ensureMainTabLogin() async {

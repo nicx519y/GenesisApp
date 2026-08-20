@@ -255,6 +255,7 @@ class _LocationChatAnchoredMessageListState
   final GlobalKey _messageContentKey = GlobalKey();
   final Map<String, GlobalKey> _messageLayoutKeys = <String, GlobalKey>{};
   final GlobalKey _scrollViewportKey = GlobalKey();
+  final BackdropKey _messageBackdropKey = BackdropKey();
   late final AnimationController _oldestEdgeLoadingController;
   late final Animation<double> _oldestEdgeLoadingAnimation;
   late List<ChatMessageVm> _renderedMessages;
@@ -549,92 +550,100 @@ class _LocationChatAnchoredMessageListState
             minHeight > style.messageListPadding.vertical
             ? minHeight - style.messageListPadding.vertical
             : 0.0;
-        return SingleChildScrollView(
-          key: _scrollViewportKey,
-          controller: widget.coordinator.controller,
-          physics: LocationChatBottomAnchoringScrollPhysics(
-            shouldFollowLatest: () => widget.coordinator.shouldFollowLatest,
-            oldestMessageStopOffset: () =>
-                widget.coordinator.oldestMessageStopOffset,
-            shouldStopAtOldestMessage: () =>
-                widget.coordinator.shouldStopAtOldestMessage,
-            takeDetachedLayoutCorrection: _takeDetachedLayoutCorrection,
-          ),
-          keyboardDismissBehavior:
-              widget.keyboardDismissBehavior ??
-              ScrollViewKeyboardDismissBehavior.manual,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: minHeight),
-            child: Padding(
-              padding: style.messageListPadding,
-              child: Column(
-                key: _messageContentKey,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AnimatedBuilder(
-                    animation: _oldestEdgeLoadingAnimation,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: SizedBox.square(
-                        dimension: style.sendingBadgeSize,
+        return ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+          child: BackdropGroup(
+            backdropKey: _messageBackdropKey,
+            child: SingleChildScrollView(
+              key: _scrollViewportKey,
+              controller: widget.coordinator.controller,
+              physics: LocationChatBottomAnchoringScrollPhysics(
+                shouldFollowLatest: () => widget.coordinator.shouldFollowLatest,
+                oldestMessageStopOffset: () =>
+                    widget.coordinator.oldestMessageStopOffset,
+                shouldStopAtOldestMessage: () =>
+                    widget.coordinator.shouldStopAtOldestMessage,
+                takeDetachedLayoutCorrection: _takeDetachedLayoutCorrection,
+              ),
+              keyboardDismissBehavior:
+                  widget.keyboardDismissBehavior ??
+                  ScrollViewKeyboardDismissBehavior.manual,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: minHeight),
+                child: Padding(
+                  padding: style.messageListPadding,
+                  child: Column(
+                    key: _messageContentKey,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _oldestEdgeLoadingAnimation,
                         child: Padding(
-                          padding: EdgeInsets.all(style.sendingBadgePadding),
-                          child: CircularProgressIndicator(
-                            strokeWidth: style.sendingBadgeStrokeWidth,
-                            color: style.sendingBadgeColor,
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                          child: SizedBox.square(
+                            dimension: style.sendingBadgeSize,
+                            child: Padding(
+                              padding: EdgeInsets.all(
+                                style.sendingBadgePadding,
+                              ),
+                              child: CircularProgressIndicator(
+                                strokeWidth: style.sendingBadgeStrokeWidth,
+                                color: style.sendingBadgeColor,
+                              ),
+                            ),
                           ),
                         ),
+                        builder: (context, child) {
+                          final factor = _oldestEdgeLoadingAnimation.value;
+                          if (factor <= 0 &&
+                              !widget.oldestEdgeLoading &&
+                              !_loadingCollapsePending) {
+                            return const SizedBox.shrink();
+                          }
+                          return ClipRect(
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              heightFactor: factor,
+                              child: Opacity(opacity: factor, child: child),
+                            ),
+                          );
+                        },
                       ),
-                    ),
-                    builder: (context, child) {
-                      final factor = _oldestEdgeLoadingAnimation.value;
-                      if (factor <= 0 &&
-                          !widget.oldestEdgeLoading &&
-                          !_loadingCollapsePending) {
-                        return const SizedBox.shrink();
-                      }
-                      return ClipRect(
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          heightFactor: factor,
-                          child: Opacity(opacity: factor, child: child),
+                      if (hasOldestEdgeContent)
+                        ChatOldestEdgeContent(
+                          topTitle: widget.topTitle,
+                          notice: widget.oldestEdgeNotice,
+                          loading: false,
+                          style: style,
                         ),
-                      );
-                    },
+                      if (requiresSecondScroll)
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: messageViewportHeight,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (
+                                var index = 0;
+                                index < _renderedMessages.length;
+                                index += 1
+                              )
+                                _buildMessageRow(index, style),
+                            ],
+                          ),
+                        )
+                      else
+                        for (
+                          var index = 0;
+                          index < _renderedMessages.length;
+                          index += 1
+                        )
+                          _buildMessageRow(index, style),
+                      SizedBox(height: _layoutCorrectionExtentSignal),
+                    ],
                   ),
-                  if (hasOldestEdgeContent)
-                    ChatOldestEdgeContent(
-                      topTitle: widget.topTitle,
-                      notice: widget.oldestEdgeNotice,
-                      loading: false,
-                      style: style,
-                    ),
-                  if (requiresSecondScroll)
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: messageViewportHeight,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (
-                            var index = 0;
-                            index < _renderedMessages.length;
-                            index += 1
-                          )
-                            _buildMessageRow(index, style),
-                        ],
-                      ),
-                    )
-                  else
-                    for (
-                      var index = 0;
-                      index < _renderedMessages.length;
-                      index += 1
-                    )
-                      _buildMessageRow(index, style),
-                  SizedBox(height: _layoutCorrectionExtentSignal),
-                ],
+                ),
               ),
             ),
           ),

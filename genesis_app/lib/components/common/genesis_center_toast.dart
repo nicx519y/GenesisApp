@@ -41,8 +41,20 @@ void showGenesisToastInOverlay(
               padding: const EdgeInsets.symmetric(horizontal: 36),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: context.genesisColors.scrim.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(6),
+                  color: context.genesisColors.scrim.withValues(alpha: 0.88),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: context.genesisColors.shadow.withValues(
+                        alpha: 0.4,
+                      ),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -54,7 +66,7 @@ void showGenesisToastInOverlay(
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       inherit: false,
-                      color: context.genesisColors.textInverse,
+                      color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       height: 1.35,

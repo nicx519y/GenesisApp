@@ -86,13 +86,28 @@ mixin _GenesisApiOriginOperations on _GenesisApiContext {
 
     return PagedResponse(
       data: origins,
-      total: asInt(map['total'], fallback: origins.length),
+      total: asInt(map['total']),
       limit: limit,
       offset: offset,
     );
   }
 
   Future<List<MyWorldSummary>> getMyWorlds({
+    String? uid,
+    String? scene,
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    final response = await getMyWorldsPage(
+      uid: uid,
+      scene: scene,
+      limit: limit,
+      offset: offset,
+    );
+    return response.data;
+  }
+
+  Future<PagedResponse<MyWorldSummary>> getMyWorldsPage({
     String? uid,
     String? scene,
     int limit = 30,
@@ -110,9 +125,15 @@ mixin _GenesisApiOriginOperations on _GenesisApiContext {
       rn: limit,
     );
     final worldsRaw = map['list'];
-    return (worldsRaw is List ? asJsonList(worldsRaw) : const [])
+    final worlds = (worldsRaw is List ? asJsonList(worldsRaw) : const [])
         .map((item) => _myWorldSummaryFromV1ListItem(asJsonMap(item)))
         .toList(growable: false);
+    return PagedResponse(
+      data: worlds,
+      total: asInt(map['total']),
+      limit: limit,
+      offset: offset,
+    );
   }
 
   String _normalizeListScene(String? scene, {required String ownScene}) {

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/network/models/gem_model.dart';
 import 'package:genesis_flutter_android/pages/gems/memory_model_page.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
@@ -15,7 +16,7 @@ void main() {
     final catalogCompleter = Completer<GemModelCatalog>();
 
     await tester.pumpWidget(
-      MaterialApp(
+      _testApp(
         home: MemoryModelPage(
           worldId: 'W_LOADING',
           catalogLoader: (_) => catalogCompleter.future,
@@ -27,7 +28,7 @@ void main() {
     final indicator = tester.widget<CircularProgressIndicator>(
       find.byKey(const ValueKey('gem-model-page-loading')),
     );
-    expect(indicator.color, const Color(0xFFFF2442));
+    expect(indicator.color, const Color(0xFFF82B3C));
 
     catalogCompleter.complete(_catalog());
     await tester.pumpAndSettle();
@@ -39,7 +40,7 @@ void main() {
     final requestedWorldIds = <String>[];
 
     await tester.pumpWidget(
-      MaterialApp(
+      _testApp(
         home: MemoryModelPage(
           worldId: 'W_000001',
           catalogLoader: (worldId) async {
@@ -63,14 +64,22 @@ void main() {
     expect(find.text('Estimated next message: 4 gems'), findsOneWidget);
 
     final pageTitleStyle = tester.widget<Text>(find.text('Model')).style;
-    expect(pageTitleStyle?.fontSize, 16);
-    expect(pageTitleStyle?.height, 22 / 16);
-    expect(pageTitleStyle?.fontWeight, FontWeight.w600);
-    expect(pageTitleStyle?.color, const Color(0xFF111111));
+    expect(pageTitleStyle?.fontSize, 17);
+    expect(pageTitleStyle?.height, 20 / 17);
+    expect(pageTitleStyle?.fontWeight, FontWeight.w800);
+    expect(pageTitleStyle?.color, Colors.white);
     expect(
       tester.getTopLeft(find.text('Recommended')).dy -
           tester.getRect(find.text('Model')).bottom,
-      closeTo(26, 0.1),
+      closeTo(29, 0.1),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('gem-model-back'))),
+      const Size.square(34),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('gem-model-save'))).height,
+      28,
     );
 
     final saveButton = tester.widget<TextButton>(
@@ -86,58 +95,68 @@ void main() {
       findsNothing,
     );
     final saveStyle = saveButton.style?.textStyle?.resolve(<WidgetState>{});
-    expect(saveStyle?.fontSize, 14);
-    expect(saveStyle?.height, 18 / 14);
-    expect(saveStyle?.fontWeight, FontWeight.w600);
+    expect(saveStyle?.fontSize, 11);
+    expect(saveStyle?.height, 1);
+    expect(saveStyle?.fontWeight, FontWeight.w700);
     expect(
       saveButton.style?.foregroundColor?.resolve(<WidgetState>{}),
-      const Color(0xFF111111),
+      Colors.white,
     );
 
     final groupTitleStyle = tester.widget<Text>(find.text('Recommended')).style;
-    expect(groupTitleStyle?.fontSize, 16);
-    expect(groupTitleStyle?.height, 20 / 16);
-    expect(groupTitleStyle?.fontWeight, FontWeight.w600);
+    expect(groupTitleStyle?.fontSize, 9.5);
+    expect(groupTitleStyle?.height, 12 / 9.5);
+    expect(groupTitleStyle?.fontWeight, FontWeight.w500);
+    expect(groupTitleStyle?.color, const Color(0x80FFFFFF));
 
     final modelTitleStyle = tester.widget<Text>(find.text('Top Pick V3')).style;
-    expect(modelTitleStyle?.fontSize, 14);
-    expect(modelTitleStyle?.height, 16 / 14);
-    expect(modelTitleStyle?.fontWeight, FontWeight.w600);
-    expect(modelTitleStyle?.color, const Color(0xFF111111));
+    expect(modelTitleStyle?.fontSize, 15);
+    expect(modelTitleStyle?.height, 18 / 15);
+    expect(modelTitleStyle?.fontWeight, FontWeight.w800);
+    expect(modelTitleStyle?.color, Colors.white);
 
     final estimateStyle = tester
         .widget<Text>(find.text('Estimated next message: 4 gems'))
         .style;
-    expect(estimateStyle?.fontSize, 12);
-    expect(estimateStyle?.height, 12 / 12);
+    expect(estimateStyle?.fontSize, 11);
+    expect(estimateStyle?.height, 1);
     expect(estimateStyle?.fontWeight, FontWeight.w400);
-    expect(estimateStyle?.color, const Color(0xFF666666));
+    expect(estimateStyle?.color, const Color(0x8CFFFFFF));
     final estimateText = tester.widget<Text>(
       find.byKey(const ValueKey<String>('gem-model-estimate-top_pick_v3')),
     );
     final estimateSpan = estimateText.textSpan! as TextSpan;
     final gemsSpan = estimateSpan.children!.single as TextSpan;
     expect(gemsSpan.text, '4 gems');
-    expect(gemsSpan.style?.color, const Color(0xFFFF2442));
+    expect(gemsSpan.style?.fontSize, 12);
+    expect(gemsSpan.style?.fontWeight, FontWeight.w700);
+    expect(gemsSpan.style?.color, const Color(0xFFFF8A9A));
 
     final descriptionStyle = tester
         .widget<Text>(find.text('Balanced storytelling.'))
         .style;
-    expect(descriptionStyle?.fontSize, 12);
-    expect(descriptionStyle?.height, 14 / 12);
+    expect(descriptionStyle?.fontSize, 11);
+    expect(descriptionStyle?.height, 1.5);
     expect(descriptionStyle?.fontWeight, FontWeight.w400);
-    expect(descriptionStyle?.color, const Color(0xFF666666));
+    expect(descriptionStyle?.color, Colors.white.withValues(alpha: 0.62));
 
     expect(find.text('4-320 gems (memory from 2K to 156K)'), findsNothing);
 
     final hotStyle = tester.widget<Text>(find.text('Hot')).style;
     expect(hotStyle?.fontSize, 10);
-    expect(hotStyle?.height, 14 / 10);
-    expect(hotStyle?.fontWeight, FontWeight.w600);
-    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFFF2442));
-    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFE1E1E1));
-    expect(_tileColor(tester, 'top_pick_v3'), const Color(0xFFFFF4F6));
-    expect(_tileColor(tester, 'sake_pro'), Colors.white);
+    expect(hotStyle?.height, 1);
+    expect(hotStyle?.fontWeight, FontWeight.w700);
+    expect(hotStyle?.color, const Color(0xFFFF8A9A));
+    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFF82B3C));
+    expect(
+      _tileBorder(tester, 'sake_pro').color,
+      Colors.white.withValues(alpha: 0.14),
+    );
+    expect(
+      _tileColor(tester, 'top_pick_v3'),
+      const Color(0xFFF82B3C).withValues(alpha: 0.10),
+    );
+    expect(_tileColor(tester, 'sake_pro'), const Color(0x0FFFFFFF));
     final selectedTileInkWell = tester.widget<InkWell>(
       find.descendant(
         of: find.byKey(const ValueKey<String>('gem-model-top_pick_v3')),
@@ -147,12 +166,16 @@ void main() {
     expect(selectedTileInkWell.splashFactory, NoSplash.splashFactory);
     expect(
       selectedTileInkWell.overlayColor?.resolve(<WidgetState>{}),
-      Colors.transparent,
+      Colors.white.withValues(alpha: 0),
     );
-    expect(_tagContainer(tester, 'hot').color, const Color(0xFFFF7A1A));
-    expect(_tagContainer(tester, 'hot').height, 20);
-    expect(_tagContainer(tester, 'new').color, const Color(0xFFFF2442));
-    expect(_tagContainer(tester, 'new').height, 20);
+    expect(
+      _tagContainer(tester, 'hot').color,
+      Colors.white.withValues(alpha: 0),
+    );
+    expect(_tagContainer(tester, 'hot').height, 19);
+    expect(_tagContainer(tester, 'hot').borderColor, const Color(0xFFFF8A9A));
+    expect(_tagContainer(tester, 'new').color, const Color(0xFFF82B3C));
+    expect(_tagContainer(tester, 'new').height, 19);
     expect(
       tester.getCenter(find.text('Top Pick V3')).dy,
       closeTo(tester.getCenter(find.text('Hot')).dy, 0.5),
@@ -165,8 +188,10 @@ void main() {
     );
     expect(estimateSize.width, lessThan(tileSize.width));
     expect(estimateSize.height, 12);
-    expect(_tagContainer(tester, 'hot').radius, 8);
-    expect(_tagContainer(tester, 'new').radius, 8);
+    expect(_tagContainer(tester, 'hot').radius, 6);
+    expect(_tagContainer(tester, 'new').radius, 6);
+    expect(_tileBorder(tester, 'top_pick_v3').width, 1.5);
+    expect(_tileBorder(tester, 'sake_pro').width, 1);
   });
 
   testWidgets('reports model page view once with the world id', (tester) async {
@@ -174,7 +199,7 @@ void main() {
     GenesisTelemetry.setSinkForTesting(telemetry);
 
     await tester.pumpWidget(
-      MaterialApp(
+      _testApp(
         home: MemoryModelPage(
           worldId: 'W_000004',
           catalogLoader: (_) async => _catalog(),
@@ -204,7 +229,7 @@ void main() {
     final selectionCompleter = Completer<GemModelSelection>();
 
     await tester.pumpWidget(
-      MaterialApp(
+      _testApp(
         home: MemoryModelPage(
           worldId: 'W_000002',
           catalogLoader: (_) async => _catalog(),
@@ -225,10 +250,16 @@ void main() {
 
     expect(selections, isEmpty);
     expect(cachedModelCodes, isEmpty);
-    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFE1E1E1));
-    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFFF2442));
-    expect(_tileColor(tester, 'top_pick_v3'), Colors.white);
-    expect(_tileColor(tester, 'sake_pro'), const Color(0xFFFFF4F6));
+    expect(
+      _tileBorder(tester, 'top_pick_v3').color,
+      Colors.white.withValues(alpha: 0.14),
+    );
+    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFF82B3C));
+    expect(_tileColor(tester, 'top_pick_v3'), const Color(0x0FFFFFFF));
+    expect(
+      _tileColor(tester, 'sake_pro'),
+      const Color(0xFFF82B3C).withValues(alpha: 0.10),
+    );
     expect(
       find.byKey(const ValueKey('gem-model-current-top_pick_v3')),
       findsOneWidget,
@@ -271,8 +302,11 @@ void main() {
     await tester.pump();
 
     expect(cachedModelCodes, ['sake_pro']);
-    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFE1E1E1));
-    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFFF2442));
+    expect(
+      _tileBorder(tester, 'top_pick_v3').color,
+      Colors.white.withValues(alpha: 0.14),
+    );
+    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFF82B3C));
     expect(find.text('Switched successfully'), findsOneWidget);
     expect(find.byKey(const ValueKey('gem-model-save-loading')), findsNothing);
     await tester.pump(const Duration(seconds: 2));
@@ -282,7 +316,7 @@ void main() {
     final telemetry = _CapturingTelemetrySink();
     GenesisTelemetry.setSinkForTesting(telemetry);
     await tester.pumpWidget(
-      MaterialApp(
+      _testApp(
         home: MemoryModelPage(
           worldId: 'W_000003',
           catalogLoader: (_) async => _catalog(),
@@ -298,8 +332,11 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFFF2442));
-    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFE1E1E1));
+    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFF82B3C));
+    expect(
+      _tileBorder(tester, 'sake_pro').color,
+      Colors.white.withValues(alpha: 0.14),
+    );
     expect(find.text('Switched failed'), findsOneWidget);
     expect(
       telemetry.events.where((event) => event.name == 'switch_model_save'),
@@ -340,19 +377,22 @@ Color _tileColor(WidgetTester tester, String modelCode) {
       .color!;
 }
 
-({Color? color, double? height, double? radius}) _tagContainer(
-  WidgetTester tester,
-  String tag,
-) {
+({Color? color, Color? borderColor, double? height, double? radius})
+_tagContainer(WidgetTester tester, String tag) {
   final container = tester.widget<Container>(
     find.byKey(ValueKey<String>('gem-model-tag-$tag')),
   );
   final decoration = container.decoration! as BoxDecoration;
   return (
     color: decoration.color,
+    borderColor: decoration.border?.top.color,
     height: container.constraints?.maxHeight,
     radius: decoration.borderRadius?.resolve(TextDirection.ltr).topLeft.x,
   );
+}
+
+Widget _testApp({required Widget home}) {
+  return MaterialApp(theme: GenesisTheme.worldoRedesign(), home: home);
 }
 
 GemModelCatalog _catalog() {

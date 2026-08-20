@@ -7,6 +7,7 @@ import '../../ui/tokens/genesis_palette.dart';
 class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
   const GenesisOriginColors({
     required this.launchPreviewAccent,
+    required this.feedTabInactive,
     required this.roleSetupBackdrop,
     required this.roleSetupPanel,
     required this.roleSetupGradientStart,
@@ -24,6 +25,7 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
 
   factory GenesisOriginColors.light() => const GenesisOriginColors(
     launchPreviewAccent: Color(0xFF6554FF),
+    feedTabInactive: Color(0xFF666666),
     roleSetupBackdrop: Color(0xCC000000),
     roleSetupPanel: Color(0xFF202022),
     roleSetupGradientStart: Color(0xFF505056),
@@ -41,6 +43,7 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
 
   factory GenesisOriginColors.worldoRedesign() => const GenesisOriginColors(
     launchPreviewAccent: GenesisPalette.redesignAccentSoft,
+    feedTabInactive: GenesisPalette.redesignFeedTabInactive,
     roleSetupBackdrop: GenesisPalette.redesignBlack85,
     roleSetupPanel: GenesisPalette.redesignRaised,
     roleSetupGradientStart: GenesisPalette.redesignGradientStart,
@@ -57,6 +60,7 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
   );
 
   final Color launchPreviewAccent;
+  final Color feedTabInactive;
   final Color roleSetupBackdrop;
   final Color roleSetupPanel;
   final Color roleSetupGradientStart;
@@ -78,6 +82,7 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
   @override
   GenesisOriginColors copyWith({
     Color? launchPreviewAccent,
+    Color? feedTabInactive,
     Color? roleSetupBackdrop,
     Color? roleSetupPanel,
     Color? roleSetupGradientStart,
@@ -93,6 +98,7 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
     Color? launchSheetInputBorder,
   }) => GenesisOriginColors(
     launchPreviewAccent: launchPreviewAccent ?? this.launchPreviewAccent,
+    feedTabInactive: feedTabInactive ?? this.feedTabInactive,
     roleSetupBackdrop: roleSetupBackdrop ?? this.roleSetupBackdrop,
     roleSetupPanel: roleSetupPanel ?? this.roleSetupPanel,
     roleSetupGradientStart:
@@ -124,6 +130,7 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
         other.launchPreviewAccent,
         t,
       )!,
+      feedTabInactive: Color.lerp(feedTabInactive, other.feedTabInactive, t)!,
       roleSetupBackdrop: Color.lerp(
         roleSetupBackdrop,
         other.roleSetupBackdrop,

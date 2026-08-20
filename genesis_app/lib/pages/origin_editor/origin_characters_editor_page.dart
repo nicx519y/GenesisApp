@@ -1,9 +1,14 @@
 part of 'origin_editor_pages.dart';
 
 class OriginCharactersEditorPage extends StatefulWidget {
-  const OriginCharactersEditorPage({super.key, required this.repository});
+  const OriginCharactersEditorPage({
+    super.key,
+    required this.repository,
+    this.createWorldoStyle = false,
+  });
 
   final OriginDraftRepository repository;
+  final bool createWorldoStyle;
 
   @override
   State<OriginCharactersEditorPage> createState() =>
@@ -212,10 +217,18 @@ class _OriginCharactersEditorPageState
 
   @override
   Widget build(BuildContext context) {
+    final createWorldoStyle = widget.createWorldoStyle;
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: context.genesisColors.pageBackground,
-      appBar: const GenesisBackAppBar(pageName: 'Characters'),
+      backgroundColor: createWorldoStyle
+          ? GenesisPalette.redesignBackground
+          : context.genesisColors.pageBackground,
+      appBar: createWorldoStyle
+          ? _CreateCharactersAppBar(
+              characterCount: _forms.length,
+              maxCharacters: _maxCharacters,
+            )
+          : const GenesisBackAppBar(pageName: 'Characters'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,
@@ -223,26 +236,31 @@ class _OriginCharactersEditorPageState
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
+                  padding: createWorldoStyle
+                      ? const EdgeInsets.fromLTRB(20, 4, 20, 0)
+                      : const EdgeInsets.fromLTRB(12, 8, 12, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${_forms.length}/$_maxCharacters (Added / Max)',
-                          style: TextStyle(
-                            color: context.genesisCreateColors.text,
-                            fontSize: 14,
-                            height: 1.2,
+                      if (!createWorldoStyle) ...[
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${_forms.length}/$_maxCharacters (Added / Max)',
+                            style: TextStyle(
+                              color: context.genesisCreateColors.text,
+                              fontSize: 14,
+                              height: 1.2,
+                            ),
                           ),
                         ),
-                      ),
-                      SizedBox(height: 12),
+                        const SizedBox(height: 12),
+                      ],
                       for (int i = 0; i < _forms.length; i++) ...[
                         _CharacterCard(
                           index: i + 1,
                           form: _forms[i],
+                          createWorldoStyle: createWorldoStyle,
                           nextFocusNode: i + 1 < _forms.length
                               ? _forms[i + 1].focusNodes.name
                               : null,
@@ -253,25 +271,46 @@ class _OriginCharactersEditorPageState
                             _requestRemoveCharacter(i);
                           },
                         ),
-                        if (i + 1 < _forms.length) SizedBox(height: 12),
+                        if (i + 1 < _forms.length)
+                          SizedBox(height: createWorldoStyle ? 22 : 12),
                       ],
-                      if (_forms.isNotEmpty) SizedBox(height: 12),
-                      CreateInlineAddButton(
-                        label: '+ Add Character',
-                        onTap: _addCharacter,
-                        fontSize: 16,
-                        centered: true,
-                        contentPadding: const EdgeInsets.fromLTRB(0, 11, 0, 5),
-                      ),
-                      SizedBox(height: 12),
+                      if (_forms.isNotEmpty)
+                        SizedBox(height: createWorldoStyle ? 22 : 12),
+                      if (createWorldoStyle)
+                        _CreateCharactersAddButton(onTap: _addCharacter)
+                      else
+                        CreateInlineAddButton(
+                          label: '+ Add Character',
+                          onTap: _addCharacter,
+                          fontSize: 16,
+                          centered: true,
+                          contentPadding: const EdgeInsets.fromLTRB(
+                            0,
+                            11,
+                            0,
+                            5,
+                          ),
+                        ),
+                      SizedBox(height: createWorldoStyle ? 0 : 12),
                     ],
                   ),
                 ),
               ),
               _KeyboardHiddenBottomAction(
+                minimum: createWorldoStyle
+                    ? const EdgeInsets.fromLTRB(20, 22, 20, 30)
+                    : const EdgeInsets.fromLTRB(24, 8, 24, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
-                  width: _primaryActionButtonWidth(context),
+                  width: createWorldoStyle
+                      ? double.infinity
+                      : _primaryActionButtonWidth(context),
+                  height: createWorldoStyle ? 44 : null,
+                  borderRadius: createWorldoStyle
+                      ? BorderRadius.circular(13)
+                      : null,
+                  fontSize: createWorldoStyle ? 13 : null,
+                  fontWeight: createWorldoStyle ? FontWeight.w700 : null,
                   onPressed: _canUseSaveButton ? _saveCharacters : null,
                   onDisabledPressed: () => _showError(_saveDisabledReason),
                 ),

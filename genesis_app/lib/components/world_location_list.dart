@@ -71,8 +71,10 @@ class WorldLocationList extends StatefulWidget {
     required this.points,
     this.locationNodes = const <WorldMapLocationNode>[],
     this.physics,
+    this.scrollController,
     this.enableOuterScrollHandoff = true,
     this.lazyBuildRows = false,
+    this.compactSheetStyle = false,
     this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 12),
     this.recentChatLocationIds = const <String>{},
     this.onPointTap,
@@ -86,8 +88,10 @@ class WorldLocationList extends StatefulWidget {
   final List<WorldPoint> points;
   final List<WorldMapLocationNode> locationNodes;
   final ScrollPhysics? physics;
+  final ScrollController? scrollController;
   final bool enableOuterScrollHandoff;
   final bool lazyBuildRows;
+  final bool compactSheetStyle;
   final EdgeInsetsGeometry padding;
   final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint>? onPointTap;
@@ -216,7 +220,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
         },
         child: widget.lazyBuildRows
             ? ListView.builder(
-                controller: _listController,
+                controller: widget.scrollController ?? _listController,
                 physics: _listPhysics,
                 padding: widget.padding,
                 itemCount: itemCount,
@@ -230,7 +234,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
                 },
               )
             : ListView(
-                controller: _listController,
+                controller: widget.scrollController ?? _listController,
                 physics: _listPhysics,
                 padding: widget.padding,
                 children: [
@@ -261,6 +265,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
         _PointListItem(
           point: points[index],
           level: points[index].depth,
+          compactSheetStyle: widget.compactSheetStyle,
           showRecentChatIcon: _pointMatchesLocationIds(
             points[index],
             widget.recentChatLocationIds,
@@ -314,6 +319,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
             ),
             level: level,
             indent: level * 15.0,
+            compactSheetStyle: widget.compactSheetStyle,
             onTap: widget.onPointTap,
           ),
         );
@@ -329,6 +335,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
             _NodeHeader(
               point: node.point,
               level: level,
+              compactSheetStyle: widget.compactSheetStyle,
               showRecentChatIcon: _nodeMatchesLocationIds(
                 node,
                 widget.recentChatLocationIds,
@@ -396,6 +403,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
           _PointListItem(
             point: row.point,
             level: row.point.depth,
+            compactSheetStyle: widget.compactSheetStyle,
             showRecentChatIcon: _pointMatchesLocationIds(
               row.point,
               widget.recentChatLocationIds,
@@ -440,6 +448,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
         ),
         level: row.level,
         indent: row.level * 15.0,
+        compactSheetStyle: widget.compactSheetStyle,
         onTap: widget.onPointTap,
       );
     }
@@ -447,6 +456,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
         _NodeHeader(
           point: row.point,
           level: row.level,
+          compactSheetStyle: widget.compactSheetStyle,
           showRecentChatIcon: _nodeMatchesLocationIds(
             node,
             widget.recentChatLocationIds,
@@ -581,12 +591,14 @@ class _PointListItem extends StatelessWidget {
   const _PointListItem({
     required this.point,
     required this.level,
+    required this.compactSheetStyle,
     required this.showRecentChatIcon,
     required this.onTap,
   });
 
   final WorldPoint point;
   final int level;
+  final bool compactSheetStyle;
   final bool showRecentChatIcon;
   final ValueChanged<WorldPoint>? onTap;
 
@@ -597,12 +609,16 @@ class _PointListItem extends StatelessWidget {
     return InkWell(
       onTap: onTap == null ? null : () => onTap!(point),
       child: Padding(
-        padding: EdgeInsets.only(left: depthIndent, top: 5, bottom: 5),
+        padding: EdgeInsets.only(
+          left: depthIndent,
+          top: compactSheetStyle ? 10 : 5,
+          bottom: compactSheetStyle ? 10 : 5,
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _PointListCover(point: point),
-            SizedBox(width: 12),
+            _PointListCover(point: point, compactSheetStyle: compactSheetStyle),
+            SizedBox(width: compactSheetStyle ? 11 : 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,7 +635,11 @@ class _PointListItem extends StatelessWidget {
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: _locationNameStyle(context, level),
+                          style: _locationNameStyle(
+                            context,
+                            level,
+                            compactSheetStyle: compactSheetStyle,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -632,7 +652,10 @@ class _PointListItem extends StatelessWidget {
                   ),
                   SizedBox(height: level >= 2 ? 8 : 4),
                   if (point.users.isNotEmpty)
-                    _PointCharacterGroups(users: point.users),
+                    _PointCharacterGroups(
+                      users: point.users,
+                      compactSheetStyle: compactSheetStyle,
+                    ),
                   if (description.isNotEmpty) ...[
                     SizedBox(height: 4),
                     _PointSummaryRow(description: description),
@@ -651,12 +674,14 @@ class _NodeHeader extends StatelessWidget {
   const _NodeHeader({
     required this.point,
     required this.level,
+    required this.compactSheetStyle,
     required this.showRecentChatIcon,
     required this.onTap,
   });
 
   final WorldPoint point;
   final int level;
+  final bool compactSheetStyle;
   final bool showRecentChatIcon;
   final ValueChanged<WorldPoint>? onTap;
 
@@ -665,18 +690,39 @@ class _NodeHeader extends StatelessWidget {
     return InkWell(
       onTap: onTap == null ? null : () => onTap!(point),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(level * 15.0, 5, 0, 5),
+        padding: EdgeInsets.fromLTRB(
+          level * 15.0 + (compactSheetStyle ? 13 : 0),
+          compactSheetStyle ? 9 : 5,
+          0,
+          compactSheetStyle ? 2 : 5,
+        ),
         child: Row(
           children: [
             Flexible(
               fit: FlexFit.loose,
               child: Text(
-                '- ${point.name}',
-                style: _locationNameStyle(context, level),
+                compactSheetStyle ? point.name : '- ${point.name}',
+                style: _locationNameStyle(
+                  context,
+                  level,
+                  compactSheetStyle: compactSheetStyle,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (compactSheetStyle) ...[
+              const Spacer(),
+              Text(
+                point.users.isEmpty ? 'Empty' : '${point.users.length} here',
+                style: TextStyle(
+                  color: context.genesisColors.textSecondary,
+                  fontSize: 9.5,
+                  height: 1,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
             if (showRecentChatIcon) ...[
               SizedBox(width: 5),
               const RecentChatIcon(),
@@ -695,6 +741,7 @@ class _LocationCard extends StatelessWidget {
     required this.showRecentChatIcon,
     required this.level,
     required this.indent,
+    required this.compactSheetStyle,
     required this.onTap,
   });
 
@@ -703,6 +750,7 @@ class _LocationCard extends StatelessWidget {
   final bool showRecentChatIcon;
   final int level;
   final double indent;
+  final bool compactSheetStyle;
   final ValueChanged<WorldPoint>? onTap;
 
   @override
@@ -711,13 +759,27 @@ class _LocationCard extends StatelessWidget {
     return InkWell(
       key: ValueKey<String>('world-location-card-${point.id}'),
       onTap: onTap == null ? null : () => onTap!(targetPoint),
-      child: Padding(
-        padding: EdgeInsets.only(left: indent, top: 5, bottom: 5),
+      child: Container(
+        margin: EdgeInsets.only(left: indent + (compactSheetStyle ? 15 : 0)),
+        padding: EdgeInsets.symmetric(vertical: compactSheetStyle ? 10 : 5),
+        decoration: compactSheetStyle
+            ? BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: context.genesisColors.dividerAction,
+                    width: 1,
+                  ),
+                ),
+              )
+            : null,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _LocationCardCover(point: point),
-            SizedBox(width: 12),
+            _LocationCardCover(
+              point: point,
+              compactSheetStyle: compactSheetStyle,
+            ),
+            SizedBox(width: compactSheetStyle ? 11 : 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -734,7 +796,11 @@ class _LocationCard extends StatelessWidget {
                         fit: FlexFit.loose,
                         child: Text(
                           point.name,
-                          style: _locationNameStyle(context, level),
+                          style: _locationNameStyle(
+                            context,
+                            level,
+                            compactSheetStyle: compactSheetStyle,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -747,7 +813,10 @@ class _LocationCard extends StatelessWidget {
                   ),
                   SizedBox(height: level >= 2 ? 8 : 4),
                   if (point.users.isNotEmpty)
-                    _PointCharacterGroups(users: point.users),
+                    _PointCharacterGroups(
+                      users: point.users,
+                      compactSheetStyle: compactSheetStyle,
+                    ),
                   if (description.isNotEmpty) ...[
                     SizedBox(height: 4),
                     _PointSummaryRow(description: description),
@@ -762,7 +831,19 @@ class _LocationCard extends StatelessWidget {
   }
 }
 
-TextStyle _locationNameStyle(BuildContext context, int level) {
+TextStyle _locationNameStyle(
+  BuildContext context,
+  int level, {
+  bool compactSheetStyle = false,
+}) {
+  if (compactSheetStyle) {
+    return TextStyle(
+      fontSize: 13,
+      height: 1.15,
+      fontWeight: FontWeight.w700,
+      color: context.genesisColors.foregroundStrong,
+    );
+  }
   if (level <= 0) {
     return TextStyle(
       fontSize: 16,
@@ -795,12 +876,89 @@ bool _nodeMatchesLocationIds(
 }
 
 class _PointCharacterGroups extends StatelessWidget {
-  const _PointCharacterGroups({required this.users});
+  const _PointCharacterGroups({
+    required this.users,
+    required this.compactSheetStyle,
+  });
 
   final List<UserAvatar> users;
+  final bool compactSheetStyle;
 
   @override
   Widget build(BuildContext context) {
+    if (compactSheetStyle) {
+      final visibleUsers = users.take(3).toList(growable: false);
+      final overflowCount = users.length - visibleUsers.length;
+      return Wrap(
+        spacing: 5,
+        runSpacing: 5,
+        children: [
+          for (final user in visibleUsers)
+            Container(
+              padding: const EdgeInsets.fromLTRB(4, 3, 8, 3),
+              decoration: BoxDecoration(
+                color: context.genesisColors.surfaceTag,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(6),
+                      border: user.isPlayerControlledRole
+                          ? Border.all(
+                              color: context.genesisColors.danger,
+                              width: 2,
+                            )
+                          : null,
+                    ),
+                    child: GenesisListImage(
+                      imageUrl: user.avatarUrl,
+                      width: 16,
+                      height: 16,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    _characterName(user),
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1,
+                      fontWeight: user.isPlayerControlledRole
+                          ? FontWeight.w700
+                          : FontWeight.w600,
+                      color: user.isPlayerControlledRole
+                          ? context.genesisColors.textPrimary
+                          : context.genesisColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (overflowCount > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: context.genesisColors.surfaceTag,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '+$overflowCount',
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  color: context.genesisColors.textSecondary,
+                ),
+              ),
+            ),
+        ],
+      );
+    }
     final aiNames = users
         .where((user) => user.showStar)
         .map(_characterName)
@@ -907,30 +1065,35 @@ class _PointSummaryRow extends StatelessWidget {
 }
 
 class _PointListCover extends StatelessWidget {
-  const _PointListCover({required this.point});
+  const _PointListCover({required this.point, required this.compactSheetStyle});
 
   final WorldPoint point;
+  final bool compactSheetStyle;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 64,
-      height: 64,
+      width: compactSheetStyle ? 52 : 64,
+      height: compactSheetStyle ? 52 : 64,
       child: _LocationCoverImage(point: point),
     );
   }
 }
 
 class _LocationCardCover extends StatelessWidget {
-  const _LocationCardCover({required this.point});
+  const _LocationCardCover({
+    required this.point,
+    required this.compactSheetStyle,
+  });
 
   final WorldPoint point;
+  final bool compactSheetStyle;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 64,
-      height: 64,
+      width: compactSheetStyle ? 52 : 64,
+      height: compactSheetStyle ? 52 : 64,
       child: _LocationCoverImage(point: point),
     );
   }

@@ -131,6 +131,7 @@ bool _sameOriginItems(
         a.imageUrl != b.imageUrl ||
         a.copyCount != b.copyCount ||
         a.interactCount != b.interactCount ||
+        a.commentCount != b.commentCount ||
         a.characterCount != b.characterCount) {
       return false;
     }
@@ -173,6 +174,7 @@ UserProfileOriginItem _profileOriginItemFromSummary(OriginSummary item) {
     imageUrl: resolveAssetUrl(item.mapImage),
     copyCount: item.copyCount,
     interactCount: item.interactCount,
+    commentCount: item.commentCount,
     characterCount: item.characterCount,
   );
 }
@@ -194,12 +196,20 @@ UserProfileWorldItem _profileWorldItemFromSummary(MyWorldSummary item) {
 
 String _originSubtitle(OriginSummary item) {
   final oid = deletedAwareIdLabel(item.oid, deleted: item.deleted);
-  final originator = item.originator.trim().isEmpty
-      ? '-'
-      : formatUidForDisplay(item.originator);
   final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
-  return 'OID: $oid  Originator: $originator\n'
-      'Latest Version: $version';
+  final updatedAt = _formatProfileUpdatedAt(item.updatedAt);
+  final versionLine = updatedAt.isEmpty
+      ? 'Latest Version: $version'
+      : 'Latest Version: $version · $updatedAt';
+  return 'OID: $oid\n$versionLine';
+}
+
+String _formatProfileUpdatedAt(DateTime? value) {
+  if (value == null) return '';
+  final local = value.toLocal();
+  String twoDigits(int number) => number.toString().padLeft(2, '0');
+  return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)} '
+      '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
 }
 
 String _worldSubtitle(String wid, String ownerName, {bool deleted = false}) {

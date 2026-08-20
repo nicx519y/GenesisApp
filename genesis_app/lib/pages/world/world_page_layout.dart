@@ -29,6 +29,17 @@ extension _WorldPageLayout on _WorldPageState {
           backgroundColor: _tilemapLoadingBackgroundColor,
           panelTopGap: 50,
           panelCollapsedHeightOffset: 120,
+          panelTopRadius: 24,
+          panelTopOverlap: 8,
+          panelTopBandHeight: worldPanelHandleBandHeight,
+          panelTopChild: const Center(child: WorldDetailsDragHandle()),
+          panelTopShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x99000000),
+              blurRadius: 40,
+              offset: Offset(0, -14),
+            ),
+          ],
           scrollPhysics: const NeverScrollableScrollPhysics(),
           persistentTopOverlay: _buildPersistentMapOverlay(
             topPadding,
@@ -46,30 +57,45 @@ extension _WorldPageLayout on _WorldPageState {
           contentBottomPaddingOverride: 0,
           slivers: const [WorldDetailsLoadingContent()],
         ),
-        _buildWorldBottomTagsOverlay(
-          collapsedPanelHeight: collapsedPanelHeight,
-          interactive: false,
-        ),
+        _buildWorldBottomSafeAreaBackground(),
+        _buildWorldBottomTagsOverlay(interactive: false),
       ],
     );
   }
 
-  Widget _buildWorldBottomTagsOverlay({
-    required double collapsedPanelHeight,
-    required bool interactive,
-  }) {
+  Widget _buildWorldBottomSafeAreaBackground() {
     return Positioned(
       left: 0,
       right: 0,
-      bottom: collapsedPanelHeight - worldMainTabsHeight,
+      bottom: 0,
+      height: worldBottomSafeAreaOf(context),
+      child: IgnorePointer(
+        child: ColoredBox(
+          key: const ValueKey<String>('world-bottom-safe-area-background'),
+          color: context.genesisColors.pageBackground,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorldBottomTagsOverlay({required bool interactive}) {
+    final bottomSafeArea = worldBottomSafeAreaOf(context);
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: bottomSafeArea,
       height: worldMainTabsHeight,
       child: IgnorePointer(
         key: const ValueKey<String>('world-bottom-tags-overlay'),
         ignoring: !interactive,
-        child: WorldBottomTags(
-          eventsUnread: _eventsUnread,
-          showDetailUnreadDot: _hasUnreadNewUserJoin,
-          onTap: _openWorldBottomSheet,
+        child: ValueListenableBuilder<WorldBottomSheetSelection>(
+          valueListenable: _worldBottomSheetSelection,
+          builder: (context, selection, _) => WorldBottomTags(
+            eventsUnread: _eventsUnread,
+            showDetailUnreadDot: _hasUnreadNewUserJoin,
+            selectedKind: _worldBottomSheetOpen ? selection.kind : null,
+            onTap: _openWorldBottomSheet,
+          ),
         ),
       ),
     );
@@ -90,33 +116,29 @@ extension _WorldPageLayout on _WorldPageState {
       subTickNo: subTickNo,
       worldTime: worldTime,
     );
+    final resolvedWorldStatusLabel = world == null
+        ? ''
+        : worldMapStatusLabel(
+            relationStatus: world.relationStatus,
+            timeText: resolvedWorldTimeLabel,
+          );
     return Positioned.fill(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final sideReservedWidth =
-              worldMapBackButtonLeft +
-              worldMapTabsHeight +
-              worldMapIdentityHorizontalGap;
           final maxIdentityWidth =
-              (constraints.maxWidth - sideReservedWidth * 2)
-                  .clamp(worldTimePillMinWidth, constraints.maxWidth)
+              (constraints.maxWidth -
+                      worldMapHeaderHorizontalPadding * 2 -
+                      worldMapHeaderButtonSize -
+                      worldMapHeaderTitleGap)
+                  .clamp(0, constraints.maxWidth)
                   .toDouble();
           return Stack(
             children: [
               if (_worldMainTabIndex == 0)
                 Positioned(
-                  left: worldMapBackButtonLeft,
-                  top: top + 6,
-                  child: WorldMapBackButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                  ),
-                ),
-              if (world != null &&
-                  (title.isNotEmpty || resolvedWorldTimeLabel.isNotEmpty))
-                Positioned(
-                  left: sideReservedWidth,
-                  right: sideReservedWidth,
-                  top: top + 2,
+                  left: worldMapHeaderHorizontalPadding,
+                  right: worldMapHeaderHorizontalPadding,
+                  top: top + worldMapHeaderTopPadding,
                   child: AnimatedBuilder(
                     animation:
                         _mainTabController.animation ?? _mainTabController,
@@ -124,13 +146,25 @@ extension _WorldPageLayout on _WorldPageState {
                       if (_worldMainTabIndex != 0) {
                         return const SizedBox.shrink();
                       }
-                      return Align(
-                        alignment: Alignment.topCenter,
-                        child: WorldMapIdentityPill(
-                          title: title,
-                          timeText: resolvedWorldTimeLabel,
-                          maxWidth: maxIdentityWidth,
-                        ),
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          WorldMapBackButton(
+                            onPressed: () => Navigator.of(context).maybePop(),
+                          ),
+                          if (world != null &&
+                              (title.isNotEmpty ||
+                                  resolvedWorldStatusLabel.isNotEmpty)) ...[
+                            const SizedBox(width: worldMapHeaderTitleGap),
+                            Expanded(
+                              child: WorldMapIdentityPill(
+                                title: title,
+                                statusText: resolvedWorldStatusLabel,
+                                maxWidth: maxIdentityWidth,
+                              ),
+                            ),
+                          ],
+                        ],
                       );
                     },
                   ),

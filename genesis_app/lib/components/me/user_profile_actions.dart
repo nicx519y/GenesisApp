@@ -6,30 +6,33 @@ class _FollowStats extends StatelessWidget {
     required this.followerCount,
     required this.onFollowingTap,
     required this.onFollowersTap,
+    this.compact = false,
   });
 
   final int followingCount;
   final int followerCount;
   final VoidCallback onFollowingTap;
   final VoidCallback onFollowersTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
     final style = TextStyle(
-      fontSize: 16,
+      fontSize: compact ? 14 : 16,
       height: 1,
       color: colors.textPrimary,
       fontWeight: FontWeight.w600,
     );
     final labelStyle = TextStyle(
-      fontSize: 14,
+      fontSize: compact ? 12 : 14,
       height: 1,
       color: colors.textMuted,
       fontWeight: FontWeight.w400,
     );
 
-    return Row(
+    final stats = Row(
+      mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
       children: [
         _FollowStatButton(
           onTap: onFollowingTap,
@@ -47,6 +50,12 @@ class _FollowStats extends StatelessWidget {
           labelStyle: labelStyle,
         ),
       ],
+    );
+    if (!compact) return stats;
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: stats,
     );
   }
 }
@@ -182,10 +191,10 @@ class _Avatar extends StatelessWidget {
     required this.isUpdating,
     required this.updatingListenable,
     required this.onEdit,
+    this.size = 80,
+    this.radius = GenesisAvatarRadii.user,
+    this.redesigned = false,
   });
-
-  static const double _size = 80;
-  static const double _radius = GenesisAvatarRadii.user;
 
   final String url;
   final String name;
@@ -194,6 +203,9 @@ class _Avatar extends StatelessWidget {
   final bool isUpdating;
   final ValueListenable<bool>? updatingListenable;
   final VoidCallback? onEdit;
+  final double size;
+  final double radius;
+  final bool redesigned;
 
   @override
   Widget build(BuildContext context) {
@@ -239,17 +251,32 @@ class _Avatar extends StatelessWidget {
   ) {
     final colors = context.genesisColors;
     return SizedBox(
-      width: _size,
-      height: _size,
+      width: size,
+      height: size,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           GenesisAvatar(
             url: avatarUrl,
             name: displayName,
-            size: _size,
-            borderRadius: _radius,
+            size: size,
+            borderRadius: radius,
             imageKey: const ValueKey('user-profile-avatar-image'),
+            fallbackBackgroundColor: redesigned ? colors.danger : null,
+            textStyle: redesigned
+                ? TextStyle(
+                    color: colors.onDanger,
+                    fontSize: 30,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                    shadows: [
+                      Shadow(
+                        color: colors.accentText,
+                        offset: const Offset(2.5, 2.5),
+                      ),
+                    ],
+                  )
+                : null,
           ),
           if (onEdit != null)
             Positioned(
@@ -282,10 +309,12 @@ class _DisplayNameText extends StatelessWidget {
   const _DisplayNameText({
     required this.displayName,
     required this.displayNameListenable,
+    this.redesigned = false,
   });
 
   final String displayName;
   final ValueListenable<String>? displayNameListenable;
+  final bool redesigned;
 
   @override
   Widget build(BuildContext context) {
@@ -308,9 +337,9 @@ class _DisplayNameText extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        fontSize: 18,
+        fontSize: redesigned ? 24 : 18,
         height: 1,
-        fontWeight: FontWeight.w600,
+        fontWeight: redesigned ? FontWeight.w900 : FontWeight.w600,
         color: context.genesisColors.foregroundStrong,
       ),
     );
@@ -322,11 +351,13 @@ class _ProfileEditButton extends StatelessWidget {
     required this.isUpdating,
     required this.updatingListenable,
     required this.onTap,
+    this.compact = false,
   });
 
   final bool isUpdating;
   final ValueListenable<bool>? updatingListenable;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -345,14 +376,14 @@ class _ProfileEditButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: updating ? null : onTap,
       child: SizedBox(
-        width: 28,
-        height: 24,
+        width: compact ? 24 : 28,
+        height: compact ? 20 : 24,
         child: Align(
           alignment: Alignment.bottomCenter,
           child: SvgPicture.asset(
             editPencilLineIconAsset,
-            width: 18,
-            height: 18,
+            width: compact ? 15 : 18,
+            height: compact ? 15 : 18,
             colorFilter: ColorFilter.mode(
               context.genesisColors.foregroundStrong,
               BlendMode.srcIn,

@@ -25,6 +25,10 @@ class TilemapRenderer extends StatefulWidget {
     this.waitForVisibleTileImageFrames = true,
     this.isForeground = true,
     this.animationsPaused = false,
+    this.foregroundOverlay,
+    this.showZoomControl = true,
+    this.centerInitialViewport = false,
+    this.initialViewportVerticalOffsetFraction = 0,
     this.locationImageFlowPaused = false,
     this.visualMode = tilemapDefaultVisualMode,
     this.fogControlPoints = tilemapDefaultFogControlPoints,
@@ -61,6 +65,10 @@ class TilemapRenderer extends StatefulWidget {
   final bool waitForVisibleTileImageFrames;
   final bool isForeground;
   final bool animationsPaused;
+  final Widget? foregroundOverlay;
+  final bool showZoomControl;
+  final bool centerInitialViewport;
+  final double initialViewportVerticalOffsetFraction;
   final bool locationImageFlowPaused;
   final TilemapVisualMode visualMode;
   final List<TilemapFogControlPoint> fogControlPoints;
@@ -92,6 +100,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
   Rect? _lastContentBounds;
   double? _lastInitialScale;
   Offset? _lastInitialFocus;
+  double? _lastInitialViewportVerticalOffsetFraction;
   Rect? _lastDragBoundary;
   TilemapConfig? _renderIndexConfig;
   double? _renderIndexMapWidth;
@@ -134,6 +143,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
   double? _viewportReadinessDevicePixelRatio;
   double? _viewportReadinessInitialScale;
   Offset? _viewportReadinessInitialFocus;
+  double? _viewportReadinessInitialViewportVerticalOffsetFraction;
   Rect? _viewportReadinessDragBoundary;
 
   @override
@@ -270,12 +280,16 @@ class _TilemapRendererState extends State<TilemapRenderer>
           final contentBounds = projection.imageBoundsForTiles(
             tilemapInitialContentTiles(widget.config.tiles),
           );
-          final initialFocusTile = tilemapInitialFocusLocationTile(
-            tiles: widget.config.tiles,
-            locationAvatarsForTile: widget.locationAvatarsForTile,
-            preferredLocationId: widget.preferredFocusLocationId,
-          );
-          final initialFocus = initialFocusTile == null
+          final initialFocusTile = widget.centerInitialViewport
+              ? null
+              : tilemapInitialFocusLocationTile(
+                  tiles: widget.config.tiles,
+                  locationAvatarsForTile: widget.locationAvatarsForTile,
+                  preferredLocationId: widget.preferredFocusLocationId,
+                );
+          final initialFocus = widget.centerInitialViewport
+              ? contentBounds.center
+              : initialFocusTile == null
               ? null
               : projection.centerForTile(initialFocusTile);
           final dragBoundary = tilemapDragBoundaryForShadowTiles(
@@ -288,6 +302,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
             devicePixelRatio: devicePixelRatio,
             initialScale: widget.initialScale,
             initialFocus: initialFocus,
+            initialViewportVerticalOffsetFraction:
+                widget.initialViewportVerticalOffsetFraction,
             dragBoundary: dragBoundary,
           );
           _syncInitialTransform(
@@ -296,6 +312,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
             contentBounds: contentBounds,
             initialFocus: initialFocus,
             initialScale: widget.initialScale,
+            initialViewportVerticalOffsetFraction:
+                widget.initialViewportVerticalOffsetFraction,
             dragBoundary: dragBoundary,
           );
           return SizedBox(
@@ -396,11 +414,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 showEvent:
                                     widget.showEventForTile?.call(tile) ??
                                     false,
-                                verticalOverflow:
-                                    _tilemapLocationLabelVerticalOverflow(
-                                      context,
-                                      name,
-                                    ),
                               ),
                             );
                           }
@@ -421,46 +434,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 visibleCharacterIds: visibleCharacterIds,
                                 paused: widget.messageBubblePlaybackPaused,
                                 frozen: widget.animationsPaused,
-                                builder: (context, activeBubble) {
-                                  _TilemapLocationLabelData? activeBubbleLabel;
-                                  var activeBubbleAvatarIndex = -1;
-                                  if (activeBubble != null) {
-                                    for (final label in locationLabels) {
-                                      final avatarIndex = label.avatars
-                                          .indexWhere(
-                                            (avatar) =>
-                                                avatar.id.trim() ==
-                                                activeBubble.characterId.trim(),
-                                          );
-                                      if (avatarIndex < 0) continue;
-                                      activeBubbleLabel = label;
-                                      activeBubbleAvatarIndex = avatarIndex;
-                                      break;
-                                    }
-                                  }
-                                  final activeBubbleLocationAnchor =
-                                      activeBubbleLabel == null
-                                      ? null
-                                      : MatrixUtils.transformPoint(
-                                          matrix,
-                                          tilemapLocationBubbleSceneAnchor(
-                                            projection,
-                                            activeBubbleLabel.tile,
-                                          ),
-                                        );
-                                  final activeBubbleAvatarTopLeft =
-                                      activeBubbleLocationAnchor == null
-                                      ? null
-                                      : tilemapMessageBubbleAvatarTopLeft(
-                                          locationBubbleAnchor:
-                                              activeBubbleLocationAnchor,
-                                          avatarIndex: activeBubbleAvatarIndex,
-                                          avatarCount:
-                                              activeBubbleLabel!.avatars.length,
-                                          locationLabelVerticalOverflow:
-                                              activeBubbleLabel
-                                                  .verticalOverflow,
-                                        );
+                                builder: (context, _) {
                                   return Stack(
                                     fit: StackFit.expand,
                                     clipBehavior: Clip.none,
@@ -646,22 +620,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                             ),
                                           ),
                                         ),
-                                      if (activeBubble != null &&
-                                          activeBubbleLabel != null &&
-                                          activeBubbleAvatarTopLeft != null)
-                                        TilemapCharacterMessageBubble(
-                                          text: activeBubble.content,
-                                          avatarTopLeft:
-                                              activeBubbleAvatarTopLeft,
-                                          viewportWidth: viewportSize.width,
-                                          preservePageWidth:
-                                              activeBubble.preservePageWidth,
-                                          onTap: widget.onTileAction == null
-                                              ? null
-                                              : () => _handleOverlayTileTap(
-                                                  activeBubbleLabel!.tile,
-                                                ),
-                                        ),
                                     ],
                                   );
                                 },
@@ -673,38 +631,41 @@ class _TilemapRendererState extends State<TilemapRenderer>
                     ),
                   ),
                 ),
-                Positioned(
-                  right: legacyWorldMapZoomControlRightGap,
-                  bottom: legacyWorldMapZoomControlBottomGap,
-                  child: ValueListenableBuilder<Matrix4>(
-                    valueListenable: _transformationController,
-                    builder: (context, matrix, child) {
-                      final scale = tilemapTransformScale(matrix);
-                      return LegacyWorldMapZoomControl(
-                        value: scale,
-                        min: tilemapMinScale,
-                        max: tilemapMaxScale,
-                        onChanged: (targetScale) => _zoomToScaleByControl(
-                          targetScale: targetScale,
-                          viewportSize: viewportSize,
-                          dragBoundary: dragBoundary,
-                        ),
-                        canZoomIn: scale < tilemapMaxScale - 0.001,
-                        canZoomOut: scale > tilemapMinScale + 0.001,
-                        onZoomIn: () => _zoomByControl(
-                          zoomIn: true,
-                          viewportSize: viewportSize,
-                          dragBoundary: dragBoundary,
-                        ),
-                        onZoomOut: () => _zoomByControl(
-                          zoomIn: false,
-                          viewportSize: viewportSize,
-                          dragBoundary: dragBoundary,
-                        ),
-                      );
-                    },
+                if (widget.foregroundOverlay case final overlay?)
+                  Positioned.fill(child: overlay),
+                if (widget.showZoomControl)
+                  Positioned(
+                    right: legacyWorldMapZoomControlRightGap,
+                    bottom: legacyWorldMapZoomControlBottomGap,
+                    child: ValueListenableBuilder<Matrix4>(
+                      valueListenable: _transformationController,
+                      builder: (context, matrix, child) {
+                        final scale = tilemapTransformScale(matrix);
+                        return LegacyWorldMapZoomControl(
+                          value: scale,
+                          min: tilemapMinScale,
+                          max: tilemapMaxScale,
+                          onChanged: (targetScale) => _zoomToScaleByControl(
+                            targetScale: targetScale,
+                            viewportSize: viewportSize,
+                            dragBoundary: dragBoundary,
+                          ),
+                          canZoomIn: scale < tilemapMaxScale - 0.001,
+                          canZoomOut: scale > tilemapMinScale + 0.001,
+                          onZoomIn: () => _zoomByControl(
+                            zoomIn: true,
+                            viewportSize: viewportSize,
+                            dragBoundary: dragBoundary,
+                          ),
+                          onZoomOut: () => _zoomByControl(
+                            zoomIn: false,
+                            viewportSize: viewportSize,
+                            dragBoundary: dragBoundary,
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
               ],
             ),
           );
@@ -767,6 +728,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
     required double devicePixelRatio,
     required double initialScale,
     required Offset? initialFocus,
+    required double initialViewportVerticalOffsetFraction,
     required Rect? dragBoundary,
   }) {
     final environmentChanged =
@@ -775,12 +737,16 @@ class _TilemapRendererState extends State<TilemapRenderer>
             _viewportReadinessDevicePixelRatio != devicePixelRatio ||
             _viewportReadinessInitialScale != initialScale ||
             _viewportReadinessInitialFocus != initialFocus ||
+            _viewportReadinessInitialViewportVerticalOffsetFraction !=
+                initialViewportVerticalOffsetFraction ||
             _viewportReadinessDragBoundary != dragBoundary);
     _hasViewportReadinessEnvironment = true;
     _viewportReadinessSize = viewportSize;
     _viewportReadinessDevicePixelRatio = devicePixelRatio;
     _viewportReadinessInitialScale = initialScale;
     _viewportReadinessInitialFocus = initialFocus;
+    _viewportReadinessInitialViewportVerticalOffsetFraction =
+        initialViewportVerticalOffsetFraction;
     _viewportReadinessDragBoundary = dragBoundary;
     if (environmentChanged) {
       _resetViewportReadiness();
@@ -1240,6 +1206,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
     required Rect contentBounds,
     required Offset? initialFocus,
     required double initialScale,
+    required double initialViewportVerticalOffsetFraction,
     required Rect? dragBoundary,
   }) {
     final dragBoundaryChanged = _lastDragBoundary != dragBoundary;
@@ -1248,6 +1215,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
         _lastContentBounds == contentBounds &&
         _lastInitialFocus == initialFocus &&
         _lastInitialScale == initialScale &&
+        _lastInitialViewportVerticalOffsetFraction ==
+            initialViewportVerticalOffsetFraction &&
         !dragBoundaryChanged) {
       return;
     }
@@ -1256,6 +1225,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
     _lastContentBounds = contentBounds;
     _lastInitialFocus = initialFocus;
     _lastInitialScale = initialScale;
+    _lastInitialViewportVerticalOffsetFraction =
+        initialViewportVerticalOffsetFraction;
     _lastDragBoundary = dragBoundary;
     if (_hasUserTransformedMap) {
       if (dragBoundaryChanged) {
@@ -1273,6 +1244,9 @@ class _TilemapRendererState extends State<TilemapRenderer>
       contentBounds: contentBounds,
       focus: initialFocus,
       initialScale: initialScale,
+      viewportVerticalOffset:
+          viewportSize.height *
+          initialViewportVerticalOffsetFraction.clamp(-0.25, 0.25),
     );
     _transformationController.value = tilemapConstrainTransformToBoundary(
       transform: initialTransform,

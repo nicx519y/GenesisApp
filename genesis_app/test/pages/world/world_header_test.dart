@@ -1,6 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
+import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
+import 'package:genesis_flutter_android/pages/world/world_models.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
   test('world map time label includes the current sub-tick number', () {
@@ -37,5 +41,124 @@ void main() {
     });
 
     expect(world.subTickNo, 0);
+  });
+
+  test('world preview status reads Not started', () {
+    expect(
+      worldMapStatusLabel(
+        relationStatus: 'anonymous',
+        timeText: 'Tick 3 · Day 2, 01:00',
+      ),
+      'Not started',
+    );
+  });
+
+  testWidgets('world map title bar matches the redesigned hierarchy', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              WorldMapBackButton(onPressed: () {}),
+              const SizedBox(width: worldMapHeaderTitleGap),
+              const WorldMapIdentityPill(
+                title: 'Old Money',
+                statusText: 'Not started',
+                maxWidth: 240,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final backButtonFinder = find.byKey(
+      const ValueKey<String>('world-map-back-button'),
+    );
+    expect(tester.getSize(backButtonFinder), const Size.square(34));
+    final backIcon = tester.widget<Icon>(
+      find.descendant(
+        of: backButtonFinder,
+        matching: find.byIcon(Icons.arrow_back_ios_new),
+      ),
+    );
+    expect(backIcon.size, 14);
+
+    final title = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('world-map-title')),
+    );
+    expect(title.data, 'Old Money');
+    expect(title.style?.fontSize, 17);
+    expect(title.style?.height, 1.1);
+    expect(title.style?.fontWeight, FontWeight.w800);
+
+    final status = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('world-map-status')),
+    );
+    expect(status.data, 'Not started');
+    expect(status.style?.fontSize, 9.5);
+    expect(status.style?.height, 1.3);
+    expect(status.style?.fontWeight, FontWeight.w500);
+  });
+
+  testWidgets('joined world panel matches the active-role resting layout', (
+    tester,
+  ) async {
+    var actionCount = 0;
+    WorldHeaderActionKind? lastAction;
+    final world = WorldDetail.fromJson(const {
+      'world_id': 'world-resting',
+      'relation_status': 'joined',
+      'tick_count': 7,
+      'sub_tick_no': 2,
+      'characters': [
+        {'name': 'Adrian', 'avatar': '', 'player_uid': 'user-me'},
+      ],
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              width: 390,
+              child: WorldInfoHeader(
+                world: world,
+                currentUid: 'user-me',
+                worldActionRunning: false,
+                onWorldAction: (action) async {
+                  actionCount++;
+                  lastAction = action;
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('world-playing-avatar'))),
+      const Size.square(40),
+    );
+    expect(find.text('Playing Adrian'), findsOneWidget);
+    expect(find.text('Tick 7-2'), findsOneWidget);
+    expect(find.text('Tick now'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('world-action-button'))),
+      const Size(92, worldInfoHeaderContentHeight),
+    );
+
+    await tester.tap(find.text('Tick now'));
+    await tester.pump();
+
+    expect(actionCount, 1);
+    expect(lastAction, WorldHeaderActionKind.progress);
   });
 }

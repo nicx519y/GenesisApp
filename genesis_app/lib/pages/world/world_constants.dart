@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../components/world_details_shell.dart';
-
 const String worldSectionEventsIconAsset = 'assets/custom-icons/svg/events.svg';
 const String worldSectionStatusIconAsset =
     'assets/custom-icons/svg/world_tab_status.svg';
@@ -12,19 +10,18 @@ const String worldDetailIconAsset =
 const double worldMapTabsHeight = 38;
 const double worldMapBackButtonLeft = 9.5;
 const double worldMapIdentityHorizontalGap = 12;
-const double worldMainTabsHeight = 49;
+const double worldMapHeaderHorizontalPadding = 18;
+const double worldMapHeaderTopPadding = 12;
+const double worldMapHeaderButtonSize = 34;
+const double worldMapHeaderTitleGap = 10;
+const double worldSheetTitleBottomGap = 8;
+const double worldPanelHandleBandHeight = 26;
+const double worldMainTabsHeight = 45;
 const double worldBottomTagHeight = 34;
-const double worldBottomTagToStatsGap = 10;
-const double worldStatsTopSpacerHeight =
-    (worldMainTabsHeight + worldBottomTagHeight) / 2 -
-    WorldDetailsPageScaffold.inlineContentTopPadding +
-    worldBottomTagToStatsGap;
-const double worldInfoHeaderHeight = 49;
+const double worldInfoHeaderHeight = 67;
+const double worldInfoHeaderContentHeight = 40;
 const double worldCollapsedPanelBaseHeight =
-    WorldDetailsPageScaffold.inlineContentTopPadding +
-    worldStatsTopSpacerHeight +
-    worldInfoHeaderHeight;
-const double worldInfoHeaderContentHeight = 35;
+    worldPanelHandleBandHeight + worldInfoHeaderHeight + worldMainTabsHeight;
 const double worldTimePillTopGap = 12;
 const double worldTimePillHeight = 22;
 const double worldTimePillMinWidth = 96;

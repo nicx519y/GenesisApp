@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -16,11 +15,17 @@ import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/pages/world/world_map_data.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
-import 'package:genesis_flutter_android/ui/components/recent_chat_marker.dart';
 
 void main() {
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
+  });
+
+  test('world map zoom control uses the dark map color treatment', () {
+    expect(legacyWorldMapZoomControlBackgroundColor, const Color(0x8C131215));
+    expect(legacyWorldMapZoomControlEnabledColor, Colors.white);
+    expect(legacyWorldMapZoomControlDisabledColor, const Color(0xFF777777));
+    expect(legacyWorldMapZoomGripLineColor, Colors.white);
   });
 
   test('initial zoom focus uses location with the most avatars', () {
@@ -94,7 +99,7 @@ void main() {
     expect(locationMapPaths, isEmpty);
   });
 
-  testWidgets('world map lays out fewer than four avatars in one row', (
+  testWidgets('world map overlaps up to three compact avatars in one row', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -122,20 +127,16 @@ void main() {
 
     final avatars = find.byType(GenesisCharacterAvatar);
     expect(avatars, findsNWidgets(3));
-    expect(tester.getSize(avatars.first), const Size(42, 42));
-    expect(
-      tester.widget<GenesisCharacterAvatar>(avatars.first).boxShadow,
-      isNotEmpty,
-    );
-    expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsOneWidget);
+    expect(tester.getSize(avatars.first), const Size(22, 22));
+    expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsNothing);
 
     final first = tester.getTopLeft(avatars.at(0));
     final second = tester.getTopLeft(avatars.at(1));
     final third = tester.getTopLeft(avatars.at(2));
     expect(second.dy, first.dy);
     expect(third.dy, first.dy);
-    expect(second.dx, greaterThan(first.dx));
-    expect(third.dx, greaterThan(second.dx));
+    expect(second.dx - first.dx, closeTo(16, 0.01));
+    expect(third.dx - second.dx, closeTo(16, 0.01));
   });
 
   testWidgets('world map keeps long Chinese labels within the maximum width', (
@@ -177,20 +178,20 @@ void main() {
 
     expect(china.didExceedMaxLines, isFalse);
     expect(seattle.didExceedMaxLines, isFalse);
-    expect(startupStreet.didExceedMaxLines, isFalse);
+    expect(startupStreet.didExceedMaxLines, isTrue);
     expect(china.size.height, lessThanOrEqualTo(14.0));
     expect(seattle.size.height, lessThanOrEqualTo(14.0));
-    final startupStreetBubble = tester.getSize(
+    final startupStreetMarker = tester.getSize(
       find.byKey(
-        const ValueKey<String>('world-map-location-label-startup-street'),
+        const ValueKey<String>('world-map-location-marker-startup-street'),
       ),
     );
-    expect(startupStreetBubble.width, lessThanOrEqualTo(141.0));
-    expect(startupStreet.size.height, greaterThan(12.0));
+    expect(startupStreetMarker.width, lessThanOrEqualTo(168.0));
+    expect(startupStreet.size.height, lessThanOrEqualTo(14.0));
   });
 
   testWidgets(
-    'legacy world map sizes wrapped labels to their longest line and clears dot',
+    'legacy world map keeps location names on one line above the shared pin',
     (tester) async {
       const name = 'Sala Común De Slytherin';
       await _pumpWorldMap(
@@ -208,47 +209,34 @@ void main() {
         ],
       );
 
-      final painter = TextPainter(
-        text: const TextSpan(
-          text: name,
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.2,
-            leadingDistribution: TextLeadingDistribution.even,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: 135);
-      final longestLine = painter.computeLineMetrics().fold<double>(
-        0,
-        (width, line) => math.max(width, line.width),
+      final marker = find.byKey(
+        const ValueKey<String>('world-map-location-marker-wrapped-label'),
       );
-      final expectedLabelWidth = longestLine.ceilToDouble() + 6;
-
       final labelRect = tester.getRect(
-        find.byKey(
-          const ValueKey<String>('world-map-location-label-wrapped-label'),
+        find.descendant(
+          of: marker,
+          matching: find.byKey(
+            const ValueKey<String>('world-map-location-marker-pill'),
+          ),
         ),
       );
       final dotRect = tester.getRect(
-        find.byKey(const ValueKey<String>('world-map-location-dot')),
+        find.descendant(
+          of: marker,
+          matching: find.byKey(
+            const ValueKey<String>('world-map-location-dot'),
+          ),
+        ),
       );
       final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
 
-      final expectedLineCount = painter.computeLineMetrics().length;
-      expect(expectedLineCount, greaterThan(1));
-      expect(paragraph.maxLines, expectedLineCount);
-      expect(paragraph.didExceedMaxLines, isFalse);
-      expect(labelRect.width, closeTo(expectedLabelWidth, 0.01));
-      expect(labelRect.width, lessThan(141));
-      expect(labelRect.height, closeTo(painter.height + 8, 0.01));
-      expect(dotRect.top - labelRect.bottom, closeTo(6, 0.01));
+      expect(paragraph.maxLines, 1);
+      expect(labelRect.height, 24);
+      expect(dotRect.top - labelRect.bottom, closeTo(11, 0.01));
     },
   );
 
-  testWidgets('world map renders recent chat icon outside centered label', (
+  testWidgets('world map uses a brighter outline for the existing emphasis', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -267,30 +255,30 @@ void main() {
       recentChatMapLocationIds: const <String>{'location-1'},
     );
 
-    final labelRect = tester.getRect(
-      find.byKey(const ValueKey<String>('world-map-location-label-point-1')),
+    final marker = find.byKey(
+      const ValueKey<String>('world-map-location-marker-point-1'),
     );
-    final iconRect = tester.getRect(
-      find.byKey(const ValueKey<String>('world-map-recent-chat-icon')),
-    );
-    final dotRect = tester.getRect(
-      find.byKey(const ValueKey<String>('world-map-location-dot')),
-    );
-
-    expect(iconRect.left, closeTo(labelRect.right + 3, 0.01));
-    expect(iconRect.center.dy, closeTo(labelRect.center.dy, 0.01));
-    expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
-    expect(iconRect.size, const Size.square(16));
-    final iconBadge = tester.widget<DecoratedBox>(
-      find.byKey(const ValueKey<String>('world-map-recent-chat-icon')),
+    final pill = tester.widget<DecoratedBox>(
+      find.descendant(
+        of: marker,
+        matching: find.byKey(
+          const ValueKey<String>('world-map-location-marker-pill'),
+        ),
+      ),
     );
     expect(
-      (iconBadge.decoration as BoxDecoration).color,
-      kRecentChatMarkerBackgroundColor,
+      (pill.decoration as BoxDecoration).border?.top.color.a,
+      closeTo(0.62, 0.001),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-map-recent-chat-icon')),
+      findsNothing,
     );
   });
 
-  testWidgets('world map renders Event before Recent Message', (tester) async {
+  testWidgets('world map renders an event count on the location pill', (
+    tester,
+  ) async {
     await _pumpWorldMap(
       tester,
       users: const [],
@@ -308,43 +296,19 @@ void main() {
       recentChatMapLocationIds: const <String>{'location-1'},
     );
 
-    final labelRect = tester.getRect(
-      find.byKey(const ValueKey<String>('world-map-location-label-point-1')),
+    expect(
+      find.byKey(const ValueKey<String>('world-map-location-event-count')),
+      findsOneWidget,
     );
-    final eventRect = tester.getRect(
+    expect(find.text('1'), findsOneWidget);
+    expect(
       find.byKey(const ValueKey<String>('world-map-event-icon')),
+      findsNothing,
     );
-    final recentRect = tester.getRect(
+    expect(
       find.byKey(const ValueKey<String>('world-map-recent-chat-icon')),
+      findsNothing,
     );
-    final dotRect = tester.getRect(
-      find.byKey(const ValueKey<String>('world-map-location-dot')),
-    );
-
-    expect(eventRect.left, closeTo(labelRect.right + 3, 0.01));
-    expect(recentRect.left, closeTo(eventRect.right + 3, 0.01));
-    expect(eventRect.center.dy, closeTo(labelRect.center.dy, 0.01));
-    expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
-    expect(eventRect.size, const Size.square(16));
-    final eventBadge = tester.widget<DecoratedBox>(
-      find.byKey(const ValueKey<String>('world-map-event-icon')),
-    );
-    expect(
-      (eventBadge.decoration as BoxDecoration).color,
-      kWorldEventMarkerBackgroundColor,
-    );
-    final eventSvg = tester.widget<SvgPicture>(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('world-map-event-icon')),
-        matching: find.byType(SvgPicture),
-      ),
-    );
-    expect(
-      eventSvg.colorFilter,
-      const ColorFilter.mode(kWorldEventMarkerColor, BlendMode.srcIn),
-    );
-    expect(eventSvg.width, kWorldEventMapIconSize);
-    expect(eventSvg.height, kWorldEventMapIconSize);
   });
 
   testWidgets('world map renders generated avatar when avatar URL is empty', (
@@ -359,7 +323,7 @@ void main() {
     expect(find.text('LP'), findsOneWidget);
   });
 
-  testWidgets('world map shows bubble for matching visible avatar', (
+  testWidgets('world map does not paint chat bubbles over locations', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -371,10 +335,14 @@ void main() {
       ),
     );
 
-    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+    expect(find.text('Ava checks the storefront.'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('world-map-message-bubble-body')),
+      findsNothing,
+    );
   });
 
-  testWidgets('tapping a message bubble opens its location', (tester) async {
+  testWidgets('hidden message bubbles do not add a tap target', (tester) async {
     final tappedIds = <String>[];
     await _pumpWorldMap(
       tester,
@@ -386,15 +354,13 @@ void main() {
       onPointTap: (point) => tappedIds.add(point.id),
     );
 
-    await tester.tap(find.text('Ava checks the storefront.'));
-
-    expect(tappedIds, ['point-1']);
+    expect(find.text('Ava checks the storefront.'), findsNothing);
+    expect(tappedIds, isEmpty);
   });
 
-  testWidgets('world map bubble adapts width up to the maximum', (
+  testWidgets('world map hides short and long active bubble content', (
     tester,
   ) async {
-    const bubbleBodyKey = ValueKey<String>('world-map-message-bubble-body');
     await _pumpWorldMap(
       tester,
       users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
@@ -404,8 +370,7 @@ void main() {
       ),
     );
 
-    final shortSize = tester.getSize(find.byKey(bubbleBodyKey));
-    final shortTextSize = tester.getSize(find.text('who are you'));
+    expect(find.text('who are you'), findsNothing);
 
     await _pumpWorldMap(
       tester,
@@ -418,11 +383,13 @@ void main() {
       ),
     );
 
-    final longSize = tester.getSize(find.byKey(bubbleBodyKey));
-    expect(shortSize.width, lessThan(longSize.width));
-    expect(shortTextSize.height, lessThan(20));
-    expect(longSize.width, worldMapMessageBubbleMaxWidth);
-    expect(shortSize.height, lessThan(longSize.height));
+    expect(
+      find.text(
+        'Ava checks the storefront, counts every crate, and writes down '
+        'the route before the market opens.',
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('world map hides bubble when avatar is not visible', (
@@ -440,7 +407,7 @@ void main() {
     expect(find.text('Ben is elsewhere.'), findsNothing);
   });
 
-  testWidgets('world map paints message bubbles above all point markers', (
+  testWidgets('world map omits the message bubble overlay layer', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -479,9 +446,9 @@ void main() {
           'LegacyWorldMapPointMessageBubblePositioned',
     );
 
-    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+    expect(find.text('Ava checks the storefront.'), findsNothing);
     expect(lastPointMarkerLayer, greaterThanOrEqualTo(0));
-    expect(bubbleOverlayLayer, greaterThan(lastPointMarkerLayer));
+    expect(bubbleOverlayLayer, -1);
   });
 
   testWidgets('world map loops a single queued bubble with a gap', (
@@ -498,16 +465,16 @@ void main() {
       ],
     );
 
-    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+    expect(find.text('Ava checks the storefront.'), findsNothing);
 
     await tester.pump(const Duration(seconds: 4));
     expect(find.text('Ava checks the storefront.'), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+    expect(find.text('Ava checks the storefront.'), findsNothing);
   });
 
-  testWidgets('world map paginates a long bubble before the playback gap', (
+  testWidgets('world map keeps paginated bubble content off the map', (
     tester,
   ) async {
     const longText =
@@ -522,32 +489,15 @@ void main() {
         WorldMapMessageBubble(characterId: 'char_a', content: longText),
       ],
     );
-    final pages = resolveWorldMapMessageBubblePages(
-      tester.element(
-        find.byKey(const ValueKey<String>('world-map-message-bubble-body')),
-      ),
-      longText,
-    );
-
-    expect(pages, hasLength(greaterThan(1)));
-    expect(find.text(pages.first), findsOneWidget);
-    for (final page in pages.skip(1)) {
-      await tester.pump(const Duration(seconds: 4));
-      expect(find.text(page), findsOneWidget);
-    }
-
-    await tester.pump(const Duration(seconds: 4));
-    expect(find.text(pages.last), findsNothing);
-
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text(pages.first), findsOneWidget);
+    expect(find.textContaining('Ava counts every crate'), findsNothing);
+    await tester.pump(const Duration(seconds: 12));
+    expect(find.textContaining('Ava counts every crate'), findsNothing);
   });
 
-  testWidgets('world map keeps the first-page width for a short remainder', (
+  testWidgets('world map does not reserve a box for hidden bubble pages', (
     tester,
   ) async {
     final longText = '${List<String>.filled(29, 'word').join(' ')} tail';
-    const bubbleBodyKey = ValueKey<String>('world-map-message-bubble-body');
     await _pumpWorldMap(
       tester,
       users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
@@ -555,19 +505,12 @@ void main() {
         WorldMapMessageBubble(characterId: 'char_a', content: longText),
       ],
     );
-    final pages = resolveWorldMapMessageBubblePages(
-      tester.element(find.byKey(bubbleBodyKey)),
-      longText,
+    expect(
+      find.byKey(const ValueKey<String>('world-map-message-bubble-body')),
+      findsNothing,
     );
-
-    final firstPageWidth = tester.getSize(find.byKey(bubbleBodyKey)).width;
-
     await tester.pump(const Duration(seconds: 4));
-    expect(find.text(pages[1]), findsOneWidget);
-    final remainderWidth = tester.getSize(find.byKey(bubbleBodyKey)).width;
-
-    expect(firstPageWidth, worldMapMessageBubbleMaxWidth);
-    expect(remainderWidth, firstPageWidth);
+    expect(find.textContaining('word word'), findsNothing);
   });
 
   testWidgets('world map pauses bubble playback while location chat is open', (
@@ -585,15 +528,8 @@ void main() {
         WorldMapMessageBubble(characterId: 'char_a', content: longText),
       ],
     );
-    final pages = resolveWorldMapMessageBubblePages(
-      tester.element(
-        find.byKey(const ValueKey<String>('world-map-message-bubble-body')),
-      ),
-      longText,
-    );
-
     await tester.pump(const Duration(seconds: 4));
-    expect(find.text(pages[1]), findsOneWidget);
+    expect(find.textContaining('Ava counts every crate'), findsNothing);
 
     await _pumpWorldMap(
       tester,
@@ -603,10 +539,10 @@ void main() {
       ],
       messageBubblePlaybackPaused: true,
     );
-    expect(find.text(pages[1]), findsNothing);
+    expect(find.textContaining('Ava counts every crate'), findsNothing);
 
     await tester.pump(const Duration(seconds: 10));
-    expect(find.text(pages[1]), findsNothing);
+    expect(find.textContaining('Ava counts every crate'), findsNothing);
 
     await _pumpWorldMap(
       tester,
@@ -615,17 +551,17 @@ void main() {
         WorldMapMessageBubble(characterId: 'char_a', content: longText),
       ],
     );
-    expect(find.text(pages[1]), findsOneWidget);
+    expect(find.textContaining('Ava counts every crate'), findsNothing);
   });
 
-  test('player controlled map avatar uses highlighted border', () {
+  test('player map avatars use red and AI avatars use dark borders', () {
     expect(
       worldMapAvatarBorderColorForTesting(isPlayerControlledRole: true),
-      const Color(0xFF338960),
+      const Color(0xFFF82B3C),
     );
     expect(
       worldMapAvatarBorderColorForTesting(isPlayerControlledRole: false),
-      const Color(0xFFDDDDDD),
+      const Color(0xFF17151B),
     );
   });
 
@@ -842,18 +778,41 @@ void main() {
     );
     final zoomControlBox = tester.widget<DecoratedBox>(zoomControl);
     final zoomDecoration = zoomControlBox.decoration as BoxDecoration;
-    expect(zoomDecoration.color, Colors.white);
+    expect(zoomDecoration.color, legacyWorldMapZoomControlBackgroundColor);
     expect(zoomDecoration.borderRadius, BorderRadius.circular(12));
+    expect(
+      zoomDecoration.border?.top.color,
+      legacyWorldMapZoomControlBorderColor,
+    );
+    expect(zoomDecoration.border?.top.width, 1);
     expect(zoomDecoration.boxShadow, isNotEmpty);
-    expect(zoomInIcon().colorFilter, isNotNull);
-    expect(zoomOutIcon().colorFilter, isNotNull);
+    expect(
+      zoomInIcon().colorFilter,
+      const ColorFilter.mode(
+        legacyWorldMapZoomControlEnabledColor,
+        BlendMode.srcIn,
+      ),
+    );
+    expect(
+      zoomOutIcon().colorFilter,
+      const ColorFilter.mode(
+        legacyWorldMapZoomControlDisabledColor,
+        BlendMode.srcIn,
+      ),
+    );
     expect(dragIndicator, findsOneWidget);
 
     await tester.tap(zoomIn);
     await tester.pump();
 
     expect(tester.getTopLeft(avatar), isNot(initialAvatarTopLeft));
-    expect(zoomOutIcon().colorFilter, isNotNull);
+    expect(
+      zoomOutIcon().colorFilter,
+      const ColorFilter.mode(
+        legacyWorldMapZoomControlEnabledColor,
+        BlendMode.srcIn,
+      ),
+    );
 
     final clickedScale = tester
         .widget<LegacyWorldMapZoomControl>(
@@ -878,7 +837,20 @@ void main() {
     await tester.pump();
 
     final maxZoomAvatarTopLeft = tester.getTopLeft(avatar);
-    expect(zoomInIcon().colorFilter, isNotNull);
+    expect(
+      zoomInIcon().colorFilter,
+      const ColorFilter.mode(
+        legacyWorldMapZoomControlDisabledColor,
+        BlendMode.srcIn,
+      ),
+    );
+    expect(
+      zoomOutIcon().colorFilter,
+      const ColorFilter.mode(
+        legacyWorldMapZoomControlEnabledColor,
+        BlendMode.srcIn,
+      ),
+    );
 
     await tester.tap(zoomIn);
     await tester.pump();
@@ -1163,9 +1135,7 @@ void main() {
     },
   );
 
-  testWidgets('world map lays out four avatars in a two by two grid', (
-    tester,
-  ) async {
+  testWidgets('world map folds a fourth avatar into a +1 chip', (tester) async {
     await _pumpWorldMap(
       tester,
       users: const [
@@ -1193,24 +1163,11 @@ void main() {
     );
 
     final avatars = find.byType(GenesisCharacterAvatar);
-    expect(avatars, findsNWidgets(4));
-
-    final topLeftAvatar = tester.getTopLeft(avatars.at(0));
-    final topRightAvatar = tester.getTopLeft(avatars.at(1));
-    final bottomLeftAvatar = tester.getTopLeft(avatars.at(2));
-    final bottomRightAvatar = tester.getTopLeft(avatars.at(3));
-    final pointY = _mapSize.height * _pointPosition.dy;
-
-    expect(topLeftAvatar.dy, closeTo(pointY + 10, 0.01));
-    expect(topRightAvatar.dy, topLeftAvatar.dy);
-    expect(bottomLeftAvatar.dy, greaterThan(topLeftAvatar.dy));
-    expect(bottomRightAvatar.dy, bottomLeftAvatar.dy);
-    expect(topRightAvatar.dx, greaterThan(topLeftAvatar.dx));
-    expect(bottomLeftAvatar.dx, topLeftAvatar.dx);
-    expect(bottomRightAvatar.dx, topRightAvatar.dx);
+    expect(avatars, findsNWidgets(3));
+    expect(find.text('+1'), findsOneWidget);
   });
 
-  testWidgets('world map allows slight avatar overlap for dense rings', (
+  testWidgets('world map folds dense locations into three faces and +N', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -1226,11 +1183,12 @@ void main() {
     );
 
     final avatars = find.byType(GenesisCharacterAvatar);
-    expect(avatars, findsNWidgets(6));
+    expect(avatars, findsNWidgets(3));
+    expect(find.text('+3'), findsOneWidget);
 
     final firstCenter = tester.getCenter(avatars.at(0));
     final secondCenter = tester.getCenter(avatars.at(1));
-    expect((firstCenter - secondCenter).distance, lessThan(42));
+    expect((firstCenter - secondCenter).distance, closeTo(16, 0.01));
   });
 
   testWidgets('points list shows all locations and indents by hierarchy', (
@@ -1616,7 +1574,7 @@ void main() {
     );
 
     final labelRect = tester.getRect(
-      find.byKey(const ValueKey<String>('world-map-location-label-point-1')),
+      find.byKey(const ValueKey<String>('world-map-location-marker-point-1')),
     );
     await tester.tapAt(Offset(labelRect.right + 10, labelRect.center.dy));
 

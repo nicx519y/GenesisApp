@@ -18,16 +18,89 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
     if (payload is! ChatUserEnterLocationPayloadVm) {
       return const SizedBox.shrink();
     }
-    return ChatSystemMessage(
-      text: payload.text,
-      fullWidth: false,
-      useFullAvailableWidth: true,
-      textAlign: TextAlign.center,
-      bubbleKey: ValueKey<String>(
-        'chat-user-enter-location-message-${message.localId}',
+    final chatTheme = context.genesisChatTheme;
+    final usesScenePlate = chatTheme.tickBlurSigma > 0;
+    return Center(
+      child: GestureDetector(
+        onLongPressStart: onLongPressStart,
+        child: Container(
+          key: ValueKey<String>(
+            'chat-user-enter-location-message-${message.localId}',
+          ),
+          margin: style.systemMessageMargin,
+          padding: usesScenePlate
+              ? const EdgeInsets.fromLTRB(9, 6, 12, 6)
+              : const EdgeInsets.fromLTRB(12, 7, 14, 7),
+          decoration: BoxDecoration(
+            color: chatTheme.enterLocationBackground,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CustomPaint(
+                key: const ValueKey<String>('chat-user-enter-location-icon'),
+                size: Size.square(usesScenePlate ? 11 : 14),
+                painter: _ChatEnterLocationIconPainter(
+                  color: chatTheme.enterLocationIcon,
+                ),
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: _InlineMarkdownText(
+                  text: payload.text,
+                  textAlign: TextAlign.left,
+                  style: style.systemMessageTextStyle.copyWith(
+                    color: chatTheme.enterLocationForeground,
+                    fontSize: 13,
+                    fontWeight: usesScenePlate
+                        ? FontWeight.w500
+                        : FontWeight.w600,
+                    height: usesScenePlate ? 1 : 16 / 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      style: style,
-      onLongPressStart: onLongPressStart,
     );
+  }
+}
+
+class _ChatEnterLocationIconPainter extends CustomPainter {
+  const _ChatEnterLocationIconPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final centerY = size.height / 2;
+    final arrowEndX = size.width - 4;
+
+    canvas.drawLine(Offset(1.5, centerY), Offset(arrowEndX, centerY), paint);
+    canvas.drawPath(
+      Path()
+        ..moveTo(arrowEndX - 3, centerY - 3)
+        ..lineTo(arrowEndX, centerY)
+        ..lineTo(arrowEndX - 3, centerY + 3),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width - 1.5, 2.5),
+      Offset(size.width - 1.5, size.height - 2.5),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChatEnterLocationIconPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }

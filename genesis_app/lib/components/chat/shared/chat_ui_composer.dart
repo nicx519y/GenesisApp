@@ -1,5 +1,7 @@
 part of 'chat_ui_library.dart';
 
+enum ChatComposerSendIcon { send, arrowUp }
+
 class ChatComposer extends StatelessWidget {
   const ChatComposer({
     super.key,
@@ -15,6 +17,9 @@ class ChatComposer extends StatelessWidget {
     this.bottomSafeAreaInset,
     this.focusNode,
     this.onInputTap,
+    this.leadingShortcutLabel,
+    this.onLeadingShortcutPressed,
+    this.sendIcon = ChatComposerSendIcon.send,
   });
 
   final TextEditingController controller;
@@ -29,6 +34,9 @@ class ChatComposer extends StatelessWidget {
   final double? bottomSafeAreaInset;
   final FocusNode? focusNode;
   final VoidCallback? onInputTap;
+  final String? leadingShortcutLabel;
+  final VoidCallback? onLeadingShortcutPressed;
+  final ChatComposerSendIcon sendIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +73,7 @@ class ChatComposer extends StatelessWidget {
                   ],
                   Expanded(
                     child: Container(
+                      key: const ValueKey<String>('chat-composer-input'),
                       constraints: BoxConstraints(
                         minHeight: style.inputMinHeight,
                         maxHeight: style.inputMaxHeight,
@@ -72,40 +81,65 @@ class ChatComposer extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: style.inputBackgroundColor,
                         borderRadius: BorderRadius.circular(
-                          style.systemMessageBorderRadius,
+                          style.inputBorderRadius,
                         ),
-                      ),
-                      child: TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        enabled: inputEnabled,
-                        minLines: style.inputMinLines,
-                        maxLines: style.inputMaxLines,
-                        keyboardType: submitFromKeyboard
-                            ? TextInputType.text
-                            : TextInputType.multiline,
-                        textInputAction: submitFromKeyboard
-                            ? TextInputAction.send
-                            : TextInputAction.newline,
-                        onTapOutside: (_) =>
-                            FocusManager.instance.primaryFocus?.unfocus(),
-                        onTap: onInputTap,
-                        onSubmitted: submitFromKeyboard
-                            ? (_) {
-                                if (sendEnabled) unawaited(onSend());
-                              }
+                        border: style.inputBorderWidth > 0
+                            ? Border.all(
+                                color: style.inputBorderColor,
+                                width: style.inputBorderWidth,
+                              )
                             : null,
-                        style: GenesisTypography.withFallback(
-                          style.inputTextStyle,
-                        ),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: hintText,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: style.inputHorizontalPadding,
-                            vertical: style.inputVerticalPadding,
+                      ),
+                      child: Row(
+                        children: [
+                          if (leadingShortcutLabel != null)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: _ComposerShortcutButton(
+                                label: leadingShortcutLabel!,
+                                onPressed: onLeadingShortcutPressed,
+                                style: style,
+                              ),
+                            ),
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              enabled: inputEnabled,
+                              minLines: style.inputMinLines,
+                              maxLines: style.inputMaxLines,
+                              keyboardType: submitFromKeyboard
+                                  ? TextInputType.text
+                                  : TextInputType.multiline,
+                              textInputAction: submitFromKeyboard
+                                  ? TextInputAction.send
+                                  : TextInputAction.newline,
+                              onTapOutside: (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
+                              onTap: onInputTap,
+                              onSubmitted: submitFromKeyboard
+                                  ? (_) {
+                                      if (sendEnabled) unawaited(onSend());
+                                    }
+                                  : null,
+                              style: GenesisTypography.withFallback(
+                                style.inputTextStyle,
+                              ),
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                hintText: hintText,
+                                contentPadding: EdgeInsets.fromLTRB(
+                                  leadingShortcutLabel == null
+                                      ? style.inputHorizontalPadding
+                                      : 9,
+                                  style.inputVerticalPadding,
+                                  style.inputHorizontalPadding,
+                                  style.inputVerticalPadding,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -131,6 +165,7 @@ class ChatComposer extends StatelessWidget {
                       sending: sending,
                       onPressed: sendEnabled ? onSend : null,
                       label: sendLabel,
+                      icon: sendIcon,
                       style: style,
                     ),
                   ],
@@ -141,6 +176,75 @@ class ChatComposer extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ComposerShortcutButton extends StatelessWidget {
+  const _ComposerShortcutButton({
+    required this.label,
+    required this.onPressed,
+    required this.style,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = style.inputTextStyle.color ?? style.composerIconColor;
+    final iconColor = baseColor.withValues(
+      alpha: onPressed == null ? 0.35 : 0.72,
+    );
+    return SizedBox.square(
+      key: const ValueKey<String>('chat-composer-leading-shortcut'),
+      dimension: 26,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: iconColor,
+          backgroundColor: baseColor.withValues(alpha: 0.13),
+          disabledForegroundColor: iconColor,
+          disabledBackgroundColor: baseColor.withValues(alpha: 0.08),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: onPressed,
+        child: label == '*'
+            ? CustomPaint(
+                size: const Size.square(12),
+                painter: _ComposerAsteriskPainter(color: iconColor),
+              )
+            : Text(label),
+      ),
+    );
+  }
+}
+
+class _ComposerAsteriskPainter extends CustomPainter {
+  const _ComposerAsteriskPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 16;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8 * scale
+      ..strokeCap = StrokeCap.round;
+
+    Offset point(double x, double y) => Offset(x * scale, y * scale);
+    canvas
+      ..drawLine(point(8, 2.9), point(8, 13.1), paint)
+      ..drawLine(point(3.6, 5.4), point(12.4, 10.6), paint)
+      ..drawLine(point(3.6, 10.6), point(12.4, 5.4), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ComposerAsteriskPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
@@ -247,12 +351,14 @@ class _ComposerSendButton extends StatelessWidget {
     required this.sending,
     required this.onPressed,
     required this.style,
+    required this.icon,
     this.label,
   });
 
   final bool sending;
   final VoidCallback? onPressed;
   final ChatUiStyleConfig style;
+  final ChatComposerSendIcon icon;
   final String? label;
 
   @override
@@ -268,7 +374,15 @@ class _ComposerSendButton extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
+          borderRadius: BorderRadius.circular(
+            style.composerSendButtonBorderRadius,
+          ),
+          border: style.composerSendButtonBorderWidth > 0
+              ? Border.all(
+                  color: style.composerSendButtonBorderColor,
+                  width: style.composerSendButtonBorderWidth,
+                )
+              : null,
         ),
         child: TextButton(
           style: TextButton.styleFrom(
@@ -285,7 +399,7 @@ class _ComposerSendButton extends StatelessWidget {
             foregroundColor: style.composerSendButtonIconColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(
-                style.systemMessageBorderRadius,
+                style.composerSendButtonBorderRadius,
               ),
             ),
           ),
@@ -302,11 +416,18 @@ class _ComposerSendButton extends StatelessWidget {
                   ),
                 )
               : label == null
-              ? Icon(
-                  Icons.send,
-                  color: style.composerSendButtonIconColor,
-                  size: style.composerSendButtonIconSize,
-                )
+              ? icon == ChatComposerSendIcon.arrowUp
+                    ? CustomPaint(
+                        size: Size.square(style.composerSendButtonIconSize),
+                        painter: _ComposerUpArrowPainter(
+                          color: style.composerSendButtonIconColor,
+                        ),
+                      )
+                    : Icon(
+                        Icons.send,
+                        color: style.composerSendButtonIconColor,
+                        size: style.composerSendButtonIconSize,
+                      )
               : Text(
                   genesisDisplaySafeText(label!),
                   maxLines: 1,
@@ -319,5 +440,38 @@ class _ComposerSendButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ComposerUpArrowPainter extends CustomPainter {
+  const _ComposerUpArrowPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 16;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    Offset point(double x, double y) => Offset(x * scale, y * scale);
+    canvas
+      ..drawLine(point(8, 13.2), point(8, 3.2), paint)
+      ..drawPath(
+        Path()
+          ..moveTo(3.9 * scale, 7.3 * scale)
+          ..lineTo(8 * scale, 3.2 * scale)
+          ..lineTo(12.1 * scale, 7.3 * scale),
+        paint,
+      );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ComposerUpArrowPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }

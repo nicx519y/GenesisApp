@@ -17,7 +17,6 @@ import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
-import 'package:genesis_flutter_android/ui/components/genesis_bottom_navigation.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
@@ -40,6 +39,7 @@ import 'package:genesis_flutter_android/components/common/genesis_action_box.dar
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/bottom_tabs.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
+import 'package:genesis_flutter_android/components/map_detail_sheet_surface.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
 import 'package:genesis_flutter_android/components/me/signed_out_me_view.dart';
@@ -52,6 +52,8 @@ import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/components/world_map_location_action.dart';
 import 'package:genesis_flutter_android/components/world_top_overlay_bar.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
@@ -520,6 +522,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldListCompleter,
     this.worldMetricDefault = 0,
     this.worldCharacterMetricValue = 50,
+    this.originCoverUrl = '',
     this.originMapUrl = '',
     this.originCharacters,
     this.originLocations,
@@ -560,6 +563,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Completer<TransportResponse>? worldListCompleter;
   final Object? worldMetricDefault;
   final Object? worldCharacterMetricValue;
+  final String originCoverUrl;
   final String originMapUrl;
   final List<Map<String, Object?>>? originCharacters;
   final List<Map<String, Object?>>? originLocations;
@@ -1106,7 +1110,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'created_at': 1777593600,
         'started_at': 'Day 1',
         'tick_duration_days': 30,
-        'cover': '',
+        'cover': originCoverUrl,
         'map_url': originMapUrl,
         'status': 10,
       },
@@ -2935,7 +2939,7 @@ void main() {
 
     expect(find.byType(AppShellPage, skipOffstage: false), findsOneWidget);
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
-    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('Worlds, tags, characters'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
     await tester.pump();
@@ -3175,20 +3179,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('New followers'), findsOneWidget);
+    expect(find.text('Followers'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
     expect(find.text('Private chats'), findsOneWidget);
     expect(
       find.image(const AssetImage('assets/custom-icons/png/notification.png')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.image(const AssetImage('assets/custom-icons/png/following.png')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.image(const AssetImage('assets/custom-icons/png/comment.png')),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -3762,7 +3766,7 @@ void main() {
     expect(find.text('Delta Peer'), findsOneWidget);
   });
 
-  testWidgets('unread summary renders messages badges', (
+  testWidgets('unread summary renders redesigned messages indicators', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
@@ -3779,40 +3783,62 @@ void main() {
     await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey('message-menu-/message/notifications-unread-badge'),
-        ),
-        matching: find.text('1'),
-      ),
-      findsOneWidget,
+    final messagesTitle = tester.widget<Text>(
+      find.byKey(const ValueKey('worldo-messages-title')),
     );
-    expect(
+    expect(messagesTitle.style?.fontSize, 24);
+    expect(messagesTitle.style?.height, 1);
+    expect(messagesTitle.style?.fontWeight, FontWeight.w900);
+    expect(messagesTitle.style?.letterSpacing, -0.36);
+    expect(messagesTitle.style?.color, Colors.white);
+
+    const menuKeys = <ValueKey<String>>[
+      ValueKey('message-menu-/message/notifications'),
+      ValueKey('message-menu-/messages/new_followers'),
+      ValueKey('message-menu-/messages/comments'),
+    ];
+    for (final menuKey in menuKeys) {
+      final menu = find.byKey(menuKey);
+      expect(menu, findsOneWidget);
+      expect(tester.getSize(menu).height, 56);
+      final status = tester.widget<Text>(
+        find.descendant(of: menu, matching: find.text('1 new')),
+      );
+      expect(status.style?.color, const Color(0xFFF82B3C));
+      expect(
+        find.descendant(of: menu, matching: find.text('1 new')),
+        findsOneWidget,
+      );
+      final surface = tester.widget<Material>(
+        find.byKey(ValueKey<String>('${menuKey.value}-surface')),
+      );
+      expect(surface.color, const Color(0x12FFFFFF));
+      expect(
+        find.descendant(of: menu, matching: find.byType(Image)),
+        findsNothing,
+      );
+    }
+
+    final commentsTitle = tester.widget<Text>(
       find.descendant(
-        of: find.byKey(
-          const ValueKey('message-menu-/messages/new_followers-unread-badge'),
-        ),
-        matching: find.text('1'),
+        of: find.byKey(const ValueKey('message-menu-/messages/comments')),
+        matching: find.text('Comments'),
       ),
-      findsOneWidget,
     );
-    expect(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey('message-menu-/messages/comments-unread-badge'),
-        ),
-        matching: find.text('1'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('direct-messages-unread-badge')),
-        matching: find.text('1'),
-      ),
-      findsOneWidget,
-    );
+    expect(commentsTitle.style?.color, Colors.white);
+
+    final privateChatsStyle = tester
+        .widget<Text>(find.text('Private chats'))
+        .style;
+    expect(privateChatsStyle?.fontSize, 10);
+    expect(privateChatsStyle?.height, 1);
+    expect(privateChatsStyle?.fontWeight, FontWeight.w500);
+    expect(privateChatsStyle?.color, const Color(0x80FFFFFF));
+
+    final dmAvatar = find.byKey(const ValueKey('dm-avatar-DMC_MOCK_001'));
+    expect(dmAvatar, findsOneWidget);
+    expect(tester.getSize(dmAvatar), const Size.square(44));
+    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 14);
   });
 
   testWidgets('logout clears messages badge and signed-in tab caches', (
@@ -3897,6 +3923,21 @@ void main() {
     );
   });
 
+  testWidgets('followers card keeps the destination page title', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
+
+    await tester.tap(find.text('Messages'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Followers'), findsOneWidget);
+    await tester.tap(find.text('Followers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New followers'), findsOneWidget);
+  });
+
   testWidgets('message category pages request matching notification block', (
     WidgetTester tester,
   ) async {
@@ -3905,7 +3946,7 @@ void main() {
     await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('New followers').first);
+    await tester.tap(find.text('Followers').first);
     await tester.pumpAndSettle();
 
     expect(find.text('New followers'), findsWidgets);
@@ -4615,7 +4656,7 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('#Worldo'), findsOneWidget);
-    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('Worlds, tags, characters'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
   });
 
@@ -4860,12 +4901,16 @@ void main() {
     expect(find.text('Popular'), findsNothing);
     expect(find.text('For you'), findsNothing);
 
-    for (var i = 0; i < 20 && find.text('Worldo').evaluate().isEmpty; i += 1) {
+    for (
+      var i = 0;
+      i < 20 && find.text('Worlds, tags, characters').evaluate().isEmpty;
+      i += 1
+    ) {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('Worlds, tags, characters'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
@@ -4898,14 +4943,14 @@ void main() {
 
       for (
         var i = 0;
-        i < 20 && find.text('Worldo').evaluate().isEmpty;
+        i < 20 && find.text('Worlds, tags, characters').evaluate().isEmpty;
         i += 1
       ) {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(find.text('Worldo'), findsOneWidget);
+      expect(find.text('Worlds, tags, characters'), findsOneWidget);
 
       await tester.tap(find.text('Home'));
       for (
@@ -4976,14 +5021,14 @@ void main() {
 
       for (
         var i = 0;
-        i < 20 && find.text('Worldo').evaluate().isEmpty;
+        i < 20 && find.text('Worlds, tags, characters').evaluate().isEmpty;
         i += 1
       ) {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(find.text('Worldo'), findsOneWidget);
+      expect(find.text('Worlds, tags, characters'), findsOneWidget);
 
       await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
@@ -5048,7 +5093,7 @@ void main() {
       expect(worldRequests.single.uri.queryParameters['rn'], '10');
       expect(find.text('My Worlds'), findsOneWidget);
       expect(find.text('World tick narrator 1'), findsOneWidget);
-      expect(find.text('Worldo'), findsNothing);
+      expect(find.text('Worlds, tags, characters'), findsNothing);
     },
   );
 
@@ -5184,6 +5229,25 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    expect(find.text('Worlds, tags, characters'), findsOneWidget);
+    expect(find.text('Worldo'), findsNothing);
+    final searchField = tester.widget<GenesisSearchField>(
+      find.byKey(const ValueKey<String>('origin-feed-search')),
+    );
+    expect(searchField.height, 44);
+    expect(searchField.padding, const EdgeInsets.symmetric(horizontal: 14));
+    expect(searchField.borderRadius, BorderRadius.circular(14));
+    expect(searchField.iconSize, 15);
+    expect(searchField.iconGap, 9);
+    expect(searchField.borderWidth, 1.5);
+
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.labelPadding, const EdgeInsets.only(right: 18));
+    expect(tabBar.labelStyle?.fontSize, 15);
+    expect(tabBar.labelStyle?.fontWeight, FontWeight.w700);
+    expect(tabBar.unselectedLabelStyle?.fontWeight, FontWeight.w500);
+    expect(tester.getSize(find.widgetWithText(Tab, 'For you')).height, 28);
 
     var originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(1));
@@ -5942,7 +6006,7 @@ void main() {
     final detailRequests = transport.requestsFor('/api/v1/origin/detail');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_test_1');
-    expect(find.text('#Origin detail o_test_1'), findsOneWidget);
+    expect(find.text('#Origin detail o_test_1'), findsNWidgets(2));
 
     final discussRequestsAfterDetail = transport.requestsFor(
       '/api/v1/discuss/list',
@@ -6129,7 +6193,7 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('origin-bottom-launch-loading')),
-      findsOneWidget,
+      findsNothing,
     );
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -6212,23 +6276,17 @@ void main() {
       final loadingSheet = find.byKey(
         const ValueKey<String>('origin-detail-loading-sheet'),
       );
-      final loadingLaunchBar = find.byKey(
-        const ValueKey<String>('origin-bottom-launch-loading'),
-      );
       final loadingMapRect = tester.getRect(mapViewport);
       final loadingSheetRect = tester.getRect(loadingSheet);
-      final loadingLaunchBarRect = tester.getRect(loadingLaunchBar);
+      expect(
+        loadingMapRect.bottom - loadingSheetRect.top,
+        closeTo(originWorldMapSheetOverlap, 1),
+      );
       expect(
         tester.getSize(
           find.byKey(const ValueKey<String>('origin-loading-role-card')),
         ),
-        const Size(240, 333),
-      );
-      expect(
-        tester.getSize(
-          find.byKey(const ValueKey<String>('origin-loading-launch-button')),
-        ),
-        const Size(140, 35),
+        const Size(216, 300),
       );
       expect(find.byType(WorldMap), findsNothing);
       expect(find.byType(Tilemap), findsNothing);
@@ -6256,7 +6314,6 @@ void main() {
       expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
       expect(tester.getRect(mapViewport), loadingMapRect);
       expect(tester.getRect(loadingSheet), loadingSheetRect);
-      expect(tester.getRect(loadingLaunchBar), loadingLaunchBarRect);
 
       for (
         var frame = 0;
@@ -6277,10 +6334,8 @@ void main() {
         loadingSheetRect,
       );
       expect(
-        tester.getRect(
-          find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
-        ),
-        loadingLaunchBarRect,
+        find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
+        findsNothing,
       );
 
       originMapCompleter.complete(transport._jsonResponse({}));
@@ -6398,16 +6453,182 @@ void main() {
       'location_id': 'root',
     });
 
-    await tester.tap(find.text('Info.'));
-    await tester.pumpAndSettle();
-    expect(find.byType(Tilemap), findsOneWidget);
-    expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    final openingIndicator = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-indicator-opening'),
+    );
+    final infoIndicator = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-indicator-info'),
+    );
+    expect(tester.getSize(openingIndicator).width, 26);
+    expect(tester.getSize(infoIndicator).width, 4);
 
-    await tester.tap(find.text('Map'));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 130));
+    expect(
+      tester.getSize(openingIndicator).width,
+      allOf(greaterThan(4), lessThan(26)),
+    );
+    expect(
+      tester.getSize(infoIndicator).width,
+      allOf(greaterThan(4), lessThan(26)),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getSize(openingIndicator).width, 4);
+    expect(tester.getSize(infoIndicator).width, 26);
+    expect(find.byType(Tilemap), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    expect(
+      find.byKey(const ValueKey<String>('origin-detail-sheet-page-Info')),
+      findsOneWidget,
+    );
+
+    await tester.fling(
+      find.byKey(const ValueKey<String>('origin-detail-sheet-pages')),
+      const Offset(500, 0),
+      1200,
+    );
     await tester.pumpAndSettle();
     expect(find.byType(Tilemap), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    expect(
+      find.byKey(const ValueKey<String>('origin-detail-sheet-page-Opening')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-detail-sheet-page-Info')),
+      findsNothing,
+    );
   });
+
+  testWidgets(
+    'collapsed Opening overlaps the map and reveals role cards from its action',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+
+      final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final mapRect = tester.getRect(
+        find.byKey(const ValueKey<String>('origin-map-viewport')),
+      );
+      final sheetSurface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      final collapsedSheetRect = tester.getRect(sheetSurface);
+      final sheetDecoration =
+          tester.widget<DecoratedBox>(sheetSurface).decoration as BoxDecoration;
+      expect(
+        sheetDecoration.borderRadius,
+        const BorderRadius.vertical(top: Radius.circular(24)),
+      );
+      expect(
+        mapRect.bottom - collapsedSheetRect.top,
+        closeTo(originWorldMapSheetOverlap, 1),
+      );
+      expect(find.text('Select your role'), findsOneWidget);
+      expect(
+        tester
+            .widget<IgnorePointer>(
+              find.byKey(
+                const ValueKey<String>('origin-opening-select-role-visibility'),
+              ),
+            )
+            .ignoring,
+        isFalse,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        lessThan(collapsedSheetRect.top),
+      );
+      expect(
+        tester
+            .widget<IgnorePointer>(
+              find.byKey(
+                const ValueKey<String>('origin-opening-select-role-visibility'),
+              ),
+            )
+            .ignoring,
+        isTrue,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+        findsOneWidget,
+      );
+
+      for (
+        var attempt = 0;
+        attempt < 3 &&
+            tester.getTopLeft(sheetSurface).dy < collapsedSheetRect.top - 1;
+        attempt += 1
+      ) {
+        await tester.drag(sheetSurface, const Offset(0, 1200));
+        await tester.pumpAndSettle();
+      }
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        closeTo(collapsedSheetRect.top, 1),
+      );
+      expect(
+        tester
+            .widget<IgnorePointer>(
+              find.byKey(
+                const ValueKey<String>('origin-opening-select-role-visibility'),
+              ),
+            )
+            .ignoring,
+        isFalse,
+      );
+
+      final selectRoleAction = find.byKey(
+        const ValueKey<String>('origin-opening-select-role-action'),
+      );
+      final upwardDrag = await tester.startGesture(
+        tester.getCenter(selectRoleAction),
+      );
+      await upwardDrag.moveBy(const Offset(0, -20));
+      await tester.pump();
+      await upwardDrag.moveBy(const Offset(0, -80));
+      await tester.pump();
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        lessThan(collapsedSheetRect.top - 40),
+      );
+      await upwardDrag.moveBy(const Offset(0, -60));
+      await upwardDrag.up();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        lessThan(collapsedSheetRect.top),
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('origin detail sheet pauses all Tilemap animations', (
     WidgetTester tester,
@@ -6470,12 +6691,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final launchBar = find.byKey(
-      const ValueKey<String>('origin-bottom-launch-blur'),
-    );
-    expect(launchBar, findsOneWidget);
     expect(
-      find.descendant(of: launchBar, matching: find.byType(BackdropFilter)),
+      find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
       findsNothing,
     );
 
@@ -6493,7 +6710,7 @@ void main() {
           'origin-setup-role-action-background-c_o_test_1',
         ),
       ),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -6606,17 +6823,17 @@ void main() {
       const ValueKey<String>('origin-opening-location'),
     );
     expect(brief, findsOneWidget);
-    final briefTitle = tester.widget<Text>(find.text('Worldo Brief'));
-    expect(briefTitle.style?.fontSize, 16);
+    final briefTitle = tester.widget<Text>(find.text('World brief'));
+    expect(briefTitle.style?.fontSize, 15);
+    expect(briefTitle.style?.fontWeight, FontWeight.w800);
     expect(
       find.descendant(of: brief, matching: find.byIcon(MyFlutterApp.eye)),
-      findsOneWidget,
+      findsNothing,
     );
-    final briefIcon = tester.widget<Icon>(
-      find.byKey(const ValueKey<String>('origin-opening-worldo-brief-icon')),
+    final briefIcon = find.byKey(
+      const ValueKey<String>('origin-opening-worldo-brief-icon'),
     );
-    expect(briefIcon.size, 16);
-    expect(briefIcon.color, const Color(0xFFFF2442));
+    expect(tester.getSize(briefIcon), const Size.square(9));
     expect(find.text('Origin detail subtitle'), findsOneWidget);
     expect(
       tester
@@ -6627,12 +6844,12 @@ void main() {
           )
           .style
           ?.fontSize,
-      14,
+      13,
     );
     expect(openingLocation, findsOneWidget);
     expect(
       (tester.widget<Padding>(openingLocation).padding as EdgeInsets).bottom,
-      8,
+      7,
     );
     expect(
       tester.getTopLeft(brief).dy,
@@ -6642,7 +6859,7 @@ void main() {
       const ValueKey<String>('origin-opening-dialogue'),
     );
     final openingDialogue = tester.widget<SliverPadding>(openingDialogueFinder);
-    expect((openingDialogue.padding as EdgeInsets).bottom, 24);
+    expect((openingDialogue.padding as EdgeInsets).bottom, 10);
     final openingList = tester.widget<SliverList>(
       find.descendant(
         of: openingDialogueFinder,
@@ -6661,7 +6878,7 @@ void main() {
               openingDelegate.estimatedChildCount! - 1,
             )
             as ChatMessageRow;
-    expect(firstOpeningRow.style?.rowBottomPadding, 24);
+    expect(firstOpeningRow.style?.rowBottomPadding, 10);
     expect(lastOpeningRow.style?.rowBottomPadding, 0);
   });
 
@@ -6731,7 +6948,7 @@ void main() {
   );
 
   testWidgets(
-    'origin Tilemap navigation always reserves settings button space',
+    'origin title bar uses design spacing and keeps settings available',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
       await tester.pumpWidget(
@@ -6755,7 +6972,7 @@ void main() {
       expect(settingsButton, findsNothing);
       expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 60),
+        moreOrLessEquals(viewportWidth - 18),
       );
 
       await tilemapSettingsButtonVisibility.setVisible(true);
@@ -6764,7 +6981,11 @@ void main() {
       expect(settingsButton, findsOneWidget);
       expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 60),
+        moreOrLessEquals(viewportWidth - 18),
+      );
+      expect(
+        tester.getTopLeft(settingsButton).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(navigationBar).dy),
       );
 
       await tilemapSettingsButtonVisibility.setVisible(false);
@@ -6773,7 +6994,7 @@ void main() {
       expect(settingsButton, findsNothing);
       expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 60),
+        moreOrLessEquals(viewportWidth - 18),
       );
     },
   );
@@ -6815,6 +7036,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final tilemap = tester.widget<Tilemap>(find.byType(Tilemap));
+      expect(tilemap.centerInitialViewport, isTrue);
+      expect(tilemap.initialScaleOverride, tilemapInitialScaleMin);
+      expect(tilemap.initialViewportVerticalOffsetFraction, 0.05);
       expect(
         findWorldMapLocationNode(tilemap.locationNodes, 'loc_1'),
         isNotNull,
@@ -6842,10 +7066,18 @@ void main() {
 
     expect(find.byType(Tilemap), findsNothing);
     expect(find.byType(WorldMap), findsOneWidget);
+    final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+    expect(worldMap.legacy.initialZoomScale, 1);
+    expect(worldMap.legacy.initialZoomFocus, const Offset(0.5, 0.5));
+    expect(worldMap.legacy.initialViewportVerticalOffsetFraction, 0.05);
+    expect(
+      find.byKey(const ValueKey<String>('world-map-zoom-control')),
+      findsNothing,
+    );
     expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
   });
 
-  testWidgets('Origin detail discuss area opens discuss page when populated', (
+  testWidgets('Origin detail See all opens comments when logged in', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -6864,11 +7096,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pumpAndSettle();
     final discussArea = find.byKey(
       const ValueKey('origin-discuss-summary-area'),
     );
     await _dragOriginPanelUntilVisible(tester, discussArea);
     await tester.pumpAndSettle();
+    expect(find.text('See all'), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-discuss-view-more')),
+      findsNothing,
+    );
+    expect(find.text('View More >'), findsNothing);
     expect(
       find.byKey(const ValueKey('origin-discuss-like-dis_o_test_1_1')),
       findsNothing,
@@ -6877,12 +7120,44 @@ void main() {
       find.byKey(const ValueKey('origin-discuss-reply-dis_o_test_1_1')),
       findsNothing,
     );
-    await tester.tap(discussArea);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-discuss-see-all')),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('Discuss'), findsOneWidget);
+    expect(find.text('Comments'), findsOneWidget);
     final discussRequests = transport.requestsFor('/api/v1/discuss/list');
     expect(discussRequests.last.uri.queryParameters['biz_id'], 'o_test_1');
+  });
+
+  testWidgets('Origin detail See all asks signed-out users to log in', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pumpAndSettle();
+    final seeAll = find.byKey(const ValueKey<String>('origin-discuss-see-all'));
+    await _dragOriginPanelUntilVisible(tester, seeAll);
+    await tester.pumpAndSettle();
+    await tester.tap(seeAll);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/discuss/list'), hasLength(1));
   });
 
   testWidgets('Origin detail sheet keeps a transparent map status bar', (
@@ -6960,13 +7235,26 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pumpAndSettle();
     final discussArea = find.byKey(
       const ValueKey('origin-discuss-summary-area'),
     );
     await _dragOriginPanelUntilVisible(tester, discussArea);
     await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const PageStorageKey<String>('origin-intro-o_test_1')),
+      const Offset(0, -140),
+    );
+    await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(TextField, 'Write a post'), findsOneWidget);
+    expect(find.text('Write a post'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('discuss-post-current-user-avatar')),
+      findsOneWidget,
+    );
     await tester.tap(discussArea);
     await tester.pumpAndSettle();
 
@@ -7085,7 +7373,8 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
-      originMapUrl: kMockV1SteamMapImage,
+      originCoverUrl: 'assets/images/default_list_image.png',
+      originMapUrl: 'assets/images/default_list_image.png',
     );
     await tester.pumpWidget(
       AppServicesScope(
@@ -7102,8 +7391,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final worldviewImage = _assetImageFinder(kMockV1SteamMapImage);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pumpAndSettle();
+    final worldviewImage = find.byKey(
+      const ValueKey<String>('origin-info-cover'),
+    );
     await _dragOriginPanelUntilVisible(tester, worldviewImage);
+    expect(tester.getSize(worldviewImage), const Size(120, 180));
     await tester.tap(worldviewImage);
     await tester.pumpAndSettle();
 
@@ -7158,6 +7454,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pumpAndSettle();
     final firstPortrait = find.byKey(
       const ValueKey('origin-character-portrait-c_iris'),
     );
@@ -7682,11 +7982,11 @@ void main() {
     expect(
       sourceProvider.imageUrl,
       'https://cdn.example.com/avatar_1080x1080.jpg'
-      '?x-oss-process=image/resize,w_720,image/format,webp',
+      '?x-oss-process=image/resize,w_360,image/format,webp',
     );
-    expect(provider.outputSize, 360);
-    expect(sourceProvider.cacheWidth, 360);
-    expect(sourceProvider.cacheHeight, 360);
+    expect(provider.outputSize, 450);
+    expect(sourceProvider.cacheWidth, 450);
+    expect(sourceProvider.cacheHeight, 450);
   });
 
   testWidgets('Origin opening puts the recommended role first and marks it', (
@@ -7735,34 +8035,27 @@ void main() {
     final roleCards = tester.widget<ListView>(
       find.byKey(const ValueKey<String>('origin-setup-role-cards')),
     );
-    expect(roleCards.itemExtent, 252);
-    expect(roleCards.scrollCacheExtent?.value, 252 * 3);
+    expect(roleCards.itemExtent, 226);
+    expect(roleCards.scrollCacheExtent?.value, 226 * 3);
     expect(recommendedRole, findsOneWidget);
     expect(regularRole, findsOneWidget);
     expect(
       tester.getTopLeft(recommendedRole).dx,
       lessThan(tester.getTopLeft(regularRole).dx),
     );
-    final roleTitleLaunchIcon = tester.widget<SvgPicture>(
-      find.byKey(const ValueKey<String>('origin-setup-role-title-launch-icon')),
+    expect(
+      find.text('Pick who you play, and the story starts here.'),
+      findsOneWidget,
     );
-    expect(roleTitleLaunchIcon.width, 16);
-    expect(roleTitleLaunchIcon.height, 16);
     final suggestedLabel = find.byKey(
       const ValueKey<String>('origin-setup-role-suggested-label-c_recommended'),
     );
     expect(suggestedLabel, findsOneWidget);
     expect(
-      find.descendant(
-        of: suggestedLabel,
-        matching: find.text('Originator Suggested'),
-      ),
+      find.descendant(of: suggestedLabel, matching: find.text('Creator pick')),
       findsOneWidget,
     );
-    expect(
-      tester.widget<Text>(find.text('Originator Suggested')).style?.fontSize,
-      13,
-    );
+    expect(tester.widget<Text>(find.text('Creator pick')).style?.fontSize, 9.5);
     final recommendedPortrait = find.byKey(
       const ValueKey<String>('origin-setup-role-portrait-c_recommended'),
     );
@@ -7770,11 +8063,11 @@ void main() {
     final recommendedPortraitRect = tester.getRect(recommendedPortrait);
     expect(
       suggestedLabelRect.top,
-      closeTo(recommendedPortraitRect.top + 12, 0.01),
+      closeTo(recommendedPortraitRect.top + 10, 0.01),
     );
     expect(
       suggestedLabelRect.left,
-      closeTo(recommendedPortraitRect.left + 12, 0.01),
+      closeTo(recommendedPortraitRect.left + 10, 0.01),
     );
     expect(
       find.byKey(
@@ -7786,39 +8079,17 @@ void main() {
       const ValueKey<String>('origin-setup-role-recommended-c_recommended'),
     );
     expect(recommendedMark, findsOneWidget);
-    expect(tester.getSize(recommendedMark), const Size.square(22));
-    expect(
-      find.descendant(
-        of: recommendedMark,
-        matching: find.byIcon(Icons.star_rounded),
-      ),
-      findsOneWidget,
-    );
-    final markBackground = tester.widget<DecoratedBox>(
-      find.descendant(of: recommendedMark, matching: find.byType(DecoratedBox)),
-    );
-    final markDecoration = markBackground.decoration as BoxDecoration;
-    expect(markDecoration.color, const Color(0xCCFFFFFF));
-    expect(markDecoration.borderRadius, BorderRadius.circular(8));
+    expect(tester.getSize(recommendedMark), const Size.square(5));
     final recommendedSelectSurface = find.byKey(
       const ValueKey<String>('origin-setup-role-select-surface-c_recommended'),
     );
     final recommendedSelectLabel = find.descendant(
       of: recommendedSelectSurface,
-      matching: find.text('Select to Launch'),
+      matching: find.text('Select'),
     );
-    final recommendedMarkRect = tester.getRect(recommendedMark);
-    final recommendedSelectLabelRect = tester.getRect(recommendedSelectLabel);
+    expect(recommendedSelectLabel, findsOneWidget);
     expect(
-      recommendedMarkRect.right,
-      lessThan(recommendedSelectLabelRect.left),
-    );
-    expect(
-      recommendedMarkRect.center.dy,
-      closeTo(recommendedSelectLabelRect.center.dy, 0.01),
-    );
-    expect(
-      find.ancestor(of: recommendedMark, matching: recommendedSelectSurface),
+      find.ancestor(of: recommendedMark, matching: suggestedLabel),
       findsOneWidget,
     );
     expect(
@@ -7840,7 +8111,7 @@ void main() {
     expect(suggestedLabel, findsNothing);
   });
 
-  testWidgets('Origin detail launch bar launches a world', (
+  testWidgets('Origin Info action launches a world', (
     WidgetTester tester,
   ) async {
     final telemetry = _CapturingTelemetrySink();
@@ -7891,84 +8162,48 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(FilledButton, 'Launch'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('origin-bottom-origin-name')),
-      findsOneWidget,
-    );
+    expect(find.widgetWithText(FilledButton, 'Enter world'), findsNothing);
     expect(find.text('#Origin detail o_test_1'), findsOneWidget);
     expect(
-      find.ancestor(
-        of: find.byKey(const ValueKey<String>('origin-bottom-origin-name')),
-        matching: find.byType(FittedBox),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('origin-bottom-launch-icon')),
-      findsOneWidget,
-    );
-    expect(
       find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .getSize(
-            find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
-          )
-          .height,
-      GenesisBottomNavigation.defaultHeight +
-          GenesisBottomNavigation.minBottomPadding,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-setup-custom-form')),
       findsNothing,
     );
-    expect(
-      find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
-      findsOneWidget,
-    );
-    final customCard = tester.widget<Material>(
-      find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
-    );
-    expect(customCard.color, const Color(0xCC000000));
-    final customCardInkWell = tester.widget<InkWell>(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
-        matching: find.byType(InkWell),
+    await tester.drag(
+      find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
       ),
+      const Offset(0, -1800),
     );
-    expect(customCardInkWell.splashFactory, NoSplash.splashFactory);
-    expect(
-      customCardInkWell.overlayColor?.resolve(<WidgetState>{
-        WidgetState.pressed,
-      }),
-      Colors.transparent,
-    );
-    expect(customCardInkWell.highlightColor, Colors.transparent);
-    final customPlus = tester.widget<Text>(find.text('+'));
-    final customLabel = tester.widget<Text>(find.text('Custom'));
-    expect(customPlus.style?.color, Colors.white);
-    expect(customLabel.style?.color, Colors.white);
+    await tester.pumpAndSettle();
     const roleId = 'c_o_test_1';
     final portrait = find.byKey(
       const ValueKey<String>('origin-setup-role-portrait-$roleId'),
     );
     expect(portrait, findsOneWidget);
-    expect(tester.getSize(portrait).width, 240);
+    expect(tester.getSize(portrait), const Size(216, 300));
+    final roleCardFrame = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-card-frame-$roleId'),
+      ),
+    );
+    expect((roleCardFrame.decoration as BoxDecoration).border, isNull);
     final setupAvatarFinder = find.descendant(
       of: portrait,
-      matching: find.byType(GenesisStaticNetworkImage),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Image && widget.image is OriginRolePortraitImageProvider,
+      ),
     );
     expect(setupAvatarFinder, findsOneWidget);
-    final setupAvatar = tester.widget<GenesisStaticNetworkImage>(
-      setupAvatarFinder,
-    );
-    expect(
-      setupAvatar.placeholder!(tester.element(setupAvatarFinder)),
-      isA<ColoredBox>(),
-    );
+    final setupAvatar = tester.widget<Image>(setupAvatarFinder);
+    final setupAvatarProvider =
+        setupAvatar.image as OriginRolePortraitImageProvider;
+    final setupAvatarSource =
+        setupAvatarProvider.sourceProvider as GenesisStaticNetworkImageProvider;
 
     expect(
       find.descendant(of: portrait, matching: find.text('Guide')),
@@ -7977,13 +8212,12 @@ void main() {
     final identityText = tester.widget<Text>(
       find.descendant(of: portrait, matching: find.text('Guide')),
     );
-    expect(identityText.maxLines, isNull);
-    expect(identityText.overflow, isNull);
-    expect(identityText.softWrap, isTrue);
-    expect(identityText.style?.fontSize, 13);
+    expect(identityText.maxLines, 1);
+    expect(identityText.overflow, TextOverflow.ellipsis);
+    expect(identityText.style?.fontSize, 10);
     expect(
       find.descendant(of: portrait, matching: find.text('Knows the path')),
-      findsNothing,
+      findsOneWidget,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-setup-role-page-dot-0')),
@@ -7994,9 +8228,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(
-        const ValueKey<String>('origin-setup-role-page-current-1-of-2'),
-      ),
+      find.byKey(const ValueKey<String>('origin-setup-role-page-indicator')),
       findsOneWidget,
     );
     final roleToggle = find.byKey(
@@ -8005,8 +8237,8 @@ void main() {
     final cardBodyToggle = find.byKey(
       const ValueKey<String>('origin-setup-role-card-body-toggle-$roleId'),
     );
-    expect(tester.getSize(roleToggle), const Size(240, 48));
-    expect(tester.getSize(cardBodyToggle), const Size(240, 240));
+    expect(tester.getSize(roleToggle), const Size(196, 18));
+    expect(tester.getSize(cardBodyToggle), const Size(216, 300));
     expect(
       find.ancestor(
         of: roleToggle,
@@ -8019,18 +8251,12 @@ void main() {
     final roleActionBar = find.byKey(
       const ValueKey<String>('origin-setup-role-action-bar-$roleId'),
     );
-    expect(tester.getSize(roleActionBar).height, 93);
+    expect(tester.getSize(roleActionBar).height, 52);
     final selectSurface = tester.widget<Material>(
       find.byKey(
         const ValueKey<String>('origin-setup-role-select-surface-$roleId'),
       ),
     );
-    final actionScrim = tester.widget<ColoredBox>(
-      find.byKey(
-        const ValueKey<String>('origin-setup-role-action-scrim-$roleId'),
-      ),
-    );
-    expect(actionScrim.color.a, closeTo(0.7, 0.001));
     expect(
       tester
           .getSize(
@@ -8041,19 +8267,19 @@ void main() {
             ),
           )
           .height,
-      35,
+      34,
     );
-    expect(selectSurface.color, const Color(0x667A7A7A));
+    expect(selectSurface.color, const Color(0x29FFFFFF));
     final selectLabel = tester.widget<Text>(
       find.descendant(
         of: find.byKey(
           const ValueKey<String>('origin-setup-role-select-surface-$roleId'),
         ),
-        matching: find.text('Select to Launch'),
+        matching: find.text('Select'),
       ),
     );
-    expect(selectLabel.style?.fontSize, 16);
-    expect(selectLabel.style?.fontWeight, FontWeight.w600);
+    expect(selectLabel.style?.fontSize, 12);
+    expect(selectLabel.style?.fontWeight, FontWeight.w700);
     expect(
       find.descendant(of: roleToggle, matching: find.byType(InkWell)),
       findsNothing,
@@ -8063,9 +8289,8 @@ void main() {
         const ValueKey<String>('origin-setup-role-arrow-down-$roleId'),
       ),
     );
-    expect(downArrow.size, 32);
-    expect(downArrow.color, const Color(0xFF999999));
-    expect((tester.getSize(roleToggle).height - downArrow.size!) / 2, 8);
+    expect(downArrow.size, 20);
+    expect(downArrow.color, const Color(0xB8FFFFFF));
     expect(find.descendant(of: portrait, matching: roleToggle), findsNothing);
     await tester.ensureVisible(roleToggle);
     await tester.pumpAndSettle();
@@ -8075,7 +8300,11 @@ void main() {
       const ValueKey<String>('origin-setup-role-details-$roleId'),
     );
     expect(details, findsOneWidget);
-    expect(tester.getSize(details), const Size(240, 240));
+    expect(tester.getSize(details), const Size(216, 238));
+    expect(
+      tester.getBottomLeft(details).dy,
+      closeTo(tester.getTopLeft(roleToggle).dy, 0.01),
+    );
     expect(
       find.descendant(of: details, matching: find.text('Name')),
       findsNothing,
@@ -8142,27 +8371,39 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.byKey(
-        const ValueKey<String>('origin-setup-role-page-current-2-of-2'),
-      ),
+      find.byKey(const ValueKey<String>('origin-setup-role-page-indicator')),
       findsOneWidget,
     );
+    final customCardFinder = find.byKey(
+      const ValueKey<String>('origin-setup-role-custom-card'),
+    );
+    expect(customCardFinder, findsOneWidget);
+    final customCard = tester.widget<Material>(customCardFinder);
+    expect(customCard.color, const Color(0x14FFFFFF));
+    final customCardInkWell = tester.widget<InkWell>(
+      find.descendant(of: customCardFinder, matching: find.byType(InkWell)),
+    );
+    expect(customCardInkWell.splashFactory, NoSplash.splashFactory);
+    expect(
+      customCardInkWell.overlayColor?.resolve(<WidgetState>{
+        WidgetState.pressed,
+      }),
+      Colors.transparent,
+    );
+    expect(customCardInkWell.highlightColor, Colors.transparent);
+    final customPlus = tester.widget<Text>(find.text('+'));
+    final customLabel = tester.widget<Text>(find.text('Custom'));
+    expect(customPlus.style?.color, Colors.white);
+    expect(customLabel.style?.color, Colors.white);
     final bottomSheetScrollView = tester.widget<CustomScrollView>(
       find.byKey(
         const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
       ),
     );
     final bottomSheetScrollController = bottomSheetScrollView.controller!;
-    expect(
-      bottomSheetScrollController.position.maxScrollExtent,
-      greaterThan(0),
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
     );
-    bottomSheetScrollController.jumpTo(
-      bottomSheetScrollController.position.maxScrollExtent,
-    );
-    await tester.pump();
-    expect(bottomSheetScrollController.offset, greaterThan(0));
-    await tester.tap(find.text('Info.'));
     await tester.pumpAndSettle();
     expect(bottomSheetScrollController.offset, 0);
     expect(
@@ -8181,12 +8422,37 @@ void main() {
       find.byKey(const ValueKey<String>('origin-info-stat-character')),
       findsOneWidget,
     );
+    final infoMoreButton = find.byKey(
+      const ValueKey<String>('origin-info-more-button'),
+    );
+    final infoCloseButton = find.byKey(
+      const ValueKey<String>('origin-info-close-button'),
+    );
+    expect(infoMoreButton, findsOneWidget);
+    expect(infoCloseButton, findsOneWidget);
+    expect(tester.getSize(infoMoreButton), const Size.square(26));
+    expect(tester.getSize(infoCloseButton), const Size.square(26));
+    final pinnedInfoHeader = find.byKey(
+      const ValueKey<String>('origin-info-pinned-header'),
+    );
+    expect(pinnedInfoHeader, findsOneWidget);
+    expect(
+      tester.getSize(pinnedInfoHeader).height,
+      originInfoPinnedHeaderHeightForTesting,
+    );
+    final pinnedInfoHeaderTop = tester.getTopLeft(pinnedInfoHeader).dy;
     await tester.fling(
       find.byKey(const PageStorageKey<String>('origin-intro-o_test_1')),
       const Offset(0, -3000),
       2000,
     );
     await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(pinnedInfoHeader).dy,
+      closeTo(pinnedInfoHeaderTop, 0.01),
+    );
+    expect(infoMoreButton, findsOneWidget);
+    expect(infoCloseButton, findsOneWidget);
     final infoAvatar = tester.widget<GenesisStaticNetworkImage>(
       find.descendant(
         of: find.byKey(
@@ -8195,15 +8461,47 @@ void main() {
         matching: find.byType(GenesisStaticNetworkImage),
       ),
     );
-    expect(infoAvatar.imageUrl, setupAvatar.imageUrl);
-    await tester.tap(find.text('Map'));
+    expect(infoAvatar.imageUrl, setupAvatarSource.imageUrl);
+    final characterRow = find.byKey(
+      const ValueKey<String>('origin-character-row-c_o_test_1'),
+    );
+    final characterName = tester.widget<Text>(
+      find.descendant(
+        of: characterRow,
+        matching: find.text('Detail Character'),
+      ),
+    );
+    final characterIdentity = tester.widget<Text>(
+      find.descendant(of: characterRow, matching: find.text('Guide')),
+    );
+    final characterTagline = tester.widget<Text>(
+      find.descendant(of: characterRow, matching: find.text('Knows the path')),
+    );
+    final characterColors = tester.element(characterRow).genesisColors;
+    expect(characterName.style?.color, characterColors.foregroundStrong);
+    expect(characterName.style?.fontSize, 13);
+    expect(
+      characterIdentity.style?.color,
+      characterColors.foregroundStrong.withValues(alpha: 0.92),
+    );
+    expect(characterIdentity.style?.fontSize, 12);
+    expect(characterTagline.style?.color, characterColors.accentText);
+    final infoLaunchAction = find.byKey(
+      const ValueKey<String>('origin-info-launch-action'),
+    );
+    expect(infoLaunchAction, findsOneWidget);
+    await tester.ensureVisible(infoLaunchAction);
     await tester.pumpAndSettle();
-    final launchButtonFinder = find.widgetWithText(FilledButton, 'Launch');
-    expect(tester.getSize(launchButtonFinder), const Size(140, 35));
+    expect(
+      find.byKey(const ValueKey<String>('origin-info-bookmark-icon')),
+      findsOneWidget,
+    );
+    final launchButtonFinder = find.widgetWithText(FilledButton, 'Enter world');
+    expect(tester.getSize(launchButtonFinder).height, 44);
     final launchButton = tester.widget<FilledButton>(launchButtonFinder);
     expect(
       launchButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
-      16,
+      13,
     );
     await tester.tap(launchButtonFinder);
     await tester.pumpAndSettle();
@@ -8270,13 +8568,7 @@ void main() {
     expect(launchActions, isNot(contains('worldo_launch_opening')));
     expect(launchActions, isNot(contains('worldo_launch_submit_start')));
     expect(launchActions, contains('worldo_launch_submit_success'));
-    expect(
-      _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
-      findsOneWidget,
-    );
-    expect(find.byType(WorldPage), findsNothing);
-    await tester.tap(find.text('Enter'));
-    await tester.pumpAndSettle();
+    expect(find.byType(WorldPage), findsOneWidget);
     final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
     expect(launchedWorldPage.wid, 'w_launched_from_origin');
     expect(launchedWorldPage.waitForTick1, isFalse);
@@ -8317,8 +8609,7 @@ void main() {
         transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
         hasLength(1),
       );
-      await tester.tap(find.text('Launch'));
-      await tester.pump();
+      await _tapOriginInfoEnterWorld(tester);
 
       expect(find.byKey(const ValueKey('origin-role-sheet')), findsOneWidget);
       expect(
@@ -8412,8 +8703,7 @@ void main() {
       );
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
 
-      await tester.tap(find.text('Launch'));
-      await tester.pumpAndSettle();
+      await _tapOriginInfoEnterWorld(tester);
 
       final historyRequests = transport.requestsFor(
         '/api/v1/origin/my_launch_preset_characters',
@@ -8944,7 +9234,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
       expect(find.byType(LocationChatPanel), findsOneWidget);
-      expect(_visibleText('Opening Location (1)'), findsOneWidget);
+      expect(_visibleChatHeaderText('Opening Location'), findsOneWidget);
       expect(find.text('message loaded after entering chat'), findsOneWidget);
       expect(chatroom.connectCount, 1);
       expect(chatroom.session.joinCount, 1);
@@ -8981,8 +9271,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump();
 
-    await tester.tap(find.text('Launch'));
-    await tester.pumpAndSettle();
+    await _tapOriginInfoEnterWorld(tester);
     await tester.tap(find.text('Preset'));
     await tester.pumpAndSettle();
     await tester.tap(
@@ -8992,11 +9281,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
     await tester.pumpAndSettle();
 
-    expect(
-      _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
-      findsOneWidget,
-    );
-    expect(find.byType(WorldPage), findsNothing);
+    expect(find.byType(WorldPage), findsOneWidget);
     expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     expect(
       transport
@@ -9006,11 +9291,8 @@ void main() {
                 request.uri.queryParameters['world_id'] ==
                 'w_launched_from_origin',
           ),
-      isEmpty,
+      isNotEmpty,
     );
-
-    await tester.tap(find.text('Enter'));
-    await tester.pumpAndSettle();
     final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
     expect(launchedWorldPage.wid, 'w_launched_from_origin');
     expect(launchedWorldPage.waitForTick1, isFalse);
@@ -9150,7 +9432,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Info.'));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
     await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 500), const Offset(0, -420));
     await tester.pumpAndSettle();
@@ -9468,13 +9752,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Originator: Tester'));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Creator: Tester'));
     await tester.pumpAndSettle();
 
     final userInfoRequests = transport.requestsFor('/api/v1/user/info');
     expect(userInfoRequests, hasLength(1));
     expect(userInfoRequests.single.uri.queryParameters['uid'], 'u_test');
-    expect(find.text('User Info'), findsOneWidget);
   });
 
   testWidgets('Origin detail shows edit button to owner', (
@@ -9496,6 +9783,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Edit Worldo'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('origin-inline-edit-worldo')),
@@ -9506,16 +9797,19 @@ void main() {
       findsNothing,
     );
     final editText = tester.widget<Text>(find.text('Edit Worldo'));
-    expect(editText.style?.fontSize, 14);
-    expect(editText.style?.color, const Color(0xFF4B6192));
+    expect(editText.style?.fontSize, 11);
+    expect(
+      editText.style?.color,
+      tester.element(find.text('Edit Worldo')).genesisColors.foregroundStrong,
+    );
     final editIcon = tester.widget<SvgPicture>(
       find.descendant(
         of: find.byKey(const ValueKey('origin-inline-edit-worldo')),
         matching: _assetSvgFinder(editPencilLineIconAsset),
       ),
     );
-    expect(editIcon.width, 16);
-    expect(editIcon.height, 16);
+    expect(editIcon.width, 12);
+    expect(editIcon.height, 12);
   });
 
   testWidgets('Origin detail hides edit button from non-owner', (
@@ -9537,6 +9831,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Edit Worldo'), findsNothing);
     expect(
       find.byKey(const ValueKey('origin-inline-edit-worldo')),
@@ -9550,7 +9848,12 @@ void main() {
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          chatroom: _FakeChatroomClient(),
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -9559,8 +9862,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Launch'));
-    await tester.pumpAndSettle();
+    await _tapOriginInfoEnterWorld(tester);
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -9574,7 +9876,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
     await tester.pump();
 
-    expect(find.text('Please enter identity'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
 
     await tester.enterText(find.byType(TextField).at(1), 'Time traveler');
@@ -9633,8 +9934,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Launch'));
-    await tester.pumpAndSettle();
+    await _tapOriginInfoEnterWorld(tester);
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -9797,8 +10097,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Launch'));
-    await tester.pumpAndSettle();
+    await _tapOriginInfoEnterWorld(tester);
 
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
@@ -9830,8 +10129,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Launch'));
-      await tester.pumpAndSettle();
+      await _tapOriginInfoEnterWorld(tester);
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -10851,6 +11149,40 @@ void main() {
     );
   });
 
+  testWidgets('Me header uses the designed icon sizes', (
+    WidgetTester tester,
+  ) async {
+    final transport = _UserInfoRefreshTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: 'u_me_refresh',
+              initialAuthToken: 'backend-token',
+            ),
+            child: const MePage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final discordIcon = tester.widget<SvgPicture>(
+      find.byKey(const ValueKey<String>('me-header-discord-icon')),
+    );
+    expect(discordIcon.width, 13);
+    expect(discordIcon.height, 13);
+
+    final settingsIcon = tester.widget<SvgPicture>(
+      find.byKey(const ValueKey<String>('me-header-settings-icon')),
+    );
+    expect(settingsIcon.width, 15);
+    expect(settingsIcon.height, 15);
+  });
+
   testWidgets('Me origin and world refresh preserve old list until response', (
     WidgetTester tester,
   ) async {
@@ -11028,7 +11360,7 @@ void main() {
               'follower_cnt': 11,
             },
           ),
-          child: const MePage(),
+          child: const Scaffold(body: MePage()),
         ),
       ),
     );
@@ -11044,7 +11376,10 @@ void main() {
     expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
-    await tester.tap(find.text('World'));
+    expect(find.text('Creation 0'), findsOneWidget);
+    expect(find.text('Playing 0'), findsOneWidget);
+
+    await tester.tap(find.text('Playing 0'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -11072,17 +11407,33 @@ void main() {
       transport._jsonResponse({
         'err_no': 0,
         'err_str': 'success',
-        'data': {'list': const <Object?>[], 'total': 0},
+        'data': {
+          'list': [transport._originItem(0)],
+          'total': 8,
+        },
       }),
     );
     worldListCompleter.complete(
       transport._jsonResponse({
         'err_no': 0,
         'err_str': 'success',
-        'data': {'list': const <Object?>[], 'total': 0},
+        'data': {
+          'list': [transport._worldItem(0)],
+          'total': 3,
+        },
       }),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Creation 8'), findsOneWidget);
+    expect(find.text('Playing 3'), findsOneWidget);
+
+    await tester.tap(find.text('Creation 8'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('OID: o_test_1'), findsOneWidget);
+    expect(find.textContaining('Originator:'), findsNothing);
+    expect(find.textContaining('Latest Version: V1 · '), findsOneWidget);
   });
 
   testWidgets('profile list notifier update does not rebuild profile shell', (
@@ -11575,13 +11926,25 @@ void main() {
     expect(find.text('Basics'), findsNothing);
   });
 
-  testWidgets('tap Create while signed in opens create origin page directly', (
+  testWidgets('tap Create while signed in opens redesigned bottom sheet', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
     await tester.tap(find.byKey(const ValueKey('bottom-nav-Create')));
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey<String>('create-worldo-bottom-sheet')),
+      findsOneWidget,
+    );
+    expect(find.byType(BottomSheet), findsOneWidget);
+    final createSheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
+    final createSheetShape = createSheet.shape! as RoundedRectangleBorder;
+    expect(createSheetShape.side.width, 1);
+    expect(createSheetShape.side.color.a, closeTo(0.14, 0.0001));
+    expect(createSheetShape.side.color.r, 1);
+    expect(createSheetShape.side.color.g, 1);
+    expect(createSheetShape.side.color.b, 1);
     expect(find.text('Create Worldo'), findsOneWidget);
     expect(find.text('Basics'), findsOneWidget);
     expect(find.text('Locations (>=1)'), findsOneWidget);
@@ -11602,7 +11965,41 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.widgetWithText(FilledButton, 'Create'), findsOneWidget);
+    expect(
+      find.text(
+        'Basics, Characters and Locations are required before you can create. '
+        'Story Events can be added any time after launch.',
+      ),
+      findsOneWidget,
+    );
+
+    final titleStyle = tester
+        .widget<Text>(
+          find.byKey(const ValueKey<String>('create-worldo-hub-title')),
+        )
+        .style;
+    expect(titleStyle?.fontSize, 17);
+    expect(titleStyle?.height, 1);
+    expect(titleStyle?.fontWeight, FontWeight.w800);
+    expect(titleStyle?.color, Colors.white);
+
+    final basicsStyle = tester.widget<Text>(find.text('Basics')).style;
+    expect(basicsStyle?.fontSize, 14);
+    expect(basicsStyle?.fontWeight, FontWeight.w800);
+    expect(basicsStyle?.color, Colors.white);
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('section-icon-Basics'))),
+      const Size.square(34),
+    );
+
+    final createButton = tester.widget<GenesisPrimaryButton>(
+      find.widgetWithText(GenesisPrimaryButton, 'Create'),
+    );
+    expect(createButton.height, 44);
+    expect(createButton.width, double.infinity);
+    expect(createButton.borderRadius, BorderRadius.circular(13));
+    expect(createButton.fontSize, 13);
+    expect(createButton.fontWeight, FontWeight.w700);
   });
 
   testWidgets('create route opens create origin page', (
@@ -11621,7 +12018,7 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Create'), findsOneWidget);
   });
 
-  testWidgets('create submit button uses editor save bottom spacing', (
+  testWidgets('create hub uses the redesigned action geometry', (
     WidgetTester tester,
   ) async {
     tester.view.devicePixelRatio = 1.0;
@@ -11637,32 +12034,15 @@ void main() {
     );
     final screenHeight =
         tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    final screenWidth =
+        tester.view.physicalSize.width / tester.view.devicePixelRatio;
     final createBottomGap =
         screenHeight -
         tester.getRect(find.widgetWithText(FilledButton, 'Create')).bottom;
 
-    Future<void> expectCreateButtonMatchesSaveSpacing(
-      String sectionLabel,
-    ) async {
-      await tester.tap(find.textContaining(sectionLabel));
-      await tester.pumpAndSettle();
-
-      final saveButton = find.widgetWithText(FilledButton, 'Save');
-      final saveButtonSize = tester.getSize(saveButton);
-      final saveBottomGap = screenHeight - tester.getRect(saveButton).bottom;
-
-      expect(createButtonSize.height, saveButtonSize.height);
-      expect(createButtonSize.width <= saveButtonSize.width, isTrue);
-      expect(createBottomGap, saveBottomGap);
-
-      Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
-      await tester.pumpAndSettle();
-    }
-
-    await expectCreateButtonMatchesSaveSpacing('Basics');
-    await expectCreateButtonMatchesSaveSpacing('Characters');
-    await expectCreateButtonMatchesSaveSpacing('Locations');
-    await expectCreateButtonMatchesSaveSpacing('Story Events (Optional)');
+    expect(createButtonSize.height, 44);
+    expect(createButtonSize.width, screenWidth - 40);
+    expect(createBottomGap, 30);
   });
 
   testWidgets('invalid create basics save is disabled with BFD8CD', (
@@ -11984,7 +12364,7 @@ void main() {
     Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Characters'));
+    await tester.tap(find.text('Characters (>=1)'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Characters'), findsWidgets);
     Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
@@ -13541,8 +13921,8 @@ void main() {
     expect(find.textContaining('Worldo Brief: Xkkdd'), findsOneWidget);
     expect(find.textContaining('World Logic:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
-    expect(find.text('1 characters: Tff'), findsOneWidget);
-    expect(find.text('Suggested: Tff'), findsOneWidget);
+    expect(find.textContaining('1 characters: Tff'), findsOneWidget);
+    expect(find.textContaining('Suggested: Tff'), findsOneWidget);
     final charactersTitle = find.text('Characters (>=1)');
     final charactersCompleted = find.byKey(
       const ValueKey<String>('section-completed-Characters (>=1)'),
@@ -13563,42 +13943,41 @@ void main() {
         0.01,
       ),
     );
-    expect(
-      tester.getTopLeft(charactersCompleted).dx -
-          tester.getTopRight(charactersTitle).dx,
-      closeTo(6, 0.01),
-    );
-    expect(
-      tester.getTopRight(find.text('1 characters: Tff')).dx,
-      greaterThan(tester.getTopLeft(charactersChevron).dx),
-    );
+    expect(charactersCompleted, findsNothing);
+    expect(tester.getSize(charactersChevron), const Size.square(20));
+    final charactersTitleStyle = tester.widget<Text>(charactersTitle).style;
+    expect(charactersTitleStyle?.fontSize, 14);
+    expect(charactersTitleStyle?.fontWeight, FontWeight.w800);
+    expect(charactersTitleStyle?.color, Colors.white);
     final bestRoleSummary = tester.widget<Text>(
       find.byKey(
-        const ValueKey<String>('section-summary-line-Characters (>=1)-1'),
+        const ValueKey<String>('section-summary-line-Characters (>=1)-0'),
       ),
     );
     final bestRoleSpans = (bestRoleSummary.textSpan! as TextSpan).children!;
-    expect((bestRoleSpans.first as TextSpan).text, 'Suggested:');
     expect(
-      (bestRoleSpans.first as TextSpan).style?.color,
-      const Color(0xFF999999),
+      bestRoleSpans.map((span) => (span as TextSpan).text).join(),
+      '1 characters: Tff · Suggested: Tff',
     );
-    expect((bestRoleSpans.last as TextSpan).text, ' Tff');
-    expect(bestRoleSummary.style?.color, const Color(0xFF444444));
-    expect(find.text('L1 · Region : 1'), findsOneWidget);
-    expect(find.text('L2 · Building : 1'), findsOneWidget);
-    expect(find.text('L3 · Room : 1'), findsOneWidget);
-    expect(find.text('Jenrn ff'), findsOneWidget);
-    expect(find.text('Character dialogue : 0'), findsOneWidget);
-    expect(find.text('Narrator : 1'), findsOneWidget);
-    expect(find.text('Image : 0'), findsOneWidget);
+    expect(bestRoleSummary.maxLines, 1);
+    expect(bestRoleSummary.softWrap, isFalse);
+    expect(bestRoleSummary.overflow, TextOverflow.ellipsis);
+    expect(bestRoleSummary.style?.fontSize, 11);
+    expect(bestRoleSummary.style?.color, const Color(0x99FFFFFF));
+    expect(find.textContaining('L1 · Region : 1'), findsOneWidget);
+    expect(find.textContaining('L2 · Building : 1'), findsOneWidget);
+    expect(find.textContaining('L3 · Room : 1'), findsOneWidget);
+    expect(find.textContaining('Jenrn ff'), findsOneWidget);
+    expect(find.textContaining('Character dialogue : 0'), findsOneWidget);
+    expect(find.textContaining('Narrator : 1'), findsOneWidget);
+    expect(find.textContaining('Image : 0'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
     await tester.drag(find.byType(ListView), const Offset(0, -240));
     await tester.pump();
-    expect(find.text('2 events'), findsOneWidget);
+    expect(find.textContaining('2 events'), findsOneWidget);
   });
 
-  testWidgets('characters summary hides Suggested when none is selected', (
+  testWidgets('create hub character summary is a single ellipsized line', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(320, 800);
@@ -13630,13 +14009,15 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
     await tester.pumpAndSettle();
 
-    final characterSummary = find.text('1 characters: $characterName');
+    final characterSummary = find.textContaining(
+      '1 characters: $characterName',
+    );
     expect(characterSummary, findsOneWidget);
     final summaryText = tester.widget<Text>(characterSummary);
-    expect(summaryText.maxLines, isNull);
-    expect(summaryText.softWrap, isTrue);
-    expect(summaryText.overflow, isNull);
-    expect(tester.getSize(characterSummary).height, greaterThan(20));
+    expect(summaryText.maxLines, 1);
+    expect(summaryText.softWrap, isFalse);
+    expect(summaryText.overflow, TextOverflow.ellipsis);
+    expect(tester.getSize(characterSummary).height, lessThan(20));
     expect(find.textContaining('Suggested:'), findsNothing);
   });
 
@@ -13681,7 +14062,7 @@ void main() {
     await tester.tap(find.text('Open create'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
 
     expect(find.text('Save the draft before leaving?'), findsOneWidget);
@@ -13695,7 +14076,7 @@ void main() {
 
     expect(find.text('Create Worldo'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Discard'));
     await tester.pumpAndSettle();
@@ -13747,7 +14128,11 @@ void main() {
       tester.widget<CreateFormCard>(find.byType(CreateFormCard)).showBorder,
       isFalse,
     );
-    expect(find.byType(CreateInlineAddButton), findsOneWidget);
+    expect(find.byType(CreateInlineAddButton), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('create-characters-add-button')),
+      findsOneWidget,
+    );
     expect(
       tester
           .widgetList<CreateTextFieldBlock>(
@@ -13756,13 +14141,14 @@ void main() {
               matching: find.byType(CreateTextFieldBlock),
             ),
           )
-          .every((field) => field.labelFontWeight == FontWeight.w400),
+          .every((field) => field.labelFontWeight == FontWeight.w700),
       isTrue,
     );
+    expect(find.text('1/8 (Added / Max)'), findsOneWidget);
     final addCharacterText = tester.widget<Text>(find.text('+ Add Character'));
-    expect(addCharacterText.style?.color, GenesisCreateColors.light().accent);
-    expect(addCharacterText.style?.fontSize, 16);
-    expect(addCharacterText.style?.fontWeight, FontWeight.w600);
+    expect(addCharacterText.style?.color, GenesisPalette.redesignAccentSoft);
+    expect(addCharacterText.style?.fontSize, 13);
+    expect(addCharacterText.style?.fontWeight, FontWeight.w700);
     expect(
       tester.getCenter(find.text('+ Add Character')).dx,
       closeTo(tester.getCenter(find.byType(Scaffold)).dx, 0.01),
@@ -13777,8 +14163,10 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    final addCharacterTextTop = tester
-        .getTopLeft(find.text('+ Add Character'))
+    final addCharacterButtonTop = tester
+        .getTopLeft(
+          find.byKey(const ValueKey<String>('create-characters-add-button')),
+        )
         .dy;
     await tester.tap(find.text('+ Add Character'));
     await tester.pumpAndSettle();
@@ -13786,18 +14174,24 @@ void main() {
     expect(find.text('Character 2'), findsOneWidget);
     final characterCards = find.byType(CreateFormCard);
     expect(
-      tester.getTopLeft(find.text('Character 2')).dy,
-      closeTo(addCharacterTextTop, 0.01),
+      tester.getTopLeft(characterCards.at(1)).dy,
+      closeTo(addCharacterButtonTop, 0.01),
     );
     expect(
       tester.getTopLeft(characterCards.at(1)).dy -
           tester.getBottomLeft(characterCards.at(0)).dy,
-      closeTo(12, 0.01),
+      closeTo(22, 0.01),
     );
     expect(
-      tester.getTopLeft(find.byType(CreateInlineAddButton)).dy -
+      tester
+              .getTopLeft(
+                find.byKey(
+                  const ValueKey<String>('create-characters-add-button'),
+                ),
+              )
+              .dy -
           tester.getBottomLeft(characterCards.at(1)).dy,
-      closeTo(12, 0.01),
+      closeTo(22, 0.01),
     );
   });
 
@@ -16542,13 +16936,18 @@ void main() {
       tester.widget<CreateFormCard>(find.byType(CreateFormCard)).showBorder,
       isFalse,
     );
-    expect(find.byType(CreateInlineAddButton), findsOneWidget);
-    final addEventText = tester.widget<Text>(find.text('+ Add Event'));
-    expect(addEventText.style?.color, GenesisCreateColors.light().accent);
-    expect(addEventText.style?.fontSize, 16);
-    expect(addEventText.style?.fontWeight, FontWeight.w600);
+    final addEventText = tester.widget<Text>(find.text('Add Event'));
+    expect(addEventText.style?.color, GenesisCreateColors.light().successText);
+    expect(addEventText.style?.fontSize, 13);
+    expect(addEventText.style?.fontWeight, FontWeight.w700);
     expect(
-      tester.getCenter(find.text('+ Add Event')).dx,
+      tester
+          .getCenter(
+            find.byKey(
+              const ValueKey<String>('story-events-add-button-border'),
+            ),
+          )
+          .dx,
       closeTo(tester.getCenter(find.byType(Scaffold)).dx, 0.01),
     );
     expect(
@@ -16557,29 +16956,30 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
-      find.text('+ Add Event'),
+      find.text('Add Event'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    final addEventTextTop = tester.getTopLeft(find.text('+ Add Event')).dy;
-    await tester.tap(find.text('+ Add Event'));
+    await tester.tap(find.text('Add Event'));
     await tester.pumpAndSettle();
 
     expect(find.text('Event 2'), findsOneWidget);
     final eventCards = find.byType(CreateFormCard);
-    expect(
-      tester.getTopLeft(find.text('Event 2')).dy,
-      closeTo(addEventTextTop, 0.01),
-    );
     expect(
       tester.getTopLeft(eventCards.at(1)).dy -
           tester.getBottomLeft(eventCards.at(0)).dy,
       closeTo(12, 0.01),
     );
     expect(
-      tester.getTopLeft(find.byType(CreateInlineAddButton)).dy -
+      tester
+              .getTopLeft(
+                find.byKey(
+                  const ValueKey<String>('story-events-add-button-border'),
+                ),
+              )
+              .dy -
           tester.getBottomLeft(eventCards.at(1)).dy,
-      closeTo(12, 0.01),
+      closeTo(20, 0.01),
     );
   });
 
@@ -18001,8 +18401,8 @@ void main() {
     );
     expect(transparencyFinder, findsOneWidget);
     expect(blurFinder, findsOneWidget);
-    expect(tester.widget<Slider>(transparencyFinder).value, 0.9);
-    expect(tester.widget<Slider>(blurFinder).value, 4);
+    expect(tester.widget<Slider>(transparencyFinder).value, 0);
+    expect(tester.widget<Slider>(blurFinder).value, 0);
 
     tester.widget<Slider>(transparencyFinder).onChanged!(0);
     await tester.pump();
@@ -20631,7 +21031,10 @@ void main() {
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(transport: transport, useMock: false),
-        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        child: MaterialApp(
+          theme: GenesisTheme.worldoRedesign(),
+          home: const WorldPage(wid: 'w_test_1'),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -20643,13 +21046,266 @@ void main() {
       of: find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
       matching: find.text('Detail'),
     );
-    await tester.tap(detailTag);
+    tester.widget<WorldFeedContent>(find.byType(WorldFeedContent)).onPullUp();
+    await tester.pump();
+    final openingSheetSurface = find.byKey(
+      const ValueKey<String>('world-detail-sheet-surface'),
+    );
+    final openingBottomTabs = find.byKey(
+      const ValueKey<String>('world-bottom-tags-overlay'),
+    );
+    final tabDividerTop = tester.getTopLeft(openingBottomTabs).dy;
+    expect(openingSheetSurface, findsOneWidget);
+    expect(
+      tester.getTopLeft(openingSheetSurface).dy,
+      closeTo(tabDividerTop, 2),
+    );
+    await tester.pump(const Duration(milliseconds: 130));
+    expect(tester.getTopLeft(openingSheetSurface).dy, lessThan(tabDividerTop));
     await tester.pumpAndSettle();
     expect(currentTilemap().animationsPaused, isTrue);
+    expect(
+      find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-detail-sheet-surface')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-detail-draggable-sheet')),
+      findsOneWidget,
+    );
+    final transparentSheetBackdrop = tester.widget<GestureDetector>(
+      find.byKey(const ValueKey<String>('world-detail-sheet-backdrop')),
+    );
+    expect(transparentSheetBackdrop.child, isA<SizedBox>());
+    final selectedDetailTab = find.byKey(
+      const ValueKey<String>('world-bottom-tab-WorldBottomSheetKind.detail'),
+    );
+    final selectedTabDecoration =
+        tester.widget<Container>(selectedDetailTab).decoration!
+            as BoxDecoration;
+    expect(selectedTabDecoration.color, GenesisPalette.white);
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: selectedDetailTab,
+              matching: find.text('Detail'),
+            ),
+          )
+          .style!
+          .color,
+      GenesisPalette.redesignInk,
+    );
+    final sheetSurface = find.byKey(
+      const ValueKey<String>('world-detail-sheet-surface'),
+    );
+    final bottomTabs = find.byKey(
+      const ValueKey<String>('world-bottom-tags-overlay'),
+    );
+    expect(
+      tester.getTopLeft(sheetSurface).dy,
+      closeTo(mapDetailSheetExpandedTop(tester.element(sheetSurface)), 0.5),
+    );
+    expect(
+      tester.getBottomLeft(sheetSurface).dy,
+      closeTo(tester.getTopLeft(bottomTabs).dy, 0.01),
+    );
 
-    Navigator.of(tester.element(find.byType(WorldPage))).pop();
+    final contentDragStartTop = tester.getTopLeft(sheetSurface).dy;
+    final contentDrag = await tester.startGesture(
+      Offset(
+        tester.getCenter(sheetSurface).dx,
+        contentDragStartTop + worldInfoHeaderHeight + 80,
+      ),
+    );
+    await contentDrag.moveBy(const Offset(0, 10));
+    await tester.pump();
+    await contentDrag.moveBy(const Offset(0, 10));
+    await tester.pump();
+    await contentDrag.moveBy(const Offset(0, 10));
+    await tester.pump();
+    final contentDragDownTop = tester.getTopLeft(sheetSurface).dy;
+    expect(contentDragDownTop, greaterThan(contentDragStartTop));
+    await contentDrag.moveBy(const Offset(0, -18));
+    await tester.pump();
+    expect(tester.getTopLeft(sheetSurface).dy, lessThan(contentDragDownTop));
+    await contentDrag.up();
     await tester.pumpAndSettle();
+
+    final restingSheetTop = tester.getTopLeft(sheetSurface).dy;
+    final upwardContentDrag = await tester.startGesture(
+      Offset(
+        tester.getCenter(sheetSurface).dx,
+        restingSheetTop + worldInfoHeaderHeight + 80,
+      ),
+    );
+    await upwardContentDrag.moveBy(const Offset(0, -20));
+    await tester.pump();
+    await upwardContentDrag.moveBy(const Offset(0, -60));
+    await tester.pump();
+    expect(tester.getTopLeft(sheetSurface).dy, closeTo(restingSheetTop, 0.5));
+    await upwardContentDrag.up();
+    await tester.pumpAndSettle();
+
+    final sheetTabHitTargets = find.byKey(
+      const ValueKey<String>('world-detail-sheet-tab-hit-targets'),
+    );
+    final detailIndicator = find.byKey(
+      const ValueKey<String>(
+        'world-sheet-page-indicator-WorldBottomSheetKind.detail',
+      ),
+    );
+    final locationsIndicator = find.byKey(
+      const ValueKey<String>(
+        'world-sheet-page-indicator-WorldBottomSheetKind.locations',
+      ),
+    );
+    expect(tester.getSize(detailIndicator).width, 26);
+    expect(tester.getSize(locationsIndicator).width, 4);
+    await tester.tap(
+      find.descendant(of: sheetTabHitTargets, matching: find.text('Locations')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getSize(detailIndicator).width, inExclusiveRange(4, 26));
+    expect(tester.getSize(locationsIndicator).width, inExclusiveRange(4, 26));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(detailIndicator).width, 4);
+    expect(tester.getSize(locationsIndicator).width, 26);
+    final selectedLocationsTab =
+        tester
+                .widget<Container>(
+                  find.byKey(
+                    const ValueKey<String>(
+                      'world-bottom-tab-WorldBottomSheetKind.locations',
+                    ),
+                  ),
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(selectedLocationsTab.color, GenesisPalette.white);
+    expect(
+      find.byKey(const ValueKey<String>('world-detail-sheet-safe-area')),
+      findsNothing,
+    );
+
+    final sheetTopBeforeClose = tester.getTopLeft(sheetSurface).dy;
+    await tester.tap(
+      find.descendant(
+        of: sheetSurface,
+        matching: find.byIcon(Icons.close_rounded),
+      ),
+    );
+    await tester.pump();
+    var previousClosingTop = sheetTopBeforeClose;
+    for (var frame = 0; frame < 4; frame += 1) {
+      await tester.pump(const Duration(milliseconds: 60));
+      if (sheetSurface.evaluate().isEmpty) break;
+      final closingTop = tester.getTopLeft(sheetSurface).dy;
+      expect(closingTop, greaterThan(previousClosingTop));
+      expect(closingTop, lessThanOrEqualTo(tabDividerTop));
+      previousClosingTop = closingTop;
+    }
+    await tester.pumpAndSettle();
+    expect(sheetSurface, findsOneWidget);
+    expect(tester.getTopLeft(sheetSurface).dy, closeTo(tabDividerTop, 2));
+    expect(
+      tester
+          .widget<IgnorePointer>(
+            find.byKey(const ValueKey<String>('world-detail-sheet-overlay')),
+          )
+          .ignoring,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<Opacity>(
+            find
+                .descendant(
+                  of: find.byKey(
+                    const ValueKey<String>('world-detail-sheet-overlay'),
+                  ),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity,
+      0,
+    );
     expect(currentTilemap().animationsPaused, isFalse);
+    expect(
+      find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
+      findsOneWidget,
+    );
+
+    tester.widget<WorldFeedContent>(find.byType(WorldFeedContent)).onPullUp();
+    await tester.pumpAndSettle();
+    expect(tester.getSize(detailIndicator).width, 4);
+    expect(tester.getSize(locationsIndicator).width, 26);
+    final reopenedLocationsDecoration =
+        tester
+                .widget<Container>(
+                  find.byKey(
+                    const ValueKey<String>(
+                      'world-bottom-tab-WorldBottomSheetKind.locations',
+                    ),
+                  ),
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(reopenedLocationsDecoration.color, GenesisPalette.white);
+    await tester.tap(
+      find.descendant(
+        of: sheetSurface,
+        matching: find.byIcon(Icons.close_rounded),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(detailTag);
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(WorldPage), findsOneWidget);
+    expect(
+      tester
+          .widget<IgnorePointer>(
+            find.byKey(const ValueKey<String>('world-detail-sheet-overlay')),
+          )
+          .ignoring,
+      isTrue,
+    );
+    expect(currentTilemap().animationsPaused, isFalse);
+
+    await tester.tap(detailTag);
+    await tester.pumpAndSettle();
+    expect(sheetSurface, findsOneWidget);
+    final reopenedSheetTop = tester.getTopLeft(sheetSurface).dy;
+    final heldDownDrag = await tester.startGesture(
+      Offset(tester.getCenter(sheetSurface).dx, reopenedSheetTop + 20),
+    );
+    await tester.pump();
+    final heldDraggableSheet = tester.widget<DraggableScrollableSheet>(
+      find.byKey(const ValueKey<String>('world-detail-draggable-sheet')),
+    );
+    heldDraggableSheet.controller!.jumpTo(heldDraggableSheet.minChildSize);
+    await tester.pump();
+    expect(sheetSurface, findsOneWidget);
+    expect(tester.getTopLeft(sheetSurface).dy, closeTo(tabDividerTop, 2));
+    await heldDownDrag.up();
+    await tester.pumpAndSettle();
+    expect(sheetSurface, findsOneWidget);
+    expect(
+      tester
+          .widget<IgnorePointer>(
+            find.byKey(const ValueKey<String>('world-detail-sheet-overlay')),
+          )
+          .ignoring,
+      isTrue,
+    );
   });
 
   testWidgets('world route slides over its matching loading backdrop', (
@@ -20923,7 +21579,7 @@ void main() {
       tester.getSize(
         find.byKey(const ValueKey<String>('world-loading-action')),
       ),
-      const Size(140, worldInfoHeaderContentHeight),
+      const Size(92, worldInfoHeaderContentHeight),
     );
     expect(find.byType(WorldInfoHeader), findsNothing);
 
@@ -21355,14 +22011,19 @@ void main() {
       await tester.pumpAndSettle();
 
       final eventsTab = find
-          .byKey(const ValueKey<String>('world-section-floating-tab-Events'))
+          .byKey(
+            const ValueKey<String>(
+              'world-bottom-tab-WorldBottomSheetKind.events',
+            ),
+          )
           .hitTestable();
       expect(eventsTab, findsOneWidget);
       await tester.tap(eventsTab);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
       expect(
-        find.byKey(const PageStorageKey<String>('world-events-section')),
+        find.byKey(
+          const PageStorageKey<String>('world-events-section-bottom-sheet'),
+        ),
         findsOneWidget,
       );
       for (
@@ -21409,63 +22070,6 @@ void main() {
       );
       expect(find.text('Paged event 20.', skipOffstage: false), findsNothing);
 
-      final pager = find.byKey(
-        const ValueKey<String>('world-events-tick-pager'),
-      );
-      expect(pager, findsOneWidget);
-
-      final topEdgeArrow = find.byKey(
-        const ValueKey<String>('world-event-top-edge-arrow'),
-      );
-      final bottomEdgeArrow = find.byKey(
-        const ValueKey<String>('world-event-bottom-edge-arrow'),
-      );
-      expect(topEdgeArrow, findsNothing);
-      expect(bottomEdgeArrow, findsNothing);
-      final topArrowGesture = await tester.startGesture(
-        tester.getCenter(
-          find.text('Paged event first page.', skipOffstage: false),
-        ),
-      );
-      await topArrowGesture.moveBy(const Offset(0, 40));
-      await tester.pump();
-      expect(topEdgeArrow, findsOneWidget);
-      final topArrowSize = tester.getSize(topEdgeArrow);
-      await topArrowGesture.moveBy(const Offset(0, 12));
-      await tester.pump();
-      expect(
-        tester.getSize(topEdgeArrow).width,
-        greaterThan(topArrowSize.width),
-      );
-      await topArrowGesture.up();
-      await tester.pump();
-      expect(topEdgeArrow, findsNothing);
-
-      final latestBottomWallGesture = await tester.startGesture(
-        tester.getCenter(
-          find.text('Paged event first page.', skipOffstage: false),
-        ),
-      );
-      await latestBottomWallGesture.moveBy(const Offset(0, -80));
-      await tester.pump();
-      expect(bottomEdgeArrow, findsNothing);
-      await latestBottomWallGesture.up();
-      await tester.pump(const Duration(milliseconds: 320));
-      expect(
-        find.text('Paged event first page.', skipOffstage: false),
-        findsOneWidget,
-      );
-
-      Finder tickBodyForTickNo(int tickNo) {
-        final requestIndex = 26 - tickNo;
-        return find.text(
-          requestIndex == 1
-              ? 'Paged event first page.'
-              : 'Paged event $requestIndex.',
-          skipOffstage: false,
-        );
-      }
-
       Finder tickHeader(int tickNo) {
         final requestIndex = 26 - tickNo;
         return find.text(
@@ -21474,67 +22078,26 @@ void main() {
         );
       }
 
-      Future<void> dragToOlderTick(int currentTickNo, int nextTickNo) async {
-        for (var attempt = 0; attempt < 3; attempt += 1) {
-          final currentBody = tickBodyForTickNo(currentTickNo);
-          expect(currentBody, findsOneWidget);
-          await tester.drag(
-            currentBody,
-            const Offset(0, 520),
-            warnIfMissed: false,
-          );
-          await tester.pump(const Duration(milliseconds: 320));
-          if (tickBodyForTickNo(nextTickNo).evaluate().isNotEmpty) return;
-        }
-        expect(tickBodyForTickNo(nextTickNo), findsOneWidget);
-      }
-
-      Future<void> dragToNewerTick(int currentTickNo, int nextTickNo) async {
-        for (var attempt = 0; attempt < 3; attempt += 1) {
-          final currentBody = tickBodyForTickNo(currentTickNo);
-          expect(currentBody, findsOneWidget);
-          await tester.drag(
-            currentBody,
-            const Offset(0, -520),
-            warnIfMissed: false,
-          );
-          await tester.pump(const Duration(milliseconds: 320));
-          if (tickBodyForTickNo(nextTickNo).evaluate().isNotEmpty) return;
-        }
-        expect(tickBodyForTickNo(nextTickNo), findsOneWidget);
-      }
-
-      await dragToOlderTick(25, 24);
-      final bottomArrowGesture = await tester.startGesture(
-        tester.getCenter(tickBodyForTickNo(24)),
+      final eventsList = find.byKey(
+        const ValueKey<String>('world-events-tick-list'),
       );
-      await bottomArrowGesture.moveBy(const Offset(0, -40));
-      await tester.pump();
-      expect(bottomEdgeArrow, findsOneWidget);
-      final bottomArrowSize = tester.getSize(bottomEdgeArrow);
-      await bottomArrowGesture.moveBy(const Offset(0, -12));
-      await tester.pump();
+      expect(eventsList, findsOneWidget);
       expect(
-        tester.getSize(bottomEdgeArrow).width,
-        greaterThan(bottomArrowSize.width),
+        find.byKey(const ValueKey<String>('world-events-tick-pager')),
+        findsNothing,
       );
-      await bottomArrowGesture.up();
-      await tester.pump();
-      expect(bottomEdgeArrow, findsNothing);
-      await tester.pump(const Duration(milliseconds: 320));
+      final eventsScrollController = tester
+          .widget<Scrollable>(
+            find.descendant(of: eventsList, matching: find.byType(Scrollable)),
+          )
+          .controller!;
+      expect(eventsScrollController.offset, 0);
 
-      for (var tickNo = 24; tickNo >= 10; tickNo -= 1) {
-        await dragToOlderTick(tickNo, tickNo - 1);
-      }
-      for (
-        var attempt = 0;
-        attempt < 10 &&
-            transport.requestsFor('/api/v1/world/tick/list').length < 2;
-        attempt += 1
-      ) {
-        await tester.runAsync(() async {
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        });
+      for (var attempt = 0; attempt < 20; attempt += 1) {
+        if (transport.requestsFor('/api/v1/world/tick/list').length >= 2) {
+          break;
+        }
+        await tester.drag(eventsList, const Offset(0, -520));
         await tester.pump(const Duration(milliseconds: 100));
       }
 
@@ -21543,41 +22106,28 @@ void main() {
       expect(tickRequests[1].uri.queryParameters['world_id'], 'w_test_1');
       expect(tickRequests[1].uri.queryParameters['pn'], '2');
       expect(tickRequests[1].uri.queryParameters['rn'], '20');
-      expect(
-        find.text('Paged event first page.', skipOffstage: false),
-        findsNothing,
-      );
-      for (
-        var attempt = 0;
-        attempt < 10 && tickHeader(9).evaluate().isEmpty;
-        attempt += 1
-      ) {
+      expect(eventsScrollController.offset, greaterThan(0));
+
+      for (var attempt = 0; attempt < 20; attempt += 1) {
+        if (tickHeader(1).evaluate().isNotEmpty) break;
+        await tester.drag(eventsList, const Offset(0, -520));
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(tickHeader(9), findsOneWidget);
-
-      for (var tickNo = 9; tickNo >= 2; tickNo -= 1) {
-        await dragToOlderTick(tickNo, tickNo - 1);
-      }
-      await tester.pump(const Duration(milliseconds: 100));
-
       expect(find.text('Paged event 25.', skipOffstage: false), findsOneWidget);
       expect(
         find.text('Tick 1-1 · tick-time-25', skipOffstage: false),
         findsOneWidget,
       );
 
-      await dragToNewerTick(1, 2);
-      expect(find.text('Paged event 24.', skipOffstage: false), findsOneWidget);
-      expect(
-        find.text('Tick 2-1 · tick-time-24', skipOffstage: false),
-        findsOneWidget,
-      );
+      final oldestOffset = eventsScrollController.offset;
+      await tester.drag(eventsList, const Offset(0, 520));
+      await tester.pump(const Duration(milliseconds: 320));
+      expect(eventsScrollController.offset, lessThan(oldestOffset));
 
       final requestCountBeforeReopen = transport
           .requestsFor('/api/v1/world/tick/list')
           .length;
-      await tester.tap(find.text('×').last);
+      await tester.tap(find.byIcon(Icons.close_rounded).last);
       await tester.pumpAndSettle();
       await tester.tap(eventsTab);
       await tester.pump();
@@ -21682,13 +22232,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final progressButton = find.widgetWithText(FilledButton, 'Progress');
+    final progressButton = find.widgetWithText(FilledButton, 'Tick now');
     final progressIcon = find.byKey(
       const ValueKey<String>('world-progress-button-icon'),
     );
-    expect(progressIcon, findsOneWidget);
-    expect(tester.widget<SvgPicture>(progressIcon).width, 12);
-    expect(tester.widget<SvgPicture>(progressIcon).height, 12);
+    expect(progressIcon, findsNothing);
     await tester.ensureVisible(progressButton);
     await tester.tap(progressButton);
     await tester.pump();
@@ -21874,7 +22422,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final progressButton = find.widgetWithText(FilledButton, 'Progress');
+    final progressButton = find.widgetWithText(FilledButton, 'Tick now');
     await tester.ensureVisible(progressButton);
     await tester.tap(progressButton);
     await tester.pumpAndSettle();
@@ -22083,18 +22631,21 @@ void main() {
       find.byType(LocationChatPanel, skipOffstage: false),
       findsNWidgets(2),
     );
-    expect(find.text('World Location (1)', skipOffstage: false), findsNothing);
     expect(
-      find.text('Child Location (0)', skipOffstage: false),
+      _chatHeaderText('World Location', skipOffstage: false),
+      findsNothing,
+    );
+    expect(
+      _chatHeaderText('Child Location', skipOffstage: false),
       findsOneWidget,
     );
     expect(
-      find.text('Second Child Location (0)', skipOffstage: false),
+      _chatHeaderText('Second Child Location', skipOffstage: false),
       findsOneWidget,
     );
-    expect(_visibleText('World Location (1)'), findsNothing);
-    expect(_visibleText('Child Location (0)'), findsNothing);
-    expect(_visibleText('Second Child Location (0)'), findsNothing);
+    expect(_visibleChatHeaderText('World Location'), findsNothing);
+    expect(_visibleChatHeaderText('Child Location'), findsNothing);
+    expect(_visibleChatHeaderText('Second Child Location'), findsNothing);
   });
 
   testWidgets('world page opens its requested initial location chat', (
@@ -22123,7 +22674,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(_visibleText('Child Location (1)'), findsOneWidget);
+    expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
     expect(find.byType(LocationChatPanel), findsOneWidget);
   });
 
@@ -22181,7 +22732,7 @@ void main() {
         await tester.pump();
       }
 
-      expect(find.textContaining('Child Location ('), findsOneWidget);
+      expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
       expect(find.byType(Tilemap), findsOneWidget);
       expect(chatroom.connectCount, 1);
       expect(chatroom.session.joinCount, 1);
@@ -22201,7 +22752,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(_visibleText('Child Location (1)'), findsNothing);
+      expect(_visibleChatHeaderText('Child Location'), findsNothing);
 
       tester.widget<Tilemap>(find.byType(Tilemap)).onDisplayReadinessChanged!(
         true,
@@ -22312,7 +22863,7 @@ void main() {
       expect(chatroom.session.joinCount, 0);
       expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
       expect(find.byType(LocationChatPanel), findsOneWidget);
-      expect(find.textContaining('Child Location ('), findsOneWidget);
+      expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
       expect(find.byType(Tilemap), findsOneWidget);
 
       connectCompleter.complete();
@@ -22343,7 +22894,7 @@ void main() {
 
       expect(chatroom.session.joinCount, 1);
       expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
-      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
     },
   );
 
@@ -22437,7 +22988,7 @@ void main() {
       await worldMap.common.onPointTap!(childPoint);
       await tester.pumpAndSettle();
 
-      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
       expect(chatroom.session.joinCount, 1);
       expect(
         tester
@@ -22456,7 +23007,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(chatroom.session.leaveCount, 1);
-      expect(_visibleText('Child Location (1)'), findsNothing);
+      expect(_visibleChatHeaderText('Child Location'), findsNothing);
     },
   );
 
@@ -22498,7 +23049,7 @@ void main() {
 
       expect(observer.pushCount, initialPushCount);
       expect(find.byType(LocationChatPage), findsNothing);
-      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
       expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
       expect(chatroom.session.joinCount, 1);
 
@@ -22519,7 +23070,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(chatroom.session.leaveCount, 1);
-      expect(_visibleText('Child Location (1)'), findsNothing);
+      expect(_visibleChatHeaderText('Child Location'), findsNothing);
       expect(
         find.byType(LocationChatPanel, skipOffstage: false),
         findsOneWidget,
@@ -22531,7 +23082,7 @@ void main() {
 
       expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
       expect(chatroom.session.joinCount, 2);
-      expect(find.textContaining('Child Location ('), findsOneWidget);
+      expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
       expect(find.text('cached draft'), findsOneWidget);
     },
   );
@@ -22587,7 +23138,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -23005,7 +23556,7 @@ void main() {
     await tester.tap(childRow.last);
     await tester.pump();
 
-    expect(_visibleText('Child Location (1)'), findsOneWidget);
+    expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
     expect(_visibleText('Loading'), findsOneWidget);
     expect(chatroom.session.joinCount, 0);
 
@@ -23066,7 +23617,7 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.textContaining('Child Location ('), findsOneWidget);
+      expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
       expect(find.text('cached local location message'), findsOneWidget);
       expect(chatroom.session.joinCount, 0);
 
@@ -23155,7 +23706,7 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
       expect(find.text('cached point-id location message'), findsOneWidget);
       expect(chatroom.session.joinCount, 0);
 
@@ -23289,7 +23840,7 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(_visibleText('Child Location (1)'), findsOneWidget);
+    expect(_visibleChatHeaderText('Child Location'), findsOneWidget);
     expect(chatroom.session.joinCount, 1);
 
     await tester.binding.handlePopRoute();
@@ -23298,7 +23849,7 @@ void main() {
 
     expect(observer.popCount, 0);
     expect(find.byType(WorldPage), findsOneWidget);
-    expect(_visibleText('Child Location (1)'), findsNothing);
+    expect(_visibleChatHeaderText('Child Location'), findsNothing);
     expect(chatroom.session.leaveCount, 1);
   });
 
@@ -23335,7 +23886,7 @@ void main() {
       expect(chatroom.session.joinLocationId, 'castle');
       expect(chatroom.senderId, 'u_mock');
       expect(chatroom.senderName, 'u_mock');
-      expect(find.text('Castle (1)'), findsOneWidget);
+      expect(_visibleChatHeaderText('Castle'), findsOneWidget);
       expect(find.text('World One'), findsNothing);
       expect(find.text('Joined'), findsOneWidget);
       await tester.showKeyboard(find.byType(TextField));
@@ -24561,6 +25112,30 @@ Future<void> _dragOriginPanelUntilVisible(
   expect(finder, findsOneWidget);
 }
 
+Future<void> _tapOriginInfoEnterWorld(WidgetTester tester) async {
+  await tester.tap(
+    find.byKey(const ValueKey<String>('worldo-title-info-button')),
+  );
+  await tester.pumpAndSettle();
+  final infoList = find.byKey(
+    const PageStorageKey<String>('origin-intro-o_test_1'),
+  );
+  expect(infoList, findsOneWidget);
+  final action = find.byKey(
+    const ValueKey<String>('origin-info-launch-action'),
+  );
+  await tester.scrollUntilVisible(
+    action,
+    500,
+    scrollable: find
+        .descendant(of: infoList, matching: find.byType(Scrollable))
+        .first,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(FilledButton, 'Enter world'));
+  await tester.pumpAndSettle();
+}
+
 Finder _richTextFinder(String text) {
   return find.byWidgetPredicate((widget) {
     return widget is Text && widget.textSpan?.toPlainText() == text;
@@ -24743,6 +25318,41 @@ Finder _visibleText(String text) {
       return true;
     });
     return visible;
+  });
+}
+
+Finder _chatHeaderText(String text, {bool skipOffstage = true}) {
+  return find.descendant(
+    of: find.byType(ChatHeader, skipOffstage: skipOffstage),
+    matching: find.text(text, skipOffstage: skipOffstage),
+    skipOffstage: skipOffstage,
+  );
+}
+
+Finder _visibleChatHeaderText(String text) {
+  return find.byElementPredicate((element) {
+    final widget = element.widget;
+    final matchesText =
+        widget is Text &&
+        (widget.data == text || widget.textSpan?.toPlainText() == text);
+    if (!matchesText) return false;
+
+    var insideChatHeader = false;
+    var visible = true;
+    element.visitAncestorElements((ancestor) {
+      final ancestorWidget = ancestor.widget;
+      if (ancestorWidget is ChatHeader) insideChatHeader = true;
+      if (ancestorWidget is Offstage && ancestorWidget.offstage) {
+        visible = false;
+        return false;
+      }
+      if (ancestorWidget is Opacity && ancestorWidget.opacity == 0) {
+        visible = false;
+        return false;
+      }
+      return true;
+    });
+    return insideChatHeader && visible;
   });
 }
 

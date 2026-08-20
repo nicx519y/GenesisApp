@@ -310,7 +310,7 @@ void main() {
   );
 
   testWidgets(
-    'debug random button is bottom-left and refreshes the draft summary',
+    'debug random button is top-right and refreshes the draft summary',
     (tester) async {
       expect(kDebugMode, isTrue);
       tester.view.devicePixelRatio = 1;
@@ -349,8 +349,11 @@ void main() {
       final buttonCenter = tester.getCenter(button);
       final screenSize =
           tester.view.physicalSize / tester.view.devicePixelRatio;
-      expect(buttonCenter.dx, lessThan(screenSize.width / 2));
-      expect(buttonCenter.dy, greaterThan(screenSize.height / 2));
+      expect(buttonCenter.dx, greaterThan(screenSize.width / 2));
+      expect(buttonCenter.dy, lessThan(screenSize.height / 4));
+      expect(find.text('debug Random'), findsOneWidget);
+      expect(tester.getSize(button).height, 30);
+      expect(find.byType(FloatingActionButton), findsNothing);
       final saveButton = find.widgetWithText(FilledButton, 'Save');
       expect(
         tester.getRect(button).overlaps(tester.getRect(saveButton)),

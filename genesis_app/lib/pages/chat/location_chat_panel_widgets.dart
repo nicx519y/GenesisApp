@@ -15,36 +15,51 @@ class _LocationChatBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageLayer = enabled
+        ? LayoutBuilder(
+            builder: (context, constraints) {
+              final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+              final fullUrl = _resolveLocationChatBackgroundUrl(
+                imageUrl,
+                previewImageUrl: previewImageUrl,
+                logicalWidth: constraints.maxWidth,
+                logicalHeight: constraints.maxHeight,
+                devicePixelRatio: devicePixelRatio,
+              );
+              final previewUrl = resolveLocationChatBackgroundPreviewUrl(
+                imageUrl,
+                previewImageUrl: previewImageUrl,
+              );
+              return _LocationChatBackgroundImage(
+                previewUrl: previewUrl,
+                fullUrl: fullUrl,
+              );
+            },
+          )
+        : const SizedBox.expand(
+            key: ValueKey<String>('location-chat-background-disabled'),
+          );
     return RepaintBoundary(
       key: const ValueKey<String>('location-chat-background'),
       child: ColoredBox(
         color: color,
-        child: enabled
-            ? LayoutBuilder(
-                builder: (context, constraints) {
-                  final devicePixelRatio = MediaQuery.devicePixelRatioOf(
-                    context,
-                  );
-                  final fullUrl = _resolveLocationChatBackgroundUrl(
-                    imageUrl,
-                    previewImageUrl: previewImageUrl,
-                    logicalWidth: constraints.maxWidth,
-                    logicalHeight: constraints.maxHeight,
-                    devicePixelRatio: devicePixelRatio,
-                  );
-                  final previewUrl = resolveLocationChatBackgroundPreviewUrl(
-                    imageUrl,
-                    previewImageUrl: previewImageUrl,
-                  );
-                  return _LocationChatBackgroundImage(
-                    previewUrl: previewUrl,
-                    fullUrl: fullUrl,
-                  );
-                },
-              )
-            : const SizedBox.expand(
-                key: ValueKey<String>('location-chat-background-disabled'),
+        child: Stack(
+          key: const ValueKey<String>('location-chat-background-layers'),
+          fit: StackFit.expand,
+          children: [
+            imageLayer,
+            IgnorePointer(
+              child: DecoratedBox(
+                key: const ValueKey<String>('location-chat-background-overlay'),
+                decoration: BoxDecoration(
+                  gradient: context
+                      .genesisChatTheme
+                      .locationBackgroundOverlayGradient,
+                ),
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -106,6 +121,9 @@ String _resizeLocationChatBackgroundImageUrl(
   required double devicePixelRatio,
 }) {
   final resolved = resolveAssetUrl(selected);
+  if (resolved == 'assets/images/map_default/location_default.webp') {
+    return '';
+  }
   if (resolved.startsWith('assets/')) return resolved;
   final resized = resizeGenesisImageUrl(
     resolved,
@@ -114,7 +132,7 @@ String _resizeLocationChatBackgroundImageUrl(
   );
   if (resized.isNotEmpty) return resized;
   if (resolved.isNotEmpty) return resolved;
-  return _locationChatDefaultBackgroundAsset;
+  return '';
 }
 
 class _LocationChatBackgroundImage extends StatefulWidget {
@@ -389,6 +407,7 @@ class _LocationChatNewMessageNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
+      key: const ValueKey('location-chat-new-message-notice-surface'),
       color: context.genesisChatTheme.newMessageNoticeBackground,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
@@ -400,7 +419,7 @@ class _LocationChatNewMessageNotice extends StatelessWidget {
           child: Text(
             '$count new message',
             style: TextStyle(
-              color: context.genesisColors.textInverse,
+              color: context.genesisChatTheme.newMessageNoticeForeground,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),

@@ -394,7 +394,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: context.genesisColors.pageBackground,
-      appBar: const GenesisBackAppBar(pageName: 'Basics'),
+      appBar: const _BasicsAppBar(),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,
@@ -402,116 +402,127 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CreateTextFieldBlock(
-                        label: 'Worldo Name *',
+                      _BasicsTextField(
+                        label: 'Worldo Name',
+                        requiredIndicator: true,
                         controller: _originNameController,
                         hintText: 'eg. Main Street',
                         maxLength: 30,
                         maxLines: 1,
-                        labelInputGap: _fieldLabelInputGap,
                         focusNode: _originNameFocusNode,
                         nextFocusNode: _worldViewFocusNode,
                         prefix: Text(
                           '#',
                           style: TextStyle(
-                            color: context.genesisCreateColors.text,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            color: context.genesisCreateColors.successText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            height: 1.55,
                           ),
                         ),
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      SizedBox(height: _fieldGroupGap),
-                      CreateTextFieldBlock(
-                        label: 'Worldo Brief *',
+                      const SizedBox(height: 14),
+                      _BasicsTextField(
+                        label: 'Worldo Brief',
+                        requiredIndicator: true,
                         controller: _worldViewController,
                         hintText:
                             'eg. Half the shops on Main Street are boarded up. By Labor Day, the richest storefront owns the town.',
                         maxLength: 300,
                         note:
                             'The public hook players see first — the setting, the core conflict, and what makes it intriguing.',
-                        minLines: 4,
+                        minLines: 3,
                         maxLines: 8,
-                        labelInputGap: _fieldLabelInputGap,
+                        minimumHeight: 88,
+                        fieldPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
                         focusNode: _worldViewFocusNode,
                         nextFocusNode: _worldLogicFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      SizedBox(height: _fieldGroupGap),
-                      Text(
-                        'Cover Image *',
-                        style: TextStyle(
-                          color: context.genesisCreateColors.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                        ),
+                      const SizedBox(height: 18),
+                      const _BasicsFieldLabel(
+                        'Cover Image',
+                        requiredIndicator: true,
                       ),
-                      SizedBox(height: _fieldLabelInputGap),
+                      const SizedBox(height: 8),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           CreateUploadBox(
                             controller: _coverImageController,
                             label: 'Upload',
-                            width: 170,
-                            height: 230,
-                            iconSize: 42,
+                            width: 132,
+                            height: 176,
+                            iconSize: 22,
+                            borderRadius: 13,
                             cropSize: const Size(800, 1200),
-                            emptyLabelFontSize: 14,
+                            emptyLabelFontSize: 12,
+                            emptyIconLabelGap: 9,
+                            emptyBackgroundColor: Colors.transparent,
+                            emptyIconColor:
+                                context.genesisCreateColors.successText,
+                            emptyLabelColor:
+                                context.genesisCreateColors.successText,
+                            dashColor: context.genesisCreateColors.text
+                                .withValues(alpha: 0.28),
+                            dashStrokeWidth: 1.5,
                             onChanged: _onFormChanged,
                           ),
-                          SizedBox(width: 14),
+                          const SizedBox(width: 14),
                           Expanded(
-                            child: CreateFormNote(
+                            child: _BasicsFormNote(
                               note:
                                   'Used for cards and detail pages. Recommend ~768×1024 px. Supported formats: JPG, PNG, WEBP.',
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 30),
+                      const SizedBox(height: 26),
                       const _AdvancedSettingsDivider(),
-                      SizedBox(height: 26),
-                      CreateTextFieldBlock(
-                        label: 'Worldo Settings - Hidden (Optional)',
+                      const SizedBox(height: 26),
+                      const _BasicsSectionHeading(
+                        'Worldo Settings - Hidden (Optional)',
+                      ),
+                      const SizedBox(height: 12),
+                      _BasicsTextField(
+                        label: '',
                         controller: _worldLogicController,
                         hintText:
                             'eg. The banker secretly controls who gets loans; whoever overextends can be squeezed out.',
                         maxLength: 1000,
                         note:
                             'The hidden rules and backstory that drive the story — agendas, mechanics, and secret limits.',
-                        minLines: 5,
+                        minLines: 3,
                         maxLines: 12,
-                        labelInputGap: _fieldLabelInputGap,
+                        minimumHeight: 88,
+                        fieldPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 13,
+                        ),
                         focusNode: _worldLogicFocusNode,
                         nextFocusNode: _worldStartTimeFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      SizedBox(height: _fieldGroupGap),
-                      Text(
-                        'Worldo Time (Optional)',
-                        style: TextStyle(
-                          color: context.genesisCreateColors.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      const CreateFormNote(
+                      const SizedBox(height: 26),
+                      const _BasicsSectionHeading('Worldo Time (Optional)'),
+                      const SizedBox(height: 8),
+                      const _BasicsFormNote(
                         note:
                             'This worldo starts at {Start Time}; each time the user taps *progress*, the timeline moves forward by {Time per Progress}.',
                         markdown: true,
                       ),
-                      SizedBox(height: 14),
+                      const SizedBox(height: 13),
                       const _SimulationFieldLabel('Start Time'),
-                      SizedBox(height: _fieldLabelInputGap),
-                      CreateTextFieldBlock(
+                      const SizedBox(height: 7),
+                      _BasicsTextField(
                         label: '',
                         controller: _worldStartTimeController,
                         hintText: 'eg. Day 1, 09:00 / 2026-01-01',
@@ -522,52 +533,52 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         nextFocusNode: _timeProgressCustomFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      SizedBox(height: _fieldGroupGap),
+                      const SizedBox(height: 14),
                       const _SimulationFieldLabel('Time per Progress'),
-                      SizedBox(height: _fieldLabelInputGap),
+                      const SizedBox(height: 7),
                       _TimeProgressPicker(
                         selected: _selectedTimeProgress,
                         onSelected: _selectTimeProgress,
                       ),
-                      SizedBox(height: _fieldLabelInputGap),
-                      CreateTextFieldBlock(
+                      const SizedBox(height: 8),
+                      _BasicsTextField(
                         label: '',
                         controller: _timeProgressCustomController,
                         hintText: 'eg. 8 hours / 3 days',
                         maxLength: 10,
                         showCounter: false,
                         maxLines: 1,
+                        minimumHeight: 38,
+                        fieldPadding: const EdgeInsets.symmetric(
+                          horizontal: 13,
+                        ),
+                        fieldBorderRadius: 11,
+                        prefixGap: 9,
                         focusNode: _timeProgressCustomFocusNode,
                         nextFocusNode: _progressMetricFocusNode,
                         prefix: Text(
                           'Custom',
                           style: TextStyle(
-                            color: context.genesisCreateColors.text,
+                            color: context.genesisCreateColors.text.withValues(
+                              alpha: 0.8,
+                            ),
                             fontSize: 12,
-                            fontWeight: FontWeight.w400,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         onChanged: _handleTimeProgressCustomChanged,
                       ),
-                      SizedBox(height: _fieldGroupGap),
-                      Text(
-                        'Worldo Metric (Optional)',
-                        style: TextStyle(
-                          color: context.genesisCreateColors.text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      const CreateFormNote(
+                      const SizedBox(height: 26),
+                      const _BasicsSectionHeading('Worldo Metric (Optional)'),
+                      const SizedBox(height: 8),
+                      const _BasicsFormNote(
                         note:
                             "This worldo updates each character's {Metric Label} every progress, shown in {Unit}. Each character starts at {Starting}, and the value can move within {Delta Min}–{Delta Max}.",
                       ),
-                      SizedBox(height: 14),
+                      const SizedBox(height: 13),
                       const _SimulationFieldLabel('Metric Label'),
-                      SizedBox(height: _fieldLabelInputGap),
-                      CreateTextFieldBlock(
+                      const SizedBox(height: 7),
+                      _BasicsTextField(
                         label: '',
                         controller: _progressMetricController,
                         hintText: 'eg. Wealth / Goal Progress',
@@ -578,10 +589,10 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         nextFocusNode: _labelNoteFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      SizedBox(height: _fieldGroupGap),
+                      const SizedBox(height: 14),
                       const _SimulationFieldLabel('Label note'),
-                      SizedBox(height: _fieldLabelInputGap),
-                      CreateTextFieldBlock(
+                      const SizedBox(height: 7),
+                      _BasicsTextField(
                         label: '',
                         controller: _labelNoteController,
                         hintText: 'Describe what this metric measures',
@@ -592,10 +603,10 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         nextFocusNode: _unitFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      SizedBox(height: _fieldGroupGap),
+                      const SizedBox(height: 14),
                       const _SimulationFieldLabel('Unit'),
-                      SizedBox(height: _fieldLabelInputGap),
-                      CreateTextFieldBlock(
+                      const SizedBox(height: 7),
+                      _BasicsTextField(
                         label: '',
                         controller: _unitController,
                         hintText: 'eg. coins / %',
@@ -606,47 +617,50 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         nextFocusNode: _startingValueFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      SizedBox(height: _fieldGroupGap),
+                      const SizedBox(height: 14),
                       const _SimulationFieldLabel('Value Range'),
-                      SizedBox(height: _fieldLabelInputGap),
+                      const SizedBox(height: 7),
                       Row(
                         children: [
                           Expanded(
-                            child: CreateTextFieldBlock(
+                            child: _BasicsTextField(
                               label: '',
                               controller: _startingValueController,
                               hintText: 'Starting',
                               maxLength: 10,
                               showCounter: false,
                               maxLines: 1,
+                              textAlign: TextAlign.center,
                               focusNode: _startingValueFocusNode,
                               nextFocusNode: _minValueFocusNode,
                               onChanged: (_) => _onFormChanged(),
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Expanded(
-                            child: CreateTextFieldBlock(
+                            child: _BasicsTextField(
                               label: '',
                               controller: _minValueController,
                               hintText: 'Delta Min',
                               maxLength: 10,
                               showCounter: false,
                               maxLines: 1,
+                              textAlign: TextAlign.center,
                               focusNode: _minValueFocusNode,
                               nextFocusNode: _maxValueFocusNode,
                               onChanged: (_) => _onFormChanged(),
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Expanded(
-                            child: CreateTextFieldBlock(
+                            child: _BasicsTextField(
                               label: '',
                               controller: _maxValueController,
                               hintText: 'Delta Max',
                               maxLength: 10,
                               showCounter: false,
                               maxLines: 1,
+                              textAlign: TextAlign.center,
                               focusNode: _maxValueFocusNode,
                               onChanged: (_) => _onFormChanged(),
                             ),
@@ -658,9 +672,13 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                 ),
               ),
               _KeyboardHiddenBottomAction(
+                minimum: const EdgeInsets.fromLTRB(20, 22, 20, 30),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
-                  width: _primaryActionButtonWidth(context),
+                  height: 44,
+                  borderRadius: BorderRadius.circular(13),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                   onPressed: _canUseSaveButton ? _onSave : null,
                   onDisabledPressed: () => _showError(_saveDisabledReason),
                 ),
@@ -668,6 +686,215 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _BasicsAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _BasicsAppBar();
+
+  @override
+  Size get preferredSize => const Size.fromHeight(64);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      toolbarHeight: preferredSize.height,
+      backgroundColor: context.genesisColors.surface,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      automaticallyImplyLeading: false,
+      titleSpacing: 20,
+      centerTitle: false,
+      title: Row(
+        children: [
+          Material(
+            color: context.genesisCreateColors.fieldFill,
+            borderRadius: BorderRadius.circular(11),
+            child: Tooltip(
+              message: 'Back',
+              child: InkWell(
+                key: const ValueKey('basics-back-button'),
+                borderRadius: BorderRadius.circular(11),
+                onTap: () => Navigator.of(context).maybePop(),
+                child: SizedBox.square(
+                  dimension: 34,
+                  child: Icon(
+                    Icons.arrow_back_ios_new,
+                    color: context.genesisCreateColors.text,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Basics',
+            style: TextStyle(
+              color: context.genesisCreateColors.text,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BasicsTextField extends StatelessWidget {
+  const _BasicsTextField({
+    required this.label,
+    required this.controller,
+    required this.hintText,
+    required this.onChanged,
+    this.maxLength,
+    this.showCounter = true,
+    this.note,
+    this.minLines = 1,
+    this.maxLines,
+    this.prefix,
+    this.requiredIndicator = false,
+    this.minimumHeight = 46,
+    this.fieldPadding = const EdgeInsets.symmetric(horizontal: 14),
+    this.fieldBorderRadius = 13,
+    this.prefixGap = 8,
+    this.textAlign = TextAlign.start,
+    this.focusNode,
+    this.nextFocusNode,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String hintText;
+  final ValueChanged<String> onChanged;
+  final int? maxLength;
+  final bool showCounter;
+  final String? note;
+  final int minLines;
+  final int? maxLines;
+  final Widget? prefix;
+  final bool requiredIndicator;
+  final double minimumHeight;
+  final EdgeInsets fieldPadding;
+  final double fieldBorderRadius;
+  final double prefixGap;
+  final TextAlign textAlign;
+  final FocusNode? focusNode;
+  final FocusNode? nextFocusNode;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = context.genesisCreateColors.text;
+    return CreateTextFieldBlock(
+      label: label,
+      controller: controller,
+      hintText: hintText,
+      onChanged: onChanged,
+      maxLength: maxLength,
+      showCounter: showCounter,
+      note: note,
+      minLines: minLines,
+      maxLines: maxLines,
+      prefix: prefix,
+      requiredIndicator: requiredIndicator,
+      labelSize: 13,
+      labelFontWeight: FontWeight.w700,
+      labelInputGap: 8,
+      fieldBorderRadius: fieldBorderRadius,
+      fieldPadding: fieldPadding,
+      minimumHeight: minimumHeight,
+      inputFontSize: 13,
+      hintFontSize: 13,
+      inputLineHeight: 1.55,
+      textAlign: textAlign,
+      prefixGap: prefixGap,
+      supportLineGap: 7,
+      supportItemGap: 12,
+      supportTextStyle: const TextStyle(fontSize: 11, height: 1.5),
+      supportTextColor: textColor.withValues(alpha: 0.62),
+      supportIconColor: textColor.withValues(alpha: 0.45),
+      supportIconSize: 12,
+      supportIconGap: 7,
+      counterTextStyle: TextStyle(
+        color: textColor.withValues(alpha: 0.5),
+        fontSize: 9.5,
+        fontWeight: FontWeight.w500,
+        height: 1.5,
+      ),
+      focusNode: focusNode,
+      nextFocusNode: nextFocusNode,
+    );
+  }
+}
+
+class _BasicsFormNote extends StatelessWidget {
+  const _BasicsFormNote({required this.note, this.markdown = false});
+
+  final String note;
+  final bool markdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = context.genesisCreateColors.text;
+    return CreateFormNote(
+      note: note,
+      markdown: markdown,
+      textStyle: const TextStyle(fontSize: 11, height: 1.5),
+      textColor: textColor.withValues(alpha: 0.62),
+      iconColor: textColor.withValues(alpha: 0.45),
+      iconSize: 12,
+      iconGap: 7,
+    );
+  }
+}
+
+class _BasicsFieldLabel extends StatelessWidget {
+  const _BasicsFieldLabel(this.text, {this.requiredIndicator = false});
+
+  final String text;
+  final bool requiredIndicator;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        text: text,
+        children: [
+          if (requiredIndicator)
+            TextSpan(
+              text: ' *',
+              style: TextStyle(color: context.genesisCreateColors.accent),
+            ),
+        ],
+      ),
+      style: TextStyle(
+        color: context.genesisCreateColors.text,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        height: 1.2,
+      ),
+    );
+  }
+}
+
+class _BasicsSectionHeading extends StatelessWidget {
+  const _BasicsSectionHeading(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: context.genesisCreateColors.text,
+        fontSize: 15,
+        fontWeight: FontWeight.w800,
+        height: 1.2,
       ),
     );
   }
@@ -681,22 +908,28 @@ class _AdvancedSettingsDivider extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Divider(height: 1, color: context.genesisCreateColors.border),
+          child: Divider(
+            height: 1,
+            color: context.genesisCreateColors.text.withValues(alpha: 0.14),
+          ),
         ),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 11),
           child: Text(
             'Advanced Settings (Optional)',
             style: TextStyle(
-              color: context.genesisCreateColors.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              color: context.genesisCreateColors.text.withValues(alpha: 0.62),
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
               height: 1.2,
             ),
           ),
         ),
         Expanded(
-          child: Divider(height: 1, color: context.genesisCreateColors.border),
+          child: Divider(
+            height: 1,
+            color: context.genesisCreateColors.text.withValues(alpha: 0.14),
+          ),
         ),
       ],
     );
@@ -713,8 +946,9 @@ class _SimulationFieldLabel extends StatelessWidget {
     return Text(
       text,
       style: TextStyle(
-        color: context.genesisCreateColors.text,
-        fontSize: 12,
+        color: context.genesisCreateColors.text.withValues(alpha: 0.8),
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
         height: 1.2,
       ),
     );
@@ -736,21 +970,31 @@ class _TimeProgressPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      padding: EdgeInsets.zero,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 4.8,
+    return Column(
       children: [
-        for (final option in _options)
-          _TimeProgressOption(
-            label: option,
-            selected: option == selected,
-            onTap: () => onSelected(option == selected ? '' : option),
+        for (var row = 0; row < 2; row += 1) ...[
+          Row(
+            children: [
+              for (var column = 0; column < 2; column += 1) ...[
+                if (column > 0) const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 38,
+                    child: _TimeProgressOption(
+                      label: _options[row * 2 + column],
+                      selected: _options[row * 2 + column] == selected,
+                      onTap: () {
+                        final option = _options[row * 2 + column];
+                        onSelected(option == selected ? '' : option);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
+          if (row == 0) const SizedBox(height: 8),
+        ],
       ],
     );
   }
@@ -772,11 +1016,11 @@ class _TimeProgressOption extends StatelessWidget {
     return Material(
       key: ValueKey('time-progress-option-$label'),
       color: selected
-          ? context.genesisCreateColors.selectedFill
+          ? const Color(0xFFF7F5F2)
           : context.genesisCreateColors.fieldFill,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(11),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(11),
         onTap: onTap,
         child: Center(
           child: Text(
@@ -785,10 +1029,10 @@ class _TimeProgressOption extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: selected
-                  ? context.genesisCreateColors.accent
-                  : context.genesisCreateColors.muted,
+                  ? const Color(0xFF131215)
+                  : context.genesisCreateColors.text.withValues(alpha: 0.8),
               fontSize: 12,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               height: 1.2,
             ),
           ),

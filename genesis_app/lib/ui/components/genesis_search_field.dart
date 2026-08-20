@@ -32,7 +32,9 @@ class GenesisSearchField extends StatelessWidget {
     this.borderRadius,
     this.iconColor,
     this.iconSize = 20,
+    this.iconGap = GenesisSpacing.md,
     this.iconAsset,
+    this.borderWidth = 1,
     this.hintStyle,
     this.textStyle,
   });
@@ -54,7 +56,9 @@ class GenesisSearchField extends StatelessWidget {
   final BorderRadius? borderRadius;
   final Color? iconColor;
   final double iconSize;
+  final double iconGap;
   final String? iconAsset;
+  final double borderWidth;
   final TextStyle? hintStyle;
   final TextStyle? textStyle;
 
@@ -95,7 +99,7 @@ class GenesisSearchField extends StatelessWidget {
         color: effectiveBackgroundColor,
         border: effectiveBorderColor == null
             ? null
-            : Border.all(color: effectiveBorderColor),
+            : Border.all(color: effectiveBorderColor, width: borderWidth),
         borderRadius: effectiveBorderRadius,
       ),
       child: Row(
@@ -114,7 +118,7 @@ class GenesisSearchField extends StatelessWidget {
               color: iconColor,
               excludeFromSemantics: true,
             ),
-          const SizedBox(width: GenesisSpacing.md),
+          SizedBox(width: iconGap),
           Expanded(
             child: editable
                 ? TextField(

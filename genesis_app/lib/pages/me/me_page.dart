@@ -184,9 +184,10 @@ class _MePageState extends State<MePage> {
         }
         final data = content.data!;
         final gemWalletState = AppServicesScope.of(context).gemWallet.state;
+        final colors = context.genesisColors;
 
         return GenesisTopSafeArea(
-          backgroundColor: context.genesisColors.pageBackground,
+          backgroundColor: colors.pageBackground,
           child: Column(
             children: [
               SizedBox(
@@ -201,23 +202,44 @@ class _MePageState extends State<MePage> {
                     ),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: _openDiscord,
-                            icon: SvgPicture.asset(
-                              'assets/custom-icons/svg/discord-svgrepo-com.svg',
-                              width: 30,
-                              height: 30,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 22),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _MeHeaderActionButton(
+                              onTap: _openDiscord,
+                              child: SvgPicture.asset(
+                                'assets/custom-icons/svg/discord-svgrepo-com.svg',
+                                key: const ValueKey<String>(
+                                  'me-header-discord-icon',
+                                ),
+                                width: 13,
+                                height: 13,
+                                colorFilter: ColorFilter.mode(
+                                  colors.foregroundStrong,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            onPressed: _openSettings,
-                            icon: const Icon(Icons.settings, size: 24),
-                            color: context.genesisColors.foregroundStrong,
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            _MeHeaderActionButton(
+                              onTap: _openSettings,
+                              child: SvgPicture.asset(
+                                'assets/custom-icons/svg/settings.svg',
+                                key: const ValueKey<String>(
+                                  'me-header-settings-icon',
+                                ),
+                                width: 15,
+                                height: 15,
+                                colorFilter: ColorFilter.mode(
+                                  colors.foregroundStrong,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -240,6 +262,7 @@ class _MePageState extends State<MePage> {
                   onCollectionTabChanged: _handleCollectionTabChanged,
                   onCollapsedChanged: _handleProfileCollapsedChanged,
                   recentChatWorldId: _recentChatWorldId,
+                  appearance: UserProfileAppearance.worldoMe,
                 ),
               ),
             ],
@@ -256,6 +279,28 @@ class _MePageState extends State<MePage> {
     final nextItems = current.items
         .where((world) => world.wid.trim() != worldId)
         .toList(growable: false);
-    _setWorldsState(nextItems, isLoading: current.isLoading);
+    final currentTotal = current.total;
+    final nextTotal = currentTotal > 0 ? currentTotal - 1 : 0;
+    _setWorldsState(nextItems, isLoading: current.isLoading, total: nextTotal);
+  }
+}
+
+class _MeHeaderActionButton extends StatelessWidget {
+  const _MeHeaderActionButton({required this.onTap, required this.child});
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: context.genesisColors.controlMuted,
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: SizedBox.square(dimension: 34, child: Center(child: child)),
+      ),
+    );
   }
 }

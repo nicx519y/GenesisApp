@@ -7,7 +7,6 @@ class _TilemapLocationLabelData {
     required this.avatars,
     required this.showRecentChat,
     required this.showEvent,
-    required this.verticalOverflow,
   });
 
   final TilemapCell tile;
@@ -15,92 +14,6 @@ class _TilemapLocationLabelData {
   final List<UserAvatar> avatars;
   final bool showRecentChat;
   final bool showEvent;
-  final double verticalOverflow;
-}
-
-const double _tilemapLocationLabelMaxWidth = 141;
-const double _tilemapLocationLabelHorizontalPadding = 3;
-const double _tilemapLocationLabelVerticalPadding = 4;
-const double _tilemapLocationActivityIconGap = 3;
-const double _tilemapLocationActivityIconExtraWidth =
-    _tilemapLocationActivityIconGap + kRecentChatMapBadgeSize;
-const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
-  inherit: false,
-  color: Colors.white,
-  fontSize: 12,
-  height: 1.2,
-  leadingDistribution: TextLeadingDistribution.even,
-  fontWeight: FontWeight.w600,
-);
-
-class _TilemapLocationLabelLayout {
-  const _TilemapLocationLabelLayout({
-    required this.bubbleWidth,
-    required this.height,
-    required this.lineCount,
-  });
-
-  final double bubbleWidth;
-  final double height;
-  final int lineCount;
-}
-
-_TilemapLocationLabelLayout _tilemapLocationLabelLayout(
-  BuildContext context,
-  String name,
-) {
-  final painter =
-      TextPainter(
-        text: TextSpan(text: name, style: _tilemapLocationLabelTextStyle),
-        textAlign: TextAlign.center,
-        textDirection: Directionality.of(context),
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout(
-        maxWidth:
-            _tilemapLocationLabelMaxWidth -
-            _tilemapLocationLabelHorizontalPadding * 2,
-      );
-  final lines = painter.computeLineMetrics();
-  final longestLine = lines.fold<double>(
-    0,
-    (width, line) => math.max(width, line.width),
-  );
-  final lineCount = math.max(1, lines.length);
-  final paddedLongestLine =
-      longestLine.ceilToDouble() + _tilemapLocationLabelHorizontalPadding * 2;
-  return _TilemapLocationLabelLayout(
-    bubbleWidth: paddedLongestLine.clamp(
-      _tilemapLocationLabelHorizontalPadding * 2,
-      _tilemapLocationLabelMaxWidth,
-    ),
-    height: painter.height + _tilemapLocationLabelVerticalPadding * 2,
-    lineCount: lineCount,
-  );
-}
-
-double _tilemapLocationLabelHeight(BuildContext context, String name) {
-  return _tilemapLocationLabelLayout(context, name).height;
-}
-
-double _tilemapLocationSingleLineLabelHeight(BuildContext context) {
-  final painter = TextPainter(
-    text: const TextSpan(text: 'M', style: _tilemapLocationLabelTextStyle),
-    maxLines: 1,
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-  )..layout();
-  return painter.height + _tilemapLocationLabelVerticalPadding * 2;
-}
-
-double _tilemapLocationLabelVerticalOverflow(
-  BuildContext context,
-  String name,
-) {
-  return math.max(
-    0,
-    _tilemapLocationLabelHeight(context, name) -
-        _tilemapLocationSingleLineLabelHeight(context),
-  );
 }
 
 class _TilemapInfiniteGridPainter extends CustomPainter {
@@ -213,139 +126,22 @@ class _TilemapLocationBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelLayout = _tilemapLocationLabelLayout(context, name);
-    final activityIconCount = (showEvent ? 1 : 0) + (showRecentChat ? 1 : 0);
-    final activityIconsWidth =
-        activityIconCount * _tilemapLocationActivityIconExtraWidth;
+    final metrics = resolveWorldMapLocationMarkerMetrics(
+      context,
+      name: name,
+      avatarCount: avatars.length,
+    );
     return Positioned(
-      left: anchor.dx,
-      top: anchor.dy,
-      child: FractionalTranslation(
-        translation: const Offset(-0.5, 0),
-        child: Transform.translate(
-          offset: Offset(0, -_tilemapLocationSingleLineLabelHeight(context)),
-          child: Semantics(
-            label: name,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (activityIconCount > 0)
-                      SizedBox(width: activityIconsWidth),
-                    SizedBox(
-                      width: labelLayout.bubbleWidth,
-                      height: labelLayout.height,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        clipBehavior: Clip.none,
-                        children: [
-                          // Keep text layout at the canonical max width while
-                          // keeping the row footprint at the measured bubble
-                          // width. Shrinking the text box itself can trigger a
-                          // second wrap; keeping a 141px row footprint pushes
-                          // the recent-chat badge too far away.
-                          Positioned.fill(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: onLabelTap,
-                              child: Container(
-                                key: ValueKey<String>(
-                                  'tile-location-bubble-body-$name',
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.4),
-                                  borderRadius: BorderRadius.circular(4),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.18,
-                                      ),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: OverflowBox(
-                                alignment: Alignment.center,
-                                minWidth: _tilemapLocationLabelMaxWidth,
-                                maxWidth: _tilemapLocationLabelMaxWidth,
-                                minHeight: labelLayout.height,
-                                maxHeight: labelLayout.height,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal:
-                                        _tilemapLocationLabelHorizontalPadding,
-                                    vertical:
-                                        _tilemapLocationLabelVerticalPadding,
-                                  ),
-                                  child: Text(
-                                    name,
-                                    textAlign: TextAlign.center,
-                                    softWrap: true,
-                                    maxLines: labelLayout.lineCount,
-                                    overflow: TextOverflow.visible,
-                                    style: _tilemapLocationLabelTextStyle,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (activityIconCount > 0)
-                      SizedBox(
-                        width: activityIconsWidth,
-                        child: Row(
-                          children: [
-                            if (showEvent)
-                              const SizedBox(
-                                width: _tilemapLocationActivityIconExtraWidth,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: WorldEventMapBadge(
-                                    badgeKey: ValueKey<String>(
-                                      'tilemap-event-icon',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (showRecentChat)
-                              const SizedBox(
-                                width: _tilemapLocationActivityIconExtraWidth,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: RecentChatMapBadge(
-                                    badgeKey: ValueKey<String>(
-                                      'tilemap-recent-chat-icon',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-                if (avatars.isNotEmpty) ...[
-                  const SizedBox(height: tilemapLocationLabelToAvatarSpacing),
-                  TilemapLocationAvatars(
-                    avatars: avatars,
-                    onAvatarTap: onAvatarTap,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
+      left: anchor.dx - metrics.pillWidth / 2,
+      top: anchor.dy - metrics.anchorCenterY,
+      child: WorldMapLocationMarker(
+        name: name,
+        avatars: avatars,
+        eventCount: showEvent ? 1 : 0,
+        highlighted: showRecentChat,
+        metrics: metrics,
+        onLabelTap: onLabelTap,
+        onAvatarTap: onAvatarTap,
       ),
     );
   }

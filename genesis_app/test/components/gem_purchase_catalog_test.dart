@@ -5,6 +5,49 @@ import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 
 void main() {
+  testWidgets('New User and First Top-up tags share a compact width', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Row(
+            children: [
+              for (final product in [
+                _product(activityText: 'New User'),
+                _product(
+                  productId: 'gem_pack_1100',
+                  activityText: 'First Top-up',
+                ),
+              ])
+                SizedBox(
+                  width: 120,
+                  height: kGemProductCardHeight,
+                  child: GemProductCard(
+                    product: product,
+                    isBuying: false,
+                    isPurchaseInProgress: false,
+                    onPurchase: () {},
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final newUserTag = find.byKey(
+      const ValueKey<String>('gem-product-tag-gem_pack_500'),
+    );
+    final firstTopUpTag = find.byKey(
+      const ValueKey<String>('gem-product-tag-gem_pack_1100'),
+    );
+    expect(tester.getSize(newUserTag), const Size(68, 20));
+    expect(tester.getSize(firstTopUpTag), const Size(68, 20));
+    expect(tester.widget<Container>(newUserTag).padding, isNull);
+    expect(tester.widget<Container>(firstTopUpTag).padding, isNull);
+  });
+
   testWidgets('new user product card uses backend activity label and color', (
     tester,
   ) async {

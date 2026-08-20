@@ -292,6 +292,10 @@ extension _WorldPageLocationChat on _WorldPageState {
   }
 
   void _handleWorldPopBlocked() {
+    if (_worldBottomSheetOpen) {
+      _requestWorldBottomSheetClose();
+      return;
+    }
     if (_activeChatLocationId.isEmpty) return;
     _closeCachedLocationChat();
   }

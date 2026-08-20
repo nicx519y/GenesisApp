@@ -62,46 +62,56 @@ class _LoginSheetState extends State<LoginSheet> {
     final maxHeight = media.size.height - media.padding.top - 18;
     final targetHeight = maxHeight < 342 ? maxHeight : 342.0;
 
-    return GenesisBottomSheetPanel(
-      title: 'Sign in to continue',
-      height: targetHeight,
-      trailing: GenesisBottomSheetCloseButton(
-        onPressed: _submittingProvider != null
-            ? null
-            : () {
-                GenesisTelemetry.event(
-                  'login_cancel',
-                  category: 'auth',
-                  data: const <String, Object?>{'source': 'close_button'},
-                );
-                Navigator.of(context).pop(false);
-              },
+    return DecoratedBox(
+      key: const ValueKey<String>('login-sheet-outline'),
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: GenesisBottomSheetPanel.borderRadius,
+        border: Border.all(
+          color: context.genesisColors.textPrimary.withValues(alpha: 0.14),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Create worldo, launch worlds and invite friends',
-            style: TextStyle(
-              fontSize: 14,
-              color: context.genesisColors.textMuted,
-              height: 1.35,
+      child: GenesisBottomSheetPanel(
+        title: 'Sign in to continue',
+        height: targetHeight,
+        trailing: GenesisBottomSheetCloseButton(
+          onPressed: _submittingProvider != null
+              ? null
+              : () {
+                  GenesisTelemetry.event(
+                    'login_cancel',
+                    category: 'auth',
+                    data: const <String, Object?>{'source': 'close_button'},
+                  );
+                  Navigator.of(context).pop(false);
+                },
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Create worldo, launch worlds and invite friends',
+              style: TextStyle(
+                fontSize: 14,
+                color: context.genesisColors.textMuted,
+                height: 1.35,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          LoginProviderButtons(
-            loggingInProvider: _submittingProvider,
-            onLogin: _submit,
-            spacing: 12,
-          ),
-          const SizedBox(height: 14),
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 22),
-              child: LoginLegalText(),
+            const SizedBox(height: 12),
+            LoginProviderButtons(
+              loggingInProvider: _submittingProvider,
+              onLogin: _submit,
+              spacing: 12,
             ),
-          ),
-        ],
+            const SizedBox(height: 14),
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 22),
+                child: LoginLegalText(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

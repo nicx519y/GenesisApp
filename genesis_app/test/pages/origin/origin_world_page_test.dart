@@ -17,7 +17,7 @@ void main() {
   ].map((path) => File(path).readAsStringSync()).join('\n');
 
   test('origin detail sheet uses main ui horizontal padding', () {
-    expect(originDetailSheetHorizontalPaddingForTesting, 12);
+    expect(originDetailSheetHorizontalPaddingForTesting, 20);
   });
 
   test('origin detail sheet header sizing matches design', () {
@@ -28,7 +28,7 @@ void main() {
   });
 
   test('origin detail sections use main ui spacing', () {
-    expect(originDetailSectionGapForTesting, 24);
+    expect(originDetailSectionGapForTesting, 20);
     expect(originDetailSectionTitleIconGapForTesting, 8);
   });
 
@@ -523,7 +523,7 @@ void main() {
   });
 
   test(
-    'origin character section omits description and uses unified body rhythm',
+    'origin character section omits description and uses compact cast rhythm',
     () {
       final source = originSectionsSource;
       final characterRow = source.substring(
@@ -539,8 +539,11 @@ void main() {
       expect(characterRow, isNot(contains('character.description')));
       expect(characterRow, isNot(contains('_sameCharacterText')));
       expect(characterRow, isNot(contains('SizedBox(height: 9)')));
-      expect(characterRow, contains("Text('Goal: \$goal'"));
+      expect(characterRow, contains("text: 'Goal '"));
+      expect(characterRow, contains('TextSpan(text: goal)'));
       expect(bodyStyle, contains('height: 1.4'));
+      expect(bodyStyle, contains('fontSize: 12'));
+      expect(bodyStyle, contains('height: 1.5'));
       expect(bodyStyle, contains('context.genesisColors.textPrimary'));
       expect(bodyStyle, isNot(contains('height: 1.45')));
       expect(bodyStyle, isNot(contains('height: 1.35')));

@@ -58,6 +58,7 @@ class _ChatStoryEventParagraph extends StatelessWidget {
     required this.paragraph,
     required this.style,
     required this.addTopSpacing,
+    this.scenePlate = false,
   });
 
   final String messageLocalId;
@@ -65,9 +66,18 @@ class _ChatStoryEventParagraph extends StatelessWidget {
   final ChatStoryEventParagraphVm paragraph;
   final ChatUiStyleConfig style;
   final bool addTopSpacing;
+  final bool scenePlate;
 
   @override
   Widget build(BuildContext context) {
+    if (scenePlate) {
+      return _ChatTickSceneStoryEventParagraph(
+        messageLocalId: messageLocalId,
+        index: index,
+        paragraph: paragraph,
+        addTopSpacing: addTopSpacing,
+      );
+    }
     final textColor =
         style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
     final metadataStyle = style.systemMessageTextStyle.copyWith(
@@ -164,6 +174,210 @@ class _ChatStoryEventParagraph extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _ChatTickSceneStoryEventParagraph extends StatelessWidget {
+  const _ChatTickSceneStoryEventParagraph({
+    required this.messageLocalId,
+    required this.index,
+    required this.paragraph,
+    required this.addTopSpacing,
+  });
+
+  final String messageLocalId;
+  final int index;
+  final ChatStoryEventParagraphVm paragraph;
+  final bool addTopSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final chatTheme = context.genesisChatTheme;
+    final hasTimestamp = paragraph.timestamp.trim().isNotEmpty;
+    final hasVisibleRoles = paragraph.visibleRoles.isNotEmpty;
+    final visibilityLabel = paragraph.visibilityLabel.trim();
+    final showFallbackVisibility =
+        !hasVisibleRoles &&
+        visibilityLabel.isNotEmpty &&
+        visibilityLabel.toLowerCase() != 'public';
+    return Container(
+      key: ValueKey<String>(
+        'chat-story-event-paragraph-$messageLocalId-$index',
+      ),
+      width: double.infinity,
+      margin: EdgeInsets.only(top: addTopSpacing ? 12 : 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Transform.translate(
+            offset: const Offset(0, -1),
+            child: SvgPicture.asset(
+              eventsIconAsset,
+              key: ValueKey<String>(
+                'chat-story-event-icon-$messageLocalId-$index',
+              ),
+              width: 12,
+              height: 12,
+              colorFilter: ColorFilter.mode(
+                chatTheme.tickHeader.withValues(alpha: 0.60),
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasTimestamp)
+                  Text(
+                    genesisDisplaySafeText(paragraph.timestamp),
+                    key: ValueKey<String>(
+                      'chat-story-event-timestamp-$messageLocalId-$index',
+                    ),
+                    style: TextStyle(
+                      color: chatTheme.tickHeader.withValues(alpha: 0.55),
+                      fontSize: 11,
+                      height: 1,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                if (hasVisibleRoles || showFallbackVisibility) ...[
+                  if (hasTimestamp) const SizedBox(height: 8),
+                  if (hasVisibleRoles)
+                    _ChatTickSceneVisibleRoles(roles: paragraph.visibleRoles)
+                  else
+                    Text(
+                      genesisDisplaySafeText(visibilityLabel),
+                      style: TextStyle(
+                        color: chatTheme.tickHeader.withValues(alpha: 0.72),
+                        fontSize: 12,
+                        height: 1,
+                      ),
+                    ),
+                ],
+                const SizedBox(height: 7),
+                _InlineMarkdownText(
+                  text: paragraph.text,
+                  textAlign: TextAlign.left,
+                  style: TextStyle(
+                    color: chatTheme.tickHeader,
+                    fontSize: 13,
+                    height: 1.6,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                if (paragraph.clue.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    key: ValueKey<String>(
+                      'chat-story-event-clue-$messageLocalId-$index',
+                    ),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: SvgPicture.asset(
+                          clueIconAsset,
+                          width: 12,
+                          height: 12,
+                          colorFilter: ColorFilter.mode(
+                            chatTheme.tickClue,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _InlineMarkdownText(
+                          text: paragraph.clue,
+                          textAlign: TextAlign.left,
+                          style: TextStyle(
+                            color: chatTheme.tickHeader.withValues(alpha: 0.72),
+                            fontSize: 13,
+                            height: 1.6,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          softItalic: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatTickSceneVisibleRoles extends StatelessWidget {
+  const _ChatTickSceneVisibleRoles({required this.roles});
+
+  final List<ChatStoryEventVisibleRoleVm> roles;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        for (final role in roles) _ChatTickSceneVisibleRole(role: role),
+      ],
+    );
+  }
+}
+
+class _ChatTickSceneVisibleRole extends StatelessWidget {
+  const _ChatTickSceneVisibleRole({required this.role});
+
+  final ChatStoryEventVisibleRoleVm role;
+
+  @override
+  Widget build(BuildContext context) {
+    final chatTheme = context.genesisChatTheme;
+    final isPlayerRole = !role.isAi;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          key: ValueKey<String>('chat-tick-visible-role-avatar-${role.roleId}'),
+          width: 18,
+          height: 18,
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: isPlayerRole
+                ? Border.all(color: chatTheme.tickAccent, width: 1.5)
+                : null,
+          ),
+          child: GenesisAvatar(
+            name: role.name,
+            size: 18,
+            borderRadius: 6,
+            textStyle: TextStyle(
+              color: chatTheme.tickHeader,
+              fontSize: 7,
+              height: 1,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          genesisDisplaySafeText(role.name),
+          style: TextStyle(
+            color: chatTheme.tickHeader.withValues(
+              alpha: isPlayerRole ? 1 : 0.72,
+            ),
+            fontSize: 12,
+            height: 1,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

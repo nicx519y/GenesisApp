@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
   test('preserves returned UGC backslashes for origin cards', () {
@@ -58,7 +59,7 @@ void main() {
       createdUserName: 'Shawn',
       createdAt: '2026-05-01T00:00:00Z',
       updatedAt: '2026-05-02T00:00:00Z',
-      tags: <String>[],
+      tags: <String>['Trending', 'romance'],
       copyCnt: 2300,
       connectCnt: 4400000,
       discussCnt: 0,
@@ -67,32 +68,56 @@ void main() {
     );
 
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: const Scaffold(
           body: SizedBox(width: 180, child: OriginItemCard(item: item)),
         ),
       ),
     );
 
-    expect(_assetSvgFinder(copyStatIconAsset), findsOneWidget);
+    expect(_assetSvgFinder(originFeedPlayIconAsset), findsOneWidget);
+    expect(_assetSvgFinder(originFeedCommentIconAsset), findsOneWidget);
+    expect(_assetSvgFinder(originFeedRoleIconAsset), findsOneWidget);
     expect(
       tester.getSize(find.byType(AspectRatio).first),
       const Size(180, 270),
     );
-    final connectIcon = tester.widget<SvgPicture>(
-      _assetSvgFinder(connectStatIconAsset),
+    final commentIcon = tester.widget<SvgPicture>(
+      _assetSvgFinder(originFeedCommentIconAsset),
     );
-    expect(connectIcon.width, 13);
-    expect(connectIcon.height, 13);
+    expect(commentIcon.width, 12);
+    expect(commentIcon.height, 12);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
 
     final subtitle = tester.widget<Text>(find.text('Tycoon idols'));
-    expect(subtitle.style?.color, const Color(0xFF888888));
+    expect(subtitle.style?.color, const Color(0xB8FFFFFF));
     expect(subtitle.style?.fontSize, 12);
-    expect(subtitle.style?.height, 1.2);
-    expect(subtitle.maxLines, 4);
+    expect(subtitle.style?.height, 1.55);
+    expect(subtitle.maxLines, isNull);
+    final title = tester.widget<Text>(find.text('#Alpha Empire'));
+    expect(title.style?.color, const Color(0xFFFFFFFF));
+    expect(title.style?.fontWeight, FontWeight.w700);
+    final clip = tester.widget<ClipRRect>(find.byType(ClipRRect).first);
+    expect(clip.borderRadius, BorderRadius.circular(11));
+
+    final trending = tester.widget<Text>(find.text('Trending'));
+    expect(trending.style?.color, const Color(0xFFFF8A9A));
+    final trendingContainer = tester.widget<Container>(
+      find
+          .ancestor(of: find.text('Trending'), matching: find.byType(Container))
+          .first,
+    );
+    final trendingDecoration = trendingContainer.decoration! as BoxDecoration;
+    expect(trendingDecoration.color?.a, closeTo(0.18, 0.0001));
+    expect(
+      trendingDecoration.color?.withValues(alpha: 1),
+      const Color(0xFFF82B3C),
+    );
+    expect(trendingDecoration.borderRadius, BorderRadius.circular(6));
+
     expect(
       tester
           .widget<GenesisListImage>(find.byType(GenesisListImage))
@@ -179,7 +204,7 @@ void main() {
     expect(tester.getSize(titleFinder).height, greaterThan(14 * 1.3));
   });
 
-  testWidgets('hides tags that would overflow past two rows', (
+  testWidgets('shows every tag and lets the redesigned wrap grow', (
     WidgetTester tester,
   ) async {
     const item = OriginListItem(
@@ -217,11 +242,11 @@ void main() {
 
     expect(find.text('alphaalphaalphaalphaalpha'), findsOneWidget);
     expect(find.text('betabetabetabetabeta'), findsOneWidget);
-    expect(find.text('gammagammagammagamma'), findsNothing);
-    expect(find.text('deltadeltadeltadelta'), findsNothing);
+    expect(find.text('gammagammagammagamma'), findsOneWidget);
+    expect(find.text('deltadeltadeltadelta'), findsOneWidget);
 
     final alpha = tester.widget<Text>(find.text('alphaalphaalphaalphaalpha'));
-    expect(alpha.overflow, TextOverflow.visible);
+    expect(alpha.overflow, isNull);
     expect(alpha.softWrap, isFalse);
   });
 }

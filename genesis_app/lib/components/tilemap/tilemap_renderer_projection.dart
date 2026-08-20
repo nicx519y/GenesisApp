@@ -167,6 +167,7 @@ Matrix4 tilemapInitialTransform({
   Rect? contentBounds,
   Offset? focus,
   double initialScale = tilemapDefaultInitialScale,
+  double viewportVerticalOffset = 0,
 }) {
   final bounds = contentBounds ?? Offset.zero & mapSize;
   final scale = tilemapResolvedInitialScale(initialScale);
@@ -177,7 +178,10 @@ Matrix4 tilemapInitialTransform({
     ..setEntry(1, 1, scale)
     ..setTranslationRaw(
       viewportSize.width / 2 - sceneCenter.dx * scale,
-      viewportSize.height / 2 - sceneCenter.dy * scale + verticalOffset,
+      viewportSize.height / 2 -
+          sceneCenter.dy * scale +
+          verticalOffset +
+          viewportVerticalOffset,
       0,
     );
 }

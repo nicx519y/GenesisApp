@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../pages/create/create_form_widgets.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_palette.dart';
 
 const int originCharacterNameMaxLength = 30;
 const int originCharacterIdentityMaxLength = 100;
@@ -156,6 +157,7 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.textFieldScrollPadding,
     this.nextFocusNode,
     this.nameSupportLeading,
+    this.createWorldoStyle = false,
   });
 
   final OriginCharacterForm form;
@@ -190,44 +192,97 @@ class OriginCharacterFormFields extends StatelessWidget {
   final EdgeInsets? textFieldScrollPadding;
   final FocusNode? nextFocusNode;
   final Widget? nameSupportLeading;
+  final bool createWorldoStyle;
 
   @override
   Widget build(BuildContext context) {
+    final worldoStyle = createWorldoStyle;
+    final resolvedLabelSize = worldoStyle ? 13.0 : labelSize;
+    final resolvedLabelFontWeight = worldoStyle
+        ? FontWeight.w700
+        : labelFontWeight;
+    final resolvedLabelInputGap = worldoStyle ? 8.0 : labelInputGap;
+    final resolvedFieldGap = worldoStyle ? 16.0 : fieldGap;
+    final resolvedSectionGap = worldoStyle ? 18.0 : sectionGap;
+    const worldoSupportStyle = TextStyle(
+      color: GenesisPalette.redesignWhite60,
+      fontSize: 11,
+      height: 1.5,
+      fontWeight: FontWeight.w400,
+    );
+    const worldoCounterStyle = TextStyle(
+      color: GenesisPalette.redesignWhite50,
+      fontSize: 9.5,
+      height: 1.5,
+      fontWeight: FontWeight.w500,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (topSpacing > 0) SizedBox(height: topSpacing),
+        if (!worldoStyle && topSpacing > 0) SizedBox(height: topSpacing),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CreateUploadBox(
               controller: form.avatarUrl,
               label: 'AVATAR\n(Optional)',
-              width: avatarWidth,
-              height: avatarHeight,
-              iconSize: avatarIconSize,
+              width: worldoStyle ? 100 : avatarWidth,
+              height: worldoStyle ? 100 : avatarHeight,
+              iconSize: worldoStyle ? 22 : avatarIconSize,
               cropSize: avatarCropSize,
               maxOutputSize: avatarMaxOutputSize,
-              borderRadius: GenesisAvatarRadii.character,
+              borderRadius: worldoStyle ? 13 : GenesisAvatarRadii.character,
               previewAlignment: Alignment.topCenter,
               showRemoveLinkWhenFilled: showAvatarRemoveLink,
-              emptyLabelFontWeight: avatarEmptyLabelFontWeight,
-              emptyIconLabelGap: avatarEmptyIconLabelGap,
+              emptyLabelFontWeight: worldoStyle
+                  ? FontWeight.w600
+                  : avatarEmptyLabelFontWeight,
+              emptyLabelFontSize: worldoStyle ? 10 : 12,
+              emptyIconLabelGap: worldoStyle ? 7 : avatarEmptyIconLabelGap,
               removeLinkFontWeight: avatarRemoveLinkFontWeight,
+              emptyBackgroundColor: worldoStyle
+                  ? GenesisPalette.transparent
+                  : null,
+              emptyIconColor: worldoStyle
+                  ? GenesisPalette.redesignAccentSoft
+                  : null,
+              emptyLabelColor: worldoStyle
+                  ? GenesisPalette.redesignAccentSoft
+                  : null,
+              dashColor: worldoStyle ? GenesisPalette.redesignWhite32 : null,
+              dashStrokeWidth: worldoStyle ? 1.5 : 1.2,
               onChanged: onChanged,
             ),
-            SizedBox(width: horizontalGap),
+            SizedBox(width: worldoStyle ? 13 : horizontalGap),
             Expanded(
               child: Column(
                 children: [
                   CreateTextFieldBlock(
-                    label: 'Name *',
+                    label: worldoStyle ? 'Name' : 'Name *',
                     controller: form.name,
                     hintText: _placeholder('Enter name...'),
                     maxLength: originCharacterNameMaxLength,
-                    labelSize: labelSize,
-                    labelFontWeight: labelFontWeight,
-                    labelInputGap: labelInputGap,
+                    requiredIndicator: worldoStyle,
+                    labelSize: resolvedLabelSize,
+                    labelFontWeight: resolvedLabelFontWeight,
+                    labelInputGap: resolvedLabelInputGap,
+                    fieldBorderRadius: worldoStyle ? 13 : 8,
+                    fieldPadding: worldoStyle
+                        ? const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          )
+                        : const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
+                    minimumHeight: worldoStyle ? 46 : null,
+                    inputFontSize: worldoStyle ? 13 : 14,
+                    hintFontSize: worldoStyle ? 13 : null,
+                    inputLineHeight: worldoStyle ? 1.55 : 1.42,
+                    supportLineGap: worldoStyle ? 7 : 8,
+                    supportItemGap: worldoStyle ? 7 : 12,
+                    counterTextStyle: worldoStyle ? worldoCounterStyle : null,
                     maxLines: 1,
                     scrollPadding: textFieldScrollPadding,
                     focusNode: form.focusNodes.name,
@@ -236,20 +291,44 @@ class OriginCharacterFormFields extends StatelessWidget {
                     onChanged: (_) => onChanged(),
                   ),
                   if (!identityBelowAvatarRow) ...[
-                    SizedBox(height: fieldGap),
+                    SizedBox(height: resolvedFieldGap),
                     CreateTextFieldBlock(
-                      label: 'Identity *',
+                      label: worldoStyle ? 'Identity' : 'Identity *',
                       controller: form.identity,
                       hintText: _placeholder(
                         'eg. A hometown kid back for one real shot',
                       ),
                       maxLength: originCharacterIdentityMaxLength,
+                      requiredIndicator: worldoStyle,
                       note: showFieldNotes
                           ? "The character's role in the worldo."
                           : null,
-                      labelSize: labelSize,
-                      labelFontWeight: labelFontWeight,
-                      labelInputGap: labelInputGap,
+                      labelSize: resolvedLabelSize,
+                      labelFontWeight: resolvedLabelFontWeight,
+                      labelInputGap: resolvedLabelInputGap,
+                      fieldBorderRadius: worldoStyle ? 13 : 8,
+                      fieldPadding: worldoStyle
+                          ? const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            )
+                          : const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 10,
+                            ),
+                      minimumHeight: worldoStyle ? 46 : null,
+                      inputFontSize: worldoStyle ? 13 : 14,
+                      hintFontSize: worldoStyle ? 13 : null,
+                      inputLineHeight: worldoStyle ? 1.55 : 1.42,
+                      supportLineGap: worldoStyle ? 8 : 8,
+                      supportItemGap: worldoStyle ? 7 : 12,
+                      supportTextStyle: worldoStyle ? worldoSupportStyle : null,
+                      supportIconColor: worldoStyle
+                          ? GenesisPalette.redesignWhite45
+                          : null,
+                      supportIconSize: worldoStyle ? 12 : 16,
+                      supportIconGap: worldoStyle ? 7 : 5,
+                      counterTextStyle: worldoStyle ? worldoCounterStyle : null,
                       maxLines: 3,
                       scrollPadding: textFieldScrollPadding,
                       focusNode: form.focusNodes.identity,
@@ -258,20 +337,44 @@ class OriginCharacterFormFields extends StatelessWidget {
                     ),
                   ],
                   if (showPersonality && !identityBelowAvatarRow) ...[
-                    SizedBox(height: fieldGap),
+                    SizedBox(height: resolvedFieldGap),
                     CreateTextFieldBlock(
-                      label: 'Personality *',
+                      label: worldoStyle ? 'Personality' : 'Personality *',
                       controller: form.personality,
                       hintText: _placeholder(
                         'eg. Underdog with goodwill but little capital',
                       ),
                       maxLength: 100,
+                      requiredIndicator: worldoStyle,
                       note: showFieldNotes
                           ? "The character's manner of speaking and behaving, which drives their dialogue."
                           : null,
-                      labelSize: labelSize,
-                      labelFontWeight: labelFontWeight,
-                      labelInputGap: labelInputGap,
+                      labelSize: resolvedLabelSize,
+                      labelFontWeight: resolvedLabelFontWeight,
+                      labelInputGap: resolvedLabelInputGap,
+                      fieldBorderRadius: worldoStyle ? 13 : 8,
+                      fieldPadding: worldoStyle
+                          ? const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            )
+                          : const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 10,
+                            ),
+                      minimumHeight: worldoStyle ? 46 : null,
+                      inputFontSize: worldoStyle ? 13 : 14,
+                      hintFontSize: worldoStyle ? 13 : null,
+                      inputLineHeight: worldoStyle ? 1.55 : 1.42,
+                      supportLineGap: worldoStyle ? 8 : 8,
+                      supportItemGap: worldoStyle ? 7 : 12,
+                      supportTextStyle: worldoStyle ? worldoSupportStyle : null,
+                      supportIconColor: worldoStyle
+                          ? GenesisPalette.redesignWhite45
+                          : null,
+                      supportIconSize: worldoStyle ? 12 : 16,
+                      supportIconGap: worldoStyle ? 7 : 5,
+                      counterTextStyle: worldoStyle ? worldoCounterStyle : null,
                       maxLines: 3,
                       scrollPadding: textFieldScrollPadding,
                       focusNode: form.focusNodes.personality,
@@ -284,17 +387,35 @@ class OriginCharacterFormFields extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: sectionGap),
+        SizedBox(height: resolvedSectionGap),
         if (identityBelowAvatarRow) ...[
           CreateTextFieldBlock(
-            label: 'Identity *',
+            label: worldoStyle ? 'Identity' : 'Identity *',
             controller: form.identity,
             hintText: _placeholder('eg. A hometown kid back for one real shot'),
             maxLength: originCharacterIdentityMaxLength,
+            requiredIndicator: worldoStyle,
             note: showFieldNotes ? "The character's role in the worldo." : null,
-            labelSize: labelSize,
-            labelFontWeight: labelFontWeight,
-            labelInputGap: labelInputGap,
+            labelSize: resolvedLabelSize,
+            labelFontWeight: resolvedLabelFontWeight,
+            labelInputGap: resolvedLabelInputGap,
+            fieldBorderRadius: worldoStyle ? 13 : 8,
+            fieldPadding: worldoStyle
+                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+                : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            minimumHeight: worldoStyle ? 46 : null,
+            inputFontSize: worldoStyle ? 13 : 14,
+            hintFontSize: worldoStyle ? 13 : null,
+            inputLineHeight: worldoStyle ? 1.55 : 1.42,
+            supportLineGap: worldoStyle ? 8 : 8,
+            supportItemGap: worldoStyle ? 7 : 12,
+            supportTextStyle: worldoStyle ? worldoSupportStyle : null,
+            supportIconColor: worldoStyle
+                ? GenesisPalette.redesignWhite45
+                : null,
+            supportIconSize: worldoStyle ? 12 : 16,
+            supportIconGap: worldoStyle ? 7 : 5,
+            counterTextStyle: worldoStyle ? worldoCounterStyle : null,
             maxLines: 3,
             scrollPadding: textFieldScrollPadding,
             focusNode: form.focusNodes.identity,
@@ -302,20 +423,38 @@ class OriginCharacterFormFields extends StatelessWidget {
             onChanged: (_) => onChanged(),
           ),
           if (showPersonality) ...[
-            SizedBox(height: fieldGap),
+            SizedBox(height: resolvedFieldGap),
             CreateTextFieldBlock(
-              label: 'Personality *',
+              label: worldoStyle ? 'Personality' : 'Personality *',
               controller: form.personality,
               hintText: _placeholder(
                 'eg. Underdog with goodwill but little capital',
               ),
               maxLength: 100,
+              requiredIndicator: worldoStyle,
               note: showFieldNotes
                   ? "The character's manner of speaking and behaving, which drives their dialogue."
                   : null,
-              labelSize: labelSize,
-              labelFontWeight: labelFontWeight,
-              labelInputGap: labelInputGap,
+              labelSize: resolvedLabelSize,
+              labelFontWeight: resolvedLabelFontWeight,
+              labelInputGap: resolvedLabelInputGap,
+              fieldBorderRadius: worldoStyle ? 13 : 8,
+              fieldPadding: worldoStyle
+                  ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+                  : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              minimumHeight: worldoStyle ? 46 : null,
+              inputFontSize: worldoStyle ? 13 : 14,
+              hintFontSize: worldoStyle ? 13 : null,
+              inputLineHeight: worldoStyle ? 1.55 : 1.42,
+              supportLineGap: worldoStyle ? 8 : 8,
+              supportItemGap: worldoStyle ? 7 : 12,
+              supportTextStyle: worldoStyle ? worldoSupportStyle : null,
+              supportIconColor: worldoStyle
+                  ? GenesisPalette.redesignWhite45
+                  : null,
+              supportIconSize: worldoStyle ? 12 : 16,
+              supportIconGap: worldoStyle ? 7 : 5,
+              counterTextStyle: worldoStyle ? worldoCounterStyle : null,
               maxLines: 3,
               scrollPadding: textFieldScrollPadding,
               focusNode: form.focusNodes.personality,
@@ -323,7 +462,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               onChanged: (_) => onChanged(),
             ),
           ],
-          SizedBox(height: sectionGap),
+          SizedBox(height: resolvedSectionGap),
         ],
         if (showGoal) ...[
           CreateTextFieldBlock(
@@ -338,15 +477,32 @@ class OriginCharacterFormFields extends StatelessWidget {
                 : null,
             minLines: 2,
             maxLines: 3,
-            labelSize: labelSize,
-            labelFontWeight: labelFontWeight,
-            labelInputGap: labelInputGap,
+            labelSize: resolvedLabelSize,
+            labelFontWeight: resolvedLabelFontWeight,
+            labelInputGap: resolvedLabelInputGap,
+            fieldBorderRadius: worldoStyle ? 13 : 8,
+            fieldPadding: worldoStyle
+                ? const EdgeInsets.fromLTRB(14, 13, 14, 13)
+                : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            minimumHeight: worldoStyle ? 66 : null,
+            inputFontSize: worldoStyle ? 13 : 14,
+            hintFontSize: worldoStyle ? 13 : null,
+            inputLineHeight: worldoStyle ? 1.55 : 1.42,
+            supportLineGap: worldoStyle ? 8 : 8,
+            supportItemGap: worldoStyle ? 7 : 12,
+            supportTextStyle: worldoStyle ? worldoSupportStyle : null,
+            supportIconColor: worldoStyle
+                ? GenesisPalette.redesignWhite45
+                : null,
+            supportIconSize: worldoStyle ? 12 : 16,
+            supportIconGap: worldoStyle ? 7 : 5,
+            counterTextStyle: worldoStyle ? worldoCounterStyle : null,
             scrollPadding: textFieldScrollPadding,
             focusNode: form.focusNodes.goal,
             nextFocusNode: form.focusNodes.bio,
             onChanged: (_) => onChanged(),
           ),
-          SizedBox(height: sectionGap),
+          SizedBox(height: resolvedSectionGap),
         ],
         CreateTextFieldBlock(
           label: 'Background - Hidden (Optional)',
@@ -360,9 +516,24 @@ class OriginCharacterFormFields extends StatelessWidget {
               : null,
           minLines: 3,
           maxLines: bioMaxLines ?? 8,
-          labelSize: labelSize,
-          labelFontWeight: labelFontWeight,
-          labelInputGap: labelInputGap,
+          labelSize: resolvedLabelSize,
+          labelFontWeight: resolvedLabelFontWeight,
+          labelInputGap: resolvedLabelInputGap,
+          fieldBorderRadius: worldoStyle ? 13 : 8,
+          fieldPadding: worldoStyle
+              ? const EdgeInsets.fromLTRB(14, 13, 14, 13)
+              : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          minimumHeight: worldoStyle ? 88 : null,
+          inputFontSize: worldoStyle ? 13 : 14,
+          hintFontSize: worldoStyle ? 13 : null,
+          inputLineHeight: worldoStyle ? 1.55 : 1.42,
+          supportLineGap: worldoStyle ? 8 : 8,
+          supportItemGap: worldoStyle ? 7 : 12,
+          supportTextStyle: worldoStyle ? worldoSupportStyle : null,
+          supportIconColor: worldoStyle ? GenesisPalette.redesignWhite45 : null,
+          supportIconSize: worldoStyle ? 12 : 16,
+          supportIconGap: worldoStyle ? 7 : 5,
+          counterTextStyle: worldoStyle ? worldoCounterStyle : null,
           scrollPadding: textFieldScrollPadding,
           focusNode: form.focusNodes.bio,
           nextFocusNode: nextFocusNode,

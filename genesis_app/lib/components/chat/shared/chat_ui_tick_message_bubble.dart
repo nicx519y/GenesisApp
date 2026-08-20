@@ -133,37 +133,53 @@ class _ChatTickSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chatTheme = context.genesisChatTheme;
+    final usesScenePlate = chatTheme.tickBlurSigma > 0;
+    final borderRadius = BorderRadius.circular(
+      usesScenePlate ? 10 : style.systemMessageBorderRadius,
+    );
+    final surface = Container(
+      key: const ValueKey<String>('chat-tick-message-surface'),
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: chatTheme.tickBackground,
+        borderRadius: borderRadius,
+        border: usesScenePlate ? Border.all(color: chatTheme.tickBorder) : null,
+      ),
+      child: usesScenePlate
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              child: child,
+            )
+          : Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 2,
+                  child: ColoredBox(
+                    key: const ValueKey<String>('chat-tick-message-accent'),
+                    color: chatTheme.tickAccent,
+                  ),
+                ),
+                Padding(padding: style.systemMessagePadding, child: child),
+              ],
+            ),
+    );
     return Padding(
       key: bubbleKey,
       padding: style.systemMessageMargin,
       child: GestureDetector(
         onLongPressStart: onLongPressStart,
-        child: Container(
-          key: const ValueKey<String>('chat-tick-message-surface'),
-          width: double.infinity,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: context.genesisChatTheme.tickBackground,
-            borderRadius: BorderRadius.circular(
-              style.systemMessageBorderRadius,
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: 2,
-                child: ColoredBox(
-                  key: const ValueKey<String>('chat-tick-message-accent'),
-                  color: context.genesisChatTheme.tickAccent,
-                ),
-              ),
-              Padding(padding: style.systemMessagePadding, child: child),
-            ],
-          ),
-        ),
+        child: usesScenePlate
+            ? _ChatStableBackdropSurface(
+                borderRadius: borderRadius,
+                sigma: chatTheme.tickBlurSigma,
+                child: surface,
+              )
+            : surface,
       ),
     );
   }
@@ -184,6 +200,7 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usesScenePlate = context.genesisChatTheme.tickBlurSigma > 0;
     final storyEvents = payload.storyEvents;
     final charactersMoved = payload.charactersMoved;
     final groupedMovements = charactersMoved == null
@@ -201,7 +218,7 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
           _ChatTickGlobalSection(text: payload.globalText, style: style),
         ],
         if (storyEvents != null && storyEvents.paragraphs.isNotEmpty) ...[
-          const SizedBox(height: 20),
+          SizedBox(height: usesScenePlate ? 12 : 20),
           for (var index = 0; index < storyEvents.paragraphs.length; index += 1)
             _ChatStoryEventParagraph(
               messageLocalId: '${message.localId}-tick',
@@ -209,28 +226,50 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
               paragraph: storyEvents.paragraphs[index],
               style: style,
               addTopSpacing: index > 0,
+              scenePlate: usesScenePlate,
             ),
         ],
-        if (groupedMovements.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          for (var index = 0; index < groupedMovements.length; index += 1) ...[
-            if (index > 0) const SizedBox(height: 10),
-            _ChatCharacterMovementRow(
-              messageLocalId: '${message.localId}-tick',
-              index: index,
-              movement: groupedMovements[index],
-              style: style,
-              onLocationTap: onLocationTap,
-              usePastTenseDirection: true,
-            ),
-          ],
-        ],
+        if (groupedMovements.isNotEmpty)
+          usesScenePlate
+              ? _ChatTickMovementSection(
+                  messageLocalId: '${message.localId}-tick',
+                  movements: groupedMovements,
+                  style: style,
+                  onLocationTap: onLocationTap,
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    for (
+                      var index = 0;
+                      index < groupedMovements.length;
+                      index += 1
+                    ) ...[
+                      if (index > 0) const SizedBox(height: 10),
+                      _ChatCharacterMovementRow(
+                        messageLocalId: '${message.localId}-tick',
+                        index: index,
+                        movement: groupedMovements[index],
+                        style: style,
+                        onLocationTap: onLocationTap,
+                        usePastTenseDirection: true,
+                      ),
+                    ],
+                  ],
+                ),
         if (showFallback) ...[
           const SizedBox(height: 10),
           _InlineMarkdownText(
             text: payload.fallbackContent,
             textAlign: TextAlign.left,
-            style: style.systemMessageTextStyle.copyWith(height: 1.45),
+            style: style.systemMessageTextStyle.copyWith(
+              color: usesScenePlate
+                  ? context.genesisChatTheme.tickHeader.withValues(alpha: 0.72)
+                  : null,
+              fontSize: usesScenePlate ? 13 : null,
+              height: usesScenePlate ? 1.6 : 1.45,
+            ),
           ),
         ],
       ],
@@ -321,14 +360,50 @@ class _ChatTickHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentTime = message.currentTime.trim();
-    return Text(
+    final label = currentTime.isEmpty
+        ? _tickLabel(message)
+        : '${_tickLabel(message)} · ${genesisDisplaySafeText(currentTime)}';
+    final chatTheme = context.genesisChatTheme;
+    if (chatTheme.tickBlurSigma <= 0) {
+      return Text(
+        key: ValueKey<String>('chat-tick-header-${message.localId}'),
+        label,
+        style: style.systemMessageTextStyle.copyWith(
+          color: chatTheme.tickHeader,
+          fontWeight: FontWeight.w400,
+        ),
+      );
+    }
+    return Container(
       key: ValueKey<String>('chat-tick-header-${message.localId}'),
-      currentTime.isEmpty
-          ? _tickLabel(message)
-          : '${_tickLabel(message)} · ${genesisDisplaySafeText(currentTime)}',
-      style: style.systemMessageTextStyle.copyWith(
-        color: context.genesisChatTheme.tickHeader,
-        fontWeight: FontWeight.w400,
+      padding: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: chatTheme.tickDivider)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            key: const ValueKey<String>('chat-tick-header-dot'),
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: chatTheme.tickAccent,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: style.systemMessageTextStyle.copyWith(
+                color: chatTheme.tickHeader,
+                fontSize: 14,
+                height: 1,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -351,8 +426,56 @@ class _ChatTickGlobalSection extends StatelessWidget {
         textAlign: TextAlign.left,
         style: style.systemMessageTextStyle.copyWith(
           color: textColor.withValues(alpha: 0.72),
+          fontSize: context.genesisChatTheme.tickBlurSigma > 0 ? 13 : null,
+          height: context.genesisChatTheme.tickBlurSigma > 0 ? 1.6 : null,
         ),
         softItalicPerToken: true,
+      ),
+    );
+  }
+}
+
+class _ChatTickMovementSection extends StatelessWidget {
+  const _ChatTickMovementSection({
+    required this.messageLocalId,
+    required this.movements,
+    required this.style,
+    required this.onLocationTap,
+  });
+
+  final String messageLocalId;
+  final List<ChatCharacterMovementVm> movements;
+  final ChatUiStyleConfig style;
+  final ChatCharacterMovementTap? onLocationTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('chat-tick-movement-section'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 13),
+      padding: const EdgeInsets.only(top: 11),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: context.genesisChatTheme.tickDivider),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < movements.length; index += 1) ...[
+            if (index > 0) const SizedBox(height: 10),
+            _ChatCharacterMovementRow(
+              messageLocalId: messageLocalId,
+              index: index,
+              movement: movements[index],
+              style: style,
+              onLocationTap: onLocationTap,
+              usePastTenseDirection: true,
+              scenePlate: true,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -365,6 +488,9 @@ class _ChatTickSectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (context.genesisChatTheme.tickBlurSigma > 0) {
+      return const SizedBox(height: 10);
+    }
     final color =
         (style.systemMessageTextStyle.color ??
                 context.genesisColors.textInverse)

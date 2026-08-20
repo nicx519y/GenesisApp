@@ -23,7 +23,6 @@ import '../../network/models/gem_task_action.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 
@@ -179,32 +178,81 @@ class _GemWalletPageState extends State<GemWalletPage>
       canPop: !_billingPurchaseDialogShowing,
       child: Scaffold(
         backgroundColor: context.genesisColors.pageBackground,
-        appBar: GenesisBackAppBar(
-          pageName: 'Buy Gems',
+        appBar: AppBar(
+          backgroundColor: context.genesisColors.pageBackground,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          toolbarHeight: 58,
+          titleSpacing: 20,
           systemOverlayStyle: GenesisSystemUi.forThemeBrightness(
             Theme.of(context).brightness,
           ),
-          actions: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () =>
-                  Navigator.of(context).pushNamed(RouteNames.gemRecords),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 20, 10),
-                child: Text(
-                  'Records',
-                  style: TextStyle(
-                    color: context.genesisColors.textBody,
-                    fontSize: 12,
-                    height: 18 / 12,
-                    fontWeight: FontWeight.w600,
+          title: Row(
+            children: [
+              GestureDetector(
+                key: const ValueKey('gem-wallet-back'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.of(context).maybePop(),
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: context.genesisColors.controlMuted,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 14,
+                    color: context.genesisColors.textPrimary,
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Buy Gems',
+                  style: TextStyle(
+                    color: context.genesisColors.textPrimary,
+                    fontSize: 17,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () =>
+                    Navigator.of(context).pushNamed(RouteNames.gemRecords),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Records',
+                        style: TextStyle(
+                          color: context.genesisColors.textQuaternary,
+                          fontSize: 12,
+                          height: 1,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 14,
+                        color: context.genesisColors.textQuaternary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        body: SafeArea(child: _buildBody(walletStateListenable)),
+        body: SafeArea(top: false, child: _buildBody(walletStateListenable)),
       ),
     );
   }

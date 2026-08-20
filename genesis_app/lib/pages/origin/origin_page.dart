@@ -133,16 +133,58 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
       length: categories.length,
       child: Column(
         children: [
-          GenesisPageHeader(
-            title: 'Worldo',
-            onSearchTap: () {
-              Navigator.of(context).pushNamed(RouteNames.search);
-            },
+          GenesisTopSafeArea(
+            backgroundColor: context.genesisColors.surface,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+              child: GenesisSearchField(
+                key: const ValueKey<String>('origin-feed-search'),
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                backgroundColor: context.genesisColors.inputBackground,
+                borderColor: context.genesisColors.borderStrong,
+                borderRadius: BorderRadius.circular(14),
+                iconColor: context.genesisColors.primary,
+                iconSize: 15,
+                iconGap: 9,
+                borderWidth: 1.5,
+                hintText: 'Worlds, tags, characters',
+                hintStyle: TextStyle(
+                  color: context.genesisColors.textSubtle,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  height: 1,
+                ),
+                onTap: () {
+                  Navigator.of(context).pushNamed(RouteNames.search);
+                },
+              ),
+            ),
           ),
-          const SizedBox(height: 4),
-          GenesisTabBar(
-            labels: categories.map((item) => item.name).toList(),
-            verticalPadding: 0,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: GenesisTabBar(
+              labels: categories.map((item) => item.name).toList(),
+              verticalPadding: 0,
+              horizontalPadding: 20,
+              labelPadding: const EdgeInsets.only(right: 18),
+              indicatorMatchesLabelWidth: true,
+              indicatorHeight: 2.5,
+              indicatorBottomPadding: 0,
+              tabHeight: 28,
+              labelStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+              ),
+              labelColor: context.genesisColors.textPrimary,
+              unselectedLabelColor: context.genesisOriginColors.feedTabInactive,
+            ),
           ),
           Expanded(
             child: TabBarView(
@@ -639,7 +681,7 @@ class _OriginFeedState extends State<_OriginFeed>
               controller: _scrollController,
               primary: false,
               cacheExtent: 900,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              padding: const EdgeInsets.fromLTRB(20, 9, 20, 0),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -647,7 +689,7 @@ class _OriginFeedState extends State<_OriginFeed>
                   const SliverSimpleGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                   ),
-              mainAxisSpacing: 10,
+              mainAxisSpacing: 11,
               crossAxisSpacing: 11,
               itemCount: _items.length + (_isLoadingMore ? 1 : 0),
               itemBuilder: (context, index) {

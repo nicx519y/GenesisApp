@@ -32,6 +32,10 @@ class WorldMapTilemapOptions {
     this.locationNodes,
     this.preferredFocusLocationId = '',
     this.showVisualModeToggle = true,
+    this.showZoomControl = true,
+    this.centerInitialViewport = false,
+    this.initialScaleOverride,
+    this.initialViewportVerticalOffsetFraction = 0,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
@@ -54,6 +58,10 @@ class WorldMapTilemapOptions {
   final List<WorldMapLocationNode>? locationNodes;
   final String preferredFocusLocationId;
   final bool showVisualModeToggle;
+  final bool showZoomControl;
+  final bool centerInitialViewport;
+  final double? initialScaleOverride;
+  final double initialViewportVerticalOffsetFraction;
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
   final Set<String> recentChatLocationIds;
@@ -118,7 +126,13 @@ class WorldMap extends StatelessWidget {
         preferredFocusLocationId: tilemap.preferredFocusLocationId,
         drillExitTop: common.drillExitTop,
         drillExitMaxWidth: legacy.drillExitMaxWidth,
+        foregroundOverlay: common.foregroundOverlay,
         showVisualModeToggle: tilemap.showVisualModeToggle,
+        showZoomControl: tilemap.showZoomControl,
+        centerInitialViewport: tilemap.centerInitialViewport,
+        initialScaleOverride: tilemap.initialScaleOverride,
+        initialViewportVerticalOffsetFraction:
+            tilemap.initialViewportVerticalOffsetFraction,
         visualModeToggleTop: tilemap.visualModeToggleTop,
         visualModeToggleRight: tilemap.visualModeToggleRight,
         recentChatLocationIds: tilemap.recentChatLocationIds,
@@ -145,7 +159,13 @@ class WorldMap extends StatelessWidget {
         preferredFocusLocationId: tilemap.preferredFocusLocationId,
         drillExitTop: common.drillExitTop,
         drillExitMaxWidth: legacy.drillExitMaxWidth,
+        foregroundOverlay: common.foregroundOverlay,
         showVisualModeToggle: tilemap.showVisualModeToggle,
+        showZoomControl: tilemap.showZoomControl,
+        centerInitialViewport: tilemap.centerInitialViewport,
+        initialScaleOverride: tilemap.initialScaleOverride,
+        initialViewportVerticalOffsetFraction:
+            tilemap.initialViewportVerticalOffsetFraction,
         visualModeToggleTop: tilemap.visualModeToggleTop,
         visualModeToggleRight: tilemap.visualModeToggleRight,
         recentChatLocationIds: tilemap.recentChatLocationIds,

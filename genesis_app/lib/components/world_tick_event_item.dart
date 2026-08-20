@@ -25,6 +25,7 @@ class WorldTickEventItem extends StatelessWidget {
     this.contentTimestampStyle,
     this.metricUnit = '',
     this.showParagraphClue = false,
+    this.timelineStyle = false,
   });
 
   final Map<String, dynamic> tick;
@@ -42,6 +43,7 @@ class WorldTickEventItem extends StatelessWidget {
   final TextStyle? contentTimestampStyle;
   final String metricUnit;
   final bool showParagraphClue;
+  final bool timelineStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +55,21 @@ class WorldTickEventItem extends StatelessWidget {
       'narrator',
     ], fallback: fallbackBody);
     final paragraphs = _tickParagraphs(tickResult);
+
+    if (timelineStyle) {
+      return _WorldTimelineTickItem(
+        tickNumber: tickNumber,
+        subTickNumber: subTickNumber,
+        date: date,
+        body: body,
+        paragraphs: paragraphs,
+        locationsById: locationsById,
+        charactersById: charactersById,
+        metricUnit: metricUnit,
+        showParagraphClue: showParagraphClue,
+        isLast: isLast,
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
@@ -89,6 +106,276 @@ class WorldTickEventItem extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _WorldTimelineTickItem extends StatelessWidget {
+  const _WorldTimelineTickItem({
+    required this.tickNumber,
+    required this.subTickNumber,
+    required this.date,
+    required this.body,
+    required this.paragraphs,
+    required this.locationsById,
+    required this.charactersById,
+    required this.metricUnit,
+    required this.showParagraphClue,
+    required this.isLast,
+  });
+
+  final int tickNumber;
+  final int subTickNumber;
+  final String date;
+  final String body;
+  final List<Map<String, dynamic>> paragraphs;
+  final Map<String, Map<String, dynamic>> locationsById;
+  final Map<String, Map<String, dynamic>> charactersById;
+  final String metricUnit;
+  final bool showParagraphClue;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 30),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: context.genesisColors.surfaceTag,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Text(
+              'Tick $tickNumber${subTickNumber > 0 ? '-$subTickNumber' : ''}'
+              '${date.isEmpty ? '' : ' · $date'}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: context.genesisColors.textPrimary,
+                fontSize: 11,
+                height: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _WorldTimelineEventRow(
+            label: 'Global',
+            body: body,
+            timestamp: '',
+            isGlobal: true,
+            drawLine: paragraphs.isNotEmpty,
+          ),
+          for (var index = 0; index < paragraphs.length; index++)
+            _WorldTimelineParagraphRow(
+              paragraph: paragraphs[index],
+              locationsById: locationsById,
+              charactersById: charactersById,
+              metricUnit: metricUnit,
+              showClue: showParagraphClue,
+              drawLine: index < paragraphs.length - 1,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorldTimelineEventRow extends StatelessWidget {
+  const _WorldTimelineEventRow({
+    required this.label,
+    required this.body,
+    required this.timestamp,
+    required this.isGlobal,
+    required this.drawLine,
+    this.metadata,
+    this.clue,
+    this.characterDetails,
+  });
+
+  final String label;
+  final String body;
+  final String timestamp;
+  final bool isGlobal;
+  final bool drawLine;
+  final Widget? metadata;
+  final String? clue;
+  final Widget? characterDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isGlobal
+        ? context.genesisColors.accentText
+        : context.genesisColors.textPrimary;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 12,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Icon(
+                    isGlobal ? Icons.adjust_rounded : Icons.place_outlined,
+                    size: isGlobal ? 12 : 13,
+                    color: accent,
+                  ),
+                ),
+                if (drawLine) ...[
+                  const SizedBox(height: 5),
+                  Expanded(
+                    child: Container(
+                      width: 1.5,
+                      color: isGlobal
+                          ? context.genesisColors.danger
+                          : context.genesisColors.dividerAction,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 13,
+                            height: 1.15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (timestamp.isNotEmpty)
+                        Text(
+                          timestamp,
+                          style: TextStyle(
+                            color: context.genesisColors.textSecondary,
+                            fontSize: 9.5,
+                            height: 1,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (metadata != null) ...[
+                    const SizedBox(height: 8),
+                    metadata!,
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    body,
+                    style: TextStyle(
+                      color: context.genesisColors.textPrimary,
+                      fontSize: 13,
+                      height: 1.6,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  if ((clue ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _ClueText(
+                      text: clue!,
+                      style: TextStyle(
+                        color: context.genesisColors.textMuted,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  if (characterDetails != null) ...[
+                    const SizedBox(height: 6),
+                    characterDetails!,
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorldTimelineParagraphRow extends StatelessWidget {
+  const _WorldTimelineParagraphRow({
+    required this.paragraph,
+    required this.locationsById,
+    required this.charactersById,
+    required this.metricUnit,
+    required this.showClue,
+    required this.drawLine,
+  });
+
+  final Map<String, dynamic> paragraph;
+  final Map<String, Map<String, dynamic>> locationsById;
+  final Map<String, Map<String, dynamic>> charactersById;
+  final String metricUnit;
+  final bool showClue;
+  final bool drawLine;
+
+  @override
+  Widget build(BuildContext context) {
+    final locationId = _mapString(paragraph, const ['location_id']);
+    final mappedName = _locationName(locationId, locationsById);
+    final label = mappedName.isEmpty
+        ? _mapString(paragraph, const ['label'], fallback: locationId)
+        : mappedName;
+    final body = _mapString(paragraph, const [
+      'text',
+    ], fallback: _mapString(paragraph, const ['content', 'summary']));
+    final timestamp = _mapString(paragraph, const [
+      'timestamp',
+      'timesamp',
+      'time',
+    ]);
+    final visibleRoles = _visibleRoles(paragraph, charactersById);
+    final details = _characterDetails(paragraph, metricUnit: metricUnit);
+    final detailStyle = TextStyle(
+      color: context.genesisColors.textPrimary,
+      fontSize: 12,
+      height: 1.5,
+    );
+    return _WorldTimelineEventRow(
+      label: label.isEmpty ? 'Location' : label,
+      body: body,
+      timestamp: timestamp,
+      isGlobal: false,
+      drawLine: drawLine,
+      metadata: visibleRoles.isEmpty
+          ? null
+          : _EventMetadata(
+              timestamp: null,
+              visibleRoles: visibleRoles,
+              style: TextStyle(
+                color: context.genesisColors.textSecondary,
+                fontSize: 11,
+                height: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+      clue: showClue ? _mapString(paragraph, const ['clue']) : null,
+      characterDetails: details.isEmpty
+          ? null
+          : _CharacterDetailsText(details: details, style: detailStyle),
     );
   }
 }

@@ -6,7 +6,6 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
@@ -130,11 +129,12 @@ class OriginItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.genesisColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
-          borderRadius: GenesisImageRadii.content,
+          borderRadius: BorderRadius.circular(11),
           child: AspectRatio(
             aspectRatio: _coverAspectRatio,
             child: Stack(
@@ -150,19 +150,35 @@ class OriginItemCard extends StatelessWidget {
                   right: 0,
                   bottom: 0,
                   child: Container(
-                    height: 26,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    color: context.genesisColors.scrim.withValues(alpha: 0.3),
+                    padding: const EdgeInsets.fromLTRB(8, 24, 8, 7),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        stops: const [0, 0.46, 1],
+                        colors: [
+                          colors.textInverse.withValues(alpha: 0.92),
+                          colors.textInverse.withValues(alpha: 0.62),
+                          colors.textInverse.withValues(alpha: 0),
+                        ],
+                      ),
+                    ),
                     child: Row(
                       children: [
                         _ImageStat(
-                          iconAsset: copyStatIconAsset,
+                          iconAsset: originFeedPlayIconAsset,
                           value: item.copyCnt,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 11),
                         _ImageStat(
-                          iconAsset: connectStatIconAsset,
+                          iconAsset: originFeedCommentIconAsset,
                           value: item.connectCnt,
+                        ),
+                        const SizedBox(width: 11),
+                        _ImageStat(
+                          iconAsset: originFeedRoleIconAsset,
+                          iconColor: colors.accentText,
+                          value: item.characterCnt,
                         ),
                       ],
                     ),
@@ -172,55 +188,66 @@ class OriginItemCard extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 5),
         Text(
           originDisplayName(item.title),
           style: TextStyle(
-            color: context.genesisColors.accentText,
+            color: colors.textPrimary,
             fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
+            fontWeight: FontWeight.w700,
+            height: 1.35,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 5),
         Text(
           item.subtitle,
           style: TextStyle(
-            color: context.genesisColors.textFaint,
+            color: colors.textSecondary,
             fontWeight: FontWeight.w400,
             fontSize: 12,
-            height: 1.2,
+            height: 1.55,
           ),
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 6),
-        _TagWrap(tags: item.tags),
+        if (item.tags.isNotEmpty) ...[
+          const SizedBox(height: 5),
+          _TagWrap(tags: item.tags),
+        ],
       ],
     );
   }
 }
 
 class _ImageStat extends StatelessWidget {
-  const _ImageStat({required this.iconAsset, required this.value});
+  const _ImageStat({
+    required this.iconAsset,
+    this.iconColor,
+    required this.value,
+  });
 
   final String iconAsset;
+  final Color? iconColor;
   final int value;
 
   @override
   Widget build(BuildContext context) {
     return Flexible(
-      child: StatItem(
-        iconAsset: iconAsset,
-        iconSize: 11,
-        iconColor: context.genesisColors.textInverse,
-        gap: 4,
-        text: formatStatCount(value),
-        textStyle: TextStyle(
-          color: context.genesisColors.textInverse,
-          fontSize: 12,
-          height: 1,
-          fontWeight: FontWeight.w400,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: StatItem(
+          iconAsset: iconAsset,
+          iconSize: 12,
+          iconColor:
+              iconColor ??
+              context.genesisColors.textPrimary.withValues(alpha: 0.92),
+          gap: 4,
+          text: formatStatCount(value),
+          textStyle: TextStyle(
+            color: context.genesisColors.textPrimary,
+            fontSize: 11,
+            height: 1,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
@@ -232,98 +259,41 @@ class _TagWrap extends StatelessWidget {
 
   final List<String> tags;
 
-  static const double _spacing = 6;
-  static const double _runSpacing = 6;
-  static const double _horizontalPadding = 4;
   @override
   Widget build(BuildContext context) {
     if (tags.isEmpty) return const SizedBox.shrink();
-    final textStyle = TextStyle(
-      color: context.genesisColors.accentText,
-      fontSize: 10,
-      height: 1.7,
-      fontWeight: FontWeight.w400,
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final visibleTags = _visibleTagsForRows(
-          tags: tags,
-          maxWidth: constraints.maxWidth,
-          textDirection: Directionality.of(context),
-          textStyle: textStyle,
-        );
-        if (visibleTags.isEmpty) return const SizedBox.shrink();
-        return Wrap(
-          spacing: _spacing,
-          runSpacing: _runSpacing,
-          children: [
-            for (final tag in visibleTags)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _horizontalPadding,
-                  vertical: 2,
-                ),
+    final colors = context.genesisColors;
+    return Wrap(
+      spacing: 5,
+      runSpacing: 5,
+      children: [
+        for (final tag in tags)
+          Builder(
+            builder: (context) {
+              final trending = tag.toLowerCase() == 'trending';
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                 decoration: BoxDecoration(
-                  color: context.genesisColors.surfaceTag,
-                  borderRadius: BorderRadius.circular(2),
+                  color: trending
+                      ? colors.primary.withValues(alpha: 0.18)
+                      : colors.surfaceTag,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   tag,
                   softWrap: false,
-                  overflow: TextOverflow.visible,
-                  style: textStyle,
+                  style: TextStyle(
+                    color: trending ? colors.accentText : colors.textSecondary,
+                    fontSize: 10,
+                    height: 1,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-          ],
-        );
-      },
+              );
+            },
+          ),
+      ],
     );
-  }
-
-  List<String> _visibleTagsForRows({
-    required List<String> tags,
-    required double maxWidth,
-    required TextDirection textDirection,
-    required TextStyle textStyle,
-  }) {
-    if (!maxWidth.isFinite) return tags;
-
-    const maxRows = 2;
-    final visibleTags = <String>[];
-    var row = 1;
-    var rowWidth = 0.0;
-
-    for (final tag in tags) {
-      final tagWidth = _measureTagWidth(tag, textDirection, textStyle);
-      final nextWidth = rowWidth == 0
-          ? tagWidth
-          : rowWidth + _spacing + tagWidth;
-      if (nextWidth <= maxWidth || rowWidth == 0) {
-        visibleTags.add(tag);
-        rowWidth = nextWidth;
-        continue;
-      }
-
-      row += 1;
-      if (row > maxRows) break;
-      visibleTags.add(tag);
-      rowWidth = tagWidth;
-    }
-
-    return visibleTags;
-  }
-
-  double _measureTagWidth(
-    String tag,
-    TextDirection textDirection,
-    TextStyle textStyle,
-  ) {
-    final painter = TextPainter(
-      text: TextSpan(text: tag, style: textStyle),
-      maxLines: 1,
-      textDirection: textDirection,
-    )..layout();
-    return painter.width + _horizontalPadding * 2;
   }
 }
 

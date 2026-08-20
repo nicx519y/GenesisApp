@@ -18,6 +18,7 @@ import '../../components/world_point.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/api_exception.dart';
 import '../../ui/genesis_ui.dart';
+import '../../ui/tokens/genesis_palette.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../create/create_form_widgets.dart';
@@ -181,6 +182,7 @@ class OriginDraftFlowPage extends StatefulWidget {
     this.updateNotesController,
     this.submitStatus = OriginDraftSubmitStatus.idle,
     this.reloadSignal = 0,
+    this.createHubStyle = false,
     this.debugDraftGenerator,
   });
 
@@ -207,6 +209,7 @@ class OriginDraftFlowPage extends StatefulWidget {
   final TextEditingController? updateNotesController;
   final OriginDraftSubmitStatus submitStatus;
   final int reloadSignal;
+  final bool createHubStyle;
   final OriginDebugDraftGenerator? debugDraftGenerator;
 
   @override
@@ -460,6 +463,13 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         widget.submitStatus == OriginDraftSubmitStatus.idle &&
         _submitBlockReason(_draft) == null;
     final submitLabel = _submitButtonLabel();
+    final debugRandomButton = buildOriginDebugRandomContentButton(
+      repository: widget.repository,
+      generator: widget.debugDraftGenerator,
+      enabled:
+          !_isSubmitting && widget.submitStatus == OriginDraftSubmitStatus.idle,
+      onGenerated: _reloadDraft,
+    );
 
     return PopScope(
       canPop: false,
@@ -470,20 +480,31 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       child: GenesisEdgeSwipeBack(
         onBack: () => unawaited(_handleLeaveRequest()),
         child: Scaffold(
+          key: widget.createHubStyle
+              ? const ValueKey<String>('create-worldo-hub-scaffold')
+              : null,
           resizeToAvoidBottomInset: true,
-          appBar: GenesisBackAppBar(
-            pageName: widget.title,
-            onBack: () => unawaited(_handleLeaveRequest()),
-          ),
-          floatingActionButton: buildOriginDebugRandomContentButton(
-            repository: widget.repository,
-            generator: widget.debugDraftGenerator,
-            enabled:
-                !_isSubmitting &&
-                widget.submitStatus == OriginDraftSubmitStatus.idle,
-            onGenerated: _reloadDraft,
-          ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+          backgroundColor: widget.createHubStyle
+              ? GenesisPalette.redesignBackground
+              : null,
+          appBar: widget.createHubStyle
+              ? _CreateHubAppBar(
+                  title: widget.title,
+                  onBack: () => unawaited(_handleLeaveRequest()),
+                  trailing: debugRandomButton,
+                )
+              : GenesisBackAppBar(
+                  pageName: widget.title,
+                  onBack: () => unawaited(_handleLeaveRequest()),
+                  actions: debugRandomButton == null
+                      ? null
+                      : [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: Center(child: debugRandomButton),
+                          ),
+                        ],
+                ),
           body: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: _clearInputFocus,
@@ -493,10 +514,12 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                 children: [
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: widget.createHubStyle ? 20 : 16,
+                      ),
                       child: Column(
                         children: [
-                          SizedBox(height: 14),
+                          SizedBox(height: widget.createHubStyle ? 2 : 14),
                           Expanded(
                             child: ListView(
                               padding: EdgeInsets.only(
@@ -517,22 +540,28 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   SizedBox(height: 20),
                                 ],
                                 _SectionRow(
-                                  icon: createOriginBasicsIconAsset,
+                                  icon: widget.createHubStyle
+                                      ? createOriginHubBasicsIconAsset
+                                      : createOriginBasicsIconAsset,
                                   title: 'Basics',
                                   summary: _basicsSummary(_draft),
                                   completed: _draft.basicsSaved,
                                   modified: _basicsModified(_draft),
+                                  createHubStyle: widget.createHubStyle,
                                   onTap: () => _openSection(
                                     widget.basicsPageBuilder(widget.repository),
                                   ),
                                 ),
                                 _SectionRow(
-                                  icon: createOriginCharactersIconAsset,
+                                  icon: widget.createHubStyle
+                                      ? createOriginHubCharactersIconAsset
+                                      : createOriginCharactersIconAsset,
                                   title: 'Characters (>=1)',
                                   summary: _charactersSummary(_draft),
                                   completed: _draft.charactersSaved,
                                   modified: _charactersModified(_draft),
-                                  wrapFirstSummaryLine: true,
+                                  wrapFirstSummaryLine: !widget.createHubStyle,
+                                  createHubStyle: widget.createHubStyle,
                                   onTap: () => _openSection(
                                     widget.charactersPageBuilder(
                                       widget.repository,
@@ -540,11 +569,14 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   ),
                                 ),
                                 _SectionRow(
-                                  icon: createOriginLocationsIconAsset,
+                                  icon: widget.createHubStyle
+                                      ? createOriginHubLocationsIconAsset
+                                      : createOriginLocationsIconAsset,
                                   title: 'Locations (>=1)',
                                   summary: _locationsSummary(_draft),
                                   completed: _draft.locationsSaved,
                                   modified: _locationsModified(_draft),
+                                  createHubStyle: widget.createHubStyle,
                                   onTap: () => _openSection(
                                     widget.locationsPageBuilder(
                                       widget.repository,
@@ -556,11 +588,14 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                     key: ValueKey<String>(
                                       'create-opening-section',
                                     ),
-                                    icon: createOriginOpeningIconAsset,
+                                    icon: widget.createHubStyle
+                                        ? createOriginHubOpeningIconAsset
+                                        : createOriginOpeningIconAsset,
                                     title: 'Opening',
                                     summary: _openingSummary(_draft),
                                     completed: _draft.openingSaved,
                                     modified: _openingModified(_draft),
+                                    createHubStyle: widget.createHubStyle,
                                     onTap: () => _openSection(
                                       widget.openingPageBuilder!(
                                         widget.repository,
@@ -568,18 +603,23 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                     ),
                                   ),
                                 _SectionRow(
-                                  icon: createOriginStoryEventsIconAsset,
+                                  icon: widget.createHubStyle
+                                      ? createOriginHubStoryEventsIconAsset
+                                      : createOriginStoryEventsIconAsset,
                                   title: 'Story Events (Optional)',
                                   summary: _storyEventsSummary(_draft),
                                   completed: _draft.storyEventsSaved,
                                   modified: _storyEventsModified(_draft),
                                   showDivider: false,
+                                  createHubStyle: widget.createHubStyle,
                                   onTap: () => _openSection(
                                     widget.storyEventsPageBuilder(
                                       widget.repository,
                                     ),
                                   ),
                                 ),
+                                if (widget.createHubStyle)
+                                  const _CreateHubRequirementsNote(),
                                 if (widget.updateNotesController != null) ...[
                                   SizedBox(height: 20),
                                   const _UpdateNotesFieldLabel(),
@@ -596,9 +636,22 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                     ),
                   ),
                   _KeyboardHiddenBottomAction(
+                    minimum: widget.createHubStyle
+                        ? const EdgeInsets.fromLTRB(20, 22, 20, 30)
+                        : const EdgeInsets.fromLTRB(24, 8, 24, 14),
                     child: GenesisPrimaryButton(
                       label: submitLabel,
-                      width: _primaryActionButtonWidth(context),
+                      width: widget.createHubStyle
+                          ? double.infinity
+                          : _primaryActionButtonWidth(context),
+                      height: widget.createHubStyle ? 44 : null,
+                      borderRadius: widget.createHubStyle
+                          ? BorderRadius.circular(13)
+                          : null,
+                      fontSize: widget.createHubStyle ? 13 : null,
+                      fontWeight: widget.createHubStyle
+                          ? FontWeight.w700
+                          : null,
                       onPressed: canUseSubmitButton
                           ? () => unawaited(_submit())
                           : null,
@@ -806,6 +859,120 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final repository = widget.repository;
     return repository is MemoryOriginDraftRepository &&
         repository.storyEventsChanged(draft);
+  }
+}
+
+class _CreateHubAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _CreateHubAppBar({
+    required this.title,
+    required this.onBack,
+    this.trailing,
+  });
+
+  static const double _height = 64;
+
+  final String title;
+  final VoidCallback onBack;
+  final Widget? trailing;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(_height);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      toolbarHeight: _height,
+      automaticallyImplyLeading: false,
+      backgroundColor: GenesisPalette.redesignBackground,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+      leadingWidth: 54,
+      titleSpacing: 12,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 20),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 34,
+            child: IconButton(
+              tooltip: 'Back',
+              padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                backgroundColor: GenesisPalette.redesignWhite07,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(11),
+                ),
+              ),
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 14,
+                color: GenesisPalette.white,
+              ),
+              onPressed: onBack,
+            ),
+          ),
+        ),
+      ),
+      title: Text(
+        title,
+        key: const ValueKey<String>('create-worldo-hub-title'),
+        style: const TextStyle(
+          fontSize: 17,
+          height: 1,
+          fontWeight: FontWeight.w800,
+          color: GenesisPalette.white,
+        ),
+      ),
+      actions: trailing == null
+          ? null
+          : [
+              Padding(
+                padding: const EdgeInsets.only(right: 20),
+                child: Center(child: trailing),
+              ),
+            ],
+    );
+  }
+}
+
+class _CreateHubRequirementsNote extends StatelessWidget {
+  const _CreateHubRequirementsNote();
+
+  static const String text =
+      'Basics, Characters and Locations are required before you can create. '
+      'Story Events can be added any time after launch.';
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const ValueKey<String>('create-worldo-requirements-note'),
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(
+              Icons.info_outline_rounded,
+              size: 12,
+              color: GenesisPalette.redesignWhite45,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.5,
+                fontWeight: FontWeight.w400,
+                color: GenesisPalette.redesignWhite60,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

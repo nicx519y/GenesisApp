@@ -919,7 +919,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3,"discuss_cnt":7}}],"total":8}}',
           );
         }
         if (request.uri.path.endsWith('/v1/world/list')) {
@@ -952,7 +952,7 @@ void main() {
       limit: 10,
       offset: 10,
     );
-    final worlds = await api.getMyWorlds(
+    final worlds = await api.getMyWorldsPage(
       uid: 'u_2',
       scene: 'mine',
       limit: 10,
@@ -968,7 +968,10 @@ void main() {
 
     expect(origins.data.single.oid, 'o_1');
     expect(origins.data.single.originator, 'Origin Owner');
-    expect(worlds.single.wid, 'w_1');
+    expect(origins.data.single.commentCount, 7);
+    expect(origins.total, 8);
+    expect(worlds.data.single.wid, 'w_1');
+    expect(worlds.total, 1);
     expect(apiTransport.requests[0].uri.path, '/api/v1/origin/list');
     expect(apiTransport.requests[0].uri.queryParameters['scene'], 'mine');
     expect(

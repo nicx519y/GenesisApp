@@ -6,6 +6,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
+    this.redesigned = false,
   });
 
   final List<UserProfileOriginItem> items;
@@ -13,6 +14,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
   final ValueListenable<UserProfileCollectionState<UserProfileOriginItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
+  final bool redesigned;
 
   @override
   Widget build(BuildContext context) {
@@ -40,20 +42,27 @@ class _OriginProfileCollectionList extends StatelessWidget {
           .map(
             (item) => GenesisProfileCollectionItemData(
               imageUrl: item.imageUrl,
-              title: originDisplayName(item.title),
+              title: redesigned ? item.title : originDisplayName(item.title),
               subtitle: item.subtitle,
               showPressedBackground: false,
+              useRedesignedLayout: redesigned,
               stats: [
                 GenesisProfileCollectionStat(
-                  iconAsset: copyStatIconAsset,
+                  iconAsset: redesigned
+                      ? originFeedPlayIconAsset
+                      : copyStatIconAsset,
                   value: item.copyCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: connectStatIconAsset,
+                  iconAsset: redesigned
+                      ? originFeedCommentIconAsset
+                      : connectStatIconAsset,
                   value: item.interactCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: characterStatIconAsset,
+                  iconAsset: redesigned
+                      ? originFeedRoleIconAsset
+                      : characterStatIconAsset,
                   preserveIconAssetColor: true,
                   value: item.characterCount,
                 ),
@@ -87,6 +96,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
       loadingKey: const ValueKey('profile-origin-list-loading'),
       onRefresh: onRefresh,
       refreshKey: const ValueKey('profile-origin-list-refresh'),
+      redesigned: redesigned,
     );
   }
 }

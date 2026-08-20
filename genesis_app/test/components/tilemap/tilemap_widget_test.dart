@@ -4143,7 +4143,7 @@ void main() {
 
     expect(find.text('leaf'), findsOneWidget);
     final avatarFinder = find.byKey(
-      const ValueKey<String>('tilemap-location-avatar-char-a'),
+      const ValueKey<String>('world-map-location-marker-avatar-char-a'),
     );
     expect(avatarFinder, findsOneWidget);
 
@@ -4235,7 +4235,7 @@ void main() {
     );
   });
 
-  testWidgets('Tilemap shows a character bubble and opens its location', (
+  testWidgets('Tilemap keeps character bubbles off the map overlay', (
     tester,
   ) async {
     final transport = _TilemapTransport(data: _locationTilemapData('leaf'));
@@ -4276,19 +4276,12 @@ void main() {
       find.byKey(
         const ValueKey<String>('tilemap-character-message-bubble-body'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('Ada checks the tilemap.'), findsOneWidget);
+    expect(find.text('Ada checks the tilemap.'), findsNothing);
 
-    await tester.tap(
-      find.byKey(
-        const ValueKey<String>('tilemap-character-message-bubble-body'),
-      ),
-    );
-    await tester.pump();
-
-    expect(openedPoint?.id, 'leaf');
-    expect(mapTapCount, 1);
+    expect(openedPoint, isNull);
+    expect(mapTapCount, 0);
   });
 }
 

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -8,7 +7,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
-import 'package:genesis_flutter_android/components/tilemap/tilemap_location_avatars.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_model.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart';
 import 'package:genesis_flutter_android/components/world_map_contract.dart';
@@ -1183,19 +1181,17 @@ void main() {
     expect(find.text('High School'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('tilemap-recent-chat-icon')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey<String>('tilemap-event-icon')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-map-location-event-count')),
       findsOneWidget,
     );
-    final eventRect = tester.getRect(
-      find.byKey(const ValueKey<String>('tilemap-event-icon')),
-    );
-    final recentRect = tester.getRect(
-      find.byKey(const ValueKey<String>('tilemap-recent-chat-icon')),
-    );
-    expect(eventRect.right, lessThan(recentRect.left));
+    expect(find.text('1'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('tile-location-label-0-0')),
       findsOneWidget,
@@ -1220,46 +1216,35 @@ void main() {
       find.byKey(const ValueKey<String>('tile-location-pointer-High School')),
       findsNothing,
     );
-    expect(
-      find.byKey(const ValueKey<String>('tile-location-dot-High School')),
-      findsNothing,
+    final pillFinder = find.byKey(
+      const ValueKey<String>('world-map-location-marker-pill'),
     );
-    final bubbleBody = tester.widget<Container>(
-      find.byKey(
-        const ValueKey<String>('tile-location-bubble-body-High School'),
-      ),
-    );
-    final labelDecoration = bubbleBody.decoration! as BoxDecoration;
-    expect(labelDecoration.color, Colors.black.withValues(alpha: 0.4));
-    expect(labelDecoration.borderRadius, BorderRadius.circular(4));
+    final pill = tester.widget<DecoratedBox>(pillFinder);
+    final labelDecoration = pill.decoration as BoxDecoration;
+    expect(labelDecoration.color, const Color(0x99131215));
+    expect(labelDecoration.borderRadius, BorderRadius.circular(24));
+    expect(labelDecoration.border?.top.color.a, closeTo(0.62, 0.001));
     final locationName = tester.widget<Text>(find.text('High School'));
-    expect(locationName.textAlign, TextAlign.center);
-    expect(locationName.softWrap, true);
+    expect(locationName.maxLines, 1);
+    expect(locationName.overflow, TextOverflow.ellipsis);
     expect(locationName.style?.color, Colors.white);
-    expect(locationName.style?.fontSize, 12);
-    expect(locationName.style?.height, 1.2);
+    expect(locationName.style?.fontSize, 11);
+    expect(locationName.style?.height, 1);
     expect(locationName.style?.fontWeight, FontWeight.w600);
 
     final tileRect = tester.getRect(
       find.byKey(const ValueKey<String>('tile-0-0')),
     );
-    final bubbleBodyRect = tester.getRect(
-      find.byKey(
-        const ValueKey<String>('tile-location-bubble-body-High School'),
-      ),
+    final pillRect = tester.getRect(pillFinder);
+    final dotRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-dot')),
     );
     expect(
-      bubbleBodyRect.bottom,
+      dotRect.center.dy,
       closeTo(tileRect.center.dy + tileRect.height / 8, 0.01),
     );
-    expect(bubbleBodyRect.center.dx, closeTo(tileRect.center.dx, 0.01));
-    expect(eventRect.left - bubbleBodyRect.right, closeTo(3, 0.01));
-    expect(recentRect.left - eventRect.right, closeTo(3, 0.01));
-    await tester.tap(
-      find.byKey(
-        const ValueKey<String>('tile-location-bubble-body-High School'),
-      ),
-    );
+    expect(pillRect.center.dx, closeTo(tileRect.center.dx, 0.01));
+    await tester.tap(find.text('High School'));
     await tester.pump();
     expect(tappedTile?.locationId, 'loc_1');
 
@@ -1275,158 +1260,65 @@ void main() {
     );
   });
 
-  testWidgets(
-    'multi-line location name pushes avatars and message bubble down',
-    (tester) async {
-      final config = TilemapConfig.fromTiles(
-        id: 'wrapped_location_label',
-        width: 1,
-        height: 1,
-        tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
-        tiles: const [TilemapCell(x: 0, y: 0, type: 'a', locationId: 'loc_1')],
-      );
-      const avatar = UserAvatar('AA', id: 'char_1', name: 'Ada');
+  testWidgets('long location names stay on one line and bubbles stay hidden', (
+    tester,
+  ) async {
+    final config = TilemapConfig.fromTiles(
+      id: 'single_line_location_label',
+      width: 1,
+      height: 1,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: const [TilemapCell(x: 0, y: 0, type: 'a', locationId: 'loc_1')],
+    );
+    const name = 'A Very Long Location Name That Must Truncate Onto One Line';
 
-      Widget harness(String name) {
-        return MaterialApp(
-          home: SizedBox(
-            width: 320,
-            height: 480,
-            child: DefaultTextStyle(
-              style: const TextStyle(letterSpacing: 4),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              child: TilemapRenderer(
-                config: config,
-                locationNameForTile: (_) => name,
-                locationAvatarsForTile: (_) => const [avatar],
-                messageBubbles: const [
-                  WorldMapMessageBubble(
-                    characterId: 'char_1',
-                    content: 'Hello from this location.',
-                  ),
-                ],
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 480,
+          child: TilemapRenderer(
+            config: config,
+            locationNameForTile: (_) => name,
+            locationAvatarsForTile: (_) => const <UserAvatar>[
+              UserAvatar('AA', id: 'char_1', name: 'Ada'),
+            ],
+            messageBubbles: const <WorldMapMessageBubble>[
+              WorldMapMessageBubble(
+                characterId: 'char_1',
+                content: 'Hello from this location.',
               ),
-            ),
-          ),
-        );
-      }
-
-      Size expectedLabelSize(String name) {
-        final painter = TextPainter(
-          text: TextSpan(
-            text: name,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.2,
-              leadingDistribution: TextLeadingDistribution.even,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          textAlign: TextAlign.center,
-          textDirection: TextDirection.ltr,
-        )..layout(maxWidth: 135);
-        final longestLine = painter.computeLineMetrics().fold<double>(
-          0,
-          (width, line) => math.max(width, line.width),
-        );
-        return Size(
-          (longestLine.ceilToDouble() + 6).clamp(6, 141),
-          painter.height + 8,
-        );
-      }
-
-      const singleLineName = 'Cafe';
-      await tester.pumpWidget(harness(singleLineName));
-      await tester.pump();
-      final singleLabelRect = tester.getRect(
-        find.byKey(
-          const ValueKey<String>('tile-location-bubble-body-$singleLineName'),
-        ),
-      );
-      final singleAvatarRect = tester.getRect(
-        find.byKey(const ValueKey<String>('tilemap-location-avatar-char_1')),
-      );
-      final singleMessageRect = tester.getRect(
-        find.byKey(
-          const ValueKey<String>('tilemap-character-message-bubble-body'),
-        ),
-      );
-
-      for (final singleLineName in const ['Campus S', 'Hartley Hall']) {
-        await tester.pumpWidget(harness(singleLineName));
-        await tester.pump();
-        final labelRect = tester.getRect(
-          find.byKey(
-            ValueKey<String>('tile-location-bubble-body-$singleLineName'),
-          ),
-        );
-
-        final expectedSize = expectedLabelSize(singleLineName);
-
-        expect(
-          labelRect.height,
-          closeTo(expectedSize.height, 0.01),
-          reason: '$singleLineName must use the canonical 135px text layout',
-        );
-        expect(labelRect.width, closeTo(expectedSize.width, 0.01));
-      }
-
-      const wrappedName =
-          'A Very Long Location Name That Must Wrap Onto Another Line';
-      await tester.pumpWidget(harness(wrappedName));
-      await tester.pump();
-      final wrappedLabelRect = tester.getRect(
-        find.byKey(
-          const ValueKey<String>('tile-location-bubble-body-$wrappedName'),
-        ),
-      );
-      final wrappedAvatarRect = tester.getRect(
-        find.byKey(const ValueKey<String>('tilemap-location-avatar-char_1')),
-      );
-      final wrappedMessageRect = tester.getRect(
-        find.byKey(
-          const ValueKey<String>('tilemap-character-message-bubble-body'),
-        ),
-      );
-
-      expect(wrappedLabelRect.height, greaterThan(singleLabelRect.height));
-      final wrappedParagraph = tester.renderObject<RenderParagraph>(
-        find.text(wrappedName),
-      );
-      expect(wrappedParagraph.maxLines, greaterThan(1));
-      expect(wrappedParagraph.didExceedMaxLines, isFalse);
-      expect(wrappedParagraph.size.height, greaterThan(singleLabelRect.height));
-      expect(wrappedLabelRect.top, closeTo(singleLabelRect.top, 0.01));
-      expect(wrappedAvatarRect.top, greaterThan(singleAvatarRect.top));
-      expect(wrappedMessageRect.top, greaterThan(singleMessageRect.top));
-
-      const unevenWrappedName = 'WWWWWWWWWW iiiiiiiiii';
-      await tester.pumpWidget(harness(unevenWrappedName));
-      await tester.pump();
-      final unevenWrappedLabelRect = tester.getRect(
-        find.byKey(
-          const ValueKey<String>(
-            'tile-location-bubble-body-$unevenWrappedName',
+            ],
           ),
         ),
-      );
-      expect(
-        unevenWrappedLabelRect.height,
-        greaterThan(singleLabelRect.height),
-      );
-      final unevenExpectedSize = expectedLabelSize(unevenWrappedName);
-      expect(
-        unevenWrappedLabelRect.width,
-        closeTo(unevenExpectedSize.width, 0.01),
-      );
-      expect(unevenWrappedLabelRect.width, lessThan(141));
-    },
-  );
+      ),
+    );
+    await tester.pump();
+
+    final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
+    expect(paragraph.maxLines, 1);
+    expect(paragraph.didExceedMaxLines, isTrue);
+    expect(
+      find.byKey(
+        const ValueKey<String>('world-map-location-marker-avatar-char_1'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('tilemap-character-message-bubble-body'),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Hello from this location.'), findsNothing);
+  });
 
   testWidgets('renderer reuses legacy zoom control in the bottom-right', (
     tester,
   ) async {
+    const foregroundOverlayKey = ValueKey<String>(
+      'test-tilemap-foreground-overlay',
+    );
     final config = TilemapConfig.fromTiles(
       id: 'zoom_control',
       width: 1,
@@ -1441,7 +1333,15 @@ void main() {
           child: SizedBox(
             width: 320,
             height: 480,
-            child: TilemapRenderer(config: config),
+            child: TilemapRenderer(
+              config: config,
+              foregroundOverlay: const IgnorePointer(
+                child: ColoredBox(
+                  key: foregroundOverlayKey,
+                  color: Color(0x80000000),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1468,10 +1368,30 @@ void main() {
         .getMaxScaleOnAxis();
 
     expect(zoomControl, findsOneWidget);
+    expect(find.byKey(foregroundOverlayKey), findsOneWidget);
     expect(zoomIn, findsOneWidget);
     expect(zoomOut, findsOneWidget);
     expect(dragIndicator, findsOneWidget);
     expect(tester.getBottomRight(zoomControl), const Offset(548, 510));
+
+    final controlStack = tester
+        .widgetList<Stack>(find.byType(Stack))
+        .singleWhere(
+          (stack) => stack.children.any(
+            (child) =>
+                child is Positioned &&
+                child.child is IgnorePointer &&
+                (child.child! as IgnorePointer).child?.key ==
+                    foregroundOverlayKey,
+          ),
+        );
+    final overlayIndex = controlStack.children.indexWhere(
+      (child) =>
+          child is Positioned &&
+          child.child is IgnorePointer &&
+          (child.child! as IgnorePointer).child?.key == foregroundOverlayKey,
+    );
+    expect(overlayIndex, controlStack.children.length - 2);
 
     await tester.tap(zoomIn);
     await tester.pump();
@@ -1501,6 +1421,92 @@ void main() {
         .getMaxScaleOnAxis();
     expect(draggedScale, greaterThan(initialScale));
     expect(draggedScale, lessThan(initialScale * 1.7));
+  });
+
+  testWidgets('renderer can hide the zoom control without disabling gestures', (
+    tester,
+  ) async {
+    final config = TilemapConfig.fromTiles(
+      id: 'hidden_zoom_control',
+      width: 1,
+      height: 1,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: const [TilemapCell(x: 0, y: 0, type: 'a', shadow: 1)],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 480,
+          child: TilemapRenderer(config: config, showZoomControl: false),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('world-map-zoom-control')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-tile-transform')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('renderer can center the initial viewport slightly lower', (
+    tester,
+  ) async {
+    const tiles = [
+      TilemapCell(x: 0, y: 0, type: 'a', shadow: 0),
+      TilemapCell(x: 2, y: 0, type: 'a', shadow: 0),
+    ];
+    final config = TilemapConfig.fromTiles(
+      id: 'centered_initial_viewport',
+      width: 3,
+      height: 1,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: tiles,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: SizedBox(
+            width: 320,
+            height: 480,
+            child: TilemapRenderer(
+              config: config,
+              centerInitialViewport: true,
+              initialViewportVerticalOffsetFraction: 0.05,
+              initialScale: 18,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final projection = TilemapProjection.fixed(mapWidth: 3, mapHeight: 1);
+    final contentBounds = projection.imageBoundsForTiles(tiles);
+    final expected = tilemapInitialTransform(
+      viewportSize: const Size(320, 480),
+      mapSize: Size(projection.mapWidth, projection.mapHeight),
+      contentBounds: contentBounds,
+      focus: contentBounds.center,
+      initialScale: 18,
+      viewportVerticalOffset: 24,
+    );
+    final actual = tester
+        .widget<Transform>(
+          find.byKey(const ValueKey<String>('tilemap-tile-transform')),
+        )
+        .transform;
+
+    expect(actual.getMaxScaleOnAxis(), 18);
+    expect(actual.storage[12], closeTo(expected.storage[12], 0.001));
+    expect(actual.storage[13], closeTo(expected.storage[13], 0.001));
   });
 
   testWidgets(
@@ -2145,7 +2151,7 @@ void main() {
   });
 
   testWidgets(
-    'location avatars render below the bubble with three per centered row',
+    'location pill overlaps three avatars and folds the fourth into +1',
     (tester) async {
       final config = TilemapConfig.fromTiles(
         id: 'location_avatars',
@@ -2176,42 +2182,33 @@ void main() {
       );
       await tester.pump();
 
-      final bubbleRect = tester.getRect(
-        find.byKey(
-          const ValueKey<String>('tile-location-bubble-body-June Coffee'),
-        ),
-      );
       final avatarRects = <Rect>[
-        for (final id in const ['a', 'b', 'c', 'd'])
+        for (final id in const ['a', 'b', 'c'])
           tester.getRect(
-            find.byKey(ValueKey<String>('tilemap-location-avatar-$id')),
+            find.byKey(
+              ValueKey<String>('world-map-location-marker-avatar-$id'),
+            ),
           ),
       ];
 
-      expect(
-        avatarRects.first.top - bubbleRect.bottom,
-        closeTo(tilemapLocationLabelToAvatarSpacing, 0.01),
-      );
       expect(avatarRects[0].top, avatarRects[1].top);
       expect(avatarRects[1].top, avatarRects[2].top);
-      expect(avatarRects[3].top, greaterThan(avatarRects[0].bottom));
+      expect(avatarRects[1].left - avatarRects[0].left, closeTo(16, 0.01));
+      expect(avatarRects[2].left - avatarRects[1].left, closeTo(16, 0.01));
+      expect(find.text('+1'), findsOneWidget);
       expect(
-        avatarRects[0].center.dx + avatarRects[2].center.dx,
-        closeTo(bubbleRect.center.dx * 2, 0.01),
+        find.byKey(
+          const ValueKey<String>('world-map-location-marker-avatar-d'),
+        ),
+        findsNothing,
       );
-      expect(avatarRects[3].center.dx, closeTo(bubbleRect.center.dx, 0.01));
       final avatar = tester.widget<GenesisCharacterAvatar>(
         find.byType(GenesisCharacterAvatar).first,
       );
-      expect(
-        avatar.boxShadow.any(
-          (shadow) =>
-              shadow.offset.dy > 0 &&
-              shadow.blurRadius >= 10 &&
-              shadow.spreadRadius > 0,
-        ),
-        isTrue,
-      );
+      expect(avatar.size, 22);
+      expect(avatar.showStar, isFalse);
+      expect((avatar.border! as Border).top.color, const Color(0xFF17151B));
+      expect((avatar.border! as Border).top.width, 1.5);
       expect(
         avatar.maxDevicePixelRatio,
         GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio,

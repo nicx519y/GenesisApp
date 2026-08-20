@@ -17,25 +17,92 @@ class ChatMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? context.genesisChatTheme.standard;
-    final background = message.isMe
+    final isAiRoleMessage =
+        !message.isMe &&
+        !message.isPlayerControlledRole &&
+        message.senderType == 'character';
+    final chatTheme = context.genesisChatTheme;
+    final usesAiScenePlate =
+        isAiRoleMessage && chatTheme.aiRoleBubbleBlurSigma > 0;
+    final usesSelfScenePlate =
+        style.useScenePlateBubbleGeometry && message.isMe;
+    final background = isAiRoleMessage
+        ? chatTheme.aiRoleBubbleBackground
+        : message.isMe
         ? style.selfBubbleColor
         : style.otherBubbleColor;
+    final borderRadius = usesSelfScenePlate
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(14),
+            topRight: Radius.circular(6),
+            bottomRight: Radius.circular(14),
+            bottomLeft: Radius.circular(14),
+          )
+        : usesAiScenePlate
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(6),
+            topRight: Radius.circular(14),
+            bottomRight: Radius.circular(14),
+            bottomLeft: Radius.circular(14),
+          )
+        : BorderRadius.circular(style.bubbleBorderRadius);
     final text = message.error == null
         ? message.text
         : '${message.text}\n${message.error}';
+    final bubble = Container(
+      key: ValueKey<String>('chat-message-bubble-${message.localId}'),
+      padding: usesAiScenePlate || usesSelfScenePlate
+          ? const EdgeInsets.symmetric(horizontal: 13, vertical: 11)
+          : style.bubblePadding,
+      decoration: BoxDecoration(color: background, borderRadius: borderRadius),
+      child: _InlineMarkdownText(
+        text: text.isEmpty ? '...' : text,
+        style: usesAiScenePlate || usesSelfScenePlate
+            ? style.bubbleTextStyle.copyWith(fontSize: 13, height: 1.6)
+            : style.bubbleTextStyle,
+      ),
+    );
     return GestureDetector(
       onTap: onTap,
       onLongPressStart: onLongPressStart,
-      child: Container(
-        padding: style.bubblePadding,
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
-        ),
-        child: _InlineMarkdownText(
-          text: text.isEmpty ? '...' : text,
-          style: style.bubbleTextStyle,
-        ),
+      child: usesAiScenePlate
+          ? _ChatStableBackdropSurface(
+              borderRadius: borderRadius,
+              sigma: chatTheme.aiRoleBubbleBlurSigma,
+              child: bubble,
+            )
+          : bubble,
+    );
+  }
+}
+
+class _ChatStableBackdropSurface extends StatelessWidget {
+  const _ChatStableBackdropSurface({
+    required this.borderRadius,
+    required this.sigma,
+    required this.child,
+  });
+
+  final BorderRadius borderRadius;
+  final double sigma;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          Positioned.fill(
+            child: BackdropFilter.grouped(
+              blendMode: BlendMode.srcOver,
+              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          child,
+        ],
       ),
     );
   }
@@ -123,12 +190,16 @@ class ChatNpcAvatar extends StatelessWidget {
         decoration: BoxDecoration(
           color: context.genesisChatTheme.npcAvatarBackground,
           shape: BoxShape.circle,
+          border: Border.all(
+            color: context.genesisChatTheme.npcAvatarBorder,
+            width: 1,
+          ),
         ),
         child: Center(
           child: Text(
             'NPC',
             style: TextStyle(
-              color: context.genesisColors.textInverse,
+              color: context.genesisChatTheme.npcAvatarForeground,
               fontSize: 11,
               fontWeight: FontWeight.w700,
               height: 1,

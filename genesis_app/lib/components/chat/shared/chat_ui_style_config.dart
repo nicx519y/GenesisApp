@@ -67,6 +67,10 @@ class ChatUiStyleConfig {
     required this.composerSendButtonHeight,
     // Send button border radius.
     required this.composerSendButtonBorderRadius,
+    // Send button border color.
+    this.composerSendButtonBorderColor = Colors.transparent,
+    // Send button border width.
+    this.composerSendButtonBorderWidth = 0,
     // Send button background color.
     required this.composerSendButtonColor,
     // Disabled send button background color.
@@ -99,6 +103,10 @@ class ChatUiStyleConfig {
     required this.inputBackgroundColor,
     // Input field border radius.
     required this.inputBorderRadius,
+    // Input field border color.
+    this.inputBorderColor = Colors.transparent,
+    // Input field border width.
+    this.inputBorderWidth = 0,
     // Input field text style.
     required this.inputTextStyle,
     // Message list padding.
@@ -141,6 +149,8 @@ class ChatUiStyleConfig {
     required this.otherBubbleColor,
     // Message bubble text style.
     required this.bubbleTextStyle,
+    // Whether location-chat messages use the asymmetric scene-plate geometry.
+    this.useScenePlateBubbleGeometry = false,
     // Avatar size.
     required this.avatarSize,
     // Avatar border radius.
@@ -439,6 +449,10 @@ class ChatUiStyleConfig {
   final double composerSendButtonHeight;
   // Send button border radius.
   final double composerSendButtonBorderRadius;
+  // Send button border color.
+  final Color composerSendButtonBorderColor;
+  // Send button border width.
+  final double composerSendButtonBorderWidth;
   // Send button background color.
   final Color composerSendButtonColor;
   // Disabled send button background color.
@@ -471,6 +485,10 @@ class ChatUiStyleConfig {
   final Color inputBackgroundColor;
   // Input field border radius.
   final double inputBorderRadius;
+  // Input field border color.
+  final Color inputBorderColor;
+  // Input field border width.
+  final double inputBorderWidth;
   // Input field text style.
   final TextStyle inputTextStyle;
   // Message list padding.
@@ -513,6 +531,7 @@ class ChatUiStyleConfig {
   final Color otherBubbleColor;
   // Message bubble text style.
   final TextStyle bubbleTextStyle;
+  final bool useScenePlateBubbleGeometry;
   // Avatar size.
   final double avatarSize;
   // Avatar border radius.
@@ -560,6 +579,7 @@ class ChatUiStyleConfig {
 
   ChatUiStyleConfig copyWith({
     Color? conversationBackgroundColor,
+    double? headerHeight,
     Color? headerBackgroundColor,
     Gradient? headerBackgroundGradient,
     bool clearHeaderBackgroundGradient = false,
@@ -572,7 +592,18 @@ class ChatUiStyleConfig {
     Color? composerSendButtonColor,
     Color? composerSendButtonDisabledColor,
     Color? composerSendButtonIconColor,
+    double? composerSendButtonWidth,
+    double? composerSendButtonHeight,
+    double? composerSendButtonBorderRadius,
+    Color? composerSendButtonBorderColor,
+    double? composerSendButtonBorderWidth,
+    double? composerSendButtonIconSize,
+    double? composerActionGap,
     Color? inputBackgroundColor,
+    double? inputMinHeight,
+    double? inputBorderRadius,
+    Color? inputBorderColor,
+    double? inputBorderWidth,
     TextStyle? inputTextStyle,
     TextStyle? headerTitleTextStyle,
     TextStyle? headerSubtitleTextStyle,
@@ -582,6 +613,7 @@ class ChatUiStyleConfig {
     double? headerSubtitleTopGap,
     EdgeInsets? messageListPadding,
     double? rowBottomPadding,
+    double? avatarSize,
     double? avatarSideSpacerWidth,
     TextStyle? topTitleTextStyle,
     TextStyle? statusTextStyle,
@@ -590,6 +622,7 @@ class ChatUiStyleConfig {
     Color? selfBubbleColor,
     Color? otherBubbleColor,
     TextStyle? bubbleTextStyle,
+    bool? useScenePlateBubbleGeometry,
     TextStyle? avatarTextStyle,
     Color? aiBadgeColor,
     Color? sendingBadgeColor,
@@ -604,7 +637,7 @@ class ChatUiStyleConfig {
     return ChatUiStyleConfig(
       conversationBackgroundColor:
           conversationBackgroundColor ?? this.conversationBackgroundColor,
-      headerHeight: headerHeight,
+      headerHeight: headerHeight ?? this.headerHeight,
       headerBackgroundColor:
           headerBackgroundColor ?? this.headerBackgroundColor,
       headerBackgroundGradient: clearHeaderBackgroundGradient
@@ -642,9 +675,16 @@ class ChatUiStyleConfig {
       showComposerAddButton: showComposerAddButton,
       showComposerSendButton:
           showComposerSendButton ?? this.showComposerSendButton,
-      composerSendButtonWidth: composerSendButtonWidth,
-      composerSendButtonHeight: composerSendButtonHeight,
-      composerSendButtonBorderRadius: composerSendButtonBorderRadius,
+      composerSendButtonWidth:
+          composerSendButtonWidth ?? this.composerSendButtonWidth,
+      composerSendButtonHeight:
+          composerSendButtonHeight ?? this.composerSendButtonHeight,
+      composerSendButtonBorderRadius:
+          composerSendButtonBorderRadius ?? this.composerSendButtonBorderRadius,
+      composerSendButtonBorderColor:
+          composerSendButtonBorderColor ?? this.composerSendButtonBorderColor,
+      composerSendButtonBorderWidth:
+          composerSendButtonBorderWidth ?? this.composerSendButtonBorderWidth,
       composerSendButtonColor:
           composerSendButtonColor ?? this.composerSendButtonColor,
       composerSendButtonDisabledColor:
@@ -652,20 +692,23 @@ class ChatUiStyleConfig {
           this.composerSendButtonDisabledColor,
       composerSendButtonIconColor:
           composerSendButtonIconColor ?? this.composerSendButtonIconColor,
-      composerSendButtonIconSize: composerSendButtonIconSize,
+      composerSendButtonIconSize:
+          composerSendButtonIconSize ?? this.composerSendButtonIconSize,
       composerSendButtonLoadingSize: composerSendButtonLoadingSize,
       composerSendButtonLoadingStrokeWidth:
           composerSendButtonLoadingStrokeWidth,
       composerLeadingGap: composerLeadingGap,
-      composerActionGap: composerActionGap,
-      inputMinHeight: inputMinHeight,
+      composerActionGap: composerActionGap ?? this.composerActionGap,
+      inputMinHeight: inputMinHeight ?? this.inputMinHeight,
       inputMinLines: inputMinLines,
       inputMaxLines: inputMaxLines,
       inputLineHeight: inputLineHeight,
       inputHorizontalPadding: inputHorizontalPadding,
       inputVerticalPadding: inputVerticalPadding,
       inputBackgroundColor: inputBackgroundColor ?? this.inputBackgroundColor,
-      inputBorderRadius: inputBorderRadius,
+      inputBorderRadius: inputBorderRadius ?? this.inputBorderRadius,
+      inputBorderColor: inputBorderColor ?? this.inputBorderColor,
+      inputBorderWidth: inputBorderWidth ?? this.inputBorderWidth,
       inputTextStyle: inputTextStyle ?? this.inputTextStyle,
       messageListPadding: messageListPadding ?? this.messageListPadding,
       topTitleEmptyHeight: topTitleEmptyHeight,
@@ -689,7 +732,9 @@ class ChatUiStyleConfig {
       selfBubbleColor: selfBubbleColor ?? this.selfBubbleColor,
       otherBubbleColor: otherBubbleColor ?? this.otherBubbleColor,
       bubbleTextStyle: bubbleTextStyle ?? this.bubbleTextStyle,
-      avatarSize: avatarSize,
+      useScenePlateBubbleGeometry:
+          useScenePlateBubbleGeometry ?? this.useScenePlateBubbleGeometry,
+      avatarSize: avatarSize ?? this.avatarSize,
       avatarBorderRadius: avatarBorderRadius,
       selfAvatarColors: selfAvatarColors,
       otherAvatarColors: otherAvatarColors,

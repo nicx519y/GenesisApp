@@ -120,7 +120,7 @@ class _OriginStoryEventsEditorPageState
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: context.genesisColors.pageBackground,
-      appBar: const GenesisBackAppBar(pageName: 'Story Events'),
+      appBar: _StoryEventsAppBar(eventCount: _eventControllers.length),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,
@@ -128,22 +128,10 @@ class _OriginStoryEventsEditorPageState
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${_eventControllers.length}/$_maxEvents (Added / Max)',
-                          style: TextStyle(
-                            color: context.genesisCreateColors.text,
-                            fontSize: 14,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 12),
                       for (int i = 0; i < _eventControllers.length; i++) ...[
                         _StoryEventCard(
                           index: i + 1,
@@ -160,24 +148,21 @@ class _OriginStoryEventsEditorPageState
                         if (i + 1 < _eventControllers.length)
                           SizedBox(height: 12),
                       ],
-                      if (_eventControllers.isNotEmpty) SizedBox(height: 12),
-                      CreateInlineAddButton(
-                        label: '+ Add Event',
-                        onTap: _addEvent,
-                        fontSize: 16,
-                        centered: true,
-                        contentPadding: const EdgeInsets.fromLTRB(0, 11, 0, 5),
-                      ),
-                      SizedBox(height: 12),
+                      if (_eventControllers.isNotEmpty)
+                        const SizedBox(height: 20),
+                      _StoryEventAddButton(onTap: _addEvent),
                     ],
                   ),
                 ),
               ),
               _KeyboardHiddenBottomAction(
-                minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
+                minimum: const EdgeInsets.fromLTRB(20, 22, 20, 30),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
-                  width: _primaryActionButtonWidth(context),
+                  height: 44,
+                  borderRadius: BorderRadius.circular(13),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                   onPressed: _canUseSaveButton ? _saveEvents : null,
                   onDisabledPressed: () =>
                       _showError('Saving is already in progress.'),
@@ -214,10 +199,19 @@ class _StoryEventCard extends StatelessWidget {
       title: 'Event $index',
       onDelete: onDelete,
       showBorder: false,
+      padding: EdgeInsets.zero,
+      titleFontSize: 15,
+      titleFontWeight: FontWeight.w800,
+      headerBottomSpacing: 12,
+      deleteButtonSize: 30,
+      deleteIconSize: 14,
+      deleteBackgroundColor: context.genesisCreateColors.fieldFill,
+      deleteBorderColor: Colors.transparent,
+      deleteBorderRadius: 10,
+      deleteIconColor: context.genesisColors.textPrimary.withValues(alpha: 0.6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: 6),
           CreateTextFieldBlock(
             label: '',
             controller: controller,
@@ -225,14 +219,158 @@ class _StoryEventCard extends StatelessWidget {
                 'eg. A national chain scouts a vacant lot, threatening to undercut every local on price.',
             maxLength: 100,
             note: 'A key story beat the AI uses to steer the storyline.',
-            minLines: 5,
+            minLines: 3,
             maxLines: 5,
             labelSize: 0,
+            fieldBorderRadius: 13,
+            fieldPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 13,
+            ),
+            minimumHeight: 88,
+            inputFontSize: 13,
+            hintFontSize: 13,
+            inputLineHeight: 1.55,
+            supportIconSize: 12,
+            supportIconGap: 7,
+            supportTextStyle: const TextStyle(fontSize: 11, height: 1.5),
+            supportTextColor: context.genesisColors.textPrimary.withValues(
+              alpha: 0.62,
+            ),
+            supportIconColor: context.genesisColors.textPrimary.withValues(
+              alpha: 0.45,
+            ),
+            counterTextStyle: TextStyle(
+              color: context.genesisColors.textPrimary.withValues(alpha: 0.5),
+              fontSize: 9.5,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+            ),
             focusNode: focusNode,
             nextFocusNode: nextFocusNode,
             onChanged: (_) => onChanged(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StoryEventsAppBar extends StatelessWidget
+    implements PreferredSizeWidget {
+  const _StoryEventsAppBar({required this.eventCount});
+
+  final int eventCount;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(64);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      toolbarHeight: preferredSize.height,
+      backgroundColor: context.genesisColors.surface,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      automaticallyImplyLeading: false,
+      titleSpacing: 20,
+      centerTitle: false,
+      title: Row(
+        children: [
+          Material(
+            color: context.genesisCreateColors.fieldFill,
+            borderRadius: BorderRadius.circular(11),
+            child: Tooltip(
+              message: 'Back',
+              child: InkWell(
+                key: const ValueKey<String>('story-events-back-button'),
+                borderRadius: BorderRadius.circular(11),
+                onTap: () => Navigator.of(context).maybePop(),
+                child: SizedBox.square(
+                  dimension: 34,
+                  child: Icon(
+                    Icons.arrow_back_ios_new,
+                    color: context.genesisCreateColors.text,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Story Events',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: context.genesisCreateColors.text,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+            ),
+          ),
+          Text(
+            '$eventCount/${_OriginStoryEventsEditorPageState._maxEvents} '
+            '(Added / Max)',
+            key: const ValueKey<String>('story-events-count'),
+            maxLines: 1,
+            style: TextStyle(
+              color: context.genesisColors.textPrimary.withValues(alpha: 0.5),
+              fontSize: 9.5,
+              fontWeight: FontWeight.w500,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryEventAddButton extends StatelessWidget {
+  const _StoryEventAddButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = context.genesisCreateColors.successText;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const ValueKey<String>('story-events-add-button'),
+        borderRadius: BorderRadius.circular(13),
+        onTap: onTap,
+        child: CustomPaint(
+          key: const ValueKey<String>('story-events-add-button-border'),
+          painter: CreateDashedRRectPainter(
+            color: context.genesisColors.textPrimary.withValues(alpha: 0.24),
+            radius: 13,
+            strokeWidth: 1.5,
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_rounded, size: 14, color: accent),
+                const SizedBox(width: 8),
+                Text(
+                  'Add Event',
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

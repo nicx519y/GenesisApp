@@ -23,6 +23,8 @@ class GenesisTabBar extends StatelessWidget {
     this.indicatorColor,
     this.indicatorWidth,
     this.indicatorHeight,
+    this.indicatorBottomPadding = genesisTabIndicatorBottomPadding,
+    this.indicatorMatchesLabelWidth = false,
     this.labelFontSize,
     this.labelStyle,
     this.unselectedLabelStyle,
@@ -30,6 +32,7 @@ class GenesisTabBar extends StatelessWidget {
     this.unselectedLabelColor,
     this.expanded = false,
     this.tabAlignment,
+    this.tabHeight = genesisTabHeight,
     this.onTap,
   });
 
@@ -41,6 +44,8 @@ class GenesisTabBar extends StatelessWidget {
   final Color? indicatorColor;
   final double? indicatorWidth;
   final double? indicatorHeight;
+  final double indicatorBottomPadding;
+  final bool indicatorMatchesLabelWidth;
   final double? labelFontSize;
   final TextStyle? labelStyle;
   final TextStyle? unselectedLabelStyle;
@@ -48,6 +53,7 @@ class GenesisTabBar extends StatelessWidget {
   final Color? unselectedLabelColor;
   final bool expanded;
   final TabAlignment? tabAlignment;
+  final double tabHeight;
   final ValueChanged<int>? onTap;
 
   @override
@@ -83,9 +89,11 @@ class GenesisTabBar extends StatelessWidget {
           indicatorSize: TabBarIndicatorSize.label,
           indicator: GenesisFixedUnderlineIndicator(
             color: indicatorColor ?? colors.danger,
-            width: indicatorWidth ?? uiTheme.tabIndicatorWidth,
+            width: indicatorMatchesLabelWidth
+                ? null
+                : indicatorWidth ?? uiTheme.tabIndicatorWidth,
             height: indicatorHeight ?? uiTheme.tabIndicatorHeight,
-            bottomPadding: genesisTabIndicatorBottomPadding,
+            bottomPadding: indicatorBottomPadding,
           ),
           labelColor: labelColor ?? colors.navigationSelected,
           unselectedLabelColor:
@@ -93,8 +101,7 @@ class GenesisTabBar extends StatelessWidget {
           labelStyle: resolvedLabelStyle,
           unselectedLabelStyle: resolvedUnselectedLabelStyle,
           tabs: [
-            for (final label in labels)
-              Tab(height: genesisTabHeight, text: label),
+            for (final label in labels) Tab(height: tabHeight, text: label),
           ],
         ),
       ),

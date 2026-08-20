@@ -9,6 +9,7 @@ import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
+import 'package:genesis_flutter_android/components/gems/gem_colors.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_records.dart';
@@ -22,8 +23,7 @@ import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/system/genesis_system_ui.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 const _wrappingTaskDescription =
     'Create an Origin and launch a world, then continue exploring locations '
@@ -45,6 +45,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         home: GemWalletPage(
           walletStore: walletStore,
           productsLoader: (_) async => _products(),
@@ -90,6 +91,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         home: GemWalletPage(
           walletStore: walletStore,
           billingService: billingService,
@@ -113,6 +115,34 @@ void main() {
     expect(find.text('+550'), findsOneWidget);
     expect(find.text('500'), findsOneWidget);
     expect(find.text(r'$1.49'), findsOneWidget);
+    expect(find.text('Struck price = first top-up bonus'), findsNothing);
+    expect(find.text('New User'), findsOneWidget);
+    final productTag = tester.widget<Container>(
+      find.byKey(const ValueKey('gem-product-tag-gem_pack_500')),
+    );
+    expect(
+      (productTag.decoration! as BoxDecoration).color,
+      const Color(0xFFF82B3C),
+    );
+    expect(productTag.constraints?.minWidth, 68);
+    expect(productTag.constraints?.maxWidth, 68);
+    expect(productTag.padding, isNull);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('gem-product-tag-gem_pack_500')))
+          .width,
+      68,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('gem-product-tag-gem_pack_500')))
+          .height,
+      20,
+    );
+    expect(
+      tester.getRect(find.text('+550')).bottom,
+      closeTo(tester.getRect(find.text('500')).bottom, 0.1),
+    );
     expect(find.text('Starter'), findsOneWidget);
     expect(find.text('Create your first worldo'), findsOneWidget);
     expect(find.byType(GemPurchaseCatalogSection), findsOneWidget);
@@ -124,11 +154,11 @@ void main() {
     );
     final taskButtonDecoration =
         tester.widget<Container>(taskButton).decoration! as BoxDecoration;
-    expect(taskButtonDecoration.color, Colors.transparent);
+    expect(taskButtonDecoration.color, const Color(0x21FFFFFF));
     expect(taskButtonDecoration.border, isNull);
     expect(
       tester.widget<Text>(find.text('Go')).style?.color,
-      const Color(0xFF338960),
+      const Color(0xE0FFFFFF),
     );
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,
@@ -147,7 +177,7 @@ void main() {
           tester
               .getBottomLeft(find.byKey(const ValueKey('gem-balance-panel')))
               .dy,
-      10,
+      48,
     );
     expect(
       tester.widget<SizedBox>(find.byKey(const ValueKey('gem-balance-panel'))),
@@ -155,43 +185,43 @@ void main() {
     );
 
     final pageTitleStyle = tester.widget<Text>(find.text('Buy Gems')).style;
-    expect(
-      pageTitleStyle,
-      GenesisTypography.pageTitle.copyWith(color: GenesisColors.textPrimary),
-    );
+    expect(pageTitleStyle?.fontSize, 17);
+    expect(pageTitleStyle?.height, 1);
+    expect(pageTitleStyle?.fontWeight, FontWeight.w800);
+    expect(pageTitleStyle?.color, Colors.white);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-panel'))).dy -
           tester.getRect(find.text('Buy Gems')).bottom,
-      closeTo(22.5, 0.1),
+      closeTo(42.5, 0.1),
     );
 
     final recordsStyle = tester.widget<Text>(find.text('Records')).style;
     expect(recordsStyle?.fontSize, 12);
-    expect(recordsStyle?.height, 18 / 12);
+    expect(recordsStyle?.height, 1);
     expect(recordsStyle?.fontWeight, FontWeight.w600);
-    expect(recordsStyle?.color, const Color(0xFF333333));
+    expect(recordsStyle?.color, const Color(0xB8FFFFFF));
 
     final groupTitleStyle = tester.widget<Text>(find.text('Starter')).style;
-    expect(groupTitleStyle?.fontSize, 16);
-    expect(groupTitleStyle?.height, 20 / 16);
-    expect(groupTitleStyle?.fontWeight, FontWeight.w600);
-    expect(groupTitleStyle?.color, const Color(0xFF111111));
+    expect(groupTitleStyle?.fontSize, 15);
+    expect(groupTitleStyle?.height, 1);
+    expect(groupTitleStyle?.fontWeight, FontWeight.w800);
+    expect(groupTitleStyle?.color, Colors.white);
 
     final taskTitleStyle = tester
         .widget<Text>(find.text('Create your first worldo'))
         .style;
-    expect(taskTitleStyle?.fontSize, 14);
-    expect(taskTitleStyle?.height, 16 / 14);
-    expect(taskTitleStyle?.fontWeight, FontWeight.w600);
-    expect(taskTitleStyle?.color, const Color(0xFF111111));
+    expect(taskTitleStyle?.fontSize, 13);
+    expect(taskTitleStyle?.height, 1.25);
+    expect(taskTitleStyle?.fontWeight, FontWeight.w800);
+    expect(taskTitleStyle?.color, Colors.white);
 
     final descriptionStyle = tester
         .widget<Text>(find.text(_wrappingTaskDescription))
         .style;
-    expect(descriptionStyle?.fontSize, 12);
-    expect(descriptionStyle?.height, 14 / 12);
+    expect(descriptionStyle?.fontSize, 11);
+    expect(descriptionStyle?.height, 1.45);
     expect(descriptionStyle?.fontWeight, FontWeight.w400);
-    expect(descriptionStyle?.color, const Color(0xFF888888));
+    expect(descriptionStyle?.color, const Color(0x99FFFFFF));
     final description = tester.widget<Text>(
       find.text(_wrappingTaskDescription),
     );
@@ -205,32 +235,61 @@ void main() {
             ),
           )
           .height,
-      greaterThan(62),
+      greaterThan(70),
     );
 
     final actionStyle = tester.widget<Text>(find.text('Go')).style;
-    expect(actionStyle?.fontSize, 12);
-    expect(actionStyle?.height, 14 / 12);
-    expect(actionStyle?.fontWeight, FontWeight.w600);
-    expect(
-      tester.getSize(
-        find.byKey(
-          const ValueKey<String>('gem-task-action-create_first_worldo'),
-        ),
-      ),
-      const Size(64, 24),
+    expect(actionStyle?.fontSize, 11);
+    expect(actionStyle?.height, 1);
+    expect(actionStyle?.fontWeight, FontWeight.w700);
+    final goButtonSize = tester.getSize(
+      find.byKey(const ValueKey<String>('gem-task-action-create_first_worldo')),
     );
+    expect(goButtonSize.height, 28);
+    expect(goButtonSize.width, greaterThan(24));
     final taskRewardStyle = tester.widget<Text>(find.text('+50')).style;
-    expect(taskRewardStyle?.fontSize, 14);
-    expect(taskRewardStyle?.fontWeight, FontWeight.w600);
-    expect(taskRewardStyle?.color, const Color(0xFF111111));
-    expect(
-      tester.getSize(
-        find.byKey(
-          const ValueKey<String>('gem-task-reward-icon-create_first_worldo'),
-        ),
+    expect(taskRewardStyle?.fontSize, 13);
+    expect(taskRewardStyle?.fontWeight, FontWeight.w800);
+    expect(taskRewardStyle?.color, Colors.white);
+    final taskRewardIconSize = tester.getSize(
+      find.byKey(
+        const ValueKey<String>('gem-task-reward-icon-create_first_worldo'),
       ),
-      const Size.square(14),
+    );
+    expect(taskRewardIconSize.width, closeTo(9, 0.1));
+    expect(taskRewardIconSize.height, 14);
+    expect(
+      tester
+          .getRect(
+            find.byKey(
+              const ValueKey<String>(
+                'gem-task-reward-icon-create_first_worldo',
+              ),
+            ),
+          )
+          .right,
+      lessThan(tester.getRect(find.text('+50')).left),
+    );
+    expect(
+      tester
+          .getRect(
+            find.byKey(
+              const ValueKey<String>('gem-task-reward-create_first_worldo'),
+            ),
+          )
+          .center
+          .dy,
+      closeTo(
+        tester
+            .getRect(
+              find.byKey(
+                const ValueKey<String>('gem-task-action-create_first_worldo'),
+              ),
+            )
+            .center
+            .dy,
+        0.1,
+      ),
     );
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -250,39 +309,45 @@ void main() {
     expect(find.text('Follow'), findsOneWidget);
 
     final joinUsStyle = tester.widget<Text>(find.text('Join us')).style;
-    expect(joinUsStyle?.fontSize, 16);
-    expect(joinUsStyle?.height, 20 / 16);
-    expect(joinUsStyle?.fontWeight, FontWeight.w600);
-    expect(joinUsStyle?.color, const Color(0xFF111111));
+    expect(joinUsStyle?.fontSize, 15);
+    expect(joinUsStyle?.height, 1);
+    expect(joinUsStyle?.fontWeight, FontWeight.w800);
+    expect(joinUsStyle?.color, Colors.white);
 
     final discordStyle = tester.widget<Text>(find.text('Discord')).style;
-    expect(discordStyle?.fontSize, 14);
-    expect(discordStyle?.height, 16 / 14);
-    expect(discordStyle?.fontWeight, FontWeight.w600);
-    expect(discordStyle?.color, const Color(0xFF111111));
+    expect(discordStyle?.fontSize, 13);
+    expect(discordStyle?.height, 1.25);
+    expect(discordStyle?.fontWeight, FontWeight.w800);
+    expect(discordStyle?.color, Colors.white);
     final joinUsRewardStyle = tester.widget<Text>(find.text('+20')).style;
-    expect(joinUsRewardStyle?.fontSize, 14);
-    expect(joinUsRewardStyle?.fontWeight, FontWeight.w600);
-    expect(joinUsRewardStyle?.color, const Color(0xFF111111));
+    expect(joinUsRewardStyle?.fontSize, 13);
+    expect(joinUsRewardStyle?.fontWeight, FontWeight.w800);
+    expect(joinUsRewardStyle?.color, Colors.white);
+    final joinUsRewardIconSize = tester.getSize(
+      find.byKey(const ValueKey<String>('gem-task-reward-icon-discord_follow')),
+    );
+    expect(joinUsRewardIconSize.width, closeTo(9, 0.1));
+    expect(joinUsRewardIconSize.height, 14);
     expect(
-      tester.getSize(
-        find.byKey(
-          const ValueKey<String>('gem-task-reward-icon-discord_follow'),
-        ),
-      ),
-      const Size.square(14),
+      tester
+          .getRect(
+            find.byKey(
+              const ValueKey<String>('gem-task-reward-icon-discord_follow'),
+            ),
+          )
+          .right,
+      lessThan(tester.getRect(find.text('+20')).left),
     );
 
     final followStyle = tester.widget<Text>(find.text('Follow')).style;
-    expect(followStyle?.fontSize, 12);
-    expect(followStyle?.height, 14 / 12);
-    expect(followStyle?.fontWeight, FontWeight.w600);
-    expect(
-      tester.getSize(
-        find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),
-      ),
-      const Size(64, 24),
+    expect(followStyle?.fontSize, 11);
+    expect(followStyle?.height, 1);
+    expect(followStyle?.fontWeight, FontWeight.w700);
+    final followButtonSize = tester.getSize(
+      find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),
     );
+    expect(followButtonSize.height, 28);
+    expect(followButtonSize.width, greaterThan(goButtonSize.width));
   });
 
   testWidgets('Records opens Gem Records and supports swipe tab switching', (
@@ -301,29 +366,33 @@ void main() {
       MaterialApp(
         navigatorObservers: [genesisPageRouteObserver],
         routes: {
-          RouteNames.gemRecords: (_) => GemRecordsPage(
-            recordsLoader: ({required scene, required pn, required rn}) async {
-              requestedScenes.add(scene);
-              return GemRecordList(
-                items: [
-                  GemRecordItem(
-                    ledgerId: 'gl_$scene',
-                    amount: 50,
-                    scene: 'task',
-                    reasonCode: 'daily_checkin',
-                    title: scene == 'earned'
-                        ? 'Earned reward'
-                        : 'Daily check-in',
-                    subtitle: 'Starter reward',
-                    createdAt: 1783586400,
-                    expiresAt: 0,
-                  ),
-                ],
-                total: 1,
-                page: 1,
-                pageSize: 20,
-              );
-            },
+          RouteNames.gemRecords: (_) => Theme(
+            data: GenesisTheme.worldoRedesign(),
+            child: GemRecordsPage(
+              recordsLoader:
+                  ({required scene, required pn, required rn}) async {
+                    requestedScenes.add(scene);
+                    return GemRecordList(
+                      items: [
+                        GemRecordItem(
+                          ledgerId: 'gl_$scene',
+                          amount: 50,
+                          scene: 'task',
+                          reasonCode: 'daily_checkin',
+                          title: scene == 'earned'
+                              ? 'Earned reward'
+                              : 'Daily check-in',
+                          subtitle: 'Starter reward',
+                          createdAt: 1783586400,
+                          expiresAt: 0,
+                        ),
+                      ],
+                      total: 1,
+                      page: 1,
+                      pageSize: 20,
+                    );
+                  },
+            ),
           ),
         },
         home: GemWalletPage(
@@ -348,14 +417,14 @@ void main() {
 
     expect(find.text('Gem Records'), findsOneWidget);
     final recordsTitle = tester.widget<Text>(find.text('Gem Records'));
-    expect(
-      recordsTitle.style,
-      GenesisTypography.pageTitle.copyWith(color: GenesisColors.textPrimary),
-    );
+    expect(recordsTitle.style?.fontSize, 17);
+    expect(recordsTitle.style?.height, 1);
+    expect(recordsTitle.style?.fontWeight, FontWeight.w800);
+    expect(recordsTitle.style?.color, const Color(0xFFFFFFFF));
     expect(
       tester.getTopLeft(find.byType(TabBar)).dy -
           tester.getRect(find.text('Gem Records')).bottom,
-      closeTo(12.5, 0.1),
+      closeTo(34.5, 0.1),
     );
     expect(find.text('Daily check-in'), findsOneWidget);
     expect(find.text('Starter reward'), findsNothing);
@@ -363,39 +432,39 @@ void main() {
     expect(requestedScenes, contains('all'));
 
     final tabs = tester.widget<TabBar>(find.byType(TabBar));
-    expect(tabs.labelStyle?.fontSize, 14);
-    expect(tabs.labelStyle?.height, 1.4);
-    expect(tabs.labelStyle?.fontWeight, FontWeight.w600);
-    expect(tabs.labelColor, GenesisSemanticColors.light().navigationSelected);
-    expect(tabs.unselectedLabelStyle?.fontSize, 14);
-    expect(tabs.unselectedLabelStyle?.height, 1.4);
-    expect(tabs.unselectedLabelStyle?.fontWeight, isNull);
+    expect(tabs.labelStyle?.fontSize, 13);
+    expect(tabs.labelStyle?.height, 1);
+    expect(tabs.labelStyle?.fontWeight, FontWeight.w700);
+    expect(tabs.labelColor, GenesisSemanticColors.worldoRedesign().textPrimary);
+    expect(tabs.unselectedLabelStyle?.fontSize, 13);
+    expect(tabs.unselectedLabelStyle?.height, 1);
+    expect(tabs.unselectedLabelStyle?.fontWeight, FontWeight.w500);
     expect(
       tabs.unselectedLabelColor,
-      GenesisSemanticColors.light().navigationUnselected,
+      GenesisSemanticColors.worldoRedesign().textPlaceholder,
     );
 
     final recordTitleStyle = tester
         .widget<Text>(find.text('Daily check-in'))
         .style;
-    expect(recordTitleStyle?.fontSize, 14);
-    expect(recordTitleStyle?.height, 17 / 14);
+    expect(recordTitleStyle?.fontSize, 13);
+    expect(recordTitleStyle?.height, 1.35);
     expect(recordTitleStyle?.fontWeight, FontWeight.w600);
-    expect(recordTitleStyle?.color, const Color(0xFF111111));
+    expect(recordTitleStyle?.color, const Color(0xFFFFFFFF));
 
     final recordTimeStyle = tester
         .widget<Text>(find.text(formatGemRecordTimestamp(1783586400)))
         .style;
-    expect(recordTimeStyle?.fontSize, 12);
-    expect(recordTimeStyle?.height, 14 / 12);
+    expect(recordTimeStyle?.fontSize, 10);
+    expect(recordTimeStyle?.height, 1);
     expect(recordTimeStyle?.fontWeight, FontWeight.w400);
-    expect(recordTimeStyle?.color, const Color(0xFF999999));
+    expect(recordTimeStyle?.color, const Color(0x73FFFFFF));
 
     final amountStyle = tester.widget<Text>(find.text('+50')).style;
-    expect(amountStyle?.fontSize, 14);
-    expect(amountStyle?.height, 20 / 14);
-    expect(amountStyle?.fontWeight, FontWeight.w600);
-    expect(amountStyle?.color, const Color(0xFFFF2442));
+    expect(amountStyle?.fontSize, 15);
+    expect(amountStyle?.height, 1);
+    expect(amountStyle?.fontWeight, FontWeight.w800);
+    expect(amountStyle?.color, const Color(0xFFFF8A9A));
 
     await tester.drag(find.byType(TabBarView), const Offset(-420, 0));
     await tester.pumpAndSettle();
@@ -902,6 +971,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         home: GemWalletPage(
           walletStore: walletStore,
           billingService: billing,
@@ -939,6 +1009,15 @@ void main() {
     final processingActionBoxSize = tester.getSize(
       find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
     );
+    final processingBorder = tester.widget<Container>(
+      find.byKey(const ValueKey('genesis-action-box-attached-border')),
+    );
+    final processingBorderDecoration =
+        processingBorder.foregroundDecoration! as BoxDecoration;
+    expect(
+      (processingBorderDecoration.border! as Border).top.color,
+      Colors.white.withValues(alpha: 0.14),
+    );
 
     await tester.tapAt(Offset.zero);
     await tester.pump();
@@ -958,11 +1037,7 @@ void main() {
             find.byKey(const ValueKey<String>('billing-purchase-granted-fit')),
           )
           .width,
-      lessThanOrEqualTo(
-        tester
-            .getSize(find.byKey(const ValueKey('genesis-action-box-title-row')))
-            .width,
-      ),
+      lessThanOrEqualTo(206),
     );
     expect(
       tester
@@ -970,20 +1045,23 @@ void main() {
             find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
           )
           .height,
-      lessThanOrEqualTo(21),
+      lessThanOrEqualTo(30),
     );
     expect(
       tester
-          .getSize(find.byKey(const ValueKey('genesis-action-box-title-row')))
-          .height,
-      150,
+          .getSize(
+            find.byKey(
+              const ValueKey<String>('billing-purchase-success-dialog'),
+            ),
+          )
+          .width,
+      250,
     );
     expect(
-      tester.getSize(
-        find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
-      ),
-      processingActionBoxSize,
+      find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
+      findsNothing,
     );
+    expect(processingActionBoxSize.width, greaterThan(250));
 
     await tester.binding.handlePopRoute();
     await tester.pump(const Duration(milliseconds: 100));
@@ -1495,12 +1573,9 @@ void main() {
     );
     final claimButtonDecoration =
         tester.widget<Container>(claimButton).decoration! as BoxDecoration;
-    expect(claimButtonDecoration.color, Colors.transparent);
+    expect(claimButtonDecoration.color, const Color(0xFFFF2442));
     expect(claimButtonDecoration.border, isNull);
-    expect(
-      tester.widget<Text>(find.text('Claim')).style?.color,
-      const Color(0xFFFF2442),
-    );
+    expect(tester.widget<Text>(find.text('Claim')).style?.color, Colors.white);
 
     final row = find.byKey(
       const ValueKey<String>('gem-join-us-row-discord_follow'),
@@ -1556,11 +1631,11 @@ void main() {
     );
     final claimedButtonDecoration =
         tester.widget<Container>(claimedButton).decoration! as BoxDecoration;
-    expect(claimedButtonDecoration.color, Colors.transparent);
+    expect(claimedButtonDecoration.color, const Color(0xFFF1F3F6));
     expect(claimedButtonDecoration.border, isNull);
     expect(
       tester.widget<Text>(find.text('Claimed')).style?.color,
-      const Color(0xFFD47B89),
+      const Color(0xDD000000),
     );
 
     await tester.tap(
@@ -1672,12 +1747,37 @@ void _expectGrantedSuccessDialog(
 }) {
   expect(find.text('Purchase successful!'), findsOneWidget);
   expect(find.text('Go Chat Now.'), findsNothing);
-  expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
+  expect(find.byType(GenesisActionBox<bool>), findsNothing);
+  final successDialog = tester.widget<Container>(
+    find.byKey(const ValueKey<String>('billing-purchase-success-dialog')),
+  );
+  final successDialogContext = tester.element(
+    find.byKey(const ValueKey<String>('billing-purchase-success-dialog')),
+  );
+  final successDialogDecoration = successDialog.decoration! as BoxDecoration;
+  expect(
+    successDialogDecoration.color,
+    successDialogContext.genesisColors.surfaceRaised,
+  );
+  expect(successDialogDecoration.borderRadius, BorderRadius.circular(20));
+  expect(
+    (successDialogDecoration.border! as Border).top.color,
+    successDialogContext.genesisColors.textPrimary.withValues(alpha: 0.14),
+  );
+  expect(
+    tester
+        .getSize(
+          find.byKey(const ValueKey<String>('billing-purchase-success-dialog')),
+        )
+        .width,
+    250,
+  );
   final successTitle = tester.widget<Text>(
     find.byKey(const ValueKey<String>('billing-purchase-success-title')),
   );
-  expect(successTitle.style?.fontSize, 16);
-  expect(successTitle.style?.fontWeight, FontWeight.w600);
+  expect(successTitle.style?.fontSize, 17);
+  expect(successTitle.style?.height, 1);
+  expect(successTitle.style?.fontWeight, FontWeight.w800);
   expect(
     tester
         .getSize(
@@ -1686,30 +1786,66 @@ void _expectGrantedSuccessDialog(
           ),
         )
         .height,
-    12,
+    14,
   );
-  final grantedLine = tester.widget<Text>(
-    find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
+  final grantedAmount = tester.widget<Text>(
+    find.byKey(const ValueKey<String>('billing-purchase-granted-amount')),
   );
-  expect(grantedLine.style?.fontSize, 14);
-  expect(grantedLine.style?.fontWeight, FontWeight.w400);
-  final spans = (grantedLine.textSpan! as TextSpan).children!;
-  expect(spans[0], isA<WidgetSpan>());
+  expect(grantedAmount.data, '+$grantedText');
+  expect(grantedAmount.style?.fontSize, 30);
+  expect(grantedAmount.style?.fontWeight, FontWeight.w900);
   expect(
-    find.byKey(const ValueKey<String>('billing-purchase-granted-icon')),
-    findsOneWidget,
+    grantedAmount.style?.color,
+    successDialogContext.genesisColors.textPrimary,
   );
-  expect((spans[1] as TextSpan).text, grantedText);
-  expect((spans[1] as TextSpan).style?.color, const Color(0xFFFF2442));
-  expect((spans[2] as TextSpan).text, ' Gems have been granted.');
-  final okText = tester.widget<Text>(find.text('OK'));
-  expect(okText.style?.fontSize, 15);
-  expect(okText.style?.fontWeight, FontWeight.w600);
+  final grantedUnit = tester.widget<Text>(
+    find.byKey(const ValueKey<String>('billing-purchase-granted-unit')),
+  );
+  expect(grantedUnit.data, 'Gems');
+  expect(grantedUnit.style?.fontSize, 13);
+  expect(grantedUnit.style?.fontWeight, FontWeight.w500);
+  expect(
+    grantedUnit.style?.color,
+    successDialogContext.genesisColors.textMuted,
+  );
+  final grantedIconSize = tester.getSize(
+    find.byKey(const ValueKey<String>('billing-purchase-granted-icon')),
+  );
+  expect(grantedIconSize.width, closeTo(38, 0.3));
+  expect(grantedIconSize.height, 59);
+  final subtitle = tester.widget<Text>(
+    find.byKey(const ValueKey<String>('billing-purchase-granted-subtitle')),
+  );
+  expect(subtitle.data, 'Added to your balance');
+  expect(subtitle.style?.fontSize, 11);
+  expect(subtitle.style?.height, 1.45);
+  final divider = tester.widget<Container>(
+    find.byKey(const ValueKey<String>('billing-purchase-success-divider')),
+  );
+  expect(divider.color, successDialogContext.genesisColors.dividerAction);
   expect(
     tester
-        .getSize(find.byKey(const ValueKey('genesis-action-box-action-row')))
+        .getSize(
+          find.byKey(
+            const ValueKey<String>('billing-purchase-success-divider'),
+          ),
+        )
         .height,
-    GenesisActionBox.defaultRowHeight,
+    1,
+  );
+  final okText = tester.widget<Text>(find.text('OK'));
+  expect(okText.style?.fontSize, 15);
+  expect(okText.style?.fontWeight, FontWeight.w700);
+  expect(okText.style?.color, successDialogContext.genesisGemColors.accent);
+  expect(
+    tester
+        .getSize(
+          find.byKey(
+            const ValueKey<String>('billing-purchase-success-confirm'),
+          ),
+        )
+        .height,
+    51,
   );
   expect(find.byType(SvgPicture), findsWidgets);
 }
@@ -1948,6 +2084,8 @@ GemProduct _product(String productId, {int bonusGems = 50}) {
     priceCurrencyCode: 'USD',
     priceAmount: amount,
     canPurchase: true,
-    activityType: 'none',
+    activityType: productId == 'gem_pack_500' ? 'new_user' : 'none',
+    activityText: productId == 'gem_pack_500' ? 'New User' : '',
+    activityColor: productId == 'gem_pack_500' ? '#F82B3C' : '',
   );
 }

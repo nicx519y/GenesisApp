@@ -53,17 +53,6 @@ extension _LocationChatLayout on _LocationChatPanelState {
     _edgeSwipeBackTriggered = false;
   }
 
-  EdgeInsets _locationChatMessageListPadding(
-    ChatUiStyleConfig style, {
-    required double headerHeight,
-    required double composerHeight,
-  }) {
-    return style.messageListPadding.copyWith(
-      top: style.messageListPadding.top + headerHeight,
-      bottom: style.messageListPadding.bottom + composerHeight,
-    );
-  }
-
   double _locationChatHeaderHeight(ChatUiStyleConfig style) {
     return GenesisSafeAreaInsets.top(context) + style.headerHeight;
   }

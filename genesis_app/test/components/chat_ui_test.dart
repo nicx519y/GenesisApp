@@ -10,6 +10,7 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_message_image.dart';
@@ -210,7 +211,7 @@ void main() {
 
     expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
     expect(find.byType(ChatOtherMessageBubble), findsOneWidget);
-    expect(find.byType(ChatSystemMessage), findsNWidgets(3));
+    expect(find.byType(ChatSystemMessage), findsNWidgets(2));
     expect(find.byType(ChatAiContentDisclaimerMessageBubble), findsOneWidget);
     expect(find.byType(ChatNarratorMessageBubble), findsOneWidget);
     expect(find.byType(ChatTickMessageBubble), findsOneWidget);
@@ -373,16 +374,12 @@ void main() {
     expect(find.text('Alice entered the cafe'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Alice entered the cafe')).textAlign,
-      TextAlign.center,
+      TextAlign.left,
     );
-    final enterSystemMessage = tester.widget<ChatSystemMessage>(
-      find.ancestor(
-        of: find.text('Alice entered the cafe'),
-        matching: find.byType(ChatSystemMessage),
-      ),
+    expect(
+      find.byKey(const ValueKey<String>('chat-user-enter-location-icon')),
+      findsOneWidget,
     );
-    expect(enterSystemMessage.fullWidth, isFalse);
-    expect(enterSystemMessage.useFullAvailableWidth, isTrue);
     final enterBubbleRect = tester.getRect(
       find.byKey(
         const ValueKey<String>('chat-user-enter-location-message-enter'),
@@ -396,6 +393,17 @@ void main() {
     );
     expect(enterBubbleRect.width, lessThan(enterRowRect.width));
     expect(enterBubbleRect.center.dx, closeTo(enterRowRect.center.dx, 1));
+    final enterBubble = tester.widget<Container>(
+      find.byKey(
+        const ValueKey<String>('chat-user-enter-location-message-enter'),
+      ),
+    );
+    final enterDecoration = enterBubble.decoration! as BoxDecoration;
+    expect(enterDecoration.color, const Color(0xE6111111));
+    expect((enterDecoration.borderRadius! as BorderRadius).topLeft.x, 18);
+    final enterText = tester.widget<Text>(find.text('Alice entered the cafe'));
+    expect(enterText.textSpan?.style?.color, Colors.white);
+    expect(enterText.textSpan?.style?.fontWeight, FontWeight.w600);
     expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
     expect(find.text('Old Station'), findsNothing);
     expect(find.text('Event'), findsNothing);
@@ -566,6 +574,63 @@ void main() {
     expect(find.text('sub_tick'), findsNothing);
     expect(find.text('char_alice'), findsNothing);
     expect(find.byType(ChatAvatar), findsNothing);
+  });
+
+  testWidgets('location entry event matches the Worldo redesign pill', (
+    WidgetTester tester,
+  ) async {
+    var longPressCount = 0;
+    final message = ChatMessageVm(
+      localId: 'redesign-enter',
+      senderId: 'sub_tick',
+      senderName: 'sub_tick',
+      text: 'Adrian entered Grand Ballroom',
+      isMe: false,
+      status: 'sent',
+      senderType: 'user_enter_location',
+      timelinePayload: const ChatUserEnterLocationPayloadVm(
+        characterId: 'char_adrian',
+        toLocationId: 'grand_ballroom',
+        text: 'Adrian entered Grand Ballroom',
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: message,
+            showDateDivider: false,
+            onMessageLongPressStart: (_, _, _) => longPressCount += 1,
+          ),
+        ),
+      ),
+    );
+
+    final bubbleFinder = find.byKey(
+      const ValueKey<String>('chat-user-enter-location-message-redesign-enter'),
+    );
+    final bubble = tester.widget<Container>(bubbleFinder);
+    final decoration = bubble.decoration! as BoxDecoration;
+    expect(decoration.color, const Color(0x21FFFFFF));
+    expect((decoration.borderRadius! as BorderRadius).topLeft.x, 18);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('chat-user-enter-location-icon')),
+      ),
+      const Size.square(11),
+    );
+    final text = tester.widget<Text>(
+      find.text('Adrian entered Grand Ballroom'),
+    );
+    expect(text.textAlign, TextAlign.left);
+    expect(text.textSpan?.style?.color, Colors.white);
+    expect(text.textSpan?.style?.fontWeight, FontWeight.w500);
+
+    await tester.longPress(find.text('Adrian entered Grand Ballroom'));
+    await tester.pump();
+    expect(longPressCount, 1);
   });
 
   testWidgets('tick event visibility uses available width when wrapping', (
@@ -787,6 +852,66 @@ void main() {
     expect(titleRect.right, lessThanOrEqualTo(modelRect.left + 1));
   });
 
+  testWidgets('location model entry matches the room header design', (
+    WidgetTester tester,
+  ) async {
+    var tapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Center(
+          child: MemoryModelEntryButton(
+            modelLabel: 'Miranda',
+            variant: MemoryModelEntryButtonVariant.roomHeader,
+            onTap: () => tapped = true,
+          ),
+        ),
+      ),
+    );
+
+    final button = find.byKey(const ValueKey('memory-model-entry'));
+    final material = tester.widget<Material>(button);
+    final shape = material.shape! as RoundedRectangleBorder;
+    expect(tester.getSize(button).height, 28);
+    expect(tester.getSize(button).width, greaterThanOrEqualTo(62));
+    expect(material.color, Colors.white.withValues(alpha: 0.13));
+    expect(shape.borderRadius.resolve(TextDirection.ltr).topLeft.x, 9);
+    expect(shape.side.color, Colors.white.withValues(alpha: 0.18));
+    expect(
+      find.descendant(of: button, matching: find.byType(SvgPicture)),
+      findsNothing,
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('memory-model-entry-chevron'))),
+      const Size(9, 6),
+    );
+
+    await tester.tap(button);
+    await tester.pump();
+    expect(tapped, isTrue);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Center(
+          child: MemoryModelEntryButton(
+            modelLabel: 'top_pick_v3_5',
+            variant: MemoryModelEntryButtonVariant.roomHeader,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('memory-model-entry'))).width,
+      greaterThan(104),
+    );
+    final fullModelName = tester.widget<Text>(find.text('top_pick_v3_5'));
+    expect(fullModelName.overflow, isNull);
+    expect(fullModelName.softWrap, isFalse);
+  });
+
   testWidgets('anchored message list keeps oldest notice while loading', (
     WidgetTester tester,
   ) async {
@@ -824,6 +949,80 @@ void main() {
     expect(find.text(notice), findsOneWidget);
     expect(tester.getSize(find.byType(ChatOldestEdgeContent)), noticeSize);
     expect(tester.getTopLeft(firstMessage).dy, firstMessageTop);
+  });
+
+  testWidgets('location chat keeps glass surfaces grouped at the bottom edge', (
+    WidgetTester tester,
+  ) async {
+    final coordinator = locationChatCoordinator(ScrollController());
+    final messages = <ChatMessageVm>[
+      for (var index = 0; index < 16; index += 1)
+        ChatMessageVm(
+          localId: 'glass-$index',
+          senderId: 'character-$index',
+          senderName: 'Character $index',
+          text: 'Glass message $index',
+          isMe: false,
+          status: 'sent',
+          senderType: 'character',
+        ),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign().copyWith(
+          platform: TargetPlatform.android,
+        ),
+        home: Scaffold(
+          body: SizedBox(
+            height: 640,
+            child: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
+              topTitle: '',
+              showDateDividers: false,
+              messages: messages,
+              style: GenesisChatTheme.worldoRedesign().locationChat,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BackdropGroup), findsOneWidget);
+    expect(find.byType(StretchingOverscrollIndicator), findsNothing);
+    expect(find.byType(GlowingOverscrollIndicator), findsNothing);
+    final backdropKey = tester
+        .widget<BackdropGroup>(find.byType(BackdropGroup))
+        .backdropKey;
+    expect(find.byType(BackdropFilter), findsNWidgets(messages.length));
+
+    final scrollable = find.byType(Scrollable).first;
+    final gesture = await tester.startGesture(tester.getCenter(scrollable));
+    await gesture.moveBy(const Offset(0, -240));
+    await tester.pump();
+
+    expect(find.byType(BackdropGroup), findsOneWidget);
+    expect(
+      tester.widget<BackdropGroup>(find.byType(BackdropGroup)).backdropKey,
+      same(backdropKey),
+    );
+    expect(find.byType(BackdropFilter), findsNWidgets(messages.length));
+    expect(
+      (tester
+                  .widget<Container>(
+                    find.byKey(
+                      const ValueKey<String>('chat-message-bubble-glass-15'),
+                    ),
+                  )
+                  .decoration!
+              as BoxDecoration)
+          .color,
+      const Color(0x33FFFFFF),
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(BackdropFilter), findsNWidgets(messages.length));
   });
 
   testWidgets(
@@ -1986,33 +2185,37 @@ void main() {
     );
   });
 
-  testWidgets('location chat header uses 90 percent glass with blur four', (
+  testWidgets('redesign location chat header keeps the scene overlay visible', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         home: Scaffold(
-          body: ChatHeader(
-            title: 'Market',
-            subtitle: 'Alice, Bob',
-            connected: true,
-            connecting: false,
-            onBack: () {},
-            style: kLocationChatStyle,
+          body: Builder(
+            builder: (context) => ChatHeader(
+              title: 'Market',
+              subtitle: 'Alice, Bob',
+              connected: true,
+              connecting: false,
+              onBack: () {},
+              style: context.genesisChatTheme.locationChat,
+            ),
           ),
         ),
       ),
     );
 
-    expect(kLocationChatStyle.headerBackdropBlurSigma, 4);
-    expect(kLocationChatStyle.headerBackgroundGradient, isNull);
-    expect(kLocationChatStyle.headerBackgroundColor.a, closeTo(0.9, 0.01));
+    final style = tester.widget<ChatHeader>(find.byType(ChatHeader)).style!;
+    expect(style.headerBackdropBlurSigma, 0);
+    expect(style.headerBackgroundGradient, isNull);
+    expect(style.headerBackgroundColor, Colors.transparent);
     expect(
       find.descendant(
         of: find.byType(ChatHeader),
         matching: find.byType(BackdropFilter),
       ),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -2056,51 +2259,108 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         home: Scaffold(
-          body: ChatHeader(
-            title: 'Googleplex园区 (1)',
-            subtitle:
-                'Mark Zuckerberg, Ada Lovelace, Grace Hopper, Alan Turing',
-            connected: true,
-            connecting: false,
-            onBack: () {},
-            alignContentLeft: true,
-            style: kLocationChatStyle,
-            subtitleIconAsset: locationChatCharacterIconAsset,
-            trailing: MemoryModelEntryButton(
-              modelLabel: 'top_pick_v3_5',
-              darkHeader: true,
-              compact: true,
-              onTap: () {},
+          body: Builder(
+            builder: (context) => ChatHeader(
+              title: 'Grand Ballroom',
+              titleSuffix: '(1)',
+              subtitle: 'Vivienne Ashford, Sebastian, Dorian',
+              connected: true,
+              connecting: false,
+              onBack: () {},
+              alignContentLeft: true,
+              showTitleIcon: false,
+              showSubtitleIcon: false,
+              style: context.genesisChatTheme.locationChat,
+              backButtonVariant: ChatHeaderBackButtonVariant.compactGlass,
+              trailing: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: MemoryModelEntryButton(
+                  modelLabel: 'Miranda',
+                  variant: MemoryModelEntryButtonVariant.roomHeader,
+                  onTap: () {},
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
 
-    final titleIconRect = tester.getRect(find.byIcon(Icons.place_outlined));
-    final subtitleIconRect = tester.getRect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is SvgPicture &&
-            widget.bytesLoader.toString().contains(
-              locationChatCharacterIconAsset,
-            ),
-      ),
-    );
-    final titleRect = tester.getRect(find.text('Googleplex园区 (1)'));
+    final titleRect = tester.getRect(find.text('Grand Ballroom'));
     final subtitleRect = tester.getRect(
-      find.text('Mark Zuckerberg, Ada Lovelace, Grace Hopper, Alan Turing'),
+      find.text('Vivienne Ashford, Sebastian, Dorian'),
     );
     final modelRect = tester.getRect(
       find.byKey(const ValueKey('memory-model-entry')),
     );
     final headerRect = tester.getRect(find.byType(ChatHeader));
-    expect(titleIconRect.left, closeTo(48, 1));
-    expect(subtitleIconRect.left, closeTo(titleIconRect.left, 1));
-    expect(modelRect.right, closeTo(headerRect.right, 1));
-    expect(modelRect.center.dy, closeTo(titleRect.center.dy + 2, 1));
-    expect(subtitleRect.right, greaterThan(modelRect.left));
+    final backRect = tester.getRect(
+      find.byKey(const ValueKey<String>('chat-header-compact-back-button')),
+    );
+    expect(titleRect.left, closeTo(56, 0.01));
+    expect(subtitleRect.left, closeTo(titleRect.left, 0.01));
+    expect(subtitleRect.top - titleRect.bottom, closeTo(3, 0.01));
+    expect(modelRect.right, closeTo(headerRect.right - 16, 0.01));
+    expect(modelRect.center.dy, closeTo(headerRect.center.dy, 0.01));
+    expect(modelRect.center.dy, closeTo(backRect.center.dy, 0.01));
+    expect(
+      modelRect.center.dy,
+      closeTo((titleRect.top + subtitleRect.bottom) / 2, 0.01),
+    );
+    expect(subtitleRect.right, lessThanOrEqualTo(modelRect.left));
+  });
+
+  testWidgets('location chat compact back button matches the redesign', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var backCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatHeader(
+            title: 'Grand Ballroom (1)',
+            subtitle: 'Adrian',
+            connected: true,
+            connecting: false,
+            onBack: () => backCount += 1,
+            alignContentLeft: true,
+            showTitleIcon: false,
+            style: kLocationChatStyle,
+            backButtonVariant: ChatHeaderBackButtonVariant.compactGlass,
+          ),
+        ),
+      ),
+    );
+
+    final headerRect = tester.getRect(find.byType(ChatHeader));
+    final backButton = find.byKey(
+      const ValueKey<String>('chat-header-compact-back-button'),
+    );
+    final backRect = tester.getRect(backButton);
+    expect(backRect.size, const Size.square(30));
+    expect(backRect.left, closeTo(headerRect.left + 16, 0.01));
+    expect(tester.getRect(find.text('Grand Ballroom (1)')).left, 56);
+    expect(
+      find.descendant(
+        of: backButton,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint && widget.size == const Size.square(14),
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(backButton);
+    await tester.pump();
+    expect(backCount, 1);
   });
 
   testWidgets('location chat title uses the model entry intrinsic width', (
@@ -2142,8 +2402,7 @@ void main() {
     );
 
     expect(modelRect.width, kMemoryModelEntryMinWidth);
-    expect(titleRect.right, closeTo(modelRect.left, 0.01));
-    expect(titleRect.width, closeTo(393 - 48 - 16 - 4 - 82, 0.01));
+    expect(titleRect.right, lessThanOrEqualTo(modelRect.left - 10));
   });
 
   testWidgets('private chat style hides peer name', (
@@ -2378,10 +2637,31 @@ void main() {
     final decoration = avatarBox.decoration as BoxDecoration;
     expect(decoration.color, const Color(0xFF4A5F7A));
     expect(decoration.shape, BoxShape.circle);
+    expect(decoration.border?.top.color, Colors.transparent);
 
     final label = tester.widget<Text>(find.text('NPC'));
     expect(label.style?.color, Colors.white);
     expect(label.style?.fontWeight, FontWeight.w700);
+  });
+
+  testWidgets('redesign NPC avatar stays legible on the dark background', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: const Scaffold(body: Center(child: ChatNpcAvatar())),
+      ),
+    );
+
+    final avatarFinder = find.byKey(const ValueKey('chat-npc-avatar'));
+    final avatarBox = tester.widget<DecoratedBox>(
+      find.descendant(of: avatarFinder, matching: find.byType(DecoratedBox)),
+    );
+    final decoration = avatarBox.decoration as BoxDecoration;
+    expect(decoration.color, const Color(0x24FFFFFF));
+    expect(decoration.border?.top.color, const Color(0x2EFFFFFF));
+    expect(tester.widget<Text>(find.text('NPC')).style?.color, Colors.white);
   });
 
   testWidgets('chat message bubble parses markdown italic text', (
@@ -2666,6 +2946,168 @@ void main() {
     expect(find.byType(ChatAiBadge), findsNothing);
   });
 
+  testWidgets('AI role bubble uses the Worldo translucent scene surface', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: ChatMessageBubble(
+            message: ChatMessageVm(
+              localId: 'ai-role',
+              senderId: 'character-sebastian',
+              senderName: 'Sebastian',
+              text: 'A quiet reply.',
+              isMe: false,
+              status: 'sent',
+              senderType: 'character',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final bubble = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('chat-message-bubble-ai-role')),
+    );
+    final decoration = bubble.decoration! as BoxDecoration;
+    expect(decoration.color, const Color(0x33FFFFFF));
+    final radius = decoration.borderRadius! as BorderRadius;
+    expect(radius.topLeft.x, 6);
+    expect(radius.topRight.x, 14);
+    expect(radius.bottomRight.x, 14);
+    expect(radius.bottomLeft.x, 14);
+    expect(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsOneWidget,
+    );
+    final backdropFilter = tester.widget<BackdropFilter>(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(BackdropFilter),
+      ),
+    );
+    expect(backdropFilter.blendMode, BlendMode.srcOver);
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey<String>('chat-message-bubble-ai-role')),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsNothing,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: ChatMessageBubble(
+            message: ChatMessageVm(
+              localId: 'real-user',
+              senderId: 'user-peer',
+              senderName: 'Peer',
+              text: 'A user reply.',
+              isMe: false,
+              status: 'sent',
+              senderType: 'user',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final userBubble = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('chat-message-bubble-real-user')),
+    );
+    expect(
+      (userBubble.decoration! as BoxDecoration).color,
+      const Color(0x21FFFFFF),
+    );
+    expect(find.byType(BackdropFilter), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: ChatMessageBubble(
+            message: ChatMessageVm(
+              localId: 'player-controlled-role',
+              senderId: 'character-player',
+              senderName: 'Player role',
+              text: 'A player-controlled reply.',
+              isMe: false,
+              status: 'sent',
+              senderType: 'character',
+              isPlayerControlledRole: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final playerRoleBubble = tester.widget<Container>(
+      find.byKey(
+        const ValueKey<String>('chat-message-bubble-player-controlled-role'),
+      ),
+    );
+    expect(
+      (playerRoleBubble.decoration! as BoxDecoration).color,
+      const Color(0x21FFFFFF),
+    );
+    expect(find.byType(BackdropFilter), findsNothing);
+  });
+
+  testWidgets('self role bubble matches the Worldo red scene plate', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: ChatMessageBubble(
+            style: GenesisChatTheme.worldoRedesign().locationChat,
+            message: ChatMessageVm(
+              localId: 'self-role',
+              senderId: 'character-adrian',
+              senderName: 'Adrian',
+              text: 'A measured reply.',
+              isMe: true,
+              status: 'sent',
+              senderType: 'character',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final bubble = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('chat-message-bubble-self-role')),
+    );
+    expect(
+      bubble.padding,
+      const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+    );
+    final decoration = bubble.decoration! as BoxDecoration;
+    expect(decoration.color, const Color(0x6BF82B3C));
+    final radius = decoration.borderRadius! as BorderRadius;
+    expect(radius.topLeft.x, 14);
+    expect(radius.topRight.x, 6);
+    expect(radius.bottomRight.x, 14);
+    expect(radius.bottomLeft.x, 14);
+    final text = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(text.textSpan?.style?.fontSize, 13);
+    expect(text.textSpan?.style?.height, 1.6);
+    expect(find.byType(BackdropFilter), findsNothing);
+  });
+
   testWidgets('system chat message uses normal bubble width and centers', (
     WidgetTester tester,
   ) async {
@@ -2736,6 +3178,48 @@ void main() {
     );
     expect(_textHasItalicFragment(systemText, 'cold'), isTrue);
     expect(_textFragmentColor(systemText, 'cold'), const Color(0xFF888888));
+  });
+
+  testWidgets('Worldo narrator matches the transparent scene-plate design', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign().copyWith(
+          platform: TargetPlatform.android,
+        ),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: ChatMessageRow(
+              message: ChatMessageVm(
+                localId: 'worldo-narrator',
+                senderId: 'narrator',
+                senderName: 'Narrator',
+                text: 'The doors open again.',
+                isMe: false,
+                status: 'sent',
+                senderType: 'narrator',
+              ),
+              showDateDivider: false,
+              style: context.genesisChatTheme.locationChat,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final surface = tester.widget<Container>(
+      find.byKey(const ValueKey('chat-system-message-bubble')),
+    );
+    expect((surface.decoration! as BoxDecoration).color, Colors.transparent);
+
+    final text = tester.widget<Text>(find.text('The doors open again.'));
+    final textStyle = text.textSpan!.style!;
+    expect(textStyle.color, const Color(0xD9FFFFFF));
+    expect(textStyle.fontSize, 13);
+    expect(textStyle.fontWeight, FontWeight.w400);
+    expect(textStyle.fontStyle, FontStyle.italic);
+    expect(textStyle.height, 1.6);
   });
 
   testWidgets('location chat keeps avatars aligned and bars one-third in', (
@@ -3420,6 +3904,235 @@ void main() {
       );
     },
   );
+
+  testWidgets('Worldo tick uses the Figma scene plate surface', (
+    WidgetTester tester,
+  ) async {
+    ChatCharacterMovementVm? tappedMovement;
+    final message = ChatMessageVm(
+      localId: 'worldo-tick',
+      senderId: 'tick',
+      senderName: 'Tick',
+      text: '',
+      isMe: false,
+      status: 'sent',
+      senderType: 'tick',
+      tickNo: 1,
+      subTickNo: 2,
+      timelinePayload: const ChatTickPayloadVm(
+        globalText: 'The room has started keeping score.',
+        storyEvents: ChatStoryEventsPayloadVm(
+          locationId: 'grand-ballroom',
+          locationName: 'Grand Ballroom',
+          paragraphs: [
+            ChatStoryEventParagraphVm(
+              timestamp: '22:40 | 01/07/2026',
+              text:
+                  "Vivienne's grandfather signals for her from the head of "
+                  'the room; the merger papers are already on the table behind him.',
+              clue:
+                  'Keep Vivienne away from the board table until the dance ends.',
+              visibilityLabel: 'public',
+              visibleRoles: [
+                ChatStoryEventVisibleRoleVm(
+                  roleId: 'vivienne',
+                  name: 'Vivienne',
+                  isAi: true,
+                ),
+                ChatStoryEventVisibleRoleVm(
+                  roleId: 'adrian',
+                  name: 'Adrian',
+                  isAi: false,
+                ),
+              ],
+            ),
+          ],
+        ),
+        charactersMoved: ChatCharactersMovedPayloadVm(
+          movements: [
+            ChatCharacterMovementVm(
+              characterId: 'vivienne',
+              characterName: 'Vivienne Ashford',
+              toLocationId: 'library',
+              toLocationName: 'The Library',
+            ),
+            ChatCharacterMovementVm(
+              characterId: 'dorian',
+              characterName: 'Dorian',
+              toLocationId: 'library',
+              toLocationName: 'The Library',
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: ChatMessageRow(
+              message: message,
+              showDateDivider: false,
+              style: context.genesisChatTheme.locationChat,
+              onCharactersMovedLocationTap: (movement) {
+                tappedMovement = movement;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final surface = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('chat-tick-message-surface')),
+    );
+    final surfaceDecoration = surface.decoration! as BoxDecoration;
+    expect(surfaceDecoration.color, const Color(0x99131215));
+    expect(surfaceDecoration.borderRadius, BorderRadius.circular(10));
+    expect(
+      (surfaceDecoration.border! as Border).top.color,
+      const Color(0x33FFFFFF),
+    );
+    expect(find.byType(BackdropFilter), findsWidgets);
+    expect(
+      tester
+          .widgetList<BackdropFilter>(find.byType(BackdropFilter))
+          .any((filter) => filter.blendMode == BlendMode.srcOver),
+      isTrue,
+    );
+    expect(
+      find.ancestor(
+        of: find.byKey(const ValueKey<String>('chat-tick-message-surface')),
+        matching: find.byType(BackdropFilter),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('chat-tick-message-accent')),
+      findsNothing,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('chat-tick-header-dot')),
+      ),
+      const Size.square(5),
+    );
+    final headerText = tester.widget<Text>(find.text('Tick 1-2'));
+    expect(headerText.style?.fontSize, 14);
+    expect(headerText.style?.fontWeight, FontWeight.w800);
+    final header = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('chat-tick-header-worldo-tick')),
+    );
+    final headerBorder =
+        (header.decoration! as BoxDecoration).border! as Border;
+    expect(headerBorder.bottom.color, const Color(0x29FFFFFF));
+
+    final globalText = tester.widget<Text>(
+      find.text('The room has started keeping score.'),
+    );
+    expect(globalText.textSpan?.style?.fontSize, 13);
+    expect(globalText.textSpan?.style?.height, 1.6);
+    expect(
+      globalText.textSpan?.style?.color,
+      Colors.white.withValues(alpha: 0.72),
+    );
+
+    final eventIcon = tester.widget<SvgPicture>(
+      find.byKey(
+        const ValueKey<String>('chat-story-event-icon-worldo-tick-tick-0'),
+      ),
+    );
+    expect(eventIcon.width, 12);
+    expect(eventIcon.height, 12);
+    final timestamp = tester.widget<Text>(
+      find.byKey(
+        const ValueKey<String>('chat-story-event-timestamp-worldo-tick-tick-0'),
+      ),
+    );
+    expect(timestamp.style?.fontSize, 11);
+    expect(timestamp.style?.height, 1);
+    expect(timestamp.style?.color, Colors.white.withValues(alpha: 0.55));
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('chat-tick-visible-role-avatar-vivienne'),
+        ),
+      ),
+      const Size.square(18),
+    );
+    final playerAvatar = tester.widget<Container>(
+      find.byKey(
+        const ValueKey<String>('chat-tick-visible-role-avatar-adrian'),
+      ),
+    );
+    final playerBorder =
+        (playerAvatar.foregroundDecoration! as BoxDecoration).border! as Border;
+    expect(playerBorder.top.color, const Color(0xFFF82B3C));
+    expect(playerBorder.top.width, 1.5);
+    expect(tester.widget<Text>(find.text('Vivienne')).style?.fontSize, 12);
+    expect(
+      tester.widget<Text>(find.text('Vivienne')).style?.color,
+      Colors.white.withValues(alpha: 0.72),
+    );
+    expect(tester.widget<Text>(find.text('Adrian')).style?.color, Colors.white);
+
+    final eventText = tester.widget<Text>(
+      find.textContaining("Vivienne's grandfather signals"),
+    );
+    expect(eventText.textSpan?.style?.fontSize, 13);
+    expect(eventText.textSpan?.style?.height, 1.6);
+    expect(eventText.textSpan?.style?.color, Colors.white);
+    final clueText = tester.widget<Text>(
+      find.textContaining('Keep Vivienne away'),
+    );
+    expect(clueText.textSpan?.style?.fontSize, 13);
+    expect(clueText.textSpan?.style?.height, 1.6);
+    expect(
+      clueText.textSpan?.style?.color,
+      Colors.white.withValues(alpha: 0.72),
+    );
+
+    final movementSection = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('chat-tick-movement-section')),
+    );
+    final movementBorder =
+        (movementSection.decoration! as BoxDecoration).border! as Border;
+    expect(movementBorder.top.color, const Color(0x29FFFFFF));
+    final movementName = tester.widget<Text>(
+      find.text('Vivienne Ashford, Dorian'),
+    );
+    expect(movementName.style?.fontSize, 13);
+    expect(movementName.style?.height, 1.6);
+    expect(movementName.style?.fontWeight, FontWeight.w700);
+    expect(movementName.style?.color, Colors.white);
+    final location = tester.widget<Text>(find.text('The Library'));
+    expect(location.style?.color, const Color(0xFFFF8A9A));
+    expect(location.style?.decoration, TextDecoration.underline);
+    expect(
+      location.style?.decorationColor,
+      const Color(0xFFFF8A9A).withValues(alpha: 0.45),
+    );
+    final routeIcon = tester.widget<SvgPicture>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(routeIconAsset),
+      ),
+    );
+    expect(routeIcon.width, 12);
+    expect(routeIcon.height, 12);
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>(
+          'chat-character-movement-location-worldo-tick-tick-0',
+        ),
+      ),
+    );
+    expect(tappedMovement?.toLocationId, 'library');
+  });
 
   testWidgets(
     'composite tick omits empty sections and renders fallback content',

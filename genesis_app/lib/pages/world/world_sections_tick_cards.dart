@@ -98,6 +98,7 @@ class WorldTickEventCardPage extends StatefulWidget {
     required this.hasBottomEdgePage,
     required this.padding,
     required this.onTurnPage,
+    this.scrollController,
   }) : assert(
          child != null || (itemCount != null && itemBuilder != null),
          'Provide child or itemCount/itemBuilder.',
@@ -117,6 +118,7 @@ class WorldTickEventCardPage extends StatefulWidget {
   final bool hasBottomEdgePage;
   final EdgeInsetsGeometry padding;
   final ValueChanged<int> onTurnPage;
+  final ScrollController? scrollController;
 
   @override
   State<WorldTickEventCardPage> createState() => WorldTickEventCardPageState();
@@ -153,19 +155,22 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
 
   void _jumpScrollToTop() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      _scrollController.jumpTo(0);
+      final controller = widget.scrollController ?? _scrollController;
+      if (!mounted || !controller.hasClients) return;
+      controller.jumpTo(0);
     });
   }
 
   bool get _atTop {
-    if (!_scrollController.hasClients) return true;
-    return _scrollController.position.extentBefore <= 0;
+    final controller = widget.scrollController ?? _scrollController;
+    if (!controller.hasClients) return true;
+    return controller.position.extentBefore <= 0;
   }
 
   bool get _atBottom {
-    if (!_scrollController.hasClients) return true;
-    return _scrollController.position.extentAfter <= 0;
+    final controller = widget.scrollController ?? _scrollController;
+    if (!controller.hasClients) return true;
+    return controller.position.extentAfter <= 0;
   }
 
   void _handlePointerDown(PointerDownEvent event) {
@@ -195,9 +200,9 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
     _dragDeltaY = 0;
     _setEdgePullDistance(top: 0, bottom: 0);
     if (dragDeltaY <= -_turnDragThreshold && _dragStartedAtBottom) {
-      widget.onTurnPage(1);
-    } else if (dragDeltaY >= _turnDragThreshold && _dragStartedAtTop) {
       widget.onTurnPage(-1);
+    } else if (dragDeltaY >= _turnDragThreshold && _dragStartedAtTop) {
+      widget.onTurnPage(1);
     }
   }
 
@@ -272,7 +277,7 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
         children: [
           Positioned.fill(
             child: CustomScrollView(
-              controller: _scrollController,
+              controller: widget.scrollController ?? _scrollController,
               center: alignLastItemToTop ? _lastItemCenterKey : null,
               physics: WorldTickCardScrollPhysics(
                 allowLeadingOverscroll: widget.hasTopEdgePage,

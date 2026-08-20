@@ -14,6 +14,7 @@ class ProfileCollectionList extends StatefulWidget {
     this.loadingKey,
     this.onRefresh,
     this.refreshKey,
+    this.redesigned = false,
   });
 
   static const double minSystemNavigationBottomPadding = 56;
@@ -24,6 +25,7 @@ class ProfileCollectionList extends StatefulWidget {
   final Key? loadingKey;
   final Future<void> Function()? onRefresh;
   final Key? refreshKey;
+  final bool redesigned;
 
   @override
   State<ProfileCollectionList> createState() => _ProfileCollectionListState();
@@ -53,7 +55,7 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
       ProfileCollectionList.minSystemNavigationBottomPadding,
     ].reduce((a, b) => a > b ? a : b);
     final listPadding = EdgeInsets.only(
-      top: 12,
+      top: widget.redesigned ? 14 : 12,
       bottom: 16 + bottomInset + _collapseCompensation,
     );
 
@@ -95,7 +97,12 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
         return _AnimatedProfileCollectionListItem(
           key: ValueKey<Object>(animationKey),
           item: item,
-          bottomSpacing: index == widget.items.length - 1 ? 0 : 24,
+          bottomSpacing: index == widget.items.length - 1
+              ? 0
+              : widget.redesigned
+              ? 27
+              : 24,
+          showDivider: widget.redesigned && index != widget.items.length - 1,
           onCollapseCompensationChanged: (value) =>
               _setCollapseCompensation(animationKey, value),
         );
@@ -157,11 +164,13 @@ class _AnimatedProfileCollectionListItem extends StatefulWidget {
     super.key,
     required this.item,
     required this.bottomSpacing,
+    required this.showDivider,
     required this.onCollapseCompensationChanged,
   });
 
   final GenesisProfileCollectionItemData item;
   final double bottomSpacing;
+  final bool showDivider;
   final ValueChanged<double> onCollapseCompensationChanged;
 
   @override
@@ -259,7 +268,15 @@ class _AnimatedProfileCollectionListItemState
           mainAxisSize: MainAxisSize.min,
           children: [
             GenesisProfileCollectionListItem(item: widget.item),
-            if (widget.bottomSpacing > 0)
+            if (widget.showDivider) ...[
+              const SizedBox(height: 13),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: context.genesisColors.shadow.withValues(alpha: 0.06),
+              ),
+              const SizedBox(height: 13),
+            ] else if (widget.bottomSpacing > 0)
               SizedBox(height: widget.bottomSpacing),
           ],
         ),

@@ -167,15 +167,19 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     final unreadSummary = widget.unreadSummary;
+    final worldoRedesign = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: context.genesisColors.pageBackground,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const GenesisPageHeader(title: 'Messages', showSearchField: false),
-          const SizedBox(height: 10),
+          if (worldoRedesign)
+            const _WorldoMessagesHeader()
+          else
+            const GenesisPageHeader(title: 'Messages', showSearchField: false),
+          if (!worldoRedesign) const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: worldoRedesign ? 22 : 24),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -190,17 +194,20 @@ class _MessagesPageState extends State<MessagesPage> {
                   unreadCount: unreadSummary.systemUnread,
                   onMessagesDataRefresh: widget.onMessagesDataRefresh,
                 ),
+                if (worldoRedesign) const SizedBox(width: 8),
                 _MessageMenuButton(
                   iconAsset: 'assets/custom-icons/png/following.png',
                   backgroundColor:
                       context.genesisMessageColors.followersSurface,
                   label: 'New followers',
+                  displayLabel: 'Followers',
                   routeName: RouteNames.newFollowers,
                   block: 'follow',
                   emptyText: 'No new followers yet.',
                   unreadCount: unreadSummary.followerUnread,
                   onMessagesDataRefresh: widget.onMessagesDataRefresh,
                 ),
+                if (worldoRedesign) const SizedBox(width: 8),
                 _MessageMenuButton(
                   iconAsset: 'assets/custom-icons/png/comment.png',
                   backgroundColor: context.genesisMessageColors.commentsSurface,
@@ -214,15 +221,23 @@ class _MessagesPageState extends State<MessagesPage> {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: worldoRedesign ? 26 : 10),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: const Text(
+            padding: EdgeInsets.symmetric(horizontal: worldoRedesign ? 22 : 18),
+            child: Text(
               'Private chats',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              style: worldoRedesign
+                  ? TextStyle(
+                      fontSize: 10,
+                      height: 1,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.1,
+                      color: context.genesisColors.textTertiary,
+                    )
+                  : const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: worldoRedesign ? 4 : 8),
           Expanded(
             child: ValueListenableBuilder<List<String>>(
               valueListenable: _conversationStore.orderedConversationIds,
@@ -251,11 +266,37 @@ class _MessagesPageState extends State<MessagesPage> {
   }
 }
 
+class _WorldoMessagesHeader extends StatelessWidget {
+  const _WorldoMessagesHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return GenesisTopSafeArea(
+      backgroundColor: context.genesisColors.pageBackground,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+        child: Text(
+          'Messages',
+          key: const ValueKey('worldo-messages-title'),
+          style: TextStyle(
+            fontSize: 24,
+            height: 1,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.36,
+            color: context.genesisColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MessageMenuButton extends StatelessWidget {
   const _MessageMenuButton({
     required this.iconAsset,
     required this.backgroundColor,
     required this.label,
+    this.displayLabel,
     required this.routeName,
     required this.block,
     required this.emptyText,
@@ -266,6 +307,7 @@ class _MessageMenuButton extends StatelessWidget {
   final String iconAsset;
   final Color backgroundColor;
   final String label;
+  final String? displayLabel;
   final String routeName;
   final String block;
   final String emptyText;
@@ -274,22 +316,68 @@ class _MessageMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final worldoRedesign = Theme.of(context).brightness == Brightness.dark;
+    final visibleLabel = displayLabel ?? label;
+    if (worldoRedesign) {
+      final colors = context.genesisColors;
+      final statusText = unreadCount > 0 ? '$unreadCount new' : 'All read';
+      return Expanded(
+        child: SizedBox(
+          height: 56,
+          child: Material(
+            key: ValueKey<String>('message-menu-$routeName-surface'),
+            color: colors.inputBackground,
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: ValueKey<String>('message-menu-$routeName'),
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => _openCategory(context),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(13, 13, 13, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      visibleLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1,
+                        fontWeight: FontWeight.w700,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      statusText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        height: 1,
+                        fontWeight: FontWeight.w500,
+                        color: unreadCount > 0
+                            ? colors.danger
+                            : colors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return SizedBox(
       width: 96,
       height: 80,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            settings: RouteSettings(name: routeName),
-            builder: (_) => MessageCategoryListPage(
-              title: label,
-              block: block,
-              emptyText: emptyText,
-              onNotificationsRead: onMessagesDataRefresh,
-            ),
-          ),
-        ),
+        onTap: () => _openCategory(context),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
@@ -332,7 +420,7 @@ class _MessageMenuButton extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              label,
+              visibleLabel,
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -345,6 +433,20 @@ class _MessageMenuButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _openCategory(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: RouteSettings(name: routeName),
+        builder: (_) => MessageCategoryListPage(
+          title: label,
+          block: block,
+          emptyText: emptyText,
+          onNotificationsRead: onMessagesDataRefresh,
         ),
       ),
     );
@@ -368,19 +470,28 @@ class _ConversationList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final worldoRedesign = Theme.of(context).brightness == Brightness.dark;
     return ListView.separated(
       controller: controller,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
       padding: EdgeInsets.only(
-        left: 18,
-        right: 18,
+        left: worldoRedesign ? 22 : 18,
+        right: worldoRedesign ? 22 : 18,
         top: 0,
-        bottom: 18 + GenesisSafeAreaInsets.bottom(context),
+        bottom: worldoRedesign
+            ? 18
+            : 18 + GenesisSafeAreaInsets.bottom(context),
       ),
       itemCount: conversationIds.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 0),
+      separatorBuilder: (_, _) => worldoRedesign
+          ? Divider(
+              height: 1,
+              thickness: 1,
+              color: context.genesisColors.dividerSubtle,
+            )
+          : const SizedBox(height: 0),
       itemBuilder: (context, index) {
         final conversationId = conversationIds[index];
         final listenable = conversationStore.rowListenable(conversationId);
@@ -421,31 +532,38 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final worldoRedesign = Theme.of(context).brightness == Brightness.dark;
+    final avatarSize = worldoRedesign ? 44.0 : _avatarSize;
+    final avatarBorderRadius = worldoRedesign ? 14.0 : _avatarBorderRadius;
     final displayPeerName = formatUidForDisplay(
       item.peerName,
       fallback: 'Unknown user',
     );
     return Material(
-      color: context.genesisColors.surface,
+      color: worldoRedesign
+          ? context.genesisColors.pageBackground
+          : context.genesisColors.surface,
       child: InkWell(
         onTap: () => unawaited(onTap(item)),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+          padding: EdgeInsets.symmetric(vertical: worldoRedesign ? 13 : 8),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: worldoRedesign
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
               _Avatar(
                 avatarUrl: item.avatarUrl,
                 title: displayPeerName,
-                size: _avatarSize,
-                borderRadius: _avatarBorderRadius,
+                size: avatarSize,
+                borderRadius: avatarBorderRadius,
                 avatarKey: ValueKey('dm-avatar-${item.conversationId}'),
                 unreadCount: item.unreadCount,
                 unreadBadgeKey: ValueKey(
                   'dm-avatar-${item.conversationId}-unread-badge',
                 ),
               ),
-              const SizedBox(width: 13),
+              SizedBox(width: worldoRedesign ? 12 : 13),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,9 +576,12 @@ class _ConversationTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: worldoRedesign ? 13 : 14,
+                              height: worldoRedesign ? 1.15 : null,
                               fontWeight: FontWeight.w600,
-                              color: context.genesisColors.textHighEmphasis,
+                              color: worldoRedesign
+                                  ? context.genesisColors.textPrimary
+                                  : context.genesisColors.textHighEmphasis,
                             ),
                           ),
                         ),
@@ -475,9 +596,12 @@ class _ConversationTile extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.right,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: worldoRedesign ? 9.5 : 11,
+                              height: worldoRedesign ? 1 : null,
                               color: context.genesisColors.textFaint,
-                              fontWeight: FontWeight.w400,
+                              fontWeight: worldoRedesign
+                                  ? FontWeight.w500
+                                  : FontWeight.w400,
                             ),
                           ),
                         ),
@@ -485,15 +609,18 @@ class _ConversationTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Padding(
-                      padding: const EdgeInsets.only(right: 60),
+                      padding: EdgeInsets.only(right: worldoRedesign ? 0 : 60),
                       child: Text(
                         item.lastMessage,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
+                          height: worldoRedesign ? 1.45 : null,
                           fontWeight: FontWeight.w400,
-                          color: context.genesisColors.textMuted,
+                          color: worldoRedesign
+                              ? const Color(0xFF9A949F)
+                              : context.genesisColors.textMuted,
                         ),
                       ),
                     ),

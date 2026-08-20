@@ -118,7 +118,22 @@ void main() {
     expect(loadingShell, isNot(contains('map: WorldMap(')));
   });
 
-  test('world map owns identity while collapsed panel keeps only actions', () {
+  test('world page paints its bottom safe area with the theme background', () {
+    final source = worldPageLayoutSource;
+
+    expect(source, contains("'world-bottom-safe-area-background'"));
+    expect(source, contains('color: context.genesisColors.pageBackground'));
+    expect(
+      RegExp(r'_buildWorldBottomSafeAreaBackground\(\)').allMatches(source),
+      hasLength(2),
+    );
+    expect(
+      worldPageRootSource,
+      contains('_buildWorldBottomSafeAreaBackground(),'),
+    );
+  });
+
+  test('world map owns identity while collapsed panel shows active role', () {
     final source = allWorldSource();
     final headerSource = worldHeaderSource.readAsStringSync();
     final bottomHeader = headerSource.substring(
@@ -134,7 +149,9 @@ void main() {
     expect(bottomHeader, isNot(contains('GenesisPairedMetaRow')));
     expect(bottomHeader, isNot(contains('GenesisMoreActionMenuButton')));
     expect(bottomHeader, isNot(contains('worldTitleTextStyle')));
-    expect(bottomHeader, contains('StatItem'));
+    expect(bottomHeader, contains("'world-playing-avatar'"));
+    expect(bottomHeader, contains(r"'Playing $characterName'"));
+    expect(bottomHeader, contains("'Tick now'"));
     expect(bottomHeader, contains('GenesisPrimaryButton'));
   });
 
@@ -161,12 +178,12 @@ void main() {
       bottomSheet.indexOf('class WorldSingleSectionBottomSheet'),
     );
     final eventsSectionBuilder = bottomSheet.substring(
-      bottomSheet.indexOf('Widget _buildEventsSectionPage()'),
-      bottomSheet.indexOf('Widget _buildStatusSectionPage()'),
+      bottomSheet.indexOf('Widget _buildEventsSectionPage('),
+      bottomSheet.indexOf('Widget _buildStatusSectionPage('),
     );
     final locationsSectionBuilder = bottomSheet.substring(
-      bottomSheet.indexOf('Widget _buildLocationsSectionPage()'),
-      bottomSheet.indexOf('Widget _buildDetailSectionPage()'),
+      bottomSheet.indexOf('Widget _buildLocationsSectionPage('),
+      bottomSheet.indexOf('Widget _buildDetailSectionPage('),
     );
     final singleSectionSheet = bottomSheet.substring(
       bottomSheet.indexOf('class WorldSingleSectionBottomSheet'),
@@ -197,44 +214,49 @@ void main() {
     expect(eventsSectionBuilder, contains('overscroll: false'));
     expect(locationsSectionBuilder, contains('ScrollConfiguration'));
     expect(locationsSectionBuilder, contains('overscroll: false'));
-    expect(
-      eventsSectionBuilder,
-      contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'),
-    );
-    expect(
-      locationsSectionBuilder,
-      contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'),
-    );
+    expect(eventsSectionBuilder, contains('worldInfoHeaderHeight'));
+    expect(locationsSectionBuilder, contains('worldInfoHeaderHeight'));
     expect(singleSectionSheet, contains('Expanded('));
-    expect(singleSectionSheet, contains('_buildDismissibleSheetContent()'));
-    expect(singleSectionSheet, contains('Listener('));
+    expect(singleSectionSheet, contains('_buildSheetContent('));
+    expect(singleSectionSheet, contains('_pagePreviewScrollControllers'));
     expect(
       singleSectionSheet,
-      contains('NotificationListener<ScrollNotification>'),
+      contains('NotificationListener<DraggableScrollableNotification>'),
     );
     expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
-    expect(singleSectionSheet, contains('borderRadius: GenesisRadii.sheet'));
+    expect(singleSectionSheet, contains('MapDetailSheetSurface('));
+    expect(
+      singleSectionSheet,
+      isNot(contains("'world-detail-sheet-safe-area'")),
+    );
+    expect(singleSectionSheet, contains('minimum: 24'));
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
-    expect(sectionListView, contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'));
+    expect(sectionListView, contains('EdgeInsets.fromLTRB(20, 0, 20, 32)'));
     expect(sectionListView, contains('ListView.builder('));
     expect(source, isNot(contains('EdgeInsets.fromLTRB(24, 14, 24, 32)')));
     expect(bottomTags, isNot(contains('TabBar(')));
     expect(source, contains('_openWorldBottomSheet('));
-    expect(source, contains('enableDrag: false'));
-    expect(bottomTagContent, contains('context.genesisWorldColors.tabSurface'));
-    expect(bottomTagContent, contains('context.genesisColors.textMuted'));
+    expect(source, isNot(contains('showModalBottomSheet<void>')));
+    expect(source, contains("'world-detail-sheet-overlay'"));
+    expect(bottomTagContent, contains('context.genesisColors.surfaceTag'));
+    expect(bottomTagContent, contains('context.genesisColors.textSecondary'));
     expect(
       bottomTagContent,
-      contains('borderRadius: BorderRadius.circular(12)'),
+      contains('borderRadius: BorderRadius.circular(11)'),
     );
+    expect(bottomTagContent, contains("'1'"));
     expect(source, contains('class WorldSingleSectionBottomSheet'));
     expect(source, contains('class WorldSingleSectionSheetHeader'));
     expect(source, contains('onVerticalDragEnd'));
-    expect(source, contains('top: 5'));
-    expect(source, contains('fontSize: 16'));
-    expect(source, contains('fontWeight: FontWeight.w600'));
-    expect(source, contains('minimumSize: const Size(28, 28)'));
+    expect(source, contains('top: 12'));
+    expect(source, contains('fontSize: 17'));
+    expect(source, contains('fontWeight: FontWeight.w800'));
+    expect(source, contains('minimumSize: const Size(26, 26)'));
+    expect(source, contains('class _WorldSheetPageIndicator'));
+    expect(source, contains('animation: pageController'));
+    expect(source, contains(r'selectionProgress: 1 - (page - entry.$1).abs()'));
+    expect(source, contains('width: 4 + 22 * progress'));
     expect(source, isNot(contains('WorldSectionsSheetTabs')));
   });
 
@@ -250,11 +272,11 @@ void main() {
     expect(detailSection, contains('final String currentUid;'));
     expect(castIndex, greaterThan(briefIndex));
     expect(detailSection, contains('asset: worldSectionCastIconAsset'));
-    expect(detailSection, contains('iconSize: 17'));
+    expect(detailSection, contains('iconSize: 9'));
     expect(detailSection, contains('currentUid: currentUid'));
     expect(detailSection, contains("label: 'Invite'"));
-    expect(detailSection, contains('width: 140'));
-    expect(detailSection, contains('height: 35'));
+    expect(detailSection, contains('width: 80'));
+    expect(detailSection, contains('height: 30'));
     expect(detailSection, contains('context.genesisColors.danger'));
     expect(detailSection, contains('Clipboard.setData'));
     expect(detailSection, contains('Link copied. Share it with your friends.'));
@@ -276,7 +298,7 @@ void main() {
     expect(sections, contains('showCharacters: false'));
     expect(
       detailSection,
-      contains('SizedBox(height: 4),\n        GenesisPairedMetaRow'),
+      contains('WorldDetailCoverImage(url: cover, width: 120, height: 180)'),
     );
   });
 
@@ -287,12 +309,13 @@ void main() {
       sections.indexOf('String worldResizedCharacterAvatarUrl'),
     );
 
-    expect(characterRow, contains('fontSize: 13'));
+    expect(characterRow, contains('fontSize: 12'));
     expect(characterRow, contains('maxLines: 4'));
-    expect(characterRow, contains('context.genesisColors.danger'));
-    expect(characterRow, contains('height: 1.4'));
+    expect(characterRow, contains('context.genesisColors.accentText'));
+    expect(characterRow, contains('context.genesisColors.textSecondary'));
+    expect(characterRow, contains('height: 1.5'));
     expect(characterRow, contains('SizedBox(height: 5)'));
-    expect(characterRow, contains('SizedBox(width: 14)'));
+    expect(characterRow, contains('SizedBox(width: 11)'));
     expect(characterRow, isNot(contains('isCharacterRole ? 6 : 0')));
     expect(characterRow, contains("const ['brief']"));
     expect(characterRow, isNot(contains('personality')));
@@ -350,6 +373,12 @@ void main() {
     expect(singleSectionSheet, contains('_pageForKind'));
     expect(singleSectionSheet, contains('_handleSheetPageChanged'));
     expect(singleSectionSheet, contains('_animateToSelectionPage'));
+    expect(singleSectionSheet, contains('_animateSheetFromTabDivider'));
+    expect(singleSectionSheet, contains('_closeSheetToTabDivider'));
+    expect(
+      singleSectionSheet,
+      contains('initialChildSize: _sheetMinChildSize'),
+    );
   });
 
   test('world detail cover uses static network image', () {
@@ -461,7 +490,7 @@ void main() {
       bottomSheet.indexOf(
         'WorldLocationListData _locationListDataForCurrentWorld()',
       ),
-      bottomSheet.indexOf('Widget _buildDetailSectionPage()'),
+      bottomSheet.indexOf('Widget _buildDetailSectionPage('),
     );
 
     expect(locationBuilder, contains('identical(_cachedProcessedLocationTree'));
@@ -490,7 +519,10 @@ void main() {
       worldPageDetailSyncSource,
       isNot(contains('MediaQuery.maybeOf(context)')),
     );
-    expect(bottomSafeArea, contains('GenesisSafeAreaInsets.bottom(context)'));
+    expect(
+      bottomSafeArea,
+      contains('GenesisSafeAreaInsets.bottom(context, minimum: 24)'),
+    );
     expect(bottomSafeArea, isNot(contains('MediaQuery.of(context)')));
     expect(
       detailsBottomSafeArea,
@@ -547,7 +579,7 @@ void main() {
     );
   });
 
-  test('world tick completion closes other sheets before opening events', () {
+  test('world tick completion selects events in the persistent sheet', () {
     final tickDone = worldPageTickFlowSource.substring(
       worldPageTickFlowSource.indexOf('Future<void> _handleWorldTickDone()'),
       worldPageTickFlowSource.indexOf('void _showOrSelectEventsAfterTick()'),
@@ -577,19 +609,10 @@ void main() {
       contains('_locationChatPageCache.activeLocationId.isNotEmpty'),
     );
     expect(suppressAutoEvents, contains('!route.isCurrent'));
-    expect(showOrSelectEvents, contains('_worldBottomSheetOpen'));
-    expect(
-      showOrSelectEvents,
-      contains('_worldBottomSheetSelection.value.kind !='),
-    );
     expect(showOrSelectEvents, contains('WorldBottomSheetKind.events'));
     expect(
       showOrSelectEvents,
-      contains('_openEventsAfterCurrentBottomSheetClosed = true'),
-    );
-    expect(
-      showOrSelectEvents,
-      contains('Navigator.of(sheetContext).maybePop()'),
+      isNot(contains('Navigator.of(sheetContext).maybePop()')),
     );
     expect(showOrSelectEvents, contains('scrollEventsToLatest: true'));
     expect(
@@ -600,11 +623,10 @@ void main() {
     expect(openBottomSheet, contains('if (_worldBottomSheetOpen) return;'));
     expect(
       openBottomSheet,
-      contains(
-        'if (openEvents && mounted && !_shouldSuppressAutoEventsAfterTick)',
-      ),
+      contains('_worldBottomSheetKey.currentState?.open()'),
     );
-    expect(openBottomSheet, contains('showModalBottomSheet<void>'));
+    expect(openBottomSheet, isNot(contains('showModalBottomSheet<void>')));
+    expect(openBottomSheet, contains('_handleWorldBottomSheetCollapsed'));
   });
 
   test('world events force refreshes and releases stale target', () {
@@ -616,7 +638,7 @@ void main() {
     );
     final loadEvents = bottomSheet.substring(
       bottomSheet.indexOf('Future<void> _loadEventsPage('),
-      bottomSheet.indexOf('Widget _buildEventsSectionPage()'),
+      bottomSheet.indexOf('Widget _buildEventsSectionPage('),
     );
     final eventsSectionState = sections.substring(
       sections.indexOf('class WorldEventsSectionState'),

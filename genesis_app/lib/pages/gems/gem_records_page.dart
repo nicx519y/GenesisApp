@@ -5,8 +5,11 @@ import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/gems/gem_colors.dart';
 import '../../network/models/gem_records.dart';
-import '../../ui/genesis_ui.dart';
+import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_tab_bar.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 
 typedef GemRecordsLoader =
     Future<GemRecordList> Function({
@@ -174,7 +177,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.genesisColors.pageBackground,
-      appBar: const GenesisBackAppBar(pageName: 'Gem Records'),
+      appBar: const _GemRecordsAppBar(),
       body: SafeArea(
         child: Column(
           children: [
@@ -223,15 +226,76 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       child: ListView.separated(
         controller: state.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        padding: const EdgeInsets.fromLTRB(20, 2, 20, 24),
         itemCount: state.records.length + (state.isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox.shrink(),
+        separatorBuilder: (context, _) => Divider(
+          height: 1,
+          thickness: 1,
+          color: context.genesisColors.dividerSubtle,
+        ),
         itemBuilder: (context, itemIndex) {
           if (itemIndex >= state.records.length) {
             return const _GemRecordsMoreLoading();
           }
           return _GemRecordTile(record: state.records[itemIndex]);
         },
+      ),
+    );
+  }
+}
+
+class _GemRecordsAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _GemRecordsAppBar();
+
+  static const double _height = 46;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(_height);
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.genesisColors;
+    return AppBar(
+      automaticallyImplyLeading: false,
+      toolbarHeight: _height,
+      backgroundColor: colors.surface,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+      leadingWidth: 54,
+      titleSpacing: 12,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 20),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 34,
+            child: IconButton(
+              tooltip: 'Back',
+              padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                backgroundColor: colors.controlMuted,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(11),
+                ),
+              ),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 14,
+                color: colors.navigationSelected,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ),
+        ),
+      ),
+      title: Text(
+        'Gem Records',
+        style: TextStyle(
+          fontSize: 17,
+          height: 1,
+          fontWeight: FontWeight.w800,
+          color: colors.textPrimary,
+        ),
       ),
     );
   }
@@ -270,14 +334,44 @@ class _GemRecordTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GenesisTabBar(
-      controller: controller,
-      labels: labels,
-      horizontalPadding: 8,
-      labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-      verticalPadding: 0,
-      expanded: true,
-      onTap: onSelected,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: GenesisTabBar(
+            controller: controller,
+            labels: labels,
+            horizontalPadding: 16,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+            verticalPadding: 0,
+            indicatorMatchesLabelWidth: true,
+            indicatorHeight: 2,
+            indicatorBottomPadding: 0,
+            labelColor: context.genesisColors.textPrimary,
+            unselectedLabelColor: context.genesisColors.textPlaceholder,
+            labelStyle: const TextStyle(
+              fontSize: 13,
+              height: 1,
+              fontWeight: FontWeight.w700,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 13,
+              height: 1,
+              fontWeight: FontWeight.w500,
+            ),
+            expanded: true,
+            onTap: onSelected,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: context.genesisColors.divider,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -295,8 +389,9 @@ class _GemRecordTile extends StatelessWidget {
     final detailLines = _recordDetailLines(record);
     return Container(
       key: ValueKey<String>('gem-record-item-${record.ledgerId}'),
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
@@ -308,34 +403,38 @@ class _GemRecordTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 14,
-                    height: 17 / 14,
+                    fontSize: 13,
+                    height: 1.35,
                     fontWeight: FontWeight.w600,
                     color: context.genesisColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 for (var index = 0; index < detailLines.length; index += 1) ...[
                   _GemRecordDetailLine(
                     detailLines[index].text,
                     copyValue: detailLines[index].copyValue,
+                    isSecondary: index > 0,
                   ),
                   if (index != detailLines.length - 1)
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          Text(
-            amountText,
-            style: TextStyle(
-              fontSize: 14,
-              height: 20 / 14,
-              fontWeight: FontWeight.w600,
-              color: isIncome
-                  ? context.genesisGemColors.accent
-                  : context.genesisColors.textPrimary,
+          const SizedBox(width: 12),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Text(
+              amountText,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1,
+                fontWeight: FontWeight.w800,
+                color: isIncome
+                    ? context.genesisGemColors.reward
+                    : context.genesisColors.textFaint,
+              ),
             ),
           ),
         ],
@@ -345,10 +444,15 @@ class _GemRecordTile extends StatelessWidget {
 }
 
 class _GemRecordDetailLine extends StatelessWidget {
-  const _GemRecordDetailLine(this.text, {this.copyValue});
+  const _GemRecordDetailLine(
+    this.text, {
+    this.copyValue,
+    this.isSecondary = false,
+  });
 
   final String text;
   final String? copyValue;
+  final bool isSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -358,10 +462,12 @@ class _GemRecordDetailLine extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        fontSize: 12,
-        height: 14 / 12,
+        fontSize: 10,
+        height: 1,
         fontWeight: FontWeight.w400,
-        color: context.genesisColors.textPlaceholder,
+        color: isSecondary
+            ? context.genesisColors.textDisabled
+            : context.genesisColors.textPlaceholder,
       ),
     );
     if (value == null || value.isEmpty) return child;

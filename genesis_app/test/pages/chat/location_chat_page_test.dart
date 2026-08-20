@@ -31,6 +31,7 @@ import 'package:genesis_flutter_android/platform/channels/genesis_method_channel
 import 'package:genesis_flutter_android/platform/device/android_sdk_version.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 String _readLocationChatImplementationSource() {
   return [
@@ -268,7 +269,7 @@ void main() {
         of: find.byType(ChatHeader),
         matching: find.byType(BackdropFilter),
       ),
-      findsNothing,
+      findsOneWidget,
     );
     expect(
       find.descendant(
@@ -805,6 +806,7 @@ void main() {
         AppServicesScope(
           services: services,
           child: MaterialApp(
+            theme: GenesisTheme.worldoRedesign(),
             home: LocationChatPanel(
               worldId: 'world-current',
               locationId: 'location-current',
@@ -857,6 +859,12 @@ void main() {
         find.byKey(const ValueKey('location-chat-new-message-notice')),
         findsOneWidget,
       );
+      final noticeSurface = tester.widget<Material>(
+        find.byKey(const ValueKey('location-chat-new-message-notice-surface')),
+      );
+      expect(noticeSurface.color, const Color(0xFFF82B3C));
+      final noticeText = tester.widget<Text>(find.text('1 new message'));
+      expect(noticeText.style?.color, Colors.white);
 
       socket.serverV2Tick(
         messageId: 22,
@@ -1266,6 +1274,132 @@ void main() {
 
     expect(panel.showMoreButton, isFalse);
     expect(panel.unauthorizedHandledByOwner, isFalse);
+  });
+
+  testWidgets('location chat shortcut inserts an asterisk at the caret', (
+    WidgetTester tester,
+  ) async {
+    final harness = await _connectedLocationChatTestService();
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          theme: GenesisTheme.worldoRedesign(),
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: harness.service,
+            leaveOnInactive: false,
+          ),
+        ),
+      ),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.service.state.joinedLocationId == 'location-current',
+    );
+
+    final inputRect = tester.getRect(
+      find.byKey(const ValueKey<String>('chat-composer-input')),
+    );
+    final shortcutRect = tester.getRect(
+      find.byKey(const ValueKey<String>('chat-composer-leading-shortcut')),
+    );
+    expect(shortcutRect.left, greaterThan(inputRect.left));
+    expect(shortcutRect.top, greaterThan(inputRect.top));
+    expect(shortcutRect.right, lessThan(inputRect.right));
+    expect(shortcutRect.bottom, lessThan(inputRect.bottom));
+    expect(shortcutRect.size, const Size.square(26));
+    final headerDivider = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('location-chat-header-divider')),
+    );
+    final headerDividerDecoration = headerDivider.decoration as BoxDecoration;
+    final headerDividerBorder = headerDividerDecoration.border! as Border;
+    expect(headerDivider.position, DecorationPosition.foreground);
+    expect(headerDividerBorder.bottom.width, 1);
+    expect(headerDividerBorder.bottom.color.a, closeTo(0.14, 0.001));
+    final composerDivider = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('location-chat-composer-divider')),
+    );
+    final composerDividerDecoration =
+        composerDivider.decoration as BoxDecoration;
+    final composerDividerBorder = composerDividerDecoration.border! as Border;
+    expect(composerDivider.position, DecorationPosition.foreground);
+    expect(composerDividerBorder.top.width, 1);
+    expect(composerDividerBorder.top.color.a, closeTo(0.14, 0.001));
+    final messageViewportRect = tester.getRect(
+      find.byKey(const ValueKey<String>('location-chat-message-viewport-clip')),
+    );
+    final headerRect = tester.getRect(
+      find.byKey(const ValueKey<String>('location-chat-header-divider')),
+    );
+    final composerRect = tester.getRect(
+      find.byKey(const ValueKey<String>('location-chat-composer-divider')),
+    );
+    expect(messageViewportRect.top, closeTo(headerRect.bottom, 0.1));
+    expect(messageViewportRect.bottom, closeTo(composerRect.top, 0.1));
+    final messageList = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(
+      messageList.style!.messageListPadding,
+      GenesisChatTheme.worldoRedesign().locationChat.messageListPadding,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('chat-composer-leading-shortcut'),
+        ),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint && widget.size == const Size.square(12),
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+    expect(composer.sendLabel, isNull);
+    expect(composer.sendIcon, ChatComposerSendIcon.arrowUp);
+    expect(composer.style?.inputBackgroundColor, const Color(0x1FFFFFFF));
+    expect(composer.style?.inputBorderColor, const Color(0x2EFFFFFF));
+    expect(composer.style?.inputBorderWidth, 1.5);
+    expect(composer.style?.inputBorderRadius, 14);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('chat-composer-send-button'))),
+      const Size.square(46),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-composer-send-button')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint && widget.size == const Size.square(17),
+        ),
+      ),
+      findsOneWidget,
+    );
+    composer.controller.value = const TextEditingValue(
+      text: 'hello',
+      selection: TextSelection.collapsed(offset: 2),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('chat-composer-leading-shortcut')),
+    );
+    await tester.pump();
+
+    expect(composer.controller.text, 'he*llo');
+    expect(
+      composer.controller.selection,
+      const TextSelection.collapsed(offset: 3),
+    );
+    expect(composer.focusNode?.hasFocus, isTrue);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(harness.service.dispose());
   });
 
   testWidgets(
@@ -2553,6 +2687,7 @@ void main() {
 
       Widget panel({required bool active}) {
         return MaterialApp(
+          theme: GenesisTheme.worldoRedesign(),
           home: LocationChatPanel(
             key: const ValueKey<String>('retained-model-entry-panel'),
             worldId: 'world-current',
@@ -2566,16 +2701,55 @@ void main() {
 
       await tester.pumpWidget(panel(active: true));
       await tester.pump();
-      final title = find.text('The Wisteria Terrace With A Long Name (0)');
+      final title = find.text('The Wisteria Terrace With A Long Name');
+      final count = find.text('(0)');
       final modelEntry = find.byKey(const ValueKey('memory-model-entry'));
       final activeTitleRect = tester.getRect(title);
+      final activeCountRect = tester.getRect(count);
       final activeModelRect = tester.getRect(modelEntry);
+      final headerRect = tester.getRect(find.byType(ChatHeader));
+      expect(activeModelRect.right, closeTo(headerRect.right - 16, 0.01));
+      final header = tester.widget<ChatHeader>(find.byType(ChatHeader));
+      expect(header.showTitleIcon, isFalse);
+      expect(header.showSubtitleIcon, isFalse);
+      expect(header.subtitleIconAsset, isNull);
+      expect(header.style?.headerTitleTextStyle.fontSize, 14);
+      expect(header.style?.headerTitleTextStyle.fontWeight, FontWeight.w700);
+      expect(header.style?.headerTitleTextStyle.color, Colors.white);
+      expect(header.style?.headerSubtitleTextStyle.fontSize, 10);
+      expect(header.style?.headerSubtitleTextStyle.fontWeight, FontWeight.w400);
+      expect(
+        header.style?.headerSubtitleTextStyle.color,
+        const Color(0xB8FFFFFF),
+      );
+      final countText = tester.widget<Text>(count);
+      expect(countText.style?.fontSize, 11);
+      expect(countText.style?.fontWeight, FontWeight.w500);
+      expect(countText.style?.color, Colors.white.withValues(alpha: 0.5));
+      final modeText = tester.widget<Text>(
+        find.descendant(of: modelEntry, matching: find.text('Model')),
+      );
+      expect(modeText.style?.fontSize, 11);
+      expect(modeText.style?.fontWeight, FontWeight.w600);
+      expect(modeText.style?.color, Colors.white);
+      expect(find.byIcon(Icons.place_outlined), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SvgPicture &&
+              widget.bytesLoader.toString().contains(
+                locationChatCharacterIconAsset,
+              ),
+        ),
+        findsNothing,
+      );
 
       await tester.pumpWidget(panel(active: false));
       await tester.pump();
 
       expect(modelEntry, findsOneWidget);
       expect(tester.getRect(title), activeTitleRect);
+      expect(tester.getRect(count), activeCountRect);
       expect(tester.getRect(modelEntry), activeModelRect);
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -2981,7 +3155,13 @@ void main() {
     expect(find.text('Global'), findsNothing);
     expect(find.text('The promise-shaped key pulses.'), findsOneWidget);
     expect(find.text('Event'), findsNothing);
-    expect(find.text('location-current'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(ChatTickMessageBubble),
+        matching: find.text('location-current'),
+      ),
+      findsNothing,
+    );
     expect(find.text('public'), findsNothing);
     expect(find.text('Frost creeps toward Room 0.'), findsOneWidget);
     expect(find.text('Character destinations'), findsNothing);
@@ -3229,7 +3409,13 @@ void main() {
 
       expect(find.byType(ChatStoryEventsMessageBubble), findsNWidgets(2));
       expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
-      expect(find.text('loc_1_1_1'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(ChatStoryEventsMessageBubble),
+          matching: find.text('loc_1_1_1'),
+        ),
+        findsNothing,
+      );
       expect(find.text('Day 2, 00:08:30'), findsOneWidget);
       expect(find.text('中年男人把录音带塞进桌角的旧录音机。'), findsOneWidget);
       expect(find.text('问他为什么不敢让你听完。'), findsOneWidget);
@@ -3306,7 +3492,13 @@ void main() {
       findsNWidgets(2),
     );
     expect(find.text('public'), findsNothing);
-    expect(find.text('location-current'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(ChatStoryEventsMessageBubble),
+        matching: find.text('location-current'),
+      ),
+      findsNothing,
+    );
     expect(find.text('Day 3, 08:29:00'), findsOneWidget);
     expect(find.text('HTTP event body.'), findsOneWidget);
     expect(find.text('HTTP event clue.'), findsOneWidget);
@@ -3423,19 +3615,16 @@ void main() {
     },
   );
 
-  test('location chat background falls back to bundled default when empty', () {
-    expect(
-      resolveLocationChatBackgroundUrlForTesting(imageUrl: ''),
-      'assets/images/map_default/location_default.webp',
-    );
+  test('location chat background stays image-free when empty', () {
+    expect(resolveLocationChatBackgroundUrlForTesting(imageUrl: ''), isEmpty);
   });
 
-  test('location chat background maps predata default CDN image to asset', () {
+  test('location chat default CDN placeholder stays image-free', () {
     expect(
       resolveLocationChatBackgroundUrlForTesting(
         imageUrl: 'https://cdn-001.worldo.ai/predata/location_default.webp',
       ),
-      'assets/images/map_default/location_default.webp',
+      isEmpty,
     );
   });
 

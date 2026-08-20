@@ -20,6 +20,7 @@ class GenesisAvatar extends StatelessWidget {
     this.alignment = Alignment.topCenter,
     this.imageKey,
     this.textStyle,
+    this.fallbackBackgroundColor,
     this.showFallbackWhileLoading = false,
     this.showFallbackWhenUnavailable = true,
     this.onVisibilityChanged,
@@ -36,6 +37,7 @@ class GenesisAvatar extends StatelessWidget {
   final Alignment alignment;
   final Key? imageKey;
   final TextStyle? textStyle;
+  final Color? fallbackBackgroundColor;
   final bool showFallbackWhileLoading;
   final bool showFallbackWhenUnavailable;
   final ValueChanged<bool>? onVisibilityChanged;
@@ -61,6 +63,7 @@ class GenesisAvatar extends StatelessWidget {
       height: resolvedHeight,
       borderRadius: borderRadius,
       textStyle: textStyle,
+      backgroundColor: fallbackBackgroundColor,
     );
     final hiddenPlaceholder = SizedBox(
       width: resolvedWidth,
@@ -148,6 +151,7 @@ class GenesisAvatarFallback extends StatelessWidget {
     this.height,
     this.borderRadius = GenesisAvatarRadii.user,
     this.textStyle,
+    this.backgroundColor,
   });
 
   final String name;
@@ -156,6 +160,7 @@ class GenesisAvatarFallback extends StatelessWidget {
   final double? height;
   final double borderRadius;
   final TextStyle? textStyle;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -169,7 +174,7 @@ class GenesisAvatarFallback extends StatelessWidget {
       child: Container(
         width: resolvedWidth,
         height: resolvedHeight,
-        color: avatarColorForName(name),
+        color: backgroundColor ?? avatarColorForName(name),
         alignment: Alignment.center,
         child: Text(
           label,

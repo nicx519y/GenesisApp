@@ -11,6 +11,7 @@ class _SectionRow extends StatelessWidget {
     this.modified = false,
     this.wrapFirstSummaryLine = false,
     this.showDivider = true,
+    this.createHubStyle = false,
   });
 
   final String? icon;
@@ -21,6 +22,7 @@ class _SectionRow extends StatelessWidget {
   final bool modified;
   final bool wrapFirstSummaryLine;
   final bool showDivider;
+  final bool createHubStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -29,19 +31,41 @@ class _SectionRow extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: EdgeInsets.symmetric(vertical: createHubStyle ? 15 : 14),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: createHubStyle
+                  ? CrossAxisAlignment.center
+                  : CrossAxisAlignment.start,
               children: [
-                SizedBox(
+                Container(
                   key: ValueKey<String>('section-icon-$title'),
-                  width: 24,
-                  height: 24,
+                  width: createHubStyle ? 34 : 24,
+                  height: createHubStyle ? 34 : 24,
+                  alignment: Alignment.center,
+                  decoration: createHubStyle
+                      ? BoxDecoration(
+                          color: GenesisPalette.redesignWhite07,
+                          borderRadius: BorderRadius.circular(11),
+                        )
+                      : null,
                   child: icon == null
                       ? null
-                      : SvgPicture.asset(icon!, fit: BoxFit.contain),
+                      : SizedBox(
+                          width: createHubStyle ? 16 : 24,
+                          height: createHubStyle ? 16 : 24,
+                          child: SvgPicture.asset(
+                            icon!,
+                            fit: BoxFit.contain,
+                            colorFilter: createHubStyle
+                                ? const ColorFilter.mode(
+                                    GenesisPalette.white,
+                                    BlendMode.srcIn,
+                                  )
+                                : null,
+                          ),
+                        ),
                 ),
-                SizedBox(width: 14),
+                SizedBox(width: createHubStyle ? 13 : 14),
                 Expanded(
                   child: Column(
                     key: ValueKey<String>('section-content-$title'),
@@ -60,16 +84,20 @@ class _SectionRow extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.left,
                                     style: TextStyle(
-                                      color: context
-                                          .genesisColors
-                                          .foregroundStrong,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w400,
-                                      height: 1.2,
+                                      color: createHubStyle
+                                          ? GenesisPalette.white
+                                          : context
+                                                .genesisColors
+                                                .foregroundStrong,
+                                      fontSize: createHubStyle ? 14 : 16,
+                                      fontWeight: createHubStyle
+                                          ? FontWeight.w800
+                                          : FontWeight.w400,
+                                      height: createHubStyle ? 1.15 : 1.2,
                                     ),
                                   ),
                                 ),
-                                if (completed) ...[
+                                if (completed && !createHubStyle) ...[
                                   SizedBox(width: 6),
                                   Text(
                                     '✓',
@@ -96,11 +124,14 @@ class _SectionRow extends StatelessWidget {
                             ),
                           ),
                           if (onTap != null) ...[
-                            SizedBox(width: 8),
+                            SizedBox(width: createHubStyle ? 6 : 8),
                             Icon(
-                              Icons.chevron_right,
+                              Icons.chevron_right_rounded,
                               key: ValueKey<String>('section-chevron-$title'),
-                              color: context.genesisCreateColors.muted,
+                              size: createHubStyle ? 20 : 24,
+                              color: createHubStyle
+                                  ? GenesisPalette.redesignWhite45
+                                  : context.genesisCreateColors.muted,
                             ),
                           ],
                         ],
@@ -135,9 +166,12 @@ class _SectionRow extends StatelessWidget {
                                     : TextOverflow.ellipsis,
                                 softWrap: wrapFirstSummaryLine && index == 0,
                                 style: TextStyle(
-                                  color: context.genesisColors.textQuaternary,
-                                  fontSize: 12,
+                                  color: createHubStyle
+                                      ? GenesisPalette.redesignWhite60
+                                      : context.genesisColors.textQuaternary,
+                                  fontSize: createHubStyle ? 11 : 12,
                                   height: 1.4,
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
                             ),
@@ -153,7 +187,9 @@ class _SectionRow extends StatelessWidget {
             Divider(
               height: 1,
               thickness: 1,
-              color: context.genesisCreateColors.divider,
+              color: createHubStyle
+                  ? GenesisPalette.redesignWhite14
+                  : context.genesisCreateColors.divider,
             ),
         ],
       ),
@@ -161,6 +197,11 @@ class _SectionRow extends StatelessWidget {
   }
 
   List<String> get _summaryLines {
+    if (createHubStyle) {
+      return <String>[
+        summary.split('\n').map((line) => line.trim()).join(' · '),
+      ];
+    }
     return summary
         .split('\n')
         .map((line) => line.trim())

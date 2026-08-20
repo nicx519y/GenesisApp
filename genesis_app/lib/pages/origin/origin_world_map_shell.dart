@@ -3,19 +3,24 @@ part of 'origin_world_page.dart';
 extension _OriginWorldPageMapShell on _OriginWorldPageState {
   Widget _buildPersistentMapOverlay(
     double top, {
+    OriginDetail? origin,
     int locationCount = 0,
     bool tabsInteractive = true,
   }) {
     return Positioned(
-      left: 12,
-      right: 60,
-      top: top + 8,
+      left: 18,
+      right: 18,
+      top: top + 12,
       child: WorldTopOverlayBar(
         pointsCount: locationCount,
         controller: _tabController,
-        onTabTap: _handleMapModeTabTap,
+        onInfoTap: _openOriginInfoSheet,
         secondaryTabIsIntro: true,
         tabsEnabled: tabsInteractive,
+        title: origin == null
+            ? ''
+            : originDisplayName(origin.name, fallback: origin.oid),
+        subtitle: origin == null ? '' : 'Not started',
       ),
     );
   }
@@ -25,7 +30,6 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
     required Widget mapOverlay,
     required Widget map,
     Widget Function(double minChildSize)? bottomSheetOverlayBuilder,
-    Widget? bottomOverlay,
     Widget? topOverlay,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -46,7 +50,8 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
             final sheetHostHeight = viewportHeight;
             final sheetMinChildSize = sheetHostHeight <= 0
                 ? _OriginDetailDraggableSheet.defaultInitialChildSize
-                : ((sheetHostHeight - mapHeight) / sheetHostHeight)
+                : ((sheetHostHeight - mapHeight + originWorldMapSheetOverlap) /
+                          sheetHostHeight)
                       .clamp(0.08, 0.42)
                       .toDouble();
             return Stack(
@@ -64,13 +69,6 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
                 if (bottomSheetOverlayBuilder != null)
                   Positioned.fill(
                     child: bottomSheetOverlayBuilder(sheetMinChildSize),
-                  ),
-                if (bottomOverlay != null)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: bottomOverlay,
                   ),
                 if (topOverlay != null) topOverlay,
               ],
@@ -91,6 +89,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
       topPadding: topPadding,
       mapOverlay: _buildPersistentMapOverlay(
         topPadding,
+        origin: origin,
         tabsInteractive: false,
       ),
       map: ColoredBox(
@@ -101,7 +100,6 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
         minChildSize: minChildSize,
         hasInitialDialogue: hasInitialDialogue,
       ),
-      bottomOverlay: const _OriginBottomLaunchBarLoading(),
     );
   }
 }
@@ -169,34 +167,35 @@ class _OriginDetailLoadingSheet extends StatelessWidget {
           heightFactor: minChildSize,
           child: DecoratedBox(
             key: const ValueKey<String>('origin-detail-loading-sheet'),
-            decoration: BoxDecoration(
-              color: context.genesisColors.surfaceSheet,
-              borderRadius: GenesisRadii.sheet,
-            ),
-            child: ClipRRect(
-              borderRadius: GenesisRadii.sheet,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(
-                    height: originDetailSheetHeaderHeightForTesting,
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top: originDetailSheetHandleTopOffsetForTesting,
-                          child: _OriginSheetDragHandle(),
-                        ),
-                      ],
+            decoration: _originDetailSheetDecoration(context),
+            child: DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: _originDetailSheetOutlineDecoration(context),
+              child: ClipRRect(
+                borderRadius: _originDetailSheetBorderRadius,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(
+                      height: originDetailSheetHeaderHeightForTesting,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: originDetailSheetHandleTopOffsetForTesting,
+                            child: _OriginSheetPageIndicator(page: 0.0),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: hasInitialDialogue
-                        ? const _OriginInitialDialogueLoadingContent()
-                        : const _OriginRoleSetupLoadingContent(),
-                  ),
-                ],
+                    Expanded(
+                      child: hasInitialDialogue
+                          ? const _OriginInitialDialogueLoadingContent()
+                          : const _OriginRoleSetupLoadingContent(),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -278,10 +277,8 @@ class _OriginRoleSetupLoadingContent extends StatelessWidget {
           _OriginLoadingBone(
             key: ValueKey<String>('origin-loading-role-card'),
             width: _OriginSetupRoleSection._cardWidth,
-            height:
-                _OriginSetupRoleSection._cardWidth +
-                _OriginSetupRoleSection._buttonHeight,
-            radius: 12,
+            height: _OriginSetupRoleSection._cardHeight,
+            radius: 16,
           ),
         ],
       ),
@@ -318,147 +315,6 @@ class _OriginLoadingBone extends StatelessWidget {
       widthFactor: widthFactor,
       alignment: Alignment.centerLeft,
       child: bone,
-    );
-  }
-}
-
-class _OriginBottomLaunchBarLoading extends StatelessWidget {
-  const _OriginBottomLaunchBarLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      key: const ValueKey<String>('origin-bottom-launch-loading'),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: context.genesisColors.surfaceSheet,
-          boxShadow: [
-            BoxShadow(
-              color: context.genesisColors.shadow,
-              blurRadius: 8,
-              offset: Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 13),
-          child: GenesisBottomSafePadding(
-            minimum: GenesisBottomNavigation.minBottomPadding,
-            child: const SizedBox(
-              height: GenesisBottomNavigation.defaultHeight,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _OriginLoadingBone(width: 128, height: 19),
-                    ),
-                  ),
-                  SizedBox(width: 18),
-                  _OriginLoadingBone(
-                    key: ValueKey<String>('origin-loading-launch-button'),
-                    width: 140,
-                    height: 35,
-                    radius: 8,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OriginBottomLaunchBar extends StatelessWidget {
-  const _OriginBottomLaunchBar({
-    required this.origin,
-    required this.launching,
-    required this.onLaunch,
-  });
-
-  static double heightFor(BuildContext context) {
-    return GenesisBottomNavigation.defaultHeight +
-        GenesisSafeAreaInsets.bottom(
-          context,
-          minimum: GenesisBottomNavigation.minBottomPadding,
-        );
-  }
-
-  final OriginDetail origin;
-  final bool launching;
-  final VoidCallback onLaunch;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      key: const ValueKey<String>('origin-bottom-launch-blur'),
-      decoration: BoxDecoration(
-        color: context.genesisColors.surfaceSheet,
-        boxShadow: [
-          BoxShadow(
-            color: context.genesisColors.shadow,
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 13),
-        child: GenesisBottomSafePadding(
-          minimum: GenesisBottomNavigation.minBottomPadding,
-          child: SizedBox(
-            height: GenesisBottomNavigation.defaultHeight,
-            child: Row(
-              children: [
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      originDisplayName(origin.name, fallback: origin.oid),
-                      key: const ValueKey<String>('origin-bottom-origin-name'),
-                      maxLines: 1,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontSize: 16,
-                        height: 1.2,
-                        fontWeight: FontWeight.w600,
-                        color: context.genesisColors.accentText,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                GenesisPrimaryButton(
-                  label: 'Launch',
-                  leadingIcon: SvgPicture.asset(
-                    launchIconAsset,
-                    key: const ValueKey<String>('origin-bottom-launch-icon'),
-                    width: 14,
-                    height: 14,
-                    colorFilter: ColorFilter.mode(
-                      context.genesisColors.onPrimary,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  iconGap: 6,
-                  onPressed: launching ? null : onLaunch,
-                  width: 140,
-                  height: 35,
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  isLoading: launching,
-                  loadingSize: 22,
-                  loadingStrokeWidth: 2.4,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

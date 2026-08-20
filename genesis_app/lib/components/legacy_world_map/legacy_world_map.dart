@@ -33,6 +33,7 @@ class LegacyWorldMap extends StatefulWidget {
   bool get fallbackOnEmptyMapUrl => config.fallbackOnEmptyMapUrl;
   bool get dimmed => config.dimmed;
   bool get showPointsList => config.showPointsList;
+  bool get showZoomControl => config.showZoomControl;
   WidgetBuilder? get pointsListBuilder => config.pointsListBuilder;
   ScrollPhysics? get pointsListPhysics => config.pointsListPhysics;
   bool get pointsListOuterScrollHandoff => config.pointsListOuterScrollHandoff;
@@ -48,6 +49,9 @@ class LegacyWorldMap extends StatefulWidget {
   List<WorldMapMessageBubble> get messageBubbles => common.messageBubbles;
   bool get messageBubblePlaybackPaused => common.messageBubblePlaybackPaused;
   double get initialZoomScale => config.initialZoomScale;
+  Offset? get initialZoomFocus => config.initialZoomFocus;
+  double get initialViewportVerticalOffsetFraction =>
+      config.initialViewportVerticalOffsetFraction;
   bool get enableAvatarScaleReboundHint => config.enableAvatarScaleReboundHint;
   Set<String> get recentChatLocationIds => config.recentChatLocationIds;
   Set<String> get recentChatMapLocationIds => config.recentChatMapLocationIds;
@@ -161,12 +165,6 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
     } else {
       _syncMessageBubblePlayback(visibleMessageBubbles);
     }
-    final activeBubble =
-        widget.activeBubble ??
-        (widget.messageBubblePlaybackPaused
-            ? null
-            : _activeBubbleFromVisible(visibleMessageBubbles));
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final devicePixelRatio =
@@ -207,7 +205,9 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
             ? '__world_root__'
             : _locationTrail.last.id;
         final mapKey = ValueKey<String>(mapKeyId);
-        final initialFocus = legacyWorldMapInitialZoomFocus(visiblePoints);
+        final initialFocus =
+            widget.initialZoomFocus ??
+            legacyWorldMapInitialZoomFocus(visiblePoints);
         final visibleViewportSize = Size(
           constraints.maxWidth,
           constraints.hasBoundedHeight
@@ -218,6 +218,9 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
           mapKeyId,
           currentMapImageUrl,
           widget.initialZoomScale.toStringAsFixed(3),
+          initialFocus?.dx.toStringAsFixed(3),
+          initialFocus?.dy.toStringAsFixed(3),
+          widget.initialViewportVerticalOffsetFraction.toStringAsFixed(3),
           visibleViewportSize.width.toStringAsFixed(2),
           visibleViewportSize.height.toStringAsFixed(2),
           viewport.width.toStringAsFixed(2),
@@ -240,6 +243,8 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
                   contentSize: Size(viewport.width, viewport.height),
                   initialScale: widget.initialZoomScale,
                   initialFocus: initialFocus,
+                  initialViewportVerticalOffsetFraction:
+                      widget.initialViewportVerticalOffsetFraction,
                   initialTransformKey: initialTransformKey,
                   initialViewportSize: visibleViewportSize,
                   overlayBuilder: (context, transform, onOverlayPointerDown) =>
@@ -273,20 +278,6 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
                                       onPointerDown: onOverlayPointerDown,
                                       onTap: _pointTapHandler(p),
                                     ),
-                                  if (activeBubble != null)
-                                    for (final p in visiblePoints)
-                                      LegacyWorldMapPointMessageBubblePositioned(
-                                        point: p,
-                                        width: viewport.width,
-                                        height: viewport.height,
-                                        transform: transform,
-                                        onPointerDown: onOverlayPointerDown,
-                                        onTap: _pointTapHandler(p),
-                                        messageBubble: _bubbleForPoint(
-                                          p,
-                                          activeBubble,
-                                        ),
-                                      ),
                                 ],
                               ),
                             ),
@@ -342,6 +333,8 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
                       ],
                     ),
               ),
+            if (widget.common.foregroundOverlay case final overlay?)
+              Positioned.fill(child: overlay),
             if (_locationTrail.isNotEmpty && !widget.showPointsList)
               Positioned(
                 left: 12,
@@ -354,7 +347,7 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
                   ),
                 ),
               ),
-            if (!widget.showPointsList)
+            if (!widget.showPointsList && widget.showZoomControl)
               Positioned(
                 right: legacyWorldMapZoomControlRightGap,
                 bottom: legacyWorldMapZoomControlBottomGap,
@@ -611,6 +604,9 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
         .toList(growable: false);
   }
 
+  // Kept because message playback remains intact; only its map overlay is
+  // intentionally hidden by the redesigned marker presentation.
+  // ignore: unused_element
   WorldMapMessageBubble? _activeBubbleFromVisible(
     List<WorldMapMessageBubble> visibleBubbles,
   ) {
@@ -711,6 +707,7 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
     return bubbles[_messageBubblePlaybackIndex % bubbles.length];
   }
 
+  // ignore: unused_element
   WorldMapMessageBubble? _bubbleForPoint(
     WorldPoint point,
     WorldMapMessageBubble? bubble,

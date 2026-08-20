@@ -210,6 +210,51 @@ void main() {
     expect(padding.right, 20);
   });
 
+  testWidgets('Worldo title mode matches the redesigned title hierarchy', (
+    tester,
+  ) async {
+    final controller = TabController(length: 2, vsync: tester);
+    addTearDown(controller.dispose);
+    var infoTapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            child: WorldTopOverlayBar(
+              pointsCount: 3,
+              controller: controller,
+              title: 'Old Money',
+              subtitle: 'Not started',
+              secondaryTabIsIntro: true,
+              onInfoTap: () => infoTapped = true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.text('Old Money'), findsOneWidget);
+    expect(find.text('Not started'), findsOneWidget);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('worldo-title-back-button')),
+      ),
+      const Size(34, 34),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(infoTapped, isTrue);
+    expect(controller.index, 0);
+    expect(find.text('Info'), findsOneWidget);
+  });
+
   testWidgets('world map stage uses fixed overlay and back button heights', (
     tester,
   ) async {

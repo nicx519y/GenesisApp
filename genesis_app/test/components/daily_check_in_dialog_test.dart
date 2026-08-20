@@ -36,12 +36,14 @@ void main() {
       );
       expect(find.text('Check in'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
+      _expectDialogBorder(tester);
 
       await tester.tap(find.text('Check in'));
       await tester.pumpAndSettle();
 
       expect(find.text('Check in successful!'), findsOneWidget);
       expect(find.text('+50'), findsOneWidget);
+      _expectDialogBorder(tester);
 
       await tester.pump(const Duration(milliseconds: 2999));
       expect(find.text('Check in successful!'), findsOneWidget);
@@ -137,4 +139,15 @@ void main() {
     expect(find.text('+120'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
+}
+
+void _expectDialogBorder(WidgetTester tester) {
+  final container = tester.widget<Container>(
+    find.byKey(const ValueKey<String>('genesis-action-box-attached-border')),
+  );
+  final decoration = container.foregroundDecoration as BoxDecoration;
+  final border = decoration.border as Border;
+
+  expect(border.top.width, 1);
+  expect(border.top.color.a, closeTo(0.14, 0.01));
 }

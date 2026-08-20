@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_fixed_underline_indicator.dart';
@@ -19,6 +21,9 @@ class WorldTopOverlayBar extends StatelessWidget {
     this.onTabTap,
     this.secondaryTabIsIntro = false,
     this.tabsEnabled = true,
+    this.title,
+    this.subtitle,
+    this.onInfoTap,
   });
 
   final int pointsCount;
@@ -30,6 +35,9 @@ class WorldTopOverlayBar extends StatelessWidget {
   /// the map's location list.
   final bool secondaryTabIsIntro;
   final bool tabsEnabled;
+  final String? title;
+  final String? subtitle;
+  final VoidCallback? onInfoTap;
 
   void _handleTabTap(BuildContext context, int index) {
     onTabTap?.call(index);
@@ -48,6 +56,95 @@ class WorldTopOverlayBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
     final colors = context.genesisColors;
+    final resolvedTitle = title;
+    if (resolvedTitle != null) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _WorldoTopGlassButton(
+            key: const ValueKey<String>('worldo-title-back-button'),
+            width: 34,
+            onTap: onBack ?? () => Navigator.of(context).maybePop(),
+            child: Icon(
+              Icons.arrow_back_ios_new,
+              size: 14,
+              color: colors.foregroundStrong,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    resolvedTitle,
+                    key: const ValueKey<String>('worldo-title-name'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.foregroundStrong,
+                      fontSize: 17,
+                      height: 1.1,
+                      fontWeight: FontWeight.w800,
+                      shadows: const [
+                        Shadow(
+                          color: Color(0x99000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (subtitle?.isNotEmpty ?? false)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Text(
+                        subtitle!,
+                        key: const ValueKey<String>('worldo-title-status'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.foregroundStrong.withValues(
+                            alpha: 0.78,
+                          ),
+                          fontSize: 9.5,
+                          height: 1.3,
+                          fontWeight: FontWeight.w500,
+                          shadows: const [
+                            Shadow(
+                              color: Color(0xB3000000),
+                              blurRadius: 4,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          _WorldoTopGlassButton(
+            key: const ValueKey<String>('worldo-title-info-button'),
+            horizontalPadding: 12,
+            onTap: tabsEnabled ? onInfoTap : null,
+            child: Text(
+              'Info',
+              style: TextStyle(
+                color: colors.foregroundStrong,
+                fontSize: 11,
+                height: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return Row(
       children: [
         Container(
@@ -142,6 +239,45 @@ class WorldTopOverlayBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _WorldoTopGlassButton extends StatelessWidget {
+  const _WorldoTopGlassButton({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.horizontalPadding = 0,
+    this.width,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final double horizontalPadding;
+  final double? width;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(11),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Material(
+          color: context.genesisColors.surface.withValues(alpha: 0.5),
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              width: width,
+              height: 34,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                child: Center(child: child),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

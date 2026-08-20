@@ -18,6 +18,10 @@ class WorldStatusSection extends StatelessWidget {
           worldMetricStatusText(world.metric, character),
       subtitleColor: context.genesisColors.textMuted,
       showCharacterDetails: false,
+      statusProgressStyle: true,
+      metric: world.metric,
+      locationNameBuilder: (character) =>
+          worldCharacterLocationName(world, character),
     );
   }
 }
@@ -50,6 +54,12 @@ class WorldCharacterListView extends StatelessWidget {
     required this.subtitleBuilder,
     required this.subtitleColor,
     required this.showCharacterDetails,
+    this.scrollController,
+    this.cardStyle = false,
+    this.statusProgressStyle = false,
+    this.metric = const <String, dynamic>{},
+    this.locationNameBuilder,
+    this.padding = const EdgeInsets.fromLTRB(20, 0, 20, 32),
   });
 
   final String storageKey;
@@ -59,13 +69,20 @@ class WorldCharacterListView extends StatelessWidget {
   final String Function(Map<String, dynamic> character) subtitleBuilder;
   final Color subtitleColor;
   final bool showCharacterDetails;
+  final ScrollController? scrollController;
+  final bool cardStyle;
+  final bool statusProgressStyle;
+  final Map<String, dynamic> metric;
+  final String Function(Map<String, dynamic> character)? locationNameBuilder;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     final sortedCharacters = worldSortedCharacters(characters, currentUid);
-    final hasCharacterRole = sortedCharacters.any(worldIsCharacterRole);
     return WorldSectionListView.builder(
       storageKey: storageKey,
+      scrollController: scrollController,
+      padding: padding,
       itemCount: math.max(sortedCharacters.length, 1),
       itemBuilder: (context, index) {
         if (sortedCharacters.isEmpty) {
@@ -74,7 +91,7 @@ class WorldCharacterListView extends StatelessWidget {
         final character = sortedCharacters[index];
         return Padding(
           padding: EdgeInsets.only(
-            top: index == 0 ? (hasCharacterRole ? 5 : 0) : 22,
+            top: index == 0 ? 0 : (cardStyle || statusProgressStyle ? 10 : 11),
           ),
           child: WorldCharacterRow(
             character: character,
@@ -82,6 +99,10 @@ class WorldCharacterListView extends StatelessWidget {
             subtitle: subtitleBuilder(character),
             subtitleColor: subtitleColor,
             showCharacterDetails: showCharacterDetails,
+            cardStyle: cardStyle,
+            statusProgressStyle: statusProgressStyle,
+            metric: metric,
+            locationName: locationNameBuilder?.call(character) ?? '',
           ),
         );
       },
@@ -97,6 +118,10 @@ class WorldCharacterList extends StatelessWidget {
     required this.subtitleBuilder,
     required this.subtitleColor,
     required this.showCharacterDetails,
+    this.cardStyle = false,
+    this.statusProgressStyle = false,
+    this.metric = const <String, dynamic>{},
+    this.locationNameBuilder,
   });
 
   final List<Map<String, dynamic>> characters;
@@ -105,6 +130,10 @@ class WorldCharacterList extends StatelessWidget {
   final String Function(Map<String, dynamic> character) subtitleBuilder;
   final Color subtitleColor;
   final bool showCharacterDetails;
+  final bool cardStyle;
+  final bool statusProgressStyle;
+  final Map<String, dynamic> metric;
+  final String Function(Map<String, dynamic> character)? locationNameBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -126,8 +155,14 @@ class WorldCharacterList extends StatelessWidget {
               subtitle: subtitleBuilder(sortedCharacters[i]),
               subtitleColor: subtitleColor,
               showCharacterDetails: showCharacterDetails,
+              cardStyle: cardStyle,
+              statusProgressStyle: statusProgressStyle,
+              metric: metric,
+              locationName:
+                  locationNameBuilder?.call(sortedCharacters[i]) ?? '',
             ),
-            if (i != sortedCharacters.length - 1) SizedBox(height: 22),
+            if (i != sortedCharacters.length - 1)
+              SizedBox(height: cardStyle || statusProgressStyle ? 10 : 11),
           ],
         ],
       ),
@@ -142,6 +177,10 @@ class WorldCharacterRow extends StatelessWidget {
     required this.subtitle,
     required this.subtitleColor,
     required this.showCharacterDetails,
+    this.cardStyle = false,
+    this.statusProgressStyle = false,
+    this.metric = const <String, dynamic>{},
+    this.locationName = '',
   });
 
   final Map<String, dynamic> character;
@@ -149,6 +188,10 @@ class WorldCharacterRow extends StatelessWidget {
   final String subtitle;
   final Color subtitleColor;
   final bool showCharacterDetails;
+  final bool cardStyle;
+  final bool statusProgressStyle;
+  final Map<String, dynamic> metric;
+  final String locationName;
 
   @override
   Widget build(BuildContext context) {
@@ -159,12 +202,16 @@ class WorldCharacterRow extends StatelessWidget {
     final playerUid = worldMapString(character, const ['player_uid']);
     final username = worldMapString(character, const ['player_username']);
     final playerDeleted = entityDeleted(character['player_deleted']);
-    final suffix = worldCharacterNameSuffix(
+    final isCurrentUser = worldIsCurrentUserCharacter(character, currentUid);
+    final defaultSuffix = worldCharacterNameSuffix(
       currentUid: currentUid,
       playerUid: playerUid,
       username: username,
       playerDeleted: playerDeleted,
     );
+    final suffix = statusProgressStyle && isCurrentUser && !playerDeleted
+        ? 'You'
+        : defaultSuffix;
     final isCharacterRole = worldIsCharacterRole(character);
     final roleLabel = isCharacterRole ? 'Character' : 'Player';
     final showAiCharacterDetails = showCharacterDetails && isCharacterRole;
@@ -174,23 +221,29 @@ class WorldCharacterRow extends StatelessWidget {
     final hasOriginStyleDetails =
         identity.isNotEmpty || brief.isNotEmpty || goal.isNotEmpty;
     final bodyStyle = TextStyle(
-      fontSize: 13,
-      height: 1.4,
+      fontSize: 12,
+      height: 1.5,
       fontWeight: FontWeight.w400,
       color: context.genesisColors.textPrimary,
     );
 
-    return Row(
+    final content = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GenesisCharacterAvatar(
           url: avatarUrl,
           name: name,
-          showStar: isCharacterRole,
-          starSize: 20,
+          showStar: false,
+          size: cardStyle || statusProgressStyle ? 44 : 40,
+          borderRadius: cardStyle || statusProgressStyle ? 13 : 12,
+          border:
+              (!statusProgressStyle && !isCharacterRole) ||
+                  (statusProgressStyle && isCurrentUser)
+              ? Border.all(color: context.genesisColors.danger, width: 2)
+              : null,
           showFallbackWhileLoading: false,
         ),
-        SizedBox(width: 14),
+        SizedBox(width: 11),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(top: 2),
@@ -209,42 +262,101 @@ class WorldCharacterRow extends StatelessWidget {
                               TextSpan(
                                 text: ' $suffix',
                                 style: TextStyle(
-                                  color: context.genesisColors.textFaint,
+                                  color: statusProgressStyle
+                                      ? context.genesisColors.textSecondary
+                                      : context.genesisColors.textFaint,
                                 ),
                               ),
                           ],
                         ),
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: cardStyle || statusProgressStyle ? 14 : 13,
                           height: 1.15,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
                           color: context.genesisColors.foregroundStrong,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    SizedBox(width: 8),
+                    if (!statusProgressStyle) ...[
+                      SizedBox(width: 8),
+                      Text(
+                        roleLabel,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          height: 1.15,
+                          fontWeight: FontWeight.w400,
+                          color: context.genesisColors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+                if (statusProgressStyle) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _WorldStatusProgressBar(
+                          progressKey: ValueKey<String>(
+                            'world-status-progress-${worldCharacterStableId(character)}',
+                          ),
+                          value: worldMetricProgressValue(metric, character),
+                          semanticsValue: worldMetricProgressText(
+                            metric,
+                            character,
+                          ),
+                          backgroundColor: context.genesisColors.surfaceTag,
+                          valueColor: isCurrentUser
+                              ? context.genesisColors.danger
+                              : context.genesisColors.accentText,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        worldMetricProgressText(metric, character),
+                        style: TextStyle(
+                          fontSize: 11,
+                          height: 1,
+                          fontWeight: FontWeight.w600,
+                          color: context.genesisColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (locationName.isNotEmpty) ...[
+                    const SizedBox(height: 7),
                     Text(
-                      roleLabel,
-                      textAlign: TextAlign.right,
+                      locationName,
+                      key: ValueKey<String>(
+                        'world-status-location-${worldCharacterStableId(character)}',
+                      ),
                       style: TextStyle(
-                        fontSize: 12,
-                        height: 1.15,
+                        fontSize: 10,
+                        height: 1.2,
                         fontWeight: FontWeight.w400,
-                        color: context.genesisColors.textLabelMuted,
+                        color: isCurrentUser
+                            ? context.genesisColors.danger
+                            : context.genesisColors.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
-                if (showAiCharacterDetails) ...[
+                ] else if (showAiCharacterDetails) ...[
                   if (identity.isNotEmpty) ...[
                     SizedBox(height: 5),
                     Text(
                       identity,
-                      style: bodyStyle,
+                      style: bodyStyle.copyWith(
+                        color: context.genesisColors.textPrimary.withValues(
+                          alpha: 0.92,
+                        ),
+                      ),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -254,7 +366,7 @@ class WorldCharacterRow extends StatelessWidget {
                     Text(
                       brief,
                       style: bodyStyle.copyWith(
-                        color: context.genesisColors.danger,
+                        color: context.genesisColors.accentText,
                       ),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
@@ -262,9 +374,22 @@ class WorldCharacterRow extends StatelessWidget {
                   ],
                   if (goal.isNotEmpty) ...[
                     SizedBox(height: 5),
-                    Text(
-                      'Goal: $goal',
-                      style: bodyStyle,
+                    Text.rich(
+                      TextSpan(
+                        style: bodyStyle.copyWith(
+                          color: context.genesisColors.textSecondary,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: 'Goal: ',
+                            style: TextStyle(
+                              color: context.genesisColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(text: goal),
+                        ],
+                      ),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -287,12 +412,12 @@ class WorldCharacterRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ] else ...[
-                  SizedBox(height: 4),
+                  SizedBox(height: cardStyle ? 8 : 6),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 13,
-                      height: 1.35,
+                      fontSize: cardStyle ? 11 : 12,
+                      height: cardStyle ? 1.3 : 1.5,
                       fontWeight: FontWeight.w400,
                     ).copyWith(color: subtitleColor),
                     maxLines: 4,
@@ -304,6 +429,33 @@ class WorldCharacterRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+    if (!cardStyle && !statusProgressStyle) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: context.genesisColors.dividerAction,
+              width: 1,
+            ),
+          ),
+        ),
+        child: content,
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: statusProgressStyle
+            ? context.genesisColors.surfaceSubtle
+            : context.genesisColors.surfaceTag,
+        borderRadius: BorderRadius.circular(14),
+        border: isCurrentUser
+            ? Border.all(color: context.genesisColors.danger, width: 1.5)
+            : null,
+      ),
+      child: content,
     );
   }
 }
@@ -374,6 +526,119 @@ String worldCharacterNameSuffix({
   return '';
 }
 
+String worldCharacterStableId(Map<String, dynamic> character) {
+  return worldMapString(character, const [
+    'char_id',
+    'character_id',
+    'id',
+    'player_uid',
+  ], fallback: worldMapString(character, const ['name'], fallback: 'unknown'));
+}
+
+String worldCharacterLocationName(
+  WorldDetail world,
+  Map<String, dynamic> character,
+) {
+  var locationId = worldMapString(character, const [
+    'location_id',
+    'current_location_id',
+    'initial_location_id',
+  ]);
+  if (locationId.isEmpty) {
+    final characterId = worldCharacterStableId(character);
+    final playerUid = worldMapString(character, const ['player_uid']);
+    for (final position in world.characterPositions) {
+      final rawCharacter = position['character'];
+      final positionedCharacter = rawCharacter is Map
+          ? rawCharacter.map((key, value) => MapEntry('$key', value))
+          : position;
+      final positionedId = worldCharacterStableId(positionedCharacter);
+      final positionedUid = worldMapString(positionedCharacter, const [
+        'player_uid',
+        'uid',
+        'user_id',
+      ]);
+      if (positionedId != characterId &&
+          (playerUid.isEmpty || positionedUid != playerUid)) {
+        continue;
+      }
+      locationId = worldMapString(position, const [
+        'location_id',
+        'current_location_id',
+      ]);
+      if (locationId.isNotEmpty) break;
+    }
+    if (locationId.isEmpty && playerUid.isNotEmpty) {
+      for (final position in world.userPositions) {
+        final positionedUid = worldMapString(position, const [
+          'uid',
+          'player_uid',
+          'user_id',
+        ]);
+        if (positionedUid != playerUid) continue;
+        locationId = worldMapString(position, const [
+          'location_id',
+          'current_location_id',
+        ]);
+        if (locationId.isNotEmpty) break;
+      }
+    }
+  }
+  if (locationId.isEmpty) return '';
+  for (final location in world.locations) {
+    final id = worldMapString(location, const ['location_id', 'id']);
+    if (id != locationId) continue;
+    return worldMapString(location, const ['location_name', 'name']);
+  }
+  return '';
+}
+
+class _WorldStatusProgressBar extends StatelessWidget {
+  const _WorldStatusProgressBar({
+    required this.progressKey,
+    required this.value,
+    required this.semanticsValue,
+    required this.backgroundColor,
+    required this.valueColor,
+  });
+
+  static const double _minimumVisibleFillWidth = 12;
+
+  final Key progressKey;
+  final double value;
+  final String semanticsValue;
+  final Color backgroundColor;
+  final Color valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final actualValue = value.clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final minimumVisibleValue =
+            availableWidth.isFinite && availableWidth > 0
+            ? (_minimumVisibleFillWidth / availableWidth).clamp(0.0, 1.0)
+            : 0.0;
+        final visualValue = actualValue <= 0
+            ? 0.0
+            : math.max(actualValue, minimumVisibleValue);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            key: progressKey,
+            value: visualValue,
+            semanticsValue: semanticsValue,
+            minHeight: 5,
+            backgroundColor: backgroundColor,
+            valueColor: AlwaysStoppedAnimation<Color>(valueColor),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class WorldEmptySection extends StatelessWidget {
   const WorldEmptySection({required this.text});
 
@@ -441,11 +706,45 @@ String worldMetricStatusText(
 }
 
 String worldResolvedMetricValueText(Object? metricValue, Object? defaultValue) {
+  return worldMetricDisplayValue(
+    worldResolvedMetricValue(metricValue, defaultValue),
+  );
+}
+
+Object? worldResolvedMetricValue(Object? metricValue, Object? defaultValue) {
   final parsedMetricValue = worldMetricNumber(metricValue);
-  final resolved = parsedMetricValue == null || parsedMetricValue == 0
+  return parsedMetricValue == null || parsedMetricValue == 0
       ? defaultValue
       : metricValue;
-  return worldMetricDisplayValue(resolved);
+}
+
+double worldMetricProgressValue(
+  Map<String, dynamic> metric,
+  Map<String, dynamic> character,
+) {
+  final value = worldMetricNumber(
+    worldResolvedMetricValue(character['metric_value'], metric['default']),
+  );
+  final range = metric['range'];
+  final minimum = range is List && range.isNotEmpty
+      ? worldMetricNumber(range.first) ?? 0
+      : 0;
+  final maximum = range is List && range.length > 1
+      ? worldMetricNumber(range[1]) ?? 100
+      : 100;
+  if (value == null || maximum <= minimum) return 0;
+  return ((value - minimum) / (maximum - minimum)).clamp(0, 1).toDouble();
+}
+
+String worldMetricProgressText(
+  Map<String, dynamic> metric,
+  Map<String, dynamic> character,
+) {
+  final value = worldResolvedMetricValueText(
+    character['metric_value'],
+    metric['default'],
+  );
+  return '$value${worldMapString(metric, const ['unit'])}';
 }
 
 num? worldMetricNumber(Object? value) {

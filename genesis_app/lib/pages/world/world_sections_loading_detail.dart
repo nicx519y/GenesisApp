@@ -9,8 +9,8 @@ class WorldDetailsLoadingContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SliverMainAxisGroup(
       slivers: [
-        SliverToBoxAdapter(child: SizedBox(height: worldStatsTopSpacerHeight)),
         SliverToBoxAdapter(child: WorldInfoHeaderLoadingSkeleton()),
+        SliverToBoxAdapter(child: SizedBox(height: worldMainTabsHeight)),
       ],
     );
   }
@@ -24,35 +24,43 @@ class WorldInfoHeaderLoadingSkeleton extends StatelessWidget {
     return SizedBox(
       key: ValueKey<String>('world-panel-info-row'),
       height: worldInfoHeaderHeight,
-      child: Align(
-        alignment: Alignment.center,
-        child: SizedBox(
-          height: worldInfoHeaderContentHeight,
-          child: Row(
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    WorldLoadingStatBone(),
-                    WorldLoadingStatBone(),
-                    WorldLoadingStatBone(),
-                    WorldLoadingStatBone(),
-                  ],
-                ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: worldInfoHeaderHeight - 1,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(8, 0, 8, 13),
+              child: Row(
+                children: [
+                  WorldLoadingBone(width: 40, height: 40, radius: 12),
+                  SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        WorldLoadingBone(width: 88, height: 13),
+                        SizedBox(height: 6),
+                        WorldLoadingBone(width: 112, height: 10),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  WorldLoadingBone(
+                    key: ValueKey<String>('world-loading-action'),
+                    width: 92,
+                    height: worldInfoHeaderContentHeight,
+                    radius: 13,
+                  ),
+                ],
               ),
-              SizedBox(width: 18),
-              WorldLoadingBone(
-                key: ValueKey<String>('world-loading-action'),
-                width: 140,
-                height: worldInfoHeaderContentHeight,
-                radius: 8,
-              ),
-            ],
+            ),
           ),
-        ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: Divider(height: 1, thickness: 1),
+          ),
+        ],
       ),
     );
   }
@@ -131,6 +139,63 @@ class WorldLoadingBone extends StatelessWidget {
   }
 }
 
+class WorldDetailMoreMenuButton extends StatelessWidget {
+  const WorldDetailMoreMenuButton({
+    required this.world,
+    required this.currentUid,
+    required this.onDeleteWorld,
+    this.buttonSize = 26,
+    this.iconSize = 14,
+  });
+
+  final WorldDetail world;
+  final String currentUid;
+  final Future<void> Function(BuildContext context, WorldDetail world)?
+  onDeleteWorld;
+  final double buttonSize;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final canDeleteWorld = worldCanDeleteLaunchedOnlyBySelf(world, currentUid);
+    return GenesisMoreActionMenuButton(
+      buttonSize: buttonSize,
+      iconSize: iconSize,
+      iconColor: context.genesisColors.textSecondary,
+      items: [
+        genesisReportMenuItem(
+          context: context,
+          targetType: 'world',
+          targetId: world.worldId,
+        ),
+        GenesisActionMenuItem(
+          label: 'Delete',
+          iconAsset: genesisDeleteIconAsset,
+          textStyle: TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            fontWeight: FontWeight.w400,
+            color: canDeleteWorld
+                ? context.genesisColors.textInverse
+                : context.genesisColors.textInverse.withValues(alpha: 0.45),
+          ),
+          onSelected: () {
+            if (!canDeleteWorld) {
+              showGenesisToast(
+                context,
+                'Only worlds launched by you alone can be deleted.',
+                duration: const Duration(seconds: 3),
+              );
+              return;
+            }
+            unawaited(onDeleteWorld?.call(context, world));
+          },
+        ),
+      ],
+    );
+  }
+}
+
 class WorldDetailSection extends StatelessWidget {
   const WorldDetailSection({
     required this.world,
@@ -165,158 +230,177 @@ class WorldDetailSection extends StatelessWidget {
     final canOpenSourceWorldo = sourceWorldoRouteId.isNotEmpty;
     final brief = world.brief.trim().isEmpty ? '-' : world.brief.trim();
     final cover = worldResolveAssetUrl(world.cover).trim();
-    final canDeleteWorld = worldCanDeleteLaunchedOnlyBySelf(world, currentUid);
+    final tags = world.origin.tags;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(width: 38),
+            WorldDetailCoverImage(url: cover, width: 120, height: 180),
+            const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 18,
-                  height: 1.25,
-                  fontWeight: FontWeight.w600,
-                  color: context.genesisColors.accentText,
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 38,
-              child: GenesisMoreActionMenuButton(
-                buttonSize: 18 * 1.25,
-                items: [
-                  genesisReportMenuItem(
-                    context: context,
-                    targetType: 'world',
-                    targetId: world.worldId,
-                  ),
-                  GenesisActionMenuItem(
-                    label: 'Delete',
-                    iconAsset: genesisDeleteIconAsset,
-                    textStyle: TextStyle(
-                      fontSize: 12,
-                      height: 1.2,
-                      fontWeight: FontWeight.w400,
-                      color: canDeleteWorld
-                          ? context.genesisColors.textInverse
-                          : context.genesisColors.textInverse.withValues(
-                              alpha: 0.45,
-                            ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 17,
+                      height: 1.15,
+                      fontWeight: FontWeight.w900,
+                      color: context.genesisColors.textPrimary,
                     ),
-                    onSelected: () {
-                      if (!canDeleteWorld) {
-                        showGenesisToast(
-                          context,
-                          'Only worlds launched by you alone can be deleted.',
-                          duration: const Duration(seconds: 3),
-                        );
-                        return;
-                      }
-                      unawaited(onDeleteWorld?.call(context, world));
-                    },
+                  ),
+                  if (tags.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 5,
+                      children: [
+                        for (final tag in tags)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: context.genesisColors.surfaceTag,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              tag,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                height: 1,
+                                fontWeight: FontWeight.w500,
+                                color: context.genesisColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 7),
+                  CopyableIdLabel(
+                    label: 'WID',
+                    value: world.worldId,
+                    displayValue: world.deleted
+                        ? deletedEntityDisplayText
+                        : null,
+                    enabled: !world.deleted,
+                    customTextStyle: worldHeaderMetaTextStyle.copyWith(
+                      fontSize: 9.5,
+                      color: context.genesisColors.textSecondary,
+                    ),
+                    customIconColor: context.genesisColors.textSecondary,
+                  ),
+                  GenesisInlineMetaLabel(
+                    text: 'Owner $owner',
+                    onTap: ownerUid.isEmpty || world.ownerDeleted
+                        ? null
+                        : () => Navigator.of(context).pushNamed(
+                            RouteNames.userInfo,
+                            arguments: {'uid': ownerUid},
+                          ),
+                    style: worldHeaderMetaTextStyle.copyWith(
+                      fontSize: 9.5,
+                      color: context.genesisColors.textSecondary,
+                    ),
+                    trailingIcon: ownerUid.isEmpty || world.ownerDeleted
+                        ? null
+                        : Icons.chevron_right,
+                    trailingIconColor: context.genesisColors.textSecondary,
+                    trailingIconSize: 12,
+                    trailingGap: 3,
+                  ),
+                  GenesisInlineMetaLabel(
+                    text: 'Source $sourceOid · V$version',
+                    onTap: !canOpenSourceWorldo
+                        ? null
+                        : () => Navigator.of(context).pushNamed(
+                            RouteNames.originWorld,
+                            arguments: {
+                              'oid': sourceWorldoRouteId,
+                              'originId': world.originId,
+                            },
+                          ),
+                    style: worldHeaderMetaTextStyle.copyWith(
+                      fontSize: 9.5,
+                      color: context.genesisColors.textSecondary,
+                    ),
+                    trailingIcon: canOpenSourceWorldo
+                        ? Icons.chevron_right
+                        : null,
+                    trailingIconColor: context.genesisColors.textSecondary,
+                    trailingIconSize: 12,
+                    trailingGap: 3,
+                  ),
+                  const SizedBox(height: 8),
+                  GenesisPrimaryButton(
+                    label: 'Invite',
+                    onPressed: () => _copyInviteText(context, worldName: title),
+                    height: 30,
+                    width: 80,
+                    backgroundColor: context.genesisColors.danger,
+                    disabledBackgroundColor: context.genesisColors.danger
+                        .withValues(alpha: 0.62),
+                    foregroundColor: context.genesisColors.onDanger,
+                    fontSize: 11,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ],
               ),
             ),
           ],
         ),
-        SizedBox(height: 4),
-        GenesisPairedMetaRow(
-          leftLabel: 'WID',
-          leftValue: world.worldId,
-          leftDisplayValue: world.deleted ? deletedEntityDisplayText : null,
-          leftCopyEnabled: !world.deleted,
-          leftStyle: worldHeaderMetaTextStyle,
-          leftIconColor: context.genesisColors.textMuted,
-          rightText: 'Owner: $owner',
-          rightOnTap: ownerUid.isEmpty || world.ownerDeleted
-              ? null
-              : () => Navigator.of(
-                  context,
-                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
-          rightStyle: worldHeaderMetaTextStyle,
-          rightIconColor: context.genesisColors.textMuted,
-        ),
-        SizedBox(height: 0),
-        GenesisInlineMetaLabel(
-          text: 'Source Worldo: $sourceOid · V$version',
-          onTap: !canOpenSourceWorldo
-              ? null
-              : () => Navigator.of(context).pushNamed(
-                  RouteNames.originWorld,
-                  arguments: {
-                    'oid': sourceWorldoRouteId,
-                    'originId': world.originId,
-                  },
-                ),
-          style: CopyableIdLabel.textStyle,
-          trailingIcon: canOpenSourceWorldo ? Icons.chevron_right : null,
-          trailingIconColor: context.genesisColors.textMuted,
-          trailingIconSize: 16,
-        ),
-        SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (newUserJoinNotice == null)
-              const Spacer()
-            else
-              Expanded(
-                child: SizedBox(
-                  height: 35,
-                  child: _WorldNewUserJoinNoticeSwitcher(
-                    notice: newUserJoinNotice!,
-                  ),
-                ),
-              ),
-            SizedBox(width: 16),
-            GenesisPrimaryButton(
-              label: 'Invite',
-              onPressed: () => _copyInviteText(context, worldName: title),
-              height: 35,
-              width: 140,
-              backgroundColor: context.genesisColors.danger,
-              disabledBackgroundColor: context.genesisColors.danger.withValues(
-                alpha: 0.62,
-              ),
-              foregroundColor: context.genesisColors.onDanger,
-              fontSize: 16,
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ],
-        ),
-        SizedBox(height: 24),
+        if (newUserJoinNotice != null) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 30,
+            child: _WorldNewUserJoinNoticeSwitcher(notice: newUserJoinNotice!),
+          ),
+        ],
+        SizedBox(height: 17),
         WorldDetailSectionTitle(
           icon: MyFlutterApp.eye,
           iconColor: context.genesisColors.danger,
           title: 'World Brief',
         ),
-        SizedBox(height: 8),
-        Text(
-          brief,
-          style: worldDetailBodyTextStyle.copyWith(
-            color: context.genesisColors.textPrimary,
+        const SizedBox(height: 9),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(top: 11),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: context.genesisColors.dividerAction,
+                width: 1,
+              ),
+            ),
+          ),
+          child: Text(
+            brief,
+            style: worldDetailBodyTextStyle.copyWith(
+              fontSize: 12,
+              height: 1.6,
+              color: context.genesisColors.textPrimary,
+            ),
           ),
         ),
-        SizedBox(height: 8),
-        WorldDetailCoverImage(url: cover),
-        SizedBox(height: 24),
+        SizedBox(height: 17),
         WorldDetailSectionTitle(
           asset: worldSectionCastIconAsset,
-          iconSize: 17,
-          iconColor: context.genesisColors.textMuted,
+          iconSize: 9,
+          iconColor: context.genesisColors.danger,
           title: 'Cast',
         ),
-        SizedBox(height: 8),
+        SizedBox(height: 1),
         if (showCharacters)
           WorldCharactersSection(world: world, currentUid: currentUid),
       ],
@@ -345,14 +429,18 @@ class WorldDetailSectionListView extends StatelessWidget {
     required this.storageKey,
     required this.world,
     required this.currentUid,
+    this.scrollController,
     this.newUserJoinNotice,
     this.onDeleteWorld,
+    this.padding = const EdgeInsets.fromLTRB(20, 0, 20, 32),
   });
 
   final String storageKey;
   final WorldDetail world;
   final String currentUid;
+  final ScrollController? scrollController;
   final WorldNewUserJoinNotice? newUserJoinNotice;
+  final EdgeInsetsGeometry padding;
   final Future<void> Function(BuildContext context, WorldDetail world)?
   onDeleteWorld;
 
@@ -366,6 +454,8 @@ class WorldDetailSectionListView extends StatelessWidget {
     final itemCount = 1 + math.max(sortedCharacters.length, 1).toInt();
     return WorldSectionListView.builder(
       storageKey: storageKey,
+      scrollController: scrollController,
+      padding: padding,
       itemCount: itemCount,
       itemBuilder: (context, index) {
         if (index == 0) {
@@ -524,28 +614,25 @@ class WorldDetailSectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asset = this.asset;
     return Row(
       children: [
-        if (asset != null)
-          SvgPicture.asset(
-            asset,
-            width: iconSize,
-            height: iconSize,
-            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-          )
-        else
-          Icon(icon, size: iconSize, color: iconColor),
-        SizedBox(width: 8),
+        Transform.rotate(
+          angle: -0.18,
+          child: SizedBox.square(
+            dimension: 9,
+            child: ColoredBox(color: iconColor),
+          ),
+        ),
+        SizedBox(width: 7),
         Flexible(
           child: Text(
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 14,
-              height: 1.2,
-              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              height: 1,
+              fontWeight: FontWeight.w800,
               color: context.genesisColors.textPrimary,
             ),
           ),
@@ -556,12 +643,14 @@ class WorldDetailSectionTitle extends StatelessWidget {
 }
 
 class WorldDetailCoverImage extends StatelessWidget {
-  const WorldDetailCoverImage({required this.url});
+  const WorldDetailCoverImage({required this.url, this.width, this.height});
 
   static const double _maxHeight = 360;
   static const double _aspectRatio = 2 / 3;
 
   final String url;
+  final double? width;
+  final double? height;
 
   @override
   Widget build(BuildContext context) {
@@ -577,6 +666,8 @@ class WorldDetailCoverImage extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final fixedWidth = width;
+        final fixedHeight = height;
         final mediaHeight = MediaQuery.sizeOf(context).height;
         final maxHeight = mediaHeight.isFinite
             ? _maxHeight.clamp(0.0, mediaHeight * 0.35).toDouble()
@@ -584,16 +675,20 @@ class WorldDetailCoverImage extends StatelessWidget {
         final maxWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : maxHeight * _aspectRatio;
-        final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
-        final height = width / _aspectRatio;
+        final resolvedWidth =
+            fixedWidth ??
+            maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
+        final resolvedHeight = fixedHeight ?? resolvedWidth / _aspectRatio;
 
         final preview = Align(
           alignment: Alignment.centerLeft,
           child: SizedBox(
-            width: width,
-            height: height,
+            width: resolvedWidth,
+            height: resolvedHeight,
             child: ClipRRect(
-              borderRadius: GenesisImageRadii.content,
+              borderRadius: fixedWidth == null
+                  ? GenesisImageRadii.content
+                  : BorderRadius.circular(13),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final imageUrl = selectGenesisImageUrl(
@@ -633,8 +728,8 @@ class WorldDetailCoverImage extends StatelessWidget {
           onTap: () {
             final imageUrl = selectGenesisImageUrl(
               url,
-              logicalWidth: width,
-              logicalHeight: height,
+              logicalWidth: resolvedWidth,
+              logicalHeight: resolvedHeight,
               devicePixelRatio:
                   MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
             );
@@ -645,8 +740,8 @@ class WorldDetailCoverImage extends StatelessWidget {
                 genesisImageViewerPreviewProvider(
                   context,
                   imageUrl: imageUrl,
-                  logicalWidth: width,
-                  logicalHeight: height,
+                  logicalWidth: resolvedWidth,
+                  logicalHeight: resolvedHeight,
                   fit: BoxFit.cover,
                 ),
               ],
@@ -660,17 +755,25 @@ class WorldDetailCoverImage extends StatelessWidget {
 }
 
 class WorldSectionListView extends StatelessWidget {
-  const WorldSectionListView({required this.storageKey, required this.child})
-    : itemCount = null,
-      itemBuilder = null;
+  const WorldSectionListView({
+    required this.storageKey,
+    required this.child,
+    this.scrollController,
+    this.padding = const EdgeInsets.fromLTRB(20, 0, 20, 32),
+  }) : itemCount = null,
+       itemBuilder = null;
 
   const WorldSectionListView.builder({
     required this.storageKey,
     required this.itemCount,
     required this.itemBuilder,
+    this.scrollController,
+    this.padding = const EdgeInsets.fromLTRB(20, 0, 20, 32),
   }) : child = null;
 
   final String storageKey;
+  final ScrollController? scrollController;
+  final EdgeInsetsGeometry padding;
   final Widget? child;
   final int? itemCount;
   final IndexedWidgetBuilder? itemBuilder;
@@ -681,18 +784,20 @@ class WorldSectionListView extends StatelessWidget {
     if (itemBuilder != null) {
       return ListView.builder(
         key: PageStorageKey<String>(storageKey),
+        controller: scrollController,
         primary: false,
         physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
+        padding: padding,
         itemCount: itemCount,
         itemBuilder: itemBuilder,
       );
     }
     return ListView(
       key: PageStorageKey<String>(storageKey),
+      controller: scrollController,
       primary: false,
       physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
+      padding: padding,
       children: [child!],
     );
   }

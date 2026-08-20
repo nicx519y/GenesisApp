@@ -12,11 +12,8 @@ import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_list_image.dart';
-import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 
@@ -120,7 +117,7 @@ class _DiscussPageState extends State<DiscussPage> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: context.genesisColors.pageBackground,
-      appBar: const GenesisBackAppBar(pageName: 'Discuss'),
+      appBar: _DiscussPageAppBar(controller: _discussController),
       body: FutureBuilder<OriginDetail>(
         future: _future,
         builder: (context, snapshot) {
@@ -155,17 +152,9 @@ class _DiscussPageState extends State<DiscussPage> {
                     child: ListView(
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding),
                       children: [
                         _DiscussOriginSummary(origin: data),
-                        Padding(
-                          padding: EdgeInsets.only(top: 10, bottom: 16),
-                          child: Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: context.genesisColors.surfaceSheet,
-                          ),
-                        ),
                         DiscussPageCommentList(
                           controller: _discussController,
                           onItemReplyTap: _openReplyComposer,
@@ -204,12 +193,33 @@ class _DiscussPageState extends State<DiscussPage> {
                   key: const ValueKey<String>('discuss-page-post-input-bar'),
                   child: SafeArea(
                     top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-                      child: DiscussPostInput(
-                        bizId: data.oid,
-                        onSubmitted: () =>
-                            unawaited(_discussController.refreshFirstPage()),
+                    child: ColoredBox(
+                      color: context.genesisColors.pageBackground,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Container(
+                          padding: const EdgeInsets.only(top: 14, bottom: 14),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(
+                                color: context.genesisColors.foregroundStrong
+                                    .withValues(alpha: 0.14),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: DiscussPostInput(
+                            key: const ValueKey<String>(
+                              'discuss-page-post-input',
+                            ),
+                            bizId: data.oid,
+                            compact: true,
+                            showCurrentUserAvatar: true,
+                            onSubmitted: () => unawaited(
+                              _discussController.refreshFirstPage(),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -287,6 +297,92 @@ class _DiscussPageState extends State<DiscussPage> {
   }
 }
 
+class _DiscussPageAppBar extends StatelessWidget
+    implements PreferredSizeWidget {
+  const _DiscussPageAppBar({required this.controller});
+
+  final OriginDiscussListController controller;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(64);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final colors = context.genesisColors;
+        return AppBar(
+          toolbarHeight: preferredSize.height,
+          backgroundColor: colors.pageBackground,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          leadingWidth: 66,
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox.square(
+                key: const ValueKey<String>('discuss-page-back-button'),
+                dimension: 34,
+                child: IconButton(
+                  tooltip: 'Back',
+                  padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    backgroundColor: colors.foregroundStrong.withValues(
+                      alpha: 0.07,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                  ),
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 14,
+                    color: colors.foregroundStrong,
+                  ),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+            ),
+          ),
+          titleSpacing: 0,
+          title: Text(
+            'Comments',
+            key: const ValueKey<String>('discuss-page-title'),
+            style: TextStyle(
+              color: colors.foregroundStrong,
+              fontSize: 17,
+              height: 1,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          actions: [
+            if (controller.hasLoaded)
+              Padding(
+                padding: const EdgeInsets.only(right: 20),
+                child: Center(
+                  child: Text(
+                    '${controller.totalAll}',
+                    key: const ValueKey<String>('discuss-page-comment-count'),
+                    style: TextStyle(
+                      color: colors.foregroundStrong.withValues(alpha: 0.50),
+                      fontSize: 9.5,
+                      height: 1,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _DiscussPageLoadingSkeleton extends StatelessWidget {
   const _DiscussPageLoadingSkeleton();
 
@@ -296,21 +392,11 @@ class _DiscussPageLoadingSkeleton extends StatelessWidget {
       child: ListView(
         key: const ValueKey<String>('discuss-page-loading-skeleton'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
           const _DiscussOriginSummarySkeleton(),
-          Padding(
-            padding: EdgeInsets.only(top: 10, bottom: 16),
-            child: Divider(
-              height: 1,
-              thickness: 1,
-              color: context.genesisColors.surfaceSheet,
-            ),
-          ),
           const _DiscussCommentSkeleton(),
-          const SizedBox(height: 22),
           const _DiscussCommentSkeleton(),
-          const SizedBox(height: 22),
           const _DiscussCommentSkeleton(compact: true),
         ],
       ),
@@ -323,26 +409,25 @@ class _DiscussOriginSummarySkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _DiscussSkeletonBone(
-          width: 48,
-          height: 48,
-          borderRadius: GenesisImageRadii.contentValue,
-        ),
-        SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DiscussSkeletonBone(widthFactor: 0.48, height: 14),
-              SizedBox(height: 8),
-              _DiscussSkeletonBone(widthFactor: 0.86, height: 12),
-            ],
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _DiscussSkeletonBone(width: 44, height: 66, borderRadius: 9),
+          SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DiscussSkeletonBone(widthFactor: 0.48, height: 14),
+                SizedBox(height: 8),
+                _DiscussSkeletonBone(widthFactor: 0.86, height: 10),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -354,39 +439,48 @@ class _DiscussCommentSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _DiscussSkeletonBone(
-          width: 30,
-          height: 30,
-          borderRadius: GenesisAvatarRadii.user,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _DiscussSkeletonBone(widthFactor: 0.34, height: 12),
-              const SizedBox(height: 10),
-              const _DiscussSkeletonBone(widthFactor: 0.96, height: 10),
-              const SizedBox(height: 7),
-              _DiscussSkeletonBone(
-                widthFactor: compact ? 0.58 : 0.82,
-                height: 10,
-              ),
-              const SizedBox(height: 12),
-              const Row(
-                children: [
-                  _DiscussSkeletonBone(width: 42, height: 12),
-                  SizedBox(width: 16),
-                  _DiscussSkeletonBone(width: 46, height: 12),
-                ],
-              ),
-            ],
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: context.genesisColors.foregroundStrong.withValues(
+              alpha: 0.14,
+            ),
+            width: 1,
           ),
         ),
-      ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _DiscussSkeletonBone(width: 34, height: 34, borderRadius: 11),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _DiscussSkeletonBone(widthFactor: 0.34, height: 12),
+                const SizedBox(height: 10),
+                const _DiscussSkeletonBone(widthFactor: 0.96, height: 10),
+                const SizedBox(height: 7),
+                _DiscussSkeletonBone(
+                  widthFactor: compact ? 0.58 : 0.82,
+                  height: 10,
+                ),
+                const SizedBox(height: 12),
+                const Row(
+                  children: [
+                    _DiscussSkeletonBone(width: 42, height: 12),
+                    SizedBox(width: 16),
+                    _DiscussSkeletonBone(width: 46, height: 12),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -509,42 +603,55 @@ class _DiscussOriginSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final originator = formatUidForDisplay(origin.originator);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _OriginCover(url: origin.mapImage),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                originDisplayName(origin.name, fallback: origin.oid),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.2,
-                  fontWeight: FontWeight.w600,
-                  color: context.genesisDiscussColors.actionAccent,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _OriginCover(url: origin.mapImage),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '#${originDisplayName(origin.name, fallback: origin.oid)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.15,
+                    fontWeight: FontWeight.w800,
+                    color: context.genesisDiscussColors.actionAccent,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'OID: ${deletedAwareIdLabel(origin.oid, deleted: origin.deleted)}${originator.isEmpty ? '' : ' · Originator: ${origin.ownerDeleted ? deletedEntityDisplayText : originator}'}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.2,
-                  fontWeight: FontWeight.w400,
-                  color: context.genesisColors.textMuted,
+                const SizedBox(height: 5),
+                Text(
+                  'OID ${deletedAwareIdLabel(origin.oid, deleted: origin.deleted)}${originator.isEmpty ? '' : ' · Originator ${origin.ownerDeleted ? deletedEntityDisplayText : originator}'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    height: 1.3,
+                    fontWeight: FontWeight.w500,
+                    color: context.genesisColors.foregroundStrong.withValues(
+                      alpha: 0.62,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 14,
+            color: context.genesisColors.foregroundStrong.withValues(
+              alpha: 0.45,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -558,10 +665,11 @@ class _OriginCover extends StatelessWidget {
   Widget build(BuildContext context) {
     final imageUrl = resolveAssetUrl(url);
     return GenesisListImage(
+      key: const ValueKey<String>('discuss-page-origin-cover'),
       imageUrl: imageUrl,
-      width: 48,
-      height: 48,
-      borderRadius: GenesisImageRadii.content,
+      width: 44,
+      height: 66,
+      borderRadius: BorderRadius.circular(9),
     );
   }
 }

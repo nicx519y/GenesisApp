@@ -7,12 +7,22 @@ extension _MePageData on _MePageState {
         return const _MePageContent.signedOut();
       }
       _loadGeneration += 1;
-      _setOriginsState(const <UserProfileOriginItem>[], isLoading: false);
-      _setWorldsState(const <UserProfileWorldItem>[], isLoading: false);
+      _setOriginsState(
+        const <UserProfileOriginItem>[],
+        isLoading: false,
+        total: 0,
+      );
+      _setWorldsState(
+        const <UserProfileWorldItem>[],
+        isLoading: false,
+        total: 0,
+      );
       _setRecentChatMarker('', '');
       return const _MePageContent.signedOut();
     }
-    return _MePageContent.signedIn(await _loadProfileData());
+    return _MePageContent.signedIn(
+      await _loadProfileData(refreshAllCollections: true),
+    );
   }
 
   Future<void> _loadRecentChatMarker() async {
@@ -42,13 +52,19 @@ extension _MePageData on _MePageState {
   Future<UserProfileData> _loadProfileData({
     bool showCollectionLoading = true,
     int? refreshCollectionTabIndex = 0,
+    bool refreshAllCollections = false,
   }) async {
     final generation = _loadGeneration + 1;
     _loadGeneration = generation;
     final currentOrigins = _originsState.value.items;
     final currentWorlds = _worldsState.value.items;
-    if (refreshCollectionTabIndex != null && showCollectionLoading) {
-      _setCollectionLoading(refreshCollectionTabIndex, isLoading: true);
+    if (showCollectionLoading) {
+      if (refreshAllCollections) {
+        _setCollectionLoading(0, isLoading: true);
+        _setCollectionLoading(1, isLoading: true);
+      } else if (refreshCollectionTabIndex != null) {
+        _setCollectionLoading(refreshCollectionTabIndex, isLoading: true);
+      }
     }
     final services = AppServicesScope.read(context);
     final api = services.api;
@@ -87,17 +103,26 @@ extension _MePageData on _MePageState {
       fallbackUid: uid,
     );
 
-    if (refreshCollectionTabIndex != null && _isTabActive) {
-      unawaited(
-        _refreshCollectionTab(
-          refreshCollectionTabIndex,
-          generation: generation,
-          api: api,
-          uid: uid,
-          fallbackOrigins: currentOrigins,
-          fallbackWorlds: currentWorlds,
-        ),
-      );
+    if (_isTabActive) {
+      if (refreshAllCollections) {
+        unawaited(
+          _loadOrigins(generation, api, uid, fallbackItems: currentOrigins),
+        );
+        unawaited(
+          _loadWorlds(generation, api, uid, fallbackItems: currentWorlds),
+        );
+      } else if (refreshCollectionTabIndex != null) {
+        unawaited(
+          _refreshCollectionTab(
+            refreshCollectionTabIndex,
+            generation: generation,
+            api: api,
+            uid: uid,
+            fallbackOrigins: currentOrigins,
+            fallbackWorlds: currentWorlds,
+          ),
+        );
+      }
     }
 
     final data = UserProfileData(
@@ -150,6 +175,7 @@ extension _MePageData on _MePageState {
             .map(_profileOriginItemFromSummary)
             .toList(growable: false),
         isLoading: false,
+        total: originPage.total,
       );
     } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
@@ -227,7 +253,7 @@ extension _MePageData on _MePageState {
     required List<UserProfileWorldItem> fallbackItems,
   }) async {
     try {
-      final worlds = await api.getMyWorlds(
+      final worldPage = await api.getMyWorldsPage(
         uid: uid.trim().isEmpty ? null : uid,
         scene: 'mine',
         limit: 30,
@@ -235,8 +261,11 @@ extension _MePageData on _MePageState {
       );
       if (!mounted || generation != _loadGeneration) return;
       _setWorldsState(
-        worlds.map(_profileWorldItemFromSummary).toList(growable: false),
+        worldPage.data
+            .map(_profileWorldItemFromSummary)
+            .toList(growable: false),
         isLoading: false,
+        total: worldPage.total,
       );
     } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
@@ -299,32 +328,40 @@ extension _MePageData on _MePageState {
   void _setOriginsState(
     List<UserProfileOriginItem> items, {
     required bool isLoading,
+    int? total,
   }) {
     if (!_canUpdateAsyncState) return;
     final current = _originsState.value;
+    final nextTotal = total ?? current.total;
     if (current.isLoading == isLoading &&
+        current.total == nextTotal &&
         _sameOriginItems(current.items, items)) {
       return;
     }
     _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
       items: items,
       isLoading: isLoading,
+      total: nextTotal,
     );
   }
 
   void _setWorldsState(
     List<UserProfileWorldItem> items, {
     required bool isLoading,
+    int? total,
   }) {
     if (!_canUpdateAsyncState) return;
     final current = _worldsState.value;
+    final nextTotal = total ?? current.total;
     if (current.isLoading == isLoading &&
+        current.total == nextTotal &&
         _sameWorldItems(current.items, items)) {
       return;
     }
     _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
       items: items,
       isLoading: isLoading,
+      total: nextTotal,
     );
   }
 
@@ -416,6 +453,7 @@ extension _MePageData on _MePageState {
             .map(_profileOriginItemFromSummary)
             .toList(growable: false),
         isLoading: false,
+        total: originPage.total,
       );
     } catch (_) {
       if (!mounted) return;
@@ -430,7 +468,7 @@ extension _MePageData on _MePageState {
     final current = _worldsState.value;
     _setWorldsState(current.items, isLoading: true);
     try {
-      final worlds = await services.api.getMyWorlds(
+      final worldPage = await services.api.getMyWorldsPage(
         uid: uid.isEmpty ? null : uid,
         scene: 'mine',
         limit: 30,
@@ -438,8 +476,11 @@ extension _MePageData on _MePageState {
       );
       if (!mounted) return;
       _setWorldsState(
-        worlds.map(_profileWorldItemFromSummary).toList(growable: false),
+        worldPage.data
+            .map(_profileWorldItemFromSummary)
+            .toList(growable: false),
         isLoading: false,
+        total: worldPage.total,
       );
     } catch (_) {
       if (!mounted) return;

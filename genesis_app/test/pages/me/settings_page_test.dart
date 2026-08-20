@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
@@ -26,10 +27,35 @@ void main() {
   ) async {
     addTearDown(() {
       tester.view.viewInsets = FakeViewPadding.zero;
+      tester.view.viewPadding = FakeViewPadding.zero;
     });
 
     final transport = _RecordingFeedbackTransport();
-    final services = _feedbackTestServices(transport);
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_settings_test');
+    final services = _feedbackTestServices(
+      transport,
+      sessionStore: sessionStore,
+    );
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      GenesisMethodChannels.device,
+      (call) async {
+        if (call.method == GenesisMethodChannels.getAppVersion) {
+          return <String, Object?>{
+            'versionName': '1.4.2',
+            'versionCode': '42',
+            'packageName': 'com.worldo.ai',
+          };
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        GenesisMethodChannels.device,
+        null,
+      );
+    });
 
     await tester.pumpWidget(
       AppServicesScope(
@@ -44,6 +70,54 @@ void main() {
     expect(find.text('Join Discord'), findsOneWidget);
     expect(find.text('Feedback'), findsOneWidget);
     expect(find.text('Delete account'), findsNothing);
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('settings-back-button'))),
+      const Size.square(34),
+    );
+    final title = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('settings-debug-title-unlock-area'),
+        ),
+        matching: find.text('Settings'),
+      ),
+    );
+    expect(title.style?.fontSize, 17);
+    expect(title.style?.height, 1);
+    expect(title.style?.fontWeight, FontWeight.w800);
+
+    final aboutUs = tester.widget<Text>(find.text('About us'));
+    expect(aboutUs.style?.fontSize, 14);
+    expect(aboutUs.style?.height, 1);
+    expect(aboutUs.style?.fontWeight, FontWeight.w600);
+
+    final discordIcon = tester.widget<SvgPicture>(
+      find.byKey(const ValueKey<String>('settings-discord-icon')),
+    );
+    expect(discordIcon.width, 12);
+    expect(discordIcon.height, 12);
+
+    final logoutButton = find.widgetWithText(GenesisPrimaryButton, 'Log out');
+    expect(tester.getSize(logoutButton).height, 46);
+    expect(
+      tester.getSize(logoutButton).width,
+      tester.view.physicalSize.width / tester.view.devicePixelRatio - 44,
+    );
+    final footerMeta = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('settings-version-uid')),
+    );
+    expect(footerMeta.data, 'v1.4.2 · u_settings_test');
+    expect(footerMeta.style?.fontSize, 9.5);
+    expect(footerMeta.style?.fontWeight, FontWeight.w500);
+    expect(
+      tester
+          .getBottomLeft(
+            find.byKey(const ValueKey<String>('settings-version-uid')),
+          )
+          .dy,
+      tester.view.physicalSize.height / tester.view.devicePixelRatio - 34,
+    );
     expect(
       tester.getTopLeft(find.text('Account')).dy,
       greaterThan(tester.getTopLeft(find.text('About us')).dy),
@@ -171,18 +245,21 @@ void main() {
   });
 }
 
-AppServices _feedbackTestServices(_RecordingFeedbackTransport transport) {
+AppServices _feedbackTestServices(
+  _RecordingFeedbackTransport transport, {
+  MemoryUserSessionStore? sessionStore,
+}) {
   const config = AppConfig(useMock: false);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
   final deviceId = const _FakeDeviceIdService();
-  final sessionStore = MemoryUserSessionStore();
+  final effectiveSessionStore = sessionStore ?? MemoryUserSessionStore();
   final identityAuth = const _FakeIdentityAuthService();
   final api = GenesisApi(
     useMock: false,
     transport: transport,
     platformConfig: platformConfig,
     deviceIdService: deviceId,
-    sessionStore: sessionStore,
+    sessionStore: effectiveSessionStore,
     identityAuthService: identityAuth,
     appHeaderProvider: () async => const <String, String>{
       'app-id': 'test-app',
@@ -195,23 +272,23 @@ AppServices _feedbackTestServices(_RecordingFeedbackTransport transport) {
     config: config,
     platformConfig: platformConfig,
     deviceId: deviceId,
-    sessionStore: sessionStore,
+    sessionStore: effectiveSessionStore,
     identityAuth: identityAuth,
     backendAuth: const _FakeBackendAuthCoordinator(),
     api: api,
     chatroom: ChatroomClient(
       wsBaseUrl: config.chatroomWsBaseUrl,
-      sessionStore: sessionStore,
+      sessionStore: effectiveSessionStore,
     ),
     chatroomMessages: MemoryChatroomMessageStorage(),
     directMessageConversations: DirectMessageConversationStore(
       api: api,
-      sessionStore: sessionStore,
+      sessionStore: effectiveSessionStore,
       storage: MemoryDirectMessageConversationStorage(),
     ),
     directMessageMessages: DirectMessageMessageStore(
       api: api,
-      sessionStore: sessionStore,
+      sessionStore: effectiveSessionStore,
       storage: MemoryDirectMessageMessageStorage(),
     ),
     appVersionCheck: const _NoUpgradeVersionCheckService(),

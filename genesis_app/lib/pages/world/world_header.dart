@@ -1,20 +1,19 @@
 // ignore_for_file: use_key_in_widget_constructors
 
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:ui';
 
-import '../../components/origin/stat_item.dart';
-import '../../components/world/genesis_world_theme.dart';
+import 'package:flutter/material.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
+import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
-import '../../utils/stat_count_formatter.dart';
 import 'world_constants.dart';
 import 'world_models.dart';
+import 'world_value_helpers.dart';
 
 class WorldMapBackButton extends StatelessWidget {
   const WorldMapBackButton({required this.onPressed});
@@ -23,21 +22,26 @@ class WorldMapBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: worldMapTabsHeight,
-      height: worldMapTabsHeight,
-      decoration: BoxDecoration(
-        color: context.genesisColors.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: IconButton(
-        iconSize: 18,
-        onPressed: onPressed,
-        icon: Icon(
-          Icons.arrow_back_ios_new,
-          color: context.genesisColors.foregroundStrong,
+    final colors = context.genesisColors;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(11),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Material(
+          color: colors.surface.withValues(alpha: 0.5),
+          child: InkWell(
+            key: const ValueKey<String>('world-map-back-button'),
+            onTap: onPressed,
+            child: SizedBox.square(
+              dimension: worldMapHeaderButtonSize,
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                size: 14,
+                color: colors.foregroundStrong,
+              ),
+            ),
+          ),
         ),
-        padding: EdgeInsets.zero,
       ),
     );
   }
@@ -46,148 +50,82 @@ class WorldMapBackButton extends StatelessWidget {
 class WorldMapIdentityPill extends StatelessWidget {
   const WorldMapIdentityPill({
     required this.title,
-    required this.timeText,
+    required this.statusText,
     required this.maxWidth,
   });
 
   final String title;
-  final String timeText;
+  final String statusText;
   final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        minWidth: worldTimePillMinWidth,
-        maxWidth: maxWidth,
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: context.genesisColors.surface.withValues(alpha: 0.86),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            worldTimePillHorizontalPadding,
-            title.isEmpty ? 0 : 7,
-            worldTimePillHorizontalPadding,
-            7,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (title.isNotEmpty)
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: context.genesisColors.accentText,
-                    fontSize: 16,
-                    height: 1.1,
-                    leadingDistribution: TextLeadingDistribution.even,
-                    fontWeight: FontWeight.w600,
-                  ),
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title.isNotEmpty)
+              Text(
+                title,
+                key: const ValueKey<String>('world-map-title'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: context.genesisColors.foregroundStrong,
+                  fontSize: 17,
+                  height: 1.1,
+                  fontWeight: FontWeight.w800,
+                  shadows: const [
+                    Shadow(
+                      color: Color(0x99000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
                 ),
-              if (title.isNotEmpty && timeText.isNotEmpty) SizedBox(height: 3),
-              if (timeText.isNotEmpty) _WorldMapTimeLabel(text: timeText),
-            ],
-          ),
+              ),
+            if (title.isNotEmpty && statusText.isNotEmpty)
+              const SizedBox(height: 5),
+            if (statusText.isNotEmpty)
+              Text(
+                statusText,
+                key: const ValueKey<String>('world-map-status'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: context.genesisColors.foregroundStrong.withValues(
+                    alpha: 0.78,
+                  ),
+                  fontSize: 9.5,
+                  height: 1.3,
+                  fontWeight: FontWeight.w500,
+                  shadows: const [
+                    Shadow(
+                      color: Color(0xB3000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _WorldMapTimeLabel extends StatelessWidget {
-  const _WorldMapTimeLabel({required this.text});
-
-  static const _textStyle = TextStyle(
-    fontSize: 12,
-    height: 1,
-    leadingDistribution: TextLeadingDistribution.even,
-    fontWeight: FontWeight.w400,
-  );
-  static const _strutStyle = StrutStyle(
-    fontSize: 12,
-    height: 1,
-    forceStrutHeight: true,
-  );
-  static const _textHeightBehavior = TextHeightBehavior(
-    applyHeightToFirstAscent: false,
-    applyHeightToLastDescent: false,
-  );
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = _splitWorldMapTimeLabel(text);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (parts.tick.isNotEmpty) ...[
-          Text(
-            parts.tick,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: _textStyle.copyWith(
-              color: context.genesisColors.textPrimary,
-            ),
-            strutStyle: _strutStyle,
-            textHeightBehavior: _textHeightBehavior,
-          ),
-          if (parts.time.isNotEmpty)
-            Text(
-              ' · ',
-              style: _textStyle.copyWith(
-                color: context.genesisColors.textPrimary,
-              ),
-              strutStyle: _strutStyle,
-            ),
-        ],
-        if (parts.time.isNotEmpty) ...[
-          Icon(
-            Icons.schedule,
-            size: 12,
-            color: context.genesisColors.textPrimary,
-          ),
-          SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              parts.time,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: _textStyle.copyWith(
-                color: context.genesisColors.textPrimary,
-              ),
-              strutStyle: _strutStyle,
-              textHeightBehavior: _textHeightBehavior,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-({String tick, String time}) _splitWorldMapTimeLabel(String text) {
-  final trimmed = text.trim();
-  if (trimmed.isEmpty) return (tick: '', time: '');
-  final separatorIndex = trimmed.indexOf(' · ');
-  if (separatorIndex <= 0) {
-    return trimmed.startsWith('Tick ')
-        ? (tick: trimmed, time: '')
-        : (tick: '', time: trimmed);
-  }
-  final tick = trimmed.substring(0, separatorIndex).trim();
-  final time = trimmed.substring(separatorIndex + 3).trim();
-  if (!tick.startsWith('Tick ')) return (tick: '', time: trimmed);
-  return (tick: tick, time: time);
+String worldMapStatusLabel({
+  required String relationStatus,
+  required String timeText,
+}) {
+  if (!shouldConnectWorldChatroom(relationStatus)) return 'Not started';
+  final resolvedTimeText = timeText.trim();
+  return resolvedTimeText.isEmpty ? 'Started' : resolvedTimeText;
 }
 
 String worldTimeLabel({
@@ -209,12 +147,14 @@ String worldTimeLabel({
 class WorldFeedContent extends StatelessWidget {
   const WorldFeedContent({
     required this.world,
+    required this.currentUid,
     required this.worldActionRunning,
     required this.onWorldAction,
     required this.onPullUp,
   });
 
   final WorldDetail world;
+  final String currentUid;
   final bool worldActionRunning;
   final Future<void> Function(WorldHeaderActionKind action) onWorldAction;
   final VoidCallback onPullUp;
@@ -231,12 +171,14 @@ class WorldFeedContent extends StatelessWidget {
               height: worldInfoHeaderHeight,
               child: WorldInfoHeader(
                 world: world,
+                currentUid: currentUid,
                 worldActionRunning: worldActionRunning,
                 onWorldAction: onWorldAction,
               ),
             ),
           ),
         ),
+        const SliverToBoxAdapter(child: SizedBox(height: worldMainTabsHeight)),
       ],
     );
   }
@@ -313,11 +255,13 @@ class WorldKeepAlivePageState extends State<WorldKeepAlivePage>
 class WorldInfoHeader extends StatelessWidget {
   const WorldInfoHeader({
     required this.world,
+    required this.currentUid,
     required this.worldActionRunning,
     required this.onWorldAction,
   });
 
   final WorldDetail world;
+  final String currentUid;
   final bool worldActionRunning;
   final Future<void> Function(WorldHeaderActionKind action) onWorldAction;
 
@@ -331,114 +275,147 @@ class WorldInfoHeader extends StatelessWidget {
         !world.deleted;
     final actionEnabled =
         !world.deleted && !worldActionRunning && action.isClickable;
-    final counters = <Map<String, dynamic>>[
-      {'icon': 'tick', 'value': world.tickCount},
-      {'icon': 'connect', 'value': world.connectCount},
-      {'icon': 'character', 'value': world.characterCount},
-      {'icon': 'player', 'value': world.playerCount},
-    ];
+    final currentCharacter = _currentPlayerCharacter(world, currentUid);
+    final characterName = worldMapString(
+      currentCharacter ?? const <String, dynamic>{},
+      const ['name'],
+      fallback: 'Your role',
+    );
+    final avatarUrl = worldMapString(
+      currentCharacter ?? const <String, dynamic>{},
+      const ['avatar'],
+    );
+    final tickLabel = world.tickCount < 0
+        ? ''
+        : 'Tick ${world.tickCount}${world.subTickNo > 0 ? '-${world.subTickNo}' : ''}';
+    final actionLabel = action.kind == WorldHeaderActionKind.progress
+        ? 'Tick now'
+        : action.label;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: worldInfoHeaderHeight,
-          child: Align(
-            alignment: Alignment.center,
-            child: SizedBox(
-              height: worldInfoHeaderContentHeight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Wrap(
-                      spacing: 16,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        for (final data in counters)
-                          StatItem(
-                            icon: worldCounterIcon(
-                              data['icon'] as String? ?? '',
-                            ),
-                            iconAsset: worldCounterIconAsset(
-                              data['icon'] as String? ?? '',
-                            ),
-                            preserveIconAssetColor:
-                                worldCounterIconAssetPreservesColor(
-                                  data['icon'] as String? ?? '',
-                                ),
-                            iconSize: 14,
-                            iconColor: context.genesisColors.foregroundStrong,
-                            text: formatStatCount(
-                              data['value'] is num ? data['value'] as num : 0,
-                            ),
-                            gap: 4,
-                            textStyle: TextStyle(
-                              fontSize: 14,
-                              height: 1,
-                              fontWeight: FontWeight.w400,
-                              color: context.genesisColors.foregroundStrong,
-                            ),
-                          ),
-                      ],
-                    ),
+          height: worldInfoHeaderHeight - 1,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 13),
+            child: Row(
+              children: [
+                Container(
+                  key: const ValueKey<String>('world-playing-avatar'),
+                  width: 40,
+                  height: 40,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: context.genesisColors.danger,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  SizedBox(width: 18),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: canTapRunningProgress
-                        ? () => onWorldAction(action.kind)
-                        : null,
-                    child: AbsorbPointer(
-                      absorbing: canTapRunningProgress,
-                      child: GenesisPrimaryButton(
-                        label: action.label,
-                        leadingIcon:
-                            action.kind == WorldHeaderActionKind.progress
-                            ? SvgPicture.asset(
-                                tickStatIconAsset,
-                                key: const ValueKey<String>(
-                                  'world-progress-button-icon',
-                                ),
-                                width: 12,
-                                height: 12,
-                                colorFilter: ColorFilter.mode(
-                                  context.genesisColors.onPrimary,
-                                  BlendMode.srcIn,
-                                ),
-                              )
-                            : null,
-                        iconGap: 6,
-                        onPressed: actionEnabled
-                            ? () => onWorldAction(action.kind)
-                            : null,
-                        height: 35,
-                        width: 140,
-                        backgroundColor: context.genesisWorldColors.success,
-                        disabledBackgroundColor: context
-                            .genesisWorldColors
-                            .success
-                            .withValues(alpha: 0.62),
-                        foregroundColor: context.genesisColors.onPrimary,
-                        fontSize: 16,
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        isLoading: worldActionRunning,
-                        loadingSize: 18,
-                        loadingStrokeWidth: 2,
+                  child: GenesisAvatar(
+                    name: characterName,
+                    url: avatarUrl,
+                    size: 36,
+                    borderRadius: 10,
+                    alignment: Alignment.topCenter,
+                    showFallbackWhileLoading: false,
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Playing $characterName',
+                        key: const ValueKey<String>('world-playing-label'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: context.genesisColors.foregroundStrong,
+                          fontSize: 13,
+                          height: 1.15,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
+                      if (tickLabel.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          tickLabel,
+                          key: const ValueKey<String>('world-playing-tick'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: context.genesisColors.textSecondary,
+                            fontSize: 9.5,
+                            height: 1,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: canTapRunningProgress
+                      ? () => onWorldAction(action.kind)
+                      : null,
+                  child: AbsorbPointer(
+                    absorbing: canTapRunningProgress,
+                    child: GenesisPrimaryButton(
+                      key: const ValueKey<String>('world-action-button'),
+                      label: actionLabel,
+                      onPressed: actionEnabled
+                          ? () => onWorldAction(action.kind)
+                          : null,
+                      height: worldInfoHeaderContentHeight,
+                      width: 92,
+                      borderRadius: BorderRadius.circular(13),
+                      backgroundColor: context.genesisColors.danger,
+                      disabledBackgroundColor: context.genesisColors.danger
+                          .withValues(alpha: 0.62),
+                      foregroundColor: context.genesisColors.onDanger,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      isLoading: worldActionRunning,
+                      loadingSize: 18,
+                      loadingStrokeWidth: 2,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: context.genesisColors.dividerAction,
           ),
         ),
       ],
     );
   }
+}
+
+Map<String, dynamic>? _currentPlayerCharacter(
+  WorldDetail world,
+  String currentUid,
+) {
+  final resolvedUid = currentUid.trim();
+  if (resolvedUid.isEmpty) return null;
+  for (final character in world.characters) {
+    if (worldMapString(character, const ['player_uid']).trim() == resolvedUid) {
+      return character;
+    }
+  }
+  return null;
 }
 
 double worldCollapsedPanelHeightFor(BuildContext context) {
@@ -456,7 +433,7 @@ String worldOwnerDisplayName(WorldDetail world) {
 }
 
 double worldBottomSafeAreaOf(BuildContext context) {
-  return GenesisSafeAreaInsets.bottom(context);
+  return GenesisSafeAreaInsets.bottom(context, minimum: 24);
 }
 
 IconData? worldCounterIcon(String key) {

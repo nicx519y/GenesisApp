@@ -16,6 +16,7 @@ const double _loginProviderIconSlotSize = 36;
 const double _googleProviderIconSize = 22;
 const double _appleProviderIconSize = 22;
 const double _loginProviderSpinnerSize = 22;
+const double _loginProviderContentWidth = 220;
 
 class LoginProviderButtons extends StatelessWidget {
   const LoginProviderButtons({
@@ -185,36 +186,43 @@ class LoginProviderButton extends StatelessWidget {
         child: Center(
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox.square(
-                  dimension: _loginProviderIconSlotSize,
-                  child: Center(
-                    child: isLoading
-                        ? SizedBox.square(
-                            dimension: _loginProviderSpinnerSize,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: foregroundColor.withValues(alpha: 0.75),
-                            ),
-                          )
-                        : LoginProviderIcon(provider: provider),
+            child: SizedBox(
+              width: _loginProviderContentWidth,
+              child: Row(
+                children: [
+                  SizedBox.square(
+                    key: ValueKey<String>(
+                      'login-provider-icon-slot-${provider.name}',
+                    ),
+                    dimension: _loginProviderIconSlotSize,
+                    child: Center(
+                      child: isLoading
+                          ? SizedBox.square(
+                              dimension: _loginProviderSpinnerSize,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: foregroundColor.withValues(alpha: 0.75),
+                              ),
+                            )
+                          : LoginProviderIcon(provider: provider),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  label,
-                  maxLines: 1,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    height: 1.1,
-                    color: foregroundColor,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      textAlign: TextAlign.left,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        height: 1.1,
+                        color: foregroundColor,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

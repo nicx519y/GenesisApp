@@ -21,7 +21,6 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/gems/memory_model_entry_button.dart';
-import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_message_type.dart';
 import '../../network/chatroom/chatroom_models.dart';
@@ -35,7 +34,6 @@ import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_static_network_image.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';
@@ -66,9 +64,6 @@ const double _locationChatEdgeSwipeTriggerVelocity = 450;
 const int _locationChatMessageGapMaxAttempts = 3;
 const double _locationChatOlderMessagesTriggerExtent = 180;
 const Duration _locationChatOlderMessagesIdleDelay = Duration(milliseconds: 80);
-const String _locationChatDefaultBackgroundAsset =
-    'assets/images/map_default/location_default.webp';
-
 @visibleForTesting
 Future<void> runLocationChatMetadataUpdateBestEffort(
   Future<void> Function() update,
@@ -368,6 +363,26 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _initialContentReadyNotified = false;
   Future<void>? _initialLatestMessagesRefresh;
   final Set<String> _unseenIncomingMessageLocalIds = <String>{};
+
+  void _insertAsteriskShortcut() {
+    final value = _textController.value;
+    final selection = value.selection;
+    final textLength = value.text.length;
+    final hasUsableSelection =
+        selection.isValid &&
+        selection.start <= textLength &&
+        selection.end <= textLength;
+    final start = hasUsableSelection ? selection.start : textLength;
+    final end = hasUsableSelection ? selection.end : textLength;
+    final updatedText = value.text.replaceRange(start, end, '*');
+
+    _textController.value = TextEditingValue(
+      text: updatedText,
+      selection: TextSelection.collapsed(offset: start + 1),
+    );
+    _composerFocusNode.requestFocus();
+  }
+
   int get _unseenIncomingCount => _unseenIncomingMessageLocalIds.length;
   int _clientMsgCounter = 0;
   final Set<String> _messageGapFillKeys = <String>{};
@@ -617,12 +632,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       baseStyle: widget.style ?? context.genesisChatTheme.locationChat,
       settings: locationChatHeaderEffectSettings.value,
     );
-    final style = baseStyle.copyWith(
-      headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
-        fontSize: 12,
-      ),
-      headerStatusIconSize: 12,
-    );
+    final style = baseStyle;
     final replacementComposer = widget.composerReplacement;
     final composer = replacementComposer == null
         ? ChatComposer(
@@ -638,51 +648,71 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                 !inputBlocked,
             sending: false,
             onSend: _send,
-            sendLabel: 'Send',
+            sendIcon: ChatComposerSendIcon.arrowUp,
             style: style,
+            leadingShortcutLabel: '*',
+            onLeadingShortcutPressed: widget.active
+                ? _insertAsteriskShortcut
+                : null,
             onHeightChanged: _handleComposerHeightChanged,
           )
         : _LocationChatMeasuredComposer(
             onHeightChanged: _handleComposerHeightChanged,
             child: replacementComposer,
           );
-    final header = ChatHeader(
-      title: '$title (${realUsers.length})',
-      subtitle: subtitle,
-      connected: joined,
-      connecting: connecting,
-      subtitleIconAsset: locationChatCharacterIconAsset,
-      alignContentLeft: true,
-      onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-      showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
-      showMoreButton: widget.showMoreButton,
-      trailing: _retainModelEntryInHeader
-          ? ExcludeSemantics(
-              excluding: !widget.active,
-              child: IgnorePointer(
-                ignoring: !widget.active,
-                child: MemoryModelEntryButton(
-                  modelLabel: _selectedModelCode.isEmpty
-                      ? 'Model'
-                      : _selectedModelCode,
-                  darkHeader: true,
-                  compact: true,
-                  onTap: () => unawaited(_openMemoryModelPage()),
+    final dividerColor =
+        (style.headerTitleTextStyle.color ?? style.headerTitleIconColor)
+            .withValues(alpha: 0.14);
+    final header = DecoratedBox(
+      key: const ValueKey<String>('location-chat-header-divider'),
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: dividerColor)),
+      ),
+      child: ChatHeader(
+        title: title,
+        titleSuffix: '(${realUsers.length})',
+        titleSuffixStyle: style.headerTitleTextStyle.copyWith(
+          color:
+              (style.headerTitleTextStyle.color ?? style.headerTitleIconColor)
+                  .withValues(alpha: 0.5),
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          height: 1,
+        ),
+        subtitle: subtitle,
+        connected: joined,
+        connecting: connecting,
+        alignContentLeft: true,
+        showTitleIcon: false,
+        showSubtitleIcon: false,
+        onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
+        showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
+        showMoreButton: widget.showMoreButton,
+        backButtonVariant: ChatHeaderBackButtonVariant.compactGlass,
+        trailing: _retainModelEntryInHeader
+            ? Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: ExcludeSemantics(
+                  excluding: !widget.active,
+                  child: IgnorePointer(
+                    ignoring: !widget.active,
+                    child: MemoryModelEntryButton(
+                      modelLabel: _selectedModelCode.isEmpty
+                          ? 'Model'
+                          : _selectedModelCode,
+                      variant: MemoryModelEntryButtonVariant.roomHeader,
+                      onTap: () => unawaited(_openMemoryModelPage()),
+                    ),
+                  ),
                 ),
-              ),
-            )
-          : null,
-      style: style,
+              )
+            : null,
+        style: style,
+      ),
     );
     final headerHeight = _locationChatHeaderHeight(style);
     final composerHeight = _locationChatComposerHeight(style);
-    final listStyle = style.copyWith(
-      messageListPadding: _locationChatMessageListPadding(
-        style,
-        headerHeight: headerHeight,
-        composerHeight: composerHeight,
-      ),
-    );
     final displayMessages = _locationChatDisplayMessages();
     final managesKeyboardInset = locationChatManagesKeyboardInsetForTesting(
       platform: Theme.of(context).platform,
@@ -711,7 +741,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             },
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       showDateDividers: false,
-      style: listStyle,
+      style: style,
     );
 
     return GenesisBottomSystemBarStyleScope(
@@ -739,6 +769,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   ),
                   managesKeyboardInset: managesKeyboardInset,
                   bottomSafeAreaInset: bottomSafeAreaInset,
+                  messageTopExtent: headerHeight,
+                  messageBottomExtent: composerHeight,
                   shouldFollowLatest: () =>
                       _scrollCoordinator.shouldFollowLatest,
                   onKeyboardMotionTraceSettled: kDebugMode
@@ -769,7 +801,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                         Positioned(
                           left: 0,
                           right: 0,
-                          bottom: composerHeight + 12,
+                          bottom: 12,
                           child: Center(
                             child: _LocationChatNewMessageNotice(
                               count: _unseenIncomingCount,
@@ -783,7 +815,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   composer: RepaintBoundary(
                     child: _LocationChatComposerExtension(
                       style: style,
-                      child: composer,
+                      child: DecoratedBox(
+                        key: const ValueKey<String>(
+                          'location-chat-composer-divider',
+                        ),
+                        position: DecorationPosition.foreground,
+                        decoration: BoxDecoration(
+                          border: Border(top: BorderSide(color: dividerColor)),
+                        ),
+                        child: composer,
+                      ),
                     ),
                   ),
                 ),
@@ -821,6 +862,8 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
     super.key,
     required this.managesKeyboardInset,
     required this.bottomSafeAreaInset,
+    required this.messageTopExtent,
+    required this.messageBottomExtent,
     required this.shouldFollowLatest,
     this.onKeyboardMotionTraceSettled,
     required this.messageViewport,
@@ -830,6 +873,8 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
 
   final bool managesKeyboardInset;
   final double bottomSafeAreaInset;
+  final double messageTopExtent;
+  final double messageBottomExtent;
   final ValueGetter<bool> shouldFollowLatest;
   final ValueChanged<List<Map<String, Object?>>>? onKeyboardMotionTraceSettled;
   final Widget messageViewport;
@@ -998,13 +1043,20 @@ class _LocationChatKeyboardInsetLayoutState
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(
-          bottom: layoutKeyboardInset,
-          child: Transform.translate(
-            key: const ValueKey<String>(
-              'location-chat-message-keyboard-transform',
+          top: widget.messageTopExtent,
+          bottom: widget.messageBottomExtent + layoutKeyboardInset,
+          child: ClipRect(
+            key: const ValueKey<String>('location-chat-message-viewport-clip'),
+            clipper: _LocationChatMessageViewportClipper(
+              bottomInset: math.max(0, liveKeyboardInset - layoutKeyboardInset),
             ),
-            offset: Offset(0, messageTranslation),
-            child: RepaintBoundary(child: widget.messageViewport),
+            child: Transform.translate(
+              key: const ValueKey<String>(
+                'location-chat-message-keyboard-transform',
+              ),
+              offset: Offset(0, messageTranslation),
+              child: RepaintBoundary(child: widget.messageViewport),
+            ),
           ),
         ),
         Positioned(left: 0, right: 0, top: 0, child: widget.header),
@@ -1022,5 +1074,26 @@ class _LocationChatKeyboardInsetLayoutState
         ),
       ],
     );
+  }
+}
+
+class _LocationChatMessageViewportClipper extends CustomClipper<Rect> {
+  const _LocationChatMessageViewportClipper({required this.bottomInset});
+
+  final double bottomInset;
+
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTWH(
+      0,
+      0,
+      size.width,
+      math.max(0, size.height - bottomInset),
+    );
+  }
+
+  @override
+  bool shouldReclip(_LocationChatMessageViewportClipper oldClipper) {
+    return oldClipper.bottomInset != bottomInset;
   }
 }
