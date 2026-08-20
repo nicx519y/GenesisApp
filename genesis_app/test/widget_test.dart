@@ -115,6 +115,8 @@ import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
+import 'package:genesis_flutter_android/platform/app/app_metadata_service.dart';
+import 'package:genesis_flutter_android/platform/app/app_version_override_store.dart';
 import 'package:genesis_flutter_android/platform/app/external_url_opener.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
@@ -17927,6 +17929,93 @@ void main() {
     );
   });
 
+  testWidgets('developer page saves and resets runtime version overrides', (
+    WidgetTester tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      GenesisMethodChannels.device,
+      (call) async {
+        if (call.method == GenesisMethodChannels.getAppVersion) {
+          return {
+            'versionName': '0.4.1',
+            'versionCode': 5,
+            'packageName': 'com.worldo.ai',
+          };
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        GenesisMethodChannels.device,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final infoScrollable = find
+        .descendant(
+          of: find.byKey(
+            const PageStorageKey<String>('developer-info-tab-scroll'),
+          ),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final saveButton = find.byKey(
+      const ValueKey<String>('developer-version-save'),
+    );
+    await tester.scrollUntilVisible(
+      saveButton,
+      300,
+      scrollable: infoScrollable,
+    );
+
+    final versionNameField = find.descendant(
+      of: find.byKey(const ValueKey<String>('developer-version-name-field')),
+      matching: find.byType(TextField),
+    );
+    final versionCodeField = find.descendant(
+      of: find.byKey(const ValueKey<String>('developer-version-code-field')),
+      matching: find.byType(TextField),
+    );
+    expect(
+      tester.widget<TextField>(versionNameField).controller?.text,
+      '0.4.1',
+    );
+    expect(tester.widget<TextField>(versionCodeField).controller?.text, '5');
+
+    await tester.enterText(versionNameField, '0.3.7');
+    await tester.enterText(versionCodeField, '37');
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    final overridden = await AppMetadataService.appVersion();
+    expect(overridden.versionName, '0.3.7');
+    expect(overridden.versionCode, '37');
+    expect(find.text('Active'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('developer-version-reset')),
+    );
+    await tester.pumpAndSettle();
+
+    final restored = await AppMetadataService.appVersion();
+    expect(restored.versionName, '0.4.1');
+    expect(restored.versionCode, '5');
+    expect((await AppVersionOverrideStore.load()).hasAny, isFalse);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('developer page controls the Tilemap settings button', (
     WidgetTester tester,
   ) async {
@@ -18466,12 +18555,14 @@ void main() {
       find.ancestor(of: requestContent, matching: find.byType(SelectionArea)),
       findsOneWidget,
     );
-    final networkList = find.descendant(
-      of: find.byKey(
-        const PageStorageKey<String>('developer-network-tab-scroll'),
-      ),
-      matching: find.byType(Scrollable),
-    ).first;
+    final networkList = find
+        .descendant(
+          of: find.byKey(
+            const PageStorageKey<String>('developer-network-tab-scroll'),
+          ),
+          matching: find.byType(Scrollable),
+        )
+        .first;
     final scrollPosition = tester.state<ScrollableState>(networkList).position;
     expect(scrollPosition.maxScrollExtent, greaterThan(0));
     final gesture = await tester.startGesture(

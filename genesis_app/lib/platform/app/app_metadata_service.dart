@@ -1,4 +1,5 @@
 import '../channels/genesis_method_channels.dart';
+import 'app_version_override_store.dart';
 
 class AppMetadataService {
   const AppMetadataService._();
@@ -16,6 +17,16 @@ class AppMetadataService {
   }
 
   static Future<AppVersionInfo> appVersion() async {
+    final buildVersion = await buildAppVersion();
+    final overrides = await AppVersionOverrideStore.load();
+    return AppVersionInfo(
+      versionName: overrides.versionName ?? buildVersion.versionName,
+      versionCode: overrides.versionCode ?? buildVersion.versionCode,
+      packageName: buildVersion.packageName,
+    );
+  }
+
+  static Future<AppVersionInfo> buildAppVersion() async {
     try {
       final value = await GenesisMethodChannels.device
           .invokeMapMethod<String, Object?>(
