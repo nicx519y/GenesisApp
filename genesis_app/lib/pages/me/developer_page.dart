@@ -32,6 +32,7 @@ import '../../network/models/gem_wallet.dart';
 import '../../network/network_capture.dart';
 import '../../network/websocket_capture.dart';
 import '../../platform/app/app_metadata_service.dart';
+import '../../platform/app/app_version_override_store.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
@@ -40,6 +41,7 @@ import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
 
 part 'developer_endpoint_actions.dart';
+part 'developer_version_actions.dart';
 part 'developer_previews.dart';
 part 'developer_components.dart';
 part 'developer_capture_components.dart';
@@ -168,11 +170,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       AppEndpointOverrideStore.displayDomain(GenesisApi.defaultApiBaseUrl);
 
   late final Future<DeviceIdDiagnostics> _deviceIdDiagnosticsFuture;
-  late final Future<AppVersionInfo> _appVersionFuture;
+  late Future<AppVersionInfo> _appVersionFuture;
+  late final Future<AppVersionInfo> _buildAppVersionFuture;
   late final Future<_DeveloperAccountIdentity> _accountIdentityFuture;
   late final TextEditingController _apiBaseUrlController;
   late final TextEditingController _gatewayApiBaseUrlController;
   late final TextEditingController _chatroomWsBaseUrlController;
+  late final TextEditingController _versionNameController;
+  late final TextEditingController _versionCodeController;
   late final TabController _tabController;
   bool _clearingDirectMessageCache = false;
   bool _clearingImageCache = false;
@@ -180,6 +185,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   bool _verifyingGatewaySignature = false;
   bool _loadingEndpointOverrides = true;
   bool _savingEndpointOverrides = false;
+  bool _loadingVersionOverrides = true;
+  bool _savingVersionOverrides = false;
+  bool _hasVersionOverrides = false;
   bool _loadingTilemapSettingsButtonVisibility = true;
   bool _savingTilemapSettingsButtonVisibility = false;
   bool _showTilemapSettingsButton = tilemapSettingsButtonVisibility.value;
@@ -205,14 +213,18 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
             (value) => DeviceIdDiagnostics(deviceId: value),
           );
     _appVersionFuture = AppMetadataService.appVersion();
+    _buildAppVersionFuture = AppMetadataService.buildAppVersion();
     _accountIdentityFuture = _loadAccountIdentity();
     _apiBaseUrlController = TextEditingController();
     _gatewayApiBaseUrlController = TextEditingController();
     _chatroomWsBaseUrlController = TextEditingController();
+    _versionNameController = TextEditingController();
+    _versionCodeController = TextEditingController();
     _apiBaseUrlController.addListener(_handleEndpointTextChanged);
     _gatewayApiBaseUrlController.addListener(_handleEndpointTextChanged);
     _chatroomWsBaseUrlController.addListener(_handleEndpointTextChanged);
     _loadEndpointOverrides();
+    unawaited(_loadVersionOverrides());
     unawaited(_loadTilemapSettingsButtonVisibility());
     unawaited(locationChatHeaderEffectSettings.load());
     unawaited(AppServicesScope.read(context).gemWallet.refresh());
@@ -228,6 +240,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     _apiBaseUrlController.dispose();
     _gatewayApiBaseUrlController.dispose();
     _chatroomWsBaseUrlController.dispose();
+    _versionNameController.dispose();
+    _versionCodeController.dispose();
     super.dispose();
   }
 
@@ -417,8 +431,88 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         ),
         const SizedBox(height: 18),
         ..._buildEndpointSection(),
+        const SizedBox(height: 18),
+        ..._buildVersionOverrideSection(),
       ],
     );
+  }
+
+  List<Widget> _buildVersionOverrideSection() {
+    final enabled = !_loadingVersionOverrides && !_savingVersionOverrides;
+    return [
+      Row(
+        children: [
+          const Expanded(
+            child: _DeveloperSectionTitle('Runtime version override'),
+          ),
+          if (_hasVersionOverrides)
+            const Text(
+              'Active',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF2E7D32),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      FutureBuilder<AppVersionInfo>(
+        future: _buildAppVersionFuture,
+        builder: (context, snapshot) {
+          final value = snapshot.connectionState == ConnectionState.done
+              ? _versionLabel(snapshot.data)
+              : 'Loading...';
+          return Text(
+            'Build version: $value. New version reads use the values below.',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF777777),
+              height: 1.35,
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 10),
+      _DeveloperVersionField(
+        key: const ValueKey<String>('developer-version-name-field'),
+        label: 'Version Name',
+        controller: _versionNameController,
+        enabled: enabled,
+      ),
+      const SizedBox(height: _itemGap),
+      _DeveloperVersionField(
+        key: const ValueKey<String>('developer-version-code-field'),
+        label: 'Version Code',
+        controller: _versionCodeController,
+        enabled: enabled,
+        digitsOnly: true,
+      ),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              key: const ValueKey<String>('developer-version-reset'),
+              onPressed: enabled
+                  ? () => unawaited(_resetVersionOverrides())
+                  : null,
+              child: const Text('Reset'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton(
+              key: const ValueKey<String>('developer-version-save'),
+              onPressed: enabled
+                  ? () => unawaited(_saveVersionOverrides())
+                  : null,
+              child: Text(_savingVersionOverrides ? 'Saving...' : 'Save'),
+            ),
+          ),
+        ],
+      ),
+    ];
   }
 
   List<Widget> _buildEndpointSection() {

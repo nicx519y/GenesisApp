@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
@@ -137,6 +138,67 @@ class _FakeBillingAnalytics implements BillingAnalytics {
   }
 }
 
+class _RecordingFirebaseAnalyticsClient implements AppAnalyticsClient {
+  final List<_FirebaseAnalyticsRecord> events = <_FirebaseAnalyticsRecord>[];
+
+  @override
+  Future<void> logEvent({
+    required String name,
+    Map<String, Object>? parameters,
+  }) async {
+    events.add(
+      _FirebaseAnalyticsRecord(
+        name,
+        Map<String, Object>.of(parameters ?? const <String, Object>{}),
+      ),
+    );
+  }
+}
+
+class _MemoryFirebaseAnalyticsOnceEventStore
+    implements FirebaseAnalyticsOnceEventStore {
+  final Set<String> sentEvents = <String>{};
+
+  @override
+  Future<void> markSent(String eventName) async {
+    sentEvents.add(eventName);
+  }
+
+  @override
+  Future<bool> wasSent(String eventName) async {
+    return sentEvents.contains(eventName);
+  }
+}
+
+class _FirebaseAnalyticsRecord {
+  const _FirebaseAnalyticsRecord(this.name, this.parameters);
+
+  final String name;
+  final Map<String, Object> parameters;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _FirebaseAnalyticsRecord &&
+        other.name == name &&
+        _firebaseAnalyticsMapsEqual(other.parameters, parameters);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(name, Object.hashAllUnordered(parameters.entries));
+}
+
+bool _firebaseAnalyticsMapsEqual(
+  Map<String, Object> first,
+  Map<String, Object> second,
+) {
+  if (first.length != second.length) return false;
+  for (final entry in first.entries) {
+    if (second[entry.key] != entry.value) return false;
+  }
+  return true;
+}
+
 class _ControllablePendingPurchaseStore
     extends MemoryBillingPendingPurchaseStore {
   bool failNextUpsert = false;
@@ -229,6 +291,42 @@ void main() {
   tearDown(() async {
     service.dispose();
     await platform.close();
+  });
+
+  test('first purchased callback records purchase only once', () async {
+    final firebaseAnalytics = _RecordingFirebaseAnalyticsClient();
+    FirebaseAnalyticsMonitoring.resetForTesting();
+    FirebaseAnalyticsMonitoring.setClientForTesting(firebaseAnalytics);
+    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+      _MemoryFirebaseAnalyticsOnceEventStore(),
+    );
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+    FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+      () async => 'test-device-id',
+    );
+    addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+
+    await service.start();
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+    platform.emit(
+      _purchase(
+        BillingPurchaseStatus.purchased,
+        purchaseToken: 'purchase-token-2',
+        transactionId: 'GPA.2',
+        originalJson: '{"purchaseToken":"purchase-token-2"}',
+      ),
+    );
+    await _settle();
+
+    expect(firebaseAnalytics.events, <_FirebaseAnalyticsRecord>[
+      const _FirebaseAnalyticsRecord('purchase', <String, Object>{
+        'provider': 'google',
+        'product_id': 'worldo_gems_500',
+        'device_id': 'test-device-id',
+      }),
+    ]);
   });
 
   test(

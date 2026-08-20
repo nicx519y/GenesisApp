@@ -307,6 +307,44 @@ class _DeveloperSectionTitle extends StatelessWidget {
   }
 }
 
+class _DeveloperVersionField extends StatelessWidget {
+  const _DeveloperVersionField({
+    super.key,
+    required this.label,
+    required this.controller,
+    required this.enabled,
+    this.digitsOnly = false,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final bool enabled;
+  final bool digitsOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: digitsOnly ? TextInputType.number : TextInputType.text,
+      inputFormatters: digitsOnly
+          ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
+          : null,
+      textInputAction: TextInputAction.done,
+      style: const TextStyle(fontSize: 14, color: Colors.black),
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+}
+
 class _DeveloperEndpointHeader extends StatelessWidget {
   const _DeveloperEndpointHeader({
     required this.isTestEnvironment,

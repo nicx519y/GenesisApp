@@ -1665,6 +1665,7 @@ void main() {
         const _LocationChatAnalyticsEvent('message_sent', <String, Object>{
           'world_id': 'world-current',
           'location_id': 'location-current',
+          'device_id': 'test-device-id',
         }),
       ]);
 
@@ -1832,6 +1833,7 @@ void main() {
       const _LocationChatAnalyticsEvent('message_sent', <String, Object>{
         'world_id': 'world-sync-failure',
         'location_id': 'location-sync-failure',
+        'device_id': 'test-device-id',
       }),
     ]);
 
@@ -4815,8 +4817,14 @@ _connectedLocationChatTestService({
 _LocationChatAnalyticsClient _enableLocationChatAnalyticsForTesting() {
   final client = _LocationChatAnalyticsClient();
   FirebaseAnalyticsMonitoring.setClientForTesting(client);
+  FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+    _LocationChatOnceEventStore(),
+  );
   FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
   FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+  FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+    () async => 'test-device-id',
+  );
   return client;
 }
 
@@ -4832,6 +4840,20 @@ class _LocationChatAnalyticsClient implements AppAnalyticsClient {
     events.add(
       _LocationChatAnalyticsEvent(name, parameters ?? const <String, Object>{}),
     );
+  }
+}
+
+class _LocationChatOnceEventStore implements FirebaseAnalyticsOnceEventStore {
+  final Set<String> sentEvents = <String>{};
+
+  @override
+  Future<void> markSent(String eventName) async {
+    sentEvents.add(eventName);
+  }
+
+  @override
+  Future<bool> wasSent(String eventName) async {
+    return sentEvents.contains(eventName);
   }
 }
 

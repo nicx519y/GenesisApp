@@ -12,10 +12,17 @@ void main() {
   late _RecordingAnalyticsClient analytics;
 
   setUp(() {
+    FirebaseAnalyticsMonitoring.resetForTesting();
     analytics = _RecordingAnalyticsClient();
     FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
     FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
     FirebaseAnalyticsMonitoring.setClientForTesting(analytics);
+    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+      _MemoryOnceEventStore(),
+    );
+    FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+      () async => 'test-device-id',
+    );
   });
 
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
@@ -48,11 +55,13 @@ void main() {
       const _RecordedEvent('launch', {
         'origin_id': 'origin_1',
         'role_type': 'preset',
+        'device_id': 'test-device-id',
       }),
       const _RecordedEvent('launch_success', {
         'origin_id': 'origin_1',
         'role_type': 'preset',
         'world_id': 'world_1',
+        'device_id': 'test-device-id',
       }),
     ]);
   });
@@ -81,11 +90,13 @@ void main() {
       const _RecordedEvent('launch', {
         'origin_id': 'origin_custom',
         'role_type': 'custom',
+        'device_id': 'test-device-id',
       }),
       const _RecordedEvent('launch_success', {
         'origin_id': 'origin_custom',
         'role_type': 'custom',
         'world_id': 'world_custom',
+        'device_id': 'test-device-id',
       }),
     ]);
   });
@@ -114,6 +125,7 @@ void main() {
       const _RecordedEvent('launch', {
         'origin_id': 'origin_1',
         'role_type': 'preset',
+        'device_id': 'test-device-id',
       }),
     ]);
   });
@@ -135,6 +147,7 @@ void main() {
       const _RecordedEvent('launch', {
         'origin_id': 'origin_1',
         'role_type': 'preset',
+        'device_id': 'test-device-id',
       }),
     ]);
   });
@@ -160,6 +173,7 @@ void main() {
       const _RecordedEvent('launch', {
         'origin_id': 'origin_1',
         'role_type': 'preset',
+        'device_id': 'test-device-id',
       }),
     ]);
   });
@@ -272,6 +286,20 @@ class _RecordingAnalyticsClient implements AppAnalyticsClient {
     Map<String, Object>? parameters,
   }) async {
     events.add(_RecordedEvent(name, Map<String, Object>.of(parameters ?? {})));
+  }
+}
+
+class _MemoryOnceEventStore implements FirebaseAnalyticsOnceEventStore {
+  final Set<String> sentEvents = <String>{};
+
+  @override
+  Future<void> markSent(String eventName) async {
+    sentEvents.add(eventName);
+  }
+
+  @override
+  Future<bool> wasSent(String eventName) async {
+    return sentEvents.contains(eventName);
   }
 }
 

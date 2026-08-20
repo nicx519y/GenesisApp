@@ -411,7 +411,9 @@ class _InlineTreeLocationNameEditor extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.only(left: level * 15.0),
         child: TextFieldTapRegion(
-          groupId: createFormTextFieldTapRegionGroup,
+          // Android renders the selection toolbar in the EditableText tap
+          // region. Keep Paste/Copy/Select from cancelling inline editing.
+          groupId: EditableText,
           consumeOutsideTaps: false,
           onTapOutside: (_) => onTapOutside(),
           child: Column(
