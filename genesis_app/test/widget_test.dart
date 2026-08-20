@@ -4676,6 +4676,15 @@ void main() {
     expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Worlds, tags, characters'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
+    final tabsDividerFinder = find.byKey(
+      const ValueKey<String>('worlds-feed-tabs-divider'),
+    );
+    final tabsDivider = tester.widget<DecoratedBox>(tabsDividerFinder);
+    final tabsBorder = (tabsDivider.decoration as BoxDecoration).border!;
+    expect(
+      tabsBorder.bottom.color,
+      tester.element(tabsDividerFinder).genesisColors.dividerAction,
+    );
   });
 
   testWidgets('AppServicesScope delays old GemWallet disposal on replacement', (

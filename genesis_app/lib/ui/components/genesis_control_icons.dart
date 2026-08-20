@@ -38,7 +38,7 @@ class GenesisBackButton extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
           child: Material(
-            color: backgroundColor ?? colors.surface.withValues(alpha: 0.5),
+            color: backgroundColor ?? colors.controlMuted,
             child: InkWell(
               onTap: onPressed,
               child: SizedBox.square(

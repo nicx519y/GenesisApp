@@ -165,27 +165,38 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
           ),
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: GenesisTabBar(
-              labels: categories.map((item) => item.name).toList(),
-              verticalPadding: 0,
-              horizontalPadding: 20,
-              labelPadding: const EdgeInsets.only(right: 18),
-              indicatorMatchesLabelWidth: true,
-              indicatorHeight: 2.5,
-              indicatorBottomPadding: 0,
-              tabHeight: 28,
-              labelStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
+            child: DecoratedBox(
+              key: const ValueKey<String>('worlds-feed-tabs-divider'),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: context.genesisColors.dividerAction,
+                  ),
+                ),
               ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                height: 1.2,
+              child: GenesisTabBar(
+                labels: categories.map((item) => item.name).toList(),
+                verticalPadding: 0,
+                horizontalPadding: 20,
+                labelPadding: const EdgeInsets.only(right: 18),
+                indicatorMatchesLabelWidth: true,
+                indicatorHeight: 2.5,
+                indicatorBottomPadding: 0,
+                tabHeight: 28,
+                labelStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                ),
+                labelColor: context.genesisColors.textPrimary,
+                unselectedLabelColor:
+                    context.genesisOriginColors.feedTabInactive,
               ),
-              labelColor: context.genesisColors.textPrimary,
-              unselectedLabelColor: context.genesisOriginColors.feedTabInactive,
             ),
           ),
           Expanded(

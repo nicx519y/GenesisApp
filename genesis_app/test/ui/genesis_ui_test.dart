@@ -497,6 +497,7 @@ void main() {
     var titleTapCount = 0;
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
         home: Scaffold(
           appBar: GenesisBackAppBar(
             pageName: 'Details',
@@ -518,6 +519,16 @@ void main() {
       find.descendant(of: backButton, matching: find.byType(BackdropFilter)),
       findsOneWidget,
     );
+    final buttonMaterial = tester.widget<Material>(
+      find.descendant(of: backButton, matching: find.byType(Material)),
+    );
+    final buttonContext = tester.element(backButton);
+    expect(buttonMaterial.color, buttonContext.genesisColors.controlMuted);
+    expect(buttonMaterial.color, const Color(0x1AFFFFFF));
+    final buttonClip = tester.widget<ClipRRect>(
+      find.descendant(of: backButton, matching: find.byType(ClipRRect)),
+    );
+    expect(buttonClip.borderRadius, BorderRadius.circular(11));
     await tester.tap(find.byType(GenesisBackIcon));
     await tester.tap(find.text('Details'));
     expect(backCount, 1);
