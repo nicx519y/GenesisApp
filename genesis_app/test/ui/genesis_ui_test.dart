@@ -26,8 +26,14 @@ void main() {
       materialApp.theme?.textTheme.bodyMedium?.fontSize,
       GenesisTypography.body.fontSize,
     );
-    expect(materialApp.theme?.textTheme.bodyMedium?.fontFamilyFallback, isNull);
-    expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, isNot('Inter'));
+    expect(
+      materialApp.theme?.textTheme.bodyMedium?.fontFamilyFallback,
+      GenesisTypography.fontFamilyFallback,
+    );
+    expect(
+      materialApp.theme?.textTheme.bodyMedium?.fontFamily,
+      GenesisTypography.fontFamily,
+    );
   });
 
   test('GenesisTheme disables Material state effects', () {
@@ -65,7 +71,7 @@ void main() {
     );
   });
 
-  test('GenesisTypography keeps text styles on the system font path', () {
+  test('GenesisTypography applies the Worldo Inter font stack', () {
     for (final style in <TextStyle>[
       GenesisTypography.pageTitle,
       GenesisTypography.body,
@@ -73,8 +79,8 @@ void main() {
       GenesisTypography.supporting,
       GenesisTypography.tabLabel,
     ]) {
-      expect(style.fontFamily, isNull);
-      expect(style.fontFamilyFallback, isNull);
+      expect(style.fontFamily, GenesisTypography.fontFamily);
+      expect(style.fontFamilyFallback, GenesisTypography.fontFamilyFallback);
       expect(style.color, isNull);
     }
   });
@@ -359,9 +365,15 @@ void main() {
 
       expect(controller.text, rendered);
       final input = tester.widget<TextField>(find.byType(TextField));
-      expect(input.style?.fontFamily, isNull);
-      expect(input.style?.fontFamilyFallback, isNull);
-      expect(input.decoration?.hintStyle?.fontFamilyFallback, isNull);
+      expect(input.style?.fontFamily, GenesisTypography.fontFamily);
+      expect(
+        input.style?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
+      expect(
+        input.decoration?.hintStyle?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
     },
   );
 

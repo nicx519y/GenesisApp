@@ -77,6 +77,8 @@ abstract final class GenesisTheme {
     return ThemeData(
       colorScheme: colorScheme,
       brightness: brightness,
+      fontFamily: GenesisTypography.fontFamily,
+      fontFamilyFallback: GenesisTypography.fontFamilyFallback,
       splashFactory: NoSplash.splashFactory,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,

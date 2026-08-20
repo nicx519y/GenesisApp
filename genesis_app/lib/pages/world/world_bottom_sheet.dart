@@ -17,6 +17,7 @@ import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import 'world_constants.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
@@ -44,11 +45,10 @@ class WorldBottomTags extends StatelessWidget {
       color: context.genesisColors.surface,
       alignment: Alignment.centerLeft,
       child: DefaultTextStyle(
-        style: TextStyle(
+        style: GenesisTypography.bodyStrong.copyWith(
           color: context.genesisColors.textPrimary,
           fontSize: 12,
           height: 1,
-          fontWeight: FontWeight.w600,
           decoration: TextDecoration.none,
         ),
         child: ScrollConfiguration(

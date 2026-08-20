@@ -2790,8 +2790,11 @@ void main() {
         ),
       );
       expect(text.textSpan?.toPlainText(), rendered);
-      expect(text.textSpan?.style?.fontFamily, isNull);
-      expect(text.textSpan?.style?.fontFamilyFallback, isNull);
+      expect(text.textSpan?.style?.fontFamily, GenesisTypography.fontFamily);
+      expect(
+        text.textSpan?.style?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
     },
   );
 
@@ -4378,8 +4381,11 @@ void main() {
 
     expect(controller.text, raw);
     final input = tester.widget<TextField>(find.byType(TextField));
-    expect(input.style?.fontFamily, isNull);
-    expect(input.style?.fontFamilyFallback, isNull);
+    expect(input.style?.fontFamily, GenesisTypography.fontFamily);
+    expect(
+      input.style?.fontFamilyFallback,
+      GenesisTypography.fontFamilyFallback,
+    );
   });
 
   testWidgets('chat composer send button keeps text field focused', (

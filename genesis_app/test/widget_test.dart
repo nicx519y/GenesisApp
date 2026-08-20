@@ -54,6 +54,7 @@ import 'package:genesis_flutter_android/components/world_top_overlay_bar.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
@@ -21240,21 +21241,21 @@ void main() {
     final selectedDetailTab = find.byKey(
       const ValueKey<String>('world-bottom-tab-WorldBottomSheetKind.detail'),
     );
+    final selectedDetailLabel = find.descendant(
+      of: selectedDetailTab,
+      matching: find.text('Detail'),
+    );
     final selectedTabDecoration =
         tester.widget<Container>(selectedDetailTab).decoration!
             as BoxDecoration;
     expect(selectedTabDecoration.color, GenesisPalette.white);
     expect(
-      tester
-          .widget<Text>(
-            find.descendant(
-              of: selectedDetailTab,
-              matching: find.text('Detail'),
-            ),
-          )
-          .style!
-          .color,
+      tester.widget<Text>(selectedDetailLabel).style!.color,
       GenesisPalette.redesignInk,
+    );
+    expect(
+      DefaultTextStyle.of(tester.element(selectedDetailLabel)).style.fontFamily,
+      GenesisTypography.fontFamily,
     );
     final sheetSurface = find.byKey(
       const ValueKey<String>('world-detail-sheet-surface'),

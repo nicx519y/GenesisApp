@@ -142,9 +142,15 @@ void main() {
 
       expect(controller.text, raw);
       final input = tester.widget<TextField>(find.byType(TextField));
-      expect(input.style?.fontFamily, isNull);
-      expect(input.style?.fontFamilyFallback, isNull);
-      expect(input.decoration?.hintStyle?.fontFamilyFallback, isNull);
+      expect(input.style?.fontFamily, GenesisTypography.fontFamily);
+      expect(
+        input.style?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
+      expect(
+        input.decoration?.hintStyle?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
 
       controller.text = raw;
       await tester.pump();
