@@ -200,6 +200,14 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         purchase.status != BillingPurchaseStatus.restored) {
       return;
     }
+    if (purchase.status == BillingPurchaseStatus.purchased) {
+      unawaited(
+        FirebaseAnalyticsMonitoring.recordPurchase(
+          provider: purchase.provider.apiValue,
+          productId: purchase.productId,
+        ),
+      );
+    }
     try {
       _platform.recordVerifiedPurchaseForAnalytics(purchase);
     } catch (error) {

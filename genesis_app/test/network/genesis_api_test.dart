@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
@@ -3047,6 +3048,74 @@ void main() {
     },
   );
 
+  for (final provider in IdentityProvider.values) {
+    test(
+      'successful ${provider.name} login records the once login event',
+      () async {
+        final analytics = _RecordingFirebaseAnalyticsClient();
+        FirebaseAnalyticsMonitoring.resetForTesting();
+        FirebaseAnalyticsMonitoring.setClientForTesting(analytics);
+        FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+          _MemoryFirebaseAnalyticsOnceEventStore(),
+        );
+        FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+        FirebaseAnalyticsMonitoring.setReadinessForTesting(
+          Future<void>.value(),
+        );
+        FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+          () async => 'test-device-id',
+        );
+        addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+
+        final apiTransport = _FakeTransport(
+          handler: (request) {
+            expect(
+              request.uri.path,
+              endsWith('/v1/user/oauth/${provider.name}'),
+            );
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body:
+                  '{"err_no":0,"err_msg":"succ","data":{"token":"backend-token","user":{"uid":"u_login","name":"User"}}}',
+            );
+          },
+        );
+        final sessionStore = MemoryUserSessionStore();
+        final identityAuth = _FakeIdentityAuthService();
+        final api = GenesisApi(
+          transport: apiTransport,
+          useMock: false,
+          deviceIdService: const _TestDeviceIdService(),
+          sessionStore: sessionStore,
+          identityAuthService: identityAuth,
+        );
+        final coordinator = GenesisBackendAuthCoordinator(
+          api: api,
+          identityAuth: identityAuth,
+          sessionStore: sessionStore,
+        );
+
+        await coordinator.loginWithIdentity(
+          AuthSession(
+            provider: provider,
+            providerIdToken: '${provider.name}-token',
+            displayName: 'User',
+            photoUrl: '',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(analytics.events, <_FirebaseAnalyticsEvent>[
+          _FirebaseAnalyticsEvent('login', <String, Object>{
+            'method': provider.name,
+            'device_id': 'test-device-id',
+          }),
+        ]);
+      },
+    );
+  }
+
   test('backend login waits for gateway preparation', () async {
     final preparation = Completer<void>();
     final apiTransport = _FakeTransport(
@@ -4146,4 +4215,62 @@ class _FakeIdentityAuthService implements IdentityAuthService {
   Future<void> signOutIdentity() async {
     signOutCount += 1;
   }
+}
+
+class _RecordingFirebaseAnalyticsClient implements AppAnalyticsClient {
+  final List<_FirebaseAnalyticsEvent> events = <_FirebaseAnalyticsEvent>[];
+
+  @override
+  Future<void> logEvent({
+    required String name,
+    Map<String, Object>? parameters,
+  }) async {
+    events.add(
+      _FirebaseAnalyticsEvent(
+        name,
+        Map<String, Object>.of(parameters ?? const <String, Object>{}),
+      ),
+    );
+  }
+}
+
+class _MemoryFirebaseAnalyticsOnceEventStore
+    implements FirebaseAnalyticsOnceEventStore {
+  final Set<String> sentEvents = <String>{};
+
+  @override
+  Future<void> markSent(String eventName) async {
+    sentEvents.add(eventName);
+  }
+
+  @override
+  Future<bool> wasSent(String eventName) async {
+    return sentEvents.contains(eventName);
+  }
+}
+
+class _FirebaseAnalyticsEvent {
+  const _FirebaseAnalyticsEvent(this.name, this.parameters);
+
+  final String name;
+  final Map<String, Object> parameters;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _FirebaseAnalyticsEvent &&
+        other.name == name &&
+        _objectMapsEqual(other.parameters, parameters);
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(name, Object.hashAllUnordered(parameters.entries));
+}
+
+bool _objectMapsEqual(Map<String, Object> first, Map<String, Object> second) {
+  if (first.length != second.length) return false;
+  for (final entry in first.entries) {
+    if (second[entry.key] != entry.value) return false;
+  }
+  return true;
 }

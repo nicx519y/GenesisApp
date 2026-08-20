@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/user.dart';
@@ -60,6 +61,9 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
           'provider': session.provider.name,
           'duration_ms': stopwatch.elapsedMilliseconds,
         },
+      );
+      unawaited(
+        FirebaseAnalyticsMonitoring.recordLogin(method: session.provider.name),
       );
       return user;
     } catch (error) {

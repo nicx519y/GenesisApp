@@ -13929,6 +13929,74 @@ void main() {
     );
   });
 
+  testWidgets(
+    'Android can paste into an inline location name',
+    (WidgetTester tester) async {
+      const clipboardText = 'Downtown';
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (methodCall) async {
+          return switch (methodCall.method) {
+            'Clipboard.getData' => const <String, dynamic>{
+              'text': clipboardText,
+            },
+            'Clipboard.hasStrings' => const <String, dynamic>{'value': true},
+            _ => null,
+          };
+        },
+      );
+      addTearDown(_clearPlatformChannelHandler);
+
+      await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+      await tester.pumpAndSettle();
+
+      final editor = find.byKey(
+        const ValueKey<String>('locations-inline-name-Loc_1'),
+      );
+      final textField = find.descendant(
+        of: editor,
+        matching: find.byType(TextField),
+      );
+      final editableText = find.descendant(
+        of: textField,
+        matching: find.byType(EditableText),
+      );
+      final outsideTapRegions = tester
+          .widgetList<TextFieldTapRegion>(
+            find.ancestor(
+              of: textField,
+              matching: find.byType(TextFieldTapRegion),
+            ),
+          )
+          .where((region) => region.onTapOutside != null);
+      expect(outsideTapRegions, isNotEmpty);
+      expect(
+        outsideTapRegions.every((region) => region.groupId == EditableText),
+        isTrue,
+      );
+
+      await tester.longPress(textField);
+      await tester.pumpAndSettle();
+      expect(find.text('Paste'), findsOneWidget);
+
+      await tester.tap(find.text('Paste'));
+      await tester.pumpAndSettle();
+
+      expect(editor, findsOneWidget);
+      expect(
+        tester.widget<TextField>(textField).controller?.text,
+        clipboardText,
+      );
+      expect(
+        tester.widget<EditableText>(editableText).focusNode.hasFocus,
+        isTrue,
+      );
+    },
+    variant: const TargetPlatformVariant(<TargetPlatform>{
+      TargetPlatform.android,
+    }),
+  );
+
   testWidgets('create locations guides the first complete L1 L2 L3 tree', (
     WidgetTester tester,
   ) async {
