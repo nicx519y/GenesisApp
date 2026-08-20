@@ -12,7 +12,6 @@ import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_message_image.dart';
@@ -2535,7 +2534,7 @@ void main() {
     );
 
     final name = tester.widget<Text>(find.text('Peer Name'));
-    expect(name.style?.color, GenesisColors.brand);
+    expect(name.style?.color, GenesisPalette.brand);
   });
 
   testWidgets(
@@ -4425,7 +4424,7 @@ void main() {
     );
     expect(
       ChatUiStyleConfig.standard.composerSendButtonColor,
-      GenesisColors.brand,
+      GenesisPalette.brand,
     );
     expect(
       find.byWidgetPredicate((widget) {

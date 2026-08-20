@@ -22,7 +22,9 @@ import 'create_origin_draft_store.dart';
 import 'create_story_events_page.dart';
 
 class CreateOriginPage extends StatefulWidget {
-  const CreateOriginPage({super.key});
+  const CreateOriginPage({super.key, this.contentScrollPhysics});
+
+  final ScrollPhysics? contentScrollPhysics;
 
   @override
   State<CreateOriginPage> createState() => _CreateOriginPageState();
@@ -85,6 +87,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       submitStatus: _submitStatus,
       reloadSignal: _reloadSignal,
       createHubStyle: true,
+      contentScrollPhysics: widget.contentScrollPhysics,
       debugDraftGenerator: createOriginDebugDraftGenerator(),
       confirmLeaveWithDraftOptions: true,
       onDiscardDraft: (_) => CreateOriginDraftStore.clear(),

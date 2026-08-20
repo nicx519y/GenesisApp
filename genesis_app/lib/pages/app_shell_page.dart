@@ -17,6 +17,7 @@ import '../platform/billing/billing_models.dart';
 import '../platform/privacy/app_tracking_transparency_service.dart';
 import '../ui/system/genesis_system_ui.dart';
 import '../ui/theme/genesis_semantic_colors.dart';
+import '../ui/tokens/genesis_radii.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_feed_cache_store.dart';
 import 'home/home_page.dart';
@@ -366,17 +367,20 @@ class _AppShellPageState extends State<AppShellPage>
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      enableDrag: true,
       backgroundColor: colors.pageBackground,
-      barrierColor: colors.scrim.withValues(alpha: 0.62),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+        borderRadius: GenesisRadii.sheet,
         side: BorderSide(color: colors.textPrimary.withValues(alpha: 0.14)),
       ),
+      barrierColor: colors.scrim.withValues(alpha: 0.62),
       builder: (_) => SizedBox(
         key: const ValueKey<String>('create-worldo-bottom-sheet'),
         height: sheetHeight,
-        child: const CreateOriginPage(),
+        child: const CreateOriginPage(
+          contentScrollPhysics: NeverScrollableScrollPhysics(),
+        ),
       ),
     );
   }

@@ -55,6 +55,7 @@ import 'package:genesis_flutter_android/components/world_top_overlay_bar.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -112,6 +113,7 @@ import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
+import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_location_chat_host.dart';
@@ -6145,7 +6147,7 @@ void main() {
     );
     final expectedMapHeight = originWorldMapHeightFor(
       viewportHeight: viewportSize.height,
-      bottomSafeArea: 0,
+      bottomSafeArea: originWorldDetailBottomSafeAreaMinimum,
     );
     expect(tester.getSize(transitionMapBackground).height, expectedMapHeight);
 
@@ -6318,6 +6320,18 @@ void main() {
       final loadingMapRect = tester.getRect(mapViewport);
       final loadingSheetRect = tester.getRect(loadingSheet);
       expect(
+        tester
+            .widget<Padding>(
+              find.byKey(
+                const ValueKey<String>(
+                  'origin-detail-loading-bottom-safe-area',
+                ),
+              ),
+            )
+            .padding,
+        const EdgeInsets.only(bottom: originWorldDetailBottomSafeAreaMinimum),
+      );
+      expect(
         loadingMapRect.bottom - loadingSheetRect.top,
         closeTo(originWorldMapSheetOverlap, 1),
       );
@@ -6371,6 +6385,16 @@ void main() {
           find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
         ),
         loadingSheetRect,
+      );
+      expect(
+        tester
+            .widget<Padding>(
+              find.byKey(
+                const ValueKey<String>('origin-detail-bottom-safe-area'),
+              ),
+            )
+            .padding,
+        const EdgeInsets.only(bottom: originWorldDetailBottomSafeAreaMinimum),
       );
       expect(
         find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
@@ -12071,7 +12095,11 @@ void main() {
     );
     expect(find.byType(BottomSheet), findsOneWidget);
     final createSheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
+    expect(createSheet.enableDrag, isTrue);
+    expect(createSheet.backgroundColor, isNot(Colors.transparent));
+    expect(createSheet.clipBehavior, Clip.antiAlias);
     final createSheetShape = createSheet.shape! as RoundedRectangleBorder;
+    expect(createSheetShape.borderRadius, GenesisRadii.sheet);
     expect(createSheetShape.side.width, 1);
     expect(createSheetShape.side.color.a, closeTo(0.14, 0.0001));
     expect(createSheetShape.side.color.r, 1);
@@ -12123,6 +12151,21 @@ void main() {
       tester.getSize(find.byKey(const ValueKey<String>('section-icon-Basics'))),
       const Size.square(34),
     );
+    expect(
+      tester
+          .getCenter(
+            find.byKey(const ValueKey<String>('section-chevron-Basics')),
+          )
+          .dy,
+      closeTo(
+        tester
+            .getCenter(
+              find.byKey(const ValueKey<String>('section-icon-Basics')),
+            )
+            .dy,
+        0.01,
+      ),
+    );
 
     final createButton = tester.widget<GenesisPrimaryButton>(
       find.widgetWithText(GenesisPrimaryButton, 'Create'),
@@ -12132,6 +12175,39 @@ void main() {
     expect(createButton.borderRadius, BorderRadius.circular(13));
     expect(createButton.fontSize, 13);
     expect(createButton.fontWeight, FontWeight.w700);
+  });
+
+  testWidgets('Create Worldo sheet moves as one drawer and drags closed', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Create')));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(
+      const ValueKey<String>('create-worldo-bottom-sheet'),
+    );
+    final createButton = find.widgetWithText(GenesisPrimaryButton, 'Create');
+    final initialSheetTop = tester.getTopLeft(sheet).dy;
+    final initialButtonTop = tester.getTopLeft(createButton).dy;
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Opening')),
+    );
+    await gesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 160));
+    await tester.pump();
+
+    expect(tester.getTopLeft(sheet).dy, greaterThan(initialSheetTop));
+    expect(tester.getTopLeft(createButton).dy, greaterThan(initialButtonTop));
+
+    await gesture.moveBy(const Offset(0, 520));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(sheet, findsNothing);
+    expect(find.text('Create Worldo'), findsNothing);
   });
 
   testWidgets('create route opens create origin page', (
@@ -21859,6 +21935,12 @@ void main() {
     );
     final loadingInfoRect = tester.getRect(panelInfoRow);
     final loadingBottomTagsRect = tester.getRect(bottomTagsOverlay);
+    final loadingBottomTagsState = tester.state(
+      find.descendant(
+        of: bottomTagsOverlay,
+        matching: find.byType(WorldBottomTags),
+      ),
+    );
     expect(loadingInfoRect.height, worldInfoHeaderHeight);
     expect(loadingBottomTagsRect.height, worldMainTabsHeight);
     expect(tester.widget<IgnorePointer>(bottomTagsOverlay).ignoring, isTrue);
@@ -21883,6 +21965,15 @@ void main() {
     expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
     expect(tester.getRect(panelInfoRow), loadingInfoRect);
     expect(tester.getRect(bottomTagsOverlay), loadingBottomTagsRect);
+    expect(
+      tester.state(
+        find.descendant(
+          of: bottomTagsOverlay,
+          matching: find.byType(WorldBottomTags),
+        ),
+      ),
+      same(loadingBottomTagsState),
+    );
     expect(tester.widget<IgnorePointer>(bottomTagsOverlay).ignoring, isFalse);
     expect(find.byType(WorldInfoHeader), findsOneWidget);
     expect(

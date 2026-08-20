@@ -123,15 +123,13 @@ class _SectionRow extends StatelessWidget {
                               ],
                             ),
                           ),
-                          if (onTap != null) ...[
-                            SizedBox(width: createHubStyle ? 6 : 8),
+                          if (onTap != null && !createHubStyle) ...[
+                            const SizedBox(width: 8),
                             Icon(
                               Icons.chevron_right_rounded,
                               key: ValueKey<String>('section-chevron-$title'),
-                              size: createHubStyle ? 20 : 24,
-                              color: createHubStyle
-                                  ? GenesisPalette.redesignWhite45
-                                  : context.genesisCreateColors.muted,
+                              size: 24,
+                              color: context.genesisCreateColors.muted,
                             ),
                           ],
                         ],
@@ -180,6 +178,15 @@ class _SectionRow extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (onTap != null && createHubStyle) ...[
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    key: ValueKey<String>('section-chevron-$title'),
+                    size: 20,
+                    color: GenesisPalette.redesignWhite45,
+                  ),
+                ],
               ],
             ),
           ),

@@ -710,7 +710,10 @@ class _OriginWorldRouteTransitionBackdrop extends StatelessWidget {
             : MediaQuery.sizeOf(context).height;
         final mapHeight = originWorldMapHeightFor(
           viewportHeight: viewportHeight,
-          bottomSafeArea: GenesisSafeAreaInsets.bottom(context),
+          bottomSafeArea: GenesisSafeAreaInsets.bottom(
+            context,
+            minimum: originWorldDetailBottomSafeAreaMinimum,
+          ),
         );
         return ValueListenableBuilder<TilemapVisualMode>(
           valueListenable: tilemapVisualModeController,

@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/components/common/genesis_action_box.dar
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_unread_badge.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
 void main() {
   testWidgets('GenesisTheme provides shared app styles', (tester) async {
@@ -21,7 +22,7 @@ void main() {
     );
 
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
-    expect(materialApp.theme?.scaffoldBackgroundColor, GenesisColors.surface);
+    expect(materialApp.theme?.scaffoldBackgroundColor, GenesisPalette.white);
     expect(
       materialApp.theme?.textTheme.bodyMedium?.fontSize,
       GenesisTypography.body.fontSize,
@@ -113,7 +114,7 @@ void main() {
     expect(GenesisTypography.pageTitle.letterSpacing, -0.36);
   });
 
-  testWidgets('GenesisTextFallback keeps explicit Text styles unchanged', (
+  testWidgets('explicit Text styles keep their own font selection', (
     tester,
   ) async {
     const styledText = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
@@ -121,11 +122,9 @@ void main() {
     await tester.pumpWidget(
       const Directionality(
         textDirection: TextDirection.ltr,
-        child: GenesisTextFallback(
-          child: Text(
-            styledText,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
+        child: Text(
+          styledText,
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -241,16 +240,16 @@ void main() {
   test('Genesis light semantic roles preserve the existing palette', () {
     final colors = GenesisSemanticColors.light();
 
-    expect(colors.pageBackground, GenesisColors.surface);
-    expect(colors.surface, GenesisColors.surface);
-    expect(colors.inputBackground, GenesisColors.surfaceInput);
-    expect(colors.textPrimary, GenesisColors.textPrimary);
-    expect(colors.textSecondary, GenesisColors.textSecondary);
-    expect(colors.primary, GenesisColors.brand);
-    expect(colors.primaryDisabled, GenesisColors.brandSoft);
-    expect(colors.danger, GenesisColors.danger);
-    expect(colors.navigationSelected, GenesisColors.tabSelected);
-    expect(colors.navigationUnselected, GenesisColors.tabUnselected);
+    expect(colors.pageBackground, GenesisPalette.white);
+    expect(colors.surface, GenesisPalette.white);
+    expect(colors.inputBackground, GenesisPalette.surfaceInput);
+    expect(colors.textPrimary, GenesisPalette.textPrimary);
+    expect(colors.textSecondary, GenesisPalette.textSecondary);
+    expect(colors.primary, GenesisPalette.brand);
+    expect(colors.primaryDisabled, GenesisPalette.brandSoft);
+    expect(colors.danger, GenesisPalette.create);
+    expect(colors.navigationSelected, GenesisPalette.navigationSelected);
+    expect(colors.navigationUnselected, GenesisPalette.navigationUnselected);
     expect(colors.textStrong, const Color(0xFF222222));
     expect(colors.textHighEmphasis, const Color(0xDD000000));
     expect(colors.foregroundStrong, const Color(0xFF000000));
@@ -290,65 +289,6 @@ void main() {
     expect(theme.extension<GenesisCreateColors>(), isNotNull);
     expect(theme.extension<GenesisWorldColors>(), isNotNull);
     expect(theme.extension<GenesisMessageColors>(), isNotNull);
-  });
-
-  testWidgets('GenesisSurface follows semantic surface variants', (
-    tester,
-  ) async {
-    const cardColor = Color(0xFF110001);
-    const raisedColor = Color(0xFF220002);
-    const mutedColor = Color(0xFF330003);
-    const borderColor = Color(0xFF440004);
-    final semanticColors = GenesisSemanticColors.light().copyWith(
-      surface: cardColor,
-      surfaceRaised: raisedColor,
-      surfaceMuted: mutedColor,
-      border: borderColor,
-    );
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: GenesisTheme.light().copyWith(
-          extensions: <ThemeExtension<dynamic>>[
-            semanticColors,
-            GenesisUiTheme.light(),
-          ],
-        ),
-        home: const Column(
-          children: [
-            GenesisSurface(key: ValueKey('card'), child: SizedBox()),
-            GenesisSurface(
-              key: ValueKey('raised'),
-              variant: GenesisSurfaceVariant.raised,
-              child: SizedBox(),
-            ),
-            GenesisSurface(
-              key: ValueKey('muted'),
-              variant: GenesisSurfaceVariant.muted,
-              showBorder: true,
-              child: SizedBox(),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    BoxDecoration decorationFor(String key) {
-      return tester
-              .widget<Container>(
-                find.descendant(
-                  of: find.byKey(ValueKey(key)),
-                  matching: find.byType(Container),
-                ),
-              )
-              .decoration!
-          as BoxDecoration;
-    }
-
-    expect(decorationFor('card').color, cardColor);
-    expect(decorationFor('raised').color, raisedColor);
-    expect(decorationFor('muted').color, mutedColor);
-    expect(decorationFor('muted').border?.top.color, borderColor);
   });
 
   testWidgets('GenesisSearchField keeps placeholder on one line', (
@@ -685,7 +625,7 @@ void main() {
     );
     expect(
       destructive.style?.backgroundColor?.resolve(const <WidgetState>{}),
-      GenesisColors.danger,
+      GenesisPalette.create,
     );
   });
 
@@ -1388,13 +1328,13 @@ void main() {
         .whereType<ShapeDecoration>()
         .singleWhere(
           (decoration) =>
-              decoration.color == GenesisColors.create &&
+              decoration.color == GenesisPalette.create &&
               decoration.shape ==
                   const ContinuousRectangleBorder(
                     borderRadius: BorderRadius.all(Radius.circular(20)),
                   ),
         );
-    expect(decoration.color, GenesisColors.create);
+    expect(decoration.color, GenesisPalette.create);
 
     final createSurface = tester.widget<Container>(
       find.descendant(

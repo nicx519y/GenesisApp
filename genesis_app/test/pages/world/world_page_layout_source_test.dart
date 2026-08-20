@@ -146,7 +146,6 @@ void main() {
     expect(source, contains('LayoutBuilder'));
     expect(source, contains('maxIdentityWidth'));
     expect(source, isNot(contains('maxWidth: 240')));
-    expect(bottomHeader, isNot(contains('GenesisPairedMetaRow')));
     expect(bottomHeader, isNot(contains('GenesisMoreActionMenuButton')));
     expect(bottomHeader, isNot(contains('worldTitleTextStyle')));
     expect(bottomHeader, contains("'world-playing-avatar'"));

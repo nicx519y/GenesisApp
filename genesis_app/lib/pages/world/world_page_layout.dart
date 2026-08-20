@@ -91,6 +91,7 @@ extension _WorldPageLayout on _WorldPageState {
         child: ValueListenableBuilder<WorldBottomSheetSelection>(
           valueListenable: _worldBottomSheetSelection,
           builder: (context, selection, _) => WorldBottomTags(
+            key: _worldBottomTagsContentKey,
             eventsUnread: _eventsUnread,
             showDetailUnreadDot: _hasUnreadNewUserJoin,
             selectedKind: _worldBottomSheetOpen ? selection.kind : null,

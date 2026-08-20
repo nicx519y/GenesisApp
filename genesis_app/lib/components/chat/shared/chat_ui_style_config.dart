@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../ui/tokens/genesis_avatar_radii.dart';
-import '../../../ui/tokens/genesis_colors.dart';
+import '../../../ui/tokens/genesis_palette.dart';
 
 class ChatUiStyleConfig {
   const ChatUiStyleConfig({
@@ -263,9 +263,9 @@ class ChatUiStyleConfig {
     composerSendButtonHeight: 36, // Send button height.
     composerSendButtonBorderRadius: 8, // Send button border radius.
     composerSendButtonColor:
-        GenesisColors.brand, // Send button background color.
+        GenesisPalette.brand, // Send button background color.
     composerSendButtonDisabledColor:
-        GenesisColors.brandSoft, // Disabled send button background color.
+        GenesisPalette.brandSoft, // Disabled send button background color.
     composerSendButtonIconColor: Colors.white, // Send button icon color.
     composerSendButtonIconSize: 18, // Send button icon size.
     composerSendButtonLoadingSize: 18, // Send button loading indicator size.

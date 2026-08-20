@@ -183,6 +183,7 @@ class OriginDraftFlowPage extends StatefulWidget {
     this.submitStatus = OriginDraftSubmitStatus.idle,
     this.reloadSignal = 0,
     this.createHubStyle = false,
+    this.contentScrollPhysics,
     this.debugDraftGenerator,
   });
 
@@ -210,6 +211,7 @@ class OriginDraftFlowPage extends StatefulWidget {
   final OriginDraftSubmitStatus submitStatus;
   final int reloadSignal;
   final bool createHubStyle;
+  final ScrollPhysics? contentScrollPhysics;
   final OriginDebugDraftGenerator? debugDraftGenerator;
 
   @override
@@ -522,6 +524,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                           SizedBox(height: widget.createHubStyle ? 2 : 14),
                           Expanded(
                             child: ListView(
+                              physics: widget.contentScrollPhysics,
                               padding: EdgeInsets.only(
                                 bottom: widget.updateNotesController == null
                                     ? 10

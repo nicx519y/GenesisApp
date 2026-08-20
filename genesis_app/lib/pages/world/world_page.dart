@@ -134,6 +134,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _eventsUnread = false;
   bool _worldBottomSheetOpen = false;
   bool _hasUnreadNewUserJoin = false;
+  final GlobalKey _worldBottomTagsContentKey = GlobalKey(
+    debugLabel: 'world-bottom-tags-content',
+  );
   final GlobalKey<WorldSingleSectionBottomSheetState> _worldBottomSheetKey =
       GlobalKey<WorldSingleSectionBottomSheetState>();
   int _worldMainTabIndex = 0;
