@@ -107,6 +107,8 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
         child: Container(
           key: const ValueKey<String>('origin-location-chat-launch-bar'),
           padding: style.composerPadding.copyWith(
+            left: GenesisSpacing.pageWide,
+            right: GenesisSpacing.pageWide,
             bottom: style.composerPadding.bottom + bottomInset,
           ),
           decoration: BoxDecoration(

@@ -145,7 +145,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                 backgroundColor: context.genesisColors.inputBackground,
                 borderColor: context.genesisColors.borderStrong,
                 borderRadius: BorderRadius.circular(14),
-                iconColor: context.genesisColors.iconMuted,
+                iconColor: context.genesisColors.primary,
                 iconAsset: searchIconAsset,
                 iconSize: 15,
                 iconGap: 9,

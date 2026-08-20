@@ -159,6 +159,7 @@ class _HomeHeader extends StatelessWidget {
                 Expanded(
                   child: GenesisSearchField(
                     variant: GenesisSearchFieldVariant.compact,
+                    iconColor: context.genesisColors.primary,
                     hintText: 'Explore',
                     onTap: () {
                       Navigator.of(context).pushNamed(RouteNames.search);

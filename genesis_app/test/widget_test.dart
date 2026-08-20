@@ -2956,9 +2956,13 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
-    final homeSearchTop = tester
-        .getTopLeft(find.byType(GenesisSearchField).first)
-        .dy;
+    final homeSearchFinder = find.byType(GenesisSearchField).first;
+    final homeSearchTop = tester.getTopLeft(homeSearchFinder).dy;
+    final homeSearchField = tester.widget<GenesisSearchField>(homeSearchFinder);
+    expect(
+      homeSearchField.iconColor,
+      tester.element(homeSearchFinder).genesisColors.primary,
+    );
 
     await tester.tap(find.text('Explore').first);
     await tester.pump();
@@ -5266,6 +5270,13 @@ void main() {
     expect(searchField.padding, const EdgeInsets.symmetric(horizontal: 14));
     expect(searchField.borderRadius, BorderRadius.circular(14));
     expect(searchField.iconAsset, searchIconAsset);
+    expect(
+      searchField.iconColor,
+      tester
+          .element(find.byKey(const ValueKey<String>('origin-feed-search')))
+          .genesisColors
+          .primary,
+    );
     expect(searchField.iconSize, 15);
     expect(searchField.iconGap, 9);
     expect(searchField.borderWidth, 1.5);
@@ -9424,8 +9435,8 @@ void main() {
         const ValueKey<String>('origin-location-chat-launch-button'),
       );
       expect(
-        tester.getSize(launchButton).width,
-        greaterThan(tester.getSize(launchBar).width * 0.85),
+        tester.getSize(launchBar).width - tester.getSize(launchButton).width,
+        closeTo(40, 0.01),
       );
       expect(tester.getSize(launchButton).height, 44);
       final launchFilledButton = tester.widget<FilledButton>(
