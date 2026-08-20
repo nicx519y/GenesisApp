@@ -66,7 +66,7 @@ class FirebaseAnalyticsMonitoring {
     required String originId,
     required String roleType,
   }) {
-    return _recordEventOnce('launch', <String, Object>{
+    return _recordEventWithFirst('launch', <String, Object>{
       'origin_id': originId,
       'role_type': roleType,
     });
@@ -77,7 +77,7 @@ class FirebaseAnalyticsMonitoring {
     required String roleType,
     required String worldId,
   }) {
-    return _recordEventOnce('launch_success', <String, Object>{
+    return _recordEventWithFirst('launch_success', <String, Object>{
       'origin_id': originId,
       'role_type': roleType,
       'world_id': worldId,
@@ -88,21 +88,21 @@ class FirebaseAnalyticsMonitoring {
     required String worldId,
     required String locationId,
   }) {
-    return _recordEventOnce('message_sent', <String, Object>{
+    return _recordEventWithFirst('message_sent', <String, Object>{
       'world_id': worldId,
       'location_id': locationId,
     });
   }
 
   static Future<void> recordLogin({required String method}) {
-    return _recordEventOnce('login', <String, Object>{'method': method});
+    return _recordEventWithFirst('login', <String, Object>{'method': method});
   }
 
   static Future<void> recordPurchase({
     required String provider,
     required String productId,
   }) {
-    return _recordEventOnce('purchase', <String, Object>{
+    return _recordEventWithFirst('purchase', <String, Object>{
       'provider': provider,
       'product_id': productId,
     });
@@ -143,6 +143,27 @@ class FirebaseAnalyticsMonitoring {
     }
   }
 
+  static Future<void> _recordEventWithFirst(
+    String name,
+    Map<String, Object> parameters,
+  ) async {
+    if (!_isEnabled) return;
+    try {
+      final deviceId = (await _deviceIdReader()).trim();
+      final parametersWithDeviceId = <String, Object>{
+        ...parameters,
+        'device_id': deviceId.isEmpty ? 'unknown' : deviceId,
+      };
+      await Future.wait<void>(<Future<void>>[
+        _recordEvent(name, parametersWithDeviceId),
+        _recordEventOnce('${name}_first', parametersWithDeviceId),
+      ]);
+    } catch (e, st) {
+      debugPrint('[Telemetry][FirebaseAnalytics] $name failed: $e');
+      debugPrint('[Telemetry][FirebaseAnalytics] stacktrace:\n$st');
+    }
+  }
+
   static Future<void> _recordEventOnce(
     String name,
     Map<String, Object> parameters,
@@ -167,17 +188,10 @@ class FirebaseAnalyticsMonitoring {
   ) async {
     try {
       if (await _onceEventStore.wasSent(name)) return;
-      final deviceId = (await _deviceIdReader()).trim();
       await _readiness();
       // Firebase exposes SDK acceptance, not a server-delivery acknowledgement.
       // Persist only after the platform SDK accepts the event call.
-      await _client.logEvent(
-        name: name,
-        parameters: <String, Object>{
-          ...parameters,
-          'device_id': deviceId.isEmpty ? 'unknown' : deviceId,
-        },
-      );
+      await _client.logEvent(name: name, parameters: parameters);
       await _onceEventStore.markSent(name);
     } catch (e, st) {
       debugPrint('[Telemetry][FirebaseAnalytics] $name failed: $e');

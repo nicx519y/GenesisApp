@@ -1533,13 +1533,21 @@ void main() {
           'location_id': 'location-current',
           'device_id': 'test-device-id',
         }),
+        const _LocationChatAnalyticsEvent(
+          'message_sent_first',
+          <String, Object>{
+            'world_id': 'world-current',
+            'location_id': 'location-current',
+            'device_id': 'test-device-id',
+          },
+        ),
       ]);
 
       // The chatroom client retries a missing ACK internally. Those transport
       // attempts must not create additional business-level Analytics events.
       await tester.pump(const Duration(milliseconds: 35));
       expect(socket.sendMessageCount, 3);
-      expect(analytics.events, hasLength(1));
+      expect(analytics.events, hasLength(2));
       await tester.pump(const Duration(seconds: 3));
 
       await tester.pumpWidget(const SizedBox.shrink());
@@ -1697,6 +1705,11 @@ void main() {
     expect(service.sendAttempts, 1);
     expect(analytics.events, <_LocationChatAnalyticsEvent>[
       const _LocationChatAnalyticsEvent('message_sent', <String, Object>{
+        'world_id': 'world-sync-failure',
+        'location_id': 'location-sync-failure',
+        'device_id': 'test-device-id',
+      }),
+      const _LocationChatAnalyticsEvent('message_sent_first', <String, Object>{
         'world_id': 'world-sync-failure',
         'location_id': 'location-sync-failure',
         'device_id': 'test-device-id',

@@ -57,7 +57,18 @@ void main() {
         'role_type': 'preset',
         'device_id': 'test-device-id',
       }),
+      const _RecordedEvent('launch_first', {
+        'origin_id': 'origin_1',
+        'role_type': 'preset',
+        'device_id': 'test-device-id',
+      }),
       const _RecordedEvent('launch_success', {
+        'origin_id': 'origin_1',
+        'role_type': 'preset',
+        'world_id': 'world_1',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('launch_success_first', {
         'origin_id': 'origin_1',
         'role_type': 'preset',
         'world_id': 'world_1',
@@ -92,7 +103,18 @@ void main() {
         'role_type': 'custom',
         'device_id': 'test-device-id',
       }),
+      const _RecordedEvent('launch_first', {
+        'origin_id': 'origin_custom',
+        'role_type': 'custom',
+        'device_id': 'test-device-id',
+      }),
       const _RecordedEvent('launch_success', {
+        'origin_id': 'origin_custom',
+        'role_type': 'custom',
+        'world_id': 'world_custom',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('launch_success_first', {
         'origin_id': 'origin_custom',
         'role_type': 'custom',
         'world_id': 'world_custom',
@@ -127,6 +149,11 @@ void main() {
         'role_type': 'preset',
         'device_id': 'test-device-id',
       }),
+      const _RecordedEvent('launch_first', {
+        'origin_id': 'origin_1',
+        'role_type': 'preset',
+        'device_id': 'test-device-id',
+      }),
     ]);
   });
 
@@ -145,6 +172,11 @@ void main() {
 
     expect(analytics.events, [
       const _RecordedEvent('launch', {
+        'origin_id': 'origin_1',
+        'role_type': 'preset',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('launch_first', {
         'origin_id': 'origin_1',
         'role_type': 'preset',
         'device_id': 'test-device-id',
@@ -171,6 +203,11 @@ void main() {
     });
     expect(analytics.events, [
       const _RecordedEvent('launch', {
+        'origin_id': 'origin_1',
+        'role_type': 'preset',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('launch_first', {
         'origin_id': 'origin_1',
         'role_type': 'preset',
         'device_id': 'test-device-id',
@@ -225,7 +262,15 @@ void main() {
       hasLength(1),
     );
     expect(
+      analytics.events.where((event) => event.name == 'launch_first'),
+      hasLength(1),
+    );
+    expect(
       analytics.events.where((event) => event.name == 'launch_success'),
+      hasLength(1),
+    );
+    expect(
+      analytics.events.where((event) => event.name == 'launch_success_first'),
       hasLength(1),
     );
   });
