@@ -4078,10 +4078,10 @@ void main() {
       final title = tester.widget<Text>(find.text(label));
       expect(title.maxLines, 1);
       expect(title.softWrap, isFalse);
-      expect(title.overflow, isNull);
+      expect(title.overflow, TextOverflow.ellipsis);
       expect(
         find.ancestor(of: find.text(label), matching: find.byType(FittedBox)),
-        findsOneWidget,
+        findsNothing,
       );
     }
 
@@ -4097,6 +4097,52 @@ void main() {
     expect(dmAvatar, findsOneWidget);
     expect(tester.getSize(dmAvatar), const Size.square(44));
     expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 14);
+  });
+
+  testWidgets('messages menu adapts to narrow screens and large text', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 568);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final semantics = tester.ensureSemantics();
+    final services = await _testServices();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: AppServicesScope(
+          services: services,
+          child: MessagesPage(onMessagesDataRefresh: () async {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const menuKeys = <ValueKey<String>>[
+      ValueKey('message-menu-/message/notifications'),
+      ValueKey('message-menu-/messages/new_followers'),
+      ValueKey('message-menu-/messages/comments'),
+    ];
+    final rects = [for (final key in menuKeys) tester.getRect(find.byKey(key))];
+    expect(rects[0].height, greaterThan(56));
+    expect(rects[1].top, greaterThan(rects[0].bottom));
+    expect(rects[2].top, greaterThan(rects[1].bottom));
+    expect(find.semantics.byLabel('Notifications, All read'), findsOneWidget);
+    for (final key in menuKeys) {
+      expect(
+        find.descendant(of: find.byKey(key), matching: find.byType(FittedBox)),
+        findsNothing,
+      );
+    }
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 
   testWidgets('logout clears messages badge and signed-in tab caches', (

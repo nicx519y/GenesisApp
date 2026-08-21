@@ -41,6 +41,19 @@ void main() {
     expect(searchField.iconColor, tester.element(finder).genesisColors.primary);
   });
 
+  testWidgets('cancel action exposes a 44 point semantic target', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    final cancel = find.byKey(const ValueKey<String>('search-cancel-action'));
+    expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
+    expect(find.semantics.byLabel('Cancel'), findsOneWidget);
+    semantics.dispose();
+  });
+
   testWidgets('does not request search before two letters or chinese chars', (
     tester,
   ) async {

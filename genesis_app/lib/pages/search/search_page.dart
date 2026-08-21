@@ -19,6 +19,7 @@ import '../../ui/components/genesis_state_view.dart';
 import '../../ui/components/genesis_tab_bar.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_control_metrics.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -449,18 +450,31 @@ class _SearchPageState extends State<SearchPage>
                         ),
                       ),
                       const SizedBox(width: 14),
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => Navigator.of(context).pop(),
-                        child: SizedBox(
-                          height: 28,
-                          child: Center(
-                            child: Text(
-                              'Cancel',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: context.genesisColors.textStrong,
-                                fontWeight: FontWeight.w400,
+                      Semantics(
+                        key: const ValueKey<String>('search-cancel-action'),
+                        button: true,
+                        label: 'Cancel',
+                        excludeSemantics: true,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => Navigator.of(context).pop(),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minWidth:
+                                    GenesisControlMetrics.minimumTapTarget,
+                                minHeight:
+                                    GenesisControlMetrics.minimumTapTarget,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: context.genesisColors.textStrong,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
                               ),
                             ),
                           ),

@@ -127,6 +127,51 @@ void main() {
           '${violations.join('\n')}',
     );
   });
+
+  test('legacy UI architecture debt cannot grow', () {
+    final directUiImportFiles = <String>{};
+    for (final root in const <String>['lib/components', 'lib/pages']) {
+      for (final file in _dartFiles(root)) {
+        if (_directUiImportPattern.hasMatch(file.readAsStringSync())) {
+          directUiImportFiles.add(file.path);
+        }
+      }
+    }
+
+    final directPageScaffolds = _countMatches(
+      _dartFiles('lib/pages'),
+      _directScaffoldPattern,
+    );
+    final uiToFeatureImports = _countMatches(
+      _dartFiles('lib/ui'),
+      _uiToFeatureImportPattern,
+    );
+    final componentsToPagesImports = _countMatches(
+      _dartFiles('lib/components'),
+      _componentsToPagesImportPattern,
+    );
+
+    _expectDebtAtMost(
+      name: 'files importing internal UI submodules',
+      actual: directUiImportFiles.length,
+      baseline: 92,
+    );
+    _expectDebtAtMost(
+      name: 'direct Scaffold usages in pages',
+      actual: directPageScaffolds,
+      baseline: 29,
+    );
+    _expectDebtAtMost(
+      name: 'lib/ui imports from feature components',
+      actual: uiToFeatureImports,
+      baseline: 8,
+    );
+    _expectDebtAtMost(
+      name: 'lib/components imports from pages',
+      actual: componentsToPagesImports,
+      baseline: 4,
+    );
+  });
 }
 
 final RegExp _physicalColorPattern = RegExp(
@@ -142,6 +187,53 @@ final RegExp _directModalPattern = RegExp(
 final RegExp _directAppBarPattern = RegExp(
   r'(^|[\s=:])(?:const\s+)?AppBar\s*\(',
 );
+
+final RegExp _directScaffoldPattern = RegExp(
+  r'(^|[\s=:])(?:const\s+)?Scaffold\s*\(',
+  multiLine: true,
+);
+
+final RegExp _directUiImportPattern = RegExp(
+  r'''import\s+['\"][^'\"]*ui/(?:components|theme|tokens)/''',
+);
+
+final RegExp _uiToFeatureImportPattern = RegExp(
+  r'''import\s+['\"]\.\./\.\./components/''',
+);
+
+final RegExp _componentsToPagesImportPattern = RegExp(
+  r'''import\s+['\"](?:\.\./)+pages/''',
+);
+
+Iterable<File> _dartFiles(String root) {
+  return Directory(root)
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((file) => file.path.endsWith('.dart'));
+}
+
+int _countMatches(Iterable<File> files, RegExp pattern) {
+  var count = 0;
+  for (final file in files) {
+    count += pattern.allMatches(file.readAsStringSync()).length;
+  }
+  return count;
+}
+
+void _expectDebtAtMost({
+  required String name,
+  required int actual,
+  required int baseline,
+}) {
+  expect(
+    actual,
+    lessThanOrEqualTo(baseline),
+    reason:
+        '$name increased from the migration baseline of $baseline to '
+        '$actual. Use the public UI entrypoint and preserve the dependency '
+        'direction. Lower the baseline when a migration removes debt.',
+  );
+}
 
 bool _allowsPhysicalColors(String path) {
   const exactPaths = <String>{

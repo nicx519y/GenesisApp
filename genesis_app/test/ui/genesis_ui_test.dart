@@ -417,7 +417,16 @@ void main() {
     expect(icon.height, genesisSearchIconSize);
     expect(find.byIcon(Icons.search), findsNothing);
     expect(find.text('Explore'), findsOneWidget);
-    expect(tester.getSize(find.byType(GenesisSearchField)).height, 36);
+    expect(
+      tester.getSize(find.byType(GenesisSearchField)).height,
+      GenesisControlMetrics.minimumTapTarget,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('genesis-search-field-visual')))
+          .height,
+      genesisCompactSearchFieldHeight,
+    );
   });
 
   testWidgets('GenesisPageHeader reuses compact GenesisSearchField', (

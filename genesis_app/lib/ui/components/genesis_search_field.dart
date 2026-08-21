@@ -5,6 +5,7 @@ import '../../icons/custom_icon_assets.dart';
 import 'genesis_control_icons.dart';
 import '../text/genesis_text_input_formatters.dart';
 import '../theme/genesis_semantic_colors.dart';
+import '../tokens/genesis_control_metrics.dart';
 import '../tokens/genesis_spacing.dart';
 import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
@@ -149,98 +150,137 @@ class GenesisSearchField extends StatelessWidget {
       textStyle ?? GenesisTypography.body.copyWith(color: colors.textPrimary),
     );
     final editable = controller != null;
-    final child = Container(
-      height: effectiveHeight,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: effectiveBackgroundColor,
-        border: effectiveBorderColor == null
-            ? null
-            : Border.all(color: effectiveBorderColor, width: borderWidth),
-        borderRadius: effectiveBorderRadius,
-      ),
-      child: Row(
+    final targetHeight =
+        effectiveHeight < GenesisControlMetrics.minimumTapTarget
+        ? GenesisControlMetrics.minimumTapTarget
+        : effectiveHeight;
+    final showClear =
+        editable &&
+        onClear != null &&
+        (controller?.text.trim().isNotEmpty ?? false);
+    final child = SizedBox(
+      height: targetHeight,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          if (effectiveIconAsset == null)
-            Icon(Icons.search, color: effectiveIconColor, size: iconSize)
-          else
-            effectiveIconAsset.toLowerCase().endsWith('.svg')
-                ? SvgPicture.asset(
-                    effectiveIconAsset,
-                    width: iconSize,
-                    height: iconSize,
-                    colorFilter: ColorFilter.mode(
-                      effectiveIconColor,
-                      BlendMode.srcIn,
-                    ),
-                    excludeFromSemantics: true,
-                  )
-                : Image.asset(
-                    effectiveIconAsset,
-                    width: iconSize,
-                    height: iconSize,
-                    color: effectiveIconColor,
-                    excludeFromSemantics: true,
-                  ),
-          SizedBox(width: iconGap),
-          Expanded(
-            child: editable
-                ? TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    onChanged: onChanged,
-                    textInputAction: textInputAction,
-                    readOnly: readOnly,
-                    autofocus: autofocus,
-                    inputFormatters: const [
-                      GenesisDisplaySafeTextInputFormatter(),
-                    ],
-                    onTapOutside: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
-                    maxLines: 1,
-                    textAlignVertical: TextAlignVertical.center,
-                    decoration: InputDecoration(
-                      hintText: hintText,
-                      hintStyle: effectiveHintStyle,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      isCollapsed: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    style: effectiveTextStyle,
-                  )
-                : Text(
-                    hintText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
-                    style: effectiveHintStyle,
-                  ),
-          ),
-          if (editable &&
-              onClear != null &&
-              (controller?.text.trim().isNotEmpty ?? false))
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onClear,
-              child: SizedBox(
-                width: effectiveHeight,
-                height: effectiveHeight,
-                child: Center(
-                  child: GenesisCloseIcon(size: 14, color: effectiveIconColor),
-                ),
+          Center(
+            child: Container(
+              key: const ValueKey('genesis-search-field-visual'),
+              width: double.infinity,
+              height: effectiveHeight,
+              decoration: BoxDecoration(
+                color: effectiveBackgroundColor,
+                border: effectiveBorderColor == null
+                    ? null
+                    : Border.all(
+                        color: effectiveBorderColor,
+                        width: borderWidth,
+                      ),
+                borderRadius: effectiveBorderRadius,
               ),
             ),
+          ),
+          Padding(
+            padding: padding,
+            child: Row(
+              children: [
+                if (effectiveIconAsset == null)
+                  Icon(Icons.search, color: effectiveIconColor, size: iconSize)
+                else
+                  effectiveIconAsset.toLowerCase().endsWith('.svg')
+                      ? SvgPicture.asset(
+                          effectiveIconAsset,
+                          width: iconSize,
+                          height: iconSize,
+                          colorFilter: ColorFilter.mode(
+                            effectiveIconColor,
+                            BlendMode.srcIn,
+                          ),
+                          excludeFromSemantics: true,
+                        )
+                      : Image.asset(
+                          effectiveIconAsset,
+                          width: iconSize,
+                          height: iconSize,
+                          color: effectiveIconColor,
+                          excludeFromSemantics: true,
+                        ),
+                SizedBox(width: iconGap),
+                Expanded(
+                  child: editable
+                      ? TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          onChanged: onChanged,
+                          textInputAction: textInputAction,
+                          readOnly: readOnly,
+                          autofocus: autofocus,
+                          inputFormatters: const [
+                            GenesisDisplaySafeTextInputFormatter(),
+                          ],
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
+                          maxLines: 1,
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: InputDecoration(
+                            hintText: hintText,
+                            hintStyle: effectiveHintStyle,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isCollapsed: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          style: effectiveTextStyle,
+                        )
+                      : Text(
+                          hintText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                          style: effectiveHintStyle,
+                        ),
+                ),
+                if (showClear)
+                  Semantics(
+                    key: const ValueKey('genesis-search-field-clear-action'),
+                    button: true,
+                    label: 'Clear search',
+                    excludeSemantics: true,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onClear,
+                      child: SizedBox(
+                        width: GenesisControlMetrics.minimumTapTarget,
+                        height: targetHeight,
+                        child: Center(
+                          child: GenesisCloseIcon(
+                            size: 14,
+                            color: effectiveIconColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
 
-    if (onTap == null) return child;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: child,
-    );
+    final interactiveChild = onTap == null
+        ? child
+        : Semantics(
+            button: true,
+            label: hintText,
+            excludeSemantics: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              child: child,
+            ),
+          );
+    return interactiveChild;
   }
 }

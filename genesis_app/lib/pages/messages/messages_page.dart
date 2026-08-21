@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -176,37 +177,61 @@ class _MessagesPageState extends State<MessagesPage> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _MessageMenuButton(
-                  label: 'Notifications',
-                  routeName: RouteNames.notifications,
-                  block: 'world_apply',
-                  emptyText: 'No notifications yet.',
-                  unreadCount: unreadSummary.systemUnread,
-                  onMessagesDataRefresh: widget.onMessagesDataRefresh,
-                ),
-                const SizedBox(width: 8),
-                _MessageMenuButton(
-                  label: 'New followers',
-                  displayLabel: 'Followers',
-                  routeName: RouteNames.newFollowers,
-                  block: 'follow',
-                  emptyText: 'No new followers yet.',
-                  unreadCount: unreadSummary.followerUnread,
-                  onMessagesDataRefresh: widget.onMessagesDataRefresh,
-                ),
-                const SizedBox(width: 8),
-                _MessageMenuButton(
-                  label: 'Comments',
-                  routeName: RouteNames.comments,
-                  block: 'interaction',
-                  emptyText: 'No comments yet.',
-                  unreadCount: unreadSummary.commentUnread,
-                  onMessagesDataRefresh: widget.onMessagesDataRefresh,
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final buttons = <Widget>[
+                  _MessageMenuButton(
+                    label: 'Notifications',
+                    routeName: RouteNames.notifications,
+                    block: 'world_apply',
+                    emptyText: 'No notifications yet.',
+                    unreadCount: unreadSummary.systemUnread,
+                    onMessagesDataRefresh: widget.onMessagesDataRefresh,
+                  ),
+                  _MessageMenuButton(
+                    label: 'New followers',
+                    displayLabel: 'Followers',
+                    routeName: RouteNames.newFollowers,
+                    block: 'follow',
+                    emptyText: 'No new followers yet.',
+                    unreadCount: unreadSummary.followerUnread,
+                    onMessagesDataRefresh: widget.onMessagesDataRefresh,
+                  ),
+                  _MessageMenuButton(
+                    label: 'Comments',
+                    routeName: RouteNames.comments,
+                    block: 'interaction',
+                    emptyText: 'No comments yet.',
+                    unreadCount: unreadSummary.commentUnread,
+                    onMessagesDataRefresh: widget.onMessagesDataRefresh,
+                  ),
+                ];
+                final scaledTitleSize = MediaQuery.textScalerOf(
+                  context,
+                ).scale(12);
+                final stackVertically =
+                    constraints.maxWidth < 300 || scaledTitleSize > 16;
+                if (stackVertically) {
+                  return Column(
+                    children: [
+                      buttons[0],
+                      const SizedBox(height: 8),
+                      buttons[1],
+                      const SizedBox(height: 8),
+                      buttons[2],
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: buttons[0]),
+                    const SizedBox(width: 8),
+                    Expanded(child: buttons[1]),
+                    const SizedBox(width: 8),
+                    Expanded(child: buttons[2]),
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 26),
@@ -276,9 +301,16 @@ class _MessageMenuButton extends StatelessWidget {
     final visibleLabel = displayLabel ?? label;
     final colors = context.genesisColors;
     final statusText = unreadCount > 0 ? '$unreadCount new' : 'All read';
-    return Expanded(
-      child: SizedBox(
-        height: 56,
+    final textScaler = MediaQuery.textScalerOf(context);
+    final contentHeight = textScaler.scale(12) + 7 + textScaler.scale(9.5);
+    final height = math.max(56.0, 13 + contentHeight + 14);
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: Semantics(
+        button: true,
+        label: '$visibleLabel, $statusText',
+        excludeSemantics: true,
         child: Material(
           key: ValueKey<String>('message-menu-$routeName-surface'),
           color: colors.inputBackground,
@@ -293,37 +325,31 @@ class _MessageMenuButton extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      visibleLabel,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textPrimary,
-                      ),
+                  Text(
+                    visibleLabel,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1,
+                      fontWeight: FontWeight.w700,
+                      color: colors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 7),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      statusText,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        height: 1,
-                        fontWeight: FontWeight.w500,
-                        color: unreadCount > 0
-                            ? colors.danger
-                            : colors.textTertiary,
-                      ),
+                  Text(
+                    statusText,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      height: 1,
+                      fontWeight: FontWeight.w500,
+                      color: unreadCount > 0
+                          ? colors.danger
+                          : colors.textTertiary,
                     ),
                   ),
                 ],

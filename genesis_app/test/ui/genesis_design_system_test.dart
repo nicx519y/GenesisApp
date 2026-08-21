@@ -88,6 +88,82 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('search launcher and clear action keep 44 point hit targets', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final controller = TextEditingController(text: 'world');
+    addTearDown(controller.dispose);
+    var launched = false;
+    var cleared = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark(),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 240,
+              child: GenesisSearchField.launcher(
+                variant: GenesisSearchFieldVariant.compact,
+                hintText: 'Search worlds',
+                onTap: () => launched = true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final launcher = find.byType(GenesisSearchField);
+    final launcherRect = tester.getRect(launcher);
+    expect(
+      launcherRect.height,
+      greaterThanOrEqualTo(GenesisControlMetrics.minimumTapTarget),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('genesis-search-field-visual')))
+          .height,
+      genesisCompactSearchFieldHeight,
+    );
+    expect(find.semantics.byLabel('Search worlds'), findsOneWidget);
+    await tester.tapAt(launcherRect.bottomCenter - const Offset(0, 2));
+    expect(launched, isTrue);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark(),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 240,
+              child: GenesisSearchField.editable(
+                variant: GenesisSearchFieldVariant.compact,
+                hintText: 'Search worlds',
+                controller: controller,
+                onClear: () => cleared = true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.semantics.byLabel('Clear search'), findsOneWidget);
+    final clearAction = find.byKey(
+      const ValueKey('genesis-search-field-clear-action'),
+    );
+    final clearRect = tester.getRect(clearAction);
+    expect(
+      clearRect.height,
+      greaterThanOrEqualTo(GenesisControlMetrics.minimumTapTarget),
+    );
+    await tester.tapAt(clearRect.bottomCenter - const Offset(0, 2));
+    expect(cleared, isTrue);
+    semantics.dispose();
+  });
+
   testWidgets('shared state and navigation components expose stable slots', (
     tester,
   ) async {
@@ -207,6 +283,37 @@ void main() {
     expect(bars[0].isScrollable, isTrue);
     expect(bars[1].isScrollable, isFalse);
     expect(bars[2].isScrollable, isTrue);
+  });
+
+  testWidgets('compact tab bar keeps a 44 point vertical hit target', (
+    tester,
+  ) async {
+    var selected = -1;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark(),
+        home: DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            body: Center(
+              child: GenesisTabBar.compact(
+                labels: const ['One', 'Two'],
+                onTap: (index) => selected = index,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final barRect = tester.getRect(find.byType(GenesisTabBar));
+    expect(
+      barRect.height,
+      greaterThanOrEqualTo(GenesisControlMetrics.minimumTapTarget),
+    );
+    final firstLabelCenter = tester.getCenter(find.text('One'));
+    await tester.tapAt(Offset(firstLabelCenter.dx, barRect.bottom - 2));
+    expect(selected, 0);
   });
 
   testWidgets('shared controls keep 44 point tap targets', (tester) async {

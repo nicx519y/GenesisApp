@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/genesis_semantic_colors.dart';
+import '../tokens/genesis_control_metrics.dart';
 import '../tokens/genesis_spacing.dart';
 import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
@@ -116,7 +117,12 @@ class GenesisTabBar extends StatelessWidget {
         (labelFontSize == null
             ? GenesisTypography.body
             : GenesisTypography.body.copyWith(fontSize: labelFontSize));
-    return Padding(
+    final minimumTabHeight =
+        GenesisControlMetrics.minimumTapTarget - verticalPadding * 2;
+    final effectiveTabHeight = tabHeight < minimumTabHeight
+        ? minimumTabHeight
+        : tabHeight;
+    final tabBar = Padding(
       padding: EdgeInsets.symmetric(vertical: verticalPadding),
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -147,10 +153,12 @@ class GenesisTabBar extends StatelessWidget {
           labelStyle: resolvedLabelStyle,
           unselectedLabelStyle: resolvedUnselectedLabelStyle,
           tabs: [
-            for (final label in labels) Tab(height: tabHeight, text: label),
+            for (final label in labels)
+              Tab(height: effectiveTabHeight, text: label),
           ],
         ),
       ),
     );
+    return tabBar;
   }
 }
