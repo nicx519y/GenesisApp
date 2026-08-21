@@ -11,6 +11,7 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_selection_mark.dart';
+import 'package:genesis_flutter_android/components/origin/genesis_origin_theme.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -207,7 +208,10 @@ void main() {
         ),
       );
       expect(unselectedStar.size, 16);
-      expect(unselectedStar.color, const Color(0xFF999999));
+      expect(
+        unselectedStar.color,
+        GenesisOriginColors.worldoLight().roleSetupMuted,
+      );
       final firstNameField = find.byType(TextField).first;
       expect(
         tester.getTopLeft(ariCheckbox).dy,

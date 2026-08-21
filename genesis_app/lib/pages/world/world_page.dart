@@ -23,9 +23,9 @@ import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/world_details_shell.dart';
-import '../../components/world/genesis_world_theme.dart';
 import '../../components/world_map.dart';
 import '../../components/world_tick1_wait_dialog.dart';
+import '../../ui/genesis_ui.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
@@ -33,10 +33,6 @@ import '../../network/api_exception.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/auth/auth_session.dart';
-import '../../ui/components/genesis_primary_button.dart';
-import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/components/genesis_static_network_image.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -464,7 +460,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         return _buildInitialLocationChatPage();
       }
       if (_initialLoadError != null) {
-        return Scaffold(
+        return GenesisPageScaffold.custom(
           body: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,

@@ -15,9 +15,7 @@ import '../../network/direct_message_message_store.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/system/genesis_system_ui.dart';
+import '../../ui/genesis_ui.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_ugc_text.dart';
 
@@ -605,7 +603,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       ),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: GenesisSystemUi.forThemeBrightness(Theme.of(context).brightness),
-        child: Scaffold(
+        child: GenesisPageScaffold.custom(
           backgroundColor: privateChatStyle.conversationBackgroundColor,
           resizeToAvoidBottomInset: true,
           body: Stack(

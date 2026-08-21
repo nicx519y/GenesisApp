@@ -105,7 +105,7 @@ class DeveloperPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GenesisPageScaffold.custom(
       body: SafeArea(
         child: DeveloperPageContent(
           headerLeading: _DeveloperPageBackButton(

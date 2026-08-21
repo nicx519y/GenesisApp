@@ -15,7 +15,6 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/gems/daily_check_in_dialog.dart';
 import '../../components/gems/gem_assets.dart';
 import '../../components/gems/gem_billing_purchase_dialog.dart';
-import '../../components/gems/gem_colors.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
 import '../../network/models/gem_product.dart';
 import '../../network/models/gem_task.dart';
@@ -23,11 +22,7 @@ import '../../network/models/gem_task_action.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_app_bar.dart';
-import '../../ui/components/genesis_app_bar_action_link.dart';
-import '../../ui/components/genesis_state_view.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_typography.dart';
+import '../../ui/genesis_ui.dart';
 
 part 'gem_wallet_data_actions.dart';
 part 'gem_wallet_billing_flow.dart';
@@ -179,7 +174,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     final walletStateListenable = _walletStateListenable;
     return PopScope(
       canPop: !_billingPurchaseDialogShowing,
-      child: Scaffold(
+      child: GenesisPageScaffold.custom(
         backgroundColor: context.genesisColors.pageBackground,
         appBar: GenesisAppBar(
           title: 'Buy Gems',

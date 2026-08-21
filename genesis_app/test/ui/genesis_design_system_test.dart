@@ -414,6 +414,31 @@ void main() {
     expect(find.text('Page content'), findsOneWidget);
   });
 
+  testWidgets('custom page scaffold preserves legacy chrome slots', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark(),
+        home: GenesisPageScaffold.custom(
+          appBar: const GenesisBackAppBar(pageName: 'Conversation'),
+          body: const Text('Messages'),
+          bottomNavigationBar: const SizedBox(
+            key: ValueKey<String>('legacy-bottom-slot'),
+            height: 12,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Conversation'), findsOneWidget);
+    expect(find.text('Messages'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('legacy-bottom-slot')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('shared form fields expose errors, counts and selection', (
     tester,
   ) async {

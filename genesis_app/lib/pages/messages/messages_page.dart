@@ -7,14 +7,10 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/polling_scheduler.dart';
 import '../../components/common/genesis_timestamp_text.dart';
-import '../../components/messages/genesis_message_theme.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_page_header.dart';
-import '../../ui/components/genesis_unread_badge.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/genesis_ui.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import 'message_category_list_page.dart';
@@ -166,7 +162,7 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     final unreadSummary = widget.unreadSummary;
-    return Scaffold(
+    return GenesisPageScaffold.custom(
       backgroundColor: context.genesisColors.pageBackground,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

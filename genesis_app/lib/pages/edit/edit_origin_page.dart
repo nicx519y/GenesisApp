@@ -7,8 +7,7 @@ import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/genesis_logo.dart';
 import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
-import '../../ui/components/genesis_page_header.dart';
-import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/genesis_ui.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../create/create_origin_draft_store.dart';
@@ -149,7 +148,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return const GenesisPageScaffold.custom(
         appBar: GenesisBackAppBar(pageName: 'Edit Worldo'),
         body: Center(child: CircularProgressIndicator()),
       );
@@ -157,7 +156,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
 
     final repository = _repository;
     if (_error != null || repository == null) {
-      return Scaffold(
+      return GenesisPageScaffold.custom(
         appBar: const GenesisBackAppBar(pageName: 'Edit Worldo'),
         body: Center(
           child: Padding(

@@ -4,17 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/discuss/discuss_page_comment_list.dart';
-import '../../components/discuss/genesis_discuss_theme.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_app_bar.dart';
-import '../../ui/components/genesis_list_image.dart';
-import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/genesis_ui.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 
@@ -115,7 +111,7 @@ class _DiscussPageState extends State<DiscussPage> {
   @override
   Widget build(BuildContext context) {
     final origin = _origin;
-    return Scaffold(
+    return GenesisPageScaffold.custom(
       resizeToAvoidBottomInset: false,
       backgroundColor: context.genesisColors.pageBackground,
       appBar: _DiscussPageAppBar(controller: _discussController),

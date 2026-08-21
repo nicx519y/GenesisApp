@@ -454,7 +454,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const GenesisPageScaffold.custom(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     final disabledSubmitColor = context.genesisColors.primaryDisabled;
@@ -479,7 +481,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       },
       child: GenesisEdgeSwipeBack(
         onBack: () => unawaited(_handleLeaveRequest()),
-        child: Scaffold(
+        child: GenesisPageScaffold.custom(
           key: widget.createHubStyle
               ? const ValueKey<String>('create-worldo-hub-scaffold')
               : null,

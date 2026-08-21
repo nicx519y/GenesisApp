@@ -14,7 +14,6 @@ import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/shared/location_chat_overlay_transition.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
-import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/copyable_id_label.dart';
@@ -25,35 +24,23 @@ import '../../components/login_sheet.dart';
 import '../../components/map_detail_sheet_surface.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/origin_role_recommendation.dart';
-import '../../components/origin/genesis_origin_theme.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/world_map.dart';
+import '../../ui/genesis_ui.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../network/genesis_http_cache_manager.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
-import '../../ui/components/genesis_static_network_image.dart';
-import '../../ui/system/genesis_system_ui.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../../platform/auth/auth_session.dart';
-import '../../ui/components/genesis_control_icons.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_card_action_button.dart';
-import '../../ui/components/genesis_edge_swipe_back.dart';
-import '../../ui/components/genesis_primary_button.dart';
-import '../../ui/components/genesis_tag.dart';
-import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_spacing.dart';
-import '../../ui/tokens/genesis_typography.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../utils/entity_deleted.dart';
@@ -1036,7 +1023,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final origin = _origin;
     if (origin == null) {
       if (_initialLoadError != null) {
-        return Scaffold(
+        return GenesisPageScaffold.custom(
           body: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,

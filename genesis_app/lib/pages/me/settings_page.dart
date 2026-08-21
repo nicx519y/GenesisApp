@@ -112,7 +112,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
-    return Scaffold(
+    return GenesisPageScaffold.custom(
       backgroundColor: colors.pageBackground,
       resizeToAvoidBottomInset: false,
       body: GenesisTopSafeArea(

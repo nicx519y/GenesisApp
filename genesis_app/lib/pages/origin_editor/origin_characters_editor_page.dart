@@ -218,7 +218,7 @@ class _OriginCharactersEditorPageState
   @override
   Widget build(BuildContext context) {
     final createWorldoStyle = widget.createWorldoStyle;
-    return Scaffold(
+    return GenesisPageScaffold.custom(
       resizeToAvoidBottomInset: true,
       backgroundColor: createWorldoStyle
           ? context.genesisColors.pageBackground

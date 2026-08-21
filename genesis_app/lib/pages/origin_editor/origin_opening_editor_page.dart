@@ -269,7 +269,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
   @override
   Widget build(BuildContext context) {
     final selected = _selectedOption;
-    return Scaffold(
+    return GenesisPageScaffold.custom(
       resizeToAvoidBottomInset: true,
       backgroundColor: context.genesisColors.pageBackground,
       appBar: const GenesisBackAppBar(pageName: 'Opening'),

@@ -5,12 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/gems/gem_colors.dart';
 import '../../network/models/gem_records.dart';
-import '../../ui/components/genesis_app_bar.dart';
-import '../../ui/components/genesis_state_view.dart';
-import '../../ui/components/genesis_tab_bar.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/genesis_ui.dart';
 
 typedef GemRecordsLoader =
     Future<GemRecordList> Function({
@@ -176,30 +172,25 @@ class _GemRecordsPageState extends State<GemRecordsPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.genesisColors.pageBackground,
-      appBar: const GenesisAppBar(
-        title: 'Gem Records',
-        variant: GenesisAppBarVariant.leadingTitle,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _GemRecordTabs(
+    return GenesisPageScaffold.secondary(
+      title: 'Gem Records',
+      contentPadding: EdgeInsets.zero,
+      body: Column(
+        children: [
+          _GemRecordTabs(
+            controller: _tabController,
+            labels: _tabs.map((tab) => tab.label).toList(growable: false),
+            onSelected: _selectTab,
+          ),
+          Expanded(
+            child: TabBarView(
               controller: _tabController,
-              labels: _tabs.map((tab) => tab.label).toList(growable: false),
-              onSelected: _selectTab,
+              children: [
+                for (var i = 0; i < _tabs.length; i += 1) _buildBody(i),
+              ],
             ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  for (var i = 0; i < _tabs.length; i += 1) _buildBody(i),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

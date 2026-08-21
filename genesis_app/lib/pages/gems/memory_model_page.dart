@@ -6,12 +6,8 @@ import 'package:flutter/services.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/gems/gem_colors.dart';
 import '../../network/models/gem_model.dart';
-import '../../ui/components/genesis_state_view.dart';
-import '../../ui/system/genesis_system_ui.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_typography.dart';
+import '../../ui/genesis_ui.dart';
 
 typedef GemModelCatalogLoader =
     Future<GemModelCatalog> Function(String worldId);
@@ -183,7 +179,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: GenesisSystemUi.forThemeBrightness(Theme.of(context).brightness),
-      child: Scaffold(
+      child: GenesisPageScaffold.custom(
         backgroundColor: context.genesisColors.pageBackground,
         body: Column(
           children: [

@@ -11,15 +11,8 @@ import '../../components/origin/stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_list_image.dart';
-import '../../ui/components/genesis_page_header.dart';
-import '../../ui/components/genesis_search_field.dart';
-import '../../ui/components/genesis_state_view.dart';
-import '../../ui/components/genesis_tab_bar.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/genesis_ui.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_control_metrics.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -418,7 +411,7 @@ class _SearchPageState extends State<SearchPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GenesisPageScaffold.custom(
       backgroundColor: context.genesisColors.pageBackground,
       body: SafeArea(
         bottom: false,

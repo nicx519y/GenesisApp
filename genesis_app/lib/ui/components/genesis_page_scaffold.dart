@@ -5,7 +5,7 @@ import '../tokens/genesis_spacing.dart';
 import 'genesis_app_bar.dart';
 import 'genesis_page_header.dart';
 
-enum GenesisPageScaffoldVariant { root, secondary, editor, immersive }
+enum GenesisPageScaffoldVariant { root, secondary, editor, immersive, custom }
 
 /// The standard scrollable body for ordinary root, secondary, and editor pages.
 ///
@@ -57,6 +57,7 @@ class GenesisPageScaffold extends StatelessWidget {
   }) : variant = GenesisPageScaffoldVariant.root,
        onBack = null,
        actions = null,
+       appBar = null,
        showBackButton = false,
        extendBodyBehindAppBar = false,
        safeAreaBottom = true;
@@ -76,6 +77,7 @@ class GenesisPageScaffold extends StatelessWidget {
     this.safeAreaBottom = true,
   }) : variant = GenesisPageScaffoldVariant.secondary,
        trailing = null,
+       appBar = null,
        showSearchField = false,
        searchHintText = 'Explore',
        onSearchTap = null,
@@ -96,6 +98,7 @@ class GenesisPageScaffold extends StatelessWidget {
     this.safeAreaBottom = true,
   }) : variant = GenesisPageScaffoldVariant.editor,
        trailing = null,
+       appBar = null,
        showSearchField = false,
        searchHintText = 'Explore',
        onSearchTap = null,
@@ -117,13 +120,40 @@ class GenesisPageScaffold extends StatelessWidget {
     this.safeAreaBottom = false,
   }) : variant = GenesisPageScaffoldVariant.immersive,
        trailing = null,
+       appBar = null,
        showSearchField = false,
        searchHintText = 'Explore',
        onSearchTap = null;
 
+  /// Keeps legacy pages inside the shared page-chrome boundary while their
+  /// feature-specific header, map, or fixed composer layout is migrated.
+  ///
+  /// New ordinary pages should use one of the semantic constructors above.
+  const GenesisPageScaffold.custom({
+    super.key,
+    required this.body,
+    this.appBar,
+    this.backgroundColor,
+    this.resizeToAvoidBottomInset,
+    this.bottomNavigationBar,
+    this.floatingActionButton,
+    this.extendBodyBehindAppBar = false,
+  }) : variant = GenesisPageScaffoldVariant.custom,
+       title = '',
+       onBack = null,
+       actions = null,
+       trailing = null,
+       showBackButton = false,
+       showSearchField = false,
+       searchHintText = 'Explore',
+       onSearchTap = null,
+       contentPadding = EdgeInsets.zero,
+       safeAreaBottom = false;
+
   final GenesisPageScaffoldVariant variant;
   final String title;
   final Widget body;
+  final PreferredSizeWidget? appBar;
   final VoidCallback? onBack;
   final List<Widget>? actions;
   final Widget? trailing;
@@ -143,6 +173,7 @@ class GenesisPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final root = variant == GenesisPageScaffoldVariant.root;
     final immersive = variant == GenesisPageScaffoldVariant.immersive;
+    final custom = variant == GenesisPageScaffoldVariant.custom;
     final content = SafeArea(
       top: immersive,
       bottom: safeAreaBottom,
@@ -153,7 +184,9 @@ class GenesisPageScaffold extends StatelessWidget {
       backgroundColor: backgroundColor ?? context.genesisColors.pageBackground,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       extendBodyBehindAppBar: extendBodyBehindAppBar,
-      appBar: root || immersive
+      appBar: custom
+          ? appBar
+          : root || immersive
           ? null
           : GenesisAppBar(
               title: title,

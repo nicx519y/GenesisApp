@@ -117,7 +117,7 @@ class _OriginStoryEventsEditorPageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GenesisPageScaffold.custom(
       resizeToAvoidBottomInset: true,
       backgroundColor: context.genesisColors.pageBackground,
       appBar: _StoryEventsAppBar(eventCount: _eventControllers.length),

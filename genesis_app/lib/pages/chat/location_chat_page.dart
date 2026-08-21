@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
-import '../../app/config/genesis_image_config.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
@@ -21,6 +20,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/gems/memory_model_entry_button.dart';
+import '../../ui/genesis_ui.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_message_type.dart';
 import '../../network/chatroom/chatroom_models.dart';
@@ -32,9 +32,6 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/components/genesis_modal_border.dart';
-import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';
@@ -760,7 +757,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               ),
             ),
             Positioned.fill(
-              child: Scaffold(
+              child: GenesisPageScaffold.custom(
                 backgroundColor: Colors.transparent,
                 resizeToAvoidBottomInset:
                     !managesKeyboardInset && _composerFocusNode.hasFocus,

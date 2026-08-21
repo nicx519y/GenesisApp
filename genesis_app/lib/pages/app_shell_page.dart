@@ -16,8 +16,7 @@ import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/billing/billing_models.dart';
 import '../platform/privacy/app_tracking_transparency_service.dart';
-import '../ui/theme/genesis_semantic_colors.dart';
-import '../ui/tokens/genesis_radii.dart';
+import '../ui/genesis_ui.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_feed_cache_store.dart';
 import 'home/home_page.dart';
@@ -674,7 +673,7 @@ class _AppShellPageState extends State<AppShellPage>
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: GenesisSystemUi.forThemeBrightness(Theme.of(context).brightness),
-      child: Scaffold(
+      child: GenesisPageScaffold.custom(
         body: _buildBody(),
         bottomNavigationBar: ValueListenableBuilder<UnreadSummary>(
           valueListenable: _unreadSummaryNotifier,

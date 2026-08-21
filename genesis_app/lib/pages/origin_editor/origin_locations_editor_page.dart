@@ -344,7 +344,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     return Listener(
       onPointerUp: (_) => _releaseInlineOutsideTapSuppression(),
       onPointerCancel: (_) => _releaseInlineOutsideTapSuppression(),
-      child: Scaffold(
+      child: GenesisPageScaffold.custom(
         resizeToAvoidBottomInset: true,
         backgroundColor: context.genesisColors.pageBackground,
         appBar: GenesisBackAppBar(

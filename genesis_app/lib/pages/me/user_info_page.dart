@@ -14,10 +14,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_page_header.dart';
-import '../../ui/components/genesis_primary_button.dart';
-import '../../ui/components/genesis_skeleton.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/genesis_ui.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -464,7 +461,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
           arguments: const {'home_tab': 'popular'},
         );
       },
-      child: Scaffold(
+      child: GenesisPageScaffold.custom(
         appBar: GenesisBackAppBar(
           pageName: _profileCollapsed ? _profileTitle : '',
           onBack: _handleBack,

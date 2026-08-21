@@ -8,12 +8,9 @@ import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/me/genesis_follow_user_list_tile.dart';
-import '../../components/messages/genesis_message_theme.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/components/genesis_page_header.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/genesis_ui.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -343,9 +340,10 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.genesisColors.pageBackground,
-      appBar: GenesisBackAppBar(pageName: widget.title),
+    return GenesisPageScaffold.secondary(
+      title: widget.title,
+      contentPadding: EdgeInsets.zero,
+      safeAreaBottom: false,
       body: RefreshIndicator(
         onRefresh: _loadFirstPage,
         child: _buildBody(context),

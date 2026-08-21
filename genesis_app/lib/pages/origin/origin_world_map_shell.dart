@@ -34,7 +34,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _baseStatusBarStyle,
-      child: Scaffold(
+      child: GenesisPageScaffold.custom(
         backgroundColor: context.genesisColors.surfaceSheet,
         resizeToAvoidBottomInset: false,
         body: LayoutBuilder(
