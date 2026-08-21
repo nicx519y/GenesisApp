@@ -16,6 +16,7 @@ class _DeveloperDesignSystemGalleryPageState
     extends State<DeveloperDesignSystemGalleryPage> {
   final _textController = TextEditingController();
   final _areaController = TextEditingController();
+  int _selectedFilter = 0;
 
   @override
   void dispose() {
@@ -32,8 +33,9 @@ class _DeveloperDesignSystemGalleryPageState
       body: ListView(
         padding: GenesisSpacing.formPagePadding.copyWith(top: 20, bottom: 32),
         children: [
-          const _GallerySection(
+          const GenesisSectionPanel(
             title: 'Typography',
+            margin: EdgeInsets.only(bottom: GenesisSpacing.section),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -52,8 +54,9 @@ class _DeveloperDesignSystemGalleryPageState
               ],
             ),
           ),
-          _GallerySection(
+          GenesisSectionPanel(
             title: 'Buttons',
+            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
             child: Column(
               children: [
                 GenesisButton(label: 'Primary', onPressed: () {}),
@@ -80,8 +83,77 @@ class _DeveloperDesignSystemGalleryPageState
               ],
             ),
           ),
-          _GallerySection(
+          GenesisSectionPanel(
+            title: 'Controls and metadata',
+            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    GenesisControlButton(
+                      tooltip: 'More actions',
+                      onPressed: () {},
+                      child: GenesisMoreIcon(
+                        color: context.genesisColors.foregroundStrong,
+                      ),
+                    ),
+                    const SizedBox(width: GenesisSpacing.lg),
+                    GenesisControlButton(
+                      tooltip: 'Disabled action',
+                      onPressed: null,
+                      child: GenesisCloseIcon(
+                        color: context.genesisColors.iconMuted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: GenesisSpacing.xl),
+                Wrap(
+                  spacing: GenesisSpacing.md,
+                  runSpacing: GenesisSpacing.xs,
+                  children: [
+                    for (var index = 0; index < 3; index++)
+                      GenesisFilterChip(
+                        label: const ['All', 'Active', 'Archived'][index],
+                        selected: _selectedFilter == index,
+                        onPressed: () =>
+                            setState(() => _selectedFilter = index),
+                      ),
+                    const GenesisFilterChip(
+                      label: 'Disabled',
+                      selected: false,
+                      onPressed: null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: GenesisSpacing.xl),
+                const Wrap(
+                  spacing: GenesisSpacing.md,
+                  runSpacing: GenesisSpacing.md,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    GenesisTag(label: 'world'),
+                    GenesisTag(
+                      label: 'trending',
+                      tone: GenesisTagTone.accent,
+                      size: GenesisTagSize.compact,
+                    ),
+                    GenesisTag(
+                      label: 'blocked',
+                      tone: GenesisTagTone.danger,
+                      size: GenesisTagSize.compact,
+                    ),
+                    GenesisUnreadBadge(count: 7),
+                    GenesisUnreadBadge(count: 120),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          GenesisSectionPanel(
             title: 'Form controls',
+            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
             child: Column(
               children: [
                 GenesisTextField(
@@ -108,8 +180,9 @@ class _DeveloperDesignSystemGalleryPageState
               ],
             ),
           ),
-          _GallerySection(
+          GenesisSectionPanel(
             title: 'Search and navigation',
+            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
             child: Column(
               children: [
                 GenesisSearchField.launcher(onTap: () {}),
@@ -122,8 +195,25 @@ class _DeveloperDesignSystemGalleryPageState
               ],
             ),
           ),
-          _GallerySection(
+          const GenesisSectionPanel(
+            title: 'Media',
+            margin: EdgeInsets.only(bottom: GenesisSpacing.section),
+            child: Row(
+              children: [
+                GenesisAvatar(name: 'Worldo', size: 48),
+                SizedBox(width: GenesisSpacing.xl),
+                GenesisCharacterAvatar(
+                  url: '',
+                  name: 'Nikos',
+                  size: 48,
+                  showStar: true,
+                ),
+              ],
+            ),
+          ),
+          GenesisSectionPanel(
             title: 'Page states',
+            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
             child: Column(
               children: [
                 const GenesisStateView.loading(height: 64),
@@ -141,7 +231,7 @@ class _DeveloperDesignSystemGalleryPageState
               ],
             ),
           ),
-          _GallerySection(
+          GenesisSectionPanel(
             title: 'Overlays',
             child: Column(
               children: [
@@ -215,33 +305,6 @@ class _DeveloperDesignSystemGalleryPageState
             'Content-sized sheets use the shared surface and header.',
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _GallerySection extends StatelessWidget {
-  const _GallerySection({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: GenesisSpacing.section),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GenesisSectionHeader(title: title),
-          const SizedBox(height: GenesisSpacing.xl),
-          GenesisSurface(
-            variant: GenesisSurfaceVariant.raised,
-            padding: const EdgeInsets.all(GenesisSpacing.page),
-            borderRadius: GenesisRadii.card,
-            child: child,
-          ),
-        ],
       ),
     );
   }

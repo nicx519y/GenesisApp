@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
@@ -17,6 +18,8 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -24,6 +27,18 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
+  testWidgets('uses the shared feed search icon style', (tester) async {
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    final finder = find.byType(GenesisSearchField);
+    final searchField = tester.widget<GenesisSearchField>(finder);
+
+    expect(searchField.iconAsset, searchIconAsset);
+    expect(searchField.iconSize, genesisSearchIconSize);
+    expect(searchField.iconColor, tester.element(finder).genesisColors.primary);
   });
 
   testWidgets('does not request search before two letters or chinese chars', (

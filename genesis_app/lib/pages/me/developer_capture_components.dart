@@ -87,53 +87,6 @@ class _DeveloperCaptureHeader extends StatelessWidget {
   }
 }
 
-class _DeveloperCaptureFilterChip extends StatelessWidget {
-  const _DeveloperCaptureFilterChip({
-    super.key,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: selected
-              ? context.genesisColors.dangerSurface
-              : context.genesisColors.controlBackground,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected
-                ? context.genesisColors.primary
-                : Colors.transparent,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: selected
-                  ? context.genesisColors.primary
-                  : context.genesisColors.textPrimary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _DeveloperCaptureDetailSection extends StatelessWidget {
   const _DeveloperCaptureDetailSection({
     required this.title,

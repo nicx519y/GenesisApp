@@ -36,6 +36,8 @@ class GenesisButton extends StatelessWidget {
     this.isLoading = false,
     this.loadingSize = 18,
     this.loadingStrokeWidth = 2,
+    this.loadingColor,
+    this.loadingTrackColor,
     this.leadingIcon,
     this.iconGap = 8,
     this.telemetryComponent = 'GenesisButton',
@@ -67,6 +69,8 @@ class GenesisButton extends StatelessWidget {
   final bool isLoading;
   final double loadingSize;
   final double loadingStrokeWidth;
+  final Color? loadingColor;
+  final Color? loadingTrackColor;
   final Widget? leadingIcon;
   final double iconGap;
   final String telemetryComponent;
@@ -79,9 +83,15 @@ class GenesisButton extends StatelessWidget {
     final effectiveDisabledForeground =
         disabledForegroundColor ?? _defaultDisabledForeground(colors);
     final effectiveBackground = backgroundColor ?? _defaultBackground(colors);
+    final effectiveLoadingBackground = backgroundColor ?? colors.primary;
     final effectiveDisabledBackground =
         disabledBackgroundColor ??
-        (isLoading ? effectiveBackground : _defaultDisabledBackground(colors));
+        (isLoading
+            ? effectiveLoadingBackground
+            : _defaultDisabledBackground(colors));
+    final effectiveLoadingColor = loadingColor ?? colors.onPrimary;
+    final effectiveLoadingTrackColor =
+        loadingTrackColor ?? effectiveLoadingColor.withValues(alpha: 0.32);
     final uiTheme = GenesisUiTheme.of(context);
     final effectiveHeight =
         height ??
@@ -104,7 +114,9 @@ class GenesisButton extends StatelessWidget {
             dimension: loadingSize,
             child: CircularProgressIndicator(
               strokeWidth: loadingStrokeWidth,
-              color: effectiveForeground,
+              color: effectiveLoadingColor,
+              backgroundColor: effectiveLoadingTrackColor,
+              strokeCap: StrokeCap.round,
             ),
           )
         : _GenesisButtonLabel(
@@ -248,6 +260,8 @@ class GenesisPrimaryButton extends StatelessWidget {
     this.isLoading = false,
     this.loadingSize = 18,
     this.loadingStrokeWidth = 2,
+    this.loadingColor,
+    this.loadingTrackColor,
     this.leadingIcon,
     this.iconGap = 8,
   });
@@ -279,6 +293,8 @@ class GenesisPrimaryButton extends StatelessWidget {
   final bool isLoading;
   final double loadingSize;
   final double loadingStrokeWidth;
+  final Color? loadingColor;
+  final Color? loadingTrackColor;
   final Widget? leadingIcon;
   final double iconGap;
 
@@ -305,6 +321,8 @@ class GenesisPrimaryButton extends StatelessWidget {
       isLoading: isLoading,
       loadingSize: loadingSize,
       loadingStrokeWidth: loadingStrokeWidth,
+      loadingColor: loadingColor,
+      loadingTrackColor: loadingTrackColor,
       leadingIcon: leadingIcon,
       iconGap: iconGap,
       telemetryComponent: 'GenesisPrimaryButton',

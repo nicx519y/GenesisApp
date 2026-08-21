@@ -240,11 +240,11 @@ class _DeveloperNetworkFilterChip extends StatelessWidget {
       _DeveloperNetworkFilter.error => 'Error',
       _DeveloperNetworkFilter.pending => 'Pending',
     };
-    return _DeveloperCaptureFilterChip(
+    return GenesisFilterChip(
       key: ValueKey<String>('developer-network-filter-${filter.name}'),
       label: label,
       selected: selected,
-      onTap: onTap,
+      onPressed: onTap,
     );
   }
 }

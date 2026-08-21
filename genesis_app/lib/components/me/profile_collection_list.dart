@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../ui/genesis_ui.dart';
-import '../../ui/components/genesis_deleted_list_item_transition.dart';
 
 class ProfileCollectionList extends StatefulWidget {
   const ProfileCollectionList({

@@ -1008,27 +1008,11 @@ class _OriginInfoTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.genesisColors;
     final highlighted = label.trim().toLowerCase() == 'trending';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-      decoration: BoxDecoration(
-        color: highlighted
-            ? colors.danger.withValues(alpha: 0.18)
-            : colors.foregroundStrong.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: highlighted ? colors.danger : colors.textPrimary,
-          fontSize: 9.5,
-          height: 1,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return GenesisTag(
+      label: label,
+      tone: highlighted ? GenesisTagTone.accent : GenesisTagTone.neutral,
+      size: GenesisTagSize.compact,
     );
   }
 }

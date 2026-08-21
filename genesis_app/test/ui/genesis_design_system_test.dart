@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/pages/me/developer_design_system_gallery.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
@@ -309,5 +310,116 @@ void main() {
           .layout,
       GenesisBottomSheetLayout.content,
     );
+  });
+
+  testWidgets(
+    'control button keeps a 34 point visual and 44 point tap target',
+    (tester) async {
+      var presses = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.worldoLight(),
+          home: Scaffold(
+            body: GenesisControlButton(
+              tooltip: 'More actions',
+              onPressed: () => presses += 1,
+              child: const Icon(Icons.more_horiz, size: 14),
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSize(find.byType(GenesisControlButton)),
+        const Size.square(GenesisControlMetrics.backButtonVisualSize),
+      );
+      await tester.tapAt(
+        tester.getCenter(find.byType(GenesisControlButton)) +
+            const Offset(20, 0),
+      );
+      expect(presses, 1);
+      expect(find.byTooltip('More actions'), findsOneWidget);
+    },
+  );
+
+  testWidgets('filter chip selection inverts the active surface', (
+    tester,
+  ) async {
+    var selected = false;
+    final colors = GenesisSemanticColors.worldoLight();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoLight(),
+        home: Scaffold(
+          body: GenesisFilterChip(
+            label: 'Active',
+            selected: true,
+            onPressed: () => selected = true,
+          ),
+        ),
+      ),
+    );
+
+    final chip = find.byType(GenesisFilterChip);
+    final material = tester.widget<Material>(
+      find.descendant(of: chip, matching: find.byType(Material)).last,
+    );
+    final label = tester.widget<Text>(find.text('Active'));
+    expect(tester.getSize(chip).height, GenesisControlMetrics.minimumTapTarget);
+    expect(material.color, colors.foregroundStrong);
+    expect(label.style?.color, colors.background);
+
+    await tester.tap(chip);
+    expect(selected, isTrue);
+  });
+
+  testWidgets('section panel, tags, and unread badge expose shared patterns', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark(),
+        home: const Scaffold(
+          body: GenesisSectionPanel(
+            title: 'Metadata',
+            child: Row(
+              children: [
+                GenesisTag(label: 'world'),
+                GenesisUnreadBadge(count: 120),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Metadata'), findsOneWidget);
+    expect(find.text('world'), findsOneWidget);
+    expect(find.text('99+'), findsOneWidget);
+    expect(find.byType(GenesisSurface), findsOneWidget);
+  });
+
+  testWidgets('developer gallery exposes the shared lightweight controls', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoLight(),
+        home: const DeveloperDesignSystemGalleryPage(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Controls and metadata'), findsOneWidget);
+    expect(find.byType(GenesisSectionPanel), findsWidgets);
+    expect(find.byType(GenesisControlButton), findsNWidgets(2));
+    expect(find.byType(GenesisFilterChip), findsNWidgets(4));
+    expect(find.byType(GenesisTag), findsNWidgets(3));
+    expect(find.text('99+'), findsOneWidget);
   });
 }

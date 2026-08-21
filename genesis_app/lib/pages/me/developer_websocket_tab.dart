@@ -186,16 +186,16 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _DeveloperCaptureFilterChip(
+                    GenesisFilterChip(
                       key: const ValueKey<String>(
                         'developer-websocket-direction-all',
                       ),
                       label: 'All',
                       selected: controller.directionFilter == null,
-                      onTap: () => _setDirection(null),
+                      onPressed: () => _setDirection(null),
                     ),
                     const SizedBox(width: 8),
-                    _DeveloperCaptureFilterChip(
+                    GenesisFilterChip(
                       key: const ValueKey<String>(
                         'developer-websocket-direction-receive',
                       ),
@@ -203,11 +203,11 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
                       selected:
                           controller.directionFilter ==
                           WebSocketCaptureDirection.receive,
-                      onTap: () =>
+                      onPressed: () =>
                           _setDirection(WebSocketCaptureDirection.receive),
                     ),
                     const SizedBox(width: 8),
-                    _DeveloperCaptureFilterChip(
+                    GenesisFilterChip(
                       key: const ValueKey<String>(
                         'developer-websocket-direction-send',
                       ),
@@ -215,17 +215,17 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
                       selected:
                           controller.directionFilter ==
                           WebSocketCaptureDirection.send,
-                      onTap: () =>
+                      onPressed: () =>
                           _setDirection(WebSocketCaptureDirection.send),
                     ),
                     const SizedBox(width: 8),
-                    _DeveloperCaptureFilterChip(
+                    GenesisFilterChip(
                       key: const ValueKey<String>(
                         'developer-websocket-type-filter',
                       ),
                       label: typeLabel,
                       selected: typeFilterCount > 0,
-                      onTap: _openTypeFilter,
+                      onPressed: _openTypeFilter,
                     ),
                   ],
                 ),
@@ -620,26 +620,28 @@ class _DeveloperWebSocketTypeFilterSheetState
           Row(
             children: [
               Expanded(
-                child: _DeveloperCaptureFilterChip(
+                child: GenesisFilterChip(
                   key: const ValueKey<String>(
                     'developer-websocket-type-mode-only-show',
                   ),
                   label: 'Only show',
                   selected: _mode == WebSocketCaptureFilterMode.onlyShow,
-                  onTap: () => setState(
+                  fullWidth: true,
+                  onPressed: () => setState(
                     () => _mode = WebSocketCaptureFilterMode.onlyShow,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _DeveloperCaptureFilterChip(
+                child: GenesisFilterChip(
                   key: const ValueKey<String>(
                     'developer-websocket-type-mode-hide',
                   ),
                   label: 'Hide',
                   selected: _mode == WebSocketCaptureFilterMode.hide,
-                  onTap: () =>
+                  fullWidth: true,
+                  onPressed: () =>
                       setState(() => _mode = WebSocketCaptureFilterMode.hide),
                 ),
               ),

@@ -7,13 +7,11 @@ class _DeveloperTestSectionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GenesisSurface(
+      variant: GenesisSurfaceVariant.raised,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.genesisColors.surfaceRaised,
-        border: Border.all(color: context.genesisColors.borderNeutral),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      border: Border.all(color: context.genesisColors.borderNeutral),
+      borderRadius: const BorderRadius.all(GenesisRadii.lg),
       child: child,
     );
   }
@@ -99,6 +97,10 @@ class _DeveloperThemeModeSelector extends StatelessWidget {
             child: OutlinedButton(
               key: const ValueKey<String>(
                 'developer-design-system-gallery-button',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: context.genesisColors.textPrimary,
+                side: BorderSide(color: context.genesisColors.textPrimary),
               ),
               onPressed: onOpenDesignSystemGallery,
               child: const Text('Design System Gallery'),

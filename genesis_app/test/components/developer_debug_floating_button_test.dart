@@ -261,6 +261,20 @@ void main() {
         ),
         findsOneWidget,
       );
+      final galleryButton = find.byKey(
+        const ValueKey<String>('developer-design-system-gallery-button'),
+      );
+      var galleryButtonWidget = tester.widget<OutlinedButton>(galleryButton);
+      expect(
+        galleryButtonWidget.style?.foregroundColor?.resolve(
+          const <WidgetState>{},
+        ),
+        GenesisSemanticColors.worldoDark().textPrimary,
+      );
+      expect(
+        galleryButtonWidget.style?.side?.resolve(const <WidgetState>{})?.color,
+        GenesisSemanticColors.worldoDark().textPrimary,
+      );
       expect(tester.getSize(developerSheet).height, closeTo(600, 0.01));
       expect(tester.getTopLeft(developerSheet).dy, closeTo(0, 0.01));
       expect(
@@ -296,6 +310,17 @@ void main() {
       expect(
         tester.widget<Switch>(telemetrySwitch).inactiveThumbColor,
         GenesisSemanticColors.worldoLight().switchInactiveThumb,
+      );
+      galleryButtonWidget = tester.widget<OutlinedButton>(galleryButton);
+      expect(
+        galleryButtonWidget.style?.foregroundColor?.resolve(
+          const <WidgetState>{},
+        ),
+        GenesisSemanticColors.worldoLight().textPrimary,
+      );
+      expect(
+        galleryButtonWidget.style?.side?.resolve(const <WidgetState>{})?.color,
+        GenesisSemanticColors.worldoLight().textPrimary,
       );
 
       await tester.tap(find.text('System'));

@@ -124,6 +124,50 @@ GenesisTextField(
 )
 ```
 
+## 区块、轻量控件与元数据
+
+- 页面中的“标题 + 内容卡片”使用 `GenesisSectionPanel`，不要在新页面重复
+  `GenesisSectionHeader + GenesisSurface` 的组合。
+- 页头、卡片或面板中的小型图标操作使用 `GenesisControlButton`。其视觉尺寸
+  默认 34，但实际点击区域为 44；返回和 Sheet 关闭仍分别使用
+  `GenesisBackButton`、`GenesisBottomSheetCloseButton`。
+- 筛选条件使用 `GenesisFilterChip`。选中态遵循表面反转规则：Light 为深色
+  底，Dark 为浅色底，不使用 Accent 冒充选中状态。
+- 不可点击的分类、属性和状态短文本使用 `GenesisTag`；可选 tone 只有
+  neutral、accent、danger。可点击或可选择内容不能伪装成 Tag。
+- 未读数量使用 `GenesisUnreadBadge`，组件负责隐藏 0 和把大于 99 的数量
+  显示为 `99+`。
+
+```dart
+GenesisSectionPanel(
+  title: 'Preferences',
+  child: Wrap(
+    spacing: GenesisSpacing.md,
+    children: [
+      GenesisFilterChip(
+        label: 'Active',
+        selected: filter == Filter.active,
+        onPressed: selectActive,
+      ),
+      const GenesisTag(label: 'world'),
+    ],
+  ),
+)
+```
+
+## 图标规范
+
+参考 Worldo Redesign 的图标审计，公共图标按用途而不是按页面选择：
+
+- Navigation：22px、2.3 stroke，只用于底部导航。
+- Control：14–15px、1.8 stroke，用于返回、关闭、搜索、展开和更多操作。
+- Meta：12–14px、1.4 stroke，用于时间、位置、编辑、目标等行内信息。
+- Cover stat：10px、outline，用于图片上的播放、消息和角色统计。
+
+同一含义只能有一个 drawing 和一个 scale family。状态点、头像、Gem 和品牌
+资产可以是实心；普通控件不得用字体字符临时代替图标。业务专属图标仍由
+feature 管理，但尺寸、线宽和语义颜色遵循上述 family。
+
 ## Dialog 与 Bottom Sheet
 
 ### Action Box
@@ -174,6 +218,19 @@ Sheet 顶部圆角 24，默认 padding 为 16/20/16/14，标题 17px/w800，
   `GenesisCharacterAvatar`、`GenesisListImage`，不要混用裁剪策略。
 
 完整状态可在 Developer Page 的 **Design System Gallery** 中查看。
+
+## 保持在 Feature 内的组件
+
+以下组件虽然在业务内部可能重复，但包含稳定的业务语义，不进入通用 UI 层：
+
+- World 地图位置、玩家环、拥挤人数和未读事件标记。
+- Chat 对话气泡、发送/失败状态、Tick 与叙事事件卡。
+- Origin 角色选择、Launch、Opening、Location 等业务卡片。
+- Gem 商品、奖励、余额和购买状态组件。
+- Discuss 点赞、回复、Story 状态和评论组合行。
+
+如果两个页面只是“看起来接近”，但数据、状态或交互语义不同，应优先共享
+token 或内部 primitive，不创建带大量开关参数的万能业务组件。
 
 ## Do / Don't
 

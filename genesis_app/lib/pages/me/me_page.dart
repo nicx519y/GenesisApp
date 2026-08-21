@@ -27,6 +27,7 @@ import '../../utils/image_format_guards.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_page_title.dart';
 import '../../ui/components/genesis_state_view.dart';
+import '../../ui/components/genesis_control_button.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/text/genesis_text_input_formatters.dart';
 import 'settings_page.dart';
@@ -198,8 +199,9 @@ class _MePageState extends State<MePage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _MeHeaderActionButton(
-                              onTap: _openDiscord,
+                            GenesisControlButton(
+                              tooltip: 'Open Discord',
+                              onPressed: _openDiscord,
                               child: SvgPicture.asset(
                                 'assets/custom-icons/svg/discord-svgrepo-com.svg',
                                 key: const ValueKey<String>(
@@ -214,8 +216,9 @@ class _MePageState extends State<MePage> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            _MeHeaderActionButton(
-                              onTap: _openSettings,
+                            GenesisControlButton(
+                              tooltip: 'Open settings',
+                              onPressed: _openSettings,
                               child: SvgPicture.asset(
                                 'assets/custom-icons/svg/settings.svg',
                                 key: const ValueKey<String>(
@@ -273,25 +276,5 @@ class _MePageState extends State<MePage> {
     final currentTotal = current.total;
     final nextTotal = currentTotal > 0 ? currentTotal - 1 : 0;
     _setWorldsState(nextItems, isLoading: current.isLoading, total: nextTotal);
-  }
-}
-
-class _MeHeaderActionButton extends StatelessWidget {
-  const _MeHeaderActionButton({required this.onTap, required this.child});
-
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: context.genesisColors.controlMuted,
-      borderRadius: BorderRadius.circular(11),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(11),
-        child: SizedBox.square(dimension: 34, child: Center(child: child)),
-      ),
-    );
   }
 }

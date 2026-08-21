@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
-import 'package:genesis_flutter_android/ui/components/genesis_unread_badge.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
@@ -705,6 +704,52 @@ void main() {
       ),
     );
     expect(loadingIndicator.color, GenesisPalette.white);
+    expect(
+      loadingIndicator.backgroundColor,
+      GenesisPalette.white.withValues(alpha: 0.32),
+    );
+    expect(loadingIndicator.strokeCap, StrokeCap.round);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoLight(),
+        darkTheme: GenesisTheme.worldoDark(),
+        themeMode: ThemeMode.dark,
+        home: const Scaffold(
+          body: GenesisButton(
+            key: ValueKey('dark-loading-button'),
+            label: 'Saving',
+            onPressed: null,
+            isLoading: true,
+            fullWidth: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    final darkLoadingButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const ValueKey('dark-loading-button')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(
+      darkLoadingButton.style?.backgroundColor?.resolve(const <WidgetState>{
+        WidgetState.disabled,
+      }),
+      GenesisPalette.redesignAccent,
+    );
+    final darkLoadingIndicator = tester.widget<CircularProgressIndicator>(
+      find.descendant(
+        of: find.byKey(const ValueKey('dark-loading-button')),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+    );
+    expect(darkLoadingIndicator.color, GenesisPalette.white);
+    expect(
+      darkLoadingIndicator.backgroundColor,
+      GenesisPalette.white.withValues(alpha: 0.32),
+    );
   });
 
   testWidgets('GenesisActionBox attaches cancel for a single action', (
