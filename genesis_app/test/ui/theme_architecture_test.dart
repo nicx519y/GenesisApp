@@ -159,7 +159,7 @@ void main() {
     _expectDebtAtMost(
       name: 'direct Scaffold usages in pages',
       actual: directPageScaffolds,
-      baseline: 29,
+      baseline: 26,
     );
     _expectDebtAtMost(
       name: 'lib/ui imports from feature components',

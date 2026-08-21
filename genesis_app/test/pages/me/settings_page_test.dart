@@ -166,6 +166,8 @@ void main() {
     await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
 
+    expect(find.byType(GenesisPageScaffold), findsOneWidget);
+    expect(find.byType(GenesisPageScrollBody), findsOneWidget);
     expect(find.text('Current login account:'), findsOneWidget);
     final currentLoginAccountText = tester.widget<Text>(
       find.text('Current login account:'),
@@ -204,7 +206,10 @@ void main() {
       findsOneWidget,
     );
     final gemsWarning = tester.widget<Text>(gemsWarningFinder);
-    expect(gemsWarning.style?.color, const Color(0xFFFF2442));
+    expect(
+      gemsWarning.style?.color,
+      tester.element(gemsWarningFinder).genesisColors.danger,
+    );
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Delete'));
     await tester.pump();
     expect(find.text('Agree to our terms to continue.'), findsOneWidget);
@@ -213,7 +218,10 @@ void main() {
     await tester.pump();
     final selectedCheckbox = tester.widget<Checkbox>(find.byType(Checkbox));
     expect(selectedCheckbox.value, isTrue);
-    expect(selectedCheckbox.activeColor, const Color(0xFFFF4D4F));
+    expect(
+      selectedCheckbox.activeColor,
+      tester.element(find.byType(Checkbox)).genesisColors.dangerControl,
+    );
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Delete'));
     await tester.pumpAndSettle();
 

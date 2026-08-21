@@ -397,95 +397,94 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
-    return Scaffold(
-      appBar: const GenesisBackAppBar(pageName: 'Blocked users'),
-      body: SafeArea(
-        child: FutureBuilder<List<_BlockedUserItem>>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: SizedBox.square(
-                  dimension: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              );
-            }
+    return GenesisPageScaffold.secondary(
+      title: 'Blocked users',
+      contentPadding: EdgeInsets.zero,
+      body: FutureBuilder<List<_BlockedUserItem>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: SizedBox.square(
+                dimension: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          }
 
-            if (snapshot.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Load failed',
-                        style: TextStyle(
-                          color: colors.textSubtle,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      GenesisPrimaryButton(
-                        label: 'Retry',
-                        fullWidth: false,
-                        width: 140,
-                        onPressed: () {
-                          setState(() => _future = _loadBlockedUsers());
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            final items = snapshot.data ?? const <_BlockedUserItem>[];
-            if (items.isEmpty) {
-              return RefreshIndicator(
-                onRefresh: _refresh,
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 120, 20, 24),
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Center(
-                      child: Text(
-                        'No blocked users yet.',
-                        style: TextStyle(
-                          color: colors.textPlaceholder,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                        ),
+                    Text(
+                      'Load failed',
+                      style: TextStyle(
+                        color: colors.textSubtle,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    GenesisPrimaryButton(
+                      label: 'Retry',
+                      fullWidth: false,
+                      width: 140,
+                      onPressed: () {
+                        setState(() => _future = _loadBlockedUsers());
+                      },
                     ),
                   ],
                 ),
-              );
-            }
-
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                itemCount: items.length,
-                separatorBuilder: (_, __) =>
-                    Divider(height: 1, color: colors.dividerSubtle),
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return _BlockedUserTile(
-                    item: item,
-                    isUpdating: _updatingUids.contains(item.uid),
-                    onTap: () => _openProfile(item),
-                    onToggle: () => _toggleBlock(item),
-                  );
-                },
               ),
             );
-          },
-        ),
+          }
+
+          final items = snapshot.data ?? const <_BlockedUserItem>[];
+          if (items.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 120, 20, 24),
+                children: [
+                  Center(
+                    child: Text(
+                      'No blocked users yet.',
+                      style: TextStyle(
+                        color: colors.textPlaceholder,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              itemCount: items.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: colors.dividerSubtle),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return _BlockedUserTile(
+                  item: item,
+                  isUpdating: _updatingUids.contains(item.uid),
+                  onTap: () => _openProfile(item),
+                  onToggle: () => _toggleBlock(item),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -691,122 +690,122 @@ class _AccountPageState extends State<AccountPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
-    return Scaffold(
-      appBar: const GenesisBackAppBar(pageName: 'Account'),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                children: [
-                  _CurrentLoginAccountCard(provider: _provider),
-                  const SizedBox(height: 42),
-                  Text(
-                    'Account Deletion Agreement',
-                    style: TextStyle(
-                      color: colors.navigationSelected,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                    ),
+    return GenesisPageScaffold.secondary(
+      title: 'Account',
+      contentPadding: EdgeInsets.zero,
+      safeAreaBottom: false,
+      body: Column(
+        children: [
+          Expanded(
+            child: GenesisPageScrollBody(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+              children: [
+                _CurrentLoginAccountCard(provider: _provider),
+                const SizedBox(height: 42),
+                Text(
+                  'Account Deletion Agreement',
+                  style: TextStyle(
+                    color: colors.navigationSelected,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
                   ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'To ensure the security of your account, please read about '
-                    'the consequences of account deletion.\n\n'
-                    'Account deletion is not the same as logging out, and once '
-                    'canceled, it cannot be undone. Your private data, including '
-                    'created characters, search history, chat logs with any '
-                    'characters, your favorites, your memories, interaction '
-                    'data, and order records, will be irreversibly deleted and '
-                    'cannot be recovered upon account deletion.',
-                    style: TextStyle(
-                      color: colors.textSubtle,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      height: 1.55,
-                    ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'To ensure the security of your account, please read about '
+                  'the consequences of account deletion.\n\n'
+                  'Account deletion is not the same as logging out, and once '
+                  'canceled, it cannot be undone. Your private data, including '
+                  'created characters, search history, chat logs with any '
+                  'characters, your favorites, your memories, interaction '
+                  'data, and order records, will be irreversibly deleted and '
+                  'cannot be recovered upon account deletion.',
+                  style: TextStyle(
+                    color: colors.textSubtle,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 1.55,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'All unused Gems, including purchased and earned Gems, will '
-                    'be permanently lost. By continuing, you voluntarily waive '
-                    'them, and account deletion does not automatically entitle '
-                    'you to a refund.',
-                    style: TextStyle(
-                      color: colors.danger,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      height: 1.55,
-                    ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'All unused Gems, including purchased and earned Gems, will '
+                  'be permanently lost. By continuing, you voluntarily waive '
+                  'them, and account deletion does not automatically entitle '
+                  'you to a refund.',
+                  style: TextStyle(
+                    color: colors.danger,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 1.55,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            SafeArea(
-              top: false,
-              minimum: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () =>
-                        setState(() => _hasReadAgreement = !_hasReadAgreement),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: Checkbox(
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
-                              value: _hasReadAgreement,
-                              activeColor: colors.dangerControl,
-                              checkColor: colors.onDanger,
-                              onChanged: (value) => setState(
-                                () => _hasReadAgreement = value ?? false,
-                              ),
+          ),
+          SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () =>
+                      setState(() => _hasReadAgreement = !_hasReadAgreement),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                            value: _hasReadAgreement,
+                            activeColor: colors.dangerControl,
+                            checkColor: colors.onDanger,
+                            onChanged: (value) => setState(
+                              () => _hasReadAgreement = value ?? false,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'I have read the Account Deletion Agreement',
-                              style: TextStyle(
-                                color: colors.textSubtle,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                                height: 1.25,
-                              ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'I have read the Account Deletion Agreement',
+                            style: TextStyle(
+                              color: colors.textSubtle,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 1.25,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  GenesisPrimaryButton(
-                    label: 'Delete',
-                    width:
-                        MediaQuery.sizeOf(context).width *
-                        _deleteButtonWidthFactor,
-                    onPressed: _handleDeletePressed,
-                    backgroundColor: colors.controlMuted,
-                    foregroundColor: _hasReadAgreement
-                        ? colors.navigationSelected
-                        : colors.textPlaceholder,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                GenesisPrimaryButton(
+                  label: 'Delete',
+                  width:
+                      MediaQuery.sizeOf(context).width *
+                      _deleteButtonWidthFactor,
+                  onPressed: _handleDeletePressed,
+                  backgroundColor: colors.controlMuted,
+                  foregroundColor: _hasReadAgreement
+                      ? colors.navigationSelected
+                      : colors.textPlaceholder,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

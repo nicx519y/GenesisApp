@@ -9,7 +9,7 @@ import '../../components/me/genesis_follow_user_list_tile.dart';
 import '../../network/api_exception.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
-import '../../ui/components/genesis_page_header.dart';
+import '../../ui/components/genesis_page_scaffold.dart';
 import '../../ui/components/genesis_state_view.dart';
 import '../../ui/components/genesis_tab_bar.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
@@ -216,56 +216,52 @@ class _FollowsPageState extends State<FollowsPage>
   Widget build(BuildContext context) {
     final followingCount = formatStatCount(_followingTotal ?? 0);
     final followersCount = formatStatCount(_followersTotal ?? 0);
-    return Scaffold(
-      appBar: GenesisBackAppBar(pageName: _title),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // const SizedBox(height: 12),
-            GenesisTabBar(
+    return GenesisPageScaffold.secondary(
+      title: _title,
+      contentPadding: EdgeInsets.zero,
+      safeAreaBottom: false,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // const SizedBox(height: 12),
+          GenesisTabBar(
+            controller: _tabController,
+            labels: ['$followingCount Following', '$followersCount Followers'],
+            // horizontalPadding: 28,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          Expanded(
+            child: TabBarView(
               controller: _tabController,
-              labels: [
-                '$followingCount Following',
-                '$followersCount Followers',
+              children: [
+                _FollowUsersPane(
+                  future:
+                      _followingFuture ??
+                      Future.value(const <_FollowUserItem>[]),
+                  emptyText: 'No following yet.',
+                  defaultFollowed: true,
+                  loadingUids: _loadingUids,
+                  followStateOverrides: _followStateOverrides,
+                  canToggleFollow: _canToggleFollow,
+                  onRefresh: () => _refresh(_FollowListType.following),
+                  onToggleFollow: _toggleFollow,
+                ),
+                _FollowUsersPane(
+                  future:
+                      _followersFuture ??
+                      Future.value(const <_FollowUserItem>[]),
+                  emptyText: 'No followers yet.',
+                  defaultFollowed: false,
+                  loadingUids: _loadingUids,
+                  followStateOverrides: _followStateOverrides,
+                  canToggleFollow: _canToggleFollow,
+                  onRefresh: () => _refresh(_FollowListType.followers),
+                  onToggleFollow: _toggleFollow,
+                ),
               ],
-              // horizontalPadding: 28,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _FollowUsersPane(
-                    future:
-                        _followingFuture ??
-                        Future.value(const <_FollowUserItem>[]),
-                    emptyText: 'No following yet.',
-                    defaultFollowed: true,
-                    loadingUids: _loadingUids,
-                    followStateOverrides: _followStateOverrides,
-                    canToggleFollow: _canToggleFollow,
-                    onRefresh: () => _refresh(_FollowListType.following),
-                    onToggleFollow: _toggleFollow,
-                  ),
-                  _FollowUsersPane(
-                    future:
-                        _followersFuture ??
-                        Future.value(const <_FollowUserItem>[]),
-                    emptyText: 'No followers yet.',
-                    defaultFollowed: false,
-                    loadingUids: _loadingUids,
-                    followStateOverrides: _followStateOverrides,
-                    canToggleFollow: _canToggleFollow,
-                    onRefresh: () => _refresh(_FollowListType.followers),
-                    onToggleFollow: _toggleFollow,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

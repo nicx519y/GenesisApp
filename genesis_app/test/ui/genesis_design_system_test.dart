@@ -392,6 +392,28 @@ void main() {
     expect(find.byType(GenesisAppBar), findsNothing);
   });
 
+  testWidgets('page scroll body supplies the standard scroll defaults', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark(),
+        home: const GenesisPageScaffold.secondary(
+          title: 'About',
+          body: GenesisPageScrollBody(children: [Text('Page content')]),
+        ),
+      ),
+    );
+
+    final scrollBody = tester.widget<ListView>(find.byType(ListView));
+    expect(scrollBody.padding, GenesisSpacing.pagePadding);
+    expect(
+      scrollBody.keyboardDismissBehavior,
+      ScrollViewKeyboardDismissBehavior.onDrag,
+    );
+    expect(find.text('Page content'), findsOneWidget);
+  });
+
   testWidgets('shared form fields expose errors, counts and selection', (
     tester,
   ) async {

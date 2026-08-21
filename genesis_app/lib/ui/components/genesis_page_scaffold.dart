@@ -7,6 +7,39 @@ import 'genesis_page_header.dart';
 
 enum GenesisPageScaffoldVariant { root, secondary, editor, immersive }
 
+/// The standard scrollable body for ordinary root, secondary, and editor pages.
+///
+/// Keep page chrome in [GenesisPageScaffold] and place only the page-specific
+/// sections in [children]. This prevents each new page from recreating its own
+/// scroll padding and keyboard-dismiss behavior.
+class GenesisPageScrollBody extends StatelessWidget {
+  const GenesisPageScrollBody({
+    super.key,
+    required this.children,
+    this.padding = GenesisSpacing.pagePadding,
+    this.controller,
+    this.physics,
+    this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.onDrag,
+  });
+
+  final List<Widget> children;
+  final EdgeInsetsGeometry padding;
+  final ScrollController? controller;
+  final ScrollPhysics? physics;
+  final ScrollViewKeyboardDismissBehavior keyboardDismissBehavior;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      controller: controller,
+      padding: padding,
+      physics: physics,
+      keyboardDismissBehavior: keyboardDismissBehavior,
+      children: children,
+    );
+  }
+}
+
 class GenesisPageScaffold extends StatelessWidget {
   const GenesisPageScaffold.root({
     super.key,
