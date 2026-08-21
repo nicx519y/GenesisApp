@@ -189,7 +189,7 @@ class GemProductCard extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         Container(
-          padding: EdgeInsets.fromLTRB(14, tag.isEmpty ? 15 : 22, 14, 13),
+          padding: const EdgeInsets.fromLTRB(14, 15, 14, 13),
           decoration: BoxDecoration(
             color: isSoldOut
                 ? context.genesisColors.surfaceSubtle
@@ -215,6 +215,9 @@ class GemProductCard extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       child: Text(
                         '+${formatGemInteger(product.totalGems)}',
+                        key: ValueKey<String>(
+                          'gem-product-amount-${product.productId}',
+                        ),
                         maxLines: 1,
                         style: TextStyle(
                           fontSize: 17,

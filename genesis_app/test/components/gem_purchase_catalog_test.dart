@@ -48,6 +48,46 @@ void main() {
     expect(tester.widget<Container>(firstTopUpTag).padding, isNull);
   });
 
+  testWidgets('promotion tag does not shift product card content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Row(
+            children: [
+              for (final product in [
+                _product(activityText: 'New User'),
+                _product(productId: 'gem_pack_1100', activityText: ''),
+              ])
+                SizedBox(
+                  width: 120,
+                  height: kGemProductCardHeight,
+                  child: GemProductCard(
+                    product: product,
+                    isBuying: false,
+                    isPurchaseInProgress: false,
+                    onPurchase: () {},
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    for (final element in <String>['icon', 'amount', 'price']) {
+      final taggedRect = tester.getRect(
+        find.byKey(ValueKey<String>('gem-product-$element-gem_pack_500')),
+      );
+      final plainRect = tester.getRect(
+        find.byKey(ValueKey<String>('gem-product-$element-gem_pack_1100')),
+      );
+      expect(taggedRect.top, closeTo(plainRect.top, 0.1));
+      expect(taggedRect.bottom, closeTo(plainRect.bottom, 0.1));
+    }
+  });
+
   testWidgets('new user product card uses backend activity label and color', (
     tester,
   ) async {
