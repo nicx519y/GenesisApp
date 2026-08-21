@@ -84,6 +84,9 @@ class HomePage extends StatefulWidget {
     this.initialTabIndex,
     this.initialMyWorldsData,
     this.activationListenable,
+    this.isActiveListenable,
+    this.isFirstPageViewReported,
+    this.onFirstPageViewReady,
     this.initialRequestMetricWindow = Duration.zero,
   });
 
@@ -94,6 +97,9 @@ class HomePage extends StatefulWidget {
   final int? initialTabIndex;
   final Map<String, dynamic>? initialMyWorldsData;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool>? isActiveListenable;
+  final bool Function(String action)? isFirstPageViewReported;
+  final void Function(String action)? onFirstPageViewReady;
   final Duration initialRequestMetricWindow;
 
   @override
@@ -234,6 +240,9 @@ class _HomePageState extends State<HomePage> {
       return _HomeTabScaffold(
         initialIndex: initialTabIndex,
         activationListenable: widget.activationListenable,
+        isActiveListenable: widget.isActiveListenable,
+        isFirstPageViewReported: widget.isFirstPageViewReported,
+        onFirstPageViewReady: widget.onFirstPageViewReady,
         networkRequestsAllowed: _homeNetworkRequestsAllowed,
         keepInitialNetworkFailureLoading: false,
         initialRequestMetricWindow: widget.initialRequestMetricWindow,
@@ -253,6 +262,9 @@ class _HomePageState extends State<HomePage> {
         return _HomeTabScaffold(
           initialIndex: snapshot.data ?? HomePage.myWorldsTabIndex,
           activationListenable: widget.activationListenable,
+          isActiveListenable: widget.isActiveListenable,
+          isFirstPageViewReported: widget.isFirstPageViewReported,
+          onFirstPageViewReady: widget.onFirstPageViewReady,
           networkRequestsAllowed: _homeNetworkRequestsAllowed,
           keepInitialNetworkFailureLoading: false,
           initialRequestMetricWindow: widget.initialRequestMetricWindow,

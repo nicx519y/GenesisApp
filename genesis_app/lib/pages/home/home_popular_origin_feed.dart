@@ -7,6 +7,9 @@ class _PopularOriginFeed extends StatefulWidget {
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     this.activationListenable,
+    this.isActiveListenable,
+    this.isFirstPageViewReported,
+    this.onFirstPageViewReady,
   });
 
   final int index;
@@ -14,6 +17,9 @@ class _PopularOriginFeed extends StatefulWidget {
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool>? isActiveListenable;
+  final bool Function(String action)? isFirstPageViewReported;
+  final void Function(String action)? onFirstPageViewReady;
 
   @override
   State<_PopularOriginFeed> createState() => _PopularOriginFeedState();
@@ -21,6 +27,7 @@ class _PopularOriginFeed extends StatefulWidget {
 
 class _PopularOriginFeedState extends State<_PopularOriginFeed>
     with AutomaticKeepAliveClientMixin<_PopularOriginFeed> {
+  static const _pageViewAction = 'home_popular';
   static const _pageSize = 10;
   static const _loadMoreThreshold = 700.0;
 
@@ -37,6 +44,8 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   var _hasRequested = false;
   var _hasAttemptedCachePreload = false;
   var _hasLoadedCachedPage = false;
+  var _initialContentReady = false;
+  var _firstPageViewReportedFallback = false;
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
@@ -71,6 +80,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     }
     _preloadCachedItemsIfNeeded();
     _requestIfCurrentTab();
+    _tryRecordFirstPageView();
   }
 
   @override
@@ -89,6 +99,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     if (oldWidget.index != widget.index) {
       _resetListState();
       _requestIfCurrentTab();
+      _tryRecordFirstPageView();
     }
   }
 
@@ -124,6 +135,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     _hasRequested = false;
     _hasAttemptedCachePreload = false;
     _hasLoadedCachedPage = false;
+    _initialContentReady = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
@@ -151,11 +163,13 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 
   void _handleTabChange() {
     _requestIfCurrentTab();
+    _tryRecordFirstPageView();
   }
 
   void _handleNetworkRequestsAllowed() {
     if (widget.networkRequestsAllowed.value) {
       _requestIfCurrentTab();
+      _tryRecordFirstPageView();
     }
   }
 
@@ -167,10 +181,11 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       return;
     }
     if (widget.networkRequestsAllowed.value) {
-      GenesisTelemetry.collectLog(
-        actionType: 'pageview',
-        action: 'home_popular',
-      );
+      if (_hasReportedFirstPageView) {
+        _recordPageView();
+      } else {
+        _tryRecordFirstPageView();
+      }
       unawaited(_refreshItems());
     }
   }
@@ -184,8 +199,47 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       return;
     }
     _hasRequested = true;
-    GenesisTelemetry.collectLog(actionType: 'pageview', action: 'home_popular');
+    if (_hasReportedFirstPageView) _recordPageView();
     unawaited(_requestInitialItems());
+  }
+
+  bool get _hasReportedFirstPageView =>
+      widget.isFirstPageViewReported?.call(_pageViewAction) ??
+      _firstPageViewReportedFallback;
+
+  bool get _isPageActive {
+    final controller = _tabController;
+    return (widget.isActiveListenable?.value ?? true) &&
+        controller != null &&
+        controller.index == widget.index;
+  }
+
+  void _recordPageView() {
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: _pageViewAction,
+    );
+  }
+
+  void _tryRecordFirstPageView() {
+    if (!_hasRequested ||
+        !_initialContentReady ||
+        !_isPageActive ||
+        _hasReportedFirstPageView) {
+      return;
+    }
+    final callback = widget.onFirstPageViewReady;
+    if (callback != null) {
+      callback(_pageViewAction);
+      return;
+    }
+    _firstPageViewReportedFallback = true;
+    _recordPageView();
+  }
+
+  void _markInitialContentReady() {
+    _initialContentReady = true;
+    _tryRecordFirstPageView();
   }
 
   void _handleScroll() {
@@ -270,6 +324,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       _isLoadingMore = false;
       _isRefreshing = false;
     });
+    _markInitialContentReady();
     return true;
   }
 
@@ -439,6 +494,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      _markInitialContentReady();
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
       }

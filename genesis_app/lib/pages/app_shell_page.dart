@@ -65,6 +65,9 @@ class _AppShellPageState extends State<AppShellPage>
   late final bool _shouldResolveColdStartHomeTarget;
   var _coldStartHomeTargetResolved = true;
   var _hasRecordedInitialTabPageView = false;
+  final Set<String> _firstContentPageViewsReported = <String>{};
+  var _worldoForYouContentReady = false;
+  var _worldoFirstActivationPending = false;
   Future<void>? _coldStartHomeTargetResolution;
   ValueListenable<int>? _sessionRevisionListenable;
   final Map<int, Widget> _tabPageCache = <int, Widget>{};
@@ -461,10 +464,13 @@ class _AppShellPageState extends State<AppShellPage>
   void _recordSelectedTabPageView() {
     switch (_selectedIndex) {
       case 1:
-        GenesisTelemetry.collectLog(
-          actionType: 'pageview',
-          action: 'worldo_list_tab',
-        );
+        const action = 'worldo_list_tab';
+        if (_isFirstContentPageViewReported(action)) {
+          GenesisTelemetry.collectLog(actionType: 'pageview', action: action);
+        } else {
+          _worldoFirstActivationPending = true;
+          _tryRecordFirstWorldoPageView();
+        }
         return;
       case 3:
         GenesisTelemetry.collectLog(
@@ -476,6 +482,32 @@ class _AppShellPageState extends State<AppShellPage>
         unawaited(_recordMeTabPageView());
         return;
     }
+  }
+
+  bool _isFirstContentPageViewReported(String action) {
+    return _firstContentPageViewsReported.contains(action);
+  }
+
+  void _recordFirstContentPageView(String action) {
+    if (!_firstContentPageViewsReported.add(action)) return;
+    GenesisTelemetry.collectLog(actionType: 'pageview', action: action);
+  }
+
+  void _handleWorldoForYouFirstPageReady() {
+    _worldoForYouContentReady = true;
+    _tryRecordFirstWorldoPageView();
+  }
+
+  void _tryRecordFirstWorldoPageView() {
+    const action = 'worldo_list_tab';
+    if (!mounted ||
+        _selectedIndex != 1 ||
+        !_worldoFirstActivationPending ||
+        !_worldoForYouContentReady ||
+        _isFirstContentPageViewReported(action)) {
+      return;
+    }
+    _recordFirstContentPageView(action);
   }
 
   Future<void> _recordMeTabPageView() async {
@@ -580,8 +612,14 @@ class _AppShellPageState extends State<AppShellPage>
         0 => HomePage(
           initialTabIndex: _homeInitialTabIndexOverride,
           activationListenable: _homeTabActivationNotifier,
+          isActiveListenable: _homeTabActiveNotifier,
+          isFirstPageViewReported: _isFirstContentPageViewReported,
+          onFirstPageViewReady: _recordFirstContentPageView,
         ),
-        1 => OriginPage(isInitialPage: widget.initialIndex == 1),
+        1 => OriginPage(
+          isInitialPage: widget.initialIndex == 1,
+          onForYouFirstPageReady: _handleWorldoForYouFirstPageReady,
+        ),
         3 => ValueListenableBuilder<UnreadSummary>(
           valueListenable: _unreadSummaryNotifier,
           builder: (context, unreadSummary, _) {
