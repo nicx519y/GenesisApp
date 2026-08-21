@@ -405,6 +405,17 @@ class _CapturingTelemetrySink implements GenesisTelemetrySink {
   Future<void> setUserId(String? uid) async {}
 }
 
+int _pageViewCount(_CapturingTelemetrySink telemetry, String action) {
+  return telemetry.events
+      .where(
+        (event) =>
+            event.category == 'collect.log' &&
+            event.name == action &&
+            event.data['action_type'] == 'pageview',
+      )
+      .length;
+}
+
 class _FakeIdentityAuthService implements IdentityAuthService {
   const _FakeIdentityAuthService({this.signInSession});
 
@@ -2468,6 +2479,9 @@ void main() {
   testWidgets(
     'My Worlds cache frame does not complete the network render trace',
     (WidgetTester tester) async {
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      addTearDown(GenesisTelemetry.resetForTesting);
       final traces = <_WidgetPerformanceTrace>[];
       FirebasePerformanceMonitoring.setReadyForTesting(true);
       FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
@@ -2504,6 +2518,7 @@ void main() {
       }
 
       expect(find.text('World tick narrator 1'), findsOneWidget);
+      expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
       expect(
         traces.where((trace) => trace.name == 'my_worlds_first_render'),
         isEmpty,
@@ -2534,8 +2549,59 @@ void main() {
             .stopped,
         isTrue,
       );
+      expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
     },
   );
+
+  testWidgets('Popular cache reports its first pageview before refresh ends', (
+    WidgetTester tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final originListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      originListCompleter: originListCompleter,
+    );
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      '${HomeFeedCacheStore.storageKey}.u_mock.popular': jsonEncode({
+        'list': <Map<String, Object?>>[],
+        'total': 0,
+      }),
+    });
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: HomePage(initialTabIndex: HomePage.popularTabIndex),
+        ),
+      ),
+    );
+    for (
+      var index = 0;
+      index < 10 && _pageViewCount(telemetry, 'home_popular') == 0;
+      index += 1
+    ) {
+      await tester.pump();
+    }
+
+    expect(_pageViewCount(telemetry, 'home_popular'), 1);
+    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+
+    originListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'list': <Map<String, Object?>>[], 'total': 0},
+      }),
+    );
+    for (var index = 0; index < 10; index += 1) {
+      await tester.pump();
+    }
+
+    expect(_pageViewCount(telemetry, 'home_popular'), 1);
+  });
 
   testWidgets('Popular records its awaited first-page data and content frame', (
     WidgetTester tester,
@@ -2592,9 +2658,158 @@ void main() {
     );
   });
 
+  testWidgets(
+    'Home first My Worlds and Popular pageviews wait for each first page',
+    (WidgetTester tester) async {
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      addTearDown(GenesisTelemetry.resetForTesting);
+      final worldListCompleter = Completer<TransportResponse>();
+      final originListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldListCompleter: worldListCompleter,
+        originListCompleter: originListCompleter,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const MaterialApp(
+            home: HomePage(initialTabIndex: HomePage.myWorldsTabIndex),
+          ),
+        ),
+      );
+      for (
+        var index = 0;
+        index < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(_pageViewCount(telemetry, 'home_my_worlds'), 0);
+      expect(_pageViewCount(telemetry, 'home_popular'), 0);
+
+      worldListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'list': <Map<String, Object?>>[transport._worldItem(0)],
+            'total': 1,
+          },
+        }),
+      );
+      for (
+        var index = 0;
+        index < 10 && _pageViewCount(telemetry, 'home_my_worlds') == 0;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
+      expect(_pageViewCount(telemetry, 'home_popular'), 0);
+
+      await tester.tap(find.text('Popular'));
+      await tester.pump(const Duration(milliseconds: 400));
+      for (
+        var index = 0;
+        index < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+      expect(_pageViewCount(telemetry, 'home_popular'), 0);
+
+      originListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {'list': <Map<String, Object?>>[], 'total': 0},
+        }),
+      );
+      for (
+        var index = 0;
+        index < 10 && _pageViewCount(telemetry, 'home_popular') == 0;
+        index += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(_pageViewCount(telemetry, 'home_popular'), 1);
+
+      await tester.tap(find.text('My Worlds'));
+      await tester.pump();
+      expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
+      expect(_pageViewCount(telemetry, 'home_popular'), 1);
+    },
+  );
+
+  testWidgets(
+    'Worldo first pageview waits for For you then later tab entry is immediate',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      addTearDown(GenesisTelemetry.resetForTesting);
+      final originListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        originListCompleter: originListCompleter,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(home: AppShellPage(initialIndex: 1)),
+        ),
+      );
+      for (
+        var index = 0;
+        index < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(_pageViewCount(telemetry, 'worldo_list_tab'), 0);
+
+      originListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {'list': <Map<String, Object?>>[], 'total': 0},
+        }),
+      );
+      for (
+        var index = 0;
+        index < 10 && _pageViewCount(telemetry, 'worldo_list_tab') == 0;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(_pageViewCount(telemetry, 'worldo_list_tab'), 1);
+
+      await tester.tap(find.text('Home'));
+      await tester.pump();
+      await tester.tap(find.text('#Worldo'));
+
+      expect(_pageViewCount(telemetry, 'worldo_list_tab'), 2);
+    },
+  );
+
   testWidgets('Popular retries count separate requests and one render', (
     WidgetTester tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
     final traces = <_WidgetPerformanceTrace>[];
     FirebasePerformanceMonitoring.setReadyForTesting(true);
     FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
@@ -2622,6 +2837,7 @@ void main() {
     }
 
     expect(find.text('Load failed'), findsOneWidget);
+    expect(_pageViewCount(telemetry, 'home_popular'), 0);
     final firstRequest = traces.singleWhere(
       (trace) =>
           trace.name == 'popular_first_request' &&
@@ -2649,6 +2865,7 @@ void main() {
       traces.where((trace) => trace.name == 'popular_first_render'),
       hasLength(1),
     );
+    expect(_pageViewCount(telemetry, 'home_popular'), 1);
   });
 
   testWidgets(
@@ -5405,6 +5622,7 @@ void main() {
   testWidgets('Origin renders cached For you page while refreshing it', (
     WidgetTester tester,
   ) async {
+    var forYouFirstPageReadyCount = 0;
     final originListCompleter = Completer<TransportResponse>();
     final transport = _RecordingV1ListTransport(
       originListCompleter: originListCompleter,
@@ -5423,7 +5641,11 @@ void main() {
             useMock: false,
             initialAuthToken: 'backend-token',
           ),
-          child: const OriginPage(),
+          child: OriginPage(
+            onForYouFirstPageReady: () {
+              forYouFirstPageReadyCount += 1;
+            },
+          ),
         ),
       ),
     );
@@ -5436,6 +5658,7 @@ void main() {
     }
 
     expect(find.text('#Origin 51'), findsOneWidget);
+    expect(forYouFirstPageReadyCount, 1);
     expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
 
     originListCompleter.complete(
@@ -5452,6 +5675,7 @@ void main() {
 
     expect(find.text('#Origin 51'), findsNothing);
     expect(find.text('#Origin 1'), findsOneWidget);
+    expect(forYouFirstPageReadyCount, 2);
   });
 
   testWidgets(

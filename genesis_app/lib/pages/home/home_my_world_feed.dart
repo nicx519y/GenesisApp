@@ -7,6 +7,9 @@ class _MyWorldFeed extends StatefulWidget {
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     this.activationListenable,
+    this.isActiveListenable,
+    this.isFirstPageViewReported,
+    this.onFirstPageViewReady,
     this.initialPageData,
     this.initialPageRenderOperation,
     this.initialPageRequestAttempt = 0,
@@ -17,6 +20,9 @@ class _MyWorldFeed extends StatefulWidget {
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool>? isActiveListenable;
+  final bool Function(String action)? isFirstPageViewReported;
+  final void Function(String action)? onFirstPageViewReady;
   final Map<String, dynamic>? initialPageData;
   final FirebasePerformanceOperation? initialPageRenderOperation;
   final int initialPageRequestAttempt;
@@ -27,6 +33,7 @@ class _MyWorldFeed extends StatefulWidget {
 
 class _MyWorldFeedState extends State<_MyWorldFeed>
     with AutomaticKeepAliveClientMixin<_MyWorldFeed> {
+  static const _pageViewAction = 'home_my_worlds';
   static const _pageSize = 10;
   static const _loadMoreThreshold = 700.0;
 
@@ -45,6 +52,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _hasRequested = false;
   var _hasAttemptedCachePreload = false;
   var _hasLoadedCachedPage = false;
+  var _initialContentReady = false;
+  var _firstPageViewReportedFallback = false;
   var _hasResolvedLocalSession = false;
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
@@ -90,6 +99,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _preloadCachedItemsIfNeeded();
     unawaited(_loadWorldActivityTags());
     _requestIfCurrentTab();
+    _tryRecordFirstPageView();
   }
 
   @override
@@ -108,6 +118,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     if (oldWidget.index != widget.index) {
       _resetListState();
       _requestIfCurrentTab();
+      _tryRecordFirstPageView();
     }
   }
 
@@ -199,6 +210,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _hasRequested = false;
     _hasAttemptedCachePreload = false;
     _hasLoadedCachedPage = false;
+    _initialContentReady = false;
     _hasResolvedLocalSession = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
@@ -258,6 +270,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _hasRequested = true;
     _hasAttemptedCachePreload = true;
     _hasLoadedCachedPage = true;
+    _initialContentReady = true;
     _hasResolvedLocalSession = true;
     _isSignedOut = false;
     _isInitialLoading = false;
@@ -283,11 +296,13 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   void _handleTabChange() {
     _requestIfCurrentTab();
+    _tryRecordFirstPageView();
   }
 
   void _handleNetworkRequestsAllowed() {
     if (widget.networkRequestsAllowed.value) {
       _requestIfCurrentTab();
+      _tryRecordFirstPageView();
     }
   }
 
@@ -299,10 +314,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       return;
     }
     if (widget.networkRequestsAllowed.value) {
-      GenesisTelemetry.collectLog(
-        actionType: 'pageview',
-        action: 'home_my_worlds',
-      );
+      if (_hasReportedFirstPageView) {
+        _recordPageView();
+      } else {
+        _tryRecordFirstPageView();
+      }
       unawaited(_refreshItems());
     }
   }
@@ -316,11 +332,47 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       return;
     }
     _hasRequested = true;
+    if (_hasReportedFirstPageView) _recordPageView();
+    unawaited(_requestInitialItems());
+  }
+
+  bool get _hasReportedFirstPageView =>
+      widget.isFirstPageViewReported?.call(_pageViewAction) ??
+      _firstPageViewReportedFallback;
+
+  bool get _isPageActive {
+    final controller = _tabController;
+    return (widget.isActiveListenable?.value ?? true) &&
+        controller != null &&
+        controller.index == widget.index;
+  }
+
+  void _recordPageView() {
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
-      action: 'home_my_worlds',
+      action: _pageViewAction,
     );
-    unawaited(_requestInitialItems());
+  }
+
+  void _tryRecordFirstPageView() {
+    if (!_hasRequested ||
+        !_initialContentReady ||
+        !_isPageActive ||
+        _hasReportedFirstPageView) {
+      return;
+    }
+    final callback = widget.onFirstPageViewReady;
+    if (callback != null) {
+      callback(_pageViewAction);
+      return;
+    }
+    _firstPageViewReportedFallback = true;
+    _recordPageView();
+  }
+
+  void _markInitialContentReady() {
+    _initialContentReady = true;
+    _tryRecordFirstPageView();
   }
 
   void _handleScroll() {
@@ -452,6 +504,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _isRefreshing = false;
       _isSignedOut = false;
     });
+    _markInitialContentReady();
     return true;
   }
 
@@ -574,6 +627,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      _markInitialContentReady();
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
       }

@@ -24,6 +24,9 @@ class _HomeTabScaffold extends StatelessWidget {
   const _HomeTabScaffold({
     required this.initialIndex,
     required this.activationListenable,
+    required this.isActiveListenable,
+    required this.isFirstPageViewReported,
+    required this.onFirstPageViewReady,
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
@@ -34,6 +37,9 @@ class _HomeTabScaffold extends StatelessWidget {
 
   final int initialIndex;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool>? isActiveListenable;
+  final bool Function(String action)? isFirstPageViewReported;
+  final void Function(String action)? onFirstPageViewReady;
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
@@ -55,6 +61,9 @@ class _HomeTabScaffold extends StatelessWidget {
           Expanded(
             child: _HomeTabView(
               activationListenable: activationListenable,
+              isActiveListenable: isActiveListenable,
+              isFirstPageViewReported: isFirstPageViewReported,
+              onFirstPageViewReady: onFirstPageViewReady,
               networkRequestsAllowed: networkRequestsAllowed,
               keepInitialNetworkFailureLoading:
                   keepInitialNetworkFailureLoading,
@@ -98,6 +107,9 @@ class _HomeTabs extends StatelessWidget {
 class _HomeTabView extends StatelessWidget {
   const _HomeTabView({
     this.activationListenable,
+    this.isActiveListenable,
+    this.isFirstPageViewReported,
+    this.onFirstPageViewReady,
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
@@ -107,6 +119,9 @@ class _HomeTabView extends StatelessWidget {
   });
 
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool>? isActiveListenable;
+  final bool Function(String action)? isFirstPageViewReported;
+  final void Function(String action)? onFirstPageViewReady;
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
@@ -121,6 +136,9 @@ class _HomeTabView extends StatelessWidget {
         _MyWorldFeed(
           index: 0,
           activationListenable: activationListenable,
+          isActiveListenable: isActiveListenable,
+          isFirstPageViewReported: isFirstPageViewReported,
+          onFirstPageViewReady: onFirstPageViewReady,
           networkRequestsAllowed: networkRequestsAllowed,
           keepInitialNetworkFailureLoading: keepInitialNetworkFailureLoading,
           initialRequestMetricWindow: initialRequestMetricWindow,
@@ -131,6 +149,9 @@ class _HomeTabView extends StatelessWidget {
         _PopularOriginFeed(
           index: 1,
           activationListenable: activationListenable,
+          isActiveListenable: isActiveListenable,
+          isFirstPageViewReported: isFirstPageViewReported,
+          onFirstPageViewReady: onFirstPageViewReady,
           networkRequestsAllowed: networkRequestsAllowed,
           keepInitialNetworkFailureLoading: keepInitialNetworkFailureLoading,
           initialRequestMetricWindow: initialRequestMetricWindow,

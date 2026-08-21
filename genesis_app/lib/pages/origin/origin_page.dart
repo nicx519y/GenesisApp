@@ -16,9 +16,14 @@ import '../../ui/components/secend_tabs.dart';
 import 'origin_feed_cache_store.dart';
 
 class OriginPage extends StatefulWidget {
-  const OriginPage({super.key, this.isInitialPage = false});
+  const OriginPage({
+    super.key,
+    this.isInitialPage = false,
+    this.onForYouFirstPageReady,
+  });
 
   final bool isInitialPage;
+  final VoidCallback? onForYouFirstPageReady;
 
   @override
   State<OriginPage> createState() => _OriginPageState();
@@ -148,6 +153,9 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                     index: entry.$1,
                     category: entry.$2,
                     isInitialPage: widget.isInitialPage && entry.$1 == 0,
+                    onFirstPageReady: entry.$1 == 0
+                        ? widget.onForYouFirstPageReady
+                        : null,
                     onInitialLoadCompleted: entry.$1 == 0
                         ? _retryHotTagsIfNeeded
                         : null,
@@ -199,12 +207,14 @@ class _OriginFeed extends StatefulWidget {
     required this.index,
     required this.category,
     this.isInitialPage = false,
+    this.onFirstPageReady,
     this.onInitialLoadCompleted,
   });
 
   final int index;
   final _OriginCategory category;
   final bool isInitialPage;
+  final VoidCallback? onFirstPageReady;
   final VoidCallback? onInitialLoadCompleted;
 
   @override
@@ -435,6 +445,7 @@ class _OriginFeedState extends State<_OriginFeed>
       _isInitialLoading = false;
       _error = null;
     });
+    widget.onFirstPageReady?.call();
   }
 
   Future<void> _saveFirstPageCache(Map<String, dynamic> data) async {
@@ -514,6 +525,7 @@ class _OriginFeedState extends State<_OriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      widget.onFirstPageReady?.call();
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
       }
