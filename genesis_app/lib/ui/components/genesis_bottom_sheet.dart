@@ -30,22 +30,27 @@ class GenesisBottomSheetCloseButton extends StatelessWidget {
         child: SizedBox.square(
           key: buttonKey,
           dimension: visualSize,
-          child: IconButton(
-            tooltip: 'Close',
-            onPressed: onPressed,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(
-              width: visualSize,
-              height: visualSize,
-            ),
-            style: IconButton.styleFrom(
-              minimumSize: const Size.square(visualSize),
-              maximumSize: const Size.square(visualSize),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            icon: GenesisCloseIcon(
-              size: 14,
-              color: context.genesisColors.textPrimary,
+          child: Semantics(
+            button: true,
+            enabled: onPressed != null,
+            label: 'Close',
+            child: IconButton(
+              tooltip: 'Close',
+              onPressed: onPressed,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(
+                width: visualSize,
+                height: visualSize,
+              ),
+              style: IconButton.styleFrom(
+                minimumSize: const Size.square(visualSize),
+                maximumSize: const Size.square(visualSize),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: GenesisCloseIcon(
+                size: 14,
+                color: context.genesisColors.textPrimary,
+              ),
             ),
           ),
         ),
