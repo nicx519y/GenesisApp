@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../components/create/genesis_create_theme.dart';
 import '../../pages/create/create_form_widgets.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_palette.dart';
 
 const int originCharacterNameMaxLength = 30;
 const int originCharacterIdentityMaxLength = 100;
@@ -204,14 +205,14 @@ class OriginCharacterFormFields extends StatelessWidget {
     final resolvedLabelInputGap = worldoStyle ? 8.0 : labelInputGap;
     final resolvedFieldGap = worldoStyle ? 16.0 : fieldGap;
     final resolvedSectionGap = worldoStyle ? 18.0 : sectionGap;
-    const worldoSupportStyle = TextStyle(
-      color: GenesisPalette.redesignWhite60,
+    final worldoSupportStyle = TextStyle(
+      color: context.genesisColors.textMuted,
       fontSize: 11,
       height: 1.5,
       fontWeight: FontWeight.w400,
     );
-    const worldoCounterStyle = TextStyle(
-      color: GenesisPalette.redesignWhite50,
+    final worldoCounterStyle = TextStyle(
+      color: context.genesisColors.textTertiary,
       fontSize: 9.5,
       height: 1.5,
       fontWeight: FontWeight.w500,
@@ -240,16 +241,16 @@ class OriginCharacterFormFields extends StatelessWidget {
               emptyLabelFontSize: worldoStyle ? 10 : 12,
               emptyIconLabelGap: worldoStyle ? 7 : avatarEmptyIconLabelGap,
               removeLinkFontWeight: avatarRemoveLinkFontWeight,
-              emptyBackgroundColor: worldoStyle
-                  ? GenesisPalette.transparent
-                  : null,
+              emptyBackgroundColor: worldoStyle ? Colors.transparent : null,
               emptyIconColor: worldoStyle
-                  ? GenesisPalette.redesignAccentSoft
+                  ? context.genesisCreateColors.successText
                   : null,
               emptyLabelColor: worldoStyle
-                  ? GenesisPalette.redesignAccentSoft
+                  ? context.genesisCreateColors.successText
                   : null,
-              dashColor: worldoStyle ? GenesisPalette.redesignWhite32 : null,
+              dashColor: worldoStyle
+                  ? context.genesisColors.textDisabled
+                  : null,
               dashStrokeWidth: worldoStyle ? 1.5 : 1.2,
               onChanged: onChanged,
             ),
@@ -324,7 +325,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                       supportItemGap: worldoStyle ? 7 : 12,
                       supportTextStyle: worldoStyle ? worldoSupportStyle : null,
                       supportIconColor: worldoStyle
-                          ? GenesisPalette.redesignWhite45
+                          ? context.genesisColors.textTimestamp
                           : null,
                       supportIconSize: worldoStyle ? 12 : 16,
                       supportIconGap: worldoStyle ? 7 : 5,
@@ -370,7 +371,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                       supportItemGap: worldoStyle ? 7 : 12,
                       supportTextStyle: worldoStyle ? worldoSupportStyle : null,
                       supportIconColor: worldoStyle
-                          ? GenesisPalette.redesignWhite45
+                          ? context.genesisColors.textTimestamp
                           : null,
                       supportIconSize: worldoStyle ? 12 : 16,
                       supportIconGap: worldoStyle ? 7 : 5,
@@ -411,7 +412,7 @@ class OriginCharacterFormFields extends StatelessWidget {
             supportItemGap: worldoStyle ? 7 : 12,
             supportTextStyle: worldoStyle ? worldoSupportStyle : null,
             supportIconColor: worldoStyle
-                ? GenesisPalette.redesignWhite45
+                ? context.genesisColors.textTimestamp
                 : null,
             supportIconSize: worldoStyle ? 12 : 16,
             supportIconGap: worldoStyle ? 7 : 5,
@@ -450,7 +451,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               supportItemGap: worldoStyle ? 7 : 12,
               supportTextStyle: worldoStyle ? worldoSupportStyle : null,
               supportIconColor: worldoStyle
-                  ? GenesisPalette.redesignWhite45
+                  ? context.genesisColors.textTimestamp
                   : null,
               supportIconSize: worldoStyle ? 12 : 16,
               supportIconGap: worldoStyle ? 7 : 5,
@@ -492,7 +493,7 @@ class OriginCharacterFormFields extends StatelessWidget {
             supportItemGap: worldoStyle ? 7 : 12,
             supportTextStyle: worldoStyle ? worldoSupportStyle : null,
             supportIconColor: worldoStyle
-                ? GenesisPalette.redesignWhite45
+                ? context.genesisColors.textTimestamp
                 : null,
             supportIconSize: worldoStyle ? 12 : 16,
             supportIconGap: worldoStyle ? 7 : 5,
@@ -530,7 +531,9 @@ class OriginCharacterFormFields extends StatelessWidget {
           supportLineGap: worldoStyle ? 8 : 8,
           supportItemGap: worldoStyle ? 7 : 12,
           supportTextStyle: worldoStyle ? worldoSupportStyle : null,
-          supportIconColor: worldoStyle ? GenesisPalette.redesignWhite45 : null,
+          supportIconColor: worldoStyle
+              ? context.genesisColors.textTimestamp
+              : null,
           supportIconSize: worldoStyle ? 12 : 16,
           supportIconGap: worldoStyle ? 7 : 5,
           counterTextStyle: worldoStyle ? worldoCounterStyle : null,

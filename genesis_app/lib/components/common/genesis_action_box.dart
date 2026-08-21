@@ -36,6 +36,10 @@ Future<T?> showGenesisActionBox<T>({
   double cancelRowHeight = GenesisActionBox.defaultRowHeight,
   Color? borderColor,
 }) {
+  assert(
+    actions.length <= 3,
+    'GenesisActionBox supports at most three actions. Use a bottom sheet for longer lists.',
+  );
   return showGenesisDialog<T>(
     context: context,
     barrierColor: context.genesisColors.scrim.withValues(alpha: 0.32),
@@ -81,7 +85,10 @@ class GenesisActionBox<T> extends StatelessWidget {
     this.actionRowHeight = defaultRowHeight,
     this.cancelRowHeight = defaultRowHeight,
     this.borderColor,
-  });
+  }) : assert(
+         actions.length <= 3,
+         'GenesisActionBox supports at most three actions. Use a bottom sheet for longer lists.',
+       );
 
   static const double defaultRowHeight = 51;
   static const double defaultTitleHeight = 82;

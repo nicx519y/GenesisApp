@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_radii.dart';
+import '../../ui/components/genesis_dialog.dart';
 
 export '../../ui/system/genesis_system_ui.dart';
 
@@ -21,6 +22,7 @@ Future<T?> showGenesisModalBottomSheet<T>({
   BoxConstraints? constraints,
   AnimationStyle? sheetAnimationStyle,
   ShapeBorder? shape,
+  Clip? clipBehavior,
 }) {
   final effectiveShape =
       shape ??
@@ -40,6 +42,7 @@ Future<T?> showGenesisModalBottomSheet<T>({
     constraints: constraints,
     sheetAnimationStyle: sheetAnimationStyle,
     shape: effectiveShape,
+    clipBehavior: clipBehavior,
   );
 }
 
@@ -58,6 +61,31 @@ Future<T?> showGenesisDialog<T>({
     barrierDismissible: barrierDismissible,
     useSafeArea: useSafeArea,
     useRootNavigator: useRootNavigator,
+  );
+}
+
+Future<T?> showGenesisContentDialog<T>({
+  required BuildContext context,
+  required String title,
+  required Widget content,
+  GenesisDialogVariant variant = GenesisDialogVariant.content,
+  List<GenesisDialogAction> actions = const <GenesisDialogAction>[],
+  bool barrierDismissible = true,
+  bool showCloseButton = false,
+  Color? barrierColor,
+}) {
+  return showGenesisDialog<T>(
+    context: context,
+    barrierColor: barrierColor,
+    barrierDismissible: barrierDismissible,
+    builder: (dialogContext) => GenesisDialog(
+      title: title,
+      content: content,
+      variant: variant,
+      actions: actions,
+      showCloseButton: showCloseButton,
+      onClose: () => Navigator.of(dialogContext).pop(),
+    ),
   );
 }
 

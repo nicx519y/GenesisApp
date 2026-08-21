@@ -27,21 +27,21 @@ class _CharacterCard extends StatelessWidget {
       showBorder: false,
       padding: createWorldoStyle ? EdgeInsets.zero : null,
       backgroundColor: createWorldoStyle
-          ? GenesisPalette.redesignBackground
+          ? context.genesisColors.pageBackground
           : null,
       titleFontSize: createWorldoStyle ? 15 : 16,
       titleFontWeight: createWorldoStyle ? FontWeight.w800 : FontWeight.w600,
-      titleColor: createWorldoStyle ? GenesisPalette.white : null,
+      titleColor: createWorldoStyle ? context.genesisCreateColors.text : null,
       headerBottomSpacing: createWorldoStyle ? 13 : 0,
       deleteButtonSize: createWorldoStyle ? 30 : 24,
       deleteIconSize: 14,
       deleteBackgroundColor: createWorldoStyle
-          ? GenesisPalette.redesignWhite07
+          ? context.genesisCreateColors.fieldFill
           : null,
-      deleteBorderColor: createWorldoStyle ? GenesisPalette.transparent : null,
+      deleteBorderColor: createWorldoStyle ? Colors.transparent : null,
       deleteBorderRadius: createWorldoStyle ? 10 : null,
       deleteIconColor: createWorldoStyle
-          ? GenesisPalette.redesignWhite60
+          ? context.genesisColors.textMuted
           : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,44 +84,22 @@ class _CreateCharactersAppBar extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      toolbarHeight: _height,
-      automaticallyImplyLeading: false,
-      backgroundColor: GenesisPalette.redesignBackground,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      centerTitle: false,
-      leadingWidth: 54,
-      titleSpacing: 12,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 20),
-        child: Center(
-          child: GenesisBackButton(
-            foregroundColor: GenesisPalette.white,
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-        ),
-      ),
-      title: const Text(
-        'Characters',
-        style: TextStyle(
-          fontSize: 17,
-          height: 1,
-          fontWeight: FontWeight.w800,
-          color: GenesisPalette.white,
-        ),
-      ),
+    return GenesisAppBar(
+      title: 'Characters',
+      variant: GenesisAppBarVariant.leadingTitle,
+      backgroundColor: context.genesisColors.pageBackground,
+      backForegroundColor: context.genesisCreateColors.text,
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 20),
           child: Center(
             child: Text(
               '$characterCount/$maxCharacters (Added / Max)',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 9.5,
                 height: 1,
                 fontWeight: FontWeight.w500,
-                color: GenesisPalette.redesignWhite50,
+                color: context.genesisColors.textTertiary,
               ),
             ),
           ),
@@ -146,18 +124,18 @@ class _CreateCharactersAddButton extends StatelessWidget {
         onTap: onTap,
         child: CustomPaint(
           painter: CreateDashedRRectPainter(
-            color: GenesisPalette.redesignWhite22,
+            color: context.genesisColors.dragHandleSubtle,
             radius: 13,
             strokeWidth: 1.5,
           ),
-          child: const SizedBox(
+          child: SizedBox(
             width: double.infinity,
             height: 44,
             child: Center(
               child: Text(
                 '+ Add Character',
                 style: TextStyle(
-                  color: GenesisPalette.redesignAccentSoft,
+                  color: context.genesisCreateColors.successText,
                   fontSize: 13,
                   height: 1,
                   fontWeight: FontWeight.w700,
@@ -206,7 +184,7 @@ class _BestRoleSelector extends StatelessWidget {
                 'Suggest',
                 style: TextStyle(
                   color: createWorldoStyle
-                      ? GenesisPalette.redesignWhite60
+                      ? context.genesisColors.textMuted
                       : context.genesisCreateColors.text,
                   fontSize: createWorldoStyle ? 9.5 : 12,
                   height: createWorldoStyle ? 1.5 : 1.2,

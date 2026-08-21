@@ -208,27 +208,15 @@ Future<bool> confirmCreateFormDelete(
   BuildContext context, {
   required String itemLabel,
 }) async {
-  final confirmed = await showGenesisDialog<bool>(
+  final confirmed = await showGenesisActionBox<bool>(
     context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(
-          'Delete $itemLabel?',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        content: Text('This item has content. Delete it anyway?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Delete'),
-          ),
-        ],
-      );
-    },
+    title: 'Delete $itemLabel?',
+    titleContent: const Text('This item has content. Delete it anyway?'),
+    titleHeight: 104,
+    actions: const <GenesisActionBoxAction<bool>>[
+      GenesisActionBoxAction<bool>(label: 'Delete', value: true),
+    ],
+    cancelLabel: 'Cancel',
   );
   return confirmed == true;
 }

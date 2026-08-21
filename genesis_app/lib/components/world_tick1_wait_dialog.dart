@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../network/models/world.dart';
+import '../ui/components/genesis_dialog.dart';
 import '../ui/components/genesis_edge_swipe_back.dart';
-import '../ui/components/genesis_primary_button.dart';
 import 'common/genesis_modal_routes.dart';
 
 const Duration kWorldTick1WaitPollInterval = Duration(seconds: 2);
@@ -127,12 +127,9 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
       child: GenesisEdgeSwipeBack(
         onBack: _handleBackRequest,
         child: Center(
-          child: AlertDialog(
+          child: GenesisDialog(
             key: const ValueKey('world-tick1-wait-dialog'),
-            title: const Text(
-              'Generating first tick',
-              style: TextStyle(fontSize: 16, height: 1.2),
-            ),
+            title: 'Generating first tick',
             content: SizedBox(
               width: 260,
               child: Text(
@@ -144,15 +141,13 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
             ),
             actions: _hasError
                 ? [
-                    GenesisButton(
-                      key: const ValueKey('world-tick1-wait-retry'),
+                    GenesisDialogAction(
                       label: 'Retry',
+                      buttonKey: const ValueKey('world-tick1-wait-retry'),
                       onPressed: _loading ? null : () => unawaited(_poll()),
-                      size: GenesisButtonSize.compact,
-                      fullWidth: false,
                     ),
                   ]
-                : null,
+                : const <GenesisDialogAction>[],
           ),
         ),
       ),

@@ -192,7 +192,7 @@ void main() {
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-panel'))).dy -
           tester.getRect(find.text('Buy Gems')).bottom,
-      closeTo(42.5, 0.1),
+      closeTo(45.5, 0.1),
     );
 
     final recordsStyle = tester.widget<Text>(find.text('Records')).style;
@@ -411,7 +411,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(TextButton, 'Records'), findsNothing);
+    expect(find.widgetWithText(TextButton, 'Records'), findsOneWidget);
     await tester.tap(find.text('Records'));
     await tester.pumpAndSettle();
 

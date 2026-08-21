@@ -23,7 +23,7 @@ import '../../network/models/gem_task_action.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_control_icons.dart';
+import '../../ui/components/genesis_app_bar.dart';
 import '../../ui/components/genesis_state_view.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 
@@ -179,40 +179,18 @@ class _GemWalletPageState extends State<GemWalletPage>
       canPop: !_billingPurchaseDialogShowing,
       child: Scaffold(
         backgroundColor: context.genesisColors.pageBackground,
-        appBar: AppBar(
+        appBar: GenesisAppBar(
+          title: 'Buy Gems',
+          variant: GenesisAppBarVariant.leadingTitle,
           backgroundColor: context.genesisColors.pageBackground,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          toolbarHeight: 58,
-          titleSpacing: 20,
-          systemOverlayStyle: GenesisSystemUi.forThemeBrightness(
-            Theme.of(context).brightness,
-          ),
-          title: Row(
-            children: [
-              GenesisBackButton(
-                key: const ValueKey('gem-wallet-back'),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Buy Gems',
-                  style: TextStyle(
-                    color: context.genesisColors.textPrimary,
-                    fontSize: 17,
-                    height: 1,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () =>
-                    Navigator.of(context).pushNamed(RouteNames.gemRecords),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 11),
+          backButtonKey: const ValueKey('gem-wallet-back'),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 20),
+              child: Center(
+                child: TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(RouteNames.gemRecords),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -235,8 +213,8 @@ class _GemWalletPageState extends State<GemWalletPage>
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
         body: SafeArea(top: false, child: _buildBody(walletStateListenable)),
       ),

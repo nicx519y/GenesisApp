@@ -50,7 +50,6 @@ import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_palette.dart';
 import '../../ui/tokens/genesis_spacing.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';

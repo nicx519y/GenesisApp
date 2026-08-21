@@ -148,7 +148,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                 fontSize: 12,
                 height: 1.6,
                 fontWeight: FontWeight.w400,
-                color: GenesisPalette.redesignWhite72,
+                color: context.genesisColors.textSecondary,
                 decoration: TextDecoration.none,
               ),
             ),
@@ -267,8 +267,8 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(3),
               color: selected
-                  ? GenesisPalette.redesignWhite85
-                  : const Color(0x40FFFFFF),
+                  ? context.genesisColors.textHighEmphasis
+                  : context.genesisColors.textPrimary.withValues(alpha: 0.25),
             ),
           );
         }),
@@ -290,10 +290,10 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       key: const ValueKey<String>('origin-setup-role-custom-card'),
-      color: GenesisPalette.redesignWhite08,
+      color: context.genesisColors.surfaceSoft,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: GenesisPalette.redesignWhite12),
+        side: BorderSide(color: context.genesisColors.borderNeutral),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -311,7 +311,7 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
                   fontSize: 36,
                   height: 1,
                   fontWeight: FontWeight.w300,
-                  color: GenesisPalette.white,
+                  color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -322,7 +322,7 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
                   fontSize: 16,
                   height: 1,
                   fontWeight: FontWeight.w600,
-                  color: GenesisPalette.white,
+                  color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -517,7 +517,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                         ),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: GenesisPalette.redesignWhite20,
+                          color: context.genesisColors.borderStrong,
                         ),
                       ),
                       child: Row(
@@ -543,7 +543,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                               fontSize: 9.5,
                               height: 1,
                               fontWeight: FontWeight.w600,
-                              color: GenesisPalette.white,
+                              color: context.genesisColors.textPrimary,
                               decoration: TextDecoration.none,
                             ),
                           ),
@@ -579,7 +579,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                               ),
                               pointUp: _showDetails,
                               width: 16,
-                              color: GenesisPalette.redesignWhite72,
+                              color: context.genesisColors.textSecondary,
                             ),
                           ),
                         ),
@@ -595,7 +595,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                   key: ValueKey<String>(
                                     'origin-setup-role-edit-surface-$stableId',
                                   ),
-                                  color: GenesisPalette.redesignWhite16,
+                                  color: context.genesisColors.controlMuted,
                                   borderRadius: BorderRadius.circular(11),
                                   clipBehavior: Clip.antiAlias,
                                   child: InkWell(
@@ -609,8 +609,8 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                       Icons.edit_rounded,
                                       size: 15,
                                       color: widget.launching
-                                          ? GenesisPalette.redesignWhite60
-                                          : GenesisPalette.white,
+                                          ? context.genesisColors.textMuted
+                                          : context.genesisColors.textPrimary,
                                     ),
                                   ),
                                 ),
@@ -622,7 +622,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                 key: ValueKey<String>(
                                   'origin-setup-role-select-surface-$stableId',
                                 ),
-                                color: GenesisPalette.redesignWhite16,
+                                color: context.genesisColors.controlMuted,
                                 borderRadius: BorderRadius.circular(11),
                                 clipBehavior: Clip.antiAlias,
                                 child: InkWell(
@@ -644,8 +644,8 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                         height: 1,
                                         fontWeight: FontWeight.w700,
                                         color: widget.launching
-                                            ? GenesisPalette.redesignWhite60
-                                            : GenesisPalette.white,
+                                            ? context.genesisColors.textMuted
+                                            : context.genesisColors.textPrimary,
                                         decoration: TextDecoration.none,
                                       ),
                                     ),
@@ -728,7 +728,7 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                     fontSize: 10,
                     height: 1,
                     fontWeight: FontWeight.w600,
-                    color: GenesisPalette.redesignWhite72,
+                    color: context.genesisColors.textSecondary,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -743,7 +743,7 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                   fontSize: 19,
                   height: 1.05,
                   fontWeight: FontWeight.w900,
-                  color: GenesisPalette.white,
+                  color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -758,7 +758,7 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                     fontSize: 11,
                     height: 1.4,
                     fontWeight: FontWeight.w400,
-                    color: GenesisPalette.redesignWhite85,
+                    color: context.genesisColors.textHighEmphasis,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -802,7 +802,7 @@ class _OriginSetupRoleDetails extends StatelessWidget {
                   fontSize: 14,
                   height: 1.4,
                   fontWeight: FontWeight.w600,
-                  color: GenesisPalette.white,
+                  color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -864,7 +864,7 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
                 fontSize: 13,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
-                color: GenesisPalette.redesignWhite60,
+                color: context.genesisColors.textMuted,
                 decoration: TextDecoration.none,
               ),
             ),
@@ -877,7 +877,7 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
                 fontSize: 13,
                 height: 1.4,
                 fontWeight: FontWeight.w400,
-                color: GenesisPalette.white,
+                color: context.genesisColors.textPrimary,
                 decoration: TextDecoration.none,
               ),
             ),

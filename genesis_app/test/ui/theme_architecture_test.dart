@@ -57,6 +57,33 @@ void main() {
     );
   });
 
+  test('production pages use shared app bars and modal route helpers', () {
+    final violations = <String>[];
+    for (final file in Directory(
+      'lib/pages',
+    ).listSync(recursive: true).whereType<File>()) {
+      final path = file.path;
+      if (!path.endsWith('.dart') || path.contains('/developer_')) continue;
+      final source = file.readAsStringSync();
+      final lines = source.split('\n');
+      for (var index = 0; index < lines.length; index++) {
+        final line = lines[index];
+        final directAppBar = _directAppBarPattern.hasMatch(line);
+        if (directAppBar || _directModalPattern.hasMatch(line)) {
+          violations.add('$path:${index + 1}: ${line.trim()}');
+        }
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'Production pages must use GenesisAppBar/GenesisBackAppBar and '
+          'the Genesis modal route helpers.\n${violations.join('\n')}',
+    );
+  });
+
   test('Worldo skin identity is not inferred from Material brightness', () {
     final source = File(
       'lib/pages/messages/messages_page.dart',
@@ -67,7 +94,17 @@ void main() {
 }
 
 final RegExp _physicalColorPattern = RegExp(
-  r'Color\s*\(\s*0x[0-9A-Fa-f]{6,8}\s*\)|\bColors\.[A-Za-z0-9_]+|GenesisColors\.',
+  r'Color\s*\(\s*0x[0-9A-Fa-f]{6,8}\s*\)|\bColors\.[A-Za-z0-9_]+|GenesisColors\.|GenesisPalette\.',
+);
+
+final RegExp _directModalPattern = RegExp(
+  r'\bAlertDialog\s*\(|\bshowDialog\s*(?:<[^>]+>)?\s*\(|'
+  r'\bshowModalBottomSheet\s*(?:<[^>]+>)?\s*\(|'
+  r'\bshowGeneralDialog\s*(?:<[^>]+>)?\s*\(',
+);
+
+final RegExp _directAppBarPattern = RegExp(
+  r'(^|[\s=:])(?:const\s+)?AppBar\s*\(',
 );
 
 bool _allowsPhysicalColors(String path) {

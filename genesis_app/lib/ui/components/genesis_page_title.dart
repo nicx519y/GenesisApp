@@ -13,6 +13,8 @@ class GenesisPageTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: GenesisTypography.pageTitle
           .copyWith(color: context.genesisColors.textPrimary)
           .merge(style),

@@ -17,7 +17,6 @@ import '../../components/world_point.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/api_exception.dart';
 import '../../ui/genesis_ui.dart';
-import '../../ui/tokens/genesis_palette.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../create/create_form_widgets.dart';
@@ -486,7 +485,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
               : null,
           resizeToAvoidBottomInset: true,
           backgroundColor: widget.createHubStyle
-              ? GenesisPalette.redesignBackground
+              ? context.genesisColors.pageBackground
               : null,
           appBar: widget.createHubStyle
               ? _CreateHubAppBar(
@@ -882,34 +881,13 @@ class _CreateHubAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      toolbarHeight: _height,
-      automaticallyImplyLeading: false,
-      backgroundColor: GenesisPalette.redesignBackground,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      centerTitle: false,
-      leadingWidth: 54,
-      titleSpacing: 12,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 20),
-        child: Center(
-          child: GenesisBackButton(
-            foregroundColor: GenesisPalette.white,
-            onPressed: onBack,
-          ),
-        ),
-      ),
-      title: Text(
-        title,
-        key: const ValueKey<String>('create-worldo-hub-title'),
-        style: const TextStyle(
-          fontSize: 17,
-          height: 1,
-          fontWeight: FontWeight.w800,
-          color: GenesisPalette.white,
-        ),
-      ),
+    return GenesisAppBar(
+      title: title,
+      variant: GenesisAppBarVariant.leadingTitle,
+      backgroundColor: context.genesisColors.pageBackground,
+      onBack: onBack,
+      backForegroundColor: context.genesisCreateColors.text,
+      titleKey: const ValueKey<String>('create-worldo-hub-title'),
       actions: trailing == null
           ? null
           : [
@@ -937,23 +915,23 @@ class _CreateHubRequirementsNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 2),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
             child: Icon(
               Icons.info_outline_rounded,
               size: 12,
-              color: GenesisPalette.redesignWhite45,
+              color: context.genesisColors.textTimestamp,
             ),
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
               text,
               style: TextStyle(
                 fontSize: 11,
                 height: 1.5,
                 fontWeight: FontWeight.w400,
-                color: GenesisPalette.redesignWhite60,
+                color: context.genesisColors.textMuted,
               ),
             ),
           ),

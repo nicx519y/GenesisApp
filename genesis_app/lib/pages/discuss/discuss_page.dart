@@ -11,7 +11,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_control_icons.dart';
+import '../../ui/components/genesis_app_bar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
@@ -313,35 +313,12 @@ class _DiscussPageAppBar extends StatelessWidget
       animation: controller,
       builder: (context, _) {
         final colors = context.genesisColors;
-        return AppBar(
-          toolbarHeight: preferredSize.height,
+        return GenesisAppBar(
+          title: 'Comments',
+          variant: GenesisAppBarVariant.leadingTitle,
           backgroundColor: colors.pageBackground,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          centerTitle: false,
-          leadingWidth: 66,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 20),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: GenesisBackButton(
-                key: const ValueKey<String>('discuss-page-back-button'),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-            ),
-          ),
-          titleSpacing: 0,
-          title: Text(
-            'Comments',
-            key: const ValueKey<String>('discuss-page-title'),
-            style: TextStyle(
-              color: colors.foregroundStrong,
-              fontSize: 17,
-              height: 1,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+          backButtonKey: const ValueKey<String>('discuss-page-back-button'),
+          titleKey: const ValueKey<String>('discuss-page-title'),
           actions: [
             if (controller.hasLoaded)
               Padding(

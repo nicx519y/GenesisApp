@@ -221,7 +221,7 @@ class _OriginCharactersEditorPageState
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: createWorldoStyle
-          ? GenesisPalette.redesignBackground
+          ? context.genesisColors.pageBackground
           : context.genesisColors.pageBackground,
       appBar: createWorldoStyle
           ? _CreateCharactersAppBar(

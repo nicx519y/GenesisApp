@@ -6,7 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_page_header.dart';
+import '../../ui/components/genesis_page_scaffold.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../legal/legal_document_page.dart';
 
@@ -31,31 +31,30 @@ class AboutUsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return GenesisPageScaffold.secondary(
+      title: 'About',
       backgroundColor: context.genesisColors.pageBackground,
-      appBar: const GenesisBackAppBar(pageName: 'About'),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
-                children: [
-                  const _AboutBrandHeader(),
-                  const SizedBox(height: 8),
-                  const _AboutVersionText(),
-                  const SizedBox(height: 34),
-                  const _AboutDescription(),
-                ],
-              ),
+      contentPadding: EdgeInsets.zero,
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
+              children: [
+                const _AboutBrandHeader(),
+                const SizedBox(height: 8),
+                const _AboutVersionText(),
+                const SizedBox(height: 34),
+                const _AboutDescription(),
+              ],
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: _AboutLegalLinks(),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: _AboutLegalLinks(),
+          ),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }

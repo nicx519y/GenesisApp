@@ -38,6 +38,7 @@ import '../../routers/app_router.dart';
 import '../gems/gem_wallet_page.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
+import 'developer_design_system_gallery.dart';
 
 part 'developer_endpoint_actions.dart';
 part 'developer_version_actions.dart';
@@ -559,6 +560,18 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
+        GenesisButton(
+          label: 'Design System Gallery',
+          variant: GenesisButtonVariant.secondary,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const DeveloperDesignSystemGalleryPage(),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 18),
         _DeveloperToggleRow(
           sectionTitle: 'Tilemap',
           label: 'Show settings button',

@@ -126,7 +126,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     if (mounted) _updateState(() {});
     final dialogState = _billingPurchaseDialogState!;
     unawaited(
-      showGeneralDialog<void>(
+      showGenesisGeneralDialog<void>(
         context: context,
         barrierColor: genesisModalBarrierColor(context),
         barrierDismissible: false,

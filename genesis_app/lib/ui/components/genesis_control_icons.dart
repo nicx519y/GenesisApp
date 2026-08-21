@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../icons/custom_icon_assets.dart';
 import '../theme/genesis_semantic_colors.dart';
+import '../tokens/genesis_control_metrics.dart';
 
 class GenesisBackButton extends StatelessWidget {
   const GenesisBackButton({
@@ -12,8 +13,9 @@ class GenesisBackButton extends StatelessWidget {
     required this.onPressed,
     this.foregroundColor,
     this.backgroundColor,
-    this.dimension = 34,
-    this.iconSize = 14,
+    this.dimension = GenesisControlMetrics.backButtonVisualSize,
+    this.iconSize = GenesisControlMetrics.backIconSize,
+    this.tapTargetSize = GenesisControlMetrics.minimumTapTarget,
     this.borderRadius = 11,
     this.blurSigma = 10,
     this.tooltip = 'Back',
@@ -24,6 +26,7 @@ class GenesisBackButton extends StatelessWidget {
   final Color? backgroundColor;
   final double dimension;
   final double iconSize;
+  final double tapTargetSize;
   final double borderRadius;
   final double blurSigma;
   final String tooltip;
@@ -31,22 +34,40 @@ class GenesisBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
-    return Tooltip(
-      message: tooltip,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-          child: Material(
-            color: backgroundColor ?? colors.controlMuted,
-            child: InkWell(
-              onTap: onPressed,
+    final hitScale = tapTargetSize / dimension;
+    return Transform.scale(
+      scale: hitScale,
+      transformHitTests: true,
+      child: Semantics(
+        button: true,
+        enabled: onPressed != null,
+        label: tooltip,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: Transform.scale(
+            scale: 1 / hitScale,
+            transformHitTests: false,
+            child: Tooltip(
+              message: tooltip,
               child: SizedBox.square(
                 dimension: dimension,
-                child: Center(
-                  child: GenesisBackIcon(
-                    size: iconSize,
-                    color: foregroundColor ?? colors.foregroundStrong,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(borderRadius),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: blurSigma,
+                      sigmaY: blurSigma,
+                    ),
+                    child: Material(
+                      color: backgroundColor ?? colors.controlMuted,
+                      child: Center(
+                        child: GenesisBackIcon(
+                          size: iconSize,
+                          color: foregroundColor ?? colors.foregroundStrong,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

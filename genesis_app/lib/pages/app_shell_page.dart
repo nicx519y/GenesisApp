@@ -10,12 +10,12 @@ import '../app/gems/daily_check_in_coordinator.dart';
 import '../app/startup/app_startup_coordinator.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../components/bottom_tabs.dart';
+import '../components/common/genesis_modal_routes.dart';
 import '../components/login_sheet.dart';
 import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/billing/billing_models.dart';
 import '../platform/privacy/app_tracking_transparency_service.dart';
-import '../ui/system/genesis_system_ui.dart';
 import '../ui/theme/genesis_semantic_colors.dart';
 import '../ui/tokens/genesis_radii.dart';
 import 'create/create_origin_page.dart';
@@ -364,7 +364,7 @@ class _AppShellPageState extends State<AppShellPage>
   Future<void> _showCreateWorldoSheet() {
     final colors = context.genesisColors;
     final sheetHeight = MediaQuery.sizeOf(context).height * 0.88;
-    return showModalBottomSheet<void>(
+    return showGenesisModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       enableDrag: true,

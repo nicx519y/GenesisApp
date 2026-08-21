@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../ui/components/genesis_page_header.dart';
+import '../../ui/components/genesis_page_scaffold.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 
@@ -81,33 +81,32 @@ class _LegalDocumentPageState extends State<LegalDocumentPage> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    return Scaffold(
-      appBar: GenesisBackAppBar(pageName: widget.document.title),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            if (controller == null)
-              _LegalWebErrorView(
-                url: widget.document.url,
-                onRetry: () {
-                  setState(() => _hasError = false);
-                  _initializeController();
-                },
-              )
-            else
-              WebViewWidget(controller: controller),
-            if (controller != null && _loadingProgress < 100)
-              LinearProgressIndicator(value: _loadingProgress / 100),
-            if (controller != null && _hasError)
-              _LegalWebErrorView(
-                url: widget.document.url,
-                onRetry: () {
-                  setState(() => _hasError = false);
-                  controller.reload();
-                },
-              ),
-          ],
-        ),
+    return GenesisPageScaffold.secondary(
+      title: widget.document.title,
+      contentPadding: EdgeInsets.zero,
+      body: Stack(
+        children: [
+          if (controller == null)
+            _LegalWebErrorView(
+              url: widget.document.url,
+              onRetry: () {
+                setState(() => _hasError = false);
+                _initializeController();
+              },
+            )
+          else
+            WebViewWidget(controller: controller),
+          if (controller != null && _loadingProgress < 100)
+            LinearProgressIndicator(value: _loadingProgress / 100),
+          if (controller != null && _hasError)
+            _LegalWebErrorView(
+              url: widget.document.url,
+              onRetry: () {
+                setState(() => _hasError = false);
+                controller.reload();
+              },
+            ),
+        ],
       ),
     );
   }

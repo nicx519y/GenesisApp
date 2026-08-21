@@ -1,151 +1,181 @@
-# Genesis UI Component Library
+# Worldo UI Design System
 
-本文档定义 Flutter 侧 UI 组件库的边界、样式 token 和迁移规则。目标是让页面代码少写内联样式，把颜色、字体、间距、圆角和常用控件统一到 `lib/ui`。
-
-## 目录边界
-
-```text
-lib/ui/
-  genesis_ui.dart              # 组件库统一出口
-  tokens/                      # 设计 token：颜色、字体、间距、圆角
-  theme/                       # 全局 ThemeData
-  components/                  # 纯 UI 组件，不放业务请求和路由逻辑
-```
-
-业务组件仍保留在 `lib/components`，例如 `PageHeader`、`BottomTabs`、`origin/*`。这些组件可以组合 `lib/ui` 的 token 和基础组件，但不要把新 token 继续散落到页面内联常量里。
-
-## 使用入口
-
-新代码优先只导入统一出口：
+本文档是 Worldo Flutter UI 的实现规范。当前生产视觉基准是
+`GenesisSkin.worldoRedesign`。新页面必须从统一出口导入组件：
 
 ```dart
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 ```
 
-现有页面暂时可以继续使用旧组件名，例如 `SearchBarPlaceholder`。它已经兼容转接到 `GenesisSearchField`，后续迁移页面时可以逐步替换为新的命名。
+## 分层边界
 
-## 样式 Token
+```text
+lib/ui/tokens/          字体、间距、圆角、触控、动效、阴影
+lib/ui/theme/           ThemeData、语义颜色、皮肤和组件尺寸
+lib/ui/components/      不依赖接口、路由或业务状态的纯 UI 组件
+lib/components/common/ 跨页面弹窗、Toast、上传反馈等交互组件
+lib/components/feature/ World、Origin、Chat、Gem 等业务 UI
+lib/pages/feature/      页面状态、数据组合、导航和页面私有 Widget
+```
 
-- `GenesisColors`：品牌色、文本色、背景色、边框色、状态色。
-- `GenesisTypography`：页面标题、正文、强调正文、辅助文案、底部 tab 文案。
-- `GenesisSpacing`：常用间距和页面左右边距。
-- `GenesisRadii`：输入框、卡片、面板、底部弹层等圆角。
+地图地形、Fog、图片内容、裁剪器和业务状态色属于 feature，不要为了消除
+颜色常量而错误地映射为页面背景或文字色。
 
-新增样式时先判断是否是全局语义。如果多个页面会共用，放入 token；如果只是某个业务卡片的个性样式，保留在对应业务组件内。
+## Token 规范
 
-## Create Flow Typography
+- 间距只使用 `GenesisSpacing`：2、4、6、8、10、12、14、16、20、24。
+- 普通页面左右边距 16；表单/编辑页 20；大区块间距 24。
+- 圆角使用 `GenesisRadii`；输入框 11、卡片 14、Sheet 顶部 24、Pill 999。
+- 字体使用 `GenesisTypography`：Page 24/900、Navigation 17/800、
+  Section 15/800、Body 14、Supporting 12、Label 13/700、Caption 10。
+- 所有交互点击区域至少 44×44；视觉尺寸与点击区域不同的控件使用
+  `GenesisControlMetrics`。
+- 动效使用 `GenesisMotion`，阴影使用 `GenesisShadows`。
+- Widget 不直接读取 `GenesisPalette`，只读取 `context.genesisColors` 或
+  feature ThemeExtension。
 
-- Create 入口页的分组标题使用 `14px`，例如 `Basics`、`Characters`、`Locations`、`Story Events`。
-- Create 入口页的终表摘要正文使用 `12px`，例如 `World Name: ...`、`1 characters: ...`、`2 Events`。
-- Create 入口页 Basics 摘要里的 `World Name`、`Worldo Brief`、`Worldo Settings` 每项固定单行显示，超长内容使用省略号，不允许自动换行。
-- 分组完成态使用绿色 check 图标表达，不再用 `Completed` 文案占用摘要位置。
+## 页面与标题
 
-## Theme
+### 根 Tab 页面
 
-全局主题由 `GenesisTheme.light()` 提供，并在 `lib/app/genesis_app.dart` 的 `MaterialApp.theme` 中使用。主题负责基础 Material 控件默认值，例如：
-
-- `ColorScheme`
-- `scaffoldBackgroundColor`
-- `TextTheme`
-- `FilledButtonTheme`
-- `InputDecorationTheme`
-
-页面内不要再直接创建新的全局 `ThemeData`。如果需要页面局部覆盖，优先用组件参数或局部 `Theme` 包裹。
-
-## 已落地组件
-
-### GenesisSearchField
-
-通用搜索输入/占位组件，支持只读跳转和可编辑输入两种模式。
+根页面标题为 24px/w900，标题区域高 50，使用 `GenesisPageScaffold.root`
+或 `GenesisPageHeader`：
 
 ```dart
-GenesisSearchField(
-  hintText: 'Search origins, worlds, users...',
-  onTap: () => Navigator.of(context).pushNamed(RouteNames.search),
+GenesisPageScaffold.root(
+  title: 'Messages',
+  showSearchField: true,
+  onSearchTap: openSearch,
+  body: const MessagesList(),
 )
 ```
 
-兼容入口：`SearchBarPlaceholder` 仍可用，底层已复用 `GenesisSearchField`。
+### 普通二级页面
 
-### GenesisPageTitle
-
-页面标题组件，统一使用 `GenesisTypography.pageTitle`。
-
-```dart
-GenesisPageTitle(text: 'Origin')
-```
-
-### GenesisPageHeader
-
-纯 UI 页面头部组件，组合标题和搜索框。它不依赖路由，业务层需要传入 `onSearchTap`。
+标题居中，24px/w900，AppBar 高 50。返回按钮视觉 34×34、图标 14、
+圆角 11，点击区域 44×44，视觉左边距 20：
 
 ```dart
-GenesisPageHeader(
-  title: 'Origin',
-  onSearchTap: openSearchPage,
+GenesisPageScaffold.secondary(
+  title: 'Settings',
+  body: const SettingsContent(),
 )
 ```
 
-兼容入口：`components/PageHeader` 仍保留，负责把 `onSearchTap` 接到 `RouteNames.search`。
+### 创建和编辑页
 
-### GenesisPrimaryButton
-
-主按钮组件，默认使用全局 `FilledButtonTheme`，固定单行省略，适合表单提交和页面底部主操作。
+标题左对齐，17px/w800，AppBar 高 64；右侧只放当前页面操作：
 
 ```dart
-GenesisPrimaryButton(
-  label: 'Continue',
-  onPressed: canSubmit ? submit : null,
+GenesisPageScaffold.editor(
+  title: 'Basics',
+  actions: [saveAction],
+  body: const BasicsForm(),
 )
 ```
 
-### GenesisBottomNavigation
+沉浸式地图、聊天和图片页面使用 `GenesisPageScaffold.immersive`，内部结构
+仍由 feature 管理，但返回按钮、SafeArea 和系统栏必须使用公共能力。
 
-底部导航的纯 UI/交互组件。业务层传入 items、选中下标和 `onTap`，组件本身不认识页面路由。
+AppBar 标题固定单行省略。禁止通过页面局部修改标题字号、位置或高度来处理
+长标题。
+
+## 表单与按钮
+
+- 单行输入最小高 44，使用 `GenesisTextField`。
+- 多行输入使用 `GenesisTextArea`，选择入口使用 `GenesisSelectField`。
+- Label、必填星号、Hint、错误、帮助文案、Focus 边框和字数统计由组件处理。
+- Create/Edit 中已有的复杂键盘、草稿和焦点链路可以保留 feature wrapper，
+  但其表面、颜色和文字层级必须来自公共 token。
+- 页面主操作使用 `GenesisButton`，变体只有 primary、secondary、muted、
+  destructive；常规高 42，紧凑高 40。Loading 时组件负责禁用重复点击。
 
 ```dart
-GenesisBottomNavigation(
-  currentIndex: currentIndex,
-  onTap: onTabTap,
-  items: items,
+GenesisTextField(
+  controller: nameController,
+  label: 'Name',
+  requiredIndicator: true,
+  hintText: 'Enter a name',
+  errorText: nameError,
+  maxLength: 30,
 )
 ```
 
-兼容入口：`components/BottomTabs` 负责提供当前 App 的固定 tab 数据。
+## Dialog 与 Bottom Sheet
 
-### GenesisTabBar
+### Action Box
 
-横向二级 TabBar 样式组件。业务层只传 labels，`TabController` 仍由上层页面或 `DefaultTabController` 提供。
+确认、删除和不超过三个操作的选择使用 `showGenesisActionBox`。固定规范为：
 
-```dart
-GenesisTabBar(labels: categories)
-```
-
-### SecendTabs
-
-项目内二级 tab 的稳定对外组件名，已经放在 `lib/ui` 并通过 `genesis_ui.dart` 导出。它支持直接传入 `controller`，适合 Me 页这种自己管理 `TabBarView` 的场景。
+- 手机宽度的 70%，圆角 18。
+- 边框 1px、`textPrimary` 14% 不透明度。
+- 默认标题区高 82，操作行高 51。
+- 操作超过三个时必须改为 Bottom Sheet。
 
 ```dart
-SecendTabs(
-  controller: tabController,
-  labels: const ['Origin', 'World'],
-)
+final confirmed = await showGenesisActionBox<bool>(
+  context: context,
+  title: 'Delete this item?',
+  actions: const [
+    GenesisActionBoxAction(label: 'Delete', value: true),
+  ],
+);
 ```
 
-兼容入口：`components/secend_tabs.dart` 只 re-export UI 层组件。
+### Content Dialog
 
-## 迁移规则
+包含结构化内容、进度或表单时使用 `showGenesisContentDialog` 和
+`GenesisDialog`。只有不可中断的进行中操作才设置
+`barrierDismissible: false`。
 
-1. 新 UI 优先使用 `lib/ui/genesis_ui.dart`。
-2. 页面里出现重复的 `Color(...)`、`TextStyle(...)`、`EdgeInsets...`、`BorderRadius...` 时，先查 token。
-3. 基础组件放 `lib/ui/components`，业务组合组件放 `lib/components`。
-4. 基础组件不要直接依赖 `GenesisApi`、路由名、平台服务或页面状态。
-5. 每迁移一个共享组件，至少保留一个 widget test 或现有回归测试覆盖关键行为。
+### Bottom Sheet
 
-## 下一批建议迁移
+使用 `showGenesisModalBottomSheet` 展示路由，内容使用以下之一：
 
-- `lib/components/page_header.dart`：已变成 `GenesisPageHeader` 的路由适配壳。
-- `lib/components/bottom_tabs.dart`：已变成 `GenesisBottomNavigation` 的数据适配壳。
-- `lib/components/secend_tabs.dart`：已变成 UI 层 `SecendTabs` 的兼容 re-export。
-- `lib/pages/create/*`：表单输入框、图片占位块、底部主按钮重复度高，适合下一轮迁移到 `GenesisPrimaryButton` 和表单字段组件。
-- `lib/components/origin/*`：卡片、统计项、详情区可以逐步收敛到统一卡片 token。
+- `GenesisBottomSheetPanel`：固定高度。
+- `GenesisBottomSheetPanel.content`：随内容高度。
+- `GenesisBottomSheetPanel.scrollable`：固定可用高度、内部滚动。
+
+Sheet 顶部圆角 24，默认 padding 为 16/20/16/14，标题 17px/w800，
+标题与内容间距 20。关闭图标视觉 24，点击区域 44。长内容和输入表单必须
+开启 `isScrollControlled` 并验证键盘避让。
+
+## 反馈、列表和媒体
+
+- Loading、Empty、Error、Retry、Load More 使用 `GenesisStateView`。
+- 骨架使用 `GenesisSkeleton`，不要在页面复制 shimmer 实现。
+- 短提示使用 `showGenesisToast`，不要新增 SnackBar。
+- 设置/入口行使用 `GenesisNavigationRow`；默认高 47。
+- 搜索使用 `GenesisSearchField.launcher/editable`；标准高 38，紧凑高 36。
+- 头像、角色头像和列表图片分别使用 `GenesisAvatar`、
+  `GenesisCharacterAvatar`、`GenesisListImage`，不要混用裁剪策略。
+
+完整状态可在 Developer Page 的 **Design System Gallery** 中查看。
+
+## Do / Don't
+
+Do：
+
+- 修改公共默认值前检查全部 call site 和组件测试。
+- 页面只组合组件、处理状态、导航和业务回调。
+- 新增语义颜色前先确认它代表稳定用途，而不是某个截图中的物理颜色。
+- 对长文本、1.3 倍文字缩放、窄屏、键盘和 SafeArea 做验证。
+
+Don't：
+
+- 不在页面直接使用 `AppBar`、`AlertDialog`、`showDialog`、
+  `showModalBottomSheet` 或 `showGeneralDialog`。
+- 不在页面直接使用 `Color(0x...)`、`Colors.white/black` 或
+  `GenesisPalette`。
+- 不为一次性尺寸创建新的全局 token，也不把业务卡片强行放进 `lib/ui`。
+- 不因 UI 迁移修改文案、路由、接口、分页、草稿、上传、埋点或购买逻辑。
+
+## PR 检查表
+
+- [ ] 新页面使用正确的 root/secondary/editor/immersive 页面骨架。
+- [ ] 返回按钮、标题、边距、按钮、表单和弹层来自公共组件。
+- [ ] 颜色为语义色，常用间距和字体来自 token。
+- [ ] 覆盖 Loading、Empty、Error、Retry 和 Disabled/Loading 操作状态。
+- [ ] 通过长文本、文字缩放、窄屏、SafeArea 和键盘验证。
+- [ ] 运行相关 widget tests、`theme_architecture_test.dart`、
+      `flutter analyze`，并进行 Android/iOS 截图对比。

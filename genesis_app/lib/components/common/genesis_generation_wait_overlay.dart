@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_dialog.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
-import '../../ui/components/genesis_modal_border.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
@@ -148,43 +148,17 @@ class _GenesisGenerationWaitOverlayState
                       child: Center(
                         child: GestureDetector(
                           onTap: () {},
-                          child: AlertDialog(
+                          child: GenesisDialog(
                             key: const ValueKey('world-tick1-wait-dialog'),
-                            backgroundColor: context.genesisColors.surface,
-                            shape: genesisModalShape(
-                              context,
-                              borderRadius: const BorderRadius.all(
-                                Radius.circular(8),
-                              ),
-                            ),
-                            titlePadding: EdgeInsets.zero,
-                            contentPadding: EdgeInsets.fromLTRB(
+                            title: title,
+                            maxWidth: 312,
+                            padding: EdgeInsets.fromLTRB(
                               10,
                               16,
                               10,
                               hasPerspectiveText ? 0 : 16,
                             ),
-                            content: SizedBox(
-                              width: 292,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    title,
-                                    textAlign: TextAlign.left,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      height: 1.2,
-                                      fontWeight: FontWeight.w600,
-                                      color: context.genesisColors.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  waitBody,
-                                ],
-                              ),
-                            ),
+                            content: SizedBox(width: 292, child: waitBody),
                           ),
                         ),
                       ),

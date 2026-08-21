@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_radii.dart';
+import '../tokens/genesis_control_metrics.dart';
 import 'genesis_control_icons.dart';
 import 'genesis_modal_border.dart';
 
@@ -17,22 +18,35 @@ class GenesisBottomSheetCloseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
-      key: buttonKey,
-      dimension: 24,
-      child: IconButton(
-        tooltip: 'Close',
-        onPressed: onPressed,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-        style: IconButton.styleFrom(
-          minimumSize: const Size.square(24),
-          maximumSize: const Size.square(24),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        icon: GenesisCloseIcon(
-          size: 14,
-          color: context.genesisColors.textPrimary,
+    const visualSize = GenesisControlMetrics.closeButtonVisualSize;
+    const hitScale = GenesisControlMetrics.minimumTapTarget / visualSize;
+    return Transform.scale(
+      scale: hitScale,
+      transformHitTests: true,
+      child: Transform.scale(
+        scale: 1 / hitScale,
+        transformHitTests: false,
+        child: SizedBox.square(
+          key: buttonKey,
+          dimension: visualSize,
+          child: IconButton(
+            tooltip: 'Close',
+            onPressed: onPressed,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(
+              width: visualSize,
+              height: visualSize,
+            ),
+            style: IconButton.styleFrom(
+              minimumSize: const Size.square(visualSize),
+              maximumSize: const Size.square(visualSize),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: GenesisCloseIcon(
+              size: 14,
+              color: context.genesisColors.textPrimary,
+            ),
+          ),
         ),
       ),
     );
@@ -98,6 +112,8 @@ class GenesisBottomSheetHeader extends StatelessWidget {
   }
 }
 
+enum GenesisBottomSheetLayout { fixed, content, scrollable }
+
 class GenesisBottomSheetPanel extends StatelessWidget {
   const GenesisBottomSheetPanel({
     super.key,
@@ -110,7 +126,33 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     this.titleTextStyle,
     this.maintainBottomViewPadding = false,
     this.showHeader = true,
-  });
+  }) : layout = GenesisBottomSheetLayout.fixed;
+
+  const GenesisBottomSheetPanel.content({
+    super.key,
+    required this.title,
+    required this.child,
+    this.trailing,
+    this.padding = const EdgeInsets.fromLTRB(16, 20, 16, 14),
+    this.titleBottomSpacing = 20,
+    this.titleTextStyle,
+    this.maintainBottomViewPadding = false,
+    this.showHeader = true,
+  }) : height = null,
+       layout = GenesisBottomSheetLayout.content;
+
+  const GenesisBottomSheetPanel.scrollable({
+    super.key,
+    required this.title,
+    required this.height,
+    required this.child,
+    this.trailing,
+    this.padding = const EdgeInsets.fromLTRB(16, 20, 16, 14),
+    this.titleBottomSpacing = 20,
+    this.titleTextStyle,
+    this.maintainBottomViewPadding = false,
+    this.showHeader = true,
+  }) : layout = GenesisBottomSheetLayout.scrollable;
 
   static const BorderRadius borderRadius = GenesisRadii.sheet;
   static const TextStyle titleStyle = TextStyle(
@@ -120,7 +162,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   );
 
   final String title;
-  final double height;
+  final double? height;
   final Widget child;
   final Widget? trailing;
   final EdgeInsets padding;
@@ -128,12 +170,30 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   final TextStyle? titleTextStyle;
   final bool maintainBottomViewPadding;
   final bool showHeader;
+  final GenesisBottomSheetLayout layout;
 
   @override
   Widget build(BuildContext context) {
-    return GenesisBottomSheetSurface(
-      maintainBottomViewPadding: maintainBottomViewPadding,
-      child: SizedBox(
+    final header = <Widget>[
+      if (showHeader) ...[
+        GenesisBottomSheetHeader(
+          title: title,
+          trailing: trailing,
+          titleTextStyle: titleTextStyle,
+        ),
+        SizedBox(height: titleBottomSpacing),
+      ],
+    ];
+    final panel = switch (layout) {
+      GenesisBottomSheetLayout.content => Padding(
+        padding: padding,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [...header, child],
+        ),
+      ),
+      GenesisBottomSheetLayout.fixed => SizedBox(
         height: height,
         width: double.infinity,
         child: Padding(
@@ -141,19 +201,30 @@ class GenesisBottomSheetPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (showHeader) ...[
-                GenesisBottomSheetHeader(
-                  title: title,
-                  trailing: trailing,
-                  titleTextStyle: titleTextStyle,
-                ),
-                SizedBox(height: titleBottomSpacing),
-              ],
+              ...header,
               Expanded(child: child),
             ],
           ),
         ),
       ),
+      GenesisBottomSheetLayout.scrollable => SizedBox(
+        height: height,
+        width: double.infinity,
+        child: Padding(
+          padding: padding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ...header,
+              Expanded(child: SingleChildScrollView(child: child)),
+            ],
+          ),
+        ),
+      ),
+    };
+    return GenesisBottomSheetSurface(
+      maintainBottomViewPadding: maintainBottomViewPadding,
+      child: panel,
     );
   }
 }

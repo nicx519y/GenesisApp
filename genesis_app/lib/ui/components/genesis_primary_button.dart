@@ -4,6 +4,7 @@ import '../theme/genesis_semantic_colors.dart';
 import '../theme/genesis_ui_theme.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_spacing.dart';
+import '../tokens/genesis_typography.dart';
 import 'genesis_ui_interaction.dart';
 
 enum GenesisButtonVariant { primary, secondary, muted, destructive }
@@ -83,7 +84,7 @@ class GenesisButton extends StatelessWidget {
         (size == GenesisButtonSize.compact
             ? uiTheme.compactButtonHeight
             : uiTheme.regularButtonHeight);
-    final effectiveTextStyle = TextStyle(
+    final effectiveTextStyle = GenesisTypography.bodyStrong.copyWith(
       fontSize: fontSize ?? (size == GenesisButtonSize.compact ? 14.0 : 16.0),
       fontWeight: fontWeight ?? FontWeight.w600,
     );

@@ -267,49 +267,31 @@ class _StoryEventsAppBar extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      toolbarHeight: preferredSize.height,
+    return GenesisAppBar(
+      title: 'Story Events',
+      variant: GenesisAppBarVariant.leadingTitle,
       backgroundColor: context.genesisColors.surface,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      automaticallyImplyLeading: false,
-      titleSpacing: 20,
-      centerTitle: false,
-      title: Row(
-        children: [
-          GenesisBackButton(
-            key: const ValueKey<String>('story-events-back-button'),
-            foregroundColor: context.genesisCreateColors.text,
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+      backButtonKey: const ValueKey<String>('story-events-back-button'),
+      backForegroundColor: context.genesisCreateColors.text,
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 20),
+          child: Center(
             child: Text(
-              'Story Events',
+              '$eventCount/${_OriginStoryEventsEditorPageState._maxEvents} '
+              '(Added / Max)',
+              key: const ValueKey<String>('story-events-count'),
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: context.genesisCreateColors.text,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
+                color: context.genesisColors.textPrimary.withValues(alpha: 0.5),
+                fontSize: 9.5,
+                fontWeight: FontWeight.w500,
                 height: 1,
               ),
             ),
           ),
-          Text(
-            '$eventCount/${_OriginStoryEventsEditorPageState._maxEvents} '
-            '(Added / Max)',
-            key: const ValueKey<String>('story-events-count'),
-            maxLines: 1,
-            style: TextStyle(
-              color: context.genesisColors.textPrimary.withValues(alpha: 0.5),
-              fontSize: 9.5,
-              fontWeight: FontWeight.w500,
-              height: 1,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

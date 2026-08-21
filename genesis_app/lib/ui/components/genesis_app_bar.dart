@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../theme/genesis_semantic_colors.dart';
 import '../theme/genesis_ui_theme.dart';
 import '../tokens/genesis_typography.dart';
+import '../system/genesis_system_ui.dart';
 import 'genesis_control_icons.dart';
 import 'genesis_page_title.dart';
 
@@ -84,7 +85,9 @@ class GenesisAppBar extends StatelessWidget implements PreferredSizeWidget {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
-      systemOverlayStyle: systemOverlayStyle,
+      systemOverlayStyle:
+          systemOverlayStyle ??
+          GenesisSystemUi.forThemeBrightness(Theme.of(context).brightness),
       centerTitle: centered,
       leadingWidth: showBackButton ? (leadingWidth ?? (centered ? 54 : 66)) : 0,
       leading: showBackButton
@@ -114,7 +117,12 @@ class GenesisAppBar extends StatelessWidget implements PreferredSizeWidget {
         onTap: onTitleTap,
         child: centered
             ? GenesisPageTitle(text: title, style: resolvedTitleStyle)
-            : Text(title, style: resolvedTitleStyle),
+            : Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: resolvedTitleStyle,
+              ),
       ),
       actions: actions,
     );

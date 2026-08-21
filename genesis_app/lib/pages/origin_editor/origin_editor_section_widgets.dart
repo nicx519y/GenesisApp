@@ -44,7 +44,7 @@ class _SectionRow extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: createHubStyle
                       ? BoxDecoration(
-                          color: GenesisPalette.redesignWhite07,
+                          color: context.genesisCreateColors.fieldFill,
                           borderRadius: BorderRadius.circular(11),
                         )
                       : null,
@@ -57,8 +57,8 @@ class _SectionRow extends StatelessWidget {
                             icon!,
                             fit: BoxFit.contain,
                             colorFilter: createHubStyle
-                                ? const ColorFilter.mode(
-                                    GenesisPalette.white,
+                                ? ColorFilter.mode(
+                                    context.genesisCreateColors.text,
                                     BlendMode.srcIn,
                                   )
                                 : null,
@@ -85,7 +85,7 @@ class _SectionRow extends StatelessWidget {
                                     textAlign: TextAlign.left,
                                     style: TextStyle(
                                       color: createHubStyle
-                                          ? GenesisPalette.white
+                                          ? context.genesisCreateColors.text
                                           : context
                                                 .genesisColors
                                                 .foregroundStrong,
@@ -165,7 +165,7 @@ class _SectionRow extends StatelessWidget {
                                 softWrap: wrapFirstSummaryLine && index == 0,
                                 style: TextStyle(
                                   color: createHubStyle
-                                      ? GenesisPalette.redesignWhite60
+                                      ? context.genesisColors.textMuted
                                       : context.genesisColors.textQuaternary,
                                   fontSize: createHubStyle ? 11 : 12,
                                   height: 1.4,
@@ -184,7 +184,7 @@ class _SectionRow extends StatelessWidget {
                     Icons.chevron_right_rounded,
                     key: ValueKey<String>('section-chevron-$title'),
                     size: 20,
-                    color: GenesisPalette.redesignWhite45,
+                    color: context.genesisColors.textTimestamp,
                   ),
                 ],
               ],
@@ -195,7 +195,7 @@ class _SectionRow extends StatelessWidget {
               height: 1,
               thickness: 1,
               color: createHubStyle
-                  ? GenesisPalette.redesignWhite14
+                  ? context.genesisColors.borderStrong
                   : context.genesisCreateColors.divider,
             ),
         ],

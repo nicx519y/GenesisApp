@@ -157,4 +157,147 @@ void main() {
     expect(bars[1].isScrollable, isFalse);
     expect(bars[2].isScrollable, isTrue);
   });
+
+  testWidgets('shared controls keep 44 point tap targets', (tester) async {
+    var backPressed = false;
+    var closePressed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: Row(
+            children: [
+              GenesisBackButton(onPressed: () => backPressed = true),
+              const SizedBox(width: 60),
+              GenesisBottomSheetCloseButton(
+                onPressed: () => closePressed = true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byType(GenesisBackButton)),
+      const Size.square(GenesisControlMetrics.backButtonVisualSize),
+    );
+    expect(
+      tester.getSize(find.byType(GenesisBottomSheetCloseButton)),
+      const Size.square(GenesisControlMetrics.closeButtonVisualSize),
+    );
+    expect(
+      tester
+          .widget<GenesisBackButton>(find.byType(GenesisBackButton))
+          .dimension,
+      GenesisControlMetrics.backButtonVisualSize,
+    );
+
+    await tester.tapAt(
+      tester.getCenter(find.byType(GenesisBackButton)) + const Offset(20, 0),
+    );
+    await tester.tapAt(
+      tester.getCenter(find.byType(GenesisBottomSheetCloseButton)) +
+          const Offset(18, 0),
+    );
+    expect(backPressed, isTrue);
+    expect(closePressed, isTrue);
+  });
+
+  testWidgets('page scaffold selects standard root and editor chrome', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: const GenesisPageScaffold.editor(
+          title: 'Basics',
+          body: Text('Form'),
+        ),
+      ),
+    );
+
+    final editorBar = tester.widget<GenesisAppBar>(find.byType(GenesisAppBar));
+    expect(editorBar.variant, GenesisAppBarVariant.leadingTitle);
+    expect(find.text('Basics'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: const GenesisPageScaffold.root(
+          title: 'Messages',
+          body: Text('List'),
+        ),
+      ),
+    );
+    expect(find.byType(GenesisPageHeader), findsOneWidget);
+    expect(find.byType(GenesisAppBar), findsNothing);
+  });
+
+  testWidgets('shared form fields expose errors, counts and selection', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: 'World');
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: Column(
+            children: [
+              GenesisTextField(
+                controller: controller,
+                label: 'Name',
+                errorText: 'Required',
+                maxLength: 30,
+              ),
+              GenesisSelectField(
+                label: 'Role',
+                valueText: 'Creator',
+                onTap: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Required'), findsOneWidget);
+    expect(find.text('5/30'), findsOneWidget);
+    expect(find.text('Creator'), findsOneWidget);
+    controller.dispose();
+  });
+
+  testWidgets('dialog and bottom sheet named layouts expose stable variants', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoRedesign(),
+        home: Scaffold(
+          body: Column(
+            children: [
+              GenesisDialog(
+                title: 'Dialog',
+                content: const Text('Content'),
+                actions: [GenesisDialogAction(label: 'Done', onPressed: () {})],
+              ),
+              const GenesisBottomSheetPanel.content(
+                title: 'Sheet',
+                child: Text('Sheet content'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Dialog'), findsOneWidget);
+    expect(find.text('Sheet'), findsOneWidget);
+    expect(
+      tester
+          .widget<GenesisBottomSheetPanel>(find.byType(GenesisBottomSheetPanel))
+          .layout,
+      GenesisBottomSheetLayout.content,
+    );
+  });
 }
