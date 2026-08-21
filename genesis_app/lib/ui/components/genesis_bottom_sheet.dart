@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_control_metrics.dart';
+import '../tokens/genesis_typography.dart';
 import 'genesis_control_icons.dart';
 import 'genesis_modal_border.dart';
 
@@ -155,11 +156,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   }) : layout = GenesisBottomSheetLayout.scrollable;
 
   static const BorderRadius borderRadius = GenesisRadii.sheet;
-  static const TextStyle titleStyle = TextStyle(
-    fontSize: 17,
-    height: 20 / 17,
-    fontWeight: FontWeight.w800,
-  );
+  static const TextStyle titleStyle = GenesisTypography.navigationTitle;
 
   final String title;
   final double? height;

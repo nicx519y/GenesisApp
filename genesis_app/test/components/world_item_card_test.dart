@@ -70,7 +70,7 @@ void main() {
           .widgetList<SvgPicture>(find.byType(SvgPicture))
           .any(
             (svg) =>
-                svg.bytesLoader.toString().contains(homeCharacterStatIconAsset),
+                svg.bytesLoader.toString().contains(characterStatIconAsset),
           ),
       isTrue,
     );

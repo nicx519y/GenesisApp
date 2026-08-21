@@ -15,8 +15,26 @@ abstract final class GenesisTypography {
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 24,
     fontWeight: FontWeight.w900,
-    height: 1.1,
+    height: 1,
     letterSpacing: -0.36,
+  );
+
+  static const TextStyle displayTitle = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 24,
+    fontWeight: FontWeight.w900,
+    height: 1,
+  );
+
+  static const TextStyle metricValue = displayTitle;
+
+  static const TextStyle prominentMetricValue = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 30,
+    fontWeight: FontWeight.w900,
+    height: 1,
   );
 
   static const TextStyle navigationTitle = TextStyle(
@@ -27,13 +45,39 @@ abstract final class GenesisTypography {
     height: 1,
   );
 
+  static const TextStyle immersiveTitle = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 17,
+    fontWeight: FontWeight.w800,
+    height: 1.1,
+  );
+
+  static const TextStyle contentTitle = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 17,
+    fontWeight: FontWeight.w900,
+    height: 1.15,
+  );
+
+  static const TextStyle navigationAction = TextStyle(
+    fontFamily: fontFamily,
+    fontFamilyFallback: fontFamilyFallback,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    height: 1,
+  );
+
   static const TextStyle sectionTitle = TextStyle(
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 15,
     fontWeight: FontWeight.w800,
-    height: 1.2,
+    height: 1,
   );
+
+  static const TextStyle itemTitle = sectionTitle;
 
   static const TextStyle body = TextStyle(
     fontFamily: fontFamily,

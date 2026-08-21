@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
@@ -65,4 +65,40 @@ void main() {
     expect(svg.width, moreOrLessEquals(17.5));
     expect(svg.height, moreOrLessEquals(17.5));
   });
+
+  testWidgets('uses light and dark multicolor character icon variants', (
+    WidgetTester tester,
+  ) async {
+    Future<void> pump(Brightness brightness) {
+      return tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(brightness: brightness),
+          themeAnimationDuration: Duration.zero,
+          home: const Scaffold(
+            body: StatItem(
+              iconAsset: characterStatIconAsset,
+              preserveIconAssetColor: true,
+              text: '1',
+            ),
+          ),
+        ),
+      );
+    }
+
+    await pump(Brightness.light);
+    expect(
+      _assetName(tester.widget<SvgPicture>(find.byType(SvgPicture))),
+      characterStatIconAsset,
+    );
+
+    await pump(Brightness.dark);
+    expect(
+      _assetName(tester.widget<SvgPicture>(find.byType(SvgPicture))),
+      homeCharacterStatIconAsset,
+    );
+  });
+}
+
+String _assetName(SvgPicture picture) {
+  return (picture.bytesLoader as SvgAssetLoader).assetName;
 }

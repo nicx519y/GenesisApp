@@ -341,14 +341,20 @@ class _DisplayNameText extends StatelessWidget {
   }
 
   Widget _buildName(BuildContext context, String name) {
+    if (redesigned) {
+      return GenesisDisplayTitle(
+        text: name,
+        style: TextStyle(color: context.genesisColors.foregroundStrong),
+      );
+    }
     return Text(
       name,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        fontSize: redesigned ? 24 : 18,
+        fontSize: 18,
         height: 1,
-        fontWeight: redesigned ? FontWeight.w900 : FontWeight.w600,
+        fontWeight: FontWeight.w600,
         color: context.genesisColors.foregroundStrong,
       ),
     );

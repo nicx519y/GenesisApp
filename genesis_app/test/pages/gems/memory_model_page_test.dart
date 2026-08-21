@@ -94,13 +94,13 @@ void main() {
 
     final pageTitleStyle = tester.widget<Text>(find.text('Model')).style;
     expect(pageTitleStyle?.fontSize, 17);
-    expect(pageTitleStyle?.height, 20 / 17);
+    expect(pageTitleStyle?.height, 1);
     expect(pageTitleStyle?.fontWeight, FontWeight.w800);
     expect(pageTitleStyle?.color, Colors.white);
     expect(
       tester.getTopLeft(find.text('Recommended')).dy -
           tester.getRect(find.text('Model')).bottom,
-      closeTo(29, 0.1),
+      closeTo(30.5, 0.1),
     );
     expect(
       tester.getSize(find.byKey(const ValueKey('gem-model-back'))),
@@ -140,7 +140,7 @@ void main() {
 
     final modelTitleStyle = tester.widget<Text>(find.text('Top Pick V3')).style;
     expect(modelTitleStyle?.fontSize, 15);
-    expect(modelTitleStyle?.height, 18 / 15);
+    expect(modelTitleStyle?.height, 1);
     expect(modelTitleStyle?.fontWeight, FontWeight.w800);
     expect(modelTitleStyle?.color, Colors.white);
 

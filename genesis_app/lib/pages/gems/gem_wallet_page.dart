@@ -24,8 +24,10 @@ import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_app_bar.dart';
+import '../../ui/components/genesis_app_bar_action_link.dart';
 import '../../ui/components/genesis_state_view.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_typography.dart';
 
 part 'gem_wallet_data_actions.dart';
 part 'gem_wallet_billing_flow.dart';
@@ -187,31 +189,11 @@ class _GemWalletPageState extends State<GemWalletPage>
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 20),
-              child: Center(
-                child: TextButton(
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed(RouteNames.gemRecords),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Records',
-                        style: TextStyle(
-                          color: context.genesisColors.textQuaternary,
-                          fontSize: 12,
-                          height: 1,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 14,
-                        color: context.genesisColors.textQuaternary,
-                      ),
-                    ],
-                  ),
-                ),
+              child: GenesisAppBarActionLink(
+                label: 'Records',
+                tooltip: 'Open gem records',
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(RouteNames.gemRecords),
               ),
             ),
           ],

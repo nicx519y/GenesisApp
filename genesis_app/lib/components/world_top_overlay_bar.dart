@@ -79,11 +79,8 @@ class WorldTopOverlayBar extends StatelessWidget {
                     key: const ValueKey<String>('worldo-title-name'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: GenesisTypography.immersiveTitle.copyWith(
                       color: colors.immersiveForeground,
-                      fontSize: 17,
-                      height: 1.1,
-                      fontWeight: FontWeight.w800,
                       shadows: [
                         Shadow(
                           color: context.genesisColors.scrim.withValues(

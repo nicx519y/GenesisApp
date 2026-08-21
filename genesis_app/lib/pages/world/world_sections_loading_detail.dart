@@ -248,10 +248,7 @@ class WorldDetailSection extends StatelessWidget {
                     title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 17,
-                      height: 1.15,
-                      fontWeight: FontWeight.w900,
+                    style: GenesisTypography.contentTitle.copyWith(
                       color: context.genesisColors.textPrimary,
                     ),
                   ),
@@ -629,10 +626,7 @@ class WorldDetailSectionTitle extends StatelessWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 15,
-              height: 1,
-              fontWeight: FontWeight.w800,
+            style: GenesisTypography.sectionTitle.copyWith(
               color: context.genesisColors.textPrimary,
             ),
           ),

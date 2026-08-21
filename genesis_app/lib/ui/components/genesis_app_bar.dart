@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../theme/genesis_semantic_colors.dart';
 import '../theme/genesis_ui_theme.dart';
 import '../tokens/genesis_typography.dart';
+import '../tokens/genesis_control_metrics.dart';
 import '../system/genesis_system_ui.dart';
 import 'genesis_control_icons.dart';
 import 'genesis_page_title.dart';
@@ -89,10 +90,19 @@ class GenesisAppBar extends StatelessWidget implements PreferredSizeWidget {
           systemOverlayStyle ??
           GenesisSystemUi.forThemeBrightness(Theme.of(context).brightness),
       centerTitle: centered,
-      leadingWidth: showBackButton ? (leadingWidth ?? (centered ? 54 : 66)) : 0,
+      leadingWidth: showBackButton
+          ? (leadingWidth ??
+                (centered
+                    ? 54
+                    : GenesisControlMetrics.appBarHorizontalPadding +
+                          GenesisControlMetrics.backButtonVisualSize +
+                          GenesisControlMetrics.appBarLeadingTitleGap))
+          : 0,
       leading: showBackButton
           ? Padding(
-              padding: const EdgeInsets.only(left: 20),
+              padding: const EdgeInsets.only(
+                left: GenesisControlMetrics.appBarHorizontalPadding,
+              ),
               child: Align(
                 alignment: centered ? Alignment.center : Alignment.centerLeft,
                 child: GenesisBackButton(
@@ -109,7 +119,7 @@ class GenesisAppBar extends StatelessWidget implements PreferredSizeWidget {
           (centered
               ? null
               : large
-              ? 20
+              ? GenesisControlMetrics.appBarHorizontalPadding
               : 0),
       title: GestureDetector(
         key: titleKey,

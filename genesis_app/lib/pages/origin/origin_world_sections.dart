@@ -163,11 +163,8 @@ class _OriginInfoSectionHeading extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           title,
-          style: TextStyle(
+          style: GenesisTypography.sectionTitle.copyWith(
             color: colors.foregroundStrong,
-            fontSize: 15,
-            height: 1,
-            fontWeight: FontWeight.w800,
           ),
         ),
         if (count case final count?) ...[
@@ -564,10 +561,7 @@ List<Widget> _originWorldoBriefSlivers(
                       'World brief',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1,
-                        fontWeight: FontWeight.w800,
+                      style: GenesisTypography.sectionTitle.copyWith(
                         color: context.genesisColors.foregroundStrong,
                         decoration: TextDecoration.none,
                       ),

@@ -348,6 +348,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       controller: _tabController,
       horizontalPadding: horizontalContentPadding,
       labelPadding: const EdgeInsets.only(right: 16),
+      indicatorMatchesLabelWidth: true,
     );
     return LayoutBuilder(
       builder: (context, constraints) {

@@ -21,6 +21,9 @@ import 'package:genesis_flutter_android/pages/gems/gem_wallet_page.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_app_bar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_app_bar_action_link.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
 import 'package:genesis_flutter_android/ui/system/genesis_system_ui.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
@@ -201,6 +204,14 @@ void main() {
     expect(recordsStyle?.height, 1);
     expect(recordsStyle?.fontWeight, FontWeight.w600);
     expect(recordsStyle?.color, const Color(0xB8FFFFFF));
+    expect(
+      tester.getSize(find.byType(GenesisChevronRightIcon)),
+      const Size.square(9),
+    );
+    expect(
+      tester.getRect(find.byType(GenesisChevronRightIcon)).right,
+      closeTo(tester.getSize(find.byType(Scaffold).first).width - 20, 0.1),
+    );
 
     final groupTitleStyle = tester.widget<Text>(find.text('Starter')).style;
     expect(groupTitleStyle?.fontSize, 15);
@@ -412,7 +423,10 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(TextButton, 'Records'), findsOneWidget);
+    expect(
+      find.widgetWithText(GenesisAppBarActionLink, 'Records'),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Records'));
     await tester.pumpAndSettle();
 
@@ -422,11 +436,11 @@ void main() {
     expect(recordsTitle.style?.height, 1);
     expect(recordsTitle.style?.fontWeight, FontWeight.w800);
     expect(recordsTitle.style?.color, const Color(0xFFFFFFFF));
-    expect(
-      tester.getTopLeft(find.byType(TabBar)).dy -
-          tester.getRect(find.text('Gem Records')).bottom,
-      closeTo(34.5, 0.1),
+    final recordsAppBar = tester.widget<GenesisAppBar>(
+      find.byType(GenesisAppBar),
     );
+    expect(recordsAppBar.preferredSize.height, 64);
+    expect(tester.getRect(find.text('Gem Records')).left, closeTo(66, 0.1));
     expect(find.text('Daily check-in'), findsOneWidget);
     expect(find.text('Starter reward'), findsNothing);
     expect(find.text(formatGemRecordTimestamp(1783586400)), findsOneWidget);

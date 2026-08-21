@@ -42,7 +42,11 @@ class StatItem extends StatelessWidget {
           fontWeight: FontWeight.w400,
           color: context.genesisColors.foregroundStrong,
         );
-    final asset = iconAsset;
+    final asset = _resolveIconAsset(
+      context,
+      iconAsset,
+      preserveIconAssetColor: preserveIconAssetColor,
+    );
     final isCharacterAsset = _isCharacterAsset(asset);
     final visualSize = isCharacterAsset
         ? customCharacterIconRenderSize(iconSize)
@@ -74,6 +78,17 @@ class StatItem extends StatelessWidget {
       ],
     );
   }
+}
+
+String? _resolveIconAsset(
+  BuildContext context,
+  String? asset, {
+  required bool preserveIconAssetColor,
+}) {
+  if (!preserveIconAssetColor || !_isCharacterAsset(asset)) return asset;
+  return Theme.of(context).brightness == Brightness.dark
+      ? homeCharacterStatIconAsset
+      : characterStatIconAsset;
 }
 
 bool _isCharacterAsset(String? asset) {

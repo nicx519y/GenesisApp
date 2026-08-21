@@ -969,11 +969,8 @@ class _OriginSheetPageHeading extends StatelessWidget {
             child: Text(
               title,
               key: ValueKey<String>('origin-detail-sheet-page-$title'),
-              style: TextStyle(
+              style: GenesisTypography.navigationTitle.copyWith(
                 color: context.genesisColors.foregroundStrong,
-                fontSize: 17,
-                height: 1,
-                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -1206,10 +1203,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     originDisplayName(origin.name, fallback: origin.oid),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 17,
-                      height: 1.2,
-                      fontWeight: FontWeight.w900,
+                    style: GenesisTypography.contentTitle.copyWith(
                       color: context.genesisColors.foregroundStrong,
                       decoration: TextDecoration.none,
                     ),

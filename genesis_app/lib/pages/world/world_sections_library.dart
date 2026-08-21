@@ -22,6 +22,7 @@ import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';

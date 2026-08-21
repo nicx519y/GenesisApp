@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
@@ -139,6 +140,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.d
 import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_indicator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_tab_bar.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
@@ -2960,6 +2962,12 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
+    expect(
+      tester
+          .widget<GenesisTabBar>(find.byType(GenesisTabBar).first)
+          .indicatorMatchesLabelWidth,
+      isTrue,
+    );
     final homeSearchFinder = find.byType(GenesisSearchField).first;
     final homeSearchTop = tester.getTopLeft(homeSearchFinder).dy;
     final homeSearchField = tester.widget<GenesisSearchField>(homeSearchFinder);
@@ -4697,8 +4705,18 @@ void main() {
     final tabsDivider = tester.widget<DecoratedBox>(tabsDividerFinder);
     final tabsBorder = (tabsDivider.decoration as BoxDecoration).border!;
     expect(
+      tester
+          .element(tabsDividerFinder)
+          .findAncestorWidgetOfExactType<Padding>(),
+      isNull,
+    );
+    expect(
       tabsBorder.bottom.color,
       tester.element(tabsDividerFinder).genesisColors.dividerAction,
+    );
+    expect(
+      tester.widget<MasonryGridView>(find.byType(MasonryGridView)).padding,
+      const EdgeInsets.fromLTRB(20, 10, 20, 0),
     );
   });
 

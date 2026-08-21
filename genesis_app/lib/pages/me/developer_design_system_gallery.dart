@@ -33,24 +33,147 @@ class _DeveloperDesignSystemGalleryPageState
       body: ListView(
         padding: GenesisSpacing.formPagePadding.copyWith(top: 20, bottom: 32),
         children: [
-          const GenesisSectionPanel(
+          GenesisSectionPanel(
             title: 'Typography',
-            margin: EdgeInsets.only(bottom: GenesisSpacing.section),
+            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Page title', style: GenesisTypography.pageTitle),
-                SizedBox(height: 8),
-                Text(
-                  'Navigation title',
-                  style: GenesisTypography.navigationTitle,
+                const _TypographySpecimen(
+                  label: 'Page title · 24/900/1',
+                  child: GenesisPageTitle(text: 'Messages'),
                 ),
-                SizedBox(height: 8),
-                Text('Section title', style: GenesisTypography.sectionTitle),
-                SizedBox(height: 8),
-                Text('Body text', style: GenesisTypography.body),
-                SizedBox(height: 8),
-                Text('Supporting text', style: GenesisTypography.supporting),
+                const _TypographySpecimen(
+                  label: 'Navigation title · 17/800/1',
+                  child: Text(
+                    'Buy Gems',
+                    style: GenesisTypography.navigationTitle,
+                  ),
+                ),
+                const _TypographySpecimen(
+                  label: 'Immersive title · 17/800/1.1',
+                  child: Text(
+                    'Old Money',
+                    style: GenesisTypography.immersiveTitle,
+                  ),
+                ),
+                const _TypographySpecimen(
+                  label: 'Content title · 17/900/1.15',
+                  child: Text(
+                    'The Last Waltz of the Ashfords',
+                    style: GenesisTypography.contentTitle,
+                  ),
+                ),
+                const _TypographySpecimen(
+                  label: 'Display name · 24/900/1',
+                  child: GenesisDisplayTitle(text: 'Eve'),
+                ),
+                _TypographySpecimen(
+                  label: 'Metric value · 24/900/1',
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const GenesisMetricValueText(value: '483'),
+                      const SizedBox(width: 7),
+                      Text(
+                        'Gems',
+                        style: GenesisTypography.tabLabel.copyWith(
+                          color: context.genesisColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _TypographySpecimen(
+                  label: 'Prominent metric · 30/900/1',
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const GenesisMetricValueText(
+                        value: '483',
+                        size: GenesisMetricValueSize.prominent,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Gems',
+                        style: GenesisTypography.supporting.copyWith(
+                          height: 1,
+                          color: context.genesisColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const _TypographySpecimen(
+                  label: 'Section title · 15/800/1',
+                  showDivider: false,
+                  child: Text(
+                    'World Brief',
+                    style: GenesisTypography.sectionTitle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GenesisSectionPanel(
+            title: 'Page headers',
+            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: const SizedBox(
+                    key: ValueKey<String>('design-system-large-page-header'),
+                    height: 62,
+                    child: GenesisLargePageHeader(title: 'Messages'),
+                  ),
+                ),
+                Divider(height: 1, color: context.genesisColors.divider),
+                MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: SizedBox(
+                    key: const ValueKey<String>(
+                      'design-system-leading-title-header',
+                    ),
+                    height: 64,
+                    child: GenesisAppBar(
+                      title: 'Buy Gems',
+                      variant: GenesisAppBarVariant.leadingTitle,
+                      onBack: () {},
+                      actions: [
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            right:
+                                GenesisControlMetrics.appBarHorizontalPadding,
+                          ),
+                          child: GenesisAppBarActionLink(
+                            label: 'Records',
+                            onPressed: () {},
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: context.genesisColors.divider),
+                MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: SizedBox(
+                    key: const ValueKey<String>(
+                      'design-system-long-leading-title-header',
+                    ),
+                    height: 64,
+                    child: GenesisAppBar(
+                      title: 'A very long navigation title that truncates',
+                      variant: GenesisAppBarVariant.leadingTitle,
+                      onBack: () {},
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -306,6 +429,40 @@ class _DeveloperDesignSystemGalleryPageState
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TypographySpecimen extends StatelessWidget {
+  const _TypographySpecimen({
+    required this.label,
+    required this.child,
+    this.showDivider = true,
+  });
+
+  final String label;
+  final Widget child;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GenesisTypography.caption.copyWith(
+            color: context.genesisColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: GenesisSpacing.sm),
+        child,
+        if (showDivider) ...[
+          const SizedBox(height: GenesisSpacing.lg),
+          Divider(height: 1, color: context.genesisColors.dividerSubtle),
+          const SizedBox(height: GenesisSpacing.lg),
+        ],
+      ],
     );
   }
 }

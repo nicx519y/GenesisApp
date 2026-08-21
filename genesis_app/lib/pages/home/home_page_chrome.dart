@@ -90,6 +90,7 @@ class _HomeTabs extends StatelessWidget {
       labelStyle: unselectedStyle,
       unselectedLabelStyle: unselectedStyle,
       indicatorColor: showSelectedState ? null : Colors.transparent,
+      indicatorMatchesLabelWidth: true,
     );
   }
 }

@@ -110,7 +110,6 @@ class GenesisPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final root = variant == GenesisPageScaffoldVariant.root;
     final immersive = variant == GenesisPageScaffoldVariant.immersive;
-    final editor = variant == GenesisPageScaffoldVariant.editor;
     final content = SafeArea(
       top: immersive,
       bottom: safeAreaBottom,
@@ -125,9 +124,7 @@ class GenesisPageScaffold extends StatelessWidget {
           ? null
           : GenesisAppBar(
               title: title,
-              variant: editor
-                  ? GenesisAppBarVariant.leadingTitle
-                  : GenesisAppBarVariant.centered,
+              variant: GenesisAppBarVariant.leadingTitle,
               onBack: onBack,
               showBackButton: showBackButton,
               actions: actions,

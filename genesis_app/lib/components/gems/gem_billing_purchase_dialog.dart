@@ -9,6 +9,8 @@ import 'gem_assets.dart';
 import 'gem_colors.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/components/genesis_modal_border.dart';
+import '../../ui/components/genesis_page_title.dart';
+import '../../ui/tokens/genesis_typography.dart';
 
 enum GemBillingPurchaseDialogPhase { processing, success }
 
@@ -159,10 +161,7 @@ class _GemBillingPurchaseSuccessDialog extends StatelessWidget {
                       'billing-purchase-success-title',
                     ),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 17,
-                      height: 1,
-                      fontWeight: FontWeight.w800,
+                    style: GenesisTypography.navigationTitle.copyWith(
                       color: context.genesisColors.textPrimary,
                     ),
                   ),
@@ -186,15 +185,13 @@ class _GemBillingPurchaseSuccessDialog extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Text(
-                            amountText,
-                            key: const ValueKey<String>(
+                          GenesisMetricValueText(
+                            value: amountText,
+                            textKey: const ValueKey<String>(
                               'billing-purchase-granted-amount',
                             ),
+                            size: GenesisMetricValueSize.prominent,
                             style: TextStyle(
-                              fontSize: 30,
-                              height: 1,
-                              fontWeight: FontWeight.w900,
                               color: context.genesisColors.textPrimary,
                             ),
                           ),

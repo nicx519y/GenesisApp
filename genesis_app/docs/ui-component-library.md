@@ -26,8 +26,21 @@ lib/pages/feature/      页面状态、数据组合、导航和页面私有 Widg
 - 间距只使用 `GenesisSpacing`：2、4、6、8、10、12、14、16、20、24。
 - 普通页面左右边距 16；表单/编辑页 20；大区块间距 24。
 - 圆角使用 `GenesisRadii`；输入框 11、卡片 14、Sheet 顶部 24、Pill 999。
-- 字体使用 `GenesisTypography`：Page 24/900、Navigation 17/800、
-  Section 15/800、Body 14、Supporting 12、Label 13/700、Caption 10。
+- 字体使用 `GenesisTypography`，标题不得在页面内重新声明近似字号：
+
+| 角色 | 规范 | 入口 |
+|---|---|---|
+| 根页面大标题 | 24/900/1，字距 -0.015em | `GenesisPageTitle`、`GenesisLargePageHeader` |
+| 用户显示名 | 24/900/1 | `GenesisDisplayTitle` |
+| 普通导航标题 | 17/800/1 | `GenesisAppBar.leadingTitle`、`GenesisBackAppBar` |
+| 沉浸式标题 | 17/800/1.1 | `GenesisTypography.immersiveTitle` |
+| 内容实体标题 | 17/900/1.15 | `GenesisTypography.contentTitle` |
+| 区块标题 | 15/800/1 | `GenesisSectionHeader` |
+| 常规数值 | 24/900/1 | `GenesisMetricValueText` |
+| 强调数值 | 30/900/1 | `GenesisMetricValueText(size: prominent)` |
+
+Body 14、Supporting 12、Label 13/700、Caption 10 继续使用对应的
+`GenesisTypography` token。
 - 所有交互点击区域至少 44×44；视觉尺寸与点击区域不同的控件使用
   `GenesisControlMetrics`。
 - 动效使用 `GenesisMotion`，阴影使用 `GenesisShadows`。
@@ -61,22 +74,22 @@ MaterialApp(
 
 ### 根 Tab 页面
 
-根页面标题为 24px/w900，标题区域高 50，使用 `GenesisPageScaffold.root`
-或 `GenesisPageHeader`：
+需要显示文字大标题的根页面使用 24px/w900/1、左对齐和左右 20；使用
+`GenesisLargePageHeader`。例如 Messages：
 
 ```dart
-GenesisPageScaffold.root(
+GenesisLargePageHeader(
   title: 'Messages',
-  showSearchField: true,
-  onSearchTap: openSearch,
-  body: const MessagesList(),
 )
 ```
 
+Home 的 Logo + Search、Worlds 的 Search + Tabs、Me 的滚动折叠头属于已定义的
+根页面变体，不另行复制大标题样式。
+
 ### 普通二级页面
 
-标题居中，24px/w900，AppBar 高 50。返回按钮视觉 34×34、图标 14、
-圆角 11，点击区域 44×44，视觉左边距 20：
+标题左对齐，17px/w800/1，AppBar 高 64。返回按钮视觉 34×34、图标 14、
+圆角 11，点击区域 44×44，视觉左边距 20，标题与返回按钮间距 12：
 
 ```dart
 GenesisPageScaffold.secondary(
@@ -87,12 +100,24 @@ GenesisPageScaffold.secondary(
 
 ### 创建和编辑页
 
-标题左对齐，17px/w800，AppBar 高 64；右侧只放当前页面操作：
+与普通二级页使用同一套 17px/w800 导航标题和 64px AppBar。右侧文字入口
+使用 12px/w600、9px 同色箭头。返回按钮与标题间距 12，页面左右
+边距 20，并保持 44×44
+最小点击区；使用 `GenesisAppBarActionLink`，不要在页面内组合 `TextButton`
+和系统 Chevron：
 
 ```dart
 GenesisPageScaffold.editor(
   title: 'Basics',
-  actions: [saveAction],
+  actions: [
+    Padding(
+      padding: const EdgeInsets.only(right: 20),
+      child: GenesisAppBarActionLink(
+        label: 'Records',
+        onPressed: openRecords,
+      ),
+    ),
+  ],
   body: const BasicsForm(),
 )
 ```

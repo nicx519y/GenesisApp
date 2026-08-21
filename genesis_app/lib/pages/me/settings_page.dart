@@ -223,10 +223,7 @@ class _SettingsHeader extends StatelessWidget {
               onTap: onTitleTap,
               child: Text(
                 'Settings',
-                style: TextStyle(
-                  fontSize: 17,
-                  height: 1,
-                  fontWeight: FontWeight.w800,
+                style: GenesisTypography.navigationTitle.copyWith(
                   color: colors.foregroundStrong,
                 ),
               ),

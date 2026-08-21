@@ -9,6 +9,7 @@ import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_indicator.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_page_title.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/utils/entity_deleted.dart';
 
@@ -254,6 +255,25 @@ void main() {
     expect(find.text('Playing 3'), findsOneWidget);
     expect(find.text('Balance'), findsOneWidget);
     expect(find.text('Top up'), findsOneWidget);
+    expect(find.byType(GenesisDisplayTitle), findsOneWidget);
+    final displayNameStyle = tester
+        .widget<Text>(
+          find.descendant(
+            of: find.byType(GenesisDisplayTitle),
+            matching: find.text('Eve'),
+          ),
+        )
+        .style;
+    expect(displayNameStyle?.fontSize, 24);
+    expect(displayNameStyle?.height, 1);
+    expect(displayNameStyle?.fontWeight, FontWeight.w900);
+    expect(find.byType(GenesisMetricValueText), findsOneWidget);
+    final balanceStyle = tester
+        .widget<Text>(find.byKey(const ValueKey('user-profile-gems-balance')))
+        .style;
+    expect(balanceStyle?.fontSize, 24);
+    expect(balanceStyle?.height, 1);
+    expect(balanceStyle?.fontWeight, FontWeight.w900);
     expect(
       tester.getSize(find.byType(GenesisAvatarFallback)),
       const Size.square(72),

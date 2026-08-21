@@ -113,10 +113,7 @@ class _TaskGroupSection extends StatelessWidget {
       children: [
         Text(
           group.groupTitle,
-          style: TextStyle(
-            fontSize: 15,
-            height: 1,
-            fontWeight: FontWeight.w800,
+          style: GenesisTypography.sectionTitle.copyWith(
             color: context.genesisColors.textPrimary,
           ),
         ),

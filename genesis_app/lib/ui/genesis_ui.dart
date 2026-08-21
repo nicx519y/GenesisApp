@@ -7,6 +7,7 @@ export '../components/world/genesis_world_theme.dart';
 export '../components/messages/genesis_message_theme.dart';
 export 'components/genesis_avatar.dart';
 export 'components/genesis_app_bar.dart';
+export 'components/genesis_app_bar_action_link.dart';
 export 'components/genesis_bottom_navigation.dart';
 export 'components/genesis_bottom_sheet.dart';
 export 'components/genesis_character_avatar.dart';

@@ -397,9 +397,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
       appBar: GenesisAppBar(
         title: 'Basics',
         variant: GenesisAppBarVariant.leadingTitle,
-        height: 64,
-        leadingWidth: 56,
-        titleSpacing: 0,
         backButtonKey: const ValueKey('basics-back-button'),
         backForegroundColor: context.genesisCreateColors.text,
         titleStyle: GenesisTypography.navigationTitle.copyWith(
@@ -840,11 +837,8 @@ class _BasicsSectionHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: TextStyle(
+      style: GenesisTypography.sectionTitle.copyWith(
         color: context.genesisCreateColors.text,
-        fontSize: 15,
-        fontWeight: FontWeight.w800,
-        height: 1.2,
       ),
     );
   }

@@ -100,7 +100,7 @@ class _DeveloperThemeModeSelector extends StatelessWidget {
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: context.genesisColors.textPrimary,
-                side: BorderSide(color: context.genesisColors.textPrimary),
+                side: BorderSide(color: context.genesisColors.border),
               ),
               onPressed: onOpenDesignSystemGallery,
               child: const Text('Design System Gallery'),

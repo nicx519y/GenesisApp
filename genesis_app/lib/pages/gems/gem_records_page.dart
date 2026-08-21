@@ -181,9 +181,6 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       appBar: const GenesisAppBar(
         title: 'Gem Records',
         variant: GenesisAppBarVariant.leadingTitle,
-        height: 46,
-        leadingWidth: 54,
-        titleSpacing: 12,
       ),
       body: SafeArea(
         child: Column(

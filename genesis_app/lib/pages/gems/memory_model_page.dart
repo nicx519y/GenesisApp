@@ -11,6 +11,7 @@ import '../../network/models/gem_model.dart';
 import '../../ui/components/genesis_state_view.dart';
 import '../../ui/system/genesis_system_ui.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_typography.dart';
 
 typedef GemModelCatalogLoader =
     Future<GemModelCatalog> Function(String worldId);
@@ -326,11 +327,8 @@ class _MemoryModelHeader extends StatelessWidget {
                   'Model',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: GenesisTypography.navigationTitle.copyWith(
                     color: colors.textPrimary,
-                    fontSize: 17,
-                    height: 20 / 17,
-                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -566,10 +564,7 @@ class _GemModelTileContent extends StatelessWidget {
                 model.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 18 / 15,
-                  fontWeight: FontWeight.w800,
+                style: GenesisTypography.itemTitle.copyWith(
                   color: context.genesisColors.textPrimary,
                 ),
               ),

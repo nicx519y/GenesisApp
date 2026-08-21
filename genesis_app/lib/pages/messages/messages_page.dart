@@ -11,7 +11,7 @@ import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_unread_badge.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/display_name_formatter.dart';
@@ -170,7 +170,10 @@ class _MessagesPageState extends State<MessagesPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _WorldoMessagesHeader(),
+          const GenesisLargePageHeader(
+            title: 'Messages',
+            titleKey: ValueKey('worldo-messages-title'),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Row(
@@ -244,31 +247,6 @@ class _MessagesPageState extends State<MessagesPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _WorldoMessagesHeader extends StatelessWidget {
-  const _WorldoMessagesHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return GenesisTopSafeArea(
-      backgroundColor: context.genesisColors.pageBackground,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-        child: Text(
-          'Messages',
-          key: const ValueKey('worldo-messages-title'),
-          style: TextStyle(
-            fontSize: 24,
-            height: 1,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.36,
-            color: context.genesisColors.textPrimary,
-          ),
-        ),
       ),
     );
   }

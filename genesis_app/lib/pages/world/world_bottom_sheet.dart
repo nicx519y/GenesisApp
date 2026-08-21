@@ -1232,11 +1232,8 @@ class WorldSingleSectionSheetHeaderState
                         widget.item.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: GenesisTypography.navigationTitle.copyWith(
                           color: context.genesisColors.textPrimary,
-                          fontSize: 17,
-                          height: 1,
-                          fontWeight: FontWeight.w800,
                           decoration: TextDecoration.none,
                         ),
                       ),

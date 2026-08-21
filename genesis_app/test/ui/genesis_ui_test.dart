@@ -101,6 +101,13 @@ void main() {
   test('GenesisTypography applies the Worldo Inter font stack', () {
     for (final style in <TextStyle>[
       GenesisTypography.pageTitle,
+      GenesisTypography.displayTitle,
+      GenesisTypography.metricValue,
+      GenesisTypography.prominentMetricValue,
+      GenesisTypography.navigationTitle,
+      GenesisTypography.immersiveTitle,
+      GenesisTypography.contentTitle,
+      GenesisTypography.sectionTitle,
       GenesisTypography.body,
       GenesisTypography.bodyStrong,
       GenesisTypography.supporting,
@@ -112,8 +119,28 @@ void main() {
     }
     expect(GenesisTypography.pageTitle.fontSize, 24);
     expect(GenesisTypography.pageTitle.fontWeight, FontWeight.w900);
-    expect(GenesisTypography.pageTitle.height, 1.1);
+    expect(GenesisTypography.pageTitle.height, 1);
     expect(GenesisTypography.pageTitle.letterSpacing, -0.36);
+    expect(GenesisTypography.displayTitle.fontSize, 24);
+    expect(GenesisTypography.displayTitle.fontWeight, FontWeight.w900);
+    expect(GenesisTypography.displayTitle.height, 1);
+    expect(GenesisTypography.displayTitle.letterSpacing, isNull);
+    expect(GenesisTypography.metricValue, GenesisTypography.displayTitle);
+    expect(GenesisTypography.prominentMetricValue.fontSize, 30);
+    expect(GenesisTypography.prominentMetricValue.fontWeight, FontWeight.w900);
+    expect(GenesisTypography.prominentMetricValue.height, 1);
+    expect(GenesisTypography.navigationTitle.fontSize, 17);
+    expect(GenesisTypography.navigationTitle.fontWeight, FontWeight.w800);
+    expect(GenesisTypography.navigationTitle.height, 1);
+    expect(GenesisTypography.immersiveTitle.fontSize, 17);
+    expect(GenesisTypography.immersiveTitle.fontWeight, FontWeight.w800);
+    expect(GenesisTypography.immersiveTitle.height, 1.1);
+    expect(GenesisTypography.contentTitle.fontSize, 17);
+    expect(GenesisTypography.contentTitle.fontWeight, FontWeight.w900);
+    expect(GenesisTypography.contentTitle.height, 1.15);
+    expect(GenesisTypography.sectionTitle.fontSize, 15);
+    expect(GenesisTypography.sectionTitle.fontWeight, FontWeight.w800);
+    expect(GenesisTypography.sectionTitle.height, 1);
   });
 
   testWidgets('explicit Text styles keep their own font selection', (
@@ -455,7 +482,7 @@ void main() {
 
     expect(
       const GenesisBackAppBar(pageName: 'Details').preferredSize.height,
-      kGenesisTopBarHeight,
+      64,
     );
     final backButton = find.byType(GenesisBackButton);
     expect(tester.getSize(backButton), const Size.square(34));

@@ -642,17 +642,12 @@ class _GemsBalanceEntry extends StatelessWidget {
                       ),
                       const SizedBox(width: 7),
                       Flexible(
-                        child: Text(
-                          balance == null ? '0' : _formatGemBalance(balance),
-                          key: const ValueKey('user-profile-gems-balance'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 24,
-                            height: 1,
-                            fontWeight: FontWeight.w900,
-                            color: colors.foregroundStrong,
-                          ),
+                        child: GenesisMetricValueText(
+                          value: balance == null
+                              ? '0'
+                              : _formatGemBalance(balance),
+                          textKey: const ValueKey('user-profile-gems-balance'),
+                          style: TextStyle(color: colors.foregroundStrong),
                         ),
                       ),
                       const SizedBox(width: 7),

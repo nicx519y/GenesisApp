@@ -4,7 +4,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
+import '../../ui/components/genesis_page_title.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 
@@ -32,10 +34,7 @@ class GemPurchaseCatalogSection extends StatelessWidget {
         const SizedBox(height: 22),
         Text(
           'Gem packs',
-          style: TextStyle(
-            fontSize: 15,
-            height: 1,
-            fontWeight: FontWeight.w800,
+          style: GenesisTypography.sectionTitle.copyWith(
             color: context.genesisColors.textPrimary,
           ),
         ),
@@ -85,15 +84,11 @@ class GemBalancePanel extends StatelessWidget {
                 fit: BoxFit.contain,
               ),
               const SizedBox(width: 8),
-              Text(
-                formatGemInteger(balance),
-                key: balanceKey,
-                style: TextStyle(
-                  fontSize: 30,
-                  height: 1,
-                  fontWeight: FontWeight.w900,
-                  color: context.genesisColors.textPrimary,
-                ),
+              GenesisMetricValueText(
+                value: formatGemInteger(balance),
+                textKey: balanceKey,
+                size: GenesisMetricValueSize.prominent,
+                style: TextStyle(color: context.genesisColors.textPrimary),
               ),
               const SizedBox(width: 8),
               Padding(

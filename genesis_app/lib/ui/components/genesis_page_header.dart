@@ -10,6 +10,50 @@ import 'genesis_search_field.dart';
 
 const double kGenesisTopBarHeight = 50;
 
+class GenesisLargePageHeader extends StatelessWidget {
+  const GenesisLargePageHeader({
+    super.key,
+    required this.title,
+    this.titleKey,
+    this.trailing,
+    this.horizontalPadding = 20,
+    this.topPadding = 20,
+    this.bottomPadding = 18,
+    this.backgroundColor,
+  });
+
+  final String title;
+  final Key? titleKey;
+  final Widget? trailing;
+  final double horizontalPadding;
+  final double topPadding;
+  final double bottomPadding;
+  final Color? backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return GenesisTopSafeArea(
+      backgroundColor: backgroundColor ?? context.genesisColors.pageBackground,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          topPadding,
+          horizontalPadding,
+          bottomPadding,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: GenesisPageTitle(text: title, textKey: titleKey),
+            ),
+            if (trailing != null) trailing!,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class GenesisPageHeader extends StatelessWidget {
   const GenesisPageHeader({
     super.key,
@@ -88,14 +132,13 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
   final SystemUiOverlayStyle? systemOverlayStyle;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kGenesisTopBarHeight);
+  Size get preferredSize => const Size.fromHeight(64);
 
   @override
   Widget build(BuildContext context) {
     return GenesisAppBar(
       title: pageName,
-      variant: GenesisAppBarVariant.centered,
-      height: kGenesisTopBarHeight,
+      variant: GenesisAppBarVariant.leadingTitle,
       onBack: onBack,
       actions: actions,
       titleKey: titleKey,

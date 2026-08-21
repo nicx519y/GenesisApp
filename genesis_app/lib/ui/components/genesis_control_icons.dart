@@ -97,6 +97,31 @@ class GenesisBackIcon extends StatelessWidget {
   }
 }
 
+class GenesisChevronRightIcon extends StatelessWidget {
+  const GenesisChevronRightIcon({
+    super.key,
+    required this.color,
+    this.size = GenesisControlMetrics.appBarActionIconSize,
+  });
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return RotatedBox(
+      quarterTurns: 2,
+      child: SvgPicture.asset(
+        controlBackIconAsset,
+        width: size,
+        height: size,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+        excludeFromSemantics: true,
+      ),
+    );
+  }
+}
+
 class GenesisMoreIcon extends StatelessWidget {
   const GenesisMoreIcon({super.key, required this.color, this.size = 14});
 

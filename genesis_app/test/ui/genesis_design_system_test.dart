@@ -121,25 +121,65 @@ void main() {
     expect(find.byIcon(Icons.arrow_forward_ios_rounded), findsOneWidget);
   });
 
-  testWidgets('GenesisAppBar variants keep their declared metrics', (
+  testWidgets('leading title app bar follows the Worldo header metrics', (
     tester,
   ) async {
-    const appBar = GenesisAppBar(
-      title: 'Records',
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var actionPressed = false;
+    final appBar = GenesisAppBar(
+      title: 'Buy Gems',
       variant: GenesisAppBarVariant.leadingTitle,
-      height: 46,
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(
+            right: GenesisControlMetrics.appBarHorizontalPadding,
+          ),
+          child: GenesisAppBarActionLink(
+            label: 'Records',
+            onPressed: () => actionPressed = true,
+          ),
+        ),
+      ],
     );
-    expect(appBar.preferredSize.height, 46);
+    expect(appBar.preferredSize.height, 64);
 
     await tester.pumpWidget(
       MaterialApp(
         theme: GenesisTheme.worldoDark(),
-        home: const Scaffold(appBar: appBar),
+        home: Scaffold(appBar: appBar),
       ),
     );
 
-    expect(find.text('Records'), findsOneWidget);
+    final title = tester.widget<Text>(find.text('Buy Gems'));
+    expect(title.style?.fontSize, 17);
+    expect(title.style?.fontWeight, FontWeight.w800);
+    expect(title.style?.height, 1);
+    expect(tester.getRect(find.text('Buy Gems')).left, closeTo(66, 0.1));
     expect(find.byType(GenesisBackButton), findsOneWidget);
+    expect(
+      tester.getRect(find.text('Buy Gems')).left -
+          tester.getRect(find.byType(GenesisBackButton)).right,
+      closeTo(12, 0.1),
+    );
+
+    final actionLabel = tester.widget<Text>(find.text('Records'));
+    expect(actionLabel.style?.fontSize, 12);
+    expect(actionLabel.style?.fontWeight, FontWeight.w600);
+    expect(actionLabel.style?.height, 1);
+    expect(
+      tester.getSize(find.byType(GenesisChevronRightIcon)),
+      const Size.square(9),
+    );
+    expect(
+      tester.getRect(find.byType(GenesisChevronRightIcon)).right,
+      closeTo(370, 0.1),
+    );
+
+    await tester.tap(find.byType(GenesisAppBarActionLink));
+    expect(actionPressed, isTrue);
   });
 
   testWidgets('GenesisTabBar named variants expose stable layouts', (
@@ -416,6 +456,18 @@ void main() {
     await tester.pump();
 
     expect(find.text('Controls and metadata'), findsOneWidget);
+    expect(find.text('Page headers'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('design-system-large-page-header')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('design-system-leading-title-header')),
+      findsOneWidget,
+    );
+    expect(find.byType(GenesisAppBarActionLink), findsOneWidget);
+    expect(find.byType(GenesisDisplayTitle), findsOneWidget);
+    expect(find.byType(GenesisMetricValueText), findsNWidgets(2));
     expect(find.byType(GenesisSectionPanel), findsWidgets);
     expect(find.byType(GenesisControlButton), findsNWidgets(2));
     expect(find.byType(GenesisFilterChip), findsNWidgets(4));

@@ -8,6 +8,7 @@ import '../../ui/components/genesis_control_icons.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import 'world_constants.dart';
@@ -56,11 +57,8 @@ class WorldMapIdentityPill extends StatelessWidget {
                 key: const ValueKey<String>('world-map-title'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: GenesisTypography.immersiveTitle.copyWith(
                   color: context.genesisColors.immersiveForeground,
-                  fontSize: 17,
-                  height: 1.1,
-                  fontWeight: FontWeight.w800,
                   shadows: [
                     Shadow(
                       color: context.genesisColors.scrim.withValues(alpha: 0.6),

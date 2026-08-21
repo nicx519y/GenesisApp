@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/app/theme/genesis_theme_mode_controller.
 import 'package:genesis_flutter_android/app/theme/genesis_theme_mode_scope.dart';
 import 'package:genesis_flutter_android/components/developer_debug_floating_button.dart';
 import 'package:genesis_flutter_android/pages/me/developer_page.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_tab_bar.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
@@ -110,6 +111,12 @@ void main() {
     final sheetSize = tester.getSize(developerSheet);
     expect(sheetSize.height, closeTo(600, 0.01));
     expect(tester.getTopLeft(developerSheet).dy, closeTo(0, 0.01));
+    expect(
+      tester
+          .widget<GenesisTabBar>(find.byType(GenesisTabBar))
+          .indicatorMatchesLabelWidth,
+      isTrue,
+    );
 
     expect(SystemChrome.latestStyle?.statusBarColor, Colors.transparent);
     expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);
@@ -273,7 +280,7 @@ void main() {
       );
       expect(
         galleryButtonWidget.style?.side?.resolve(const <WidgetState>{})?.color,
-        GenesisSemanticColors.worldoDark().textPrimary,
+        GenesisSemanticColors.worldoDark().border,
       );
       expect(tester.getSize(developerSheet).height, closeTo(600, 0.01));
       expect(tester.getTopLeft(developerSheet).dy, closeTo(0, 0.01));
@@ -320,7 +327,7 @@ void main() {
       );
       expect(
         galleryButtonWidget.style?.side?.resolve(const <WidgetState>{})?.color,
-        GenesisSemanticColors.worldoLight().textPrimary,
+        GenesisSemanticColors.worldoLight().border,
       );
 
       await tester.tap(find.text('System'));
