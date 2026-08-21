@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/debug_floating_button_visibility.dart';
 import '../pages/me/developer_page.dart';
-import '../ui/theme/genesis_theme.dart';
+import '../ui/components/genesis_safe_area.dart';
 import 'common/genesis_modal_routes.dart';
 
 class DeveloperDebugFloatingButton extends StatefulWidget {
@@ -38,10 +38,11 @@ class _DeveloperDebugFloatingButtonState
         return LayoutBuilder(
           builder: (context, constraints) {
             final size = constraints.biggest;
+            final bottomPadding = GenesisSafeAreaInsets.bottom(context);
             final defaultPosition = _clampPosition(
               Offset(
                 size.width - _buttonSize - _edgePadding,
-                (size.height - _buttonSize) / 2,
+                size.height - _buttonSize - bottomPadding - 86,
               ),
               size,
             );
@@ -127,13 +128,16 @@ class _DeveloperDebugFloatingButtonState
       await showGenesisModalBottomSheet<void>(
         context: navigatorContext,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => Theme(
-          data: GenesisTheme.light(),
-          child: const FractionallySizedBox(
-            heightFactor: 4 / 5,
-            child: DeveloperPageSheet(),
-          ),
+        builder: (_) => DraggableScrollableSheet(
+          initialChildSize: 1,
+          minChildSize: 0.25,
+          maxChildSize: 1,
+          snap: true,
+          expand: false,
+          builder: (_, scrollController) =>
+              DeveloperPageSheet(sheetScrollController: scrollController),
         ),
       );
     } finally {

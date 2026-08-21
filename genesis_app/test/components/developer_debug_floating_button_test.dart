@@ -4,8 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/components/developer_debug_floating_button.dart';
 import 'package:genesis_flutter_android/pages/me/developer_page.dart';
-import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
-import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
   tearDown(() {
@@ -37,29 +35,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('debug floating button starts centered on the right edge', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(400, 800);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetPhysicalSize);
-    final navigatorKey = GlobalKey<NavigatorState>();
-    showGenesisDebugFloatingButton();
-
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        home: DeveloperDebugFloatingButton(
-          navigatorKey: navigatorKey,
-          child: const Scaffold(),
-        ),
-      ),
-    );
-
-    expect(tester.getCenter(find.text('debug')), const Offset(371, 400));
-  });
-
   testWidgets('opening debug sheet keeps the current status bar style', (
     tester,
   ) async {
@@ -85,7 +60,6 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
         navigatorKey: navigatorKey,
         home: AnnotatedRegion<SystemUiOverlayStyle>(
           value: transparentPageStyle,
@@ -102,15 +76,10 @@ void main() {
     await tester.tap(find.text('debug'));
     await tester.pumpAndSettle();
 
-    final sheetSize = tester.getSize(find.byType(DeveloperPageSheet));
-    expect(sheetSize.height, closeTo(480, 0.01));
-    final sheetContext = tester.element(find.byType(DeveloperPageContent));
-    final sheetTheme = Theme.of(sheetContext);
-    expect(sheetTheme.brightness, Brightness.light);
-    expect(
-      sheetTheme.extension<GenesisSemanticColors>()!.pageBackground,
-      Colors.white,
-    );
+    final developerSheet = find.byType(DeveloperPageSheet);
+    final sheetSize = tester.getSize(developerSheet);
+    expect(sheetSize.height, closeTo(600, 0.01));
+    expect(tester.getTopLeft(developerSheet).dy, closeTo(0, 0.01));
 
     expect(SystemChrome.latestStyle?.statusBarColor, Colors.transparent);
     expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);
@@ -125,5 +94,48 @@ void main() {
 
     navigatorKey.currentState!.pop();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('basic and test content can drag the debug sheet down', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    showGenesisDebugFloatingButton();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: DeveloperDebugFloatingButton(
+          navigatorKey: navigatorKey,
+          child: const Scaffold(),
+        ),
+      ),
+    );
+
+    Future<void> openSheet() async {
+      await tester.tap(find.text('debug'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DeveloperPageSheet), findsOneWidget);
+    }
+
+    await openSheet();
+    await tester.fling(
+      find.byKey(const PageStorageKey<String>('developer-info-tab-scroll')),
+      const Offset(0, 500),
+      2000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DeveloperPageSheet), findsNothing);
+
+    await openSheet();
+    await tester.tap(find.text('test'));
+    await tester.pumpAndSettle();
+    await tester.fling(
+      find.byKey(const PageStorageKey<String>('developer-test-tab-scroll')),
+      const Offset(0, 500),
+      2000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DeveloperPageSheet), findsNothing);
   });
 }

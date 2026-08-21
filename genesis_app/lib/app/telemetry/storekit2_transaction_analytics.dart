@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'firebase_runtime.dart';
+import 'telemetry_upload_policy.dart';
 
 typedef StoreKit2AnalyticsReadiness = Future<void> Function();
 
@@ -17,17 +18,22 @@ class StoreKit2TransactionAnalytics {
     ),
     StoreKit2AnalyticsReadiness? readiness,
     bool? enabled,
+    bool Function()? enabledPredicate,
   }) : _channel = channel,
        _readiness = readiness ?? FirebaseRuntime.ensureInitialized,
-       _enabled = enabled ?? kReleaseMode;
+       _enabled =
+           enabledPredicate ??
+           (enabled == null
+               ? () => TelemetryUploadPolicy.state.value.analyticsEnabled
+               : () => enabled);
 
   final MethodChannel _channel;
   final StoreKit2AnalyticsReadiness _readiness;
-  final bool _enabled;
+  final bool Function() _enabled;
 
   Future<bool> logVerifiedTransaction(String transactionId) async {
     final normalizedId = transactionId.trim();
-    if (!_enabled ||
+    if (!_enabled() ||
         defaultTargetPlatform != TargetPlatform.iOS ||
         normalizedId.isEmpty) {
       return false;

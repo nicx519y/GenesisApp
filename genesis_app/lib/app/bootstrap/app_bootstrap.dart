@@ -8,6 +8,7 @@ import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/firebase_crash_reporting.dart';
 import '../telemetry/firebase_performance_monitoring.dart';
 import '../telemetry/firebase_runtime.dart';
+import '../telemetry/telemetry_upload_policy.dart';
 import '../../network/devtools_http_profile.dart';
 import '../../network/genesis_http_cache_manager.dart';
 import '../../network/genesis_http_transport_pool.dart';
@@ -73,7 +74,9 @@ class AppBootstrap {
   static Future<void> _initializeFirebasePerformanceMonitoring() async {
     try {
       await FirebaseRuntime.ensureInitialized();
-      await FirebasePerformanceMonitoring.enable();
+      await FirebasePerformanceMonitoring.configure(
+        TelemetryUploadPolicy.state.value.performanceEnabled,
+      );
     } catch (e, st) {
       _firebasePerformanceInitialization = null;
       debugPrint('[Auth][Firebase] initialize failed: $e');
@@ -117,6 +120,8 @@ class AppBootstrap {
 
   static Future<void> _enableCrashReportingAfterFirebaseReady() async {
     await ensureFirebasePerformanceMonitoring();
-    await FirebaseCrashReporting.enable();
+    await FirebaseCrashReporting.configure(
+      TelemetryUploadPolicy.state.value.crashlyticsEnabled,
+    );
   }
 }

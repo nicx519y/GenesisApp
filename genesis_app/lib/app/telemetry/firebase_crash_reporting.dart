@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
+import 'telemetry_upload_policy.dart';
+
 @visibleForTesting
 Future<void> recordFirebaseCrashlyticsBestEffort(
   Future<void> Function() record, {
@@ -20,17 +22,22 @@ class FirebaseCrashReporting {
   const FirebaseCrashReporting._();
 
   static bool _enabled = false;
+  static bool _handlersInstalled = false;
 
-  static Future<void> enable() async {
-    if (_enabled) return;
+  static Future<void> enable() {
+    return configure(TelemetryUploadPolicy.state.value.crashlyticsEnabled);
+  }
+
+  static Future<void> configure(bool enabled) async {
     final crashlytics = FirebaseCrashlytics.instance;
-    if (!kReleaseMode) {
+    if (!enabled) {
+      _enabled = false;
       try {
         await crashlytics.setCrashlyticsCollectionEnabled(false);
         await crashlytics.deleteUnsentReports();
         debugPrint(
           '[Telemetry][FirebaseCrashlytics] collection disabled '
-          'and unsent reports deleted for non-release build',
+          'and unsent reports deleted',
         );
       } catch (e, st) {
         debugPrint('[Telemetry][FirebaseCrashlytics] disable failed: $e');
@@ -38,10 +45,14 @@ class FirebaseCrashReporting {
       }
       return;
     }
+    if (_enabled) return;
     try {
       await crashlytics.setCrashlyticsCollectionEnabled(true);
-      _installFlutterErrorHandler();
-      _installPlatformErrorHandler();
+      if (!_handlersInstalled) {
+        _installFlutterErrorHandler();
+        _installPlatformErrorHandler();
+        _handlersInstalled = true;
+      }
       _enabled = true;
       debugPrint('[Telemetry][FirebaseCrashlytics] collection enabled');
     } catch (e, st) {
@@ -58,6 +69,7 @@ class FirebaseCrashReporting {
       } else {
         FlutterError.presentError(details);
       }
+      if (!_enabled) return;
       unawaited(
         recordFirebaseCrashlyticsBestEffort(
           () => FirebaseCrashlytics.instance.recordFlutterFatalError(details),
@@ -70,6 +82,7 @@ class FirebaseCrashReporting {
   static void _installPlatformErrorHandler() {
     final previous = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
+      if (!_enabled) return previous?.call(error, stack) ?? true;
       unawaited(
         recordFirebaseCrashlyticsBestEffort(
           () => FirebaseCrashlytics.instance.recordError(

@@ -8,16 +8,20 @@
         android:label="Worldo"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">
-        <!--
-          Analytics is disabled by default for every build variant. The release
-          manifest overlay is the only variant allowed to enable collection.
-        -->
+        <!-- Telemetry starts disabled and is enabled only after Dart validates
+             the build flavor, mode, and actual runtime endpoint configuration. -->
         <meta-data
             android:name="firebase_analytics_collection_enabled"
             android:value="false" />
         <meta-data
             android:name="firebase_analytics_collection_deactivated"
-            android:value="true" />
+            android:value="false" />
+        <meta-data
+            android:name="firebase_performance_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -44,7 +44,7 @@
 	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
 	<false/>
 	<key>FIREBASE_ANALYTICS_COLLECTION_DEACTIVATED</key>
-	<true/>
+	<false/>
 	<key>firebase_performance_collection_enabled</key>
 	<false/>
 	<key>GIDClientID</key>

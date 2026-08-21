@@ -19,6 +19,7 @@ class CollectEvent {
     required this.object1,
     required this.object2,
     required this.object3,
+    this.appEnvironment = '',
     this.includeIdentityHeaders = true,
   });
 
@@ -29,6 +30,7 @@ class CollectEvent {
   final String object1;
   final String object2;
   final String object3;
+  final String appEnvironment;
   final bool includeIdentityHeaders;
 
   Map<String, Object> toWireMap() {
@@ -80,10 +82,15 @@ class SqfliteCollectEventStore implements CollectEventStore {
     final database = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: (db, _) async {
           await db.execute(_createCollectEventsSql);
           await db.execute(_createCollectEventsStateIndexSql);
+        },
+        onUpgrade: (db, oldVersion, _) async {
+          if (oldVersion < 2) {
+            await db.execute(_addCollectAppEnvironmentSql);
+          }
         },
       ),
     );
@@ -114,14 +121,22 @@ class SqfliteCollectEventStore implements CollectEventStore {
   Future<ClaimedCollectEventBatch?> claimPending({required int limit}) async {
     if (limit <= 0) return null;
     return (await _db).transaction((txn) async {
-      final rows = await txn.query(
+      final oldestRows = await txn.query(
         'collect_events',
         where: 'state = ?',
         whereArgs: <Object>[_pendingState],
         orderBy: 'sequence_id ASC',
+        limit: 1,
+      );
+      if (oldestRows.isEmpty) return null;
+      final appEnvironment = '${oldestRows.single['app_environment'] ?? ''}';
+      final rows = await txn.query(
+        'collect_events',
+        where: 'state = ? AND app_environment = ?',
+        whereArgs: <Object>[_pendingState, appEnvironment],
+        orderBy: 'sequence_id ASC',
         limit: limit,
       );
-      if (rows.isEmpty) return null;
 
       final batchId = newCollectEventId();
       final eventIds = rows
@@ -204,7 +219,11 @@ class MemoryCollectEventStore implements CollectEventStore {
         _rows.where((row) => row.state == _pendingState).toList(growable: false)
           ..sort((a, b) => a.sequence.compareTo(b.sequence));
     if (pending.isEmpty) return null;
-    final selected = pending.take(limit).toList(growable: false);
+    final appEnvironment = pending.first.event.appEnvironment;
+    final selected = pending
+        .where((row) => row.event.appEnvironment == appEnvironment)
+        .take(limit)
+        .toList(growable: false);
     final batchId = newCollectEventId();
     for (final row in selected) {
       row
@@ -372,6 +391,10 @@ class CollectTelemetryUploader {
     _context = context;
   }
 
+  void setAppEnvironment(String value) {
+    _context = _context.copyWith(appEnvironment: value.trim());
+  }
+
   void setUserId(String? uid) {
     _context = _context.copyWith(userId: uid?.trim() ?? '');
   }
@@ -392,6 +415,7 @@ class CollectTelemetryUploader {
       object1: _stringValue(payload['object1']),
       object2: _stringValue(payload['object2']),
       object3: _stringValue(payload['object3']),
+      appEnvironment: _context.appEnvironment,
       includeIdentityHeaders: includeIdentityHeaders,
     );
     final write = _pendingWrites.then((_) => _store.enqueue(event));
@@ -428,7 +452,10 @@ class CollectTelemetryUploader {
       );
       await _client!.collectBatch(
         batch.events,
-        headers: _headers(includeIdentity: includeIdentity),
+        headers: _headers(
+          includeIdentity: includeIdentity,
+          appEnvironment: batch.events.first.appEnvironment,
+        ),
       );
       await _store.deleteClaimed(batch.batchId);
     } catch (_) {
@@ -472,12 +499,17 @@ class CollectTelemetryUploader {
     });
   }
 
-  Map<String, String> _headers({required bool includeIdentity}) {
+  Map<String, String> _headers({
+    required bool includeIdentity,
+    required String appEnvironment,
+  }) {
     return <String, String>{
       for (final entry in <String, String?>{
         'X-Platform': _collectPlatformHeaderValue(_context.platform),
         'X-App-Version': _context.appVersion,
-        'x-app-environment': _context.appEnvironment,
+        'x-app-environment': appEnvironment.trim().isEmpty
+            ? _context.appEnvironment
+            : appEnvironment,
         if (includeIdentity) 'X-Device-ID': _context.deviceId,
         if (includeIdentity) 'X-UID': _context.userId,
       }.entries)
@@ -505,6 +537,7 @@ Map<String, Object?> _eventToRow(CollectEvent event) {
     'object1': event.object1,
     'object2': event.object2,
     'object3': event.object3,
+    'app_environment': event.appEnvironment,
     'include_identity_headers': event.includeIdentityHeaders ? 1 : 0,
     'state': _pendingState,
     'batch_id': null,
@@ -520,6 +553,7 @@ CollectEvent _eventFromRow(Map<String, Object?> row) {
     object1: '${row['object1'] ?? ''}',
     object2: '${row['object2'] ?? ''}',
     object3: '${row['object3'] ?? ''}',
+    appEnvironment: '${row['app_environment'] ?? ''}',
     includeIdentityHeaders: (row['include_identity_headers'] as int? ?? 1) != 0,
   );
 }
@@ -564,6 +598,7 @@ const _createCollectEventsSql = '''
     object1 TEXT NOT NULL,
     object2 TEXT NOT NULL,
     object3 TEXT NOT NULL,
+    app_environment TEXT NOT NULL DEFAULT '',
     include_identity_headers INTEGER NOT NULL,
     state TEXT NOT NULL,
     batch_id TEXT
@@ -573,4 +608,9 @@ const _createCollectEventsSql = '''
 const _createCollectEventsStateIndexSql = '''
   CREATE INDEX idx_collect_events_state_sequence
   ON collect_events(state, sequence_id)
+''';
+
+const _addCollectAppEnvironmentSql = '''
+  ALTER TABLE collect_events
+  ADD COLUMN app_environment TEXT NOT NULL DEFAULT ''
 ''';

@@ -1,5 +1,172 @@
 part of 'developer_page.dart';
 
+class _DeveloperTestSectionPanel extends StatelessWidget {
+  const _DeveloperTestSectionPanel({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        border: Border.all(color: const Color(0xFFE1E1E3)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _DeveloperTelemetryUploadPanel extends StatelessWidget {
+  const _DeveloperTelemetryUploadPanel({
+    required this.state,
+    required this.savingChannels,
+    required this.onChanged,
+  });
+
+  final TelemetryUploadState state;
+  final Set<TelemetryChannel> savingChannels;
+  final void Function(TelemetryChannel channel, bool enabled) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DeveloperTestSectionPanel(
+      key: const ValueKey<String>('developer-telemetry-upload-panel'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Telemetry Debug Upload',
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Enable individual telemetry channels for debugging.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF777777),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _telemetryStatusLabel(state),
+            key: const ValueKey<String>('developer-telemetry-status'),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF777777),
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: Color(0xFFE5E5E5)),
+          _DeveloperTelemetryChannelSwitch(
+            label: 'Collect',
+            value: state.debugOverrides.collect,
+            enabled: !savingChannels.contains(TelemetryChannel.collect),
+            switchKey: const ValueKey<String>(
+              'developer-telemetry-collect-switch',
+            ),
+            onChanged: (value) => onChanged(TelemetryChannel.collect, value),
+          ),
+          _DeveloperTelemetryChannelSwitch(
+            label: 'Firebase Analytics',
+            value: state.debugOverrides.analytics,
+            enabled: !savingChannels.contains(TelemetryChannel.analytics),
+            switchKey: const ValueKey<String>(
+              'developer-telemetry-analytics-switch',
+            ),
+            onChanged: (value) => onChanged(TelemetryChannel.analytics, value),
+          ),
+          _DeveloperTelemetryChannelSwitch(
+            label: 'Firebase Performance',
+            value: state.debugOverrides.performance,
+            enabled: !savingChannels.contains(TelemetryChannel.performance),
+            switchKey: const ValueKey<String>(
+              'developer-telemetry-performance-switch',
+            ),
+            onChanged: (value) =>
+                onChanged(TelemetryChannel.performance, value),
+          ),
+          _DeveloperTelemetryChannelSwitch(
+            label: 'Firebase Crashlytics',
+            value: state.debugOverrides.crashlytics,
+            enabled: !savingChannels.contains(TelemetryChannel.crashlytics),
+            switchKey: const ValueKey<String>(
+              'developer-telemetry-crashlytics-switch',
+            ),
+            showDivider: false,
+            onChanged: (value) =>
+                onChanged(TelemetryChannel.crashlytics, value),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeveloperTelemetryChannelSwitch extends StatelessWidget {
+  const _DeveloperTelemetryChannelSwitch({
+    required this.label,
+    required this.value,
+    required this.enabled,
+    required this.switchKey,
+    required this.onChanged,
+    this.showDivider = true,
+  });
+
+  final String label;
+  final bool value;
+  final bool enabled;
+  final Key switchKey;
+  final ValueChanged<bool> onChanged;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 46,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 44,
+                height: 32,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: Switch(
+                    key: switchKey,
+                    value: value,
+                    onChanged: enabled ? onChanged : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (showDivider) const Divider(height: 1, color: Color(0xFFEDEDED)),
+      ],
+    );
+  }
+}
+
 class _DeveloperToggleRow extends StatelessWidget {
   const _DeveloperToggleRow({
     required this.sectionTitle,

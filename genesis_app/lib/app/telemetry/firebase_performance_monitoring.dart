@@ -1,7 +1,7 @@
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter/foundation.dart';
 
-import '../config/app_flavor_config.dart';
+import 'telemetry_upload_policy.dart';
 
 abstract interface class AppPerformanceTrace {
   Future<void> start();
@@ -19,7 +19,6 @@ typedef AppPerformanceTraceFactory =
 class FirebasePerformanceMonitoring {
   const FirebasePerformanceMonitoring._();
 
-  static Future<void>? _initialization;
   static bool _ready = false;
   static AppPerformanceTraceFactory _traceFactory =
       _createFirebasePerformanceTrace;
@@ -27,37 +26,26 @@ class FirebasePerformanceMonitoring {
   static bool get isReady => _ready;
 
   static Future<void> enable() {
-    return _initialization ??= _enable();
+    return configure(TelemetryUploadPolicy.state.value.performanceEnabled);
   }
 
-  static Future<void> _enable() async {
-    if (!kReleaseMode || AppFlavorConfig.currentIsInternal) {
-      try {
-        await FirebasePerformance.instance.setPerformanceCollectionEnabled(
-          false,
-        );
-        _ready = false;
-        debugPrint(
-          '[Telemetry][FirebasePerformance] collection disabled '
-          'for non-production build',
-        );
-      } catch (e, st) {
-        _ready = false;
-        _initialization = null;
-        debugPrint('[Telemetry][FirebasePerformance] disable failed: $e');
-        debugPrint('[Telemetry][FirebasePerformance] stacktrace:\n$st');
-      }
-      return;
-    }
+  static Future<void> configure(bool enabled) {
+    return _configure(enabled);
+  }
 
+  static Future<void> _configure(bool enabled) async {
     try {
-      await FirebasePerformance.instance.setPerformanceCollectionEnabled(true);
-      _ready = true;
-      debugPrint('[Telemetry][FirebasePerformance] collection enabled');
+      await FirebasePerformance.instance.setPerformanceCollectionEnabled(
+        enabled,
+      );
+      _ready = enabled;
+      debugPrint(
+        '[Telemetry][FirebasePerformance] collection '
+        '${enabled ? 'enabled' : 'disabled'}',
+      );
     } catch (e, st) {
       _ready = false;
-      _initialization = null;
-      debugPrint('[Telemetry][FirebasePerformance] enable failed: $e');
+      debugPrint('[Telemetry][FirebasePerformance] configure failed: $e');
       debugPrint('[Telemetry][FirebasePerformance] stacktrace:\n$st');
     }
   }
@@ -118,7 +106,6 @@ class FirebasePerformanceMonitoring {
 
   @visibleForTesting
   static void resetForTesting() {
-    _initialization = null;
     _ready = false;
     _traceFactory = _createFirebasePerformanceTrace;
   }
