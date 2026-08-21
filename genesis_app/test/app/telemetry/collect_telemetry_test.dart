@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
+import 'package:genesis_flutter_android/app/telemetry/telemetry_upload_policy.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/platform/app/app_metadata_service.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
@@ -71,6 +72,22 @@ class _CapturingTelemetrySink implements GenesisTelemetrySink {
 void main() {
   final uploaders = <CollectTelemetryUploader>[];
 
+  setUp(() {
+    TelemetryUploadPolicy.setStateForTesting(
+      evaluateTelemetryUploadPolicy(
+        config: const AppConfig(
+          apiBaseUrl: 'https://api.worldo.ai/api/',
+          gatewayApiBaseUrl: 'https://api.worldo.ai/apix/',
+          chatroomHttpBaseUrl: 'https://api.worldo.ai/',
+          chatroomWsBaseUrl: 'wss://api.worldo.ai/aitown-chat/ws',
+        ),
+        isReleaseBuild: false,
+        isProductionFlavor: true,
+        debugOverrides: const TelemetryDebugOverrides(collect: true),
+      ),
+    );
+  });
+
   CollectTelemetryUploader uploader({
     required CollectEventStore store,
     required CollectTelemetryClient client,
@@ -97,6 +114,7 @@ void main() {
     uploaders.clear();
     AppStartupCoordinator.resetForTesting();
     GenesisTelemetry.resetForTesting();
+    TelemetryUploadPolicy.resetForTesting();
   });
 
   test('event stores timestamp and stable wire fields before upload', () async {
@@ -220,6 +238,32 @@ void main() {
     expect(store.pendingCountForTesting, 1);
   });
 
+  test('queued debug and production events keep separate headers', () async {
+    final store = MemoryCollectEventStore();
+    final client = _FakeCollectClient();
+    final value = uploader(store: store, client: client);
+
+    value.setAppEnvironment('test');
+    await value.enqueuePayload(const <String, Object?>{
+      'action_type': 'event',
+      'action': 'debug_event',
+    });
+    value.setAppEnvironment('production');
+    await value.enqueuePayload(const <String, Object?>{
+      'action_type': 'event',
+      'action': 'production_event',
+    });
+
+    await value.checkNow();
+    await value.checkNow();
+
+    expect(client.batches, hasLength(2));
+    expect(client.batches[0].single.action, 'debug_event');
+    expect(client.headers[0]['x-app-environment'], 'test');
+    expect(client.batches[1].single.action, 'production_event');
+    expect(client.headers[1]['x-app-environment'], 'production');
+  });
+
   test('failed upload releases claimed events for retry', () async {
     final store = MemoryCollectEventStore();
     final client = _FakeCollectClient(
@@ -327,6 +371,66 @@ void main() {
     final recovered = await reopenedStore.claimPending(limit: 500);
 
     expect(recovered?.events.single.eventId, 'sqlite-event');
+  });
+
+  test('SQLite version 1 queue migrates with an environment column', () async {
+    sqfliteFfiInit();
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'genesis-collect-migration-test-',
+    );
+    final databasePath = '${tempDirectory.path}/collect.db';
+    final legacyDatabase = await databaseFactoryFfi.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, _) async {
+          await db.execute('''
+            CREATE TABLE collect_events (
+              sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+              event_id TEXT NOT NULL UNIQUE,
+              action_type TEXT NOT NULL,
+              action TEXT NOT NULL,
+              app_timestamp INTEGER NOT NULL,
+              object1 TEXT NOT NULL,
+              object2 TEXT NOT NULL,
+              object3 TEXT NOT NULL,
+              include_identity_headers INTEGER NOT NULL,
+              state TEXT NOT NULL,
+              batch_id TEXT
+            )
+          ''');
+        },
+      ),
+    );
+    await legacyDatabase.insert('collect_events', <String, Object?>{
+      'event_id': 'legacy-event',
+      'action_type': 'event',
+      'action': 'legacy',
+      'app_timestamp': 1,
+      'object1': '',
+      'object2': '',
+      'object3': '',
+      'include_identity_headers': 1,
+      'state': 'pending',
+      'batch_id': null,
+    });
+    await legacyDatabase.close();
+
+    final migratedStore = SqfliteCollectEventStore(
+      databaseFactoryOverride: databaseFactoryFfi,
+      databasePath: databasePath,
+    );
+    addTearDown(() async {
+      await migratedStore.close();
+      if (tempDirectory.existsSync()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+
+    final batch = await migratedStore.claimPending(limit: 500);
+
+    expect(batch?.events.single.eventId, 'legacy-event');
+    expect(batch?.events.single.appEnvironment, isEmpty);
   });
 
   test('concurrent checks do not overlap an active request', () async {

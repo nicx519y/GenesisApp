@@ -76,8 +76,10 @@ void main() {
     await tester.tap(find.text('debug'));
     await tester.pumpAndSettle();
 
-    final sheetSize = tester.getSize(find.byType(DeveloperPageSheet));
-    expect(sheetSize.height, closeTo(480, 0.01));
+    final developerSheet = find.byType(DeveloperPageSheet);
+    final sheetSize = tester.getSize(developerSheet);
+    expect(sheetSize.height, closeTo(600, 0.01));
+    expect(tester.getTopLeft(developerSheet).dy, closeTo(0, 0.01));
 
     expect(SystemChrome.latestStyle?.statusBarColor, Colors.transparent);
     expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);
@@ -92,5 +94,48 @@ void main() {
 
     navigatorKey.currentState!.pop();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('basic and test content can drag the debug sheet down', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    showGenesisDebugFloatingButton();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: DeveloperDebugFloatingButton(
+          navigatorKey: navigatorKey,
+          child: const Scaffold(),
+        ),
+      ),
+    );
+
+    Future<void> openSheet() async {
+      await tester.tap(find.text('debug'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DeveloperPageSheet), findsOneWidget);
+    }
+
+    await openSheet();
+    await tester.fling(
+      find.byKey(const PageStorageKey<String>('developer-info-tab-scroll')),
+      const Offset(0, 500),
+      2000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DeveloperPageSheet), findsNothing);
+
+    await openSheet();
+    await tester.tap(find.text('test'));
+    await tester.pumpAndSettle();
+    await tester.fling(
+      find.byKey(const PageStorageKey<String>('developer-test-tab-scroll')),
+      const Offset(0, 500),
+      2000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DeveloperPageSheet), findsNothing);
   });
 }

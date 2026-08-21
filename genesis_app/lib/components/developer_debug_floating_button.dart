@@ -128,10 +128,16 @@ class _DeveloperDebugFloatingButtonState
       await showGenesisModalBottomSheet<void>(
         context: navigatorContext,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: Colors.transparent,
-        builder: (_) => const FractionallySizedBox(
-          heightFactor: 4 / 5,
-          child: DeveloperPageSheet(),
+        builder: (_) => DraggableScrollableSheet(
+          initialChildSize: 1,
+          minChildSize: 0.25,
+          maxChildSize: 1,
+          snap: true,
+          expand: false,
+          builder: (_, scrollController) =>
+              DeveloperPageSheet(sheetScrollController: scrollController),
         ),
       );
     } finally {

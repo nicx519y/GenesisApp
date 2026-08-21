@@ -27,6 +27,8 @@ import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_performance_monitoring.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
+import 'package:genesis_flutter_android/app/telemetry/telemetry_runtime_controller.dart';
+import 'package:genesis_flutter_android/app/telemetry/telemetry_upload_policy.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
@@ -18116,6 +18118,76 @@ void main() {
       prefs.getBool(TilemapSettingsButtonVisibilityController.storageKey),
       isTrue,
     );
+  });
+
+  testWidgets('developer test tab controls telemetry debug upload', (
+    WidgetTester tester,
+  ) async {
+    TelemetryUploadPolicy.resetForTesting();
+    TelemetryRuntimeController.resetForTesting();
+    GenesisTelemetry.resetForTesting();
+    addTearDown(() {
+      TelemetryUploadPolicy.resetForTesting();
+      TelemetryRuntimeController.resetForTesting();
+      GenesisTelemetry.resetForTesting();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('test'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('developer-telemetry-upload-panel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('developer-tilemap-panel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('developer-location-chat-panel')),
+      findsOneWidget,
+    );
+    expect(find.text('Telemetry Debug Upload'), findsOneWidget);
+    expect(
+      find.text('Automatic upload blocked · non-release build'),
+      findsOneWidget,
+    );
+
+    final switches = <ValueKey<String>, String>{
+      const ValueKey<String>('developer-telemetry-collect-switch'):
+          SharedPreferencesTelemetryDebugOverrideStore.collectStorageKey,
+      const ValueKey<String>('developer-telemetry-analytics-switch'):
+          SharedPreferencesTelemetryDebugOverrideStore.analyticsStorageKey,
+      const ValueKey<String>('developer-telemetry-performance-switch'):
+          SharedPreferencesTelemetryDebugOverrideStore.performanceStorageKey,
+      const ValueKey<String>('developer-telemetry-crashlytics-switch'):
+          SharedPreferencesTelemetryDebugOverrideStore.crashlyticsStorageKey,
+    };
+    for (final entry in switches.entries) {
+      final uploadSwitch = find.byKey(entry.key);
+      expect(uploadSwitch, findsOneWidget);
+      expect(tester.widget<Switch>(uploadSwitch).value, isFalse);
+
+      await tester.tap(uploadSwitch);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(uploadSwitch).value, isTrue);
+      final preferences = await SharedPreferences.getInstance();
+      expect(preferences.getBool(entry.value), isTrue);
+    }
+
+    expect(find.text('Debug channels enabled · test'), findsOneWidget);
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getBool(switches.values.first), isTrue);
   });
 
   testWidgets('developer page controls LocationChat header effects', (

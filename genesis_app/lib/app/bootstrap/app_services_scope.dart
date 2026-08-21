@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../config/app_config.dart';
+import '../telemetry/telemetry_runtime_controller.dart';
 import 'service_registry.dart';
 
 class AppServicesScope extends StatefulWidget {
@@ -56,6 +59,7 @@ class AppServicesScope extends StatefulWidget {
       _fallbackServices = updated;
       if (!identical(previous, updated)) previous?.dispose();
     }
+    unawaited(TelemetryRuntimeController.updateConfig(config));
     return updated;
   }
 

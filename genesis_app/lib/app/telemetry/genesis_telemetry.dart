@@ -9,6 +9,7 @@ import '../config/app_config.dart';
 import '../debug_page_tracker.dart';
 import 'collect_telemetry.dart';
 import 'firebase_crash_reporting.dart';
+import 'telemetry_upload_policy.dart';
 
 export 'collect_telemetry.dart';
 
@@ -122,6 +123,7 @@ class GenesisTelemetry {
   static bool _enabled = true;
   static bool _sinkOverriddenForTesting = false;
   static bool _collectPrepared = false;
+  static bool _collectStartRequested = false;
 
   @visibleForTesting
   static GenesisTelemetryContext get contextForTesting => _context;
@@ -154,14 +156,22 @@ class GenesisTelemetry {
     _enabled = true;
     _sinkOverriddenForTesting = false;
     _collectPrepared = false;
+    _collectStartRequested = false;
   }
 
   static void prepareCollect(AppConfig config) {
     if (_collectPrepared) return;
+    reconfigureCollect(config);
+  }
+
+  static void reconfigureCollect(AppConfig config) {
     _collectPrepared = true;
     final endpoint = config.collectEndpoint.trim();
     final enabled =
-        config.collectEnabled && config.useMock != true && endpoint.isNotEmpty;
+        TelemetryUploadPolicy.state.value.collectEnabled &&
+        config.collectEnabled &&
+        config.useMock != true &&
+        endpoint.isNotEmpty;
     CollectTelemetryClient? client;
     if (enabled) {
       try {
@@ -177,6 +187,10 @@ class GenesisTelemetry {
       enabled: enabled && client != null,
       client: client,
     );
+    _collectUploader.setAppEnvironment(
+      TelemetryUploadPolicy.state.value.appEnvironment,
+    );
+    if (_collectStartRequested) _collectUploader.start();
   }
 
   static Future<void> initialize({
@@ -211,13 +225,14 @@ class GenesisTelemetry {
       CollectUploadContext(
         platform: _context.platform,
         appVersion: _context.appVersion,
-        appEnvironment: _collectAppEnvironment(config),
+        appEnvironment: TelemetryUploadPolicy.state.value.appEnvironment,
         deviceId: _context.deviceId,
       ),
     );
   }
 
   static void startCollectUploader() {
+    _collectStartRequested = true;
     _collectUploader.start();
   }
 
@@ -376,22 +391,6 @@ Object _safeTelemetryValue(Object? value) {
   if (safe is bool) return safe;
   if (safe is String) return safe;
   return safe?.toString() ?? '';
-}
-
-bool _isProductionEndpoint(String value) {
-  final host = Uri.tryParse(value.trim())?.host.trim().toLowerCase();
-  return host == 'api.worldo.ai';
-}
-
-String _collectAppEnvironment(AppConfig config) {
-  if (!kReleaseMode) return 'test';
-  final endpoints = <String>[
-    config.apiBaseUrl,
-    config.gatewayApiBaseUrl,
-    config.chatroomHttpBaseUrl,
-    config.chatroomWsBaseUrl,
-  ];
-  return endpoints.every(_isProductionEndpoint) ? 'production' : 'test';
 }
 
 class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {

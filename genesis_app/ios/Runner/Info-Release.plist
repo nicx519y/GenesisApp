@@ -42,9 +42,9 @@
 	<key>FirebaseDataCollectionDefaultEnabled</key>
 	<false/>
 	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
-	<true/>
+	<false/>
 	<key>firebase_performance_collection_enabled</key>
-	<true/>
+	<false/>
 	<key>GIDClientID</key>
 	<string>876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j.apps.googleusercontent.com</string>
 	<key>GIDServerClientID</key>

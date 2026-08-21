@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../platform/device/method_channel_device_id_service.dart';
-import '../config/app_flavor_config.dart';
 import 'firebase_runtime.dart';
+import 'telemetry_upload_policy.dart';
 
 abstract interface class AppAnalyticsClient {
   Future<void> logEvent({
@@ -15,6 +15,8 @@ abstract interface class AppAnalyticsClient {
 
 typedef FirebaseReadiness = Future<void> Function();
 typedef FirebaseAnalyticsMessageSentCountIncrementer = Future<int> Function();
+typedef FirebaseAnalyticsCollectionConfigurator =
+    Future<void> Function(bool enabled, String appEnvironment);
 
 abstract interface class FirebaseAnalyticsOnceEventStore {
   Future<bool> wasSent(String eventName);
@@ -67,9 +69,8 @@ class SharedPreferencesFirebaseAnalyticsMessageSentCounter {
 
 /// Best-effort Firebase Analytics events owned by the app.
 ///
-/// Automatic Firebase events are controlled by the native build configuration.
-/// This class is only responsible for custom events and deliberately avoids
-/// changing the SDK's persisted collection setting at runtime.
+/// Native collection starts disabled. The runtime telemetry policy enables or
+/// disables automatic collection and this class gates app-owned custom events.
 class FirebaseAnalyticsMonitoring {
   const FirebaseAnalyticsMonitoring._();
 
@@ -84,6 +85,15 @@ class FirebaseAnalyticsMonitoring {
       <String, Future<void>>{};
   static Future<void> _messageSentCountQueue = Future<void>.value();
   static bool? _enabledOverride;
+  static FirebaseAnalyticsCollectionConfigurator _collectionConfigurator =
+      _configureFirebaseAnalyticsCollection;
+
+  static Future<void> configureCollection({
+    required bool enabled,
+    required String appEnvironment,
+  }) {
+    return _collectionConfigurator(enabled, appEnvironment);
+  }
 
   static Future<void> recordLaunch({
     required String originId,
@@ -260,11 +270,18 @@ class FirebaseAnalyticsMonitoring {
   }
 
   static bool get _isEnabled =>
-      _enabledOverride ?? (kReleaseMode && !AppFlavorConfig.currentIsInternal);
+      _enabledOverride ?? TelemetryUploadPolicy.state.value.analyticsEnabled;
 
   @visibleForTesting
   static void setEnabledForTesting(bool? value) {
     _enabledOverride = value;
+  }
+
+  @visibleForTesting
+  static void setCollectionConfiguratorForTesting(
+    FirebaseAnalyticsCollectionConfigurator value,
+  ) {
+    _collectionConfigurator = value;
   }
 
   @visibleForTesting
@@ -309,10 +326,27 @@ class FirebaseAnalyticsMonitoring {
     _onceEventRecordings.clear();
     _messageSentCountQueue = Future<void>.value();
     _enabledOverride = null;
+    _collectionConfigurator = _configureFirebaseAnalyticsCollection;
   }
 
   static Future<String> _readNativeDeviceId() {
     return const NativeDeviceIdService().getDeviceId();
+  }
+}
+
+Future<void> _configureFirebaseAnalyticsCollection(
+  bool enabled,
+  String appEnvironment,
+) async {
+  final analytics = FirebaseAnalytics.instance;
+  if (enabled) {
+    await analytics.setDefaultEventParameters(<String, Object?>{
+      'app_environment': appEnvironment,
+    });
+    await analytics.setAnalyticsCollectionEnabled(true);
+  } else {
+    await analytics.setAnalyticsCollectionEnabled(false);
+    await analytics.setDefaultEventParameters(null);
   }
 }
 

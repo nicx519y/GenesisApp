@@ -25,6 +25,8 @@ import '../../components/gems/daily_check_in_dialog.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/tilemap/tilemap_settings_button_visibility.dart';
 import '../../app/gems/gem_wallet_store.dart';
+import '../../app/telemetry/telemetry_runtime_controller.dart';
+import '../../app/telemetry/telemetry_upload_policy.dart';
 import '../../network/genesis_api.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
@@ -115,7 +117,9 @@ class DeveloperPage extends StatelessWidget {
 }
 
 class DeveloperPageSheet extends StatelessWidget {
-  const DeveloperPageSheet({super.key});
+  const DeveloperPageSheet({super.key, this.sheetScrollController});
+
+  final ScrollController? sheetScrollController;
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +133,7 @@ class DeveloperPageSheet extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
           child: DeveloperPageContent(
             dismissBeforePreview: true,
+            sheetScrollController: sheetScrollController,
             headerTrailing: GenesisBottomSheetCloseButton(
               buttonKey: const ValueKey<String>('developer-page-sheet-close'),
               onPressed: () => Navigator.of(context).maybePop(),
@@ -150,12 +155,14 @@ class DeveloperPageContent extends StatefulWidget {
     this.onDismissBeforePreview,
     this.headerLeading,
     this.headerTrailing,
+    this.sheetScrollController,
   });
 
   final bool dismissBeforePreview;
   final Future<void> Function()? onDismissBeforePreview;
   final Widget? headerLeading;
   final Widget? headerTrailing;
+  final ScrollController? sheetScrollController;
 
   @override
   State<DeveloperPageContent> createState() => _DeveloperPageContentState();
@@ -179,6 +186,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   late final TextEditingController _versionNameController;
   late final TextEditingController _versionCodeController;
   late final TabController _tabController;
+  late int _selectedTabIndex;
   bool _clearingDirectMessageCache = false;
   bool _clearingImageCache = false;
   bool _clearingGatewayAuth = false;
@@ -190,6 +198,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   bool _hasVersionOverrides = false;
   bool _loadingTilemapSettingsButtonVisibility = true;
   bool _savingTilemapSettingsButtonVisibility = false;
+  final Set<TelemetryChannel> _savingTelemetryChannels = <TelemetryChannel>{};
   bool _showTilemapSettingsButton = tilemapSettingsButtonVisibility.value;
   bool _dailyCheckInPreviewClaimed = false;
   String? _gatewaySignatureVerifyResult;
@@ -205,6 +214,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       ),
       vsync: this,
     );
+    _selectedTabIndex = _tabController.index;
     _tabController.addListener(_rememberSelectedTab);
     final deviceId = AppServicesScope.read(context).deviceId;
     _deviceIdDiagnosticsFuture = deviceId is DeviceIdDiagnosticsService
@@ -246,7 +256,11 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   }
 
   void _rememberSelectedTab() {
-    _developerPageLastTabIndex = _tabController.index;
+    final index = _tabController.index;
+    _developerPageLastTabIndex = index;
+    if (_selectedTabIndex != index && mounted) {
+      setState(() => _selectedTabIndex = index);
+    }
   }
 
   void _updateState(VoidCallback callback) => setState(callback);
@@ -279,6 +293,27 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     } finally {
       if (mounted) {
         _updateState(() => _savingTilemapSettingsButtonVisibility = false);
+      }
+    }
+  }
+
+  Future<void> _setTelemetryUploadOverride(
+    TelemetryChannel channel,
+    bool enabled,
+  ) async {
+    if (_savingTelemetryChannels.contains(channel)) return;
+    _updateState(() => _savingTelemetryChannels.add(channel));
+    try {
+      await TelemetryRuntimeController.setDebugOverrideEnabled(
+        config: AppServicesScope.read(context).config,
+        channel: channel,
+        enabled: enabled,
+      );
+    } catch (error) {
+      if (mounted) showGenesisToast(context, 'Save failed: $error');
+    } finally {
+      if (mounted) {
+        _updateState(() => _savingTelemetryChannels.remove(channel));
       }
     }
   }
@@ -348,8 +383,18 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildInfoTab(horizontalContentPadding),
-                    _buildTestTab(horizontalContentPadding),
+                    _buildInfoTab(
+                      horizontalContentPadding,
+                      scrollController: _selectedTabIndex == 0
+                          ? widget.sheetScrollController
+                          : null,
+                    ),
+                    _buildTestTab(
+                      horizontalContentPadding,
+                      scrollController: _selectedTabIndex == 1
+                          ? widget.sheetScrollController
+                          : null,
+                    ),
                     if (kDebugMode) ...[
                       _DeveloperNetworkTab(
                         key: const ValueKey<String>('developer-network-tab'),
@@ -370,9 +415,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     );
   }
 
-  Widget _buildInfoTab(double horizontalPadding) {
+  Widget _buildInfoTab(
+    double horizontalPadding, {
+    ScrollController? scrollController,
+  }) {
     return ListView(
       key: const PageStorageKey<String>('developer-info-tab-scroll'),
+      controller: scrollController,
       padding: EdgeInsets.fromLTRB(
         horizontalPadding,
         10,
@@ -549,9 +598,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     ];
   }
 
-  Widget _buildTestTab(double horizontalPadding) {
+  Widget _buildTestTab(
+    double horizontalPadding, {
+    ScrollController? scrollController,
+  }) {
     return ListView(
       key: const PageStorageKey<String>('developer-test-tab-scroll'),
+      controller: scrollController,
       padding: EdgeInsets.fromLTRB(
         horizontalPadding,
         10,
@@ -560,19 +613,35 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
-        _DeveloperToggleRow(
-          sectionTitle: 'Tilemap',
-          label: 'Show settings button',
-          value: _showTilemapSettingsButton,
-          enabled:
-              !_loadingTilemapSettingsButtonVisibility &&
-              !_savingTilemapSettingsButtonVisibility,
-          switchKey: const ValueKey<String>(
-            'developer-tilemap-settings-button-switch',
-          ),
-          onChanged: (value) {
-            unawaited(_setTilemapSettingsButtonVisibility(value));
+        ValueListenableBuilder<TelemetryUploadState>(
+          valueListenable: TelemetryUploadPolicy.state,
+          builder: (context, telemetry, _) {
+            return _DeveloperTelemetryUploadPanel(
+              state: telemetry,
+              savingChannels: _savingTelemetryChannels,
+              onChanged: (channel, enabled) {
+                unawaited(_setTelemetryUploadOverride(channel, enabled));
+              },
+            );
           },
+        ),
+        const SizedBox(height: 18),
+        _DeveloperTestSectionPanel(
+          key: const ValueKey<String>('developer-tilemap-panel'),
+          child: _DeveloperToggleRow(
+            sectionTitle: 'Tilemap',
+            label: 'Show settings button',
+            value: _showTilemapSettingsButton,
+            enabled:
+                !_loadingTilemapSettingsButtonVisibility &&
+                !_savingTilemapSettingsButtonVisibility,
+            switchKey: const ValueKey<String>(
+              'developer-tilemap-settings-button-switch',
+            ),
+            onChanged: (value) {
+              unawaited(_setTilemapSettingsButtonVisibility(value));
+            },
+          ),
         ),
         const SizedBox(height: 18),
         ValueListenableBuilder<LocationChatHeaderEffectSettings>(
@@ -584,46 +653,52 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
             final blurLabel = settings.blurSigma <= 0
                 ? 'Off'
                 : settings.blurSigma.toStringAsFixed(0);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _DeveloperSectionTitle(
-                  'Location chat header & input bar',
-                ),
-                const SizedBox(height: 8),
-                _DeveloperSliderControl(
-                  label: 'Surface opacity',
-                  valueLabel: transparencyLabel,
-                  value: settings.transparencyStrength,
-                  min: LocationChatHeaderEffectSettings.minTransparencyStrength,
-                  max: LocationChatHeaderEffectSettings.maxTransparencyStrength,
-                  divisions: 20,
-                  sliderKey: const ValueKey<String>(
-                    'developer-location-chat-header-transparency-slider',
+            return _DeveloperTestSectionPanel(
+              key: const ValueKey<String>('developer-location-chat-panel'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _DeveloperSectionTitle(
+                    'Location chat header & input bar',
                   ),
-                  onChanged: locationChatHeaderEffectSettings
-                      .previewTransparencyStrength,
-                  onChangeEnd: (_) {
-                    unawaited(_saveLocationChatHeaderEffectSettings());
-                  },
-                ),
-                const SizedBox(height: _itemGap),
-                _DeveloperSliderControl(
-                  label: 'Gaussian blur radius',
-                  valueLabel: blurLabel,
-                  value: settings.blurSigma,
-                  min: LocationChatHeaderEffectSettings.minBlurSigma,
-                  max: LocationChatHeaderEffectSettings.maxBlurSigma,
-                  divisions: 20,
-                  sliderKey: const ValueKey<String>(
-                    'developer-location-chat-header-blur-slider',
+                  const SizedBox(height: 8),
+                  _DeveloperSliderControl(
+                    label: 'Surface opacity',
+                    valueLabel: transparencyLabel,
+                    value: settings.transparencyStrength,
+                    min: LocationChatHeaderEffectSettings
+                        .minTransparencyStrength,
+                    max: LocationChatHeaderEffectSettings
+                        .maxTransparencyStrength,
+                    divisions: 20,
+                    sliderKey: const ValueKey<String>(
+                      'developer-location-chat-header-transparency-slider',
+                    ),
+                    onChanged: locationChatHeaderEffectSettings
+                        .previewTransparencyStrength,
+                    onChangeEnd: (_) {
+                      unawaited(_saveLocationChatHeaderEffectSettings());
+                    },
                   ),
-                  onChanged: locationChatHeaderEffectSettings.previewBlurSigma,
-                  onChangeEnd: (_) {
-                    unawaited(_saveLocationChatHeaderEffectSettings());
-                  },
-                ),
-              ],
+                  const SizedBox(height: _itemGap),
+                  _DeveloperSliderControl(
+                    label: 'Gaussian blur radius',
+                    valueLabel: blurLabel,
+                    value: settings.blurSigma,
+                    min: LocationChatHeaderEffectSettings.minBlurSigma,
+                    max: LocationChatHeaderEffectSettings.maxBlurSigma,
+                    divisions: 20,
+                    sliderKey: const ValueKey<String>(
+                      'developer-location-chat-header-blur-slider',
+                    ),
+                    onChanged:
+                        locationChatHeaderEffectSettings.previewBlurSigma,
+                    onChangeEnd: (_) {
+                      unawaited(_saveLocationChatHeaderEffectSettings());
+                    },
+                  ),
+                ],
+              ),
             );
           },
         ),
@@ -722,6 +797,23 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       ],
     );
   }
+}
+
+String _telemetryStatusLabel(TelemetryUploadState state) {
+  if (state.automaticEnabled) {
+    return 'Production policy active';
+  }
+  if (state.debugOverrides.anyEnabled) {
+    return 'Debug channels enabled · test';
+  }
+  final reason = switch (state.blockReason) {
+    TelemetryUploadBlockReason.none => 'disabled',
+    TelemetryUploadBlockReason.nonReleaseBuild => 'non-release build',
+    TelemetryUploadBlockReason.internalFlavor => 'internal flavor',
+    TelemetryUploadBlockReason.nonProductionEndpoint =>
+      'non-production endpoint',
+  };
+  return 'Automatic upload blocked · $reason';
 }
 
 class _DeveloperPageBackButton extends StatelessWidget {
