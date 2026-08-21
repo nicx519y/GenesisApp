@@ -91,9 +91,14 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
   final Color selectedOptionSurface;
   final Color selectedOptionText;
 
+  static GenesisCreateColors forBrightness(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? GenesisCreateColors.worldoDark()
+      : GenesisCreateColors.worldoLight();
+
   static GenesisCreateColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisCreateColors>() ??
-      GenesisCreateColors.worldoLight();
+      GenesisCreateColors.forBrightness(Theme.of(context).brightness);
 
   @override
   GenesisCreateColors copyWith({

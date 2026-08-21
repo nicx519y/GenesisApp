@@ -21,43 +21,33 @@ abstract final class GenesisTheme {
     GenesisSkin skin, {
     Brightness brightness = Brightness.dark,
   }) => switch ((skin, brightness)) {
-    (GenesisSkin.worldoRedesign, Brightness.light) => worldoLight(),
-    (GenesisSkin.worldoRedesign, Brightness.dark) => worldoDark(),
+    (GenesisSkin.worldoRedesign, _) => _worldo(brightness),
   };
 
-  static ThemeData worldoLight() => _build(
-    colors: GenesisSemanticColors.worldoLight(),
-    brightness: Brightness.light,
+  static ThemeData worldoLight() => _worldo(Brightness.light);
+
+  static ThemeData worldoDark() => _worldo(Brightness.dark);
+
+  static ThemeData _worldo(Brightness brightness) => _build(
+    colors: GenesisSemanticColors.forBrightness(brightness),
+    brightness: brightness,
     seedColor: GenesisPalette.redesignAccent,
     uiTheme: GenesisUiTheme.worldo(),
     skinTheme: const GenesisSkinTheme(skin: GenesisSkin.worldoRedesign),
-    featureThemes: <ThemeExtension<dynamic>>[
-      GenesisGemColors.worldoLight(),
-      GenesisChatTheme.worldoLight(),
-      GenesisOriginColors.worldoLight(),
-      GenesisDiscussColors.worldoLight(),
-      GenesisCreateColors.worldoLight(),
-      GenesisWorldColors.worldoLight(),
-      GenesisMessageColors.worldoLight(),
-    ],
+    featureThemes: _worldoFeatureThemes(brightness),
   );
 
-  static ThemeData worldoDark() => _build(
-    colors: GenesisSemanticColors.worldoDark(),
-    brightness: Brightness.dark,
-    seedColor: GenesisPalette.redesignAccent,
-    uiTheme: GenesisUiTheme.worldo(),
-    skinTheme: const GenesisSkinTheme(skin: GenesisSkin.worldoRedesign),
-    featureThemes: <ThemeExtension<dynamic>>[
-      GenesisGemColors.worldoDark(),
-      GenesisChatTheme.worldoDark(),
-      GenesisOriginColors.worldoDark(),
-      GenesisDiscussColors.worldoDark(),
-      GenesisCreateColors.worldoDark(),
-      GenesisWorldColors.worldoDark(),
-      GenesisMessageColors.worldoDark(),
-    ],
-  );
+  static List<ThemeExtension<dynamic>> _worldoFeatureThemes(
+    Brightness brightness,
+  ) => <ThemeExtension<dynamic>>[
+    GenesisGemColors.forBrightness(brightness),
+    GenesisChatTheme.forBrightness(brightness),
+    GenesisOriginColors.forBrightness(brightness),
+    GenesisDiscussColors.forBrightness(brightness),
+    GenesisCreateColors.forBrightness(brightness),
+    GenesisWorldColors.forBrightness(brightness),
+    GenesisMessageColors.forBrightness(brightness),
+  ];
 
   static ThemeData _build({
     required GenesisSemanticColors colors,

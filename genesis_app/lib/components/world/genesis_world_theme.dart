@@ -55,9 +55,14 @@ class GenesisWorldColors extends ThemeExtension<GenesisWorldColors> {
   final Color closeSurface;
   final Color avatarBorder;
 
+  static GenesisWorldColors forBrightness(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? GenesisWorldColors.worldoDark()
+      : GenesisWorldColors.worldoLight();
+
   static GenesisWorldColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisWorldColors>() ??
-      GenesisWorldColors.worldoLight();
+      GenesisWorldColors.forBrightness(Theme.of(context).brightness);
 
   @override
   GenesisWorldColors copyWith({

@@ -127,9 +127,14 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
   final Color newMessageNoticeBackground;
   final Color newMessageNoticeForeground;
 
+  static GenesisChatTheme forBrightness(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? GenesisChatTheme.worldoDark()
+      : GenesisChatTheme.worldoLight();
+
   static GenesisChatTheme of(BuildContext context) {
     return Theme.of(context).extension<GenesisChatTheme>() ??
-        GenesisChatTheme.worldoLight();
+        GenesisChatTheme.forBrightness(Theme.of(context).brightness);
   }
 
   @override

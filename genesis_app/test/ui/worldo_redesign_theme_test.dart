@@ -107,6 +107,94 @@ void main() {
     }
   });
 
+  testWidgets('theme token fallbacks follow the ambient brightness', (
+    tester,
+  ) async {
+    Future<BuildContext> pumpFallbackTheme(Brightness brightness) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        Theme(
+          data: ThemeData(brightness: brightness),
+          child: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      return capturedContext;
+    }
+
+    final darkContext = await pumpFallbackTheme(Brightness.dark);
+    expect(
+      darkContext.genesisColors.textPrimary,
+      GenesisSemanticColors.worldoDark().textPrimary,
+    );
+    expect(
+      darkContext.genesisGemColors.selectionSurface,
+      GenesisGemColors.worldoDark().selectionSurface,
+    );
+    expect(
+      darkContext.genesisChatTheme.privateHeaderBackground,
+      GenesisChatTheme.worldoDark().privateHeaderBackground,
+    );
+    expect(
+      darkContext.genesisOriginColors.launchSheetSurface,
+      GenesisOriginColors.worldoDark().launchSheetSurface,
+    );
+    expect(
+      darkContext.genesisDiscussColors.replySurface,
+      GenesisDiscussColors.worldoDark().replySurface,
+    );
+    expect(
+      darkContext.genesisCreateColors.fieldFill,
+      GenesisCreateColors.worldoDark().fieldFill,
+    );
+    expect(
+      darkContext.genesisWorldColors.tabSurface,
+      GenesisWorldColors.worldoDark().tabSurface,
+    );
+    expect(
+      darkContext.genesisMessageColors.notificationsSurface,
+      GenesisMessageColors.worldoDark().notificationsSurface,
+    );
+
+    final lightContext = await pumpFallbackTheme(Brightness.light);
+    expect(
+      lightContext.genesisColors.textPrimary,
+      GenesisSemanticColors.worldoLight().textPrimary,
+    );
+    expect(
+      lightContext.genesisGemColors.selectionSurface,
+      GenesisGemColors.worldoLight().selectionSurface,
+    );
+    expect(
+      lightContext.genesisChatTheme.privateHeaderBackground,
+      GenesisChatTheme.worldoLight().privateHeaderBackground,
+    );
+    expect(
+      lightContext.genesisOriginColors.launchSheetSurface,
+      GenesisOriginColors.worldoLight().launchSheetSurface,
+    );
+    expect(
+      lightContext.genesisDiscussColors.replySurface,
+      GenesisDiscussColors.worldoLight().replySurface,
+    );
+    expect(
+      lightContext.genesisCreateColors.fieldFill,
+      GenesisCreateColors.worldoLight().fieldFill,
+    );
+    expect(
+      lightContext.genesisWorldColors.tabSurface,
+      GenesisWorldColors.worldoLight().tabSurface,
+    );
+    expect(
+      lightContext.genesisMessageColors.notificationsSurface,
+      GenesisMessageColors.worldoLight().notificationsSurface,
+    );
+  });
+
   test('GenesisApp installs paired Worldo themes and a theme mode', () {
     final source = File('lib/app/genesis_app.dart').readAsStringSync();
 

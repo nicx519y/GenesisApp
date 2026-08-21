@@ -79,9 +79,14 @@ class GenesisDiscussColors extends ThemeExtension<GenesisDiscussColors> {
   final Color imageAddIcon;
   final Color imageRemoveSurface;
 
+  static GenesisDiscussColors forBrightness(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? GenesisDiscussColors.worldoDark()
+      : GenesisDiscussColors.worldoLight();
+
   static GenesisDiscussColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisDiscussColors>() ??
-      GenesisDiscussColors.worldoLight();
+      GenesisDiscussColors.forBrightness(Theme.of(context).brightness);
 
   @override
   GenesisDiscussColors copyWith({

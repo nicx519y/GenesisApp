@@ -63,9 +63,14 @@ class GenesisGemColors extends ThemeExtension<GenesisGemColors> {
   final Color priceGradientStart;
   final Color priceGradientEnd;
 
+  static GenesisGemColors forBrightness(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? GenesisGemColors.worldoDark()
+      : GenesisGemColors.worldoLight();
+
   static GenesisGemColors of(BuildContext context) {
     return Theme.of(context).extension<GenesisGemColors>() ??
-        GenesisGemColors.worldoLight();
+        GenesisGemColors.forBrightness(Theme.of(context).brightness);
   }
 
   @override

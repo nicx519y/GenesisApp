@@ -43,9 +43,14 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
   final Color originAccent;
   final Color conversationPreview;
 
+  static GenesisMessageColors forBrightness(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? GenesisMessageColors.worldoDark()
+      : GenesisMessageColors.worldoLight();
+
   static GenesisMessageColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisMessageColors>() ??
-      GenesisMessageColors.worldoLight();
+      GenesisMessageColors.forBrightness(Theme.of(context).brightness);
 
   @override
   GenesisMessageColors copyWith({

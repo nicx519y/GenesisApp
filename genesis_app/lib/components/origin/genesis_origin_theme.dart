@@ -75,9 +75,14 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
   final Color launchSheetSecondaryText;
   final Color launchSheetInputBorder;
 
+  static GenesisOriginColors forBrightness(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? GenesisOriginColors.worldoDark()
+      : GenesisOriginColors.worldoLight();
+
   static GenesisOriginColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisOriginColors>() ??
-      GenesisOriginColors.worldoLight();
+      GenesisOriginColors.forBrightness(Theme.of(context).brightness);
 
   @override
   GenesisOriginColors copyWith({

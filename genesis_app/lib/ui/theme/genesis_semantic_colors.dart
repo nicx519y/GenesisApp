@@ -234,6 +234,16 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
     );
   }
 
+  /// Resolves the core semantic token set for the active theme brightness.
+  ///
+  /// This is also used by the fallback path when a local [ThemeData] does not
+  /// explicitly register the extension, so a dark preview cannot inherit light
+  /// page surfaces or text colors by accident.
+  static GenesisSemanticColors forBrightness(Brightness brightness) =>
+      brightness == Brightness.dark
+      ? GenesisSemanticColors.worldoDark()
+      : GenesisSemanticColors.worldoLight();
+
   final Color pageBackground;
   final Color surface;
   final Color surfaceRaised;
@@ -321,7 +331,7 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
 
   static GenesisSemanticColors of(BuildContext context) {
     return Theme.of(context).extension<GenesisSemanticColors>() ??
-        GenesisSemanticColors.worldoLight();
+        GenesisSemanticColors.forBrightness(Theme.of(context).brightness);
   }
 
   @override
