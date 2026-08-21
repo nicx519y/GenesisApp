@@ -18823,6 +18823,43 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(const ValueKey<String>('developer-design-system-inline')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('developer-design-system-gallery-button'),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('developer-design-system-inline')),
+      findsOneWidget,
+    );
+    final galleryButtonRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('developer-design-system-gallery-button'),
+      ),
+    );
+    expect(
+      tester.getRect(find.text('Titles')).left,
+      closeTo(galleryButtonRect.left, 0.1),
+    );
+    expect(
+      tester.getRect(find.widgetWithText(GenesisButton, 'Primary')).right,
+      closeTo(galleryButtonRect.right, 0.1),
+    );
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('developer-design-system-gallery-button'),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('developer-design-system-inline')),
+      findsNothing,
+    );
+    expect(
       find.byKey(const ValueKey<String>('developer-telemetry-upload-panel')),
       findsOneWidget,
     );

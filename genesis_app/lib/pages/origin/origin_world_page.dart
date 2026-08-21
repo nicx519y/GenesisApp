@@ -46,6 +46,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../ui/components/genesis_control_icons.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_card_action_button.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_tag.dart';

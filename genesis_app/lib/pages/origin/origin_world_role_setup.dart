@@ -589,68 +589,37 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                         child: Row(
                           children: [
                             if (widget.onEdit != null) ...[
-                              SizedBox.square(
-                                dimension: buttonHeight,
-                                child: Material(
-                                  key: ValueKey<String>(
-                                    'origin-setup-role-edit-surface-$stableId',
-                                  ),
-                                  color: context.genesisColors.controlMuted,
-                                  borderRadius: BorderRadius.circular(11),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: InkWell(
-                                    key: ValueKey<String>(
-                                      'origin-setup-role-edit-$stableId',
-                                    ),
-                                    onTap: widget.launching
-                                        ? null
-                                        : widget.onEdit,
-                                    child: Icon(
-                                      Icons.edit_rounded,
-                                      size: 15,
-                                      color: widget.launching
-                                          ? context.genesisColors.textMuted
-                                          : context.genesisColors.textPrimary,
-                                    ),
-                                  ),
+                              GenesisCardActionButton.icon(
+                                surfaceKey: ValueKey<String>(
+                                  'origin-setup-role-edit-surface-$stableId',
                                 ),
+                                interactionKey: ValueKey<String>(
+                                  'origin-setup-role-edit-$stableId',
+                                ),
+                                icon: Icons.edit_rounded,
+                                tooltip: 'Edit profile',
+                                onPressed: widget.launching
+                                    ? null
+                                    : widget.onEdit,
+                                height: buttonHeight,
                               ),
                               const SizedBox(width: 7),
                             ],
                             Expanded(
-                              child: Material(
-                                key: ValueKey<String>(
+                              child: GenesisCardActionButton(
+                                surfaceKey: ValueKey<String>(
                                   'origin-setup-role-select-surface-$stableId',
                                 ),
-                                color: context.genesisColors.controlMuted,
-                                borderRadius: BorderRadius.circular(11),
-                                clipBehavior: Clip.antiAlias,
-                                child: InkWell(
-                                  key: ValueKey<String>(
-                                    'origin-setup-role-$stableId',
-                                  ),
-                                  onTap: widget.launching
-                                      ? null
-                                      : widget.onSelect,
-                                  child: Center(
-                                    child: Text(
-                                      widget.launching
-                                          ? 'Launching...'
-                                          : 'Select',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        height: 1,
-                                        fontWeight: FontWeight.w700,
-                                        color: widget.launching
-                                            ? context.genesisColors.textMuted
-                                            : context.genesisColors.textPrimary,
-                                        decoration: TextDecoration.none,
-                                      ),
-                                    ),
-                                  ),
+                                interactionKey: ValueKey<String>(
+                                  'origin-setup-role-$stableId',
                                 ),
+                                label: widget.launching
+                                    ? 'Launching...'
+                                    : 'Select',
+                                onPressed: widget.launching
+                                    ? null
+                                    : widget.onSelect,
+                                height: buttonHeight,
                               ),
                             ),
                           ],

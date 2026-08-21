@@ -612,13 +612,6 @@ void main() {
                 fullWidth: false,
               ),
               GenesisButton(
-                key: const ValueKey('muted-button'),
-                label: 'Muted',
-                onPressed: () {},
-                variant: GenesisButtonVariant.muted,
-                fullWidth: false,
-              ),
-              GenesisButton(
                 key: const ValueKey('destructive-button'),
                 label: 'Delete',
                 onPressed: () {},
@@ -638,12 +631,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    final muted = tester.widget<FilledButton>(
-      find.descendant(
-        of: find.byKey(const ValueKey('muted-button')),
-        matching: find.byType(FilledButton),
-      ),
-    );
     final destructive = tester.widget<FilledButton>(
       find.descendant(
         of: find.byKey(const ValueKey('destructive-button')),
@@ -651,13 +638,70 @@ void main() {
       ),
     );
     expect(
-      muted.style?.backgroundColor?.resolve(const <WidgetState>{}),
-      const Color(0xFFE1E1E3),
-    );
-    expect(
       destructive.style?.backgroundColor?.resolve(const <WidgetState>{}),
       GenesisPalette.redesignAccent,
     );
+  });
+
+  testWidgets('GenesisCardActionButton exposes text and icon actions', (
+    tester,
+  ) async {
+    var selectCount = 0;
+    var editCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 240,
+            height: 34,
+            child: Row(
+              children: [
+                GenesisCardActionButton.icon(
+                  surfaceKey: const ValueKey('card-edit-surface'),
+                  interactionKey: const ValueKey('card-edit-action'),
+                  icon: Icons.edit_rounded,
+                  tooltip: 'Edit',
+                  onPressed: () => editCount += 1,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: GenesisCardActionButton(
+                    surfaceKey: const ValueKey('card-select-surface'),
+                    interactionKey: const ValueKey('card-select-action'),
+                    label: 'Select',
+                    onPressed: () => selectCount += 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('card-edit-surface'))),
+      const Size.square(34),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('card-select-surface'))).height,
+      34,
+    );
+    expect(
+      tester
+          .widget<Material>(find.byKey(const ValueKey('card-select-surface')))
+          .color,
+      GenesisPalette.redesignWhite10,
+    );
+    final label = tester.widget<Text>(find.text('Select'));
+    expect(label.style?.fontSize, 12);
+    expect(label.style?.fontWeight, FontWeight.w700);
+
+    await tester.tap(find.byKey(const ValueKey('card-edit-action')));
+    await tester.tap(find.byKey(const ValueKey('card-select-action')));
+    expect(editCount, 1);
+    expect(selectCount, 1);
   });
 
   testWidgets('GenesisButton supports compact, regular, loading, and icons', (

@@ -7,7 +7,7 @@ import '../tokens/genesis_spacing.dart';
 import '../tokens/genesis_typography.dart';
 import 'genesis_ui_interaction.dart';
 
-enum GenesisButtonVariant { primary, secondary, muted, destructive }
+enum GenesisButtonVariant { primary, secondary, destructive }
 
 enum GenesisButtonSize { compact, regular }
 
@@ -203,7 +203,6 @@ class GenesisButton extends StatelessWidget {
   Color _defaultBackground(GenesisSemanticColors colors) => switch (variant) {
     GenesisButtonVariant.primary => colors.primary,
     GenesisButtonVariant.secondary => Colors.transparent,
-    GenesisButtonVariant.muted => colors.controlMuted,
     GenesisButtonVariant.destructive => colors.danger,
   };
 
@@ -212,15 +211,13 @@ class GenesisButton extends StatelessWidget {
       variant == GenesisButtonVariant.primary
           ? colors.onPrimary
           : colors.onDanger,
-    GenesisButtonVariant.secondary ||
-    GenesisButtonVariant.muted => colors.textPrimary,
+    GenesisButtonVariant.secondary => colors.textPrimary,
   };
 
   Color _defaultDisabledBackground(GenesisSemanticColors colors) =>
       switch (variant) {
         GenesisButtonVariant.primary => colors.primaryDisabled,
         GenesisButtonVariant.secondary => Colors.transparent,
-        GenesisButtonVariant.muted => colors.controlMuted,
         GenesisButtonVariant.destructive => colors.danger.withValues(
           alpha: 0.55,
         ),
@@ -232,8 +229,7 @@ class GenesisButton extends StatelessWidget {
           variant == GenesisButtonVariant.primary
               ? colors.onPrimary
               : colors.onDanger,
-        GenesisButtonVariant.secondary ||
-        GenesisButtonVariant.muted => colors.textDisabled,
+        GenesisButtonVariant.secondary => colors.textDisabled,
       };
 }
 

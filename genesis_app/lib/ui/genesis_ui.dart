@@ -10,6 +10,7 @@ export 'components/genesis_app_bar.dart';
 export 'components/genesis_app_bar_action_link.dart';
 export 'components/genesis_bottom_navigation.dart';
 export 'components/genesis_bottom_sheet.dart';
+export 'components/genesis_card_action_button.dart';
 export 'components/genesis_character_avatar.dart';
 export 'components/genesis_control_icons.dart';
 export 'components/genesis_control_button.dart';

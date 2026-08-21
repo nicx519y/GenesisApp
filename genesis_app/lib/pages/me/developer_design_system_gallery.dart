@@ -4,382 +4,299 @@ import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../ui/genesis_ui.dart';
 
-class DeveloperDesignSystemGalleryPage extends StatefulWidget {
-  const DeveloperDesignSystemGalleryPage({super.key});
+const EdgeInsets _gallerySectionPadding = EdgeInsets.symmetric(
+  vertical: GenesisSpacing.page,
+);
+
+class DeveloperDesignSystemGalleryContent extends StatefulWidget {
+  const DeveloperDesignSystemGalleryContent({super.key});
 
   @override
-  State<DeveloperDesignSystemGalleryPage> createState() =>
-      _DeveloperDesignSystemGalleryPageState();
+  State<DeveloperDesignSystemGalleryContent> createState() =>
+      _DeveloperDesignSystemGalleryContentState();
 }
 
-class _DeveloperDesignSystemGalleryPageState
-    extends State<DeveloperDesignSystemGalleryPage> {
-  final _textController = TextEditingController();
-  final _areaController = TextEditingController();
-  int _selectedFilter = 0;
-
-  @override
-  void dispose() {
-    _textController.dispose();
-    _areaController.dispose();
-    super.dispose();
-  }
-
+class _DeveloperDesignSystemGalleryContentState
+    extends State<DeveloperDesignSystemGalleryContent> {
   @override
   Widget build(BuildContext context) {
-    return GenesisPageScaffold.secondary(
-      title: 'Design System',
-      contentPadding: EdgeInsets.zero,
-      body: ListView(
-        padding: GenesisSpacing.formPagePadding.copyWith(top: 20, bottom: 32),
-        children: [
-          GenesisSectionPanel(
-            title: 'Typography',
-            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _TypographySpecimen(
-                  label: 'Page title · 24/900/1',
-                  child: GenesisPageTitle(text: 'Messages'),
+    return Column(
+      children: [
+        GenesisSectionPanel(
+          title: 'Typography',
+          margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
+          padding: _gallerySectionPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Titles',
+                style: GenesisTypography.sectionTitle.copyWith(
+                  color: context.genesisColors.textPrimary,
                 ),
-                const _TypographySpecimen(
-                  label: 'Navigation title · 17/800/1',
-                  child: Text(
-                    'Buy Gems',
-                    style: GenesisTypography.navigationTitle,
-                  ),
+              ),
+              const SizedBox(height: GenesisSpacing.md),
+              const _TypographySpecimen(
+                name: 'Page / display title',
+                spec: 'Size 24 · Extra bold',
+                child: Text('Messages', style: GenesisTypography.pageTitle),
+              ),
+              const _TypographySpecimen(
+                name: 'Navigation title',
+                spec: 'Size 17 · Bold',
+                child: Text(
+                  'Buy Gems',
+                  style: GenesisTypography.navigationTitle,
                 ),
-                const _TypographySpecimen(
-                  label: 'Immersive title · 17/800/1.1',
-                  child: Text(
-                    'Old Money',
-                    style: GenesisTypography.immersiveTitle,
-                  ),
+              ),
+              const _TypographySpecimen(
+                name: 'Content title',
+                spec: 'Size 17 · Extra bold',
+                child: Text(
+                  'Story title',
+                  style: GenesisTypography.contentTitle,
                 ),
-                const _TypographySpecimen(
-                  label: 'Content title · 17/900/1.15',
-                  child: Text(
-                    'The Last Waltz of the Ashfords',
-                    style: GenesisTypography.contentTitle,
-                  ),
+              ),
+              const _TypographySpecimen(
+                name: 'Section title',
+                spec: 'Size 15 · Bold',
+                child: Text(
+                  'World Brief',
+                  style: GenesisTypography.sectionTitle,
                 ),
-                const _TypographySpecimen(
-                  label: 'Display name · 24/900/1',
-                  child: GenesisDisplayTitle(text: 'Eve'),
+              ),
+              const SizedBox(height: GenesisSpacing.lg),
+              Text(
+                'Content and controls',
+                style: GenesisTypography.sectionTitle.copyWith(
+                  color: context.genesisColors.textPrimary,
                 ),
-                _TypographySpecimen(
-                  label: 'Metric value · 24/900/1',
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const GenesisMetricValueText(value: '483'),
-                      const SizedBox(width: 7),
-                      Text(
-                        'Gems',
-                        style: GenesisTypography.tabLabel.copyWith(
-                          color: context.genesisColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                _TypographySpecimen(
-                  label: 'Prominent metric · 30/900/1',
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const GenesisMetricValueText(
-                        value: '483',
-                        size: GenesisMetricValueSize.prominent,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Gems',
-                        style: GenesisTypography.supporting.copyWith(
-                          height: 1,
-                          color: context.genesisColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const _TypographySpecimen(
-                  label: 'Section title · 15/800/1',
-                  showDivider: false,
-                  child: Text(
-                    'World Brief',
-                    style: GenesisTypography.sectionTitle,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: GenesisSpacing.md),
+              const _TypographySpecimen(
+                name: 'Body text',
+                spec: 'Size 14 · Regular / semibold emphasis',
+                child: Text('Body', style: GenesisTypography.body),
+              ),
+              const _TypographySpecimen(
+                name: 'Supporting text',
+                spec: 'Size 12 · Regular',
+                child: Text('Supporting', style: GenesisTypography.supporting),
+              ),
+              const _TypographySpecimen(
+                name: 'Tab text',
+                spec: 'Size 11 · Regular',
+                child: Text('Tab', style: GenesisTypography.tabLabel),
+              ),
+              const _TypographySpecimen(
+                name: 'Caption',
+                spec: 'Size 10 · Medium',
+                child: Text('Caption', style: GenesisTypography.caption),
+              ),
+            ],
           ),
-          GenesisSectionPanel(
-            title: 'Page headers',
-            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  child: const SizedBox(
-                    key: ValueKey<String>('design-system-large-page-header'),
-                    height: 62,
-                    child: GenesisLargePageHeader(title: 'Messages'),
-                  ),
-                ),
-                Divider(height: 1, color: context.genesisColors.divider),
-                MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  child: SizedBox(
-                    key: const ValueKey<String>(
-                      'design-system-leading-title-header',
+        ),
+        GenesisSectionPanel(
+          title: 'Page navigation',
+          margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
+          padding: EdgeInsets.zero,
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: SizedBox(
+              key: const ValueKey<String>('design-system-leading-title-header'),
+              height: 64,
+              child: GenesisAppBar(
+                title: 'Buy Gems',
+                variant: GenesisAppBarVariant.leadingTitle,
+                onBack: () {},
+                backgroundColor: context.genesisColors.surfaceRaised,
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      right: GenesisControlMetrics.appBarHorizontalPadding,
                     ),
-                    height: 64,
-                    child: GenesisAppBar(
-                      title: 'Buy Gems',
-                      variant: GenesisAppBarVariant.leadingTitle,
-                      onBack: () {},
-                      actions: [
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            right:
-                                GenesisControlMetrics.appBarHorizontalPadding,
-                          ),
-                          child: GenesisAppBarActionLink(
-                            label: 'Records',
-                            onPressed: () {},
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Divider(height: 1, color: context.genesisColors.divider),
-                MediaQuery.removePadding(
-                  context: context,
-                  removeTop: true,
-                  child: SizedBox(
-                    key: const ValueKey<String>(
-                      'design-system-long-leading-title-header',
-                    ),
-                    height: 64,
-                    child: GenesisAppBar(
-                      title: 'A very long navigation title that truncates',
-                      variant: GenesisAppBarVariant.leadingTitle,
-                      onBack: () {},
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GenesisSectionPanel(
-            title: 'Buttons',
-            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
-            child: Column(
-              children: [
-                GenesisButton(label: 'Primary', onPressed: () {}),
-                const SizedBox(height: 8),
-                GenesisButton(
-                  label: 'Secondary',
-                  variant: GenesisButtonVariant.secondary,
-                  onPressed: () {},
-                ),
-                const SizedBox(height: 8),
-                GenesisButton(
-                  label: 'Destructive',
-                  variant: GenesisButtonVariant.destructive,
-                  onPressed: () {},
-                ),
-                const SizedBox(height: 8),
-                const GenesisButton(label: 'Disabled', onPressed: null),
-                const SizedBox(height: 8),
-                const GenesisButton(
-                  label: 'Loading',
-                  onPressed: null,
-                  isLoading: true,
-                ),
-              ],
-            ),
-          ),
-          GenesisSectionPanel(
-            title: 'Controls and metadata',
-            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    GenesisControlButton(
-                      tooltip: 'More actions',
+                    child: GenesisAppBarActionLink(
+                      label: 'Records',
                       onPressed: () {},
-                      child: GenesisMoreIcon(
-                        color: context.genesisColors.foregroundStrong,
-                      ),
                     ),
-                    const SizedBox(width: GenesisSpacing.lg),
-                    GenesisControlButton(
-                      tooltip: 'Disabled action',
-                      onPressed: null,
-                      child: GenesisCloseIcon(
-                        color: context.genesisColors.iconMuted,
-                      ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        GenesisSectionPanel(
+          title: 'Buttons',
+          margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
+          padding: _gallerySectionPadding,
+          child: Column(
+            children: [
+              Text(
+                'Regular 42px · Compact 40px · minimum tap target 44px',
+                style: GenesisTypography.caption.copyWith(
+                  color: context.genesisColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: GenesisSpacing.lg),
+              GenesisButton(label: 'Primary', onPressed: () {}),
+              const SizedBox(height: 8),
+              GenesisButton(
+                label: 'Secondary',
+                variant: GenesisButtonVariant.secondary,
+                onPressed: () {},
+              ),
+              const SizedBox(height: 8),
+              const GenesisButton(label: 'Disabled', onPressed: null),
+              const SizedBox(height: 8),
+              const GenesisButton(
+                label: 'Loading',
+                onPressed: null,
+                isLoading: true,
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: GenesisCardActionButton(
+                  key: const ValueKey<String>('design-system-select-button'),
+                  label: 'Select',
+                  height: GenesisUiTheme.of(context).regularButtonHeight,
+                  onPressed: () {},
+                ),
+              ),
+              const SizedBox(height: GenesisSpacing.xl),
+              Divider(height: 1, color: context.genesisColors.dividerSubtle),
+              const SizedBox(height: GenesisSpacing.xl),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Icon buttons',
+                  style: GenesisTypography.supporting.copyWith(
+                    color: context.genesisColors.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: GenesisSpacing.md),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  GenesisBackButton(
+                    key: const ValueKey<String>('design-system-back-button'),
+                    onPressed: () {},
+                  ),
+                  const SizedBox(width: GenesisSpacing.md),
+                  GenesisCardActionButton.icon(
+                    icon: Icons.edit_rounded,
+                    tooltip: 'Edit',
+                    onPressed: () {},
+                  ),
+                  const SizedBox(width: GenesisSpacing.md),
+                  GenesisControlButton(
+                    tooltip: 'More actions',
+                    onPressed: () {},
+                    child: GenesisMoreIcon(
+                      color: context.genesisColors.foregroundStrong,
                     ),
-                  ],
-                ),
-                const SizedBox(height: GenesisSpacing.xl),
-                Wrap(
-                  spacing: GenesisSpacing.md,
-                  runSpacing: GenesisSpacing.xs,
-                  children: [
-                    for (var index = 0; index < 3; index++)
-                      GenesisFilterChip(
-                        label: const ['All', 'Active', 'Archived'][index],
-                        selected: _selectedFilter == index,
-                        onPressed: () =>
-                            setState(() => _selectedFilter = index),
-                      ),
-                    const GenesisFilterChip(
-                      label: 'Disabled',
-                      selected: false,
-                      onPressed: null,
+                  ),
+                  const SizedBox(width: GenesisSpacing.md),
+                  GenesisControlButton(
+                    tooltip: 'Close',
+                    onPressed: () {},
+                    child: GenesisCloseIcon(
+                      color: context.genesisColors.foregroundStrong,
                     ),
-                  ],
-                ),
-                const SizedBox(height: GenesisSpacing.xl),
-                const Wrap(
-                  spacing: GenesisSpacing.md,
-                  runSpacing: GenesisSpacing.md,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    GenesisTag(label: 'world'),
-                    GenesisTag(
-                      label: 'trending',
-                      tone: GenesisTagTone.accent,
-                      size: GenesisTagSize.compact,
-                    ),
-                    GenesisTag(
-                      label: 'blocked',
-                      tone: GenesisTagTone.danger,
-                      size: GenesisTagSize.compact,
-                    ),
-                    GenesisUnreadBadge(count: 7),
-                    GenesisUnreadBadge(count: 120),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          GenesisSectionPanel(
-            title: 'Form controls',
-            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
-            child: Column(
-              children: [
-                GenesisTextField(
-                  controller: _textController,
-                  label: 'Name',
-                  requiredIndicator: true,
-                  hintText: 'Enter a name',
-                  supportText: 'Single-line field with shared focus styling.',
-                  maxLength: 30,
+        ),
+        GenesisSectionPanel(
+          title: 'Search, tabs and list navigation',
+          margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
+          padding: _gallerySectionPadding,
+          child: Column(
+            children: [
+              GenesisSearchField.launcher(onTap: () {}),
+              const SizedBox(height: 16),
+              DefaultTabController(
+                length: 3,
+                child: GenesisTabBar(
+                  labels: const ['Following', 'Worlds', 'Origins'],
+                  horizontalPadding: 0,
+                  indicatorMatchesLabelWidth: true,
                 ),
-                const SizedBox(height: 16),
-                GenesisTextArea(
-                  controller: _areaController,
-                  label: 'Description',
-                  hintText: 'Describe this world...',
-                  maxLength: 300,
-                ),
-                const SizedBox(height: 16),
-                GenesisSelectField(
-                  label: 'Role',
-                  hintText: 'Select a role',
-                  onTap: () {},
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+              GenesisNavigationRow(
+                label: 'Navigation row',
+                trailing: const Text('Value'),
+                onTap: () {},
+              ),
+            ],
           ),
-          GenesisSectionPanel(
-            title: 'Search and navigation',
-            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
-            child: Column(
-              children: [
-                GenesisSearchField.launcher(onTap: () {}),
-                const SizedBox(height: 16),
-                GenesisNavigationRow(
-                  label: 'Navigation row',
-                  trailing: const Text('Value'),
-                  onTap: () {},
-                ),
-              ],
-            ),
+        ),
+        const GenesisSectionPanel(
+          title: 'Tags and badges',
+          margin: EdgeInsets.only(bottom: GenesisSpacing.section),
+          padding: _gallerySectionPadding,
+          child: Wrap(
+            spacing: GenesisSpacing.md,
+            runSpacing: GenesisSpacing.md,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              GenesisTag(label: 'world'),
+              GenesisTag(
+                label: 'trending',
+                tone: GenesisTagTone.accent,
+                size: GenesisTagSize.compact,
+              ),
+              _UnreadBadgePreview(name: 'M', count: 7),
+              _UnreadBadgePreview(name: 'W', count: 120),
+            ],
           ),
-          const GenesisSectionPanel(
-            title: 'Media',
-            margin: EdgeInsets.only(bottom: GenesisSpacing.section),
-            child: Row(
-              children: [
-                GenesisAvatar(name: 'Worldo', size: 48),
-                SizedBox(width: GenesisSpacing.xl),
-                GenesisCharacterAvatar(
-                  url: '',
-                  name: 'Nikos',
-                  size: 48,
-                  showStar: true,
-                ),
-              ],
-            ),
+        ),
+        GenesisSectionPanel(
+          title: 'Page States',
+          margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
+          padding: _gallerySectionPadding,
+          child: Column(
+            children: [
+              const GenesisStateView.loading(height: 64),
+              const GenesisStateView.empty(
+                message: 'Nothing here yet.',
+                height: 64,
+                compact: true,
+              ),
+              GenesisStateView.error(
+                message: 'Unable to load.',
+                onAction: () {},
+                height: 96,
+                compact: true,
+              ),
+            ],
           ),
-          GenesisSectionPanel(
-            title: 'Page states',
-            margin: const EdgeInsets.only(bottom: GenesisSpacing.section),
-            child: Column(
-              children: [
-                const GenesisStateView.loading(height: 64),
-                const GenesisStateView.empty(
-                  message: 'Nothing here yet.',
-                  height: 64,
-                  compact: true,
-                ),
-                GenesisStateView.error(
-                  message: 'Unable to load.',
-                  onAction: () {},
-                  height: 96,
-                  compact: true,
-                ),
-              ],
-            ),
+        ),
+        GenesisSectionPanel(
+          title: 'Overlays',
+          padding: _gallerySectionPadding,
+          child: Column(
+            children: [
+              GenesisButton(
+                label: 'Action box',
+                variant: GenesisButtonVariant.secondary,
+                onPressed: _showActionBox,
+              ),
+              const SizedBox(height: 8),
+              GenesisButton(
+                label: 'Bottom sheet',
+                variant: GenesisButtonVariant.secondary,
+                onPressed: _showBottomSheet,
+              ),
+            ],
           ),
-          GenesisSectionPanel(
-            title: 'Overlays',
-            child: Column(
-              children: [
-                GenesisButton(
-                  label: 'Action box',
-                  variant: GenesisButtonVariant.secondary,
-                  onPressed: _showActionBox,
-                ),
-                const SizedBox(height: 8),
-                GenesisButton(
-                  label: 'Content dialog',
-                  variant: GenesisButtonVariant.secondary,
-                  onPressed: _showContentDialog,
-                ),
-                const SizedBox(height: 8),
-                GenesisButton(
-                  label: 'Bottom sheet',
-                  variant: GenesisButtonVariant.secondary,
-                  onPressed: _showBottomSheet,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -391,23 +308,6 @@ class _DeveloperDesignSystemGalleryPageState
       titleHeight: 104,
       actions: const [
         GenesisActionBoxAction<bool>(label: 'Discard', value: true),
-      ],
-    );
-  }
-
-  Future<void> _showContentDialog() async {
-    await showGenesisContentDialog<void>(
-      context: context,
-      title: 'Content dialog',
-      content: const Text(
-        'Use this pattern for structured content that does not fit an action box.',
-      ),
-      showCloseButton: true,
-      actions: [
-        GenesisDialogAction(
-          label: 'Done',
-          onPressed: () => Navigator.of(context).pop(),
-        ),
       ],
     );
   }
@@ -435,34 +335,75 @@ class _DeveloperDesignSystemGalleryPageState
 
 class _TypographySpecimen extends StatelessWidget {
   const _TypographySpecimen({
-    required this.label,
+    required this.name,
+    required this.spec,
     required this.child,
-    this.showDivider = true,
   });
 
-  final String label;
+  final String name;
+  final String spec;
   final Widget child;
-  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: GenesisTypography.caption.copyWith(
-            color: context.genesisColors.textSecondary,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: GenesisSpacing.md),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: context.genesisColors.dividerSubtle),
         ),
-        const SizedBox(height: GenesisSpacing.sm),
-        child,
-        if (showDivider) ...[
-          const SizedBox(height: GenesisSpacing.lg),
-          Divider(height: 1, color: context.genesisColors.dividerSubtle),
-          const SizedBox(height: GenesisSpacing.lg),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GenesisTypography.bodyStrong.copyWith(
+                    color: context.genesisColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: GenesisSpacing.xs),
+                Text(
+                  spec,
+                  style: GenesisTypography.supporting.copyWith(
+                    color: context.genesisColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: GenesisSpacing.lg),
+          Flexible(child: child),
         ],
-      ],
+      ),
+    );
+  }
+}
+
+class _UnreadBadgePreview extends StatelessWidget {
+  const _UnreadBadgePreview({required this.name, required this.count});
+
+  final String name;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 48,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            bottom: 0,
+            child: GenesisAvatar(name: name, size: 44),
+          ),
+          Positioned(top: 0, right: 0, child: GenesisUnreadBadge(count: count)),
+        ],
+      ),
     );
   }
 }

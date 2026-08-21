@@ -200,6 +200,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   bool _savingTilemapSettingsButtonVisibility = false;
   final Set<TelemetryChannel> _savingTelemetryChannels = <TelemetryChannel>{};
   bool _savingThemeMode = false;
+  bool _designSystemGalleryExpanded = false;
   bool _showTilemapSettingsButton = tilemapSettingsButtonVisibility.value;
   bool _dailyCheckInPreviewClaimed = false;
   String? _gatewaySignatureVerifyResult;
@@ -653,13 +654,10 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           value: themeModeController?.value ?? fallbackThemeMode,
           enabled: themeModeController != null && !_savingThemeMode,
           onChanged: (mode) => unawaited(_setThemeMode(mode)),
-          onOpenDesignSystemGallery: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const DeveloperDesignSystemGalleryPage(),
-              ),
-            );
-          },
+          designSystemExpanded: _designSystemGalleryExpanded,
+          onToggleDesignSystem: () => _updateState(
+            () => _designSystemGalleryExpanded = !_designSystemGalleryExpanded,
+          ),
         ),
         const SizedBox(height: 18),
         ValueListenableBuilder<TelemetryUploadState>(

@@ -450,28 +450,98 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: GenesisTheme.worldoLight(),
-        home: const DeveloperDesignSystemGalleryPage(),
+        home: Scaffold(
+          body: ListView(
+            padding: GenesisSpacing.formPagePadding.copyWith(
+              top: 20,
+              bottom: 32,
+            ),
+            children: const [DeveloperDesignSystemGalleryContent()],
+          ),
+        ),
       ),
     );
     await tester.pump();
 
-    expect(find.text('Controls and metadata'), findsOneWidget);
-    expect(find.text('Page headers'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('design-system-large-page-header')),
-      findsOneWidget,
+    expect(find.text('Typography'), findsOneWidget);
+    expect(find.text('Page / display title'), findsOneWidget);
+    expect(find.text('Size 24 · Extra bold'), findsOneWidget);
+    expect(find.text('Body text'), findsOneWidget);
+    expect(find.text('Size 14 · Regular / semibold emphasis'), findsOneWidget);
+    expect(find.text('Form label'), findsNothing);
+
+    final galleryScroll = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('Page navigation'),
+      400,
+      scrollable: galleryScroll,
     );
     expect(
       find.byKey(const ValueKey<String>('design-system-leading-title-header')),
       findsOneWidget,
     );
     expect(find.byType(GenesisAppBarActionLink), findsOneWidget);
-    expect(find.byType(GenesisDisplayTitle), findsOneWidget);
-    expect(find.byType(GenesisMetricValueText), findsNWidgets(2));
+    expect(find.text('Leading editor header with action'), findsNothing);
+    expect(find.byType(GenesisDisplayTitle), findsNothing);
+    expect(find.byType(GenesisMetricValueText), findsNothing);
     expect(find.byType(GenesisSectionPanel), findsWidgets);
+
+    await tester.scrollUntilVisible(
+      find.text('Buttons'),
+      400,
+      scrollable: galleryScroll,
+    );
     expect(find.byType(GenesisControlButton), findsNWidgets(2));
-    expect(find.byType(GenesisFilterChip), findsNWidgets(4));
-    expect(find.byType(GenesisTag), findsNWidgets(3));
+    expect(find.byType(GenesisCardActionButton), findsNWidgets(2));
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('design-system-select-button')),
+          )
+          .height,
+      GenesisButton.regularHeight,
+    );
+    expect(
+      find.text('Card action · 34px · for actions inside image cards'),
+      findsNothing,
+    );
+    expect(find.text('Icon buttons'), findsOneWidget);
+    expect(find.text('Back button · 34 visual / 44 tap target'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('design-system-back-button')),
+      findsOneWidget,
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Search, tabs and list navigation'),
+      400,
+      scrollable: galleryScroll,
+    );
+    expect(find.byType(GenesisTabBar), findsOneWidget);
+    expect(find.byType(GenesisFilterChip), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('Tags and badges'),
+      400,
+      scrollable: galleryScroll,
+    );
+    expect(find.byType(GenesisTag), findsNWidgets(2));
+    expect(find.byType(GenesisAvatar), findsNWidgets(2));
     expect(find.text('99+'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Page States'),
+      400,
+      scrollable: galleryScroll,
+    );
+    expect(find.text('Page States'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Overlays'),
+      400,
+      scrollable: galleryScroll,
+    );
+    expect(find.text('Overlays'), findsOneWidget);
+    expect(find.text('Content dialog'), findsNothing);
   });
 }

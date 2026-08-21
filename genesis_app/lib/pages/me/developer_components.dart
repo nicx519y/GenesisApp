@@ -43,13 +43,15 @@ class _DeveloperThemeModeSelector extends StatelessWidget {
     required this.value,
     required this.enabled,
     required this.onChanged,
-    required this.onOpenDesignSystemGallery,
+    required this.designSystemExpanded,
+    required this.onToggleDesignSystem,
   });
 
   final ThemeMode value;
   final bool enabled;
   final ValueChanged<ThemeMode> onChanged;
-  final VoidCallback onOpenDesignSystemGallery;
+  final bool designSystemExpanded;
+  final VoidCallback onToggleDesignSystem;
 
   @override
   Widget build(BuildContext context) {
@@ -102,10 +104,28 @@ class _DeveloperThemeModeSelector extends StatelessWidget {
                 foregroundColor: context.genesisColors.textPrimary,
                 side: BorderSide(color: context.genesisColors.border),
               ),
-              onPressed: onOpenDesignSystemGallery,
-              child: const Text('Design System Gallery'),
+              onPressed: onToggleDesignSystem,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Design System Gallery'),
+                  const SizedBox(width: 8),
+                  Icon(
+                    designSystemExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                  ),
+                ],
+              ),
             ),
           ),
+          if (designSystemExpanded) ...[
+            const SizedBox(height: 16),
+            const DeveloperDesignSystemGalleryContent(
+              key: ValueKey<String>('developer-design-system-inline'),
+            ),
+          ],
         ],
       ),
     );

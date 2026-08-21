@@ -135,8 +135,10 @@ AppBar 标题固定单行省略。禁止通过页面局部修改标题字号、�
 - Label、必填星号、Hint、错误、帮助文案、Focus 边框和字数统计由组件处理。
 - Create/Edit 中已有的复杂键盘、草稿和焦点链路可以保留 feature wrapper，
   但其表面、颜色和文字层级必须来自公共 token。
-- 页面主操作使用 `GenesisButton`，变体只有 primary、secondary、muted、
+- 页面主操作使用 `GenesisButton`，变体只有 primary、secondary、
   destructive；常规高 42，紧凑高 40。Loading 时组件负责禁用重复点击。
+- 图片卡片或沉浸式表面内的紧凑操作使用 `GenesisCardActionButton`；视觉高
+  34、圆角 11，文字按钮和方形图标按钮共用同一表面规范。
 
 ```dart
 GenesisTextField(
