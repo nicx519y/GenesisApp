@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../ui/components/genesis_page_scaffold.dart';
-import '../../ui/components/genesis_primary_button.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/genesis_ui.dart';
 
 enum LegalDocument {
   terms(title: 'Terms of Service', url: 'https://worldo.ai/terms/'),

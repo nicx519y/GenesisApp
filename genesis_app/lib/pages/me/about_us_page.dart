@@ -6,8 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_page_scaffold.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/genesis_ui.dart';
 import '../legal/legal_document_page.dart';
 
 class AboutUsPage extends StatelessWidget {

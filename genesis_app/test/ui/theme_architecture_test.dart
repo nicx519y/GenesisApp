@@ -154,7 +154,7 @@ void main() {
     _expectDebtAtMost(
       name: 'files importing internal UI submodules',
       actual: directUiImportFiles.length,
-      baseline: 92,
+      baseline: 88,
     );
     _expectDebtAtMost(
       name: 'direct Scaffold usages in pages',

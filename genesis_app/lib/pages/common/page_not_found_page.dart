@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../ui/components/genesis_page_scaffold.dart';
+import '../../ui/genesis_ui.dart';
 
 class PageNotFoundPage extends StatelessWidget {
   const PageNotFoundPage({super.key});
