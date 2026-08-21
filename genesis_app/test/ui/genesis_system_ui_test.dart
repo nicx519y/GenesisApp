@@ -7,7 +7,7 @@ import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 void main() {
   test('global light theme uses the transparent default system UI style', () {
     expect(
-      GenesisTheme.light().appBarTheme.systemOverlayStyle,
+      GenesisTheme.worldoLight().appBarTheme.systemOverlayStyle,
       kGenesisDefaultSystemUiOverlayStyle,
     );
     expect(

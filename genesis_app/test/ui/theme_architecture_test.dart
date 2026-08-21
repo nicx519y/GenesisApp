@@ -84,12 +84,48 @@ void main() {
     );
   });
 
-  test('Worldo skin identity is not inferred from Material brightness', () {
-    final source = File(
-      'lib/pages/messages/messages_page.dart',
-    ).readAsStringSync();
-    expect(source, contains('context.isWorldoRedesign'));
-    expect(source, isNot(contains('brightness == Brightness.dark')));
+  test('production UI does not branch layout by skin identity', () {
+    final violations = <String>[];
+    for (final root in const <String>['lib/components', 'lib/pages']) {
+      for (final file in Directory(
+        root,
+      ).listSync(recursive: true).whereType<File>()) {
+        if (!file.path.endsWith('.dart')) continue;
+        final source = file.readAsStringSync();
+        if (source.contains('isWorldoRedesign')) violations.add(file.path);
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'Worldo light and dark must share one widget structure. Theme '
+          'identity may select tokens, but production UI must not branch its '
+          'layout.\n${violations.join('\n')}',
+    );
+  });
+
+  test('legacy GenesisTheme entrypoints are removed', () {
+    final violations = <String>[];
+    for (final file in Directory(
+      'lib',
+    ).listSync(recursive: true).whereType<File>()) {
+      if (!file.path.endsWith('.dart')) continue;
+      final source = file.readAsStringSync();
+      if (source.contains('GenesisTheme.light()') ||
+          source.contains('GenesisTheme.worldoRedesign()')) {
+        violations.add(file.path);
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'Use GenesisTheme.worldoLight() and GenesisTheme.worldoDark().\n'
+          '${violations.join('\n')}',
+    );
   });
 }
 
@@ -144,11 +180,11 @@ bool _allowsPhysicalColors(String path) {
     // Diagnostic affordances keep fixed warning/status colors.
     'lib/components/internal_build_indicator.dart',
     'lib/components/developer_debug_floating_button.dart',
+    'lib/pages/me/developer_page.dart',
+    'lib/pages/me/developer_network_tab.dart',
+    'lib/pages/me/developer_websocket_tab.dart',
   };
   if (exactPaths.contains(path)) return true;
-
-  // Developer Page is explicitly outside this migration.
-  if (path.startsWith('lib/pages/me/developer_')) return true;
 
   // Map paint, fog, terrain, marker and loading palettes describe rendered
   // world content rather than the surrounding application skin.

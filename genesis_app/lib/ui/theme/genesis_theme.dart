@@ -17,41 +17,45 @@ import 'genesis_skin.dart';
 import 'genesis_ui_theme.dart';
 
 abstract final class GenesisTheme {
-  static ThemeData forSkin(GenesisSkin skin) => switch (skin) {
-    GenesisSkin.worldoRedesign => worldoRedesign(),
+  static ThemeData forSkin(
+    GenesisSkin skin, {
+    Brightness brightness = Brightness.dark,
+  }) => switch ((skin, brightness)) {
+    (GenesisSkin.worldoRedesign, Brightness.light) => worldoLight(),
+    (GenesisSkin.worldoRedesign, Brightness.dark) => worldoDark(),
   };
 
-  static ThemeData light() => _build(
-    colors: GenesisSemanticColors.light(),
+  static ThemeData worldoLight() => _build(
+    colors: GenesisSemanticColors.worldoLight(),
     brightness: Brightness.light,
-    seedColor: GenesisPalette.brandBright,
-    uiTheme: GenesisUiTheme.light(),
-    skinTheme: const GenesisSkinTheme.unskinned(),
+    seedColor: GenesisPalette.redesignAccent,
+    uiTheme: GenesisUiTheme.worldo(),
+    skinTheme: const GenesisSkinTheme(skin: GenesisSkin.worldoRedesign),
     featureThemes: <ThemeExtension<dynamic>>[
-      GenesisGemColors.light(),
-      GenesisChatTheme.light(),
-      GenesisOriginColors.light(),
-      GenesisDiscussColors.light(),
-      GenesisCreateColors.light(),
-      GenesisWorldColors.light(),
-      GenesisMessageColors.light(),
+      GenesisGemColors.worldoLight(),
+      GenesisChatTheme.worldoLight(),
+      GenesisOriginColors.worldoLight(),
+      GenesisDiscussColors.worldoLight(),
+      GenesisCreateColors.worldoLight(),
+      GenesisWorldColors.worldoLight(),
+      GenesisMessageColors.worldoLight(),
     ],
   );
 
-  static ThemeData worldoRedesign() => _build(
-    colors: GenesisSemanticColors.worldoRedesign(),
+  static ThemeData worldoDark() => _build(
+    colors: GenesisSemanticColors.worldoDark(),
     brightness: Brightness.dark,
     seedColor: GenesisPalette.redesignAccent,
-    uiTheme: GenesisUiTheme.worldoRedesign(),
+    uiTheme: GenesisUiTheme.worldo(),
     skinTheme: const GenesisSkinTheme(skin: GenesisSkin.worldoRedesign),
     featureThemes: <ThemeExtension<dynamic>>[
-      GenesisGemColors.worldoRedesign(),
-      GenesisChatTheme.worldoRedesign(),
-      GenesisOriginColors.worldoRedesign(),
-      GenesisDiscussColors.worldoRedesign(),
-      GenesisCreateColors.worldoRedesign(),
-      GenesisWorldColors.worldoRedesign(),
-      GenesisMessageColors.worldoRedesign(),
+      GenesisGemColors.worldoDark(),
+      GenesisChatTheme.worldoDark(),
+      GenesisOriginColors.worldoDark(),
+      GenesisDiscussColors.worldoDark(),
+      GenesisCreateColors.worldoDark(),
+      GenesisWorldColors.worldoDark(),
+      GenesisMessageColors.worldoDark(),
     ],
   );
 
@@ -67,20 +71,18 @@ abstract final class GenesisTheme {
       seedColor: seedColor,
       brightness: brightness,
     );
-    final colorScheme = brightness == Brightness.dark
-        ? generatedColorScheme.copyWith(
-            primary: colors.primary,
-            onPrimary: colors.onPrimary,
-            surface: colors.surface,
-            onSurface: colors.textPrimary,
-            error: colors.danger,
-            onError: colors.onDanger,
-            outline: colors.border,
-            outlineVariant: colors.borderSubtle,
-            shadow: colors.shadow,
-            scrim: colors.scrim,
-          )
-        : generatedColorScheme;
+    final colorScheme = generatedColorScheme.copyWith(
+      primary: colors.primary,
+      onPrimary: colors.onPrimary,
+      surface: colors.surface,
+      onSurface: colors.textPrimary,
+      error: colors.danger,
+      onError: colors.onDanger,
+      outline: colors.border,
+      outlineVariant: colors.borderSubtle,
+      shadow: colors.shadow,
+      scrim: colors.scrim,
+    );
     final systemOverlayStyle = GenesisSystemUi.forThemeBrightness(brightness);
 
     return ThemeData(

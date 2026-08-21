@@ -19,25 +19,41 @@ const BorderRadius mapDetailSheetBorderRadius = BorderRadius.vertical(
   top: Radius.circular(24),
 );
 
-BoxDecoration mapDetailSheetDecoration(BuildContext context) {
+BoxDecoration mapDetailSheetDecoration(
+  BuildContext context, {
+  bool connectsToBottom = false,
+}) {
   final colors = context.genesisColors;
   return BoxDecoration(
     color: colors.pageBackground,
     borderRadius: mapDetailSheetBorderRadius,
-    boxShadow: [
-      BoxShadow(
-        color: colors.scrim.withValues(alpha: 0.6),
-        blurRadius: 44,
-        offset: const Offset(0, -14),
-      ),
-    ],
+    boxShadow: connectsToBottom
+        ? null
+        : [
+            BoxShadow(
+              color: colors.scrim.withValues(alpha: 0.6),
+              blurRadius: 44,
+              offset: const Offset(0, -14),
+            ),
+          ],
   );
 }
 
-BoxDecoration mapDetailSheetOutlineDecoration(BuildContext context) {
+BoxDecoration mapDetailSheetOutlineDecoration(
+  BuildContext context, {
+  bool connectsToBottom = false,
+}) {
+  final borderSide = genesisModalBorderSide(context);
   return BoxDecoration(
     borderRadius: mapDetailSheetBorderRadius,
-    border: genesisModalBorder(context),
+    border: connectsToBottom
+        ? Border(
+            top: borderSide,
+            left: borderSide,
+            right: borderSide,
+            bottom: borderSide,
+          )
+        : genesisModalBorder(context),
   );
 }
 
@@ -46,19 +62,27 @@ class MapDetailSheetSurface extends StatelessWidget {
     super.key,
     required this.child,
     this.surfaceKey,
+    this.connectsToBottom = false,
   });
 
   final Widget child;
   final Key? surfaceKey;
+  final bool connectsToBottom;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       key: surfaceKey,
-      decoration: mapDetailSheetDecoration(context),
+      decoration: mapDetailSheetDecoration(
+        context,
+        connectsToBottom: connectsToBottom,
+      ),
       child: DecoratedBox(
         position: DecorationPosition.foreground,
-        decoration: mapDetailSheetOutlineDecoration(context),
+        decoration: mapDetailSheetOutlineDecoration(
+          context,
+          connectsToBottom: connectsToBottom,
+        ),
         child: ClipRRect(
           borderRadius: mapDetailSheetBorderRadius,
           child: child,

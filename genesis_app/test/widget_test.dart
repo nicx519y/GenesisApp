@@ -6144,7 +6144,7 @@ void main() {
     ).backgroundColor;
     expect(
       tester.widget<ColoredBox>(transitionBackground).color,
-      GenesisSemanticColors.light().surfaceSheet,
+      GenesisSemanticColors.worldoLight().surfaceSheet,
     );
     expect(
       tester.widget<ColoredBox>(transitionMapBackground).color,
@@ -6152,7 +6152,7 @@ void main() {
     );
     expect(
       tester.widget<ColoredBox>(transitionPanelBackground).color,
-      GenesisSemanticColors.light().surfaceSheet,
+      GenesisSemanticColors.worldoLight().surfaceSheet,
     );
     final expectedMapHeight = originWorldMapHeightFor(
       viewportHeight: viewportSize.height,
@@ -11802,7 +11802,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: UserProfileContent(
             appearance: UserProfileAppearance.worldoMe,
@@ -16142,7 +16142,10 @@ void main() {
     expect(saveIconWidget.height, 14);
     expect(
       saveIconWidget.colorFilter,
-      ColorFilter.mode(GenesisCreateColors.light().accent, BlendMode.srcIn),
+      ColorFilter.mode(
+        GenesisCreateColors.worldoLight().accent,
+        BlendMode.srcIn,
+      ),
     );
     final saveButtonDecoration =
         tester
@@ -17222,7 +17225,10 @@ void main() {
       isFalse,
     );
     final addEventText = tester.widget<Text>(find.text('Add Event'));
-    expect(addEventText.style?.color, GenesisCreateColors.light().successText);
+    expect(
+      addEventText.style?.color,
+      GenesisCreateColors.worldoLight().successText,
+    );
     expect(addEventText.style?.fontSize, 13);
     expect(addEventText.style?.fontWeight, FontWeight.w700);
     expect(
@@ -18659,6 +18665,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey<String>('developer-endpoint-panel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('developer-version-panel')),
+      findsOneWidget,
+    );
+
     final infoScrollable = find
         .descendant(
           of: find.byKey(
@@ -18728,9 +18743,14 @@ void main() {
 
     await tester.tap(find.text('test'));
     await tester.pumpAndSettle();
+    final testList = find.byKey(
+      const PageStorageKey<String>('developer-test-tab-scroll'),
+    );
     final visibilitySwitch = find.byKey(
       const ValueKey<String>('developer-tilemap-settings-button-switch'),
     );
+    await tester.drag(testList, const Offset(0, -300));
+    await tester.pumpAndSettle();
     expect(visibilitySwitch, findsOneWidget);
     expect(tester.widget<Switch>(visibilitySwitch).value, isFalse);
     expect(tilemapSettingsButtonVisibility.value, isFalse);
@@ -18772,16 +18792,37 @@ void main() {
     await tester.tap(find.text('test'));
     await tester.pumpAndSettle();
     expect(
+      find.byKey(const ValueKey<String>('developer-theme-mode-panel')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('developer-theme-mode-panel')),
+        matching: find.byKey(
+          const ValueKey<String>('developer-design-system-gallery-button'),
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(const ValueKey<String>('developer-telemetry-upload-panel')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey<String>('developer-tilemap-panel')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('developer-location-chat-panel')),
-      findsOneWidget,
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey<String>('developer-theme-mode-panel')),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(
+                const ValueKey<String>('developer-telemetry-upload-panel'),
+              ),
+            )
+            .dy,
+      ),
     );
     expect(find.text('Telemetry Debug Upload'), findsOneWidget);
     expect(
@@ -18802,7 +18843,16 @@ void main() {
     for (final entry in switches.entries) {
       final uploadSwitch = find.byKey(entry.key);
       expect(uploadSwitch, findsOneWidget);
-      expect(tester.widget<Switch>(uploadSwitch).value, isFalse);
+      final switchWidget = tester.widget<Switch>(uploadSwitch);
+      expect(switchWidget.value, isFalse);
+      expect(
+        switchWidget.inactiveThumbColor,
+        GenesisSemanticColors.worldoLight().switchInactiveThumb,
+      );
+      expect(
+        switchWidget.inactiveTrackColor,
+        GenesisSemanticColors.worldoLight().controlMuted,
+      );
 
       await tester.tap(uploadSwitch);
       await tester.pumpAndSettle();
@@ -18815,6 +18865,29 @@ void main() {
     expect(find.text('Debug channels enabled · test'), findsOneWidget);
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getBool(switches.values.first), isTrue);
+
+    final testScrollable = find.descendant(
+      of: find.byKey(const PageStorageKey<String>('developer-test-tab-scroll')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey<String>('developer-tilemap-panel')),
+      180,
+      scrollable: testScrollable,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('developer-tilemap-panel')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey<String>('developer-location-chat-panel')),
+      180,
+      scrollable: testScrollable,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('developer-location-chat-panel')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('developer page controls LocationChat header effects', (
@@ -18841,6 +18914,11 @@ void main() {
     final blurFinder = find.byKey(
       const ValueKey<String>('developer-location-chat-header-blur-slider'),
     );
+    final testList = find.byKey(
+      const PageStorageKey<String>('developer-test-tab-scroll'),
+    );
+    await tester.drag(testList, const Offset(0, -600));
+    await tester.pumpAndSettle();
     expect(transparencyFinder, findsOneWidget);
     expect(blurFinder, findsOneWidget);
     expect(tester.widget<Slider>(transparencyFinder).value, 0);
@@ -19136,7 +19214,7 @@ void main() {
 
     expect(find.text('Capture network'), findsOneWidget);
     expect(
-      find.text('Turn on Capture network to record new business requests.'),
+      find.text('Turn on Capture network to record new network requests.'),
       findsOneWidget,
     );
   });
@@ -19277,7 +19355,10 @@ void main() {
     expect(queryText.maxLines, isNull);
     expect(queryText.overflow, isNull);
     expect(queryText.style?.fontSize, 11);
-    expect(queryText.style?.color, const Color(0xFF777777));
+    expect(
+      queryText.style?.color,
+      GenesisSemanticColors.worldoLight().textSubtle,
+    );
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('developer-network-search')),
@@ -21474,7 +21555,7 @@ void main() {
       AppServicesScope(
         services: await _testServices(transport: transport, useMock: false),
         child: MaterialApp(
-          theme: GenesisTheme.worldoRedesign(),
+          theme: GenesisTheme.worldoDark(),
           home: const WorldPage(wid: 'w_test_1'),
         ),
       ),

@@ -24,6 +24,7 @@ import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/system/genesis_system_ui.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
 const _wrappingTaskDescription =
     'Create an Origin and launch a world, then continue exploring locations '
@@ -45,7 +46,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: GemWalletPage(
           walletStore: walletStore,
           productsLoader: (_) async => _products(),
@@ -91,7 +92,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: GemWalletPage(
           walletStore: walletStore,
           billingService: billingService,
@@ -367,7 +368,7 @@ void main() {
         navigatorObservers: [genesisPageRouteObserver],
         routes: {
           RouteNames.gemRecords: (_) => Theme(
-            data: GenesisTheme.worldoRedesign(),
+            data: GenesisTheme.worldoDark(),
             child: GemRecordsPage(
               recordsLoader:
                   ({required scene, required pn, required rn}) async {
@@ -435,13 +436,13 @@ void main() {
     expect(tabs.labelStyle?.fontSize, 13);
     expect(tabs.labelStyle?.height, 1);
     expect(tabs.labelStyle?.fontWeight, FontWeight.w700);
-    expect(tabs.labelColor, GenesisSemanticColors.worldoRedesign().textPrimary);
+    expect(tabs.labelColor, GenesisSemanticColors.worldoDark().textPrimary);
     expect(tabs.unselectedLabelStyle?.fontSize, 13);
     expect(tabs.unselectedLabelStyle?.height, 1);
     expect(tabs.unselectedLabelStyle?.fontWeight, FontWeight.w500);
     expect(
       tabs.unselectedLabelColor,
-      GenesisSemanticColors.worldoRedesign().textPlaceholder,
+      GenesisSemanticColors.worldoDark().textPlaceholder,
     );
 
     final recordTitleStyle = tester
@@ -971,7 +972,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: GemWalletPage(
           walletStore: walletStore,
           billingService: billing,
@@ -1573,7 +1574,7 @@ void main() {
     );
     final claimButtonDecoration =
         tester.widget<Container>(claimButton).decoration! as BoxDecoration;
-    expect(claimButtonDecoration.color, const Color(0xFFFF2442));
+    expect(claimButtonDecoration.color, GenesisPalette.redesignAccent);
     expect(claimButtonDecoration.border, isNull);
     expect(tester.widget<Text>(find.text('Claim')).style?.color, Colors.white);
 
@@ -1635,7 +1636,7 @@ void main() {
     expect(claimedButtonDecoration.border, isNull);
     expect(
       tester.widget<Text>(find.text('Claimed')).style?.color,
-      const Color(0xDD000000),
+      GenesisPalette.redesignInk88,
     );
 
     await tester.tap(

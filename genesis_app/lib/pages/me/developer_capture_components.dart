@@ -35,17 +35,20 @@ class _DeveloperCaptureHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.black,
+              color: context.genesisColors.textPrimary,
             ),
           ),
         ),
         Text(
           count,
           key: countKey,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF777777)),
+          style: TextStyle(
+            fontSize: 12,
+            color: context.genesisColors.textSubtle,
+          ),
         ),
         const SizedBox(width: 10),
         GestureDetector(
@@ -60,8 +63,8 @@ class _DeveloperCaptureHeader extends StatelessWidget {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: onClear == null
-                    ? const Color(0xFFBBBBBB)
-                    : const Color(0xFFFF2442),
+                    ? context.genesisColors.textDisabled
+                    : context.genesisColors.primary,
               ),
             ),
           ),
@@ -72,8 +75,8 @@ class _DeveloperCaptureHeader extends StatelessWidget {
           height: 32,
           child: FittedBox(
             fit: BoxFit.contain,
-            child: Switch(
-              key: switchKey,
+            child: _DeveloperSwitch(
+              switchKey: switchKey,
               value: enabled,
               onChanged: enabledControl ? onEnabledChanged : null,
             ),
@@ -103,10 +106,14 @@ class _DeveloperCaptureFilterChip extends StatelessWidget {
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFFFEDF0) : const Color(0xFFF2F2F4),
+          color: selected
+              ? context.genesisColors.dangerSurface
+              : context.genesisColors.controlBackground,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? const Color(0xFFFF2442) : Colors.transparent,
+            color: selected
+                ? context.genesisColors.primary
+                : Colors.transparent,
           ),
         ),
         child: Padding(
@@ -116,7 +123,9 @@ class _DeveloperCaptureFilterChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: selected ? const Color(0xFFFF2442) : Colors.black,
+              color: selected
+                  ? context.genesisColors.primary
+                  : context.genesisColors.textPrimary,
             ),
           ),
         ),
@@ -196,26 +205,26 @@ class _DeveloperCaptureDetailSection extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 5),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.genesisColors.surfaceRaised,
               borderRadius: BorderRadius.circular(6),
             ),
             child: selectable
-                ? SelectionArea(child: _contentText())
-                : _contentText(),
+                ? SelectionArea(child: _contentText(context))
+                : _contentText(context),
           ),
       ],
     );
   }
 
-  Text _contentText() {
+  Text _contentText(BuildContext context) {
     return Text(
       content,
       key: contentKey,
-      style: const TextStyle(
+      style: TextStyle(
         fontFamily: 'monospace',
         fontSize: 11,
         height: 1.35,
-        color: Color(0xFF333333),
+        color: context.genesisColors.textBody,
       ),
     );
   }

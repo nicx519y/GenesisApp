@@ -33,12 +33,16 @@ void main() {
       reportIcon.colorFilter,
       const ColorFilter.mode(Colors.white, BlendMode.srcIn),
     );
+    final menuBackground = Color.alphaBlend(
+      GenesisPalette.redesignInk60,
+      GenesisPalette.redesignPaper,
+    );
     final darkBody = tester
         .widgetList<DecoratedBox>(find.byType(DecoratedBox))
         .any((box) {
           final decoration = box.decoration;
           return decoration is BoxDecoration &&
-              decoration.color == const Color(0xFF666666);
+              decoration.color == menuBackground;
         });
     expect(darkBody, isTrue);
     final borderedBody = tester
@@ -47,14 +51,13 @@ void main() {
         .whereType<BoxDecoration>()
         .singleWhere(
           (decoration) =>
-              decoration.color == const Color(0xFF666666) &&
-              decoration.border != null,
+              decoration.color == menuBackground && decoration.border != null,
         );
     final border = borderedBody.border! as Border;
     expect(border.top.width, genesisModalBorderWidth);
     expect(
       border.top.color,
-      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+      GenesisPalette.redesignInk.withValues(alpha: genesisModalBorderOpacity),
     );
     final buttonRect = tester.getRect(
       find.byKey(const ValueKey<String>('report-menu-button')),
@@ -70,7 +73,7 @@ void main() {
 
   testWidgets('Worldo report menu uses an opaque background', (tester) async {
     await tester.pumpWidget(
-      _testApp(const _ReportMenuHost(), theme: GenesisTheme.worldoRedesign()),
+      _testApp(const _ReportMenuHost(), theme: GenesisTheme.worldoDark()),
     );
 
     await tester.tap(find.byKey(const ValueKey<String>('report-menu-button')));
@@ -194,7 +197,7 @@ void main() {
         .any((box) {
           final decoration = box.decoration;
           return decoration is BoxDecoration &&
-              decoration.color == const Color(0xFF666666);
+              decoration.color == GenesisPalette.redesignInk60;
         });
     expect(darkBody, isTrue);
   });
@@ -209,7 +212,7 @@ void main() {
       _testApp(
         const _MessageActionMenuHost(),
         textScaler: const TextScaler.linear(1.8),
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
       ),
     );
 

@@ -282,12 +282,14 @@ class _BadgedIcon extends StatelessWidget {
                     width: size,
                     height: size,
                     fit: BoxFit.contain,
+                    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
                   )
                 : Image.asset(
                     assetName!,
                     width: size,
                     height: size,
                     fit: BoxFit.contain,
+                    color: color,
                   )
           else if (icon != null)
             Icon(icon, color: color, size: size)

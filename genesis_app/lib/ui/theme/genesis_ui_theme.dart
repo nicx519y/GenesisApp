@@ -24,7 +24,8 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
     required this.panelBorderRadius,
   });
 
-  factory GenesisUiTheme.light() {
+  /// Worldo component geometry shared by every brightness mode.
+  factory GenesisUiTheme.worldo() {
     return const GenesisUiTheme(
       centeredAppBarHeight: 50,
       leadingTitleAppBarHeight: 64,
@@ -40,8 +41,6 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
     );
   }
 
-  factory GenesisUiTheme.worldoRedesign() => GenesisUiTheme.light();
-
   final double centeredAppBarHeight;
   final double leadingTitleAppBarHeight;
   final double compactAppBarHeight;
@@ -56,7 +55,7 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
 
   static GenesisUiTheme of(BuildContext context) {
     return Theme.of(context).extension<GenesisUiTheme>() ??
-        GenesisUiTheme.light();
+        GenesisUiTheme.worldo();
   }
 
   @override

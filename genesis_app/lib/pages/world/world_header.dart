@@ -57,7 +57,7 @@ class WorldMapIdentityPill extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: context.genesisColors.foregroundStrong,
+                  color: context.genesisColors.immersiveForeground,
                   fontSize: 17,
                   height: 1.1,
                   fontWeight: FontWeight.w800,
@@ -79,7 +79,7 @@ class WorldMapIdentityPill extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: context.genesisColors.foregroundStrong.withValues(
+                  color: context.genesisColors.immersiveForeground.withValues(
                     alpha: 0.78,
                   ),
                   fontSize: 9.5,

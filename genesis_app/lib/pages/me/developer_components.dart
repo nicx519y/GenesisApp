@@ -10,11 +10,102 @@ class _DeveloperTestSectionPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        border: Border.all(color: const Color(0xFFE1E1E3)),
+        color: context.genesisColors.surfaceRaised,
+        border: Border.all(color: context.genesisColors.borderNeutral),
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
+    );
+  }
+}
+
+class _DeveloperKeepAliveTab extends StatefulWidget {
+  const _DeveloperKeepAliveTab({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_DeveloperKeepAliveTab> createState() => _DeveloperKeepAliveTabState();
+}
+
+class _DeveloperKeepAliveTabState extends State<_DeveloperKeepAliveTab>
+    with AutomaticKeepAliveClientMixin<_DeveloperKeepAliveTab> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
+class _DeveloperThemeModeSelector extends StatelessWidget {
+  const _DeveloperThemeModeSelector({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+    required this.onOpenDesignSystemGallery,
+  });
+
+  final ThemeMode value;
+  final bool enabled;
+  final ValueChanged<ThemeMode> onChanged;
+  final VoidCallback onOpenDesignSystemGallery;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DeveloperTestSectionPanel(
+      key: const ValueKey<String>('developer-theme-mode-panel'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _DeveloperSectionTitle('Appearance'),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: SegmentedButton<ThemeMode>(
+              key: const ValueKey<String>('developer-theme-mode-selector'),
+              segments: const <ButtonSegment<ThemeMode>>[
+                ButtonSegment<ThemeMode>(
+                  value: ThemeMode.system,
+                  label: Tooltip(
+                    message: 'Follow system',
+                    child: Text('System'),
+                  ),
+                ),
+                ButtonSegment<ThemeMode>(
+                  value: ThemeMode.light,
+                  label: Tooltip(message: 'Light theme', child: Text('Light')),
+                ),
+                ButtonSegment<ThemeMode>(
+                  value: ThemeMode.dark,
+                  label: Tooltip(message: 'Dark theme', child: Text('Dark')),
+                ),
+              ],
+              selected: <ThemeMode>{value},
+              showSelectedIcon: false,
+              onSelectionChanged: enabled
+                  ? (selection) => onChanged(selection.single)
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: context.genesisColors.divider),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              key: const ValueKey<String>(
+                'developer-design-system-gallery-button',
+              ),
+              onPressed: onOpenDesignSystemGallery,
+              child: const Text('Design System Gallery'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -37,20 +128,20 @@ class _DeveloperTelemetryUploadPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Telemetry Debug Upload',
             style: TextStyle(
               fontSize: 15,
-              color: Colors.black,
+              color: context.genesisColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Enable individual telemetry channels for debugging.',
             style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF777777),
+              color: context.genesisColors.textSecondary,
               height: 1.35,
             ),
           ),
@@ -58,14 +149,14 @@ class _DeveloperTelemetryUploadPanel extends StatelessWidget {
           Text(
             _telemetryStatusLabel(state),
             key: const ValueKey<String>('developer-telemetry-status'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF777777),
+              color: context.genesisColors.textSecondary,
               height: 1.35,
             ),
           ),
           const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFE5E5E5)),
+          Divider(height: 1, color: context.genesisColors.divider),
           _DeveloperTelemetryChannelSwitch(
             label: 'Collect',
             value: state.debugOverrides.collect,
@@ -139,9 +230,9 @@ class _DeveloperTelemetryChannelSwitch extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: Colors.black,
+                    color: context.genesisColors.textPrimary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -151,8 +242,8 @@ class _DeveloperTelemetryChannelSwitch extends StatelessWidget {
                 height: 32,
                 child: FittedBox(
                   fit: BoxFit.contain,
-                  child: Switch(
-                    key: switchKey,
+                  child: _DeveloperSwitch(
+                    switchKey: switchKey,
                     value: value,
                     onChanged: enabled ? onChanged : null,
                   ),
@@ -161,7 +252,8 @@ class _DeveloperTelemetryChannelSwitch extends StatelessWidget {
             ],
           ),
         ),
-        if (showDivider) const Divider(height: 1, color: Color(0xFFEDEDED)),
+        if (showDivider)
+          Divider(height: 1, color: context.genesisColors.dividerSubtle),
       ],
     );
   }
@@ -193,9 +285,9 @@ class _DeveloperToggleRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: context.genesisColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -206,14 +298,38 @@ class _DeveloperToggleRow extends StatelessWidget {
           height: 32,
           child: FittedBox(
             fit: BoxFit.contain,
-            child: Switch(
-              key: switchKey,
+            child: _DeveloperSwitch(
+              switchKey: switchKey,
               value: value,
               onChanged: enabled ? onChanged : null,
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DeveloperSwitch extends StatelessWidget {
+  const _DeveloperSwitch({
+    required this.switchKey,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final Key switchKey;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.genesisColors;
+    return Switch(
+      key: switchKey,
+      value: value,
+      onChanged: onChanged,
+      inactiveThumbColor: colors.switchInactiveThumb,
+      inactiveTrackColor: colors.controlMuted,
     );
   }
 }
@@ -251,9 +367,9 @@ class _DeveloperSliderControl extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: Colors.black,
+                  color: context.genesisColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -261,7 +377,10 @@ class _DeveloperSliderControl extends StatelessWidget {
             const SizedBox(width: 12),
             Text(
               valueLabel,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF666666)),
+              style: TextStyle(
+                fontSize: 13,
+                color: context.genesisColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -464,9 +583,9 @@ class _DeveloperSectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 15,
-        color: Colors.black,
+        color: context.genesisColors.textPrimary,
         fontWeight: FontWeight.w600,
         height: 1.2,
       ),
@@ -498,7 +617,7 @@ class _DeveloperVersionField extends StatelessWidget {
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
           : null,
       textInputAction: TextInputAction.done,
-      style: const TextStyle(fontSize: 14, color: Colors.black),
+      style: TextStyle(fontSize: 14, color: context.genesisColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
@@ -546,7 +665,9 @@ class _DeveloperEndpointHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
-                  color: enabled ? Colors.black : const Color(0xFFA8A8AD),
+                  color: enabled
+                      ? context.genesisColors.textPrimary
+                      : context.genesisColors.textDisabled,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
                   letterSpacing: 0,
@@ -606,9 +727,9 @@ class _DeveloperInfoSingleLineRow extends StatelessWidget {
             '$title:',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: context.genesisColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -625,9 +746,9 @@ class _DeveloperInfoSingleLineRow extends StatelessWidget {
                 content,
                 maxLines: 1,
                 softWrap: false,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF666666),
+                  color: context.genesisColors.textSecondary,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -663,9 +784,9 @@ class _DeveloperInfoRow extends StatelessWidget {
           child: Text(
             '$title:',
             textAlign: TextAlign.left,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: context.genesisColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -677,9 +798,9 @@ class _DeveloperInfoRow extends StatelessWidget {
             onTap: () => _copyContent(context),
             child: Text(
               content,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF666666),
+                color: context.genesisColors.textSecondary,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -712,18 +833,18 @@ class _DeveloperInfoBlock extends StatelessWidget {
         children: [
           Text(
             '$title:',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: context.genesisColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             content,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: Color(0xFF666666),
+              color: context.genesisColors.textSecondary,
               fontWeight: FontWeight.w400,
             ),
           ),

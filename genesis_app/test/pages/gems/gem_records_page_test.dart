@@ -35,7 +35,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: GemRecordsPage(
           recordsLoader: ({required scene, required pn, required rn}) async =>
               GemRecordList(
@@ -160,7 +160,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: GemRecordsPage(
           recordsLoader: ({required scene, required pn, required rn}) async =>
               const GemRecordList(

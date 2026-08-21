@@ -24,15 +24,15 @@ class GenesisDiscussColors extends ThemeExtension<GenesisDiscussColors> {
     required this.imageRemoveSurface,
   });
 
-  factory GenesisDiscussColors.light() => const GenesisDiscussColors(
-    authorAccent: Color(0xFF2F4F7A),
-    actionAccent: Color(0xFF4B6192),
-    actionInactive: Color(0xFF7D8178),
-    composerCursor: Color(0xFF6C657A),
+  factory GenesisDiscussColors.worldoLight() => const GenesisDiscussColors(
+    authorAccent: GenesisPalette.redesignAccentDark,
+    actionAccent: GenesisPalette.redesignAccentDark,
+    actionInactive: GenesisPalette.redesignInk42,
+    composerCursor: GenesisPalette.redesignAccent,
     composerHint: Color(0xFFB8B8B8),
-    composerSubmit: Color(0xFF00834C),
-    composerAction: Color(0xFF4B5F8E),
-    composerActionDisabled: Color(0xFF9BA4B8),
+    composerSubmit: GenesisPalette.redesignAccent,
+    composerAction: GenesisPalette.redesignInk60,
+    composerActionDisabled: GenesisPalette.textDisabled,
     replyRail: Color(0xFFD7DBE3),
     replySurface: Color(0xFFF6F7F9),
     replyText: Color(0xFF60636A),
@@ -43,7 +43,7 @@ class GenesisDiscussColors extends ThemeExtension<GenesisDiscussColors> {
     imageRemoveSurface: Color(0xFF4F4F4F),
   );
 
-  factory GenesisDiscussColors.worldoRedesign() => const GenesisDiscussColors(
+  factory GenesisDiscussColors.worldoDark() => const GenesisDiscussColors(
     authorAccent: GenesisPalette.redesignAccentSoft,
     actionAccent: GenesisPalette.redesignAccentSoft,
     actionInactive: GenesisPalette.redesignWhite45,
@@ -81,7 +81,7 @@ class GenesisDiscussColors extends ThemeExtension<GenesisDiscussColors> {
 
   static GenesisDiscussColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisDiscussColors>() ??
-      GenesisDiscussColors.light();
+      GenesisDiscussColors.worldoLight();
 
   @override
   GenesisDiscussColors copyWith({

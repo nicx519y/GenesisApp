@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/bottom_tabs.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
@@ -11,7 +12,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           bottomNavigationBar: BottomTabs(currentIndex: 3, onTap: (_) {}),
         ),
@@ -60,6 +61,46 @@ void main() {
     expect(border.top.color.r, 1);
     expect(border.top.color.g, 1);
     expect(border.top.color.b, 1);
+  });
+
+  testWidgets('uses theme-aware selected and unselected icon colors', (
+    tester,
+  ) async {
+    Future<void> pumpWithTheme(ThemeData theme) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            bottomNavigationBar: BottomTabs(currentIndex: 0, onTap: (_) {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpWithTheme(GenesisTheme.worldoLight());
+    var icons = tester.widgetList<SvgPicture>(find.byType(SvgPicture)).toList();
+    var colors = GenesisSemanticColors.worldoLight();
+    expect(
+      icons[0].colorFilter,
+      ColorFilter.mode(colors.navigationSelected, BlendMode.srcIn),
+    );
+    expect(
+      icons[1].colorFilter,
+      ColorFilter.mode(colors.navigationUnselected, BlendMode.srcIn),
+    );
+
+    await pumpWithTheme(GenesisTheme.worldoDark());
+    icons = tester.widgetList<SvgPicture>(find.byType(SvgPicture)).toList();
+    colors = GenesisSemanticColors.worldoDark();
+    expect(
+      icons[0].colorFilter,
+      ColorFilter.mode(colors.navigationSelected, BlendMode.srcIn),
+    );
+    expect(
+      icons[1].colorFilter,
+      ColorFilter.mode(colors.navigationUnselected, BlendMode.srcIn),
+    );
   });
 }
 

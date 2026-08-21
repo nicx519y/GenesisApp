@@ -11,12 +11,9 @@ import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_unread_badge.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/theme/genesis_skin.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import 'message_category_list_page.dart';
@@ -168,26 +165,18 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     final unreadSummary = widget.unreadSummary;
-    final worldoRedesign = context.isWorldoRedesign;
     return Scaffold(
       backgroundColor: context.genesisColors.pageBackground,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (worldoRedesign)
-            const _WorldoMessagesHeader()
-          else
-            const GenesisPageHeader(title: 'Messages', showSearchField: false),
-          if (!worldoRedesign) const SizedBox(height: 10),
+          const _WorldoMessagesHeader(),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: worldoRedesign ? 22 : 24),
+            padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _MessageMenuButton(
-                  iconAsset: 'assets/custom-icons/png/notification.png',
-                  backgroundColor:
-                      context.genesisMessageColors.notificationsSurface,
                   label: 'Notifications',
                   routeName: RouteNames.notifications,
                   block: 'world_apply',
@@ -195,11 +184,8 @@ class _MessagesPageState extends State<MessagesPage> {
                   unreadCount: unreadSummary.systemUnread,
                   onMessagesDataRefresh: widget.onMessagesDataRefresh,
                 ),
-                if (worldoRedesign) const SizedBox(width: 8),
+                const SizedBox(width: 8),
                 _MessageMenuButton(
-                  iconAsset: 'assets/custom-icons/png/following.png',
-                  backgroundColor:
-                      context.genesisMessageColors.followersSurface,
                   label: 'New followers',
                   displayLabel: 'Followers',
                   routeName: RouteNames.newFollowers,
@@ -208,10 +194,8 @@ class _MessagesPageState extends State<MessagesPage> {
                   unreadCount: unreadSummary.followerUnread,
                   onMessagesDataRefresh: widget.onMessagesDataRefresh,
                 ),
-                if (worldoRedesign) const SizedBox(width: 8),
+                const SizedBox(width: 8),
                 _MessageMenuButton(
-                  iconAsset: 'assets/custom-icons/png/comment.png',
-                  backgroundColor: context.genesisMessageColors.commentsSurface,
                   label: 'Comments',
                   routeName: RouteNames.comments,
                   block: 'interaction',
@@ -222,23 +206,21 @@ class _MessagesPageState extends State<MessagesPage> {
               ],
             ),
           ),
-          SizedBox(height: worldoRedesign ? 26 : 10),
+          const SizedBox(height: 26),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: worldoRedesign ? 22 : 18),
+            padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Text(
               'Private chats',
-              style: worldoRedesign
-                  ? TextStyle(
-                      fontSize: 10,
-                      height: 1,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.1,
-                      color: context.genesisColors.textTertiary,
-                    )
-                  : const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 10,
+                height: 1,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.1,
+                color: context.genesisColors.textTertiary,
+              ),
             ),
           ),
-          SizedBox(height: worldoRedesign ? 4 : 8),
+          const SizedBox(height: 4),
           Expanded(
             child: ValueListenableBuilder<List<String>>(
               valueListenable: _conversationStore.orderedConversationIds,
@@ -294,8 +276,6 @@ class _WorldoMessagesHeader extends StatelessWidget {
 
 class _MessageMenuButton extends StatelessWidget {
   const _MessageMenuButton({
-    required this.iconAsset,
-    required this.backgroundColor,
     required this.label,
     this.displayLabel,
     required this.routeName,
@@ -305,8 +285,6 @@ class _MessageMenuButton extends StatelessWidget {
     required this.onMessagesDataRefresh,
   });
 
-  final String iconAsset;
-  final Color backgroundColor;
   final String label;
   final String? displayLabel;
   final String routeName;
@@ -317,131 +295,63 @@ class _MessageMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final worldoRedesign = context.isWorldoRedesign;
     final visibleLabel = displayLabel ?? label;
-    if (worldoRedesign) {
-      final colors = context.genesisColors;
-      final statusText = unreadCount > 0 ? '$unreadCount new' : 'All read';
-      return Expanded(
-        child: SizedBox(
-          height: 56,
-          child: Material(
-            key: ValueKey<String>('message-menu-$routeName-surface'),
-            color: colors.inputBackground,
+    final colors = context.genesisColors;
+    final statusText = unreadCount > 0 ? '$unreadCount new' : 'All read';
+    return Expanded(
+      child: SizedBox(
+        height: 56,
+        child: Material(
+          key: ValueKey<String>('message-menu-$routeName-surface'),
+          color: colors.inputBackground,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: ValueKey<String>('message-menu-$routeName'),
             borderRadius: BorderRadius.circular(14),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              key: ValueKey<String>('message-menu-$routeName'),
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => _openCategory(context),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(13, 13, 13, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        visibleLabel,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 1,
-                          fontWeight: FontWeight.w700,
-                          color: colors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        statusText,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          height: 1,
-                          fontWeight: FontWeight.w500,
-                          color: unreadCount > 0
-                              ? colors.danger
-                              : colors.textTertiary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: 96,
-      height: 80,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _openCategory(context),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 46,
-              height: 46,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
+            onTap: () => _openCategory(context),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(13, 13, 13, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: backgroundColor,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    alignment: Alignment.center,
-                    child: Image.asset(
-                      iconAsset,
-                      width: 24,
-                      height: 24,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      visibleLabel,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1,
+                        fontWeight: FontWeight.w700,
+                        color: colors.textPrimary,
+                      ),
                     ),
                   ),
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Transform.translate(
-                      offset: const Offset(4, -4),
-                      child: GenesisUnreadBadge(
-                        key: ValueKey('message-menu-$routeName-unread-badge'),
-                        count: unreadCount,
+                  const SizedBox(height: 7),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      statusText,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        height: 1,
+                        fontWeight: FontWeight.w500,
+                        color: unreadCount > 0
+                            ? colors.danger
+                            : colors.textTertiary,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              visibleLabel,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-                color: context.genesisColors.textHighEmphasis,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -479,28 +389,18 @@ class _ConversationList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final worldoRedesign = context.isWorldoRedesign;
     return ListView.separated(
       controller: controller,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
-      padding: EdgeInsets.only(
-        left: worldoRedesign ? 22 : 18,
-        right: worldoRedesign ? 22 : 18,
-        top: 0,
-        bottom: worldoRedesign
-            ? 18
-            : 18 + GenesisSafeAreaInsets.bottom(context),
-      ),
+      padding: const EdgeInsets.only(left: 22, right: 22, bottom: 18),
       itemCount: conversationIds.length,
-      separatorBuilder: (_, _) => worldoRedesign
-          ? Divider(
-              height: 1,
-              thickness: 1,
-              color: context.genesisColors.dividerSubtle,
-            )
-          : const SizedBox(height: 0),
+      separatorBuilder: (_, _) => Divider(
+        height: 1,
+        thickness: 1,
+        color: context.genesisColors.dividerSubtle,
+      ),
       itemBuilder: (context, index) {
         final conversationId = conversationIds[index];
         final listenable = conversationStore.rowListenable(conversationId);
@@ -530,8 +430,8 @@ class _ConversationTile extends StatelessWidget {
     required this.displayTimeNow,
   });
 
-  static const double _avatarSize = 48;
-  static const double _avatarBorderRadius = GenesisAvatarRadii.user;
+  static const double _avatarSize = 44;
+  static const double _avatarBorderRadius = 14;
 
   final DirectMessageConversationRecord item;
   final Future<void> Function(DirectMessageConversationRecord item) onTap;
@@ -541,38 +441,31 @@ class _ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final worldoRedesign = context.isWorldoRedesign;
-    final avatarSize = worldoRedesign ? 44.0 : _avatarSize;
-    final avatarBorderRadius = worldoRedesign ? 14.0 : _avatarBorderRadius;
     final displayPeerName = formatUidForDisplay(
       item.peerName,
       fallback: 'Unknown user',
     );
     return Material(
-      color: worldoRedesign
-          ? context.genesisColors.pageBackground
-          : context.genesisColors.surface,
+      color: context.genesisColors.pageBackground,
       child: InkWell(
         onTap: () => unawaited(onTap(item)),
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: worldoRedesign ? 13 : 8),
+          padding: const EdgeInsets.symmetric(vertical: 13),
           child: Row(
-            crossAxisAlignment: worldoRedesign
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _Avatar(
                 avatarUrl: item.avatarUrl,
                 title: displayPeerName,
-                size: avatarSize,
-                borderRadius: avatarBorderRadius,
+                size: _avatarSize,
+                borderRadius: _avatarBorderRadius,
                 avatarKey: ValueKey('dm-avatar-${item.conversationId}'),
                 unreadCount: item.unreadCount,
                 unreadBadgeKey: ValueKey(
                   'dm-avatar-${item.conversationId}-unread-badge',
                 ),
               ),
-              SizedBox(width: worldoRedesign ? 12 : 13),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,12 +478,10 @@ class _ConversationTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: worldoRedesign ? 13 : 14,
-                              height: worldoRedesign ? 1.15 : null,
+                              fontSize: 13,
+                              height: 1.15,
                               fontWeight: FontWeight.w600,
-                              color: worldoRedesign
-                                  ? context.genesisColors.textPrimary
-                                  : context.genesisColors.textHighEmphasis,
+                              color: context.genesisColors.textPrimary,
                             ),
                           ),
                         ),
@@ -605,12 +496,10 @@ class _ConversationTile extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.right,
                             style: TextStyle(
-                              fontSize: worldoRedesign ? 9.5 : 11,
-                              height: worldoRedesign ? 1 : null,
+                              fontSize: 9.5,
+                              height: 1,
                               color: context.genesisColors.textFaint,
-                              fontWeight: worldoRedesign
-                                  ? FontWeight.w500
-                                  : FontWeight.w400,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -618,18 +507,17 @@ class _ConversationTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Padding(
-                      padding: EdgeInsets.only(right: worldoRedesign ? 0 : 60),
+                      padding: EdgeInsets.zero,
                       child: Text(
                         item.lastMessage,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
-                          height: worldoRedesign ? 1.45 : null,
+                          height: 1.45,
                           fontWeight: FontWeight.w400,
-                          color: worldoRedesign
-                              ? context.genesisMessageColors.conversationPreview
-                              : context.genesisColors.textMuted,
+                          color:
+                              context.genesisMessageColors.conversationPreview,
                         ),
                       ),
                     ),

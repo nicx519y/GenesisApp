@@ -78,6 +78,10 @@ class GenesisButton extends StatelessWidget {
     final effectiveForeground = foregroundColor ?? _defaultForeground(colors);
     final effectiveDisabledForeground =
         disabledForegroundColor ?? _defaultDisabledForeground(colors);
+    final effectiveBackground = backgroundColor ?? _defaultBackground(colors);
+    final effectiveDisabledBackground =
+        disabledBackgroundColor ??
+        (isLoading ? effectiveBackground : _defaultDisabledBackground(colors));
     final uiTheme = GenesisUiTheme.of(context);
     final effectiveHeight =
         height ??
@@ -128,8 +132,7 @@ class GenesisButton extends StatelessWidget {
             onPressed: effectiveOnPressed,
             style: OutlinedButton.styleFrom(
               backgroundColor: backgroundColor ?? Colors.transparent,
-              disabledBackgroundColor:
-                  disabledBackgroundColor ?? Colors.transparent,
+              disabledBackgroundColor: effectiveDisabledBackground,
               foregroundColor: effectiveForeground,
               disabledForegroundColor: effectiveDisabledForeground,
               side: side ?? BorderSide(color: colors.borderStrong, width: 1.2),
@@ -146,10 +149,9 @@ class GenesisButton extends StatelessWidget {
         : FilledButton(
             onPressed: effectiveOnPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: backgroundColor ?? _defaultBackground(colors),
+              backgroundColor: effectiveBackground,
               foregroundColor: effectiveForeground,
-              disabledBackgroundColor:
-                  disabledBackgroundColor ?? _defaultDisabledBackground(colors),
+              disabledBackgroundColor: effectiveDisabledBackground,
               disabledForegroundColor: effectiveDisabledForeground,
               side: side,
               textStyle: effectiveTextStyle,

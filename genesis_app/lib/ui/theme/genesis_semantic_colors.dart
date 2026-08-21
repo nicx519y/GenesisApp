@@ -22,9 +22,11 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
     required this.inputBackground,
     required this.controlMuted,
     required this.controlBackground,
+    required this.switchInactiveThumb,
     required this.textPrimary,
     required this.textHighEmphasis,
     required this.foregroundStrong,
+    required this.immersiveForeground,
     required this.textHeading,
     required this.textStrong,
     required this.textBody,
@@ -80,46 +82,48 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
     required this.shadow,
   });
 
-  factory GenesisSemanticColors.light() {
+  factory GenesisSemanticColors.worldoLight() {
     return const GenesisSemanticColors(
-      pageBackground: GenesisPalette.white,
-      surface: GenesisPalette.white,
-      surfaceRaised: GenesisPalette.surfacePanel,
+      pageBackground: GenesisPalette.redesignPaper,
+      surface: GenesisPalette.redesignPaper,
+      surfaceRaised: GenesisPalette.white,
       surfaceMuted: GenesisPalette.surfaceMuted,
       surfaceEmpty: GenesisPalette.surfaceEmpty,
       surfaceSoft: GenesisPalette.surfaceSoft,
       surfaceSubtle: GenesisPalette.surfaceSubtle,
       surfaceProgress: GenesisPalette.surfaceProgress,
-      surfaceSheet: GenesisPalette.surfaceSheet,
+      surfaceSheet: GenesisPalette.white,
       imagePlaceholder: GenesisPalette.imagePlaceholder,
-      inputBackground: GenesisPalette.surfaceInput,
+      inputBackground: GenesisPalette.white,
       controlMuted: GenesisPalette.controlMuted,
       controlBackground: GenesisPalette.controlBackground,
-      textPrimary: GenesisPalette.textPrimary,
-      textHighEmphasis: GenesisPalette.textHighEmphasis,
-      foregroundStrong: GenesisPalette.foregroundStrong,
-      textHeading: GenesisPalette.textHeading,
-      textStrong: GenesisPalette.textStrong,
-      textBody: GenesisPalette.textBody,
-      textCinematic: GenesisPalette.textCinematic,
-      textQuaternary: GenesisPalette.textQuaternary,
-      textMuted: GenesisPalette.textMuted,
-      textSecondary: GenesisPalette.textSecondary,
-      textSubtle: GenesisPalette.textSubtle,
-      textTagline: GenesisPalette.textTagline,
-      textFaint: GenesisPalette.textFaint,
-      textSupporting: GenesisPalette.textSupporting,
-      textTimestamp: GenesisPalette.textTimestamp,
-      textMetadata: GenesisPalette.textMetadata,
-      inputHint: GenesisPalette.inputHint,
-      textTertiary: GenesisPalette.textTertiary,
-      textEmptyState: GenesisPalette.textEmptyState,
-      textLabelMuted: GenesisPalette.textLabelMuted,
-      textPlaceholder: GenesisPalette.textPlaceholder,
+      switchInactiveThumb: GenesisPalette.redesignWhite60,
+      textPrimary: GenesisPalette.redesignInk,
+      textHighEmphasis: GenesisPalette.redesignInk88,
+      foregroundStrong: GenesisPalette.redesignInk,
+      immersiveForeground: GenesisPalette.white,
+      textHeading: GenesisPalette.redesignInk,
+      textStrong: GenesisPalette.redesignInk88,
+      textBody: GenesisPalette.redesignInk80,
+      textCinematic: GenesisPalette.redesignInk80,
+      textQuaternary: GenesisPalette.redesignInk60,
+      textMuted: GenesisPalette.redesignInk60,
+      textSecondary: GenesisPalette.redesignInk60,
+      textSubtle: GenesisPalette.redesignInk50,
+      textTagline: GenesisPalette.redesignInk50,
+      textFaint: GenesisPalette.redesignInk50,
+      textSupporting: GenesisPalette.redesignInk50,
+      textTimestamp: GenesisPalette.redesignInk42,
+      textMetadata: GenesisPalette.redesignInk42,
+      inputHint: GenesisPalette.redesignInk50,
+      textTertiary: GenesisPalette.redesignInk50,
+      textEmptyState: GenesisPalette.redesignInk50,
+      textLabelMuted: GenesisPalette.redesignInk50,
+      textPlaceholder: GenesisPalette.redesignInk42,
       textDisabled: GenesisPalette.textDisabled,
       textInverse: GenesisPalette.white,
-      accentText: GenesisPalette.accentText,
-      link: GenesisPalette.link,
+      accentText: GenesisPalette.redesignAccentDark,
+      link: GenesisPalette.redesignAccentDark,
       iconMuted: GenesisPalette.redesignTextSecondary,
       imagePlaceholderIcon: GenesisPalette.imagePlaceholderIcon,
       border: GenesisPalette.border,
@@ -135,26 +139,26 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
       dragHandleSubtle: GenesisPalette.dragHandleSubtle,
       skeletonBase: GenesisPalette.skeletonBase,
       skeletonHighlight: GenesisPalette.skeletonHighlight,
-      primary: GenesisPalette.brand,
+      primary: GenesisPalette.redesignAccent,
       onPrimary: GenesisPalette.white,
-      primaryDisabled: GenesisPalette.brandSoft,
-      danger: GenesisPalette.create,
-      dangerControl: GenesisPalette.dangerControl,
+      primaryDisabled: GenesisPalette.redesignAccent40,
+      danger: GenesisPalette.redesignAccent,
+      dangerControl: GenesisPalette.redesignAccent,
       dangerSurface: GenesisPalette.dangerSurface,
       dangerBorder: GenesisPalette.dangerBorder,
       onDanger: GenesisPalette.white,
       surfaceDisabled: GenesisPalette.surfaceDisabled,
       surfaceGrouped: GenesisPalette.surfaceGrouped,
       surfaceTag: GenesisPalette.surfaceTag,
-      navigationBackground: GenesisPalette.white,
-      navigationSelected: GenesisPalette.navigationSelected,
-      navigationUnselected: GenesisPalette.navigationUnselected,
+      navigationBackground: GenesisPalette.redesignPaper,
+      navigationSelected: GenesisPalette.redesignInk,
+      navigationUnselected: GenesisPalette.redesignTextSecondary,
       scrim: GenesisPalette.black,
       shadow: GenesisPalette.shadow,
     );
   }
 
-  factory GenesisSemanticColors.worldoRedesign() {
+  factory GenesisSemanticColors.worldoDark() {
     return const GenesisSemanticColors(
       pageBackground: GenesisPalette.redesignBackground,
       surface: GenesisPalette.redesignBackground,
@@ -169,9 +173,11 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
       inputBackground: GenesisPalette.redesignWhite07,
       controlMuted: GenesisPalette.redesignWhite10,
       controlBackground: GenesisPalette.redesignWhite08,
+      switchInactiveThumb: GenesisPalette.redesignTextSecondary,
       textPrimary: GenesisPalette.white,
       textHighEmphasis: GenesisPalette.redesignWhite88,
       foregroundStrong: GenesisPalette.white,
+      immersiveForeground: GenesisPalette.white,
       textHeading: GenesisPalette.white,
       textStrong: GenesisPalette.redesignWhite88,
       textBody: GenesisPalette.redesignWhite82,
@@ -241,9 +247,11 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
   final Color inputBackground;
   final Color controlMuted;
   final Color controlBackground;
+  final Color switchInactiveThumb;
   final Color textPrimary;
   final Color textHighEmphasis;
   final Color foregroundStrong;
+  final Color immersiveForeground;
   final Color textHeading;
   final Color textStrong;
   final Color textBody;
@@ -313,7 +321,7 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
 
   static GenesisSemanticColors of(BuildContext context) {
     return Theme.of(context).extension<GenesisSemanticColors>() ??
-        GenesisSemanticColors.light();
+        GenesisSemanticColors.worldoLight();
   }
 
   @override
@@ -331,9 +339,11 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
     Color? inputBackground,
     Color? controlMuted,
     Color? controlBackground,
+    Color? switchInactiveThumb,
     Color? textPrimary,
     Color? textHighEmphasis,
     Color? foregroundStrong,
+    Color? immersiveForeground,
     Color? textHeading,
     Color? textStrong,
     Color? textBody,
@@ -402,9 +412,11 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
       inputBackground: inputBackground ?? this.inputBackground,
       controlMuted: controlMuted ?? this.controlMuted,
       controlBackground: controlBackground ?? this.controlBackground,
+      switchInactiveThumb: switchInactiveThumb ?? this.switchInactiveThumb,
       textPrimary: textPrimary ?? this.textPrimary,
       textHighEmphasis: textHighEmphasis ?? this.textHighEmphasis,
       foregroundStrong: foregroundStrong ?? this.foregroundStrong,
+      immersiveForeground: immersiveForeground ?? this.immersiveForeground,
       textHeading: textHeading ?? this.textHeading,
       textStrong: textStrong ?? this.textStrong,
       textBody: textBody ?? this.textBody,
@@ -489,6 +501,11 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
         other.controlBackground,
         t,
       )!,
+      switchInactiveThumb: Color.lerp(
+        switchInactiveThumb,
+        other.switchInactiveThumb,
+        t,
+      )!,
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textHighEmphasis: Color.lerp(
         textHighEmphasis,
@@ -498,6 +515,11 @@ class GenesisSemanticColors extends ThemeExtension<GenesisSemanticColors> {
       foregroundStrong: Color.lerp(
         foregroundStrong,
         other.foregroundStrong,
+        t,
+      )!,
+      immersiveForeground: Color.lerp(
+        immersiveForeground,
+        other.immersiveForeground,
         t,
       )!,
       textHeading: Color.lerp(textHeading, other.textHeading, t)!,

@@ -218,7 +218,7 @@ Future<void> _pumpPage(
   await tester.pumpWidget(
     MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: GenesisTheme.worldoRedesign().copyWith(platform: platform),
+      theme: GenesisTheme.worldoDark().copyWith(platform: platform),
       home: home,
     ),
   );

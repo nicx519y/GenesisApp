@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
+import 'package:genesis_flutter_android/components/gems/gem_colors.dart';
 import 'package:genesis_flutter_android/network/models/gem_model.dart';
 import 'package:genesis_flutter_android/pages/gems/memory_model_page.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
@@ -33,6 +34,34 @@ void main() {
     catalogCompleter.complete(_catalog());
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'selected model dot stays borderless light green in both themes',
+    (tester) async {
+      for (final theme in <ThemeData>[
+        GenesisTheme.worldoLight(),
+        GenesisTheme.worldoDark(),
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: MemoryModelPage(
+              worldId: 'W_MODEL_DOT',
+              catalogLoader: (_) async => _catalog(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final currentDot = tester.widget<Container>(
+          find.byKey(const ValueKey('gem-model-current-top_pick_v3')),
+        );
+        final decoration = currentDot.decoration! as BoxDecoration;
+        expect(decoration.color, GenesisGemColors.worldoLight().success);
+        expect(decoration.border, isNull);
+      }
+    },
+  );
 
   testWidgets('renders backend model catalog and selected state', (
     tester,
@@ -392,7 +421,7 @@ _tagContainer(WidgetTester tester, String tag) {
 }
 
 Widget _testApp({required Widget home}) {
-  return MaterialApp(theme: GenesisTheme.worldoRedesign(), home: home);
+  return MaterialApp(theme: GenesisTheme.worldoDark(), home: home);
 }
 
 GemModelCatalog _catalog() {

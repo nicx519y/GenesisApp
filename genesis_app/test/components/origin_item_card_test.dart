@@ -69,7 +69,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: const Scaffold(
           body: SizedBox(width: 180, child: OriginItemCard(item: item)),
         ),

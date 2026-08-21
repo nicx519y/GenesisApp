@@ -316,7 +316,7 @@ Widget _backgroundHarness({
   bool renderBackgroundImage = true,
 }) {
   return MaterialApp(
-    theme: GenesisTheme.worldoRedesign(),
+    theme: GenesisTheme.worldoDark(),
     home: Align(
       alignment: Alignment.topLeft,
       child: SizedBox(

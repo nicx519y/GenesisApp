@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_map_stage.dart';
 import 'package:genesis_flutter_android/components/world_top_overlay_bar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_control_metrics.dart';
 
 void main() {
   testWidgets('world map stage positions overlay tabs from top setting', (
@@ -110,8 +114,9 @@ void main() {
     );
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(tabBar.labelColor, const Color(0xFF111111));
-    expect(tabBar.unselectedLabelColor, const Color(0xFF111111));
+    final colors = GenesisSemanticColors.worldoLight();
+    expect(tabBar.labelColor, colors.textPrimary);
+    expect(tabBar.unselectedLabelColor, colors.textPrimary);
   });
 
   testWidgets('world map stage uses sixteen pixel overlay tab text', (
@@ -219,6 +224,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: GenesisTheme.worldoLight(),
         home: Scaffold(
           body: SizedBox(
             width: 360,
@@ -238,16 +244,33 @@ void main() {
     expect(find.byType(TabBar), findsNothing);
     expect(find.text('Old Money'), findsOneWidget);
     expect(find.text('Not started'), findsOneWidget);
+    final colors = GenesisSemanticColors.worldoLight();
+    expect(
+      tester.widget<Text>(find.text('Old Money')).style?.color,
+      colors.immersiveForeground,
+    );
     expect(
       tester.getSize(
         find.byKey(const ValueKey<String>('worldo-title-back-button')),
       ),
       const Size(34, 34),
     );
-
-    await tester.tap(
-      find.byKey(const ValueKey<String>('worldo-title-info-button')),
+    final backButton = find.byKey(
+      const ValueKey<String>('worldo-title-back-button'),
     );
+    final infoButton = find.byKey(
+      const ValueKey<String>('worldo-title-info-button'),
+    );
+    final backMaterial = tester.widget<Material>(
+      find.descendant(of: backButton, matching: find.byType(Material)),
+    );
+    final infoMaterial = tester.widget<Material>(
+      find.descendant(of: infoButton, matching: find.byType(Material)),
+    );
+    expect(infoMaterial.color, colors.controlMuted);
+    expect(infoMaterial.color, backMaterial.color);
+
+    await tester.tap(infoButton);
     await tester.pumpAndSettle();
 
     expect(infoTapped, isTrue);
@@ -280,14 +303,14 @@ void main() {
     );
 
     final tabBarRect = tester.getRect(find.byType(TabBar));
-    final backButtonRect = tester.getRect(find.byType(IconButton));
+    final backButtonRect = tester.getRect(find.byType(GenesisBackButton));
 
     expect(tabBarRect.height, genesisSearchFieldHeight);
-    expect(backButtonRect.width, genesisSearchFieldHeight);
-    expect(backButtonRect.height, genesisSearchFieldHeight);
+    expect(backButtonRect.width, GenesisControlMetrics.backButtonVisualSize);
+    expect(backButtonRect.height, GenesisControlMetrics.backButtonVisualSize);
   });
 
-  testWidgets('world map stage uses translucent white overlay backgrounds', (
+  testWidgets('world map stage uses themed overlay backgrounds', (
     tester,
   ) async {
     final controller = TabController(length: 2, vsync: tester);
@@ -325,9 +348,19 @@ void main() {
         .whereType<Color>()
         .toList();
 
+    final semanticColors = GenesisSemanticColors.worldoLight();
     expect(
-      colors.where((color) => color == Colors.white.withValues(alpha: 0.9)),
-      hasLength(2),
+      colors.where(
+        (color) => color == semanticColors.surface.withValues(alpha: 0.9),
+      ),
+      hasLength(1),
     );
+    final backMaterial = tester.widget<Material>(
+      find.descendant(
+        of: find.byType(GenesisBackButton),
+        matching: find.byType(Material),
+      ),
+    );
+    expect(backMaterial.color, semanticColors.controlMuted);
   });
 }

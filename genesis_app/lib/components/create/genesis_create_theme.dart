@@ -27,29 +27,29 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
     required this.selectedOptionText,
   });
 
-  factory GenesisCreateColors.light() => const GenesisCreateColors(
-    accent: Color(0xFF338960),
+  factory GenesisCreateColors.worldoLight() => const GenesisCreateColors(
+    accent: GenesisPalette.redesignAccent,
     fieldFill: Color(0xFFF4F4F6),
     hint: Color(0xFFA8A8AD),
     text: Color(0xFF111111),
     muted: Color(0xFF6F6F6F),
     note: Color(0xFF888888),
     border: Color(0xFFE1E1E6),
-    dash: Color(0xFFB8CDBF),
-    danger: Color(0xFFFF2442),
+    dash: GenesisPalette.redesignAccent30,
+    danger: GenesisPalette.redesignAccent,
     fieldOverlay: Color(0xE6F4F4F6),
     fieldOverlaySoft: Color(0x6BF4F4F6),
     inputBorder: Color(0xFFD8D8DE),
     previewBackground: Color(0xFFEFEFF2),
-    accentBorder: Color(0xFFD9E5DF),
-    selectedFill: Color(0xFFE0EEE8),
-    successText: Color(0xFF1C7D56),
+    accentBorder: GenesisPalette.dangerBorder,
+    selectedFill: GenesisPalette.dangerSurface,
+    successText: GenesisPalette.redesignAccentDark,
     divider: Color(0xFFEAEAEA),
-    selectedOptionSurface: Color(0xFFF7F5F2),
-    selectedOptionText: Color(0xFF131215),
+    selectedOptionSurface: GenesisPalette.redesignPaper,
+    selectedOptionText: GenesisPalette.redesignInk,
   );
 
-  factory GenesisCreateColors.worldoRedesign() => const GenesisCreateColors(
+  factory GenesisCreateColors.worldoDark() => const GenesisCreateColors(
     accent: GenesisPalette.redesignAccent,
     fieldFill: GenesisPalette.redesignWhite07,
     hint: GenesisPalette.redesignWhite45,
@@ -93,7 +93,7 @@ class GenesisCreateColors extends ThemeExtension<GenesisCreateColors> {
 
   static GenesisCreateColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisCreateColors>() ??
-      GenesisCreateColors.light();
+      GenesisCreateColors.worldoLight();
 
   @override
   GenesisCreateColors copyWith({

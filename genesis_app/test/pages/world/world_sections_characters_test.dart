@@ -14,7 +14,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: WorldStatusSection(world: world, currentUid: 'user-me'),
         ),
@@ -35,38 +35,35 @@ void main() {
   testWidgets('status progress follows the displayed percentage exactly', (
     tester,
   ) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: GenesisTheme.worldoRedesign(),
-          home: Scaffold(
-            body: WorldStatusSection(
-              world: _worldDetail(metricValue: 3),
-              currentUid: 'user-me',
-            ),
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark(),
+        home: Scaffold(
+          body: WorldStatusSection(
+            world: _worldDetail(metricValue: 3),
+            currentUid: 'user-me',
           ),
         ),
-      );
+      ),
+    );
 
-      expect(find.text('3%'), findsOneWidget);
-      final progress = tester.widget<LinearProgressIndicator>(
-        find.byKey(
-          const ValueKey<String>('world-status-progress-character-me'),
-        ),
-      );
+    expect(find.text('3%'), findsOneWidget);
+    final progress = tester.widget<LinearProgressIndicator>(
+      find.byKey(const ValueKey<String>('world-status-progress-character-me')),
+    );
 
-      expect(progress.semanticsValue, '3%');
-      expect(progress.value, 0.03);
-    },
-  );
+    expect(progress.semanticsValue, '3%');
+    expect(progress.value, 0.03);
+  });
 
   testWidgets('zero status progress still has no visible fill', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: WorldStatusSection(
             world: _worldDetail(metricValue: 0),
@@ -93,7 +90,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: const Scaffold(
           body: WorldCharacterRow(
             character: <String, dynamic>{

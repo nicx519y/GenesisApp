@@ -34,6 +34,29 @@ lib/pages/feature/      页面状态、数据组合、导航和页面私有 Widg
 - Widget 不直接读取 `GenesisPalette`，只读取 `context.genesisColors` 或
   feature ThemeExtension。
 
+## Light / Dark 换肤
+
+Worldo 只有一套布局和一个皮肤身份，明暗模式只替换颜色：
+
+```dart
+MaterialApp(
+  theme: GenesisTheme.worldoLight(),
+  darkTheme: GenesisTheme.worldoDark(),
+  themeMode: themeMode,
+)
+```
+
+- 不再使用或新增 `GenesisTheme.light()`、`GenesisTheme.worldoRedesign()`。
+- Light 和 Dark 都使用 `GenesisSkin.worldoRedesign`，并共享同一个
+  `GenesisUiTheme.worldo()` 尺寸配置。
+- 页面和组件不得根据 `ThemeMode`、`Brightness` 或皮肤身份改变 Widget
+  结构、边距、字号、尺寸、圆角和交互。
+- 页面只读取语义色；Feature 专用颜色从对应 ThemeExtension 读取。
+- 地图、Fog、Terrain、图片遮罩和场景上的光学叠层属于内容视觉，不进行
+  简单反色。
+- Developer Page 的 Appearance 选择器用于验证 System、Light、Dark；
+  普通生产用户仍默认使用当前 Dark 视觉。
+
 ## 页面与标题
 
 ### 根 Tab 页面

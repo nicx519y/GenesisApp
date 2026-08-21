@@ -37,39 +37,39 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
     required this.newMessageNoticeForeground,
   });
 
-  factory GenesisChatTheme.light() => GenesisChatTheme(
-    standard: ChatUiStyleConfig.standard,
-    whiteHeader: kChatWhiteHeaderStyle,
-    privateChat: kPrivateChatStyle,
-    privateHeaderBackground: const Color(0xFFEDEDED),
-    locationChat: kLocationChatStyle,
+  factory GenesisChatTheme.worldoLight() => GenesisChatTheme(
+    standard: _worldoLightChatStyle(ChatUiStyleConfig.standard),
+    whiteHeader: _worldoLightChatStyle(kChatWhiteHeaderStyle),
+    privateChat: _worldoLightChatStyle(kPrivateChatStyle),
+    privateHeaderBackground: GenesisPalette.redesignPaper,
+    // Location chat is drawn over scene artwork, so its optical overlay colors
+    // remain content-owned while its geometry stays identical in both modes.
+    locationChat: _worldoRedesignLocationChatStyle(kLocationChatStyle),
     locationBackgroundOverlayGradient: _locationBackgroundOverlayGradient,
-    tickBackground: const Color(0xF0182430),
-    tickAccent: const Color(0xFF709BC2),
-    tickClue: const Color(0xFF709BC2),
-    tickLocation: const Color(0xFF709BC2),
-    tickHeader: const Color(0xFFC4DBEF),
-    tickBorder: GenesisPalette.transparent,
-    tickDivider: GenesisPalette.transparent,
-    tickBlurSigma: 0,
-    npcAvatarBackground: const Color(0xFF4A5F7A),
+    tickBackground: GenesisPalette.redesignInk60,
+    tickAccent: GenesisPalette.redesignAccent,
+    tickClue: GenesisPalette.redesignAccentDark,
+    tickLocation: GenesisPalette.redesignAccentSoft,
+    tickHeader: GenesisPalette.white,
+    tickBorder: GenesisPalette.redesignWhite20,
+    tickDivider: GenesisPalette.redesignWhite16,
+    tickBlurSigma: 14,
+    npcAvatarBackground: GenesisPalette.redesignWhite14,
     npcAvatarForeground: GenesisPalette.white,
-    npcAvatarBorder: GenesisPalette.transparent,
-    aiRoleBubbleBackground: GenesisPalette.white,
-    aiRoleBubbleBlurSigma: 0,
-    enterLocationBackground: const Color(0xE6111111),
+    npcAvatarBorder: GenesisPalette.redesignWhite18,
+    aiRoleBubbleBackground: GenesisPalette.redesignWhite20,
+    aiRoleBubbleBlurSigma: 14,
+    enterLocationBackground: GenesisPalette.redesignWhite13,
     enterLocationForeground: GenesisPalette.white,
-    enterLocationIcon: GenesisPalette.redesignWhite72,
-    narratorBackground: kLocationChatStyle.systemMessageBackgroundColor,
-    narratorForeground:
-        kLocationChatStyle.systemMessageTextStyle.color ?? GenesisPalette.white,
-    narratorIcon:
-        kLocationChatStyle.systemMessageTextStyle.color ?? GenesisPalette.white,
-    newMessageNoticeBackground: const Color(0xCC1E1E24),
+    enterLocationIcon: GenesisPalette.redesignWhite60,
+    narratorBackground: GenesisPalette.transparent,
+    narratorForeground: GenesisPalette.redesignWhite85,
+    narratorIcon: GenesisPalette.redesignWhite60,
+    newMessageNoticeBackground: GenesisPalette.redesignSkeletonHighlight,
     newMessageNoticeForeground: GenesisPalette.white,
   );
 
-  factory GenesisChatTheme.worldoRedesign() => GenesisChatTheme(
+  factory GenesisChatTheme.worldoDark() => GenesisChatTheme(
     standard: _worldoRedesignChatStyle(ChatUiStyleConfig.standard),
     whiteHeader: _worldoRedesignChatStyle(kChatWhiteHeaderStyle),
     privateChat: _worldoRedesignChatStyle(kPrivateChatStyle),
@@ -129,7 +129,7 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
 
   static GenesisChatTheme of(BuildContext context) {
     return Theme.of(context).extension<GenesisChatTheme>() ??
-        GenesisChatTheme.light();
+        GenesisChatTheme.worldoLight();
   }
 
   @override
@@ -315,6 +315,56 @@ ChatUiStyleConfig _worldoRedesignLocationChatStyle(ChatUiStyleConfig base) {
     inputBorderColor: GenesisPalette.redesignWhite18,
     inputBorderWidth: 1.5,
     useScenePlateBubbleGeometry: true,
+  );
+}
+
+ChatUiStyleConfig _worldoLightChatStyle(ChatUiStyleConfig base) {
+  final themed = _worldoRedesignChatStyle(base);
+  return themed.copyWith(
+    conversationBackgroundColor: GenesisPalette.redesignPaper,
+    headerBackgroundColor: GenesisPalette.redesignPaper,
+    composerBackgroundColor: GenesisPalette.redesignPaper,
+    headerTitleTextStyle: themed.headerTitleTextStyle.copyWith(
+      color: GenesisPalette.redesignInk,
+    ),
+    headerSubtitleTextStyle: themed.headerSubtitleTextStyle.copyWith(
+      color: GenesisPalette.redesignInk60,
+    ),
+    headerTitleIconColor: GenesisPalette.redesignInk,
+    headerStatusIconColor: GenesisPalette.redesignInk60,
+    composerIconColor: GenesisPalette.redesignInk80,
+    composerSendButtonColor: GenesisPalette.redesignAccent,
+    composerSendButtonDisabledColor: GenesisPalette.redesignAccent40,
+    inputBackgroundColor: GenesisPalette.white,
+    inputTextStyle: themed.inputTextStyle.copyWith(
+      color: GenesisPalette.redesignInk,
+    ),
+    topTitleTextStyle: themed.topTitleTextStyle.copyWith(
+      color: GenesisPalette.redesignInk80,
+    ),
+    statusTextStyle: themed.statusTextStyle.copyWith(
+      color: GenesisPalette.redesignInk42,
+    ),
+    senderNameTextStyle: themed.senderNameTextStyle.copyWith(
+      color: GenesisPalette.redesignInk60,
+    ),
+    selfBubbleColor: GenesisPalette.redesignAccent14,
+    otherBubbleColor: GenesisPalette.white,
+    bubbleTextStyle: themed.bubbleTextStyle.copyWith(
+      color: GenesisPalette.redesignInk,
+    ),
+    avatarTextStyle: themed.avatarTextStyle.copyWith(
+      color: GenesisPalette.redesignInk,
+    ),
+    sendingBadgeColor: GenesisPalette.redesignInk42,
+    failedBadgeColor: GenesisPalette.redesignAccent,
+    dateDividerTextStyle: themed.dateDividerTextStyle.copyWith(
+      color: GenesisPalette.redesignInk42,
+    ),
+    systemMessageBackgroundColor: GenesisPalette.surfaceMuted,
+    systemMessageTextStyle: themed.systemMessageTextStyle.copyWith(
+      color: GenesisPalette.redesignInk60,
+    ),
   );
 }
 

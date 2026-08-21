@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
@@ -59,7 +60,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoLight(),
         home: Scaffold(
           body: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,6 +97,10 @@ void main() {
     expect(title.style?.fontSize, 17);
     expect(title.style?.height, 1.1);
     expect(title.style?.fontWeight, FontWeight.w800);
+    expect(
+      title.style?.color,
+      GenesisSemanticColors.worldoLight().immersiveForeground,
+    );
 
     final status = tester.widget<Text>(
       find.byKey(const ValueKey<String>('world-map-status')),
@@ -104,6 +109,12 @@ void main() {
     expect(status.style?.fontSize, 9.5);
     expect(status.style?.height, 1.3);
     expect(status.style?.fontWeight, FontWeight.w500);
+    expect(
+      status.style?.color,
+      GenesisSemanticColors.worldoLight().immersiveForeground.withValues(
+        alpha: 0.78,
+      ),
+    );
   });
 
   testWidgets('joined world panel matches the active-role resting layout', (
@@ -123,7 +134,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: Align(
             alignment: Alignment.bottomCenter,

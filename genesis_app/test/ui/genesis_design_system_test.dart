@@ -11,7 +11,17 @@ void main() {
       GenesisSkin.worldoRedesign,
     );
     expect(theme.brightness, Brightness.dark);
-    expect(GenesisTheme.light().extension<GenesisSkinTheme>()?.skin, isNull);
+    expect(
+      GenesisTheme.worldoLight().extension<GenesisSkinTheme>()?.skin,
+      GenesisSkin.worldoRedesign,
+    );
+    expect(
+      GenesisTheme.forSkin(
+        GenesisSkin.worldoRedesign,
+        brightness: Brightness.light,
+      ).brightness,
+      Brightness.light,
+    );
   });
 
   testWidgets('GenesisButton reports semantic interactions through UI scope', (
@@ -21,7 +31,7 @@ void main() {
     var pressed = false;
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: GenesisUiInteractionScope(
           onButtonInteraction: interactions.add,
           child: Scaffold(
@@ -51,7 +61,7 @@ void main() {
     var launcherTapped = false;
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: Column(
             children: [
@@ -84,7 +94,7 @@ void main() {
     var navigated = false;
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: Column(
             children: [
@@ -122,7 +132,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: const Scaffold(appBar: appBar),
       ),
     );
@@ -136,7 +146,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: DefaultTabController(
           length: 2,
           child: Scaffold(
@@ -163,7 +173,7 @@ void main() {
     var closePressed = false;
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: Row(
             children: [
@@ -209,7 +219,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: const GenesisPageScaffold.editor(
           title: 'Basics',
           body: Text('Form'),
@@ -223,7 +233,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: const GenesisPageScaffold.root(
           title: 'Messages',
           body: Text('List'),
@@ -240,7 +250,7 @@ void main() {
     final controller = TextEditingController(text: 'World');
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: Column(
             children: [
@@ -272,7 +282,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: Column(
             children: [

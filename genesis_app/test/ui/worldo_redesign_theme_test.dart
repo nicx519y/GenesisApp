@@ -6,8 +6,8 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui_style_con
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
-  test('Worldo redesign theme uses the approved global color system', () {
-    final theme = GenesisTheme.worldoRedesign();
+  test('Worldo dark theme keeps the approved production color system', () {
+    final theme = GenesisTheme.worldoDark();
     final colors = theme.extension<GenesisSemanticColors>()!;
 
     expect(theme.brightness, Brightness.dark);
@@ -27,19 +27,44 @@ void main() {
     expect(theme.iconTheme.color, Colors.white);
   });
 
+  test('Worldo light theme keeps the Worldo paper ink and accent identity', () {
+    final theme = GenesisTheme.worldoLight();
+    final colors = theme.extension<GenesisSemanticColors>()!;
+
+    expect(theme.brightness, Brightness.light);
+    expect(colors.pageBackground, const Color(0xFFF7F5F2));
+    expect(colors.surface, const Color(0xFFF7F5F2));
+    expect(colors.surfaceRaised, Colors.white);
+    expect(colors.primary, const Color(0xFFF82B3C));
+    expect(colors.textPrimary, const Color(0xFF131215));
+    expect(colors.navigationBackground, const Color(0xFFF7F5F2));
+    expect(colors.navigationSelected, const Color(0xFF131215));
+    expect(
+      theme.extension<GenesisSkinTheme>()?.skin,
+      GenesisSkin.worldoRedesign,
+    );
+  });
+
   test('Worldo redesign keeps shared component metrics unchanged', () {
-    final light = GenesisTheme.light().extension<GenesisUiTheme>()!;
-    final redesign = GenesisTheme.worldoRedesign().extension<GenesisUiTheme>()!;
+    final light = GenesisTheme.worldoLight().extension<GenesisUiTheme>()!;
+    final redesign = GenesisTheme.worldoDark().extension<GenesisUiTheme>()!;
 
     expect(redesign.searchBorderRadius, light.searchBorderRadius);
+    expect(redesign.centeredAppBarHeight, light.centeredAppBarHeight);
+    expect(redesign.leadingTitleAppBarHeight, light.leadingTitleAppBarHeight);
+    expect(redesign.compactAppBarHeight, light.compactAppBarHeight);
+    expect(redesign.searchFieldHeight, light.searchFieldHeight);
+    expect(redesign.compactSearchFieldHeight, light.compactSearchFieldHeight);
+    expect(redesign.regularButtonHeight, light.regularButtonHeight);
+    expect(redesign.compactButtonHeight, light.compactButtonHeight);
     expect(redesign.tabIndicatorWidth, light.tabIndicatorWidth);
     expect(redesign.tabIndicatorHeight, light.tabIndicatorHeight);
     expect(redesign.panelBorderRadius, light.panelBorderRadius);
   });
 
   test('Worldo redesign keeps shared chat geometry unchanged', () {
-    final light = GenesisChatTheme.light();
-    final redesign = GenesisChatTheme.worldoRedesign();
+    final light = GenesisChatTheme.worldoLight();
+    final redesign = GenesisChatTheme.worldoDark();
 
     for (final pair in <(ChatUiStyleConfig, ChatUiStyleConfig)>[
       (light.standard, redesign.standard),
@@ -68,21 +93,26 @@ void main() {
   });
 
   test('Worldo redesign registers every feature color extension', () {
-    final theme = GenesisTheme.worldoRedesign();
-
-    expect(theme.extension<GenesisChatTheme>(), isNotNull);
-    expect(theme.extension<GenesisGemColors>(), isNotNull);
-    expect(theme.extension<GenesisOriginColors>(), isNotNull);
-    expect(theme.extension<GenesisDiscussColors>(), isNotNull);
-    expect(theme.extension<GenesisCreateColors>(), isNotNull);
-    expect(theme.extension<GenesisWorldColors>(), isNotNull);
-    expect(theme.extension<GenesisMessageColors>(), isNotNull);
+    for (final theme in <ThemeData>[
+      GenesisTheme.worldoLight(),
+      GenesisTheme.worldoDark(),
+    ]) {
+      expect(theme.extension<GenesisChatTheme>(), isNotNull);
+      expect(theme.extension<GenesisGemColors>(), isNotNull);
+      expect(theme.extension<GenesisOriginColors>(), isNotNull);
+      expect(theme.extension<GenesisDiscussColors>(), isNotNull);
+      expect(theme.extension<GenesisCreateColors>(), isNotNull);
+      expect(theme.extension<GenesisWorldColors>(), isNotNull);
+      expect(theme.extension<GenesisMessageColors>(), isNotNull);
+    }
   });
 
-  test('GenesisApp installs the Worldo redesign theme globally', () {
+  test('GenesisApp installs paired Worldo themes and a theme mode', () {
     final source = File('lib/app/genesis_app.dart').readAsStringSync();
 
-    expect(source, contains('theme: GenesisTheme.worldoRedesign()'));
-    expect(source, isNot(contains('theme: GenesisTheme.light()')));
+    expect(source, contains('theme: GenesisTheme.worldoLight()'));
+    expect(source, contains('darkTheme: GenesisTheme.worldoDark()'));
+    expect(source, contains('themeMode: themeMode'));
+    expect(source, isNot(contains('GenesisTheme.light()')));
   });
 }

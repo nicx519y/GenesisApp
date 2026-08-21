@@ -15,8 +15,8 @@ import '../../app/config/app_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
+import '../../app/theme/genesis_theme_mode_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
@@ -41,6 +41,7 @@ import '../../routers/app_router.dart';
 import '../gems/gem_wallet_page.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
+import 'developer_design_system_gallery.dart';
 
 part 'developer_endpoint_actions.dart';
 part 'developer_version_actions.dart';
@@ -186,7 +187,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   late final TextEditingController _versionNameController;
   late final TextEditingController _versionCodeController;
   late final TabController _tabController;
-  late int _selectedTabIndex;
   bool _clearingDirectMessageCache = false;
   bool _clearingImageCache = false;
   bool _clearingGatewayAuth = false;
@@ -199,6 +199,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   bool _loadingTilemapSettingsButtonVisibility = true;
   bool _savingTilemapSettingsButtonVisibility = false;
   final Set<TelemetryChannel> _savingTelemetryChannels = <TelemetryChannel>{};
+  bool _savingThemeMode = false;
   bool _showTilemapSettingsButton = tilemapSettingsButtonVisibility.value;
   bool _dailyCheckInPreviewClaimed = false;
   String? _gatewaySignatureVerifyResult;
@@ -214,7 +215,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       ),
       vsync: this,
     );
-    _selectedTabIndex = _tabController.index;
     _tabController.addListener(_rememberSelectedTab);
     final deviceId = AppServicesScope.read(context).deviceId;
     _deviceIdDiagnosticsFuture = deviceId is DeviceIdDiagnosticsService
@@ -256,11 +256,11 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   }
 
   void _rememberSelectedTab() {
+    if (_tabController.indexIsChanging || _tabController.offset.abs() > 0.001) {
+      return;
+    }
     final index = _tabController.index;
     _developerPageLastTabIndex = index;
-    if (_selectedTabIndex != index && mounted) {
-      setState(() => _selectedTabIndex = index);
-    }
   }
 
   void _updateState(VoidCallback callback) => setState(callback);
@@ -318,6 +318,20 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     }
   }
 
+  Future<void> _setThemeMode(ThemeMode mode) async {
+    if (_savingThemeMode) return;
+    final controller = GenesisThemeModeScope.maybeOf(context);
+    if (controller == null) return;
+    _updateState(() => _savingThemeMode = true);
+    try {
+      await controller.setThemeMode(mode);
+    } catch (error) {
+      if (mounted) showGenesisToast(context, 'Save failed: $error');
+    } finally {
+      if (mounted) _updateState(() => _savingThemeMode = false);
+    }
+  }
+
   Future<void> _saveLocationChatHeaderEffectSettings() async {
     try {
       await locationChatHeaderEffectSettings.save();
@@ -329,12 +343,11 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   @override
   Widget build(BuildContext context) {
     final horizontalContentPadding = widget.dismissBeforePreview ? 0.0 : 20.0;
-    final tabs = SecendTabs(
+    final tabs = GenesisTabBar(
       labels: _developerPageTabs,
       controller: _tabController,
       horizontalPadding: horizontalContentPadding,
       labelPadding: const EdgeInsets.only(right: 16),
-      verticalPadding: 0,
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -357,14 +370,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                         widget.headerLeading!,
                         const SizedBox(width: 8),
                       ],
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Developer Page',
-                          key: ValueKey<String>('developer-page-title'),
+                          key: const ValueKey<String>('developer-page-title'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black,
+                            color: context.genesisColors.textPrimary,
                           ),
                         ),
                       ),
@@ -383,26 +396,32 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildInfoTab(
-                      horizontalContentPadding,
-                      scrollController: _selectedTabIndex == 0
-                          ? widget.sheetScrollController
-                          : null,
+                    _DeveloperKeepAliveTab(
+                      child: _buildInfoTab(
+                        horizontalContentPadding,
+                        scrollController: widget.sheetScrollController,
+                      ),
                     ),
-                    _buildTestTab(
-                      horizontalContentPadding,
-                      scrollController: _selectedTabIndex == 1
-                          ? widget.sheetScrollController
-                          : null,
+                    _DeveloperKeepAliveTab(
+                      child: _buildTestTab(
+                        horizontalContentPadding,
+                        scrollController: widget.sheetScrollController,
+                      ),
                     ),
                     if (kDebugMode) ...[
-                      _DeveloperNetworkTab(
-                        key: const ValueKey<String>('developer-network-tab'),
-                        horizontalPadding: horizontalContentPadding,
+                      _DeveloperKeepAliveTab(
+                        child: _DeveloperNetworkTab(
+                          key: const ValueKey<String>('developer-network-tab'),
+                          horizontalPadding: horizontalContentPadding,
+                        ),
                       ),
-                      _DeveloperWebSocketTab(
-                        key: const ValueKey<String>('developer-websocket-tab'),
-                        horizontalPadding: horizontalContentPadding,
+                      _DeveloperKeepAliveTab(
+                        child: _DeveloperWebSocketTab(
+                          key: const ValueKey<String>(
+                            'developer-websocket-tab',
+                          ),
+                          horizontalPadding: horizontalContentPadding,
+                        ),
                       ),
                     ],
                   ],
@@ -479,9 +498,21 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           },
         ),
         const SizedBox(height: 18),
-        ..._buildEndpointSection(),
+        _DeveloperTestSectionPanel(
+          key: const ValueKey<String>('developer-endpoint-panel'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _buildEndpointSection(),
+          ),
+        ),
         const SizedBox(height: 18),
-        ..._buildVersionOverrideSection(),
+        _DeveloperTestSectionPanel(
+          key: const ValueKey<String>('developer-version-panel'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _buildVersionOverrideSection(),
+          ),
+        ),
       ],
     );
   }
@@ -514,9 +545,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
               : 'Loading...';
           return Text(
             'Build version: $value. New version reads use the values below.',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF777777),
+              color: context.genesisColors.textSecondary,
               height: 1.35,
             ),
           );
@@ -602,6 +633,10 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     double horizontalPadding, {
     ScrollController? scrollController,
   }) {
+    final themeModeController = GenesisThemeModeScope.maybeOf(context);
+    final fallbackThemeMode = Theme.of(context).brightness == Brightness.light
+        ? ThemeMode.light
+        : ThemeMode.dark;
     return ListView(
       key: const PageStorageKey<String>('developer-test-tab-scroll'),
       controller: scrollController,
@@ -613,6 +648,19 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
+        _DeveloperThemeModeSelector(
+          value: themeModeController?.value ?? fallbackThemeMode,
+          enabled: themeModeController != null && !_savingThemeMode,
+          onChanged: (mode) => unawaited(_setThemeMode(mode)),
+          onOpenDesignSystemGallery: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const DeveloperDesignSystemGalleryPage(),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 18),
         ValueListenableBuilder<TelemetryUploadState>(
           valueListenable: TelemetryUploadPolicy.state,
           builder: (context, telemetry, _) {
@@ -706,43 +754,43 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         GenesisPrimaryButton(
           label: 'Creating',
           onPressed: _showCreatingWaitOverlayPreview,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
           label: 'Launching',
           onPressed: _showLaunchingWaitOverlayPreview,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
           label: 'Progressing',
           onPressed: _showProgressingWaitOverlayPreview,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
           label: 'Preview Gem purchase sheet',
           onPressed: _showGemPurchaseSheetPreview,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
           label: 'Preview purchase overlay',
           onPressed: _showGemPurchaseOverlayPreview,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
           label: 'Preview Daily Check-in',
           onPressed: _showDailyCheckInPreview,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
@@ -752,22 +800,22 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           onPressed: _clearingDirectMessageCache
               ? null
               : _clearDirectMessageCache,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
           label: _clearingImageCache ? 'Clearing...' : 'Clear image cache',
           onPressed: _clearingImageCache ? null : _clearImageCache,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
           label: _clearingGatewayAuth ? 'Clearing...' : 'Clear Gateway auth',
           onPressed: _clearingGatewayAuth ? null : _clearGatewayAuth,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
@@ -777,8 +825,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           onPressed: _verifyingGatewaySignature
               ? null
               : _verifyGatewaySignature,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
         if (_gatewaySignatureVerifyResult != null) ...[
           const SizedBox(height: _itemGap),
@@ -791,8 +839,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         GenesisPrimaryButton(
           label: 'Hide debug button',
           onPressed: _hideDebugButton,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: context.genesisColors.controlMuted,
+          foregroundColor: context.genesisColors.textPrimary,
         ),
       ],
     );
@@ -835,9 +883,9 @@ class _DeveloperPageBackButton extends StatelessWidget {
           maximumSize: const Size.square(24),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        icon: const Icon(
+        icon: Icon(
           Icons.arrow_back_ios_new,
-          color: Colors.black,
+          color: context.genesisColors.textPrimary,
           size: 17,
         ),
       ),

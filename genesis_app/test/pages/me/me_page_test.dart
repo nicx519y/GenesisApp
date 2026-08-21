@@ -215,7 +215,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: UserProfileContent(
             appearance: UserProfileAppearance.worldoMe,

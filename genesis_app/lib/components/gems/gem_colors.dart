@@ -20,29 +20,29 @@ class GenesisGemColors extends ThemeExtension<GenesisGemColors> {
     required this.priceGradientEnd,
   });
 
-  factory GenesisGemColors.light() => const GenesisGemColors(
-    accent: Color(0xFFFF2442),
+  factory GenesisGemColors.worldoLight() => const GenesisGemColors(
+    accent: GenesisPalette.redesignAccent,
     soldOutBorder: Color(0xFFFFD1D8),
     soldOutForeground: Color(0xFFD47B89),
-    taskAction: Color(0xFFAD403B),
+    taskAction: GenesisPalette.redesignAccentDark,
     taskClaimedForeground: Color(0xFFD47B89),
     taskProgressForeground: Color(0xFF338960),
     success: Color(0xFF34C759),
     reward: Color(0xFFFF7A1A),
-    selectionSurface: Color(0xFFFFF4F6),
+    selectionSurface: GenesisPalette.dangerSurface,
     selectionDisabled: Color(0xFFCCCCCC),
     priceGradientStart: Color(0xFFE85C39),
     priceGradientEnd: Color(0xFFB53B52),
   );
 
-  factory GenesisGemColors.worldoRedesign() => const GenesisGemColors(
+  factory GenesisGemColors.worldoDark() => const GenesisGemColors(
     accent: GenesisPalette.redesignAccent,
     soldOutBorder: GenesisPalette.redesignAccent30,
     soldOutForeground: GenesisPalette.redesignWhite45,
     taskAction: GenesisPalette.redesignAccentSoft,
     taskClaimedForeground: GenesisPalette.redesignWhite45,
     taskProgressForeground: GenesisPalette.redesignAccentSoft,
-    success: GenesisPalette.redesignAccentSoft,
+    success: Color(0xFF34C759),
     reward: GenesisPalette.redesignAccentSoft,
     selectionSurface: GenesisPalette.redesignAccent14,
     selectionDisabled: GenesisPalette.redesignWhite32,
@@ -65,7 +65,7 @@ class GenesisGemColors extends ThemeExtension<GenesisGemColors> {
 
   static GenesisGemColors of(BuildContext context) {
     return Theme.of(context).extension<GenesisGemColors>() ??
-        GenesisGemColors.light();
+        GenesisGemColors.worldoLight();
   }
 
   @override

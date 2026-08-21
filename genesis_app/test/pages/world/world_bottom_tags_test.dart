@@ -14,7 +14,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -56,7 +56,7 @@ void main() {
     final indicatorPaint = tester.renderObject(
       find.byKey(const ValueKey<String>('animated-tab-indicator')),
     );
-    final colors = GenesisSemanticColors.worldoRedesign();
+    final colors = GenesisSemanticColors.worldoDark();
     expect(
       indicatorPaint,
       paints

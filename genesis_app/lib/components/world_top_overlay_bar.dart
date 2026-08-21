@@ -80,7 +80,7 @@ class WorldTopOverlayBar extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: colors.foregroundStrong,
+                      color: colors.immersiveForeground,
                       fontSize: 17,
                       height: 1.1,
                       fontWeight: FontWeight.w800,
@@ -104,7 +104,7 @@ class WorldTopOverlayBar extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: colors.foregroundStrong.withValues(
+                          color: colors.immersiveForeground.withValues(
                             alpha: 0.78,
                           ),
                           fontSize: 9.5,
@@ -247,7 +247,7 @@ class _WorldoTopGlassButton extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Material(
-          color: context.genesisColors.surface.withValues(alpha: 0.5),
+          color: context.genesisColors.controlMuted,
           child: InkWell(
             onTap: onTap,
             child: SizedBox(

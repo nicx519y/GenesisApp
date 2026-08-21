@@ -33,13 +33,6 @@ extension _WorldPageLayout on _WorldPageState {
           panelTopOverlap: 8,
           panelTopBandHeight: worldPanelHandleBandHeight,
           panelTopChild: const Center(child: WorldDetailsDragHandle()),
-          panelTopShadow: <BoxShadow>[
-            BoxShadow(
-              color: context.genesisColors.scrim.withValues(alpha: 0.6),
-              blurRadius: 40,
-              offset: Offset(0, -14),
-            ),
-          ],
           scrollPhysics: const NeverScrollableScrollPhysics(),
           persistentTopOverlay: _buildPersistentMapOverlay(
             topPadding,

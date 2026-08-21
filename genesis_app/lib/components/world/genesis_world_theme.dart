@@ -18,20 +18,20 @@ class GenesisWorldColors extends ThemeExtension<GenesisWorldColors> {
     required this.avatarBorder,
   });
 
-  factory GenesisWorldColors.light() => const GenesisWorldColors(
+  factory GenesisWorldColors.worldoLight() => const GenesisWorldColors(
     tickSurface: Color(0xFFF4F5F8),
-    tickPositiveSurface: Color(0xFFF0F8F4),
-    success: Color(0xFF2F9663),
+    tickPositiveSurface: GenesisPalette.dangerSurface,
+    success: GenesisPalette.redesignAccentDark,
     tabSurface: Color(0xFFEBEFF2),
     tickDivider: Color(0xFFE1E4EA),
     loadingSurface: Color(0xFFE9EDF2),
     locationLine: Color(0xFFE5E8EC),
-    locationPositiveLine: Color(0x661A6B28),
+    locationPositiveLine: GenesisPalette.redesignAccent30,
     closeSurface: Color(0xFFF3F3F5),
     avatarBorder: Color(0xFFDDDDDD),
   );
 
-  factory GenesisWorldColors.worldoRedesign() => const GenesisWorldColors(
+  factory GenesisWorldColors.worldoDark() => const GenesisWorldColors(
     tickSurface: GenesisPalette.redesignWhite08,
     tickPositiveSurface: GenesisPalette.redesignAccent14,
     success: GenesisPalette.redesignAccentSoft,
@@ -57,7 +57,7 @@ class GenesisWorldColors extends ThemeExtension<GenesisWorldColors> {
 
   static GenesisWorldColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisWorldColors>() ??
-      GenesisWorldColors.light();
+      GenesisWorldColors.worldoLight();
 
   @override
   GenesisWorldColors copyWith({

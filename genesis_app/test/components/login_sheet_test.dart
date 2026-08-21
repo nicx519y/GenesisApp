@@ -107,7 +107,7 @@ void main() {
     expect(
       title.style,
       GenesisBottomSheetPanel.titleStyle.copyWith(
-        color: GenesisSemanticColors.light().textPrimary,
+        color: GenesisSemanticColors.worldoLight().textPrimary,
       ),
     );
   });
@@ -129,7 +129,7 @@ void main() {
     expect(shape.side.width, 1);
     expect(
       shape.side.color,
-      GenesisSemanticColors.light().textPrimary.withValues(alpha: 0.14),
+      GenesisSemanticColors.worldoLight().textPrimary.withValues(alpha: 0.14),
     );
   });
 

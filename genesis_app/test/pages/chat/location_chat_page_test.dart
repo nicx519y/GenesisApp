@@ -270,7 +270,7 @@ void main() {
         of: find.byType(ChatHeader),
         matching: find.byType(BackdropFilter),
       ),
-      findsOneWidget,
+      findsWidgets,
     );
     expect(
       find.descendant(
@@ -807,7 +807,7 @@ void main() {
         AppServicesScope(
           services: services,
           child: MaterialApp(
-            theme: GenesisTheme.worldoRedesign(),
+            theme: GenesisTheme.worldoDark(),
             home: LocationChatPanel(
               worldId: 'world-current',
               locationId: 'location-current',
@@ -1289,7 +1289,7 @@ void main() {
       AppServicesScope(
         services: harness.services,
         child: MaterialApp(
-          theme: GenesisTheme.worldoRedesign(),
+          theme: GenesisTheme.worldoDark(),
           home: LocationChatPanel(
             worldId: 'world-current',
             locationId: 'location-current',
@@ -1348,7 +1348,7 @@ void main() {
     );
     expect(
       messageList.style!.messageListPadding,
-      GenesisChatTheme.worldoRedesign().locationChat.messageListPadding,
+      GenesisChatTheme.worldoDark().locationChat.messageListPadding,
     );
     expect(
       find.descendant(
@@ -2720,7 +2720,7 @@ void main() {
 
       Widget panel({required bool active}) {
         return MaterialApp(
-          theme: GenesisTheme.worldoRedesign(),
+          theme: GenesisTheme.worldoDark(),
           home: LocationChatPanel(
             key: const ValueKey<String>('retained-model-entry-panel'),
             worldId: 'world-current',
@@ -3076,7 +3076,7 @@ void main() {
       expect(find.byType(ChatUserEnterLocationMessageBubble), findsNWidgets(2));
       expect(find.byType(ChatStoryEventsMessageBubble), findsOneWidget);
       expect(find.byType(ChatCharactersMovedMessageBubble), findsOneWidget);
-      expect(find.text('Alice entered the cafe.'), findsOneWidget);
+      expect(find.text('Alice came to the cafe.'), findsOneWidget);
       expect(find.text('Dh来到了okkk。'), findsOneWidget);
       expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
       expect(find.text('Old Station'), findsNothing);

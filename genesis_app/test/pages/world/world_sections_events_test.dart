@@ -239,14 +239,14 @@ void main() {
             .widget<Text>(find.text('A signal reaches the harbor.'))
             .style
             ?.color,
-        const Color(0xFF111111),
+        GenesisPalette.redesignInk,
       );
       expect(
         tester
             .widget<Text>(find.text('The harbor lights answer in sequence.'))
             .style
             ?.color,
-        const Color(0xFF111111),
+        GenesisPalette.redesignInk,
       );
       expect(find.text('Follow the light toward the gate.'), findsOneWidget);
       expect(
@@ -275,7 +275,7 @@ void main() {
             .widget<Text>(find.text('Follow the light toward the gate.'))
             .style
             ?.color,
-        const Color(0xFF666666),
+        GenesisPalette.redesignInk60,
       );
     },
   );
@@ -341,15 +341,15 @@ void main() {
     expect(find.text('Iris'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Day 4, 20:25')).style?.color,
-      const Color(0xFF6F6F6F),
+      GenesisPalette.redesignInk60,
     );
     expect(
       tester.widget<Text>(find.text(aiRoleName)).style?.color,
-      const Color(0xFF6F6F6F),
+      GenesisPalette.redesignInk60,
     );
     expect(
       tester.widget<Text>(find.text('Iris')).style?.color,
-      const Color(0xFF6F6F6F),
+      GenesisPalette.redesignInk60,
     );
     final aiIcon = find.byWidgetPredicate(
       (widget) =>
@@ -630,7 +630,7 @@ void main() {
       addTearDown(scrollController.dispose);
       await tester.pumpWidget(
         MaterialApp(
-          theme: GenesisTheme.worldoRedesign(),
+          theme: GenesisTheme.worldoDark(),
           home: Scaffold(
             body: SizedBox(
               height: 180,

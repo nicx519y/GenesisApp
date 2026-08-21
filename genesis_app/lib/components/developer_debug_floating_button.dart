@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/debug_floating_button_visibility.dart';
 import '../pages/me/developer_page.dart';
-import '../ui/components/genesis_safe_area.dart';
+import '../ui/theme/genesis_semantic_colors.dart';
 import 'common/genesis_modal_routes.dart';
 
 class DeveloperDebugFloatingButton extends StatefulWidget {
@@ -38,11 +38,10 @@ class _DeveloperDebugFloatingButtonState
         return LayoutBuilder(
           builder: (context, constraints) {
             final size = constraints.biggest;
-            final bottomPadding = GenesisSafeAreaInsets.bottom(context);
             final defaultPosition = _clampPosition(
               Offset(
                 size.width - _buttonSize - _edgePadding,
-                size.height - _buttonSize - bottomPadding - 86,
+                (size.height - _buttonSize) / 2,
               ),
               size,
             );
@@ -160,15 +159,15 @@ class _DebugButton extends StatelessWidget {
         width: size,
         height: size,
         child: Material(
-          color: const Color(0xFFFF2442),
+          color: context.genesisColors.danger,
           shape: const CircleBorder(),
           elevation: 6,
-          shadowColor: Colors.black.withValues(alpha: 0.2),
-          child: const Center(
+          shadowColor: context.genesisColors.shadow,
+          child: Center(
             child: Text(
               'debug',
               style: TextStyle(
-                color: Colors.white,
+                color: context.genesisColors.onDanger,
                 fontSize: 10,
                 height: 1,
                 fontWeight: FontWeight.w600,

@@ -15,17 +15,17 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
     required this.conversationPreview,
   });
 
-  factory GenesisMessageColors.light() => const GenesisMessageColors(
-    notificationsSurface: Color(0xFFDDF2EF),
-    followersSurface: Color(0xFFFFF0D8),
-    commentsSurface: Color(0xFFE9F0FF),
-    statusPositive: Color(0xFF25845C),
-    statusMuted: Color(0xFF8A8D93),
-    originAccent: Color(0xFF2F4F7A),
-    conversationPreview: Color(0xFF9A949F),
+  factory GenesisMessageColors.worldoLight() => const GenesisMessageColors(
+    notificationsSurface: GenesisPalette.dangerSurface,
+    followersSurface: GenesisPalette.surfaceMuted,
+    commentsSurface: GenesisPalette.surfaceMuted,
+    statusPositive: GenesisPalette.redesignAccentDark,
+    statusMuted: GenesisPalette.redesignInk42,
+    originAccent: GenesisPalette.redesignAccentDark,
+    conversationPreview: GenesisPalette.redesignInk50,
   );
 
-  factory GenesisMessageColors.worldoRedesign() => const GenesisMessageColors(
+  factory GenesisMessageColors.worldoDark() => const GenesisMessageColors(
     notificationsSurface: GenesisPalette.redesignAccent14,
     followersSurface: GenesisPalette.redesignWhite10,
     commentsSurface: GenesisPalette.redesignWhite10,
@@ -45,7 +45,7 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
 
   static GenesisMessageColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisMessageColors>() ??
-      GenesisMessageColors.light();
+      GenesisMessageColors.worldoLight();
 
   @override
   GenesisMessageColors copyWith({

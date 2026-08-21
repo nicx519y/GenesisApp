@@ -13,7 +13,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: const CreateStoryEventsPage(),
       ),
     );
@@ -43,10 +43,7 @@ void main() {
     expect(painter.strokeWidth, 1.5);
 
     final addLabel = tester.widget<Text>(find.text('Add Event'));
-    expect(
-      addLabel.style?.color,
-      GenesisCreateColors.worldoRedesign().successText,
-    );
+    expect(addLabel.style?.color, GenesisCreateColors.worldoDark().successText);
     expect(addLabel.style?.fontSize, 13);
     expect(addLabel.style?.fontWeight, FontWeight.w700);
 

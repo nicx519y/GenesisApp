@@ -685,13 +685,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               panelTopOverlap: 8,
               panelTopBandHeight: worldPanelHandleBandHeight,
               panelTopChild: const Center(child: WorldDetailsDragHandle()),
-              panelTopShadow: const <BoxShadow>[
-                BoxShadow(
-                  color: Color(0x99000000),
-                  blurRadius: 40,
-                  offset: Offset(0, -14),
-                ),
-              ],
               scrollPhysics: const NeverScrollableScrollPhysics(),
               persistentTopOverlay: _buildPersistentMapOverlay(
                 topPadding,

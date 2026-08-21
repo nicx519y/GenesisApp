@@ -372,9 +372,9 @@ void main() {
       ),
     );
 
-    expect(find.text('Alice entered the cafe'), findsOneWidget);
+    expect(find.text('Alice came to the cafe'), findsOneWidget);
     expect(
-      tester.widget<Text>(find.text('Alice entered the cafe')).textAlign,
+      tester.widget<Text>(find.text('Alice came to the cafe')).textAlign,
       TextAlign.left,
     );
     expect(
@@ -388,7 +388,7 @@ void main() {
     );
     final enterRowRect = tester.getRect(
       find.ancestor(
-        of: find.text('Alice entered the cafe'),
+        of: find.text('Alice came to the cafe'),
         matching: find.byType(ChatMessageRow),
       ),
     );
@@ -400,11 +400,11 @@ void main() {
       ),
     );
     final enterDecoration = enterBubble.decoration! as BoxDecoration;
-    expect(enterDecoration.color, const Color(0xE6111111));
+    expect(enterDecoration.color, GenesisPalette.redesignWhite13);
     expect((enterDecoration.borderRadius! as BorderRadius).topLeft.x, 18);
-    final enterText = tester.widget<Text>(find.text('Alice entered the cafe'));
+    final enterText = tester.widget<Text>(find.text('Alice came to the cafe'));
     expect(enterText.textSpan?.style?.color, Colors.white);
-    expect(enterText.textSpan?.style?.fontWeight, FontWeight.w600);
+    expect(enterText.textSpan?.style?.fontWeight, FontWeight.w700);
     expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
     expect(find.text('Old Station'), findsNothing);
     expect(find.text('Event'), findsNothing);
@@ -598,7 +598,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: ChatMessageRow(
             message: message,
@@ -692,29 +692,18 @@ void main() {
       ),
     );
 
-    final visibility = find.byKey(
-      const ValueKey('chat-story-event-visibility-wrapping-tick-tick-0'),
+    expect(
+      find.byKey(
+        const ValueKey('chat-story-event-visibility-wrapping-tick-tick-0'),
+      ),
+      findsNothing,
     );
-    expect(visibility, findsOneWidget);
     expect(find.text(roleNames), findsOneWidget);
     expect(tester.getSize(find.text(roleNames)).width, greaterThan(224));
     expect(tester.getSize(find.text(roleNames)).height, greaterThan(20));
     expect(
-      tester.getTopLeft(find.text('Day 2, 10:15')).dy,
-      closeTo(tester.getTopLeft(find.text(roleNames)).dy, 2),
-    );
-    final userIcon = find.descendant(
-      of: visibility,
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is SvgPicture &&
-            widget.bytesLoader.toString().contains(userStatIconAsset),
-      ),
-    );
-    expect(userIcon, findsOneWidget);
-    expect(
-      tester.getTopLeft(userIcon).dy,
-      closeTo(tester.getTopLeft(find.text(roleNames)).dy + 2, 0.1),
+      tester.getTopLeft(find.text(roleNames)).dy,
+      greaterThan(tester.getBottomLeft(find.text('Day 2, 10:15')).dy),
     );
     expect(tester.takeException(), isNull);
   });
@@ -873,7 +862,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Center(
           child: MemoryModelEntryButton(
             modelLabel: 'Miranda',
@@ -907,7 +896,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Center(
           child: MemoryModelEntryButton(
             modelLabel: 'top_pick_v3_5',
@@ -983,7 +972,7 @@ void main() {
     ];
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign().copyWith(
+        theme: GenesisTheme.worldoDark().copyWith(
           platform: TargetPlatform.android,
         ),
         home: Scaffold(
@@ -994,7 +983,7 @@ void main() {
               topTitle: '',
               showDateDividers: false,
               messages: messages,
-              style: GenesisChatTheme.worldoRedesign().locationChat,
+              style: GenesisChatTheme.worldoDark().locationChat,
             ),
           ),
         ),
@@ -2204,7 +2193,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: Builder(
             builder: (context) => ChatHeader(
@@ -2278,7 +2267,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: Builder(
             builder: (context) => ChatHeader(
@@ -2505,7 +2494,7 @@ void main() {
         if (decoration is! BoxDecoration) return false;
         final border = decoration.border;
         if (border is! Border) return false;
-        return border.top.color == const Color(0xFF338960);
+        return border.top.color == GenesisPalette.redesignAccent;
       }),
       findsOneWidget,
     );
@@ -2534,7 +2523,7 @@ void main() {
     );
 
     final name = tester.widget<Text>(find.text('Peer Name'));
-    expect(name.style?.color, GenesisPalette.brand);
+    expect(name.style?.color, GenesisPalette.redesignAccent);
   });
 
   testWidgets(
@@ -2543,7 +2532,7 @@ void main() {
       const messageId = 'location-message-metadata';
       await tester.pumpWidget(
         MaterialApp(
-          theme: GenesisTheme.worldoRedesign(),
+          theme: GenesisTheme.worldoDark(),
           home: Scaffold(
             body: Builder(
               builder: (context) => ChatMessageRow(
@@ -2704,9 +2693,9 @@ void main() {
       find.descendant(of: avatarFinder, matching: find.byType(DecoratedBox)),
     );
     final decoration = avatarBox.decoration as BoxDecoration;
-    expect(decoration.color, const Color(0xFF4A5F7A));
+    expect(decoration.color, GenesisPalette.redesignWhite14);
     expect(decoration.shape, BoxShape.circle);
-    expect(decoration.border?.top.color, Colors.transparent);
+    expect(decoration.border?.top.color, GenesisPalette.redesignWhite18);
 
     final label = tester.widget<Text>(find.text('NPC'));
     expect(label.style?.color, Colors.white);
@@ -2718,7 +2707,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: const Scaffold(body: Center(child: ChatNpcAvatar())),
       ),
     );
@@ -2762,7 +2751,10 @@ void main() {
       ),
     );
     expect(_textHasItalicFragment(bubbleText, 'quietly'), isTrue);
-    expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
+    expect(
+      _textFragmentColor(bubbleText, 'quietly'),
+      GenesisPalette.redesignInk50,
+    );
   });
 
   testWidgets('self chat markdown uses the AI emphasis color', (
@@ -2795,7 +2787,7 @@ void main() {
     );
     expect(
       _textFragmentColor(bubbleText, 'historical role message'),
-      const Color(0xFF888888),
+      GenesisPalette.redesignInk50,
     );
   });
 
@@ -2899,7 +2891,7 @@ void main() {
       'quietly',
     );
     expect(style?.fontStyle, FontStyle.normal);
-    expect(style?.color, const Color(0xFF888888));
+    expect(style?.color, GenesisPalette.redesignInk50);
   });
 
   testWidgets('chat message bubble skews iOS markdown emphasis per token', (
@@ -3023,7 +3015,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: ChatMessageBubble(
             message: ChatMessageVm(
@@ -3074,7 +3066,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: ChatMessageBubble(
             message: ChatMessageVm(
@@ -3107,7 +3099,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: ChatMessageBubble(
             message: ChatMessageVm(
@@ -3148,10 +3140,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           body: ChatMessageBubble(
-            style: GenesisChatTheme.worldoRedesign().locationChat,
+            style: GenesisChatTheme.worldoDark().locationChat,
             message: ChatMessageVm(
               localId: 'self-role',
               senderId: 'character-adrian',
@@ -3260,7 +3252,10 @@ void main() {
       ),
     );
     expect(_textHasItalicFragment(systemText, 'cold'), isTrue);
-    expect(_textFragmentColor(systemText, 'cold'), const Color(0xFF888888));
+    expect(
+      _textFragmentColor(systemText, 'cold'),
+      GenesisPalette.redesignInk50,
+    );
   });
 
   testWidgets('Worldo narrator matches the transparent scene-plate design', (
@@ -3268,7 +3263,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign().copyWith(
+        theme: GenesisTheme.worldoDark().copyWith(
           platform: TargetPlatform.android,
         ),
         home: Builder(
@@ -3421,10 +3416,7 @@ void main() {
       narratorText.left,
       closeTo(expectedBubbleEdge + style.systemMessagePadding.left + 20, 1),
     );
-    expect(
-      tickText.left,
-      closeTo(expectedBubbleEdge + style.systemMessagePadding.left, 1),
-    );
+    expect(tickText.left, closeTo(expectedBubbleEdge + 14, 1));
   });
 
   testWidgets('underscore markdown remains plain text', (
@@ -3714,7 +3706,7 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey<String>('chat-tick-message-accent')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.textContaining('Progressing the World'), findsOneWidget);
       expect(
@@ -3854,19 +3846,17 @@ void main() {
         find.byKey(const ValueKey<String>('chat-tick-message-surface')),
       );
       final tickDecoration = tickBubble.decoration! as BoxDecoration;
-      expect(tickDecoration.color, const Color(0xF0182430));
-      expect(tickDecoration.borderRadius, BorderRadius.circular(8));
-      expect(tickDecoration.border, isNull);
+      expect(tickDecoration.color, GenesisPalette.redesignInk60);
+      expect(tickDecoration.borderRadius, BorderRadius.circular(10));
+      expect(
+        (tickDecoration.border! as Border).top.color,
+        GenesisPalette.redesignWhite20,
+      );
       final tickAccent = find.byKey(
         const ValueKey<String>('chat-tick-message-accent'),
       );
-      expect(tickAccent, findsOneWidget);
-      expect(
-        tester.widget<ColoredBox>(tickAccent).color,
-        const Color(0xFF709BC2),
-      );
-      expect(tester.getSize(tickAccent).width, 2);
-      expect(tester.widget<Text>(header).style?.color, const Color(0xFFC4DBEF));
+      expect(tickAccent, findsNothing);
+      expect(tester.widget<Text>(header).style?.color, Colors.white);
       expect(
         find.descendant(
           of: globalSection,
@@ -3874,7 +3864,7 @@ void main() {
         ),
         findsNothing,
       );
-      expect(tester.widget<Text>(header).style?.fontWeight, FontWeight.w400);
+      expect(tester.widget<Text>(header).style?.fontWeight, FontWeight.w800);
       expect(
         find.descendant(
           of: globalSection,
@@ -3921,7 +3911,7 @@ void main() {
           of: find.byKey(const ValueKey<String>('chat-tick-message-bubble')),
           matching: find.byType(Divider),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(eventText, findsOneWidget);
       final clueText = find.text('It spells Elara.');
@@ -4052,7 +4042,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Builder(
           builder: (context) => Scaffold(
             body: ChatMessageRow(
@@ -4379,6 +4369,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final controller = TextEditingController(text: 'hello');
+    final style = GenesisChatTheme.worldoLight().standard;
     var sendCount = 0;
     addTearDown(controller.dispose);
 
@@ -4393,6 +4384,7 @@ void main() {
             onSend: () async {
               sendCount += 1;
             },
+            style: style,
           ),
         ),
       ),
@@ -4404,10 +4396,7 @@ void main() {
     expect(input.onSubmitted, isNull);
     expect(
       tester.getSize(find.byKey(const ValueKey('chat-composer-send-button'))),
-      Size(
-        ChatUiStyleConfig.standard.composerSendButtonWidth,
-        ChatUiStyleConfig.standard.composerSendButtonHeight,
-      ),
+      Size(style.composerSendButtonWidth, style.composerSendButtonHeight),
     );
     expect(
       find.byKey(const ValueKey('chat-composer-send-button')),
@@ -4422,16 +4411,13 @@ void main() {
       ),
       findsWidgets,
     );
-    expect(
-      ChatUiStyleConfig.standard.composerSendButtonColor,
-      GenesisPalette.brand,
-    );
+    expect(style.composerSendButtonColor, GenesisPalette.redesignAccent);
     expect(
       find.byWidgetPredicate((widget) {
         return widget is DecoratedBox &&
             widget.decoration is BoxDecoration &&
             (widget.decoration as BoxDecoration).color ==
-                ChatUiStyleConfig.standard.composerSendButtonColor;
+                style.composerSendButtonColor;
       }),
       findsOneWidget,
     );
@@ -4479,6 +4465,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final controller = TextEditingController(text: 'hello');
+    final style = GenesisChatTheme.worldoLight().standard;
     var sendCount = 0;
     addTearDown(controller.dispose);
 
@@ -4493,6 +4480,7 @@ void main() {
             onSend: () async {
               sendCount += 1;
             },
+            style: style,
           ),
         ),
       ),
@@ -4554,6 +4542,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final controller = TextEditingController(text: 'hello');
+    final style = GenesisChatTheme.worldoLight().standard;
     var sendCount = 0;
     addTearDown(controller.dispose);
 
@@ -4568,6 +4557,7 @@ void main() {
             onSend: () async {
               sendCount += 1;
             },
+            style: style,
           ),
         ),
       ),
@@ -4583,7 +4573,7 @@ void main() {
         return widget is DecoratedBox &&
             widget.decoration is BoxDecoration &&
             (widget.decoration as BoxDecoration).color ==
-                ChatUiStyleConfig.standard.composerSendButtonDisabledColor;
+                style.composerSendButtonDisabledColor;
       }),
       findsOneWidget,
     );
@@ -4593,6 +4583,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final controller = TextEditingController(text: 'hello');
+    final style = GenesisChatTheme.worldoLight().standard;
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(
@@ -4604,6 +4595,7 @@ void main() {
             sendEnabled: false,
             sending: true,
             onSend: () async {},
+            style: style,
           ),
         ),
       ),
@@ -4617,7 +4609,7 @@ void main() {
         return widget is DecoratedBox &&
             widget.decoration is BoxDecoration &&
             (widget.decoration as BoxDecoration).color ==
-                ChatUiStyleConfig.standard.composerSendButtonColor;
+                style.composerSendButtonColor;
       }),
       findsOneWidget,
     );

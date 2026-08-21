@@ -13,12 +13,55 @@ import '../network/genesis_http_cache_manager.dart';
 import '../ui/genesis_ui.dart';
 import 'bootstrap/app_services_scope.dart';
 import 'bootstrap/service_registry.dart';
+import 'theme/genesis_theme_mode_controller.dart';
+import 'theme/genesis_theme_mode_scope.dart';
 
-class GenesisApp extends StatelessWidget {
-  const GenesisApp({super.key, this.services, this.initialIndex = 0});
+class GenesisApp extends StatefulWidget {
+  const GenesisApp({
+    super.key,
+    this.services,
+    this.initialIndex = 0,
+    this.themeModeController,
+  });
 
   final AppServices? services;
   final int initialIndex;
+  final GenesisThemeModeController? themeModeController;
+
+  @override
+  State<GenesisApp> createState() => _GenesisAppState();
+}
+
+class _GenesisAppState extends State<GenesisApp> {
+  late GenesisThemeModeController _themeModeController;
+  late bool _ownsThemeModeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _installThemeModeController(widget.themeModeController);
+  }
+
+  @override
+  void didUpdateWidget(covariant GenesisApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.themeModeController == widget.themeModeController) return;
+    if (_ownsThemeModeController) _themeModeController.dispose();
+    _installThemeModeController(widget.themeModeController);
+  }
+
+  void _installThemeModeController(
+    GenesisThemeModeController? externalController,
+  ) {
+    _ownsThemeModeController = externalController == null;
+    _themeModeController = externalController ?? GenesisThemeModeController();
+  }
+
+  @override
+  void dispose() {
+    if (_ownsThemeModeController) _themeModeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,63 +70,80 @@ class GenesisApp extends StatelessWidget {
     );
     var initialRoutePending = true;
     return AppServicesScope(
-      services: services ?? ServiceRegistry.build(),
+      services: widget.services ?? ServiceRegistry.build(),
       child: AgentControlHost(
-        child: MaterialApp(
-          title: 'Worldo',
-          debugShowCheckedModeBanner: false,
-          theme: GenesisTheme.worldoRedesign(),
-          initialRoute: RouteNames.home,
-          navigatorKey: genesisNavigatorKey,
-          navigatorObservers: [genesisRouteObserver, genesisPageRouteObserver],
-          onGenerateInitialRoutes: (_) {
-            initialRoutePending = false;
-            return <Route<dynamic>>[
-              AppRouter.onGenerateRoute(
-                RouteSettings(name: RouteNames.home, arguments: initialIndex),
-              ),
-            ];
-          },
-          onGenerateRoute: (settings) {
-            if (settings.name == RouteNames.home &&
-                settings.arguments == null &&
-                initialRoutePending) {
-              initialRoutePending = false;
-              return AppRouter.onGenerateRoute(
-                RouteSettings(name: RouteNames.home, arguments: initialIndex),
-              );
-            }
-            return AppRouter.onGenerateRoute(settings);
-          },
-          builder: (context, child) {
-            return AnnotatedRegion<SystemUiOverlayStyle>(
-              value: GenesisSystemUi.forThemeBrightness(
-                Theme.of(context).brightness,
-              ),
-              child: GenesisUiInteractionScope(
-                onButtonInteraction: (interaction) {
-                  GenesisTelemetry.click(
-                    actionId: interaction.actionId,
-                    component: interaction.component,
-                    enabled: interaction.enabled,
-                    data: interaction.data,
+        child: GenesisThemeModeScope(
+          controller: _themeModeController,
+          child: ValueListenableBuilder<ThemeMode>(
+            valueListenable: _themeModeController,
+            builder: (context, themeMode, _) => MaterialApp(
+              title: 'Worldo',
+              debugShowCheckedModeBanner: false,
+              theme: GenesisTheme.worldoLight(),
+              darkTheme: GenesisTheme.worldoDark(),
+              themeMode: themeMode,
+              initialRoute: RouteNames.home,
+              navigatorKey: genesisNavigatorKey,
+              navigatorObservers: [
+                genesisRouteObserver,
+                genesisPageRouteObserver,
+              ],
+              onGenerateInitialRoutes: (_) {
+                initialRoutePending = false;
+                return <Route<dynamic>>[
+                  AppRouter.onGenerateRoute(
+                    RouteSettings(
+                      name: RouteNames.home,
+                      arguments: widget.initialIndex,
+                    ),
+                  ),
+                ];
+              },
+              onGenerateRoute: (settings) {
+                if (settings.name == RouteNames.home &&
+                    settings.arguments == null &&
+                    initialRoutePending) {
+                  initialRoutePending = false;
+                  return AppRouter.onGenerateRoute(
+                    RouteSettings(
+                      name: RouteNames.home,
+                      arguments: widget.initialIndex,
+                    ),
                   );
-                },
-                child: GenesisTelemetryTapRegion(
-                  child: GenesisBottomSystemBarBoundary(
-                    child: InternalBuildIndicator(
-                      child: ForceUpgradeGate(
-                        child: DeveloperDebugFloatingButton(
-                          navigatorKey: genesisNavigatorKey,
-                          child: child ?? const SizedBox.shrink(),
+                }
+                return AppRouter.onGenerateRoute(settings);
+              },
+              builder: (context, child) {
+                return AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: GenesisSystemUi.forThemeBrightness(
+                    Theme.of(context).brightness,
+                  ),
+                  child: GenesisUiInteractionScope(
+                    onButtonInteraction: (interaction) {
+                      GenesisTelemetry.click(
+                        actionId: interaction.actionId,
+                        component: interaction.component,
+                        enabled: interaction.enabled,
+                        data: interaction.data,
+                      );
+                    },
+                    child: GenesisTelemetryTapRegion(
+                      child: GenesisBottomSystemBarBoundary(
+                        child: InternalBuildIndicator(
+                          child: ForceUpgradeGate(
+                            child: DeveloperDebugFloatingButton(
+                              navigatorKey: genesisNavigatorKey,
+                              child: child ?? const SizedBox.shrink(),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            );
-          },
+                );
+              },
+            ),
+          ),
         ),
       ),
     );

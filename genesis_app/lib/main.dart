@@ -8,9 +8,11 @@ import 'app/bootstrap/app_bootstrap.dart';
 import 'app/bootstrap/service_registry.dart';
 import 'app/config/app_config.dart';
 import 'app/config/app_endpoint_overrides.dart';
+import 'app/config/app_flavor_config.dart';
 import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
+import 'app/theme/genesis_theme_mode_controller.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
 import 'network/websocket_capture.dart';
@@ -27,6 +29,16 @@ Future<void> main() async {
       DeviceOrientation.portraitUp,
     ]),
   );
+  final themeModeControllerLoad =
+      GenesisThemeModeController.load(
+        allowDeveloperOverride: kDebugMode || AppFlavorConfig.currentIsInternal,
+      ).timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          debugPrint('[Startup] theme mode load timed out; using dark');
+          return GenesisThemeModeController();
+        },
+      );
   final tilemapSettingsLoad = () async {
     try {
       await const TilemapSettingsStore().load().timeout(
@@ -58,6 +70,7 @@ Future<void> main() async {
   // Native Firebase collection is disabled for every build. Enable it only
   // after the actual runtime endpoints and persisted debug override are known.
   await TelemetryRuntimeController.initialize(appConfig);
+  final themeModeController = await themeModeControllerLoad;
 
   void runGenesisApp() {
     final services = AppBootstrap.createInitialServices(config: appConfig);
@@ -66,8 +79,13 @@ Future<void> main() async {
     AppStartupCoordinator.configure(startedAt: appStartedAt);
     unawaited(
       initialIndexFuture.then(
-        (initialIndex) =>
-            runApp(GenesisApp(services: services, initialIndex: initialIndex)),
+        (initialIndex) => runApp(
+          GenesisApp(
+            services: services,
+            initialIndex: initialIndex,
+            themeModeController: themeModeController,
+          ),
+        ),
       ),
     );
   }

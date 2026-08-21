@@ -154,6 +154,19 @@ void main() {
     expect(bottomHeader, contains('GenesisPrimaryButton'));
   });
 
+  test(
+    'world panel keeps one theme surface without an interior shadow band',
+    () {
+      final source = allWorldSource();
+
+      expect(source, isNot(contains('panelTopShadow:')));
+      expect(
+        worldPageImplementationSource,
+        contains('color: context.genesisColors.pageBackground'),
+      );
+    },
+  );
+
   test('world map top overlay does not expose a separate Model entry', () {
     final source = worldPageLayoutSource;
     final overlayStart = source.indexOf('Widget _buildPersistentMapOverlay(');

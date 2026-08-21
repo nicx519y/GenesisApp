@@ -210,10 +210,10 @@ class _DeveloperNetworkTabState extends State<_DeveloperNetworkTab> {
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             height: 1.4,
-            color: Color(0xFF888888),
+            color: context.genesisColors.textFaint,
           ),
         ),
       ),
@@ -273,9 +273,9 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
     final responseText = _networkResponseText(record);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F8),
+        color: context.genesisColors.surfaceSoft,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E2E5)),
+        border: Border.all(color: context.genesisColors.borderNeutral),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -317,7 +317,7 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                       Icon(
                         expanded ? Icons.expand_less : Icons.expand_more,
                         size: 20,
-                        color: const Color(0xFF666666),
+                        color: context.genesisColors.iconMuted,
                       ),
                     ],
                   ),
@@ -330,9 +330,9 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                         key: ValueKey<String>(
                           'developer-network-query-${record.id}',
                         ),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF777777),
+                          color: context.genesisColors.textSubtle,
                         ),
                       ),
                     ),
@@ -351,27 +351,27 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                       ),
                       Text(
                         _networkDurationText(record.duration),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF777777),
+                          color: context.genesisColors.textSubtle,
                         ),
                       ),
                       if (record.responseBody case final responseBody?) ...[
                         const SizedBox(width: 10),
                         Text(
                           _networkByteSizeText(responseBody.byteCount),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF777777),
+                            color: context.genesisColors.textSubtle,
                           ),
                         ),
                       ],
                       const SizedBox(width: 10),
                       Text(
                         _networkTimeText(record.startedAt),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF777777),
+                          color: context.genesisColors.textSubtle,
                         ),
                       ),
                     ],
@@ -381,7 +381,7 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
             ),
           ),
           if (expanded) ...[
-            const Divider(height: 1, color: Color(0xFFE2E2E5)),
+            Divider(height: 1, color: context.genesisColors.borderNeutral),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Column(

@@ -292,10 +292,13 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
                     onTap: () => _refreshDisplayed(jumpToTop: true),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF222222),
+                        color: context.genesisColors.surfaceRaised,
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(color: Color(0x22000000), blurRadius: 8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: context.genesisColors.shadow,
+                            blurRadius: 8,
+                          ),
                         ],
                       ),
                       child: Padding(
@@ -305,8 +308,8 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
                         ),
                         child: Text(
                           '$_newFrameCount new frames',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.genesisColors.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -340,10 +343,10 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             height: 1.4,
-            color: Color(0xFF888888),
+            color: context.genesisColors.textFaint,
           ),
         ),
       ),
@@ -375,9 +378,9 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
     final typeLabel = record.typeKey;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F8),
+        color: context.genesisColors.surfaceSoft,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E2E5)),
+        border: Border.all(color: context.genesisColors.borderNeutral),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -431,16 +434,16 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEDEDF0),
+                            color: context.genesisColors.surfaceMuted,
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
                             record.streamType,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
-                              color: Color(0xFF666666),
+                              color: context.genesisColors.textSecondary,
                             ),
                           ),
                         ),
@@ -448,7 +451,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                       Icon(
                         expanded ? Icons.expand_less : Icons.expand_more,
                         size: 20,
-                        color: const Color(0xFF666666),
+                        color: context.genesisColors.iconMuted,
                       ),
                     ],
                   ),
@@ -460,18 +463,18 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                           _webSocketRecordSummary(record),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF777777),
+                            color: context.genesisColors.textSubtle,
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Text(
                         _networkTimeText(record.recordedAt),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF777777),
+                          color: context.genesisColors.textSubtle,
                         ),
                       ),
                     ],
@@ -481,7 +484,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
             ),
           ),
           if (expanded) ...[
-            const Divider(height: 1, color: Color(0xFFE2E2E5)),
+            Divider(height: 1, color: context.genesisColors.borderNeutral),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Column(
@@ -599,14 +602,14 @@ class _DeveloperWebSocketTypeFilterSheetState
             _searchController.clear();
           });
         },
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Text(
             'Reset',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFFFF2442),
+              color: context.genesisColors.primary,
             ),
           ),
         ),
@@ -657,10 +660,13 @@ class _DeveloperWebSocketTypeFilterSheetState
           const SizedBox(height: 8),
           Expanded(
             child: types.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'No message types yet.',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF888888)),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: context.genesisColors.textFaint,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -690,9 +696,9 @@ class _DeveloperWebSocketTypeFilterSheetState
                         title: Text(type, style: const TextStyle(fontSize: 13)),
                         secondary: Text(
                           '${widget.counts[type] ?? 0}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF777777),
+                            color: context.genesisColors.textSubtle,
                           ),
                         ),
                       );

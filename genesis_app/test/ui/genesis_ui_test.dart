@@ -11,7 +11,7 @@ void main() {
   testWidgets('GenesisTheme provides shared app styles', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.light(),
+        theme: GenesisTheme.worldoLight(),
         home: Builder(
           builder: (context) {
             final theme = Theme.of(context);
@@ -22,7 +22,10 @@ void main() {
     );
 
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
-    expect(materialApp.theme?.scaffoldBackgroundColor, GenesisPalette.white);
+    expect(
+      materialApp.theme?.scaffoldBackgroundColor,
+      GenesisPalette.redesignPaper,
+    );
     expect(
       materialApp.theme?.textTheme.bodyMedium?.fontSize,
       GenesisTypography.body.fontSize,
@@ -41,7 +44,7 @@ void main() {
     expect(roundedDialogShape.side.width, genesisModalBorderWidth);
     expect(
       roundedDialogShape.side.color,
-      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+      GenesisPalette.redesignInk.withValues(alpha: genesisModalBorderOpacity),
     );
     final popupShape = materialApp.theme?.popupMenuTheme.shape;
     expect(popupShape, isA<RoundedRectangleBorder>());
@@ -49,7 +52,7 @@ void main() {
     expect(roundedPopupShape.side.width, genesisModalBorderWidth);
     expect(
       roundedPopupShape.side.color,
-      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+      GenesisPalette.redesignInk.withValues(alpha: genesisModalBorderOpacity),
     );
     final bottomSheetShape = materialApp.theme?.bottomSheetTheme.shape;
     expect(bottomSheetShape, isA<RoundedRectangleBorder>());
@@ -57,12 +60,12 @@ void main() {
     expect(roundedBottomSheetShape.side.width, genesisModalBorderWidth);
     expect(
       roundedBottomSheetShape.side.color,
-      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+      GenesisPalette.redesignInk.withValues(alpha: genesisModalBorderOpacity),
     );
   });
 
   test('GenesisTheme disables Material state effects', () {
-    final theme = GenesisTheme.light();
+    final theme = GenesisTheme.worldoLight();
     const pressed = <WidgetState>{WidgetState.pressed};
     expect(theme.splashFactory, NoSplash.splashFactory);
     expect(theme.splashColor, Colors.transparent);
@@ -142,7 +145,7 @@ void main() {
     const primaryColor = Color(0xFF246824);
     const selectedColor = Color(0xFF135790);
     const unselectedColor = Color(0xFF975310);
-    final semanticColors = GenesisSemanticColors.light().copyWith(
+    final semanticColors = GenesisSemanticColors.worldoLight().copyWith(
       inputBackground: searchColor,
       textPrimary: titleColor,
       danger: Colors.orange,
@@ -153,10 +156,10 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.light().copyWith(
+        theme: GenesisTheme.worldoLight().copyWith(
           extensions: <ThemeExtension<dynamic>>[
             semanticColors,
-            GenesisUiTheme.light(),
+            GenesisUiTheme.worldo(),
           ],
         ),
         home: Scaffold(
@@ -237,35 +240,35 @@ void main() {
     );
   });
 
-  test('Genesis light semantic roles preserve the existing palette', () {
-    final colors = GenesisSemanticColors.light();
+  test('Worldo light semantic roles use paper ink and accent', () {
+    final colors = GenesisSemanticColors.worldoLight();
 
-    expect(colors.pageBackground, GenesisPalette.white);
-    expect(colors.surface, GenesisPalette.white);
-    expect(colors.inputBackground, GenesisPalette.surfaceInput);
-    expect(colors.textPrimary, GenesisPalette.textPrimary);
-    expect(colors.textSecondary, GenesisPalette.textSecondary);
-    expect(colors.primary, GenesisPalette.brand);
-    expect(colors.primaryDisabled, GenesisPalette.brandSoft);
-    expect(colors.danger, GenesisPalette.create);
-    expect(colors.navigationSelected, GenesisPalette.navigationSelected);
-    expect(colors.navigationUnselected, GenesisPalette.navigationUnselected);
-    expect(colors.textStrong, const Color(0xFF222222));
-    expect(colors.textHighEmphasis, const Color(0xDD000000));
-    expect(colors.foregroundStrong, const Color(0xFF000000));
-    expect(colors.textHeading, const Color(0xFF1D1D1D));
-    expect(colors.textBody, const Color(0xFF333333));
-    expect(colors.textMuted, const Color(0xFF666666));
-    expect(colors.textSubtle, const Color(0xFF777777));
-    expect(colors.textTagline, const Color(0xFF7A7A7A));
-    expect(colors.textFaint, const Color(0xFF888888));
-    expect(colors.textSupporting, const Color(0xFF8A8A8A));
-    expect(colors.textTimestamp, const Color(0xFF8B8B8B));
-    expect(colors.textMetadata, const Color(0xFF8A8D93));
-    expect(colors.inputHint, const Color(0xFF8C8C8C));
-    expect(colors.textEmptyState, const Color(0xFF94979E));
-    expect(colors.textLabelMuted, const Color(0xFF8F8F8F));
-    expect(colors.textPlaceholder, const Color(0xFF999999));
+    expect(colors.pageBackground, GenesisPalette.redesignPaper);
+    expect(colors.surface, GenesisPalette.redesignPaper);
+    expect(colors.inputBackground, GenesisPalette.white);
+    expect(colors.textPrimary, GenesisPalette.redesignInk);
+    expect(colors.textSecondary, GenesisPalette.redesignInk60);
+    expect(colors.primary, GenesisPalette.redesignAccent);
+    expect(colors.primaryDisabled, GenesisPalette.redesignAccent40);
+    expect(colors.danger, GenesisPalette.redesignAccent);
+    expect(colors.navigationSelected, GenesisPalette.redesignInk);
+    expect(colors.navigationUnselected, GenesisPalette.redesignTextSecondary);
+    expect(colors.textStrong, GenesisPalette.redesignInk88);
+    expect(colors.textHighEmphasis, GenesisPalette.redesignInk88);
+    expect(colors.foregroundStrong, GenesisPalette.redesignInk);
+    expect(colors.textHeading, GenesisPalette.redesignInk);
+    expect(colors.textBody, GenesisPalette.redesignInk80);
+    expect(colors.textMuted, GenesisPalette.redesignInk60);
+    expect(colors.textSubtle, GenesisPalette.redesignInk50);
+    expect(colors.textTagline, GenesisPalette.redesignInk50);
+    expect(colors.textFaint, GenesisPalette.redesignInk50);
+    expect(colors.textSupporting, GenesisPalette.redesignInk50);
+    expect(colors.textTimestamp, GenesisPalette.redesignInk42);
+    expect(colors.textMetadata, GenesisPalette.redesignInk42);
+    expect(colors.inputHint, GenesisPalette.redesignInk50);
+    expect(colors.textEmptyState, GenesisPalette.redesignInk50);
+    expect(colors.textLabelMuted, GenesisPalette.redesignInk50);
+    expect(colors.textPlaceholder, GenesisPalette.redesignInk42);
     expect(colors.iconMuted, const Color(0xFF5C5862));
     expect(colors.dividerSubtle, const Color(0xFFE7E7E7));
     expect(colors.dividerMuted, const Color(0xFFEFEFEF));
@@ -274,13 +277,13 @@ void main() {
     expect(colors.surfaceProgress, const Color(0xFFF4F4F8));
     expect(colors.surfaceGrouped, const Color(0xFFF4F4F5));
     expect(colors.surfaceTag, const Color(0xFFF1F3F6));
-    expect(colors.dangerControl, const Color(0xFFFF4D4F));
+    expect(colors.dangerControl, GenesisPalette.redesignAccent);
     expect(colors.dangerSurface, const Color(0xFFFFF4F6));
     expect(colors.dangerBorder, const Color(0xFFFFE0E6));
   });
 
   test('GenesisTheme registers all feature color extensions', () {
-    final theme = GenesisTheme.light();
+    final theme = GenesisTheme.worldoLight();
 
     expect(theme.extension<GenesisChatTheme>(), isNotNull);
     expect(theme.extension<GenesisGemColors>(), isNotNull);
@@ -316,7 +319,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: GenesisTheme.light(),
+          theme: GenesisTheme.worldoLight(),
           home: Scaffold(
             body: GenesisSearchField(
               controller: controller,
@@ -439,7 +442,7 @@ void main() {
     var titleTapCount = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.worldoRedesign(),
+        theme: GenesisTheme.worldoDark(),
         home: Scaffold(
           appBar: GenesisBackAppBar(
             pageName: 'Details',
@@ -485,7 +488,7 @@ void main() {
     var tapped = false;
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.light(),
+        theme: GenesisTheme.worldoLight(),
         home: Scaffold(
           body: GenesisPrimaryButton(
             label: 'Continue',
@@ -503,7 +506,7 @@ void main() {
       theme?.filledButtonTheme.style?.backgroundColor?.resolve(
         const <WidgetState>{},
       ),
-      const Color(0xFF338960),
+      GenesisPalette.redesignAccent,
     );
   });
 
@@ -526,7 +529,7 @@ void main() {
       button.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      GenesisPalette.redesignAccent40,
     );
     expect(
       button.style?.foregroundColor?.resolve(<WidgetState>{
@@ -627,7 +630,7 @@ void main() {
     );
     expect(
       destructive.style?.backgroundColor?.resolve(const <WidgetState>{}),
-      GenesisPalette.create,
+      GenesisPalette.redesignAccent,
     );
   });
 
@@ -689,6 +692,19 @@ void main() {
       ),
     );
     expect(loadingButton.onPressed, isNull);
+    expect(
+      loadingButton.style?.backgroundColor?.resolve(const <WidgetState>{
+        WidgetState.disabled,
+      }),
+      GenesisPalette.redesignAccent,
+    );
+    final loadingIndicator = tester.widget<CircularProgressIndicator>(
+      find.descendant(
+        of: find.byKey(const ValueKey('loading-button')),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+    );
+    expect(loadingIndicator.color, GenesisPalette.white);
   });
 
   testWidgets('GenesisActionBox attaches cancel for a single action', (
@@ -742,7 +758,7 @@ void main() {
     expect(attachedBorder.top.width, genesisModalBorderWidth);
     expect(
       attachedBorder.top.color,
-      const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+      GenesisPalette.redesignInk.withValues(alpha: genesisModalBorderOpacity),
     );
     expect(
       tester.getSize(
@@ -777,7 +793,7 @@ void main() {
     expect(title.style?.fontWeight, FontWeight.w600);
     expect(action.style?.fontSize, 15);
     expect(action.style?.fontWeight, FontWeight.w600);
-    expect(action.style?.color, const Color(0xFFFF2442));
+    expect(action.style?.color, GenesisPalette.redesignAccent);
     expect(cancel.style?.fontSize, 15);
     expect(cancel.style?.fontWeight, FontWeight.w400);
 
@@ -941,7 +957,7 @@ void main() {
       expect(border.top.width, genesisModalBorderWidth);
       expect(
         border.top.color,
-        const Color(0xFF111111).withValues(alpha: genesisModalBorderOpacity),
+        GenesisPalette.redesignInk.withValues(alpha: genesisModalBorderOpacity),
       );
     }
     expect(
@@ -1243,7 +1259,7 @@ void main() {
         .map((box) => box.decoration)
         .whereType<BoxDecoration>()
         .singleWhere((decoration) => decoration.boxShadow != null);
-    expect(decoration.color, Colors.white);
+    expect(decoration.color, GenesisPalette.redesignPaper);
     expect(decoration.boxShadow, isNotNull);
     expect(decoration.boxShadow!.single.offset.dy, lessThan(0));
 
@@ -1262,7 +1278,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           key: ValueKey(platform),
-          theme: GenesisTheme.light().copyWith(platform: platform),
+          theme: GenesisTheme.worldoLight().copyWith(platform: platform),
           home: const Scaffold(body: GenesisUnreadBadge(count: 4)),
         ),
       );
@@ -1286,7 +1302,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.light(),
+        theme: GenesisTheme.worldoLight(),
         home: Scaffold(
           bottomNavigationBar: GenesisBottomNavigation(
             currentIndex: 0,
@@ -1330,13 +1346,13 @@ void main() {
         .whereType<ShapeDecoration>()
         .singleWhere(
           (decoration) =>
-              decoration.color == GenesisPalette.create &&
+              decoration.color == GenesisPalette.redesignAccent &&
               decoration.shape ==
                   const ContinuousRectangleBorder(
                     borderRadius: BorderRadius.all(Radius.circular(20)),
                   ),
         );
-    expect(decoration.color, GenesisPalette.create);
+    expect(decoration.color, GenesisPalette.redesignAccent);
 
     final createSurface = tester.widget<Container>(
       find.descendant(
@@ -1581,7 +1597,7 @@ void main() {
     expect(find.text('Latest'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(tabBar.unselectedLabelColor, const Color(0xFF666666));
+    expect(tabBar.unselectedLabelColor, GenesisPalette.redesignTextSecondary);
   });
 
   testWidgets('GenesisTabBar supports an explicit controller', (tester) async {

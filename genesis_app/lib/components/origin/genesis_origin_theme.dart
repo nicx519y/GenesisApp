@@ -23,25 +23,25 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
     required this.launchSheetInputBorder,
   });
 
-  factory GenesisOriginColors.light() => const GenesisOriginColors(
-    launchPreviewAccent: Color(0xFF6554FF),
-    feedTabInactive: Color(0xFF666666),
-    roleSetupBackdrop: Color(0xCC000000),
-    roleSetupPanel: Color(0xFF202022),
-    roleSetupGradientStart: Color(0xFF505056),
-    roleSetupGradientEnd: Color(0xFF343438),
-    roleSetupMuted: Color(0xFF999999),
-    roleSetupDisabled: Color(0xFFB7B7B7),
-    roleSetupSelectionOverlay: Color(0x667A7A7A),
-    launchSheetSurface: Color(0xFFEDEDEF),
-    launchSheetBorder: Color(0xFFE3E3E7),
-    launchSheetDisabled: Color(0xFFC8D9D1),
-    loadingBone: Color(0xFFD9DDE2),
-    launchSheetSecondaryText: Color(0xFF595959),
-    launchSheetInputBorder: Color(0xFFE1E1E6),
+  factory GenesisOriginColors.worldoLight() => const GenesisOriginColors(
+    launchPreviewAccent: GenesisPalette.redesignAccentDark,
+    feedTabInactive: GenesisPalette.redesignTextSecondary,
+    roleSetupBackdrop: GenesisPalette.redesignBlack85,
+    roleSetupPanel: GenesisPalette.redesignRaised,
+    roleSetupGradientStart: GenesisPalette.redesignGradientStart,
+    roleSetupGradientEnd: GenesisPalette.redesignInk,
+    roleSetupMuted: GenesisPalette.redesignWhite55,
+    roleSetupDisabled: GenesisPalette.redesignWhite32,
+    roleSetupSelectionOverlay: GenesisPalette.redesignAccent40,
+    launchSheetSurface: GenesisPalette.white,
+    launchSheetBorder: GenesisPalette.border,
+    launchSheetDisabled: GenesisPalette.surfaceDisabled,
+    loadingBone: GenesisPalette.skeletonBase,
+    launchSheetSecondaryText: GenesisPalette.redesignInk60,
+    launchSheetInputBorder: GenesisPalette.inputBorder,
   );
 
-  factory GenesisOriginColors.worldoRedesign() => const GenesisOriginColors(
+  factory GenesisOriginColors.worldoDark() => const GenesisOriginColors(
     launchPreviewAccent: GenesisPalette.redesignAccentSoft,
     feedTabInactive: GenesisPalette.redesignFeedTabInactive,
     roleSetupBackdrop: GenesisPalette.redesignBlack85,
@@ -77,7 +77,7 @@ class GenesisOriginColors extends ThemeExtension<GenesisOriginColors> {
 
   static GenesisOriginColors of(BuildContext context) =>
       Theme.of(context).extension<GenesisOriginColors>() ??
-      GenesisOriginColors.light();
+      GenesisOriginColors.worldoLight();
 
   @override
   GenesisOriginColors copyWith({

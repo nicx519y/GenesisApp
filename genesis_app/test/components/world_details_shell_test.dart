@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
+import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
@@ -124,7 +125,7 @@ void main() {
     );
   });
 
-  testWidgets('world details content has an opaque white background', (
+  testWidgets('world details content has an opaque Worldo paper background', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -141,7 +142,7 @@ void main() {
     );
     expect(
       contentBackground.decoration,
-      const BoxDecoration(color: Colors.white),
+      const BoxDecoration(color: GenesisPalette.redesignPaper),
     );
   });
 
@@ -150,7 +151,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: GenesisTheme.worldoRedesign(),
+          theme: GenesisTheme.worldoDark(),
           home: const WorldDetailsPageScaffold(
             panelTopRadius: 24,
             map: ColoredBox(color: Colors.green),
@@ -188,6 +189,44 @@ void main() {
       expect(border.bottom.style, BorderStyle.none);
     },
   );
+
+  testWidgets('collapsed panel uses one surface in light and dark themes', (
+    tester,
+  ) async {
+    for (final theme in <ThemeData>[
+      GenesisTheme.worldoLight(),
+      GenesisTheme.worldoDark(),
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const WorldDetailsPageScaffold(
+            panelTopRadius: 24,
+            map: ColoredBox(color: Colors.green),
+            panelTopChild: SizedBox.expand(),
+            slivers: [SliverToBoxAdapter(child: SizedBox(height: 80))],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final expectedColor = theme
+          .extension<GenesisSemanticColors>()!
+          .pageBackground;
+      final panel = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('world-details-panel-top-surface')),
+      );
+      final panelDecoration = panel.decoration! as BoxDecoration;
+      final content = tester.widget<DecoratedSliver>(
+        find.byKey(const ValueKey<String>('world-details-content-background')),
+      );
+      final contentDecoration = content.decoration as BoxDecoration;
+
+      expect(panelDecoration.color, expectedColor);
+      expect(contentDecoration.color, expectedColor);
+      expect(panelDecoration.boxShadow, isEmpty);
+    }
+  });
 
   testWidgets('world details page scaffold uses explicit map height settings', (
     tester,

@@ -999,6 +999,7 @@ class WorldSingleSectionBottomSheetState
                           surfaceKey: const ValueKey<String>(
                             'world-detail-sheet-surface',
                           ),
+                          connectsToBottom: true,
                           child: Material(
                             color: Colors.transparent,
                             child: Stack(
