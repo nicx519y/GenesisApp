@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/theme/worldo_theme.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
@@ -74,7 +76,7 @@ void main() {
 
 ThemeData _themeFor(Brightness brightness, TargetPlatform platform) {
   final theme = brightness == Brightness.dark
-      ? GenesisTheme.worldoDark()
-      : GenesisTheme.worldoLight();
+      ? WorldoTheme.dark()
+      : WorldoTheme.light();
   return theme.copyWith(platform: platform);
 }

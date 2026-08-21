@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../ui/components/genesis_safe_area.dart';
-import '../ui/components/genesis_search_field.dart';
-import '../ui/components/genesis_modal_border.dart';
-import '../ui/theme/genesis_semantic_colors.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 const double mapDetailSheetTopOverlayOffset = 8;
 const double mapDetailSheetExpandedTopGap = 20;

@@ -1,12 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
-import '../../ui/components/genesis_page_title.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_typography.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 

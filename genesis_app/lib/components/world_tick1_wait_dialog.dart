@@ -1,10 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../network/models/world.dart';
-import '../ui/components/genesis_dialog.dart';
-import '../ui/components/genesis_edge_swipe_back.dart';
 import 'common/genesis_modal_routes.dart';
 
 const Duration kWorldTick1WaitPollInterval = Duration(seconds: 2);

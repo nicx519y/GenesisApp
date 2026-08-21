@@ -1,14 +1,13 @@
 // ignore_for_file: use_key_in_widget_constructors
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/shared/location_chat_overlay_transition.dart';
-import '../../components/world/genesis_world_theme.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/location_tree.dart';
-import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import '../chat/location_chat_background_preloader.dart';
 import '../chat/location_chat_page.dart';
 import 'world_map_data.dart';

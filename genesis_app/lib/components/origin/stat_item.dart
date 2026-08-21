@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../icons/custom_icon_assets.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 
 class StatItem extends StatelessWidget {
   const StatItem({

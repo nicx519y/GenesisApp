@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
@@ -9,9 +11,7 @@ import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import '../common/genesis_center_toast.dart';
-import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
 import 'gem_billing_purchase_dialog.dart';
 import 'gem_colors.dart';

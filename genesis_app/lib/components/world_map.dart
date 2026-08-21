@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import 'legacy_world_map/legacy_world_map.dart';
 import 'legacy_world_map/legacy_world_map_config.dart';
 import 'tilemap/tilemap.dart';
-import '../ui/tokens/genesis_palette.dart';
 import 'world_map_contract.dart';
 import 'world_point.dart';
 

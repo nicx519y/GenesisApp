@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import '../../../ui/tokens/genesis_palette.dart';
-import '../../../ui/tokens/genesis_typography.dart';
 import 'chat_ui_library.dart';
 
 /// Chat visual variants supplied by the active app skin.

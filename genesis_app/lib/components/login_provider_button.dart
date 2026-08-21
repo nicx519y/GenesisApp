@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../app/config/app_flavor_config.dart';
 import '../platform/auth/auth_session.dart';
 import '../pages/legal/legal_document_page.dart';
 import '../routers/app_router.dart';
-import '../ui/theme/genesis_semantic_colors.dart';
 
 const String _googleOauthIconAsset = 'assets/custom-icons/svg/login_google.svg';
 const String _appleOauthIconAsset = 'assets/custom-icons/svg/login_apple.svg';

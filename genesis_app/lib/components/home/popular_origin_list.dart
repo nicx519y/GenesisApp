@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../discuss/origin_discuss_preview_list.dart';
 import '../origin/stat_item.dart';
@@ -10,9 +11,6 @@ import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
-import '../../ui/components/genesis_list_image.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';

@@ -2,12 +2,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/theme/worldo_theme.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui_style_config.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
   test('Worldo dark theme keeps the approved production color system', () {
-    final theme = GenesisTheme.worldoDark();
+    final theme = WorldoTheme.dark();
     final colors = theme.extension<GenesisSemanticColors>()!;
 
     expect(theme.brightness, Brightness.dark);
@@ -28,7 +30,7 @@ void main() {
   });
 
   test('Worldo light theme keeps the Worldo paper ink and accent identity', () {
-    final theme = GenesisTheme.worldoLight();
+    final theme = WorldoTheme.light();
     final colors = theme.extension<GenesisSemanticColors>()!;
 
     expect(theme.brightness, Brightness.light);
@@ -46,8 +48,8 @@ void main() {
   });
 
   test('Worldo redesign keeps shared component metrics unchanged', () {
-    final light = GenesisTheme.worldoLight().extension<GenesisUiTheme>()!;
-    final redesign = GenesisTheme.worldoDark().extension<GenesisUiTheme>()!;
+    final light = WorldoTheme.light().extension<GenesisUiTheme>()!;
+    final redesign = WorldoTheme.dark().extension<GenesisUiTheme>()!;
 
     expect(redesign.searchBorderRadius, light.searchBorderRadius);
     expect(redesign.centeredAppBarHeight, light.centeredAppBarHeight);
@@ -93,10 +95,7 @@ void main() {
   });
 
   test('Worldo redesign registers every feature color extension', () {
-    for (final theme in <ThemeData>[
-      GenesisTheme.worldoLight(),
-      GenesisTheme.worldoDark(),
-    ]) {
+    for (final theme in <ThemeData>[WorldoTheme.light(), WorldoTheme.dark()]) {
       expect(theme.extension<GenesisChatTheme>(), isNotNull);
       expect(theme.extension<GenesisGemColors>(), isNotNull);
       expect(theme.extension<GenesisOriginColors>(), isNotNull);
@@ -198,8 +197,8 @@ void main() {
   test('GenesisApp installs paired Worldo themes and a theme mode', () {
     final source = File('lib/app/genesis_app.dart').readAsStringSync();
 
-    expect(source, contains('theme: GenesisTheme.worldoLight()'));
-    expect(source, contains('darkTheme: GenesisTheme.worldoDark()'));
+    expect(source, contains('theme: WorldoTheme.light()'));
+    expect(source, contains('darkTheme: WorldoTheme.dark()'));
     expect(source, contains('themeMode: themeMode'));
     expect(source, isNot(contains('GenesisTheme.light()')));
   });

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../app/blocked_user_review_return.dart';
 import '../../app/bootstrap/app_services_scope.dart';
@@ -14,9 +15,6 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
-import '../../ui/genesis_ui.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 

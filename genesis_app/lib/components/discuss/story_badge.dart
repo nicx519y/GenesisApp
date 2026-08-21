@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../icons/my_flutter_app_icons.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 
 class DiscussStoryBadge extends StatelessWidget {
   const DiscussStoryBadge({

@@ -2,12 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../utils/genesis_image_resource.dart';
-import '../../ui/components/genesis_static_network_image.dart';
 import 'genesis_modal_routes.dart';
-import '../../ui/components/genesis_edge_swipe_back.dart';
-import '../../ui/components/genesis_safe_area.dart';
 
 @visibleForTesting
 typedef GenesisImageViewerPrecacheImage =

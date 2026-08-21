@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_radii.dart';
-import '../../ui/components/genesis_dialog.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 export '../../ui/system/genesis_system_ui.dart';
 

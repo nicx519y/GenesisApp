@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../components/origin/stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -6,11 +7,6 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
-import '../../ui/components/genesis_character_avatar.dart';
-import '../../ui/components/genesis_list_image.dart';
-import '../../ui/components/recent_chat_marker.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/theme/worldo_theme.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
 void main() {
   testWidgets('GenesisTheme provides shared app styles', (tester) async {
@@ -308,8 +309,8 @@ void main() {
     expect(colors.dangerBorder, const Color(0xFFFFE0E6));
   });
 
-  test('GenesisTheme registers all feature color extensions', () {
-    final theme = GenesisTheme.worldoLight();
+  test('WorldoTheme registers all feature color extensions', () {
+    final theme = WorldoTheme.light();
 
     expect(theme.extension<GenesisChatTheme>(), isNotNull);
     expect(theme.extension<GenesisGemColors>(), isNotNull);

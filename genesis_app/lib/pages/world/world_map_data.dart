@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../components/world_map.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
-import '../../ui/components/genesis_avatar.dart';
 import 'world_value_helpers.dart';
 
 class WorldLocationListData {

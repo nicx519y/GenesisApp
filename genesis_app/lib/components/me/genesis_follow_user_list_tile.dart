@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_avatar.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 

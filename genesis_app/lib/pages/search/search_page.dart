@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
@@ -11,8 +12,6 @@ import '../../components/origin/stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
-import '../../ui/genesis_ui.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';

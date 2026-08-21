@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 
 const int dailyCheckInPreviewReward = 50;
 const String dailyCheckInTaskCode = 'daily_checkin';

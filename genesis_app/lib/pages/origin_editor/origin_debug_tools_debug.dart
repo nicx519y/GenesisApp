@@ -3,13 +3,13 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../network/api_client.dart';
 import '../../network/dio_http_transport.dart';
 import '../../network/json_utils.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../create/create_origin_draft_store.dart';
 import 'origin_debug_draft_factory.dart';

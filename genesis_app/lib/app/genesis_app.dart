@@ -15,6 +15,7 @@ import 'bootstrap/app_services_scope.dart';
 import 'bootstrap/service_registry.dart';
 import 'theme/genesis_theme_mode_controller.dart';
 import 'theme/genesis_theme_mode_scope.dart';
+import 'theme/worldo_theme.dart';
 
 class GenesisApp extends StatefulWidget {
   const GenesisApp({
@@ -79,8 +80,8 @@ class _GenesisAppState extends State<GenesisApp> {
             builder: (context, themeMode, _) => MaterialApp(
               title: 'Worldo',
               debugShowCheckedModeBanner: false,
-              theme: GenesisTheme.worldoLight(),
-              darkTheme: GenesisTheme.worldoDark(),
+              theme: WorldoTheme.light(),
+              darkTheme: WorldoTheme.dark(),
               themeMode: themeMode,
               initialRoute: RouteNames.home,
               navigatorKey: genesisNavigatorKey,

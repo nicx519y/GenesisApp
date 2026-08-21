@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_center_toast.dart';
 
 class CopyableIdLabel extends StatelessWidget {

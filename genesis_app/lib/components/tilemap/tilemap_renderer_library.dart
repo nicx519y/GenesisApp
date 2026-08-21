@@ -5,10 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import '../../app/config/genesis_image_config.dart';
-import '../../ui/components/genesis_static_network_image.dart';
-import '../../ui/tokens/genesis_palette.dart';
 import '../legacy_world_map/legacy_world_map_gesture.dart';
 import '../world_map_location_marker.dart';
 import '../world_map_contract.dart';

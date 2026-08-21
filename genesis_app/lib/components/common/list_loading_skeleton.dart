@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-
-import '../../ui/tokens/genesis_image_radii.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/components/genesis_skeleton.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 enum _GenesisListSkeletonType { world, popularOrigin, originGrid }
 

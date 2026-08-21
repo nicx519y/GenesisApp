@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../../../ui/tokens/genesis_avatar_radii.dart';
-import '../../../ui/tokens/genesis_palette.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 class ChatUiStyleConfig {
   const ChatUiStyleConfig({

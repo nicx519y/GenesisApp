@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
-import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_origin_theme.dart';
 
 enum OriginRoleSelectionMarkStyle { checkbox, star }

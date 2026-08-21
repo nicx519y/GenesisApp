@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../ui/genesis_ui.dart';
+import 'genesis_profile_collection_list_item.dart';
 
 class ProfileCollectionList extends StatefulWidget {
   const ProfileCollectionList({

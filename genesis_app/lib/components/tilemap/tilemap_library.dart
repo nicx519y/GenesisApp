@@ -7,13 +7,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/firebase_performance_monitoring.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/tilemap_definition.dart';
-import '../../ui/components/genesis_primary_button.dart';
-import '../../ui/components/genesis_static_network_image.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
 import '../world_map_exit_location_button.dart';

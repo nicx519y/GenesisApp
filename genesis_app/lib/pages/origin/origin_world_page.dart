@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';

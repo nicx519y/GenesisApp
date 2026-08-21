@@ -3,9 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../common/genesis_center_toast.dart';
-import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
 import '../world_details_shell.dart';
 import 'origin_character_form.dart';
@@ -13,11 +14,6 @@ import 'origin_role_recommendation.dart';
 import 'origin_role_selection_mark.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/origin.dart';
-import '../../ui/components/genesis_character_avatar.dart';
-import '../../ui/components/genesis_edge_swipe_back.dart';
-import '../../ui/components/genesis_primary_button.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
 import 'genesis_origin_theme.dart';
 
 typedef OriginRoleProfileLoader = Future<OriginCustomRoleDraft?> Function();

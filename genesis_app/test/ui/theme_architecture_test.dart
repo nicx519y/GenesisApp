@@ -34,16 +34,17 @@ void main() {
     );
   });
 
-  test('design-system layer does not depend on app, network, or routes', () {
+  test('design-system layer does not depend on application or feature modules', () {
     final violations = <String>[];
-    final forbiddenImport = RegExp(
-      r'''import\s+['\"][^'\"]*(?:/app/|/network/|/routers/)[^'\"]*['\"]''',
+    final forbiddenDependency = RegExp(
+      r'''(?:import|export)\s+['\"][^'\"]*(?:/app/|/network/|/routers/)[^'\"]*['\"]|'''
+      r'''(?:import|export)\s+['\"](?:\.\./){2}components/[^'\"]*['\"]''',
     );
     for (final file in Directory(
       'lib/ui',
     ).listSync(recursive: true).whereType<File>()) {
       if (!file.path.endsWith('.dart')) continue;
-      if (forbiddenImport.hasMatch(file.readAsStringSync())) {
+      if (forbiddenDependency.hasMatch(file.readAsStringSync())) {
         violations.add(file.path);
       }
     }
@@ -52,7 +53,7 @@ void main() {
       violations,
       isEmpty,
       reason:
-          'The design system must remain application agnostic.\n'
+          'The design system must remain application and feature agnostic.\n'
           '${violations.join('\n')}',
     );
   });
@@ -154,7 +155,7 @@ void main() {
     _expectDebtAtMost(
       name: 'files importing internal UI submodules',
       actual: directUiImportFiles.length,
-      baseline: 88,
+      baseline: 0,
     );
     _expectDebtAtMost(
       name: 'direct Scaffold usages in pages',

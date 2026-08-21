@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
-import '../../ui/components/genesis_modal_border.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_modal_routes.dart';
 
 class GenesisActionBoxAction<T> {

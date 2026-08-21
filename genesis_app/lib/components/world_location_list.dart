@@ -3,12 +3,9 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../icons/custom_icon_assets.dart';
-import '../ui/components/recent_chat_marker.dart';
-import '../ui/components/genesis_list_image.dart';
-import '../ui/theme/genesis_semantic_colors.dart';
-import '../ui/tokens/genesis_image_radii.dart';
 import '../utils/genesis_image_resource.dart';
 import 'world_details_shell.dart';
 import 'world_point.dart';

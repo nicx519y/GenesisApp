@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/genesis_navigator.dart';
@@ -9,7 +11,6 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/create/genesis_create_theme.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import '../create/create_origin_draft_store.dart';
 import 'origin_pending_submission_store.dart';
 

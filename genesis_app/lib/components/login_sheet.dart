@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import 'common/genesis_bottom_sheet_panel.dart';
 import 'common/genesis_center_toast.dart';
 import 'common/genesis_modal_routes.dart';
 import 'login_provider_button.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
 import '../platform/auth/auth_session.dart';
-import '../ui/theme/genesis_semantic_colors.dart';
 
 class LoginSheet extends StatefulWidget {
   const LoginSheet({super.key, required this.onLogin});

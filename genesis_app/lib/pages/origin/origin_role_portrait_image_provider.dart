@@ -3,8 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
-import '../../ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 const LinearGradient originRolePortraitGradient = LinearGradient(
   begin: Alignment.topCenter,

@@ -1,8 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
-import '../../ui/theme/genesis_semantic_colors.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import 'genesis_action_box.dart';
 import 'genesis_center_toast.dart';

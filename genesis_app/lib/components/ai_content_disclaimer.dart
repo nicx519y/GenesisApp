@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../ui/theme/genesis_semantic_colors.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 const String kAiContentDisclaimerText =
     'All content is AI-generated and fictional. Any resemblance to real people, events, or places is coincidental.';

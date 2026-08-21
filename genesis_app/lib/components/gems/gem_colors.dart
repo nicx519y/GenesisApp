@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../../ui/tokens/genesis_palette.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 /// Gem product and state colors supplied by the active app skin.
 @immutable

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../../network/json_utils.dart';
-import '../../ui/components/genesis_list_image.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../common/genesis_image_viewer_overlay.dart';
 import 'genesis_discuss_theme.dart';

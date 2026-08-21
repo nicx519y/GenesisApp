@@ -1,14 +1,9 @@
 // ignore_for_file: use_key_in_widget_constructors
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
-import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_control_icons.dart';
-import '../../ui/components/genesis_primary_button.dart';
-import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import 'world_constants.dart';

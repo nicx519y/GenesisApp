@@ -2,9 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import '../../ui/tokens/genesis_palette.dart';
-import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/genesis_image_resource.dart';
 
 const String kWorldMapFallbackBackgroundAsset =

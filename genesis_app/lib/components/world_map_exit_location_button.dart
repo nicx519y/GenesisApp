@@ -1,8 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-
-import '../ui/theme/genesis_semantic_colors.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 class WorldMapExitLocationButton extends StatelessWidget {
   const WorldMapExitLocationButton({

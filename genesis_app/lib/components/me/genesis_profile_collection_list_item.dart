@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import '../../components/origin/stat_item.dart';
+import '../origin/stat_item.dart';
 import '../../utils/stat_count_formatter.dart';
-import '../theme/genesis_semantic_colors.dart';
-import '../tokens/genesis_image_radii.dart';
-import 'genesis_list_image.dart';
-import 'recent_chat_marker.dart';
 
 class GenesisProfileCollectionItemData {
   const GenesisProfileCollectionItemData({

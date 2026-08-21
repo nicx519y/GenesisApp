@@ -1,13 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_dialog.dart';
-import '../../ui/components/genesis_edge_swipe_back.dart';
-import '../../ui/components/genesis_static_network_image.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
 class GenesisGenerationWaitAvatar {

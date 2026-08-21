@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../../ui/theme/genesis_semantic_colors.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 class GenesisUploadProgressOverlay extends StatelessWidget {
   const GenesisUploadProgressOverlay({

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../app/debug_floating_button_visibility.dart';
 import '../pages/me/developer_page.dart';
-import '../ui/theme/genesis_semantic_colors.dart';
 import 'common/genesis_modal_routes.dart';
 
 class DeveloperDebugFloatingButton extends StatefulWidget {

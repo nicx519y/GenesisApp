@@ -3,9 +3,8 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import '../app/config/genesis_image_config.dart';
-import '../ui/components/genesis_character_avatar.dart';
 import 'world_map_avatar_logic.dart';
 import 'world_point.dart';
 

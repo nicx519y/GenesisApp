@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
-import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_list_image.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../auth/login_guard.dart';
 import '../common/genesis_center_toast.dart';

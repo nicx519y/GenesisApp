@@ -1,11 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
-import '../../app/config/genesis_image_config.dart';
-import '../../ui/components/genesis_character_avatar.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import '../world/genesis_world_theme.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_point.dart';

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
@@ -24,12 +25,6 @@ import '../../platform/session/user_info_cache.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/image_format_guards.dart';
-import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/components/genesis_page_title.dart';
-import '../../ui/components/genesis_state_view.dart';
-import '../../ui/components/genesis_control_button.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/text/genesis_text_input_formatters.dart';
 import 'settings_page.dart';
 
 part 'me_page_data.dart';

@@ -18,6 +18,10 @@ lib/components/feature/ World、Origin、Chat、Gem 等业务 UI
 lib/pages/feature/      页面状态、数据组合、导航和页面私有 Widget
 ```
 
+`ui/genesis_ui.dart` 只暴露通用 UI、语义主题和稳定 Token；业务 Feature
+Theme 从 `components/genesis_feature_themes.dart` 导入。应用启动时由
+`app/theme/worldo_theme.dart` 组合两者，`lib/ui` 不得导入或导出业务模块。
+
 地图地形、Fog、图片内容、裁剪器和业务状态色属于 feature，不要为了消除
 颜色常量而错误地映射为页面背景或文字色。
 
@@ -53,13 +57,14 @@ Worldo 只有一套布局和一个皮肤身份，明暗模式只替换颜色：
 
 ```dart
 MaterialApp(
-  theme: GenesisTheme.worldoLight(),
-  darkTheme: GenesisTheme.worldoDark(),
+  theme: WorldoTheme.light(),
+  darkTheme: WorldoTheme.dark(),
   themeMode: themeMode,
 )
 ```
 
-- 不再使用或新增 `GenesisTheme.light()`、`GenesisTheme.worldoRedesign()`。
+- `GenesisTheme` 只构建可复用 UI 基础主题；产品运行时使用
+  `WorldoTheme.light()`、`WorldoTheme.dark()` 组合 Feature Theme。
 - Light 和 Dark 都使用 `GenesisSkin.worldoRedesign`，并共享同一个
   `GenesisUiTheme.worldo()` 尺寸配置。
 - 页面和组件不得根据 `ThemeMode`、`Brightness` 或皮肤身份改变 Widget
@@ -285,4 +290,4 @@ Don't：
 - [ ] 覆盖 Loading、Empty、Error、Retry 和 Disabled/Loading 操作状态。
 - [ ] 通过长文本、文字缩放、窄屏、SafeArea 和键盘验证。
 - [ ] 运行相关 widget tests、`theme_architecture_test.dart`、
-      `flutter analyze`，并进行 Android/iOS 截图对比。
+      `flutter analyze`，并进行 Android/iOS 主题矩阵与无障碍验证。

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
+import 'package:genesis_flutter_android/components/genesis_feature_themes.dart';
 
 import '../icons/custom_icon_assets.dart';
-import '../ui/components/genesis_soft_italic_text.dart';
-import '../ui/theme/genesis_semantic_colors.dart';
 import '../utils/genesis_timestamp_formatter.dart';
 import 'world/genesis_world_theme.dart';
 

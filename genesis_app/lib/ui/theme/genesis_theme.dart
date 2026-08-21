@@ -1,12 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../components/gems/gem_colors.dart';
-import '../../components/chat/shared/chat_ui_theme.dart';
-import '../../components/origin/genesis_origin_theme.dart';
-import '../../components/discuss/genesis_discuss_theme.dart';
-import '../../components/create/genesis_create_theme.dart';
-import '../../components/world/genesis_world_theme.dart';
-import '../../components/messages/genesis_message_theme.dart';
 import '../components/genesis_modal_border.dart';
 import '../system/genesis_system_ui.dart';
 import '../tokens/genesis_palette.dart';
@@ -20,34 +13,38 @@ abstract final class GenesisTheme {
   static ThemeData forSkin(
     GenesisSkin skin, {
     Brightness brightness = Brightness.dark,
+    Iterable<ThemeExtension<dynamic>> extensions =
+        const <ThemeExtension<dynamic>>[],
   }) => switch ((skin, brightness)) {
-    (GenesisSkin.worldoRedesign, _) => _worldo(brightness),
+    (GenesisSkin.worldoRedesign, _) => _worldo(brightness, extensions),
   };
 
-  static ThemeData worldoLight() => _worldo(Brightness.light);
+  /// Builds the skin-independent Worldo foundation.
+  ///
+  /// Application features may provide their own extensions through
+  /// [extensions]. This keeps the reusable UI layer independent from feature
+  /// modules such as chat, worlds, and purchases.
+  static ThemeData worldoLight({
+    Iterable<ThemeExtension<dynamic>> extensions =
+        const <ThemeExtension<dynamic>>[],
+  }) => _worldo(Brightness.light, extensions);
 
-  static ThemeData worldoDark() => _worldo(Brightness.dark);
+  static ThemeData worldoDark({
+    Iterable<ThemeExtension<dynamic>> extensions =
+        const <ThemeExtension<dynamic>>[],
+  }) => _worldo(Brightness.dark, extensions);
 
-  static ThemeData _worldo(Brightness brightness) => _build(
+  static ThemeData _worldo(
+    Brightness brightness,
+    Iterable<ThemeExtension<dynamic>> extensions,
+  ) => _build(
     colors: GenesisSemanticColors.forBrightness(brightness),
     brightness: brightness,
     seedColor: GenesisPalette.redesignAccent,
     uiTheme: GenesisUiTheme.worldo(),
     skinTheme: const GenesisSkinTheme(skin: GenesisSkin.worldoRedesign),
-    featureThemes: _worldoFeatureThemes(brightness),
+    extensions: extensions,
   );
-
-  static List<ThemeExtension<dynamic>> _worldoFeatureThemes(
-    Brightness brightness,
-  ) => <ThemeExtension<dynamic>>[
-    GenesisGemColors.forBrightness(brightness),
-    GenesisChatTheme.forBrightness(brightness),
-    GenesisOriginColors.forBrightness(brightness),
-    GenesisDiscussColors.forBrightness(brightness),
-    GenesisCreateColors.forBrightness(brightness),
-    GenesisWorldColors.forBrightness(brightness),
-    GenesisMessageColors.forBrightness(brightness),
-  ];
 
   static ThemeData _build({
     required GenesisSemanticColors colors,
@@ -55,7 +52,7 @@ abstract final class GenesisTheme {
     required Color seedColor,
     required GenesisUiTheme uiTheme,
     required GenesisSkinTheme skinTheme,
-    required List<ThemeExtension<dynamic>> featureThemes,
+    required Iterable<ThemeExtension<dynamic>> extensions,
   }) {
     final generatedColorScheme = ColorScheme.fromSeed(
       seedColor: seedColor,
@@ -247,7 +244,7 @@ abstract final class GenesisTheme {
         colors,
         uiTheme,
         skinTheme,
-        ...featureThemes.cast<dynamic>(),
+        ...extensions.cast<dynamic>(),
       ],
     );
   }

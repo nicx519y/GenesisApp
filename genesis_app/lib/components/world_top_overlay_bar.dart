@@ -1,14 +1,8 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import '../ui/components/genesis_fixed_underline_indicator.dart';
-import '../ui/components/genesis_control_icons.dart';
-import '../ui/components/genesis_search_field.dart';
-import '../ui/components/genesis_tab_bar.dart';
-import '../ui/theme/genesis_semantic_colors.dart';
-import '../ui/theme/genesis_ui_theme.dart';
-import '../ui/tokens/genesis_typography.dart';
 import 'world_details_shell.dart';
 
 const _worldTopOverlayHeight = genesisSearchFieldHeight;

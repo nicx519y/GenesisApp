@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../network/models/origin.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 
 List<OriginCharacter> originCharactersRecommendedFirst(
   Iterable<OriginCharacter> characters,

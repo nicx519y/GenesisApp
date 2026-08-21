@@ -1,11 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
-import '../ui/components/genesis_safe_area.dart';
-import '../ui/components/genesis_modal_border.dart';
-import '../ui/theme/genesis_semantic_colors.dart';
-import '../ui/system/genesis_system_ui.dart';
 import 'world_map_interaction_notification.dart';
 
 const double worldDetailsPanelTopBorderOpacity = 0.08;

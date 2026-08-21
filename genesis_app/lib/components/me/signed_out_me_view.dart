@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 import '../../app/debug_floating_button_unlock.dart';
 import '../../platform/auth/auth_session.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import '../login_provider_button.dart';
 
 class SignedOutMeView extends StatefulWidget {
