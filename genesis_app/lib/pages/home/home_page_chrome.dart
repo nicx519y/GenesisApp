@@ -12,7 +12,6 @@ class _HomeInitialLoadingScaffold extends StatelessWidget {
         children: [
           _HomeHeader(),
           SizedBox(height: 4),
-          _HomeTabs(showSelectedState: false),
           Expanded(child: GenesisListLoadingSkeleton.popularOriginList()),
         ],
       ),
@@ -57,7 +56,6 @@ class _HomeTabScaffold extends StatelessWidget {
         children: [
           const _HomeHeader(),
           const SizedBox(height: 4),
-          const _HomeTabs(),
           Expanded(
             child: _HomeTabView(
               activationListenable: activationListenable,
@@ -131,6 +129,7 @@ class _HomeTabView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 9l is a single list; the Popular feed is no longer reachable from Home.
     return TabBarView(
       children: [
         _MyWorldFeed(
@@ -145,16 +144,6 @@ class _HomeTabView extends StatelessWidget {
           initialPageData: initialMyWorldsData,
           initialPageRenderOperation: initialMyWorldsRenderOperation,
           initialPageRequestAttempt: initialMyWorldsRequestAttempt,
-        ),
-        _PopularOriginFeed(
-          index: 1,
-          activationListenable: activationListenable,
-          isActiveListenable: isActiveListenable,
-          isFirstPageViewReported: isFirstPageViewReported,
-          onFirstPageViewReady: onFirstPageViewReady,
-          networkRequestsAllowed: networkRequestsAllowed,
-          keepInitialNetworkFailureLoading: keepInitialNetworkFailureLoading,
-          initialRequestMetricWindow: initialRequestMetricWindow,
         ),
       ],
     );

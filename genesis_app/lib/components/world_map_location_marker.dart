@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../ui/tokens/genesis_typography.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -15,11 +16,14 @@ const double worldMapLocationMarkerAvatarOverlap = 6;
 const double worldMapLocationMarkerStemHeight = 11;
 const double worldMapLocationMarkerDotSize = 7;
 const double worldMapLocationMarkerMaxNameWidth = 135;
-const Color worldMapLocationMarkerBackground = Color(0x99131215);
+// 8-22 spec: ink glass is rgba(21,21,23,.6).
+const Color worldMapLocationMarkerBackground = Color(0x99151517);
 const Color worldMapLocationMarkerEventColor = Color(0xFFF82B3C);
 
 const TextStyle worldMapLocationMarkerNameStyle = TextStyle(
   inherit: false,
+  fontFamily: GenesisTypography.fontFamily,
+  fontFamilyFallback: GenesisTypography.fontFamilyFallback,
   color: Colors.white,
   fontSize: 11,
   height: 1,
@@ -90,6 +94,8 @@ double _overflowChipWidth(BuildContext context, int count) {
       text: '+$count',
       style: const TextStyle(
         inherit: false,
+        fontFamily: GenesisTypography.fontFamily,
+        fontFamilyFallback: GenesisTypography.fontFamilyFallback,
         color: Colors.white,
         fontSize: 9.5,
         height: 1,
@@ -356,6 +362,8 @@ class _WorldMapLocationOverflowChip extends StatelessWidget {
         '+$count',
         style: TextStyle(
           inherit: false,
+          fontFamily: GenesisTypography.fontFamily,
+          fontFamilyFallback: GenesisTypography.fontFamilyFallback,
           color: Colors.white.withValues(alpha: 0.72),
           fontSize: 9.5,
           height: 1,
@@ -389,6 +397,8 @@ class _WorldMapLocationEventBadge extends StatelessWidget {
         label,
         style: const TextStyle(
           inherit: false,
+          fontFamily: GenesisTypography.fontFamily,
+          fontFamilyFallback: GenesisTypography.fontFamilyFallback,
           color: Colors.white,
           fontSize: 9.5,
           height: 1,

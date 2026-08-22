@@ -1221,7 +1221,8 @@ void main() {
     );
     final pill = tester.widget<DecoratedBox>(pillFinder);
     final labelDecoration = pill.decoration as BoxDecoration;
-    expect(labelDecoration.color, const Color(0x99131215));
+    // 8-22 spec: ink glass is rgba(21,21,23,.6).
+    expect(labelDecoration.color, const Color(0x99151517));
     expect(labelDecoration.borderRadius, BorderRadius.circular(24));
     expect(labelDecoration.border?.top.color.a, closeTo(0.62, 0.001));
     final locationName = tester.widget<Text>(find.text('High School'));

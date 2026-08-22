@@ -91,9 +91,10 @@ class HomePage extends StatefulWidget {
     this.initialRequestMetricWindow = Duration.zero,
   });
 
-  static const List<String> tabs = ['My Worlds', 'Popular'];
+  // 9l Home is a single ongoing-worlds list; discovery lives on the
+  // Worlds tab (9h). The Popular entry was removed from Home.
+  static const List<String> tabs = ['My Worlds'];
   static const int myWorldsTabIndex = 0;
-  static const int popularTabIndex = 1;
 
   final int? initialTabIndex;
   final Map<String, dynamic>? initialMyWorldsData;
@@ -162,11 +163,11 @@ class _HomePageState extends State<HomePage> {
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
     if (uid.isEmpty || uid.startsWith('guest_')) {
-      return HomePage.popularTabIndex;
+      return HomePage.myWorldsTabIndex;
     }
     final authToken =
         (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    if (authToken.isEmpty) return HomePage.popularTabIndex;
+    if (authToken.isEmpty) return HomePage.myWorldsTabIndex;
 
     final cacheStore = HomeFeedCacheStore(ownerUid: uid);
     final cached = await cacheStore.load(HomeFeedCacheKind.myWorlds);
@@ -183,7 +184,7 @@ class _HomePageState extends State<HomePage> {
     );
     if (!mounted) {
       unawaited(requestOperation.cancel());
-      return HomePage.popularTabIndex;
+      return HomePage.myWorldsTabIndex;
     }
     _initialMyWorldsRequestOperation = requestOperation;
     try {
@@ -195,7 +196,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted ||
           !identical(_initialMyWorldsRequestOperation, requestOperation)) {
         unawaited(requestOperation.cancel());
-        return HomePage.popularTabIndex;
+        return HomePage.myWorldsTabIndex;
       }
       _initialMyWorldsRequestOperation = null;
       unawaited(requestOperation.succeed());
@@ -203,7 +204,7 @@ class _HomePageState extends State<HomePage> {
       _ignoreHomeFeedCacheWrite(
         cacheStore.save(HomeFeedCacheKind.myWorlds, data),
       );
-      if (!_hasMyWorldsData(data)) return HomePage.popularTabIndex;
+      if (!_hasMyWorldsData(data)) return HomePage.myWorldsTabIndex;
       final renderOperation = await FirebasePerformanceOperation.start(
         surface: FirebasePerformanceSurface.myWorlds,
         phase: FirebasePerformancePhase.render,
@@ -212,7 +213,7 @@ class _HomePageState extends State<HomePage> {
       );
       if (!mounted) {
         unawaited(renderOperation.cancel());
-        return HomePage.popularTabIndex;
+        return HomePage.myWorldsTabIndex;
       }
       _resolvedInitialMyWorldsRenderOperation = renderOperation;
       return HomePage.myWorldsTabIndex;
@@ -223,7 +224,7 @@ class _HomePageState extends State<HomePage> {
       unawaited(
         requestOperation.fail(errorType: firebasePerformanceErrorType(error)),
       );
-      return HomePage.popularTabIndex;
+      return HomePage.myWorldsTabIndex;
     }
   }
 

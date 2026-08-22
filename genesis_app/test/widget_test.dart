@@ -2572,110 +2572,7 @@ void main() {
     },
   );
 
-  testWidgets('Popular cache reports its first pageview before refresh ends', (
-    WidgetTester tester,
-  ) async {
-    final telemetry = _CapturingTelemetrySink();
-    GenesisTelemetry.setSinkForTesting(telemetry);
-    addTearDown(GenesisTelemetry.resetForTesting);
-    final originListCompleter = Completer<TransportResponse>();
-    final transport = _RecordingV1ListTransport(
-      originListCompleter: originListCompleter,
-    );
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      '${HomeFeedCacheStore.storageKey}.u_mock.popular': jsonEncode({
-        'list': <Map<String, Object?>>[],
-        'total': 0,
-      }),
-    });
 
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
-        child: const MaterialApp(
-          home: HomePage(initialTabIndex: HomePage.popularTabIndex),
-        ),
-      ),
-    );
-    for (
-      var index = 0;
-      index < 10 && _pageViewCount(telemetry, 'home_popular') == 0;
-      index += 1
-    ) {
-      await tester.pump();
-    }
-
-    expect(_pageViewCount(telemetry, 'home_popular'), 1);
-    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
-
-    originListCompleter.complete(
-      transport._jsonResponse({
-        'err_no': 0,
-        'err_str': 'success',
-        'data': {'list': <Map<String, Object?>>[], 'total': 0},
-      }),
-    );
-    for (var index = 0; index < 10; index += 1) {
-      await tester.pump();
-    }
-
-    expect(_pageViewCount(telemetry, 'home_popular'), 1);
-  });
-
-  testWidgets('Popular records its awaited first-page data and content frame', (
-    WidgetTester tester,
-  ) async {
-    final traces = <_WidgetPerformanceTrace>[];
-    FirebasePerformanceMonitoring.setReadyForTesting(true);
-    FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
-      final trace = _WidgetPerformanceTrace(name);
-      traces.add(trace);
-      return trace;
-    });
-    FirebaseAnalyticsMonitoring.setClientForTesting(_WidgetAnalyticsClient());
-    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
-    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
-    final originListCompleter = Completer<TransportResponse>();
-    final transport = _RecordingV1ListTransport(
-      originListCompleter: originListCompleter,
-    );
-
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
-        child: const MaterialApp(home: HomePage(initialTabIndex: 1)),
-      ),
-    );
-    for (var index = 0; index < 3; index += 1) {
-      await tester.pump();
-    }
-    final requestTrace = traces.singleWhere(
-      (trace) => trace.name == 'popular_first_request',
-    );
-    expect(requestTrace.stopped, isFalse);
-
-    originListCompleter.complete(
-      transport._jsonResponse({
-        'err_no': 0,
-        'err_str': 'success',
-        'data': {
-          'list': [transport._originItem(0)],
-          'total': 1,
-        },
-      }),
-    );
-    for (var index = 0; index < 8; index += 1) {
-      await tester.pump();
-    }
-
-    expect(requestTrace.stopped, isTrue);
-    expect(
-      traces
-          .singleWhere((trace) => trace.name == 'popular_first_render')
-          .stopped,
-      isTrue,
-    );
-  });
 
   testWidgets(
     'Home first My Worlds and Popular pageviews wait for each first page',
@@ -2734,39 +2631,7 @@ void main() {
       expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
       expect(_pageViewCount(telemetry, 'home_popular'), 0);
 
-      await tester.tap(find.text('Popular'));
-      await tester.pump(const Duration(milliseconds: 400));
-      for (
-        var index = 0;
-        index < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
-        index += 1
-      ) {
-        await tester.pump();
-      }
-      expect(_pageViewCount(telemetry, 'home_popular'), 0);
-
-      originListCompleter.complete(
-        transport._jsonResponse({
-          'err_no': 0,
-          'err_str': 'success',
-          'data': {'list': <Map<String, Object?>>[], 'total': 0},
-        }),
-      );
-      for (
-        var index = 0;
-        index < 10 && _pageViewCount(telemetry, 'home_popular') == 0;
-        index += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(_pageViewCount(telemetry, 'home_popular'), 1);
-
-      await tester.tap(find.text('My Worlds'));
-      await tester.pump();
-      expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
-      expect(_pageViewCount(telemetry, 'home_popular'), 1);
-    },
+},
   );
 
   testWidgets(
@@ -2815,7 +2680,7 @@ void main() {
 
       expect(_pageViewCount(telemetry, 'worldo_list_tab'), 1);
 
-      await tester.tap(find.text('Home'));
+      await tester.tap(find.byKey(const ValueKey('bottom-nav-Home')));
       await tester.pump();
       await tester.tap(find.text('#Worldo'));
 
@@ -2823,69 +2688,6 @@ void main() {
     },
   );
 
-  testWidgets('Popular retries count separate requests and one render', (
-    WidgetTester tester,
-  ) async {
-    final telemetry = _CapturingTelemetrySink();
-    GenesisTelemetry.setSinkForTesting(telemetry);
-    addTearDown(GenesisTelemetry.resetForTesting);
-    final traces = <_WidgetPerformanceTrace>[];
-    FirebasePerformanceMonitoring.setReadyForTesting(true);
-    FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
-      final trace = _WidgetPerformanceTrace(name);
-      traces.add(trace);
-      return trace;
-    });
-    FirebaseAnalyticsMonitoring.setClientForTesting(_WidgetAnalyticsClient());
-    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
-    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
-    final transport = _FailFirstPathTransport(
-      path: '/api/v1/origin/list',
-      delegate: _RecordingV1ListTransport(),
-    );
-
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
-        child: const MaterialApp(home: HomePage(initialTabIndex: 1)),
-      ),
-    );
-    for (var index = 0; index < 20; index += 1) {
-      await tester.pump(const Duration(milliseconds: 50));
-      if (find.text('Load failed').evaluate().isNotEmpty) break;
-    }
-
-    expect(find.text('Load failed'), findsOneWidget);
-    expect(_pageViewCount(telemetry, 'home_popular'), 0);
-    final firstRequest = traces.singleWhere(
-      (trace) =>
-          trace.name == 'popular_first_request' &&
-          trace.attributes['attempt'] == '1',
-    );
-    expect(firstRequest.attributes['result'], 'failure');
-
-    await tester.tap(find.text('Retry'));
-    for (var index = 0; index < 20; index += 1) {
-      await tester.pump(const Duration(milliseconds: 50));
-      if (traces.any(
-        (trace) => trace.name == 'popular_first_render' && trace.stopped,
-      )) {
-        break;
-      }
-    }
-
-    final requestTraces = traces
-        .where((trace) => trace.name == 'popular_first_request')
-        .toList(growable: false);
-    expect(requestTraces, hasLength(2));
-    expect(requestTraces.last.attributes['attempt'], '2');
-    expect(requestTraces.last.attributes['result'], 'success');
-    expect(
-      traces.where((trace) => trace.name == 'popular_first_render'),
-      hasLength(1),
-    );
-    expect(_pageViewCount(telemetry, 'home_popular'), 1);
-  });
 
   testWidgets(
     'AppShell owns initial and background-to-foreground billing recovery',
@@ -3011,7 +2813,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.tap(find.text('Home'));
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Home')));
     await tester.pump();
     await sessionStore.saveUid('u_logged_in');
     await sessionStore.saveAuthToken('backend-token');
@@ -3150,7 +2952,6 @@ void main() {
 
     // 'Home' appears twice now: the 9l page title and the bottom nav label.
     expect(find.text('Home'), findsNWidgets(2));
-    expect(find.text('Popular'), findsOneWidget);
     expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Create'), findsNothing);
     expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
@@ -3158,35 +2959,13 @@ void main() {
     expect(find.text('Me'), findsOneWidget);
   });
 
-  testWidgets('signed-out cold start opens Worldo and Home opens Popular', (
-    WidgetTester tester,
-  ) async {
-    final services = await _testServices(initialUid: null);
-    await tester.pumpWidget(GenesisApp(services: services, initialIndex: 1));
-    await tester.pump();
-
-    expect(find.byType(AppShellPage, skipOffstage: false), findsOneWidget);
-    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
-    expect(find.text('Worlds, tags, characters'), findsOneWidget);
-
-    await tester.tap(find.text('Home'));
-    await tester.pump();
-
-    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 0);
-    expect(find.text('Popular'), findsOneWidget);
-  });
 
   testWidgets('tap header search bar opens search page', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
-    expect(
-      tester
-          .widget<GenesisTabBar>(find.byType(GenesisTabBar).first)
-          .indicatorMatchesLabelWidth,
-      isTrue,
-    );
-    // 9l puts a 34px search square in the header, not an inline field.
+    // 9l has no sub-tabs and no inline search field: the header is the page
+    // title plus a 34px search square.
     final square = find.byKey(const ValueKey<String>('home-search-square'));
     expect(square, findsOneWidget);
     expect(tester.getSize(square), const Size(34, 34));
@@ -4896,11 +4675,14 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
-    for (var i = 0; i < 20 && find.text('Popular').evaluate().isEmpty; i += 1) {
+    for (var i = 0; i < 20 && find.byKey(const ValueKey<String>('home-search-square')).evaluate().isEmpty; i += 1) {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    expect(find.text('Popular'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('home-search-square')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Worlds'));
     await tester.pumpAndSettle();
@@ -5151,44 +4933,6 @@ void main() {
     services.gemWallet.state.removeListener(listener);
   });
 
-  testWidgets('signed out cold start opens Worldo and Home opens Popular', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: null,
-          ),
-          child: const AppShellPage(initialIndex: 0),
-        ),
-      ),
-    );
-
-    expect(find.text('Popular'), findsNothing);
-    expect(find.text('For you'), findsNothing);
-
-    for (
-      var i = 0;
-      i < 20 && find.text('Worlds, tags, characters').evaluate().isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(find.text('Worlds, tags, characters'), findsOneWidget);
-    expect(find.text('For you'), findsOneWidget);
-
-    await tester.tap(find.text('Home'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Popular'), findsOneWidget);
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-  });
 
   testWidgets(
     'logged in cold start without My Worlds cache resolves Home from API',
@@ -5222,7 +4966,7 @@ void main() {
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
       expect(find.text('Worlds, tags, characters'), findsOneWidget);
 
-      await tester.tap(find.text('Home'));
+      await tester.tap(find.byKey(const ValueKey('bottom-nav-Home')));
       for (
         var i = 0;
         i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
@@ -5231,15 +4975,15 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      final pendingTabBar = tester.widget<TabBar>(find.byType(TabBar));
-      expect(pendingTabBar.labelColor, pendingTabBar.unselectedLabelColor);
-      expect(
-        (pendingTabBar.indicator! as GenesisFixedUnderlineIndicator).color,
-        Colors.transparent,
-      );
       expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-      expect(find.text('My Worlds'), findsOneWidget);
-      expect(find.text('Popular'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('home-search-square')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('home-search-square')),
+        findsOneWidget,
+      );
       expect(find.text('World tick narrator 1'), findsNothing);
 
       worldListCompleter.complete(
@@ -5254,10 +4998,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final controller = DefaultTabController.of(
-        tester.element(find.byType(TabBar)),
-      );
-      expect(controller.index, HomePage.myWorldsTabIndex);
+      // Home has a single list now; the resolved row content is the outcome.
       expect(find.text('World tick narrator 1'), findsOneWidget);
       final worldRequest = transport.requestsFor('/api/v1/world/list').single;
       expect(worldRequest.uri.queryParameters['scene'], 'mine');
@@ -5266,64 +5007,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'logged in cold start with empty My Worlds cache refetches and opens Popular',
-    (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
-          'list': <Object>[],
-          'total': 0,
-        }),
-      });
-      final transport = _RecordingV1ListTransport(worldListTotal: 0);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialAuthToken: 'backend-token',
-            ),
-            child: const AppShellPage(initialIndex: 0),
-          ),
-        ),
-      );
-
-      for (
-        var i = 0;
-        i < 20 && find.text('Worlds, tags, characters').evaluate().isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(find.text('Worlds, tags, characters'), findsOneWidget);
-
-      await tester.tap(find.text('Home'));
-      await tester.pumpAndSettle();
-
-      final controller = DefaultTabController.of(
-        tester.element(find.byType(TabBar)),
-      );
-      expect(controller.index, HomePage.popularTabIndex);
-      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-
-      await tester.tap(find.text('My Worlds'));
-      await tester.pumpAndSettle();
-
-      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-      expect(
-        find.byKey(
-          const ValueKey<String>(
-            'home-my-worlds-empty-image:'
-            'assets/images/my_worlds_empty_worldo_launch.jpg',
-          ),
-        ),
-        findsOneWidget,
-      );
-    },
-  );
 
   testWidgets(
     'logged in cold start with My Worlds cache opens Home My Worlds',
@@ -5361,7 +5044,10 @@ void main() {
       expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
       expect(worldRequests.single.uri.queryParameters['pn'], '1');
       expect(worldRequests.single.uri.queryParameters['rn'], '10');
-      expect(find.text('My Worlds'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('home-search-square')),
+        findsOneWidget,
+      );
       expect(find.text('World tick narrator 1'), findsOneWidget);
       expect(find.text('Worlds, tags, characters'), findsNothing);
     },
@@ -5414,7 +5100,7 @@ void main() {
     services.notifySessionChanged();
     await tester.pump();
 
-    await tester.tap(find.text('Home'));
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Home')));
     for (
       var i = 0;
       i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
@@ -5423,12 +5109,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    final pendingTabBar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(pendingTabBar.labelColor, pendingTabBar.unselectedLabelColor);
-    expect(
-      (pendingTabBar.indicator! as GenesisFixedUnderlineIndicator).color,
-      Colors.transparent,
-    );
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
     worldListCompleter.complete(
@@ -5443,10 +5123,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final controller = DefaultTabController.of(
-      tester.element(find.byType(TabBar)),
-    );
-    expect(controller.index, HomePage.myWorldsTabIndex);
+    // Home resolves to its single ongoing-worlds list; the row content is the
+    // observable outcome now that there is no sub tab controller.
     expect(find.text('World tick narrator 1'), findsOneWidget);
   });
 
@@ -5472,7 +5150,7 @@ void main() {
     expect(originRequests, hasLength(1));
     expect(find.text('#Origin 1'), findsOneWidget);
 
-    await tester.tap(find.text('Home'));
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Home')));
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
@@ -5864,37 +5542,7 @@ void main() {
       expect(find.text('World tick narrator 1'), findsOneWidget);
       expect(find.text('Legacy world progress summary 1'), findsNothing);
 
-      await tester.tap(find.text('Popular'));
-      for (
-        var i = 0;
-        i < 20 && transport.requestsFor('/api/v1/origin/list').isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-      for (
-        var i = 0;
-        i < 20 && find.text('#Origin 1').evaluate().isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-
-      final originRequests = transport.requestsFor('/api/v1/origin/list');
-      expect(originRequests, hasLength(1));
-      expect(originRequests.single.uri.queryParameters['scene'], 'popular');
-      expect(originRequests.single.uri.queryParameters['pn'], '1');
-      expect(originRequests.single.uri.queryParameters['rn'], '10');
-      expect(find.text('#Origin 1'), findsWidgets);
-
-      final discussRequests = transport.requestsFor('/api/v1/discuss/list');
-      expect(discussRequests, isNotEmpty);
-      expect(discussRequests.first.uri.queryParameters['biz_type'], '1');
-      expect(discussRequests.first.uri.queryParameters['biz_id'], 'o_test_1');
-      expect(discussRequests.first.uri.queryParameters['pn'], '1');
-      expect(discussRequests.first.uri.queryParameters['rn'], '20');
-      expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
-    },
+},
   );
 
   testWidgets('Home My Worlds animates an externally deleted world', (
@@ -5942,43 +5590,6 @@ void main() {
     worldDeletionEvents.value = null;
   });
 
-  testWidgets('Home defaults to Popular tab while signed out', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: null,
-          ),
-          child: const HomePage(initialRequestMetricWindow: Duration.zero),
-        ),
-      ),
-    );
-    for (
-      var i = 0;
-      i < 20 && transport.requestsFor('/api/v1/origin/list').isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    for (
-      var i = 0;
-      i < 20 && find.text('#Origin 1').evaluate().isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    final originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(1));
-    expect(originRequests.single.uri.queryParameters['pn'], '1');
-    expect(originRequests.single.uri.queryParameters['rn'], '10');
-    expect(find.text('#Origin 1'), findsWidgets);
-  });
 
   testWidgets(
     'AppShell iOS starts the independent ATT prompt after the first frame',
@@ -6111,7 +5722,6 @@ void main() {
     ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    await tester.tap(find.text('My Worlds'));
     await tester.pump();
     expect(
       find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
@@ -6187,7 +5797,6 @@ void main() {
         findsNothing,
       );
 
-      await tester.tap(find.text('My Worlds'));
       await tester.pump();
 
       expect(
@@ -6224,7 +5833,6 @@ void main() {
     ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    await tester.tap(find.text('My Worlds'));
     await tester.pump();
     for (
       var i = 0;
@@ -11399,7 +11007,7 @@ void main() {
       final worldListCount = transport.requestsFor('/api/v1/world/list').length;
       expect(userInfoCount, 1);
 
-      await tester.tap(find.text('Home'));
+      await tester.tap(find.byKey(const ValueKey('bottom-nav-Home')));
       await tester.pumpAndSettle();
 
       expect(
@@ -11449,7 +11057,7 @@ void main() {
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
 
-    await tester.tap(find.text('Home'));
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Home')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
@@ -11489,7 +11097,7 @@ void main() {
     expect(firstRefreshCount, 1);
     expect(find.text('430'), findsOneWidget);
 
-    await tester.tap(find.text('Home'));
+    await tester.tap(find.byKey(const ValueKey('bottom-nav-Home')));
     await tester.pumpAndSettle();
     expect(
       transport.requestsFor('/api/v1/gem/wallet'),

@@ -260,11 +260,11 @@ class _AppShellPageState extends State<AppShellPage>
     final openHome = hasSession && hasMyWorldsCache;
     setState(() {
       _selectedIndex = openHome ? 0 : 1;
+      // Home has one list now; signed-out cold start still lands on the
+      // Worlds tab through _selectedIndex above.
       _homeInitialTabIndexOverride = openHome
           ? HomePage.myWorldsTabIndex
-          : hasSession
-          ? null
-          : HomePage.popularTabIndex;
+          : null;
       _visitedTabIndexes
         ..clear()
         ..add(_selectedIndex);
@@ -531,7 +531,7 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _handleMeLoggedOut() {
-    _homeInitialTabIndexOverride = HomePage.popularTabIndex;
+    _homeInitialTabIndexOverride = null;
     _resetSessionBoundState(selectedIndex: 4);
     unawaited(
       AppServicesScope.read(context).directMessageConversations.loadFromDb(),
