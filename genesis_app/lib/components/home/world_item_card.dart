@@ -8,7 +8,6 @@ import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
-import '../../ui/components/recent_chat_marker.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -265,9 +264,22 @@ class WorldItemCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // 9l marks an in-progress world with a 6px red dot after the
+                  // name — one marker, not a per-activity coloured pill.
                   if (_resolvedRecentActivityTagLabel.isNotEmpty) ...[
                     const SizedBox(width: 6),
-                    RecentChatTag(label: _resolvedRecentActivityTagLabel),
+                    Semantics(
+                      label: _resolvedRecentActivityTagLabel,
+                      child: Container(
+                        key: const ValueKey<String>('world-activity-dot'),
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: colors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
                   ],
                   const Spacer(),
                   const SizedBox(width: 8),
@@ -421,21 +433,6 @@ class _WorldImage extends StatelessWidget {
       maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
   }
-}
-
-TextStyle _worldMetaStyle(BuildContext context) => TextStyle(
-  color: context.genesisColors.textMuted,
-  fontSize: 12,
-  height: 1.2,
-  fontWeight: FontWeight.w400,
-);
-
-String _resolvedMetricValueText(Object? metricValue, Object? defaultValue) {
-  final parsedMetricValue = _metricNumber(metricValue);
-  final resolved = parsedMetricValue == null || parsedMetricValue == 0
-      ? defaultValue
-      : metricValue;
-  return _metricDisplayValue(resolved);
 }
 
 num? _metricNumber(Object? value) {

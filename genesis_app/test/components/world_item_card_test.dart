@@ -144,6 +144,42 @@ void main() {
     expect(find.text('Last Progress'), findsNothing);
   });
 
+  testWidgets('an active world is marked with a 6px red dot', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: WorldItemCard(
+              item: _item(),
+              recentActivityTagLabel: 'Last Tick',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final dot = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('world-activity-dot')),
+    );
+    final decoration = dot.decoration! as BoxDecoration;
+    expect(decoration.color, _dark.primary);
+    expect(decoration.shape, BoxShape.circle);
+    expect(tester.getSize(find.byKey(const ValueKey<String>(
+      'world-activity-dot',
+    ))), const Size(6, 6));
+  });
+
+  testWidgets('a quiet world carries no activity dot', (tester) async {
+    await _pump(tester, _item());
+
+    expect(
+      find.byKey(const ValueKey<String>('world-activity-dot')),
+      findsNothing,
+    );
+  });
+
   testWidgets('summary is omitted when the world has no narration', (
     tester,
   ) async {
