@@ -250,8 +250,7 @@ class WorldItemCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Flexible(
-                    fit: FlexFit.loose,
+                  Expanded(
                     child: Text(
                       item.title,
                       maxLines: 1,
@@ -259,7 +258,7 @@ class WorldItemCard extends StatelessWidget {
                       style: TextStyle(
                         color: colors.textPrimary,
                         fontSize: 15,
-                        height: 1.2,
+                        height: 1.1,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -281,14 +280,13 @@ class WorldItemCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const Spacer(),
                   const SizedBox(width: 8),
                   Text(
                     formatGenesisRelativeTimestamp(item.lastProgressAt),
                     style: TextStyle(
                       color: colors.textTimestamp,
                       fontSize: 9.5,
-                      height: 1.2,
+                      height: 1,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -301,9 +299,9 @@ class WorldItemCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: colors.textBody,
-                    fontSize: 12,
-                    height: 1.6,
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    height: 1.45,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -374,35 +372,33 @@ class _CurrentUserStatusRow extends StatelessWidget {
           url: _mapImageUrl(character, const ['avatar']),
           name: name,
           size: 20,
-          borderRadius: 10,
+          borderRadius: 7,
           border: Border.all(color: colors.primary, width: 2),
           showFallbackWhileLoading: false,
           maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         ),
         const SizedBox(width: 8),
-        Flexible(
-          fit: FlexFit.loose,
+        Expanded(
           child: Text(
             name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: colors.textSecondary,
+              color: colors.textBody,
               fontSize: 11,
-              height: 1.2,
+              height: 1,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        const Spacer(),
         const SizedBox(width: 8),
         Text(
           tickLabel,
           style: TextStyle(
             color: colors.textTimestamp,
-            fontSize: 10,
-            height: 1.2,
-            fontWeight: FontWeight.w400,
+            fontSize: 9.5,
+            height: 1,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],

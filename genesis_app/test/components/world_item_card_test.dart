@@ -86,19 +86,22 @@ void main() {
     final title = tester.widget<Text>(find.text('Alpha World'));
     expect(title.style?.fontSize, 15);
     expect(title.style?.fontWeight, FontWeight.w800);
+    expect(title.style?.height, 1.1);
     expect(title.style?.color, _dark.textPrimary);
     expect(title.maxLines, 1);
   });
 
-  testWidgets('story summary is two lines of 12/1.6 body text', (tester) async {
+  testWidgets('story summary is two lines of 11/1.45 secondary text', (
+    tester,
+  ) async {
     await _pump(tester, _item());
 
     final summary = tester.widget<Text>(
       find.text('The city chooses a new route.'),
     );
-    expect(summary.style?.fontSize, 12);
-    expect(summary.style?.height, 1.6);
-    expect(summary.style?.color, _dark.textBody);
+    expect(summary.style?.fontSize, 11);
+    expect(summary.style?.height, 1.45);
+    expect(summary.style?.color, _dark.textSecondary);
     expect(summary.maxLines, 2);
   });
 
@@ -111,17 +114,19 @@ void main() {
       find.byType(GenesisCharacterAvatar),
     );
     expect(avatar.size, 20);
-    expect(avatar.borderRadius, 10);
+    expect(avatar.borderRadius, 7);
     expect((avatar.border! as Border).top.color, _dark.primary);
     expect((avatar.border! as Border).top.width, 2);
 
     final name = tester.widget<Text>(find.text('Self Hero'));
     expect(name.style?.fontSize, 11);
+    expect(name.style?.height, 1);
     expect(name.style?.fontWeight, FontWeight.w600);
-    expect(name.style?.color, _dark.textSecondary);
+    expect(name.style?.color, _dark.textBody);
 
     final tick = tester.widget<Text>(find.text('Tick 3-2'));
-    expect(tick.style?.fontSize, 10);
+    expect(tick.style?.fontSize, 9.5);
+    expect(tick.style?.fontWeight, FontWeight.w500);
     expect(tick.style?.color, _dark.textTimestamp);
   });
 
