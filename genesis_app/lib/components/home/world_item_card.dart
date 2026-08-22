@@ -189,6 +189,14 @@ class WorldListItem {
     return parts.join(' · ');
   }
 
+  /// Right-hand tick state on the 9l Home row: `Tick 2-3`, or `Not started`
+  /// before the world has run.
+  String get tickStateLabel {
+    if (lastProgressTickNo <= 0) return 'Not started';
+    final sub = lastProgressSubTickNo > 0 ? '-$lastProgressSubTickNo' : '';
+    return 'Tick $lastProgressTickNo$sub';
+  }
+
   List<String> get resolvedPreviewImages {
     if (previewImages.isNotEmpty) return previewImages;
     final image = cover.trim();
@@ -202,14 +210,12 @@ class WorldItemCard extends StatelessWidget {
     super.key,
     required this.item,
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
-    this.showPreviewImages = true,
     this.showRecentChatTag = false,
     this.recentActivityTagLabel = '',
   });
 
   final WorldListItem item;
   final double thumbnailBorderRadius;
-  final bool showPreviewImages;
   final bool showRecentChatTag;
   final String recentActivityTagLabel;
 
@@ -221,50 +227,79 @@ class WorldItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final colors = context.genesisColors;
+
+    // 9l Home row: 52x78 cover, then world name + recency, a two-line story
+    // summary, and the player's character with its tick state. WID, owner,
+    // the stats strip, the Last Progress header and the tick chip are not
+    // part of this row in the design.
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _WorldImage(
-              imageUrl: item.cover,
-              width: 60,
-              height: 60,
-              borderRadius: thumbnailBorderRadius,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: _WorldSummary(
-                item: item,
-                recentActivityTagLabel: _resolvedRecentActivityTagLabel,
-              ),
-            ),
-          ],
+        _WorldImage(
+          imageUrl: item.cover,
+          width: 52,
+          height: 78,
+          borderRadius: thumbnailBorderRadius,
         ),
-        const SizedBox(height: 8),
-        if (item.progressSummary.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _ProgressHeader(timestamp: item.lastProgressAt),
-          if (item.progressTickTimeLabel.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _ProgressTickTime(label: item.progressTickTimeLabel),
-          ],
-          const SizedBox(height: 8),
-          Text(
-            item.progressSummary,
-            maxLines: 10,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: context.genesisColors.textPrimary,
-              fontSize: 13,
-              height: 1.25,
-              fontWeight: FontWeight.w400,
-            ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 15,
+                        height: 1.2,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (_resolvedRecentActivityTagLabel.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    RecentChatTag(label: _resolvedRecentActivityTagLabel),
+                  ],
+                  const Spacer(),
+                  const SizedBox(width: 8),
+                  Text(
+                    formatGenesisRelativeTimestamp(item.lastProgressAt),
+                    style: TextStyle(
+                      color: colors.textTimestamp,
+                      fontSize: 9.5,
+                      height: 1.2,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+              if (item.progressSummary.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  item.progressSummary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.textBody,
+                    fontSize: 12,
+                    height: 1.6,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+              _CurrentUserStatusPreview(item: item),
+            ],
           ),
-        ],
-        _CurrentUserStatusPreview(item: item),
-        if (showPreviewImages) _WorldPreviewImages(item: item),
+        ),
       ],
     );
   }
@@ -288,6 +323,7 @@ class _CurrentUserStatusPreview extends StatelessWidget {
           character: character,
           currentUid: playerUid,
         ),
+        tickLabel: item.tickStateLabel,
       ),
     );
   }
@@ -306,338 +342,57 @@ class _CurrentUserStatusData {
 }
 
 class _CurrentUserStatusRow extends StatelessWidget {
-  const _CurrentUserStatusRow({required this.data});
+  const _CurrentUserStatusRow({required this.data, required this.tickLabel});
 
   final _CurrentUserStatusData data;
+  final String tickLabel;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.genesisColors;
     final character = data.character;
     final name = _mapString(character, const ['name'], fallback: 'Character');
-    final playerUid = _mapString(character, const ['player_uid']);
-    final username = _mapString(character, const ['player_username']);
-    final suffix = _characterNameSuffix(
-      currentUid: data.currentUid,
-      playerUid: playerUid,
-      username: username,
-      playerDeleted: entityDeleted(character['player_deleted']),
-    );
-    final isCharacterRole = _isCharacterRole(character);
-    final roleLabel = isCharacterRole ? 'Character' : 'Player';
-    final subtitle = _metricStatusText(data.metric, character);
 
+    // 9l Home: a 20px avatar ringed in the action red, the character name, and
+    // the tick state pushed to the right edge.
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Padding(
-          padding: EdgeInsets.only(right: isCharacterRole ? 6 : 0),
-          child: GenesisCharacterAvatar(
-            url: _mapImageUrl(character, const ['avatar']),
-            name: name,
-            showStar: isCharacterRole,
-            starSize: 20,
-            showFallbackWhileLoading: false,
-            maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          text: name,
-                          children: [
-                            if (suffix.isNotEmpty)
-                              TextSpan(
-                                text: ' $suffix',
-                                style: TextStyle(
-                                  color: context.genesisColors.textFaint,
-                                ),
-                              ),
-                          ],
-                        ),
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.15,
-                          fontWeight: FontWeight.w600,
-                          color: context.genesisColors.foregroundStrong,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      roleLabel,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.15,
-                        fontWeight: FontWeight.w400,
-                        color: context.genesisColors.textLabelMuted,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    fontWeight: FontWeight.w400,
-                    color: context.genesisColors.textMuted,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProgressTickTime extends StatelessWidget {
-  const _ProgressTickTime({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: context.genesisColors.surfaceProgress,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: context.genesisColors.textPrimary,
-          fontSize: 12,
-          height: 1.1,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
-    );
-  }
-}
-
-class _WorldSummary extends StatelessWidget {
-  const _WorldSummary({
-    required this.item,
-    required this.recentActivityTagLabel,
-  });
-
-  final WorldListItem item;
-  final String recentActivityTagLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final tagLabel = recentActivityTagLabel.trim();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Flexible(
-              fit: FlexFit.loose,
-              child: Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                // 9l Home: the world name is a content title, not an accent.
-                // Pink is reserved for accents on ink and photography,
-                // tappable place names and incoming gem amounts.
-                //
-                // The spec also puts it at 15/800; that is held back until the
-                // row is restructured, because growing the title here shifts
-                // the Last Progress block, which the design does not have.
-                style: TextStyle(
-                  color: context.genesisColors.textPrimary,
-                  fontSize: 14,
-                  height: 1.1,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            if (tagLabel.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              RecentChatTag(label: tagLabel),
-            ],
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Flexible(
-              child: Text(
-                'WID: ${deletedAwareIdLabel(item.wid, deleted: item.deleted)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _worldMetaStyle(context),
-              ),
-            ),
-            const SizedBox(width: 24),
-            Flexible(
-              child: Text(
-                'Owner: ${item.ownerLabel}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _worldMetaStyle(context),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _WorldStatsRow(item: item),
-      ],
-    );
-  }
-}
-
-class _WorldPreviewImages extends StatelessWidget {
-  const _WorldPreviewImages({required this.item});
-
-  final WorldListItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final previewImages = item.resolvedPreviewImages.take(2).toList();
-    if (previewImages.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Row(
-        children: [
-          for (final entry in previewImages.indexed) ...[
-            Expanded(
-              child: _WorldImage(
-                imageUrl: entry.$2,
-                height: 120,
-                borderRadius: GenesisImageRadii.contentValue,
-              ),
-            ),
-            if (entry.$1 != previewImages.length - 1) const SizedBox(width: 10),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _WorldStatsRow extends StatelessWidget {
-  const _WorldStatsRow({required this.item});
-
-  final WorldListItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        _Stat(iconAsset: tickStatIconAsset, value: item.tickCnt),
-        _Stat(iconAsset: connectStatIconAsset, value: item.connectCnt),
-        _Stat(
-          iconAsset: homeCharacterStatIconAsset,
-          preserveIconAssetColor: true,
-          value: item.aiCharacterCnt,
-        ),
-        _Stat(iconAsset: userStatIconAsset, value: item.playerCnt),
-      ],
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({
-    required this.iconAsset,
-    this.preserveIconAssetColor = false,
-    required this.value,
-  });
-
-  final String iconAsset;
-  final bool preserveIconAssetColor;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return StatItem(
-      iconAsset: iconAsset,
-      preserveIconAssetColor: preserveIconAssetColor,
-      iconSize: 11,
-      iconColor: context.genesisColors.foregroundStrong,
-      gap: 4,
-      text: formatStatCount(value),
-      textStyle: TextStyle(
-        color: context.genesisColors.foregroundStrong,
-        fontSize: 12,
-        height: 1,
-        fontWeight: FontWeight.w400,
-      ),
-    );
-  }
-}
-
-class _ProgressHeader extends StatelessWidget {
-  const _ProgressHeader({required this.timestamp});
-
-  final Object? timestamp;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          MyFlutterApp.lastProgress,
-          color: context.genesisColors.danger,
-          size: 14,
+        GenesisCharacterAvatar(
+          url: _mapImageUrl(character, const ['avatar']),
+          name: name,
+          size: 20,
+          borderRadius: 10,
+          border: Border.all(color: colors.primary, width: 2),
+          showFallbackWhileLoading: false,
+          maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         ),
         const SizedBox(width: 8),
-        Expanded(
+        Flexible(
+          fit: FlexFit.loose,
           child: Text(
-            'Last Progress',
+            name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: context.genesisColors.textHeading,
-              fontSize: 13,
-              height: 1,
+              color: colors.textSecondary,
+              fontSize: 11,
+              height: 1.2,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        if (formatGenesisTimestamp(timestamp).isNotEmpty) ...[
-          const SizedBox(width: 10),
-          GenesisTimestampText(
-            timestamp: timestamp,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: context.genesisColors.textTimestamp,
-              fontSize: 12,
-              height: 1.1,
-              fontWeight: FontWeight.w400,
-            ),
+        const Spacer(),
+        const SizedBox(width: 8),
+        Text(
+          tickLabel,
+          style: TextStyle(
+            color: colors.textTimestamp,
+            fontSize: 10,
+            height: 1.2,
+            fontWeight: FontWeight.w400,
           ),
-        ],
+        ),
       ],
     );
   }
@@ -674,42 +429,6 @@ TextStyle _worldMetaStyle(BuildContext context) => TextStyle(
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
-
-bool _isCharacterRole(Map<String, dynamic> character) {
-  return _mapString(character, const ['player_uid']).isEmpty;
-}
-
-String _characterNameSuffix({
-  required String currentUid,
-  required String playerUid,
-  required String username,
-  required bool playerDeleted,
-}) {
-  if (playerUid.isNotEmpty && playerDeleted) {
-    return '($deletedEntityDisplayText)';
-  }
-  if (currentUid.isNotEmpty &&
-      playerUid.isNotEmpty &&
-      playerUid == currentUid) {
-    return '(Me)';
-  }
-  if (playerUid.isNotEmpty && username.isNotEmpty) return '($username)';
-  return '';
-}
-
-String _metricStatusText(
-  Map<String, dynamic> metric,
-  Map<String, dynamic> character,
-) {
-  final label = _mapString(metric, const ['label']);
-  final unit = _mapString(metric, const ['unit']);
-  final value = _resolvedMetricValueText(
-    character['metric_value'],
-    metric['default'],
-  );
-  if (label.isEmpty) return '$value$unit';
-  return '$label: $value$unit';
-}
 
 String _resolvedMetricValueText(Object? metricValue, Object? defaultValue) {
   final parsedMetricValue = _metricNumber(metricValue);

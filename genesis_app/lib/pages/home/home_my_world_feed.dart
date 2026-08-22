@@ -940,7 +940,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: WorldItemCard(
                         item: vm,
-                        showPreviewImages: false,
                         recentActivityTagLabel: activityTagLabel,
                       ),
                     ),
