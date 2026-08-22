@@ -462,8 +462,15 @@ class _WorldSummary extends StatelessWidget {
                 item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                // 9l Home: the world name is a content title, not an accent.
+                // Pink is reserved for accents on ink and photography,
+                // tappable place names and incoming gem amounts.
+                //
+                // The spec also puts it at 15/800; that is held back until the
+                // row is restructured, because growing the title here shifts
+                // the Last Progress block, which the design does not have.
                 style: TextStyle(
-                  color: context.genesisColors.accentText,
+                  color: context.genesisColors.textPrimary,
                   fontSize: 14,
                   height: 1.1,
                   fontWeight: FontWeight.w600,
