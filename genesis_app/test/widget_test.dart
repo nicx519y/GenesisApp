@@ -4038,7 +4038,7 @@ void main() {
     expect(messagesTitle.style?.height, 1);
     expect(messagesTitle.style?.fontWeight, FontWeight.w900);
     expect(messagesTitle.style?.letterSpacing, -0.36);
-    expect(messagesTitle.style?.color, Colors.white);
+    expect(messagesTitle.style?.color, const Color(0xFFF4F3F6));
 
     const menuKeys = <ValueKey<String>>[
       ValueKey('message-menu-/message/notifications'),
@@ -4073,7 +4073,7 @@ void main() {
         matching: find.text('Comments'),
       ),
     );
-    expect(commentsTitle.style?.color, Colors.white);
+    expect(commentsTitle.style?.color, const Color(0xFFF4F3F6));
     for (final label in const ['Notifications', 'Followers', 'Comments']) {
       final title = tester.widget<Text>(find.text(label));
       expect(title.maxLines, 1);

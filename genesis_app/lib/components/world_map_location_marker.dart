@@ -323,7 +323,7 @@ class _WorldMapLocationAvatarStack extends StatelessWidget {
                     border: Border.all(
                       color: avatar.isPlayerControlledRole
                           ? worldMapLocationMarkerEventColor
-                          : const Color(0xFF17151B),
+                          : const Color(0xFF151517),
                       width: avatar.isPlayerControlledRole ? 2 : 1.5,
                     ),
                   ),
@@ -382,7 +382,7 @@ class _WorldMapLocationEventBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: worldMapLocationMarkerEventColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF17151B), width: 1.5),
+        border: Border.all(color: const Color(0xFF151517), width: 1.5),
       ),
       alignment: Alignment.center,
       child: Text(

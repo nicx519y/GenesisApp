@@ -112,7 +112,8 @@ abstract final class GenesisTheme {
       useMaterial3: true,
       appBarTheme: AppBarTheme(
         backgroundColor: colors.surface,
-        foregroundColor: colors.textPrimary,
+        // Bar titles keep the full-strength foreground; see GenesisAppBar.
+        foregroundColor: colors.foregroundStrong,
         systemOverlayStyle: systemOverlayStyle,
       ),
       dialogTheme: DialogThemeData(
@@ -120,7 +121,7 @@ abstract final class GenesisTheme {
         shape: RoundedRectangleBorder(
           borderRadius: const BorderRadius.all(Radius.circular(18)),
           side: BorderSide(
-            color: colors.textPrimary.withValues(
+            color: colors.foregroundStrong.withValues(
               alpha: genesisModalBorderOpacity,
             ),
             width: genesisModalBorderWidth,
@@ -133,7 +134,7 @@ abstract final class GenesisTheme {
         shape: RoundedRectangleBorder(
           borderRadius: GenesisRadii.sheet,
           side: BorderSide(
-            color: colors.textPrimary.withValues(
+            color: colors.foregroundStrong.withValues(
               alpha: genesisModalBorderOpacity,
             ),
             width: genesisModalBorderWidth,
@@ -146,8 +147,11 @@ abstract final class GenesisTheme {
       ),
       dividerColor: colors.divider,
       dividerTheme: DividerThemeData(color: colors.divider),
-      iconTheme: IconThemeData(color: colors.textPrimary),
-      primaryIconTheme: IconThemeData(color: colors.textPrimary),
+      // Icons keep the full-strength foreground: pure white on dark, ink on
+      // light. They do not follow textPrimary down to the soft-white tier —
+      // in the canvas the stroke is #fff, not #F4F3F6.
+      iconTheme: IconThemeData(color: colors.foregroundStrong),
+      primaryIconTheme: IconThemeData(color: colors.foregroundStrong),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: colors.primary,
         linearTrackColor: colors.surfaceProgress,
@@ -163,7 +167,7 @@ abstract final class GenesisTheme {
         shape: RoundedRectangleBorder(
           borderRadius: const BorderRadius.all(GenesisRadii.sm),
           side: BorderSide(
-            color: colors.textPrimary.withValues(
+            color: colors.foregroundStrong.withValues(
               alpha: genesisModalBorderOpacity,
             ),
             width: genesisModalBorderWidth,

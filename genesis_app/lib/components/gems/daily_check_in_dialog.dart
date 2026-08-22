@@ -40,7 +40,7 @@ Future<bool> showDailyCheckInDialog(
       ),
     ],
     cancelLabel: 'Cancel',
-    borderColor: context.genesisColors.textPrimary.withValues(alpha: 0.14),
+    borderColor: context.genesisColors.foregroundStrong.withValues(alpha: 0.14),
   );
   return shouldCheckIn == true;
 }
@@ -76,7 +76,7 @@ Future<void> showGemTaskSuccessDialog(
       titleContentSpacing: 10,
       actions: const [],
       showCancel: false,
-      borderColor: context.genesisColors.textPrimary.withValues(alpha: 0.14),
+      borderColor: context.genesisColors.foregroundStrong.withValues(alpha: 0.14),
     );
   } finally {
     timer.cancel();

@@ -268,7 +268,7 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
               borderRadius: BorderRadius.circular(3),
               color: selected
                   ? context.genesisColors.textHighEmphasis
-                  : context.genesisColors.textPrimary.withValues(alpha: 0.25),
+                  : context.genesisColors.foregroundStrong.withValues(alpha: 0.25),
             ),
           );
         }),
@@ -671,9 +671,9 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Color(0xF017151B),
-                  Color(0x7317151B),
-                  Color(0x0017151B),
+                  Color(0xF0151517),
+                  Color(0x73151517),
+                  Color(0x00151517),
                 ],
                 stops: [0, 0.58, 1],
               ),

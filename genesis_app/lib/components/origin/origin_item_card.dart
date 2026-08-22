@@ -239,7 +239,7 @@ class _ImageStat extends StatelessWidget {
           iconSize: 12,
           iconColor:
               iconColor ??
-              context.genesisColors.textPrimary.withValues(alpha: 0.92),
+              context.genesisColors.foregroundStrong.withValues(alpha: 0.92),
           gap: 4,
           text: formatStatCount(value),
           textStyle: TextStyle(

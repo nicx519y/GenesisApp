@@ -142,7 +142,7 @@ void main() {
     expect(modelTitleStyle?.fontSize, 15);
     expect(modelTitleStyle?.height, 1);
     expect(modelTitleStyle?.fontWeight, FontWeight.w800);
-    expect(modelTitleStyle?.color, Colors.white);
+    expect(modelTitleStyle?.color, const Color(0xFFF4F3F6));
 
     final estimateStyle = tester
         .widget<Text>(find.text('Estimated next message: 4 gems'))

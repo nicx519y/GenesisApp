@@ -298,14 +298,14 @@ class _MemoryModelHeader extends StatelessWidget {
             children: [
               Material(
                 key: const ValueKey('gem-model-back'),
-                color: colors.textPrimary.withValues(alpha: 0.10),
+                color: colors.foregroundStrong.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(11),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: onBack,
                   splashFactory: NoSplash.splashFactory,
                   overlayColor: WidgetStatePropertyAll<Color>(
-                    colors.textPrimary.withValues(alpha: 0.08),
+                    colors.foregroundStrong.withValues(alpha: 0.08),
                   ),
                   child: SizedBox.square(
                     dimension: 34,
@@ -328,7 +328,8 @@ class _MemoryModelHeader extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GenesisTypography.navigationTitle.copyWith(
-                    color: colors.textPrimary,
+                    // Bar title: the one dark slot that stays pure white.
+                    color: colors.foregroundStrong,
                   ),
                 ),
               ),
@@ -394,7 +395,7 @@ class _ModelSaveAction extends StatelessWidget {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: context.genesisGemColors.accent,
         disabledBackgroundColor: context.genesisGemColors.accent,
-        overlayColor: context.genesisColors.textPrimary.withValues(alpha: 0.08),
+        overlayColor: context.genesisColors.foregroundStrong.withValues(alpha: 0.08),
         foregroundColor: context.genesisColors.onPrimary,
         disabledForegroundColor: context.genesisColors.onPrimary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
@@ -483,7 +484,7 @@ class _GemModelTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final borderColor = selected
         ? context.genesisGemColors.accent
-        : context.genesisColors.textPrimary.withValues(alpha: 0.14);
+        : context.genesisColors.foregroundStrong.withValues(alpha: 0.14);
     return Semantics(
       button: true,
       selected: selected,
@@ -502,7 +503,7 @@ class _GemModelTile extends StatelessWidget {
           onTap: enabled ? onTap : null,
           splashFactory: NoSplash.splashFactory,
           overlayColor: WidgetStatePropertyAll<Color>(
-            context.genesisColors.textPrimary.withValues(alpha: 0),
+            context.genesisColors.foregroundStrong.withValues(alpha: 0),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
@@ -609,7 +610,7 @@ class _GemModelTileContent extends StatelessWidget {
             fontSize: 11,
             height: 1.5,
             fontWeight: FontWeight.w400,
-            color: context.genesisColors.textPrimary.withValues(alpha: 0.62),
+            color: context.genesisColors.foregroundStrong.withValues(alpha: 0.62),
           ),
         ),
       ],
@@ -636,7 +637,7 @@ class _GemModelTag extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: hot
-            ? context.genesisColors.textPrimary.withValues(alpha: 0)
+            ? context.genesisColors.foregroundStrong.withValues(alpha: 0)
             : context.genesisGemColors.accent,
         border: hot ? Border.all(color: context.genesisGemColors.reward) : null,
         borderRadius: BorderRadius.circular(6),

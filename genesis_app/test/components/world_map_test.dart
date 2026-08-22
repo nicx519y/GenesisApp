@@ -561,7 +561,7 @@ void main() {
     );
     expect(
       worldMapAvatarBorderColorForTesting(isPlayerControlledRole: false),
-      const Color(0xFF17151B),
+      const Color(0xFF151517),
     );
   });
 
@@ -2576,7 +2576,7 @@ Finder _assetSvgFinder(String path, {bool skipOffstage = true}) {
 
 Finder _mapPlaceholderFinder({bool skipOffstage = true}) {
   return find.byWidgetPredicate(
-    (widget) => widget is ColoredBox && widget.color == const Color(0xFF17151B),
+    (widget) => widget is ColoredBox && widget.color == const Color(0xFF151517),
     skipOffstage: skipOffstage,
   );
 }

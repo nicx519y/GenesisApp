@@ -126,9 +126,9 @@ void main() {
       ),
     );
     final goalSpan = goalText.textSpan! as TextSpan;
-    expect(goalSpan.style?.color, GenesisPalette.redesignWhite72);
+    expect(goalSpan.style?.color, GenesisPalette.redesignWhite56);
     final labelSpan = goalSpan.children!.first as TextSpan;
-    expect(labelSpan.style?.color, GenesisPalette.white);
+    expect(labelSpan.style?.color, GenesisPalette.redesignSoftWhite);
     expect(labelSpan.style?.fontWeight, FontWeight.w600);
   });
 }

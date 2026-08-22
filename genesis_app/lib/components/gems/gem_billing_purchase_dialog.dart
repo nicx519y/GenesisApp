@@ -93,7 +93,7 @@ class GemBillingPurchaseDialog extends StatelessWidget {
                   ),
                   actions: const [],
                   showCancel: false,
-                  borderColor: context.genesisColors.textPrimary.withValues(
+                  borderColor: context.genesisColors.foregroundStrong.withValues(
                     alpha: 0.14,
                   ),
                   onActionSelected: (_) => onConfirm(),

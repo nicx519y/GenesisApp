@@ -16,8 +16,16 @@ abstract final class GenesisPalette {
 
   // Worldo redesign palette. These values come from the approved dark visual
   // system and are mapped to semantic roles by the theme builders below.
-  static const Color redesignBackground = Color(0xFF17151B);
+  //
+  // 2026-08-22 spec: the dark side used to carry two grounds, Surface #17151B
+  // and Ink #131215. They are now one token, Surface #151517, covering the page
+  // ground, the bars and the map chrome. #131215 stays on the light side only,
+  // where it is the ink used for titles and body.
+  static const Color redesignBackground = Color(0xFF151517);
   static const Color redesignInk = Color(0xFF131215);
+  // Soft white, the 95% tier. Content titles and spoken lines sit here; pure
+  // white is reserved for bar titles.
+  static const Color redesignSoftWhite = Color(0xFFF4F3F6);
   static const Color redesignRaised = Color(0xFF1F1D24);
   static const Color redesignPaper = Color(0xFFF7F5F2);
   static const Color redesignAccent = Color(0xFFF82B3C);
@@ -30,8 +38,12 @@ abstract final class GenesisPalette {
   static const Color redesignSkeletonHighlight = Color(0xFF35313B);
   static const Color redesignGradientStart = Color(0xFF2B2830);
 
-  static const Color redesignBackground90 = Color(0xE617151B);
-  static const Color redesignBackground42 = Color(0x6B17151B);
+  static const Color redesignBackground90 = Color(0xE6151517);
+  static const Color redesignBackground42 = Color(0x6B151517);
+  // Ink glass: rgba(21,21,23,.6) + blur(14). Pins and tick cards. Kept apart
+  // from the redesignInk* ramp, which is light-theme text and must stay #131215.
+  static const Color redesignInkGlass60 = Color(0x99151517);
+  static const Color redesignInkGlass50 = Color(0x80151517);
   static const Color redesignInk90 = Color(0xE6131215);
   static const Color redesignInk88 = Color(0xE0131215);
   static const Color redesignInk80 = Color(0xCC131215);
@@ -50,7 +62,11 @@ abstract final class GenesisPalette {
   static const Color redesignWhite88 = Color(0xE0FFFFFF);
   static const Color redesignWhite85 = Color(0xD9FFFFFF);
   static const Color redesignWhite82 = Color(0xD1FFFFFF);
+  // 73% and 56% are two of the six dark text tiers in the 2026-08-22 spec:
+  // body / narration / chip labels, and secondary lines / previews.
+  static const Color redesignWhite73 = Color(0xBAFFFFFF);
   static const Color redesignWhite72 = Color(0xB8FFFFFF);
+  static const Color redesignWhite56 = Color(0x8FFFFFFF);
   static const Color redesignWhite60 = Color(0x99FFFFFF);
   static const Color redesignWhite55 = Color(0x8CFFFFFF);
   static const Color redesignWhite50 = Color(0x80FFFFFF);

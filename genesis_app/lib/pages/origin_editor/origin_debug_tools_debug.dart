@@ -170,7 +170,7 @@ class _OriginDebugRandomContentButtonState
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
           side: BorderSide(
-            color: context.genesisColors.textPrimary.withValues(alpha: 0.14),
+            color: context.genesisColors.foregroundStrong.withValues(alpha: 0.14),
           ),
         ),
         child: Tooltip(

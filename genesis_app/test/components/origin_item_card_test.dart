@@ -93,12 +93,12 @@ void main() {
     expect(find.text('v3'), findsNothing);
 
     final subtitle = tester.widget<Text>(find.text('Tycoon idols'));
-    expect(subtitle.style?.color, const Color(0xB8FFFFFF));
+    expect(subtitle.style?.color, const Color(0x8FFFFFFF));
     expect(subtitle.style?.fontSize, 12);
     expect(subtitle.style?.height, 1.55);
     expect(subtitle.maxLines, isNull);
     final title = tester.widget<Text>(find.text('#Alpha Empire'));
-    expect(title.style?.color, const Color(0xFFFFFFFF));
+    expect(title.style?.color, const Color(0xFFF4F3F6));
     expect(title.style?.fontWeight, FontWeight.w700);
     final clip = tester.widget<ClipRRect>(find.byType(ClipRRect).first);
     expect(clip.borderRadius, BorderRadius.circular(11));

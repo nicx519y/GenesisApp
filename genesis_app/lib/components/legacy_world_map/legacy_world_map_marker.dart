@@ -20,7 +20,7 @@ Color worldMapAvatarBorderColorForTesting({
 Color legacyWorldMapAvatarBorderColor({required bool isPlayerControlledRole}) {
   return isPlayerControlledRole
       ? worldMapLocationMarkerEventColor
-      : const Color(0xFF17151B);
+      : const Color(0xFF151517);
 }
 
 @visibleForTesting

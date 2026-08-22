@@ -208,7 +208,7 @@ class _StoryEventCard extends StatelessWidget {
       deleteBackgroundColor: context.genesisCreateColors.fieldFill,
       deleteBorderColor: Colors.transparent,
       deleteBorderRadius: 10,
-      deleteIconColor: context.genesisColors.textPrimary.withValues(alpha: 0.6),
+      deleteIconColor: context.genesisColors.foregroundStrong.withValues(alpha: 0.6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -234,14 +234,14 @@ class _StoryEventCard extends StatelessWidget {
             supportIconSize: 12,
             supportIconGap: 7,
             supportTextStyle: const TextStyle(fontSize: 11, height: 1.5),
-            supportTextColor: context.genesisColors.textPrimary.withValues(
+            supportTextColor: context.genesisColors.foregroundStrong.withValues(
               alpha: 0.62,
             ),
-            supportIconColor: context.genesisColors.textPrimary.withValues(
+            supportIconColor: context.genesisColors.foregroundStrong.withValues(
               alpha: 0.45,
             ),
             counterTextStyle: TextStyle(
-              color: context.genesisColors.textPrimary.withValues(alpha: 0.5),
+              color: context.genesisColors.foregroundStrong.withValues(alpha: 0.5),
               fontSize: 9.5,
               height: 1.5,
               fontWeight: FontWeight.w500,
@@ -283,7 +283,7 @@ class _StoryEventsAppBar extends StatelessWidget
               key: const ValueKey<String>('story-events-count'),
               maxLines: 1,
               style: TextStyle(
-                color: context.genesisColors.textPrimary.withValues(alpha: 0.5),
+                color: context.genesisColors.foregroundStrong.withValues(alpha: 0.5),
                 fontSize: 9.5,
                 fontWeight: FontWeight.w500,
                 height: 1,
@@ -313,7 +313,7 @@ class _StoryEventAddButton extends StatelessWidget {
         child: CustomPaint(
           key: const ValueKey<String>('story-events-add-button-border'),
           painter: CreateDashedRRectPainter(
-            color: context.genesisColors.textPrimary.withValues(alpha: 0.24),
+            color: context.genesisColors.foregroundStrong.withValues(alpha: 0.24),
             radius: 13,
             strokeWidth: 1.5,
           ),

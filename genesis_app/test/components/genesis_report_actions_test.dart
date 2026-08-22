@@ -80,7 +80,7 @@ void main() {
     await tester.pump();
 
     final expectedBackground = Color.alphaBlend(
-      GenesisPalette.redesignWhite60,
+      GenesisPalette.redesignWhite56,
       GenesisPalette.redesignBackground,
     );
     final menuBackgrounds = tester

@@ -355,7 +355,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
             borderRadius: panelTopBorderRadius,
             border: Border(
               top: BorderSide(
-                color: context.genesisColors.textPrimary.withValues(
+                color: context.genesisColors.foregroundStrong.withValues(
                   alpha: worldDetailsPanelTopBorderOpacity,
                 ),
                 width: worldDetailsPanelTopBorderWidth,

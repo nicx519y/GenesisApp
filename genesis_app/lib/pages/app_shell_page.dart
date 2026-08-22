@@ -375,7 +375,7 @@ class _AppShellPageState extends State<AppShellPage>
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: GenesisRadii.sheet,
-        side: BorderSide(color: colors.textPrimary.withValues(alpha: 0.14)),
+        side: BorderSide(color: colors.foregroundStrong.withValues(alpha: 0.14)),
       ),
       barrierColor: colors.scrim.withValues(alpha: 0.62),
       builder: (_) => SizedBox(

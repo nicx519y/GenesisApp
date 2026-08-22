@@ -92,7 +92,7 @@ void main() {
         expect(border.bottom.width, genesisModalBorderWidth);
         expect(
           border.bottom.color,
-          colors.textPrimary.withValues(alpha: genesisModalBorderOpacity),
+          colors.foregroundStrong.withValues(alpha: genesisModalBorderOpacity),
         );
       }
     },

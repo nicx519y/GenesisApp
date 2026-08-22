@@ -30,7 +30,7 @@ void main() {
     );
     expect(
       tilemapVisualStyleFor(TilemapVisualMode.dark).backgroundColor,
-      const Color(0xFF17151B),
+      const Color(0xFF151517),
     );
     expect(
       tilemapVisualStyleFor(TilemapVisualMode.dark).gridLineColor,
@@ -2207,7 +2207,7 @@ void main() {
       );
       expect(avatar.size, 22);
       expect(avatar.showStar, isFalse);
-      expect((avatar.border! as Border).top.color, const Color(0xFF17151B));
+      expect((avatar.border! as Border).top.color, const Color(0xFF151517));
       expect((avatar.border! as Border).top.width, 1.5);
       expect(
         avatar.maxDevicePixelRatio,

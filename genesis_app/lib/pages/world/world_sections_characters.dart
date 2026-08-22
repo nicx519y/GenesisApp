@@ -353,7 +353,7 @@ class WorldCharacterRow extends StatelessWidget {
                     Text(
                       identity,
                       style: bodyStyle.copyWith(
-                        color: context.genesisColors.textPrimary.withValues(
+                        color: context.genesisColors.foregroundStrong.withValues(
                           alpha: 0.92,
                         ),
                       ),

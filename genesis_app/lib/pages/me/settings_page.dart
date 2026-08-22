@@ -78,7 +78,7 @@ class _SettingsPageState extends State<SettingsPage> {
       contentInputKey: const ValueKey<String>('genesis-feedback-content-input'),
       successMessage: 'Feedback submitted',
       failureMessage: 'Feedback failed',
-      borderColor: context.genesisColors.textPrimary.withValues(alpha: 0.14),
+      borderColor: context.genesisColors.foregroundStrong.withValues(alpha: 0.14),
       onSubmit: (content) => api.v1.feedback.create(content: content),
     );
   }

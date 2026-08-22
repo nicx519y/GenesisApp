@@ -69,14 +69,19 @@ class GenesisAppBar extends StatelessWidget implements PreferredSizeWidget {
         };
     final centered = variant == GenesisAppBarVariant.centered;
     final large = variant == GenesisAppBarVariant.largeTitle;
+    // Bar titles are the one place the dark side keeps pure white; content
+    // titles elsewhere sit a tier down, on soft white. foregroundStrong is
+    // white on dark and ink on light, so both skins stay correct.
     final resolvedTitleStyle =
         titleStyle ??
         (large
-            ? GenesisTypography.pageTitle.copyWith(color: colors.textPrimary)
+            ? GenesisTypography.pageTitle.copyWith(
+                color: colors.foregroundStrong,
+              )
             : centered
             ? null
             : GenesisTypography.navigationTitle.copyWith(
-                color: colors.textPrimary,
+                color: colors.foregroundStrong,
               ));
 
     return AppBar(

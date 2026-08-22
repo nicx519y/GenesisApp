@@ -162,7 +162,7 @@ void main() {
     expect(taskButtonDecoration.border, isNull);
     expect(
       tester.widget<Text>(find.text('Go')).style?.color,
-      const Color(0xE0FFFFFF),
+      const Color(0xFFF4F3F6),
     );
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,
@@ -203,7 +203,7 @@ void main() {
     expect(recordsStyle?.fontSize, 12);
     expect(recordsStyle?.height, 1);
     expect(recordsStyle?.fontWeight, FontWeight.w600);
-    expect(recordsStyle?.color, const Color(0xB8FFFFFF));
+    expect(recordsStyle?.color, const Color(0x8FFFFFFF));
     expect(
       tester.getSize(find.byType(GenesisChevronRightIcon)),
       const Size.square(9),
@@ -217,7 +217,7 @@ void main() {
     expect(groupTitleStyle?.fontSize, 15);
     expect(groupTitleStyle?.height, 1);
     expect(groupTitleStyle?.fontWeight, FontWeight.w800);
-    expect(groupTitleStyle?.color, Colors.white);
+    expect(groupTitleStyle?.color, const Color(0xFFF4F3F6));
 
     final taskTitleStyle = tester
         .widget<Text>(find.text('Create your first worldo'))
@@ -225,7 +225,7 @@ void main() {
     expect(taskTitleStyle?.fontSize, 13);
     expect(taskTitleStyle?.height, 1.25);
     expect(taskTitleStyle?.fontWeight, FontWeight.w800);
-    expect(taskTitleStyle?.color, Colors.white);
+    expect(taskTitleStyle?.color, const Color(0xFFF4F3F6));
 
     final descriptionStyle = tester
         .widget<Text>(find.text(_wrappingTaskDescription))
@@ -233,7 +233,7 @@ void main() {
     expect(descriptionStyle?.fontSize, 11);
     expect(descriptionStyle?.height, 1.45);
     expect(descriptionStyle?.fontWeight, FontWeight.w400);
-    expect(descriptionStyle?.color, const Color(0x99FFFFFF));
+    expect(descriptionStyle?.color, const Color(0x8FFFFFFF));
     final description = tester.widget<Text>(
       find.text(_wrappingTaskDescription),
     );
@@ -262,7 +262,7 @@ void main() {
     final taskRewardStyle = tester.widget<Text>(find.text('+50')).style;
     expect(taskRewardStyle?.fontSize, 13);
     expect(taskRewardStyle?.fontWeight, FontWeight.w800);
-    expect(taskRewardStyle?.color, Colors.white);
+    expect(taskRewardStyle?.color, const Color(0xFFF4F3F6));
     final taskRewardIconSize = tester.getSize(
       find.byKey(
         const ValueKey<String>('gem-task-reward-icon-create_first_worldo'),
@@ -324,17 +324,17 @@ void main() {
     expect(joinUsStyle?.fontSize, 15);
     expect(joinUsStyle?.height, 1);
     expect(joinUsStyle?.fontWeight, FontWeight.w800);
-    expect(joinUsStyle?.color, Colors.white);
+    expect(joinUsStyle?.color, const Color(0xFFF4F3F6));
 
     final discordStyle = tester.widget<Text>(find.text('Discord')).style;
     expect(discordStyle?.fontSize, 13);
     expect(discordStyle?.height, 1.25);
     expect(discordStyle?.fontWeight, FontWeight.w800);
-    expect(discordStyle?.color, Colors.white);
+    expect(discordStyle?.color, const Color(0xFFF4F3F6));
     final joinUsRewardStyle = tester.widget<Text>(find.text('+20')).style;
     expect(joinUsRewardStyle?.fontSize, 13);
     expect(joinUsRewardStyle?.fontWeight, FontWeight.w800);
-    expect(joinUsRewardStyle?.color, Colors.white);
+    expect(joinUsRewardStyle?.color, const Color(0xFFF4F3F6));
     final joinUsRewardIconSize = tester.getSize(
       find.byKey(const ValueKey<String>('gem-task-reward-icon-discord_follow')),
     );
@@ -465,7 +465,7 @@ void main() {
     expect(recordTitleStyle?.fontSize, 13);
     expect(recordTitleStyle?.height, 1.35);
     expect(recordTitleStyle?.fontWeight, FontWeight.w600);
-    expect(recordTitleStyle?.color, const Color(0xFFFFFFFF));
+    expect(recordTitleStyle?.color, const Color(0xFFF4F3F6));
 
     final recordTimeStyle = tester
         .widget<Text>(find.text(formatGemRecordTimestamp(1783586400)))
@@ -1777,7 +1777,7 @@ void _expectGrantedSuccessDialog(
   expect(successDialogDecoration.borderRadius, BorderRadius.circular(20));
   expect(
     (successDialogDecoration.border! as Border).top.color,
-    successDialogContext.genesisColors.textPrimary.withValues(alpha: 0.14),
+    successDialogContext.genesisColors.foregroundStrong.withValues(alpha: 0.14),
   );
   expect(
     tester
