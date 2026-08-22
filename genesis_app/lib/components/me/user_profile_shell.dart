@@ -625,7 +625,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                       fontSize: 9.5,
                       height: 1,
                       fontWeight: FontWeight.w500,
-                      color: colors.textFaint,
+                      color: colors.textTimestamp,
                     ),
                   ),
                   const SizedBox(height: 7),
@@ -657,7 +657,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                           fontSize: 11,
                           height: 1,
                           fontWeight: FontWeight.w500,
-                          color: colors.textSubtle,
+                          color: colors.textTimestamp,
                         ),
                       ),
                     ],
@@ -676,7 +676,7 @@ class _GemsBalanceEntry extends StatelessWidget {
               child: Text(
                 'Top up',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   height: 1,
                   fontWeight: FontWeight.w700,
                   color: colors.onDanger,
@@ -790,19 +790,21 @@ class _ProfileCollectionTabs extends StatelessWidget {
       labels: ['Creation $originCount', 'Playing $worldCount'],
       horizontalPadding: 22,
       labelPadding: const EdgeInsets.only(right: 20),
-      labelFontSize: 15,
+      // 9k: Creation / Playing / Bookmarks are 14/1.2, w700 when active and
+      // w500 when idle, with the idle label on the 45% tier.
+      labelFontSize: 14,
       labelStyle: const TextStyle(
-        fontSize: 15,
+        fontSize: 14,
         height: 1.2,
         fontWeight: FontWeight.w700,
       ),
       unselectedLabelStyle: const TextStyle(
-        fontSize: 15,
+        fontSize: 14,
         height: 1.2,
         fontWeight: FontWeight.w500,
       ),
       labelColor: context.genesisColors.textPrimary,
-      unselectedLabelColor: context.genesisColors.textMuted,
+      unselectedLabelColor: context.genesisColors.textTimestamp,
       indicatorHeight: 2.5,
       indicatorBottomPadding: 0,
       indicatorMatchesLabelWidth: true,

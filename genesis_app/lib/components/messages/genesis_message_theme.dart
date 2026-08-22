@@ -32,7 +32,9 @@ class GenesisMessageColors extends ThemeExtension<GenesisMessageColors> {
     statusPositive: GenesisPalette.redesignAccentSoft,
     statusMuted: GenesisPalette.redesignWhite45,
     originAccent: GenesisPalette.redesignAccentSoft,
-    conversationPreview: GenesisPalette.redesignFeedTabInactive,
+    // 9j: the private-chat preview line sits on the 56% tier, not on the
+    // warm grey the feed tabs use.
+    conversationPreview: GenesisPalette.redesignWhite56,
   );
 
   final Color notificationsSurface;

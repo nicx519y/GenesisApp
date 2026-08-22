@@ -4080,10 +4080,11 @@ void main() {
     final privateChatsStyle = tester
         .widget<Text>(find.text('Private chats'))
         .style;
-    expect(privateChatsStyle?.fontSize, 10);
+    // 9j: 9.5/500 on the 45% tier.
+    expect(privateChatsStyle?.fontSize, 9.5);
     expect(privateChatsStyle?.height, 1);
     expect(privateChatsStyle?.fontWeight, FontWeight.w500);
-    expect(privateChatsStyle?.color, const Color(0x80FFFFFF));
+    expect(privateChatsStyle?.color, const Color(0x73FFFFFF));
 
     final dmAvatar = find.byKey(const ValueKey('dm-avatar-DMC_MOCK_001'));
     expect(dmAvatar, findsOneWidget);

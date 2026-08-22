@@ -215,11 +215,11 @@ class _MessagesPageState extends State<MessagesPage> {
             child: Text(
               'Private chats',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 9.5,
                 height: 1,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.1,
-                color: context.genesisColors.textTertiary,
+                color: context.genesisColors.textTimestamp,
               ),
             ),
           ),
@@ -491,7 +491,7 @@ class _ConversationTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           height: 1.45,
                           fontWeight: FontWeight.w400,
                           color:
