@@ -42,7 +42,7 @@ void main() {
             matching: find.byType(SizedBox),
           ),
         )
-        .where((box) => box.width == null && box.height == 54);
+        .where((box) => box.width == null && box.height == 68);
     expect(navigationHeight, hasLength(1));
 
     final navigationDecoration = tester

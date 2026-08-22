@@ -170,27 +170,64 @@ class _HomeHeader extends StatelessWidget {
       backgroundColor: context.genesisColors.pageBackground,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
+        // 9l header: the page title on the left, a 34px search square on the
+        // right. No wordmark and no inline search field — those belong to the
+        // Worlds feed (9h), which has its own full-width search.
         child: SizedBox(
           height: kGenesisTopBarHeight,
-          child: Transform.translate(
-            offset: const Offset(0, 5),
-            child: Row(
-              children: [
-                const GenesisLogo(height: 32),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GenesisSearchField(
-                    variant: GenesisSearchFieldVariant.compact,
-                    iconAsset: searchIconAsset,
-                    iconSize: genesisSearchIconSize,
-                    iconColor: context.genesisColors.primary,
-                    hintText: 'Explore',
-                    onTap: () {
-                      Navigator.of(context).pushNamed(RouteNames.search);
-                    },
-                  ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Home',
+                style: GenesisTypography.pageTitle.copyWith(
+                  color: context.genesisColors.foregroundStrong,
                 ),
-              ],
+              ),
+              const Spacer(),
+              _HomeSearchSquare(
+                onTap: () {
+                  Navigator.of(context).pushNamed(RouteNames.search);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 9l: the 34px search square that replaces the inline search field on Home.
+class _HomeSearchSquare extends StatelessWidget {
+  const _HomeSearchSquare({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.genesisColors;
+    return Semantics(
+      button: true,
+      label: 'Search',
+      child: GestureDetector(
+        key: const ValueKey<String>('home-search-square'),
+        onTap: onTap,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: colors.controlMuted,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          alignment: Alignment.center,
+          child: SvgPicture.asset(
+            searchIconAsset,
+            width: 15,
+            height: 15,
+            colorFilter: ColorFilter.mode(
+              colors.foregroundStrong,
+              BlendMode.srcIn,
             ),
           ),
         ),

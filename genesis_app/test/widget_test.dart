@@ -3148,7 +3148,8 @@ void main() {
   testWidgets('Home is default tab', (WidgetTester tester) async {
     await _pumpGenesisApp(tester);
 
-    expect(find.text('Home'), findsOneWidget);
+    // 'Home' appears twice now: the 9l page title and the bottom nav label.
+    expect(find.text('Home'), findsNWidgets(2));
     expect(find.text('Popular'), findsOneWidget);
     expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Create'), findsNothing);
@@ -3185,31 +3186,22 @@ void main() {
           .indicatorMatchesLabelWidth,
       isTrue,
     );
-    final homeSearchFinder = find.byType(GenesisSearchField).first;
-    final homeSearchTop = tester.getTopLeft(homeSearchFinder).dy;
-    final homeSearchField = tester.widget<GenesisSearchField>(homeSearchFinder);
-    expect(
-      homeSearchField.iconColor,
-      tester.element(homeSearchFinder).genesisColors.primary,
-    );
-    expect(homeSearchField.iconAsset, searchIconAsset);
-    expect(homeSearchField.iconSize, genesisSearchIconSize);
+    // 9l puts a 34px search square in the header, not an inline field.
+    final square = find.byKey(const ValueKey<String>('home-search-square'));
+    expect(square, findsOneWidget);
+    expect(tester.getSize(square), const Size(34, 34));
+    expect(find.byType(GenesisSearchField), findsNothing);
 
-    await tester.tap(find.text('Explore').first);
+    await tester.tap(square);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Cancel'), findsOneWidget);
-    expect(find.text('Explore'), findsWidgets);
-    final searchPageSearchTop = tester
-        .getTopLeft(find.byType(GenesisSearchField).first)
-        .dy;
-    expect(searchPageSearchTop, homeSearchTop);
     final searchPageSearchField = tester.widget<GenesisSearchField>(
       find.byType(GenesisSearchField).first,
     );
-    expect(searchPageSearchField.iconAsset, homeSearchField.iconAsset);
-    expect(searchPageSearchField.iconSize, homeSearchField.iconSize);
+    expect(searchPageSearchField.iconAsset, searchIconAsset);
+    expect(searchPageSearchField.iconSize, genesisSearchIconSize);
   });
 
   testWidgets('search bar placeholder stays single line with ellipsis', (
@@ -3239,7 +3231,7 @@ void main() {
   ) async {
     await _pumpGenesisApp(tester);
 
-    await tester.tap(find.text('Explore').first);
+    await tester.tap(find.byKey(const ValueKey<String>('home-search-square')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'zz');
@@ -3348,7 +3340,7 @@ void main() {
   ) async {
     await _pumpGenesisApp(tester);
 
-    await tester.tap(find.text('Explore').first);
+    await tester.tap(find.byKey(const ValueKey<String>('home-search-square')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '老肖');
@@ -3364,7 +3356,7 @@ void main() {
   ) async {
     await _pumpGenesisApp(tester);
 
-    await tester.tap(find.text('Explore').first);
+    await tester.tap(find.byKey(const ValueKey<String>('home-search-square')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '老肖');
@@ -3386,7 +3378,7 @@ void main() {
   ) async {
     await _pumpGenesisApp(tester);
 
-    await tester.tap(find.text('Explore').first);
+    await tester.tap(find.byKey(const ValueKey<String>('home-search-square')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'st');

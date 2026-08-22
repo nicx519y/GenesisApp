@@ -20,7 +20,8 @@ class BottomTabs extends StatelessWidget {
     return GenesisBottomNavigation(
       currentIndex: currentIndex,
       onTap: onTap,
-      height: 54,
+      // 9h/9l: the bottom bar is 68px tall.
+      height: 68,
       items: [
         const GenesisBottomNavigationItem(
           label: 'Home',

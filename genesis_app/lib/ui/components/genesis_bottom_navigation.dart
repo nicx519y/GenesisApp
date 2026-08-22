@@ -172,9 +172,15 @@ class GenesisBottomNavigationTile extends StatelessWidget {
                   item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  // Bottom bar labels: 9.5px, 600 when active and 500 when
+                  // idle. Active sits on soft white, idle on the 32% tier.
                   style: GenesisTypography.tabLabel.copyWith(
                     color: color,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 9.5,
+                    height: 1,
+                    fontWeight: selected || item.prominent
+                        ? FontWeight.w600
+                        : FontWeight.w500,
                   ),
                 ),
               ],
