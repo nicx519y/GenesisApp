@@ -423,7 +423,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                         'Load failed',
                         style: TextStyle(
                           color: colors.textSubtle,
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -455,7 +455,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                         'No blocked users yet.',
                         style: TextStyle(
                           color: colors.textPlaceholder,
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -570,7 +570,7 @@ class _BlockedUserTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: colors.navigationSelected,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
@@ -706,7 +706,7 @@ class _AccountPageState extends State<AccountPage> {
                     'Account Deletion Agreement',
                     style: TextStyle(
                       color: colors.navigationSelected,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
@@ -834,7 +834,7 @@ class _CurrentLoginAccountCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colors.textSubtle,
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.w400,
                 height: 1.2,
               ),

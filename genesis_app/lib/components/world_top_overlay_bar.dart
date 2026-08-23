@@ -177,9 +177,9 @@ class WorldTopOverlayBar extends StatelessWidget {
                 ),
                 labelColor: colors.textPrimary,
                 unselectedLabelColor: colors.textPrimary,
-                labelStyle: GenesisTypography.bodyStrong.copyWith(fontSize: 16),
+                labelStyle: GenesisTypography.bodyStrong.copyWith(fontSize: 17),
                 unselectedLabelStyle: GenesisTypography.body.copyWith(
-                  fontSize: 16,
+                  fontSize: 17,
                 ),
                 tabs: [
                   const Tab(

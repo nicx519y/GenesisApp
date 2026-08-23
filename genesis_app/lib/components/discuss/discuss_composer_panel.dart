@@ -111,7 +111,7 @@ class _DiscussComposerPanel extends StatelessWidget {
                       disabledForegroundColor:
                           context.genesisDiscussColors.composerActionDisabled,
                       textStyle: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 13,
                         height: 1.1,
                         fontWeight: FontWeight.w600,
                       ),

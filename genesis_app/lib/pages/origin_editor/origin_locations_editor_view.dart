@@ -542,7 +542,7 @@ TextStyle _inlineLocationNameStyle(BuildContext context, int level) {
   if (level <= 0) {
     return TextStyle(
       color: context.genesisColors.foregroundStrong,
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: FontWeight.w600,
     );
   }

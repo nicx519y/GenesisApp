@@ -33,7 +33,7 @@ class CreateAddButton extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: context.genesisCreateColors.text,
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),

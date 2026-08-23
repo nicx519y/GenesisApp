@@ -164,7 +164,7 @@ class _MyWorldsEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: textTheme.titleMedium?.copyWith(
                 color: context.genesisColors.textPrimary,
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 height: 1.25,
                 letterSpacing: 0,

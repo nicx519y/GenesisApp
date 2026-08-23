@@ -144,8 +144,9 @@ void main() {
     );
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(tabBar.labelStyle?.fontSize, 16);
-    expect(tabBar.unselectedLabelStyle?.fontSize, 16);
+    // 9m: the world name in the top bar is 17/800.
+    expect(tabBar.labelStyle?.fontSize, 17);
+    expect(tabBar.unselectedLabelStyle?.fontSize, 17);
     expect(tabBar.isScrollable, isTrue);
     expect(tabBar.tabAlignment, TabAlignment.center);
   });

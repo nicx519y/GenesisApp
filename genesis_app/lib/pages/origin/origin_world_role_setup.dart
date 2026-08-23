@@ -308,7 +308,7 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
               Text(
                 '+',
                 style: TextStyle(
-                  fontSize: 36,
+                  fontSize: 30,
                   height: 1,
                   fontWeight: FontWeight.w300,
                   color: context.genesisColors.textPrimary,
@@ -319,7 +319,7 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
               Text(
                 'Custom',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   height: 1,
                   fontWeight: FontWeight.w600,
                   color: context.genesisColors.textPrimary,

@@ -129,7 +129,7 @@ class _LegalWebErrorView extends StatelessWidget {
             Text(
               'Load failed',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 13,
                 color: context.genesisColors.textPrimary,
               ),
             ),

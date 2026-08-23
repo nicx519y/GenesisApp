@@ -845,7 +845,7 @@ TextStyle _locationNameStyle(
   }
   if (level <= 0) {
     return TextStyle(
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: FontWeight.w600,
       color: context.genesisColors.foregroundStrong,
     );

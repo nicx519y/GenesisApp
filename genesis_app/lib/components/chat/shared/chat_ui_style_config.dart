@@ -211,12 +211,12 @@ class ChatUiStyleConfig {
       colors: [Color(0xF2111111), Color(0x00111111)],
     ), // Top chat header background gradient.
     headerTitleTextStyle: TextStyle(
-      fontSize: 16, // Header title font size.
+      fontSize: 15, // Header title font size.
       fontWeight: FontWeight.w600, // Header title font weight.
       color: Colors.black, // Header title color.
     ),
     headerSubtitleTextStyle: TextStyle(
-      fontSize: 16, // Header subtitle font size.
+      fontSize: 11, // Header subtitle font size.
       fontWeight: FontWeight.w400, // Header subtitle font weight.
       color: Colors.black87, // Header subtitle color.
     ),

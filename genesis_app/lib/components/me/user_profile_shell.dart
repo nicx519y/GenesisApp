@@ -178,7 +178,7 @@ class _UserProfileContentState extends State<UserProfileContent>
           textAlign: TextAlign.center,
           style: TextStyle(
             color: context.genesisColors.textFaint,
-            fontSize: 16,
+            fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -572,7 +572,7 @@ class _GemsBalanceEntry extends StatelessWidget {
               balance == null ? '0' : _formatGemBalance(balance),
               key: const ValueKey('user-profile-gems-balance'),
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 height: 20 / 16,
                 fontWeight: FontWeight.w600,
                 color: context.genesisColors.textBody,

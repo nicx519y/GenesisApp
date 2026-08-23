@@ -108,7 +108,7 @@ class _SectionRow extends StatelessWidget {
                                       color: context
                                           .genesisCreateColors
                                           .successText,
-                                      fontSize: 16,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       height: 1,
                                     ),

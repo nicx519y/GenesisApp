@@ -13,7 +13,7 @@ class _SectionTitle extends StatelessWidget {
         text,
         style: TextStyle(
           color: context.genesisColors.textPrimary,
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
       ),

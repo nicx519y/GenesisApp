@@ -359,7 +359,7 @@ class _ChatTickSceneVisibleRole extends StatelessWidget {
             borderRadius: 6,
             textStyle: TextStyle(
               color: chatTheme.tickHeader,
-              fontSize: 7,
+              fontSize: 9.5,
               height: 1,
               fontWeight: FontWeight.w700,
             ),

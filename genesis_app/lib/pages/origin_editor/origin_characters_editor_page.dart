@@ -282,7 +282,7 @@ class _OriginCharactersEditorPageState
                         CreateInlineAddButton(
                           label: '+ Add Character',
                           onTap: _addCharacter,
-                          fontSize: 16,
+                          fontSize: 14,
                           centered: true,
                           contentPadding: const EdgeInsets.fromLTRB(
                             0,

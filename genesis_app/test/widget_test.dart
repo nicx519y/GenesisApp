@@ -14377,7 +14377,7 @@ void main() {
     expect(
       tester.widget<CreateInlineAddButton>(find.byType(CreateInlineAddButton)),
       isA<CreateInlineAddButton>()
-          .having((button) => button.fontSize, 'fontSize', 16)
+          .having((button) => button.fontSize, 'fontSize', 14)
           .having((button) => button.centered, 'centered', isTrue),
     );
     expect(

@@ -137,7 +137,7 @@ class _OpeningBestRoleSelector extends StatelessWidget {
             'Suggest a role for user',
             style: TextStyle(
               color: context.genesisCreateColors.text,
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               height: 1.2,
             ),

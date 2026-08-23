@@ -214,7 +214,7 @@ class LoginProviderButton extends StatelessWidget {
                       maxLines: 1,
                       textAlign: TextAlign.left,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w400,
                         height: 1.1,
                         color: foregroundColor,

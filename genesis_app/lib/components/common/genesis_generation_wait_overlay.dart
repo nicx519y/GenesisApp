@@ -470,7 +470,7 @@ class _PerspectiveWaitTextState extends State<_PerspectiveWaitText>
                                       ? TextAlign.center
                                       : TextAlign.justify,
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 17,
                                     height: 1.32,
                                     color: context.genesisColors.textCinematic,
                                     fontWeight: FontWeight.w600,

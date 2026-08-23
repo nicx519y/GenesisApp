@@ -1341,7 +1341,8 @@ void main() {
     final levelTwoStyle = tester.widget<Text>(levelTwo).style!;
     final levelThreeStyle = tester.widget<Text>(levelThree).style!;
 
-    expect(levelOneStyle.fontSize, 16);
+    // 9g Locations: the L1 world row is 14/800.
+    expect(levelOneStyle.fontSize, 14);
     expect(levelOneStyle.fontWeight, FontWeight.w600);
     expect(levelTwoStyle.fontSize, 14);
     expect(levelTwoStyle.fontWeight, FontWeight.w600);

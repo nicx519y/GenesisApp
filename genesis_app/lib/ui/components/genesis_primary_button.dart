@@ -266,7 +266,7 @@ class GenesisPrimaryButton extends StatelessWidget {
   static const BorderRadius defaultBorderRadius =
       GenesisButton.defaultBorderRadius;
   static const TextStyle defaultTextStyle = TextStyle(
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: FontWeight.w600,
   );
   final String label;
