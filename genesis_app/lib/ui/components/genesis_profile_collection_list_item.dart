@@ -82,8 +82,9 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                   imageUrl: item.imageUrl,
                   width: redesigned ? 60 : 52,
                   height: redesigned ? 78 : 52,
+                  // 9k: the 60x78 cover is radius 8.
                   borderRadius: redesigned
-                      ? BorderRadius.circular(12)
+                      ? BorderRadius.circular(8)
                       : GenesisImageRadii.content,
                 ),
                 SizedBox(width: redesigned ? 12 : 10),

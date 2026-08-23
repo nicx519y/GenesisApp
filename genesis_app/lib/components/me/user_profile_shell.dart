@@ -730,11 +730,8 @@ class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: context.genesisColors.surface,
-        border: _isWorldoMe
-            ? Border(
-                bottom: BorderSide(color: context.genesisColors.dividerAction),
-              )
-            : null,
+        // 9k has no rule under the tabs: the only underline is the red
+        // indicator on the active label.
       ),
       child: _isWorldoMe
           ? Align(alignment: Alignment.bottomLeft, child: child)

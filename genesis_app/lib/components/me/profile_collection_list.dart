@@ -267,15 +267,11 @@ class _AnimatedProfileCollectionListItemState
           mainAxisSize: MainAxisSize.min,
           children: [
             GenesisProfileCollectionListItem(item: widget.item),
-            if (widget.showDivider) ...[
-              const SizedBox(height: 13),
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: context.genesisColors.shadow.withValues(alpha: 0.06),
-              ),
-              const SizedBox(height: 13),
-            ] else if (widget.bottomSpacing > 0)
+            // 9k separates world rows with a 14px gap and no rule — the only
+            // horizontal line on that screen is the bottom bar's top edge.
+            if (widget.showDivider)
+              const SizedBox(height: 14)
+            else if (widget.bottomSpacing > 0)
               SizedBox(height: widget.bottomSpacing),
           ],
         ),
