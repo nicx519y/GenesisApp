@@ -158,7 +158,8 @@ class _HomeHeader extends StatelessWidget {
     return GenesisTopSafeArea(
       backgroundColor: context.genesisColors.pageBackground,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        // 9l page margin is 22px, matching Messages and Me.
+        padding: const EdgeInsets.symmetric(horizontal: 22),
         // 9l header: the page title on the left, a 34px search square on the
         // right. No wordmark and no inline search field — those belong to the
         // Worlds feed (9h), which has its own full-width search.
