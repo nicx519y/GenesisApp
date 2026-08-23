@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../tokens/genesis_palette.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../icons/custom_icon_assets.dart';
 
-const Color kRecentChatMarkerColor = Color(0xFF338960);
-const Color kRecentChatMarkerBackgroundColor = Color(0xFFE8F5EF);
+// The canvas has no green; recency uses the pink accent.
+const Color kRecentChatMarkerColor = GenesisPalette.redesignAccentSoft;
+const Color kRecentChatMarkerBackgroundColor = GenesisPalette.redesignAccent14;
 const Color kWorldEventMarkerColor = Color(0xFFFF2442);
 const Color kWorldEventMarkerBackgroundColor = Color(0xFFFFF0F2);
 const double kRecentChatMapBadgeSize = 16;
@@ -122,14 +124,14 @@ class _RecentActivityTagStyle {
       case 'Last Tick':
         return _RecentActivityTagStyle(
           key: 'last-tick',
-          foregroundColor: const Color(0xFF2563EB),
-          backgroundColor: const Color(0xFFEAF2FF),
+          foregroundColor: GenesisPalette.redesignAccentSoft,
+          backgroundColor: GenesisPalette.redesignAccent14,
           icon: SvgPicture.asset(
             tickStatIconAsset,
             width: 8,
             height: 8,
             colorFilter: const ColorFilter.mode(
-              Color(0xFF2563EB),
+              GenesisPalette.redesignAccentSoft,
               BlendMode.srcIn,
             ),
           ),
@@ -137,14 +139,14 @@ class _RecentActivityTagStyle {
       case 'Last Launch':
         return _RecentActivityTagStyle(
           key: 'last-launch',
-          foregroundColor: const Color(0xFFE56A00),
-          backgroundColor: const Color(0xFFFFF0E3),
+          foregroundColor: GenesisPalette.redesignAccentSoft,
+          backgroundColor: GenesisPalette.redesignAccent14,
           icon: SvgPicture.asset(
             launchIconAsset,
             width: 10,
             height: 10,
             colorFilter: const ColorFilter.mode(
-              Color(0xFFE56A00),
+              GenesisPalette.redesignAccentSoft,
               BlendMode.srcIn,
             ),
           ),

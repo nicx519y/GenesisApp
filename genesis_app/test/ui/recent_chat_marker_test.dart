@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
@@ -33,6 +34,7 @@ void main() {
     )) {
       expect(marker.color, kRecentChatMarkerColor);
     }
-    expect(kRecentChatMarkerColor, const Color(0xFF338960));
+    // The canvas has no green; recency uses the pink accent.
+    expect(kRecentChatMarkerColor, GenesisPalette.redesignAccentSoft);
   });
 }

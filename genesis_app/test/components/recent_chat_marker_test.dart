@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
@@ -25,15 +26,17 @@ void main() {
     expect(find.text('Last Tick'), findsNothing);
     expect(find.text('Last Launch'), findsNothing);
     expect(find.byType(RecentChatIcon), findsOneWidget);
-    expect(_tagColor(tester, 'last-message'), const Color(0xFFE8F5EF));
-    expect(_tagColor(tester, 'last-tick'), const Color(0xFFEAF2FF));
-    expect(_tagColor(tester, 'last-launch'), const Color(0xFFFFF0E3));
+    // The canvas has no blue, orange or green: every recency variant sits on
+    // the one action colour, pink on a red-tinted surface.
+    expect(_tagColor(tester, 'last-message'), GenesisPalette.redesignAccent14);
+    expect(_tagColor(tester, 'last-tick'), GenesisPalette.redesignAccent14);
+    expect(_tagColor(tester, 'last-launch'), GenesisPalette.redesignAccent14);
 
     final recentIcon = tester.widget<RecentChatIcon>(
       find.byType(RecentChatIcon),
     );
     expect(recentIcon.color, kRecentChatMarkerColor);
-    expect(kRecentChatMarkerColor, const Color(0xFF338960));
+    expect(kRecentChatMarkerColor, GenesisPalette.redesignAccentSoft);
     final svg = tester.widget<SvgPicture>(
       find.descendant(
         of: find.byType(RecentChatIcon),
