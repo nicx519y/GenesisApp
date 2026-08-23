@@ -114,7 +114,12 @@ class OriginSummary {
       characterCount: asInt(json['character_count']),
       tags: _splitTags(asString(json['tags'])),
       createdAt: asDateTime(json['created_at']),
-      updatedAt: asDateTime(json['updated_at']),
+      // 9k shows "Latest Version: V1 · 2026-07-02 21:40"; that timestamp is
+      // the version's, so fall back to origin_version_time the way the detail
+      // model does. Without it the row renders a version with no time.
+      updatedAt: asDateTime(
+        json['updated_at'] ?? json['origin_version_time'],
+      ),
       characters: (json['characters'] is List)
           ? asJsonList(json['characters'])
                 .map((e) => OriginCharacter.fromJson(asJsonMap(e)))
