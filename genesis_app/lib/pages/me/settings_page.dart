@@ -207,7 +207,8 @@ class _SettingsHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      // 9q page margin is 22px.
+      padding: const EdgeInsets.fromLTRB(22, 12, 22, 0),
       child: SizedBox(
         height: 34,
         child: Row(
@@ -469,7 +470,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
               onRefresh: _refresh,
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
                 itemCount: items.length,
                 separatorBuilder: (_, __) =>
                     Divider(height: 1, color: colors.dividerSubtle),
@@ -698,7 +699,7 @@ class _AccountPageState extends State<AccountPage> {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
                 children: [
                   _CurrentLoginAccountCard(provider: _provider),
                   const SizedBox(height: 42),
