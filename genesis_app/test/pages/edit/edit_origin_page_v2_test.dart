@@ -178,7 +178,7 @@ void main() {
       expect(find.text('Recommend as the best role'), findsNothing);
       expect(
         tester.widget<Text>(find.text('Suggest').first).style?.fontSize,
-        12,
+        11,
       );
       expect(
         tester
@@ -207,7 +207,7 @@ void main() {
         ),
       );
       expect(unselectedStar.size, 16);
-      expect(unselectedStar.color, const Color(0xFF999999));
+      expect(unselectedStar.color, const Color(0x8CFFFFFF));
       final firstNameField = find.byType(TextField).first;
       expect(
         tester.getTopLeft(ariCheckbox).dy,
@@ -310,7 +310,7 @@ void main() {
           )
           .style
           ?.fontSize,
-      12,
+      13,
     );
     expect(
       tester.getTopLeft(ariMark).dx,

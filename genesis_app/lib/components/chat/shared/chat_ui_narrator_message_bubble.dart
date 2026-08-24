@@ -22,12 +22,15 @@ class ChatNarratorMessageBubble extends StatelessWidget {
       textAlign: TextAlign.left,
       leadingIconAsset: paragraphIconAsset,
       backgroundColor: usesScenePlate ? chatTheme.narratorBackground : null,
+      // The plate spans the full message column and takes its inner gutter from
+      // systemMessagePadding, same as the tick and story plates. It used to run
+      // edge to edge, which left the text flush against the plate border.
       textStyle: usesScenePlate
           ? style.systemMessageTextStyle.copyWith(
               color: chatTheme.narratorForeground,
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              height: 1.6,
+              height: kChatBodyLineHeight,
             )
           : null,
       leadingIconColor: usesScenePlate ? chatTheme.narratorIcon : null,

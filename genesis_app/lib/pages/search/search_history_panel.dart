@@ -26,7 +26,7 @@ class _SearchHistoryPanel extends StatelessWidget {
                   'Search histroy',
                   style: TextStyle(
                     color: context.genesisColors.textPrimary,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -88,7 +88,7 @@ class _SearchHistoryTag extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: context.genesisColors.textFaint,
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w400,
                   ),
                 ),

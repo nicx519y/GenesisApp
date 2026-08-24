@@ -134,7 +134,7 @@ class OriginItemCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(8),
           child: AspectRatio(
             aspectRatio: _coverAspectRatio,
             child: Stack(
@@ -150,16 +150,16 @@ class OriginItemCard extends StatelessWidget {
                   right: 0,
                   bottom: 0,
                   child: Container(
-                    padding: const EdgeInsets.fromLTRB(8, 24, 8, 7),
+                    padding: const EdgeInsets.fromLTRB(7, 18, 7, 6),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         stops: const [0, 0.46, 1],
                         colors: [
-                          colors.textInverse.withValues(alpha: 0.92),
-                          colors.textInverse.withValues(alpha: 0.62),
-                          colors.textInverse.withValues(alpha: 0),
+                          colors.pageBackground.withValues(alpha: 0.92),
+                          colors.pageBackground.withValues(alpha: 0.62),
+                          colors.pageBackground.withValues(alpha: 0),
                         ],
                       ),
                     ),
@@ -191,21 +191,25 @@ class OriginItemCard extends StatelessWidget {
         const SizedBox(height: 5),
         Text(
           originDisplayName(item.title),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: colors.textPrimary,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
-            height: 1.35,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
           ),
         ),
         const SizedBox(height: 5),
         Text(
           item.subtitle,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: colors.textSecondary,
             fontWeight: FontWeight.w400,
             fontSize: 12,
-            height: 1.55,
+            height: 1.3,
           ),
         ),
         if (item.tags.isNotEmpty) ...[
@@ -236,7 +240,7 @@ class _ImageStat extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: StatItem(
           iconAsset: iconAsset,
-          iconSize: 12,
+          iconSize: 11,
           iconColor:
               iconColor ??
               context.genesisColors.foregroundStrong.withValues(alpha: 0.92),
@@ -246,7 +250,7 @@ class _ImageStat extends StatelessWidget {
             color: context.genesisColors.textPrimary,
             fontSize: 11,
             height: 1,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w400,
           ),
         ),
       ),
@@ -257,42 +261,55 @@ class _ImageStat extends StatelessWidget {
 class _TagWrap extends StatelessWidget {
   const _TagWrap({required this.tags});
 
+  /// 9.5/1 label plus 4px of padding above and below.
+  static const double _chipHeight = 9.5 + 4 + 4;
+  static const double _runSpacing = 4;
+  static const double _twoRowHeight = _chipHeight * 2 + _runSpacing;
+
   final List<String> tags;
 
   @override
   Widget build(BuildContext context) {
     if (tags.isEmpty) return const SizedBox.shrink();
     final colors = context.genesisColors;
-    return Wrap(
-      spacing: 5,
-      runSpacing: 5,
-      children: [
-        for (final tag in tags)
-          Builder(
-            builder: (context) {
-              final trending = tag.toLowerCase() == 'trending';
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                decoration: BoxDecoration(
-                  color: trending
-                      ? colors.primary.withValues(alpha: 0.18)
-                      : colors.surfaceTag,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  tag,
-                  softWrap: false,
-                  style: TextStyle(
-                    color: trending ? colors.accentText : colors.textSecondary,
-                    fontSize: 10,
-                    height: 1,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              );
-            },
-          ),
-      ],
+    return ClipRect(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: _twoRowHeight),
+        child: Wrap(
+          spacing: 4,
+          runSpacing: _runSpacing,
+          children: [
+            for (final tag in tags)
+              Builder(
+                builder: (context) {
+                  final trending = tag.toLowerCase() == 'trending';
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: trending
+                          ? colors.primary.withValues(alpha: 0.18)
+                          : colors.surfaceTag,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      tag,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: trending ? colors.accentText : colors.textBody,
+                        fontSize: 9.5,
+                        height: 1,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

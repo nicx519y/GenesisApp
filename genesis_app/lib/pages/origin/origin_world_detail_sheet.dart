@@ -944,7 +944,7 @@ class _OriginInfoLaunchAction extends StatelessWidget {
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         fontSize: 13,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w800,
         isLoading: launching,
         loadingSize: 22,
         loadingStrokeWidth: 2.4,
@@ -970,7 +970,7 @@ class _OriginSheetPageHeading extends StatelessWidget {
               title,
               key: ValueKey<String>('origin-detail-sheet-page-$title'),
               style: GenesisTypography.navigationTitle.copyWith(
-                color: context.genesisColors.foregroundStrong,
+                color: context.genesisColors.textHeading,
               ),
             ),
           ),
@@ -993,7 +993,7 @@ class _OriginInfoCover extends StatelessWidget {
       url: url,
       width: 120,
       height: 180,
-      borderRadius: 13,
+      borderRadius: 8,
     );
   }
 }
@@ -1178,8 +1178,8 @@ class _OriginSheetHeaderContent extends StatelessWidget {
     final metaStyle = TextStyle(
       color: context.genesisColors.textMuted,
       fontSize: 9.5,
-      height: 1.3,
-      fontWeight: FontWeight.w400,
+      height: 1.4,
+      fontWeight: FontWeight.w600,
     );
     final headerActions = _OriginInfoHeaderActions(origin: origin);
 

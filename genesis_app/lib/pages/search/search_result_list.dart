@@ -80,7 +80,7 @@ class _SearchResultListState extends State<_SearchResultList>
         child: Text(
           'No results.',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             color: context.genesisColors.textTertiary,
             fontWeight: FontWeight.w400,
           ),
@@ -94,7 +94,7 @@ class _SearchResultListState extends State<_SearchResultList>
       primary: false,
       scrollCacheExtent: const ScrollCacheExtent.pixels(900),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+      padding: const EdgeInsets.fromLTRB(22, 14, 22, 28),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
@@ -114,7 +114,7 @@ class _SearchResultListState extends State<_SearchResultList>
         return switch (row) {
           _SearchSectionRow(:final title) => _SectionTitle(title),
           _SearchItemRow(:final item) => Padding(
-            padding: const EdgeInsets.only(bottom: 22),
+            padding: const EdgeInsets.only(bottom: 24),
             child: _SearchResultTile(
               item: item,
               onTap: item.deleted ? null : () => widget.onOpen(item),

@@ -58,10 +58,10 @@ class _TaskActionButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               height: textHeight,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               color: emphasized
-                  ? context.genesisColors.onDanger
-                  : context.genesisColors.textHighEmphasis,
+                  ? context.genesisColors.textHighEmphasis
+                  : context.genesisColors.textBody,
             ),
           ),
         ),
@@ -99,8 +99,8 @@ class _GemSectionStatePanel extends StatelessWidget {
                   Text(
                     errorMessage,
                     style: TextStyle(
-                      fontSize: 12,
-                      height: 16 / 12,
+                      fontSize: 11,
+                      height: 1.45,
                       color: context.genesisColors.textPlaceholder,
                     ),
                   ),

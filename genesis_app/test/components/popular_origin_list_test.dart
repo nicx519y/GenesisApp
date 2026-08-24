@@ -127,8 +127,8 @@ void main() {
     expect(find.text('WID: w_summary_alpha'), findsOneWidget);
     final progressWid = tester.widget<Text>(find.text('WID: w_summary_alpha'));
     final progressTime = tester.widget<Text>(find.text('2-18 21:20'));
-    expect(progressWid.style?.color, const Color(0xFF666666));
-    expect(progressTime.style?.color, const Color(0xFF888888));
+    expect(progressWid.style?.color, const Color(0x99131215));
+    expect(progressTime.style?.color, const Color(0x80131215));
     expect(find.text('Originator: Origin Owner'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
     expect(find.text('12'), findsOneWidget);
@@ -153,7 +153,7 @@ void main() {
     expect(versionText.style?.fontWeight, FontWeight.w600);
     expect(versionText.style?.color, const Color(0xFF92400E));
     final worldViewIcon = tester.widget<Icon>(find.byIcon(MyFlutterApp.eye));
-    expect(worldViewIcon.color, const Color(0xFFFF2442));
+    expect(worldViewIcon.color, const Color(0xFFF82B3C));
     expect(worldViewIcon.size, 14);
     final worldViewTitle = tester.widget<Text>(find.text('Worldo Brief'));
     final progressTitle = tester.widget<Text>(find.text('Copy World Progress'));
@@ -173,8 +173,8 @@ void main() {
     expect(worldViewBody.style?.fontSize, 13);
     expect(progressBody.style?.fontSize, 13);
     expect(discussBody.style?.fontSize, 13);
-    expect(worldViewBody.style?.color, const Color(0xFF111111));
-    expect(progressBody.style?.color, const Color(0xFF111111));
+    expect(worldViewBody.style?.color, const Color(0xFF131215));
+    expect(progressBody.style?.color, const Color(0xFF131215));
     expect(worldViewBody.maxLines, 5);
     expect(progressBody.maxLines, 5);
     expect(
@@ -278,9 +278,9 @@ void main() {
     final enterTitle = tester.widget<Text>(find.text('#Alpha Empire').last);
     final enterText = tester.widget<Text>(find.text('Enter'));
     expect(enterTitle.style?.fontSize, 13);
-    expect(enterTitle.style?.color, const Color(0xFF4B6192));
+    expect(enterTitle.style?.color, const Color(0xFFC41F2E));
     expect(enterText.style?.fontSize, 13);
-    expect(enterText.style?.color, const Color(0xFF4B6192));
+    expect(enterText.style?.color, const Color(0xFFC41F2E));
     expect(
       find.byKey(const ValueKey('origin-discuss-like-dis_1')),
       findsNothing,

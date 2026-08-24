@@ -514,7 +514,7 @@ Widget _successActionBoxTitle(
     color: context.genesisCreateColors.text,
     fontSize: 15,
     height: 1.16,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w800,
   );
   return RichText(
     maxLines: 2,

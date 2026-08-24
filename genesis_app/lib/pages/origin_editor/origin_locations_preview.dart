@@ -155,7 +155,7 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
       enableOuterScrollHandoff: false,
       physics: const ClampingScrollPhysics(),
       padding: editable
-          ? const EdgeInsets.fromLTRB(12, 8, 12, 32)
+          ? const EdgeInsets.fromLTRB(20, 4, 20, 32)
           : const EdgeInsets.fromLTRB(12, 14, 12, 32),
       onNodeHeaderTap: editable ? _beginInlineNameEdit : null,
       nodeHeaderBuilder: editable ? _buildInlineNodeHeader : null,

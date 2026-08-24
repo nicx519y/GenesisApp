@@ -6,7 +6,7 @@ const String kAiContentDisclaimerText =
     'All content is AI-generated and fictional. Any resemblance to real people, events, or places is coincidental.';
 
 const TextStyle kAiContentDisclaimerTextStyle = TextStyle(
-  fontSize: 12,
+  fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
 );

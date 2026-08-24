@@ -168,7 +168,7 @@ class _DebugButton extends StatelessWidget {
               'debug',
               style: TextStyle(
                 color: context.genesisColors.onDanger,
-                fontSize: 10,
+                fontSize: 9.5,
                 height: 1,
                 fontWeight: FontWeight.w600,
               ),

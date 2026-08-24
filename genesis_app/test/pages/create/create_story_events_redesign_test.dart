@@ -45,7 +45,7 @@ void main() {
     final addLabel = tester.widget<Text>(find.text('Add Event'));
     expect(addLabel.style?.color, GenesisCreateColors.worldoDark().successText);
     expect(addLabel.style?.fontSize, 13);
-    expect(addLabel.style?.fontWeight, FontWeight.w700);
+    expect(addLabel.style?.fontWeight, FontWeight.w800);
 
     final saveRect = tester.getRect(find.widgetWithText(FilledButton, 'Save'));
     expect(saveRect.height, 44);

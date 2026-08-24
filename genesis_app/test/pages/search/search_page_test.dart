@@ -38,7 +38,10 @@ void main() {
 
     expect(searchField.iconAsset, searchIconAsset);
     expect(searchField.iconSize, genesisSearchIconSize);
-    expect(searchField.iconColor, tester.element(finder).genesisColors.primary);
+    expect(
+      searchField.iconColor,
+      tester.element(finder).genesisColors.foregroundStrong,
+    );
   });
 
   testWidgets('does not request search before two letters or chinese chars', (
@@ -95,7 +98,7 @@ void main() {
     expect(find.text('#Origin 4'), findsOneWidget);
   });
 
-  testWidgets('shows world stats as ticks, connects, characters, players', (
+  testWidgets('shows world stats as ticks, connects and characters', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -112,26 +115,23 @@ void main() {
     final tick = find.text('101');
     final connect = find.text('201');
     final character = find.text('301');
-    final player = find.text('401');
     expect(tick, findsOneWidget);
     expect(connect, findsOneWidget);
     expect(character, findsOneWidget);
-    expect(player, findsOneWidget);
+    // The player count is not part of the three-stat strip any more.
+    expect(find.text('401'), findsNothing);
 
     final tickOffset = tester.getTopLeft(tick);
     final connectOffset = tester.getTopLeft(connect);
     final characterOffset = tester.getTopLeft(character);
-    final playerOffset = tester.getTopLeft(player);
 
     expect(connectOffset.dx, greaterThan(tickOffset.dx));
     expect(characterOffset.dx, greaterThan(connectOffset.dx));
-    expect(playerOffset.dx, greaterThan(characterOffset.dx));
     expect(connectOffset.dy, moreOrLessEquals(tickOffset.dy, epsilon: 1));
     expect(characterOffset.dy, moreOrLessEquals(tickOffset.dy, epsilon: 1));
-    expect(playerOffset.dy, moreOrLessEquals(tickOffset.dy, epsilon: 1));
   });
 
-  testWidgets('shows origin latest version from prefixed string fields', (
+  testWidgets('body is the creator line and the brief, not ids or versions', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -145,8 +145,40 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Latest Version: V1'), findsOneWidget);
-    expect(find.textContaining('Latest Version: -'), findsNothing);
+    expect(find.text('@Owner 2'), findsOneWidget);
+    expect(find.text('Origin brief 2'), findsOneWidget);
+    expect(find.textContaining('Latest Version'), findsNothing);
+    expect(find.textContaining('OID:'), findsNothing);
+    expect(find.textContaining('WID:'), findsNothing);
+
+    final brief = tester.widget<Text>(find.text('Origin brief 2'));
+    expect(brief.maxLines, 2);
+  });
+
+  testWidgets('world rows carry the Home-style tick and character line', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1800);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tick 2-3 · Hero 2'), findsOneWidget);
+    expect(find.text('Tick 1 · Hero 1'), findsOneWidget);
+
+    final status = tester.widget<Text>(find.text('Tick 1 · Hero 1'));
+    final context = tester.element(find.text('Tick 1 · Hero 1'));
+    expect(status.style?.color, context.genesisColors.accentText);
+    expect(status.style?.fontSize, 12);
+
+    // Origin rows have no tick line.
+    expect(find.textContaining('Tick 2-3'), findsOneWidget);
   });
 
   testWidgets('shows deleted for deleted origin owner in search results', (
@@ -163,8 +195,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Originator: deleted'), findsOneWidget);
-    expect(find.textContaining('Originator: Eve'), findsNothing);
+    expect(find.textContaining('@deleted'), findsOneWidget);
+    expect(find.textContaining('@Eve'), findsNothing);
   });
 
   testWidgets('dismisses search focus when tapping result area', (
@@ -213,8 +245,8 @@ void main() {
     final originImage = tester.widget<GenesisListImage>(
       find.descendant(of: originTile, matching: find.byType(GenesisListImage)),
     );
-    expect(originImage.width, 52);
-    expect(originImage.height, 52);
+    expect(originImage.width, 68);
+    expect(originImage.height, 88);
 
     final originSizedBoxes = tester
         .widgetList<SizedBox>(
@@ -222,7 +254,7 @@ void main() {
         )
         .toList();
     expect(
-      originSizedBoxes.any((box) => box.width == 10),
+      originSizedBoxes.any((box) => box.width == 12),
       isTrue,
       reason: 'Origin image-to-text gap should match Me collection rows.',
     );
@@ -232,15 +264,12 @@ void main() {
       reason: 'Origin title-to-subtitle gap should match Me collection rows.',
     );
     expect(
-      originSizedBoxes.any((box) => box.height == 8),
+      originSizedBoxes.any((box) => box.height == 7),
       isTrue,
       reason: 'Origin subtitle-to-stats gap should match Me collection rows.',
     );
     final originSubtitle = tester.widget<Text>(
-      find.descendant(
-        of: originTile,
-        matching: find.textContaining('Latest Version'),
-      ),
+      find.descendant(of: originTile, matching: find.text('Origin brief 1')),
     );
     expect(originSubtitle.style?.height, 1.3);
 
@@ -253,14 +282,14 @@ void main() {
     final userAvatar = tester.widget<GenesisAvatar>(
       find.descendant(of: userTile, matching: find.byType(GenesisAvatar)),
     );
-    expect(userAvatar.size, 52);
+    expect(userAvatar.size, 68);
 
     final userSizedBoxes = tester
         .widgetList<SizedBox>(
           find.descendant(of: userTile, matching: find.byType(SizedBox)),
         )
         .toList();
-    expect(userSizedBoxes.any((box) => box.width == 10), isTrue);
+    expect(userSizedBoxes.any((box) => box.width == 12), isTrue);
     expect(userSizedBoxes.any((box) => box.height == 5), isTrue);
   });
 
@@ -440,6 +469,7 @@ Map<String, dynamic> _item(String type, int index) {
         'origin_version': '-',
         'latestVersion': {'versionNum': index},
         'origin_version_time': 1777680000 + index,
+        'brief': 'Origin brief $index',
         'cover': '',
       },
       'stats': {
@@ -452,8 +482,11 @@ Map<String, dynamic> _item(String type, int index) {
       'info': {
         'world_id': 'world_$index',
         'world_name': 'World $index',
+        'brief': 'World brief $index',
         'cover': '',
       },
+      'last_tick': {'tick_no': index, 'sub_tick_no': index == 2 ? 3 : 0},
+      'my_character': {'name': 'Hero $index'},
       'stats': {
         'tick_cnt': 100 + index,
         'connect_cnt': 200 + index,

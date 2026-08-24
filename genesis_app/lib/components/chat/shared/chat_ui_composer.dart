@@ -102,39 +102,45 @@ class ChatComposer extends StatelessWidget {
                               ),
                             ),
                           Expanded(
-                            child: TextField(
-                              controller: controller,
-                              focusNode: focusNode,
-                              enabled: inputEnabled,
-                              minLines: style.inputMinLines,
-                              maxLines: style.inputMaxLines,
-                              keyboardType: submitFromKeyboard
-                                  ? TextInputType.text
-                                  : TextInputType.multiline,
-                              textInputAction: submitFromKeyboard
-                                  ? TextInputAction.send
-                                  : TextInputAction.newline,
-                              onTapOutside: (_) =>
-                                  FocusManager.instance.primaryFocus?.unfocus(),
-                              onTap: onInputTap,
-                              onSubmitted: submitFromKeyboard
-                                  ? (_) {
-                                      if (sendEnabled) unawaited(onSend());
-                                    }
-                                  : null,
-                              style: GenesisTypography.withFallback(
-                                style.inputTextStyle,
-                              ),
-                              decoration: InputDecoration(
-                                border: InputBorder.none,
-                                hintText: hintText,
-                                contentPadding: EdgeInsets.fromLTRB(
-                                  leadingShortcutLabel == null
-                                      ? style.inputHorizontalPadding
-                                      : 9,
-                                  style.inputVerticalPadding,
-                                  style.inputHorizontalPadding,
-                                  style.inputVerticalPadding,
+                            child: _ComposerSelectionScope(
+                              color: style.composerCursorColor,
+                              child: TextField(
+                                controller: controller,
+                                focusNode: focusNode,
+                                enabled: inputEnabled,
+                                minLines: style.inputMinLines,
+                                maxLines: style.inputMaxLines,
+                                keyboardType: submitFromKeyboard
+                                    ? TextInputType.text
+                                    : TextInputType.multiline,
+                                textInputAction: submitFromKeyboard
+                                    ? TextInputAction.send
+                                    : TextInputAction.newline,
+                                onTapOutside: (_) => FocusManager
+                                    .instance
+                                    .primaryFocus
+                                    ?.unfocus(),
+                                onTap: onInputTap,
+                                cursorColor: style.composerCursorColor,
+                                onSubmitted: submitFromKeyboard
+                                    ? (_) {
+                                        if (sendEnabled) unawaited(onSend());
+                                      }
+                                    : null,
+                                style: GenesisTypography.withFallback(
+                                  style.inputTextStyle,
+                                ),
+                                decoration: InputDecoration(
+                                  border: InputBorder.none,
+                                  hintText: hintText,
+                                  contentPadding: EdgeInsets.fromLTRB(
+                                    leadingShortcutLabel == null
+                                        ? style.inputHorizontalPadding
+                                        : 9,
+                                    style.inputVerticalPadding,
+                                    style.inputHorizontalPadding,
+                                    style.inputVerticalPadding,
+                                  ),
                                 ),
                               ),
                             ),
@@ -232,7 +238,7 @@ class _ComposerAsteriskPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8 * scale
+      ..strokeWidth = 2.13 * scale
       ..strokeCap = StrokeCap.round;
 
     Offset point(double x, double y) => Offset(x * scale, y * scale);
@@ -434,7 +440,7 @@ class _ComposerSendButton extends StatelessWidget {
                   overflow: TextOverflow.clip,
                   style: TextStyle(
                     color: style.composerSendButtonIconColor,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                 ),
         ),
@@ -454,7 +460,7 @@ class _ComposerUpArrowPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8 * scale
+      ..strokeWidth = 1.51 * scale
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
@@ -473,5 +479,32 @@ class _ComposerUpArrowPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ComposerUpArrowPainter oldDelegate) {
     return oldDelegate.color != color;
+  }
+}
+
+/// Paints the composer's caret, drag handles and selection highlight in
+/// [color]. The app theme puts all three on the accent, which is a stray red
+/// mark over scene artwork. A null [color] leaves the theme alone.
+class _ComposerSelectionScope extends StatelessWidget {
+  const _ComposerSelectionScope({required this.color, required this.child});
+
+  /// Matches the app theme's own accent-to-highlight ratio.
+  static const double _selectionOpacity = 0.32;
+
+  final Color? color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = this.color;
+    if (color == null) return child;
+    return TextSelectionTheme(
+      data: TextSelectionThemeData(
+        cursorColor: color,
+        selectionColor: color.withValues(alpha: _selectionOpacity),
+        selectionHandleColor: color,
+      ),
+      child: child,
+    );
   }
 }

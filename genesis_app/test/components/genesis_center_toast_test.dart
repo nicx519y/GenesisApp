@@ -4,7 +4,7 @@ import 'package:genesis_flutter_android/components/common/genesis_center_toast.d
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
-  testWidgets('shows centered translucent toast with 12px text', (
+  testWidgets('shows centered translucent toast with 13px text', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -29,7 +29,7 @@ void main() {
 
     final text = tester.widget<Text>(toastText);
     expect(text.style?.inherit, isFalse);
-    expect(text.style?.fontSize, 12);
+    expect(text.style?.fontSize, 13);
     expect(text.style?.color, Colors.white);
     expect(text.style?.decoration, TextDecoration.none);
 

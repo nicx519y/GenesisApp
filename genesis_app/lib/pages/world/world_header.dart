@@ -1,6 +1,7 @@
 // ignore_for_file: use_key_in_widget_constructors
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_avatar.dart';
@@ -8,6 +9,7 @@ import '../../ui/components/genesis_control_icons.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_palette.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -26,6 +28,7 @@ class WorldMapBackButton extends StatelessWidget {
       key: const ValueKey<String>('world-map-back-button'),
       onPressed: onPressed,
       dimension: worldMapHeaderButtonSize,
+      backgroundColor: GenesisPalette.redesignInkGlass50,
     );
   }
 }
@@ -78,11 +81,11 @@ class WorldMapIdentityPill extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: context.genesisColors.immersiveForeground.withValues(
-                    alpha: 0.78,
+                    alpha: 0.73,
                   ),
                   fontSize: 9.5,
-                  height: 1.3,
-                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
                   shadows: [
                     Shadow(
                       color: context.genesisColors.scrim.withValues(alpha: 0.7),
@@ -265,9 +268,14 @@ class WorldInfoHeader extends StatelessWidget {
       currentCharacter ?? const <String, dynamic>{},
       const ['avatar'],
     );
+    // connect_cnt 就是这条世界线累计的消息数,world 详情接口本来就返回它
+    // (world_api.dart:51 的 stats),Home 的世界卡片用的是同一个字段。
+    final messageCount = world.connectCount;
     final tickLabel = world.tickCount < 0
         ? ''
-        : 'Tick ${world.tickCount}${world.subTickNo > 0 ? '-${world.subTickNo}' : ''}';
+        : 'Tick ${world.tickCount}'
+              '${world.subTickNo > 0 ? '-${world.subTickNo}' : ''}'
+              '${messageCount > 0 ? ' · $messageCount messages' : ''}';
     final actionLabel = action.kind == WorldHeaderActionKind.progress
         ? 'Tick now'
         : action.label;
@@ -278,23 +286,28 @@ class WorldInfoHeader extends StatelessWidget {
         SizedBox(
           height: worldInfoHeaderHeight - 1,
           child: Padding(
+            // 设计稿 `padding:0 20px 13px` 是相对浮窗边缘量的;这里外层容器
+            // 已经带了 12px,内层只补 8 —— 8+12=20 才是头像盒的左边,2px 红环
+            // 再外扩到 18,与下方 Detail 药丸的左边缘对齐。
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 13),
             child: Row(
               children: [
                 Container(
                   key: const ValueKey<String>('world-playing-avatar'),
-                  width: 40,
-                  height: 40,
+                  // 设计稿原文:头像 `width:40px;height:40px;border-radius:12px`
+                  // 外加 `box-shadow:0 0 0 2px #F82B3C` 的 2px 红环 = 外框 44。
+                  width: 44,
+                  height: 44,
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     color: context.genesisColors.danger,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: GenesisAvatar(
                     name: characterName,
                     url: avatarUrl,
-                    size: 36,
-                    borderRadius: 10,
+                    size: 40,
+                    borderRadius: 12,
                     alignment: Alignment.topCenter,
                     showFallbackWhileLoading: false,
                   ),
@@ -312,9 +325,9 @@ class WorldInfoHeader extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: context.genesisColors.foregroundStrong,
-                          fontSize: 13,
+                          fontSize: 14,
                           height: 1.15,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       if (tickLabel.isNotEmpty) ...[
@@ -325,10 +338,10 @@ class WorldInfoHeader extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: context.genesisColors.textSecondary,
-                            fontSize: 9.5,
+                            color: context.genesisColors.textMuted,
+                            fontSize: 12,
                             height: 1,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ],
@@ -351,13 +364,28 @@ class WorldInfoHeader extends StatelessWidget {
                           : null,
                       height: worldInfoHeaderContentHeight,
                       width: 92,
-                      borderRadius: BorderRadius.circular(13),
+                      borderRadius: BorderRadius.circular(11),
+                      leadingIcon: action.kind == WorldHeaderActionKind.progress
+                          ? SvgPicture.asset(
+                              tickStatIconAsset,
+                              // 对齐大写字高:12px Inter 的 capHeight = 0.7275em
+                              // ≈ 8.7px。图标做 11px 会比字母高出一整圈,三角形的
+                              // 尖端把视线往上带,几何中心对齐了也仍然显得偏高。
+                              width: 9,
+                              height: 9,
+                              colorFilter: ColorFilter.mode(
+                                context.genesisColors.onDanger,
+                                BlendMode.srcIn,
+                              ),
+                            )
+                          : null,
+                      iconGap: 6,
                       backgroundColor: context.genesisColors.danger,
                       disabledBackgroundColor: context.genesisColors.danger
                           .withValues(alpha: 0.62),
                       foregroundColor: context.genesisColors.onDanger,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -371,14 +399,9 @@ class WorldInfoHeader extends StatelessWidget {
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: Divider(
-            height: 1,
-            thickness: 1,
-            color: context.genesisColors.dividerAction,
-          ),
-        ),
+        // 原先这里有一条带 6px 水平内边距的 Divider,左右都不顶满 —— 它就是与
+        // tab 容器顶边那条通栏线重叠的"原来那条"。通栏线现在由 WorldBottomTags
+        // 画在自己的顶边上(容器无圆角,天然贯通),这里不再重复画。
       ],
     );
   }

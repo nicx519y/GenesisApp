@@ -33,7 +33,7 @@ class CreateAddButton extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: context.genesisCreateColors.text,
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -77,7 +77,7 @@ class CreateInlineAddButton extends StatelessWidget {
               text: ' $supporting',
               style: TextStyle(
                 color: context.genesisCreateColors.hint,
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w400,
               ),
             ),

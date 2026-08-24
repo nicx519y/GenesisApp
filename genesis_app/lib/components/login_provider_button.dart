@@ -100,13 +100,13 @@ class _LoginLegalTextState extends State<LoginLegalText> {
   @override
   Widget build(BuildContext context) {
     final baseStyle = TextStyle(
-      fontSize: 12,
-      height: 1.35,
+      fontSize: 11,
+      height: 1.45,
       color: context.genesisColors.textSupporting,
     );
     final linkStyle = TextStyle(
-      fontSize: 12,
-      height: 1.35,
+      fontSize: 11,
+      height: 1.45,
       color: context.genesisColors.link,
     );
     return Text.rich(
@@ -214,7 +214,7 @@ class LoginProviderButton extends StatelessWidget {
                       maxLines: 1,
                       textAlign: TextAlign.left,
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: FontWeight.w400,
                         height: 1.1,
                         color: foregroundColor,

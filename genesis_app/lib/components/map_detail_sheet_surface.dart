@@ -63,31 +63,39 @@ class MapDetailSheetSurface extends StatelessWidget {
     required this.child,
     this.surfaceKey,
     this.connectsToBottom = false,
+    this.showOutline = true,
   });
 
   final Widget child;
   final Key? surfaceKey;
   final bool connectsToBottom;
 
+  /// 浮窗四周那圈 14% 描边。world 详情浮窗不要它(它拉起后几乎贴满屏,
+  /// 描边看着像给整个页面加了个框),其余场景仍按设计稿保留。
+  final bool showOutline;
+
   @override
   Widget build(BuildContext context) {
+    final clippedChild = ClipRRect(
+      borderRadius: mapDetailSheetBorderRadius,
+      child: child,
+    );
     return DecoratedBox(
       key: surfaceKey,
       decoration: mapDetailSheetDecoration(
         context,
         connectsToBottom: connectsToBottom,
       ),
-      child: DecoratedBox(
-        position: DecorationPosition.foreground,
-        decoration: mapDetailSheetOutlineDecoration(
-          context,
-          connectsToBottom: connectsToBottom,
-        ),
-        child: ClipRRect(
-          borderRadius: mapDetailSheetBorderRadius,
-          child: child,
-        ),
-      ),
+      child: showOutline
+          ? DecoratedBox(
+              position: DecorationPosition.foreground,
+              decoration: mapDetailSheetOutlineDecoration(
+                context,
+                connectsToBottom: connectsToBottom,
+              ),
+              child: clippedChild,
+            )
+          : clippedChild,
     );
   }
 }

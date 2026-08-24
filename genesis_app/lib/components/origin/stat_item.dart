@@ -38,7 +38,7 @@ class StatItem extends StatelessWidget {
     final resolvedTextStyle =
         textStyle ??
         TextStyle(
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: FontWeight.w400,
           color: context.genesisColors.foregroundStrong,
         );

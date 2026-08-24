@@ -224,7 +224,7 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         height: 1.2,
                         fontWeight: FontWeight.w400,
                         color: context.genesisColors.textMuted,
@@ -246,7 +246,7 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
                     color: context.genesisColors.inputHint,

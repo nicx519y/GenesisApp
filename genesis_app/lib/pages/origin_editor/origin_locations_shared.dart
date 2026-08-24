@@ -16,7 +16,7 @@ class _LocationCard extends StatelessWidget {
     this.onDeleteDisabled,
     this.showHeader = true,
     this.showBorder = true,
-    this.titleFontSize = 16,
+    this.titleFontSize = 15,
     this.titleSuffix,
     this.nameFieldLabel = 'Location Name *',
     this.nameFieldHintText = 'eg. Main Street',
@@ -180,7 +180,7 @@ class _InitialCharactersField extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: context.genesisCreateColors.hint,
-                                fontSize: 14,
+                                fontSize: 13,
                                 height: 1.2,
                               ),
                             ),
@@ -231,7 +231,7 @@ class _InitialCharactersField extends StatelessWidget {
           'Initial Characters (Optional)',
           style: TextStyle(
             color: context.genesisCreateColors.text,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: labelFontWeight,
             height: 1.2,
           ),
@@ -259,7 +259,7 @@ class _InitialCharactersField extends StatelessWidget {
               'Available to select',
               style: TextStyle(
                 color: context.genesisCreateColors.text,
-                fontSize: 14,
+                fontSize: 13,
                 height: 1.2,
                 fontWeight: labelFontWeight,
               ),
@@ -326,7 +326,7 @@ class _InitialCharactersField extends StatelessWidget {
     final textPainter = TextPainter(
       text: TextSpan(
         text: name,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
       ),
       maxLines: 1,
       textDirection: Directionality.of(context),
@@ -389,9 +389,9 @@ class _AvailableInitialCharacterChip extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: context.genesisCreateColors.text,
-                  fontSize: 12,
+                  fontSize: 11,
                   height: 1.2,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -439,8 +439,8 @@ class _InitialCharacterChip extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: context.genesisCreateColors.text,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
                   height: 1.2,
                 ),
               ),
@@ -624,7 +624,7 @@ class _CharacterPickerTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               height: 1.1,
               fontWeight: FontWeight.w400,
               color: context.genesisCreateColors.text,

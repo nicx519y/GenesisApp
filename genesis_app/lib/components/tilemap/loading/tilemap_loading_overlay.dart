@@ -131,8 +131,8 @@ class _TilemapLoadingOverlayState extends State<TilemapLoadingOverlay>
                           ),
                           style: const TextStyle(
                             color: Color(0xFF2F9663),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                             fontFeatures: [FontFeature.tabularFigures()],
                           ),
                         ),
@@ -311,7 +311,7 @@ class _TilemapLoadingStatus extends StatelessWidget {
             style: TextStyle(
               color: palette.muted,
               fontSize: 11,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
               fontFeatures: const [FontFeature.tabularFigures()],
               letterSpacing: 1,
             ),

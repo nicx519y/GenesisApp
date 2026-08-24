@@ -76,7 +76,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
                       color: colors.foregroundStrong,
@@ -89,7 +89,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
                   Text(
                     'UID: ${deletedAwareIdLabel(formatUidForDisplay(cleanUid), deleted: deleted)}',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       height: 1.1,
                       fontWeight: FontWeight.w400,
                       color: colors.textSupporting,
@@ -149,8 +149,8 @@ class GenesisFollowUserListTile extends StatelessWidget {
                           : Text(
                               isFollowed ? 'Following' : 'Follow',
                               style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                     ),

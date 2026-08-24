@@ -41,7 +41,7 @@ class _SearchMoreButton extends StatelessWidget {
               'More >',
               style: TextStyle(
                 color: context.genesisColors.textMuted,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -62,19 +62,37 @@ class _SearchResultTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUser = item.tab == _SearchTab.user;
     final titleStyle = TextStyle(
-      color: context.genesisColors.accentText,
+      color: context.genesisColors.textPrimary,
       fontSize: 14,
       height: 1.1,
       fontWeight: FontWeight.w600,
     );
+    final bodyStyle = TextStyle(
+      color: context.genesisColors.textSecondary,
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      height: 1.3,
+    );
+    // Same accent the Home row gives its tick/character line.
+    final accentStyle = bodyStyle.copyWith(
+      color: context.genesisColors.accentText,
+    );
+    final bodyLines = <({String text, TextStyle style, int maxLines})>[
+      if (item.displayCreator.isNotEmpty)
+        (text: '@${item.displayCreator}', style: bodyStyle, maxLines: 1),
+      if (item.showStatusLine)
+        (text: item.statusLine, style: accentStyle, maxLines: 1),
+      if (item.displayBrief.isNotEmpty)
+        (text: item.displayBrief, style: bodyStyle, maxLines: 2),
+    ];
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _ResultThumb(item: item),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Padding(
               padding: EdgeInsets.zero,
@@ -93,24 +111,28 @@ class _SearchResultTile extends StatelessWidget {
                       'UID: ${formatCopyableIdValue(item.displaySubtitle)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: CopyableIdLabel.textStyle.copyWith(
-                        color: context.genesisColors.textMuted,
-                      ),
+                      style: bodyStyle,
                     )
-                  else
+                  else if (item.deleted)
+                    // A removed entity keeps its single explanatory line.
                     Text(
                       item.displaySubtitle,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: context.genesisColors.textFaint,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        height: 1.3,
+                      style: bodyStyle,
+                    )
+                  else
+                    for (final (index, line) in bodyLines.indexed) ...[
+                      if (index > 0) const SizedBox(height: 3),
+                      Text(
+                        line.text,
+                        maxLines: line.maxLines,
+                        overflow: TextOverflow.ellipsis,
+                        style: line.style,
                       ),
-                    ),
+                    ],
                   if (!isUser) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 7),
                     _ResultStats(item: item),
                   ],
                 ],
@@ -130,19 +152,20 @@ class _ResultThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const size = 52.0;
+    const width = 68.0;
     if (item.tab == _SearchTab.user) {
       return GenesisAvatar(
         url: item.coverImage,
         name: item.title,
-        size: size,
+        size: width,
         borderRadius: GenesisAvatarRadii.user,
       );
     }
     return GenesisListImage(
       imageUrl: item.coverImage,
-      width: size,
-      height: size,
+      width: width,
+      height: 88,
+      borderRadius: BorderRadius.circular(8),
     );
   }
 }
@@ -155,53 +178,50 @@ class _ResultStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
-    final stats = item.tab == _SearchTab.origin
-        ? [
-            _StatData(iconAsset: copyStatIconAsset, value: item.copyCount),
-            _StatData(
-              iconAsset: connectStatIconAsset,
-              value: item.connectCount,
-            ),
-            _StatData(
-              iconAsset: characterStatIconAsset,
-              preserveIconAssetColor: true,
-              value: item.characterCount,
-            ),
-          ]
-        : [
-            _StatData(iconAsset: tickStatIconAsset, value: item.tickCount),
-            _StatData(
-              iconAsset: connectStatIconAsset,
-              value: item.connectCount,
-            ),
-            _StatData(
-              iconAsset: characterStatIconAsset,
-              preserveIconAssetColor: true,
-              value: item.characterCount,
-            ),
-            _StatData(iconAsset: userStatIconAsset, value: item.playerCount),
-          ];
+    // Same three icons the Me collection rows use.
+    final stats = [
+      _StatData(
+        iconAsset: originFeedPlayIconAsset,
+        value: item.tab == _SearchTab.origin ? item.copyCount : item.tickCount,
+      ),
+      _StatData(
+        iconAsset: originFeedCommentIconAsset,
+        value: item.connectCount,
+      ),
+      _StatData(
+        iconAsset: originFeedRoleIconAsset,
+        preserveIconAssetColor: true,
+        value: item.characterCount,
+      ),
+    ];
 
     return Wrap(
-      spacing: 10,
+      spacing: 12,
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final stat in stats)
-          StatItem(
-            icon: stat.icon,
-            iconAsset: stat.iconAsset,
-            preserveIconAssetColor: stat.preserveIconAssetColor,
-            iconSize: 11,
-            iconColor: colors.navigationSelected,
-            gap: 4,
-            text: formatStatCount(stat.value),
-            textStyle: TextStyle(
-              color: colors.navigationSelected,
-              fontSize: 12,
-              height: 1,
-              fontWeight: FontWeight.w400,
-            ),
+          Builder(
+            builder: (context) {
+              final color = stat.preserveIconAssetColor
+                  ? colors.accentText
+                  : colors.textMetadata;
+              return StatItem(
+                icon: stat.icon,
+                iconAsset: stat.iconAsset,
+                preserveIconAssetColor: stat.preserveIconAssetColor,
+                iconSize: 12,
+                iconColor: color,
+                gap: 4,
+                text: formatStatCount(stat.value),
+                textStyle: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  height: 1,
+                  fontWeight: FontWeight.w400,
+                ),
+              );
+            },
           ),
       ],
     );

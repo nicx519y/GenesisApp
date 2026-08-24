@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -28,10 +29,12 @@ import '../../network/chatroom/chatroom_timeline_payload.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../network/models/gem_model.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_modal_border.dart';
 import '../../ui/components/genesis_static_network_image.dart';
@@ -139,6 +142,7 @@ class LocationChatPage extends StatefulWidget {
     this.recentChatLocationPathIds = const <String>[],
     this.worldName,
     this.locationName,
+    this.parentLocationName,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
     this.renderBackgroundImage = true,
@@ -154,6 +158,9 @@ class LocationChatPage extends StatefulWidget {
   final List<String> recentChatLocationPathIds;
   final String? worldName;
   final String? locationName;
+
+  /// Name of the location one level up - what the map shows.
+  final String? parentLocationName;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
   final bool renderBackgroundImage;
@@ -239,6 +246,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
       recentChatLocationPathIds: widget.recentChatLocationPathIds,
       worldName: widget.worldName,
       locationName: widget.locationName,
+      parentLocationName: widget.parentLocationName,
       backgroundImageUrl: widget.backgroundImageUrl,
       backgroundPreviewImageUrl: widget.backgroundPreviewImageUrl,
       renderBackgroundImage: widget.renderBackgroundImage,
@@ -265,6 +273,7 @@ class LocationChatPanel extends StatefulWidget {
     this.recentChatLocationPathIds = const <String>[],
     this.worldName,
     this.locationName,
+    this.parentLocationName,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
     this.renderBackgroundImage = true,
@@ -297,6 +306,9 @@ class LocationChatPanel extends StatefulWidget {
   final List<String> recentChatLocationPathIds;
   final String? worldName;
   final String? locationName;
+
+  /// Name of the location one level up - what the map shows.
+  final String? parentLocationName;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
   final bool renderBackgroundImage;
@@ -348,11 +360,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   String _mySenderName = '';
   String _myAvatarUrl = '';
   String _selectedModelCode = '';
+  String _selectedModelTitle = '';
+  String _selectedModelTitleLookupCode = '';
   double _devicePixelRatio = 1;
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _joiningLocation = false;
   bool _sending = false;
+  bool _rosterOpen = false;
   bool _handlingUnauthorizedFailure = false;
   bool _hasDraftText = false;
   bool _loadingOlderMessages = false;
@@ -616,7 +631,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final realUsers = _realUsersForCurrentLocation(_chatroomState);
+    final occupants = _roomOccupantsForCurrentLocation(_chatroomState);
+    final selfOccupantId = firstNonEmpty([_myUserId, _mySenderId]);
     final aiRoleNames = resolveLocationChatAiRoleNamesForTesting(
       _chatroomState,
       _currentLocationIds(),
@@ -661,9 +677,49 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             onHeightChanged: _handleComposerHeightChanged,
             child: replacementComposer,
           );
-    final dividerColor =
-        (style.headerTitleTextStyle.color ?? style.headerTitleIconColor)
-            .withValues(alpha: 0.14);
+    final headerForeground =
+        style.headerTitleTextStyle.color ?? style.headerTitleIconColor;
+    // The room runs edge to edge over the scene: no rules top or bottom.
+    const dividerColor = Colors.transparent;
+    final occupantCountLabel = '${occupants.length}';
+    // 1w: 18 high, radius 6, white 14% fill, the count then an 8px chevron
+    // that points up while the roster is open. Tapping toggles the roster.
+    final occupantPill = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: occupants.isEmpty
+          ? null
+          : () => setState(() => _rosterOpen = !_rosterOpen),
+      child: Container(
+        key: const ValueKey<String>('location-chat-occupant-pill'),
+        height: 18,
+        padding: const EdgeInsets.fromLTRB(6, 0, 5, 0),
+        decoration: BoxDecoration(
+          color: headerForeground.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              occupantCountLabel,
+              maxLines: 1,
+              style: style.headerTitleTextStyle.copyWith(
+                color: headerForeground.withValues(alpha: 0.73),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1,
+              ),
+            ),
+            const SizedBox(width: 3),
+            _OccupantChevron(
+              color: headerForeground.withValues(alpha: 0.8),
+              pointUp: _rosterOpen,
+            ),
+          ],
+        ),
+      ),
+    );
     final header = DecoratedBox(
       key: const ValueKey<String>('location-chat-header-divider'),
       position: DecorationPosition.foreground,
@@ -672,15 +728,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       ),
       child: ChatHeader(
         title: title,
-        titleSuffix: '(${realUsers.length})',
-        titleSuffixStyle: style.headerTitleTextStyle.copyWith(
-          color:
-              (style.headerTitleTextStyle.color ?? style.headerTitleIconColor)
-                  .withValues(alpha: 0.5),
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          height: 1,
-        ),
+        titleOverline: widget.parentLocationName,
+        titleSuffix: occupantPill,
+        titleSuffixSemanticsLabel: occupantCountLabel,
         subtitle: subtitle,
         connected: joined,
         connecting: connecting,
@@ -688,7 +738,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         showTitleIcon: false,
         showSubtitleIcon: false,
         onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-        showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
+        showSubtitle: false,
         showMoreButton: widget.showMoreButton,
         backButtonVariant: ChatHeaderBackButtonVariant.compactGlass,
         trailing: _retainModelEntryInHeader
@@ -699,9 +749,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   child: IgnorePointer(
                     ignoring: !widget.active,
                     child: MemoryModelEntryButton(
-                      modelLabel: _selectedModelCode.isEmpty
-                          ? 'Model'
-                          : _selectedModelCode,
+                      modelLabel: _selectedModelLabel,
                       variant: MemoryModelEntryButtonVariant.roomHeader,
                       onTap: () => unawaited(_openMemoryModelPage()),
                     ),
@@ -752,6 +800,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         child: Stack(
           children: [
             Positioned.fill(
+              key: const ValueKey<String>('location-chat-background-layer'),
               child: _LocationChatBackground(
                 imageUrl: widget.backgroundImageUrl,
                 previewImageUrl: widget.backgroundPreviewImageUrl,
@@ -759,7 +808,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                 enabled: widget.renderBackgroundImage,
               ),
             ),
+            if (_rosterOpen)
+              Positioned.fill(
+                key: const ValueKey<String>('location-chat-roster-barrier'),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _rosterOpen = false),
+                ),
+              ),
             Positioned.fill(
+              key: const ValueKey<String>('location-chat-scaffold-layer'),
               child: Scaffold(
                 backgroundColor: Colors.transparent,
                 resizeToAvoidBottomInset:
@@ -833,6 +891,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             ),
             if (_supportsEdgeSwipeBack)
               PositionedDirectional(
+                key: const ValueKey<String>('location-chat-edge-swipe-back'),
                 start: 0,
                 top: 0,
                 bottom: 0,
@@ -845,6 +904,18 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   onHorizontalDragCancel: _resetEdgeSwipeBack,
                 ),
               ),
+            if (_rosterOpen)
+              Positioned(
+                key: const ValueKey<String>('location-chat-roster-layer'),
+                left: 16,
+                right: 16,
+                top: headerHeight + 4,
+                child: _LocationChatRoster(
+                  key: const ValueKey<String>('location-chat-roster'),
+                  occupants: occupants,
+                  selfOccupantId: selfOccupantId,
+                ),
+              ),
           ],
         ),
       ),
@@ -855,6 +926,243 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     return widget.active &&
         widget.onBack != null &&
         defaultTargetPlatform == TargetPlatform.iOS;
+  }
+}
+
+/// 1w roster drawer: everyone in the room, self first with the accent ring
+/// and a YOU tag. It renders outside the Scaffold, so it carries its own
+/// Material - without one every Text falls back to the debug style that draws
+/// yellow underlines.
+class _LocationChatRoster extends StatelessWidget {
+  const _LocationChatRoster({
+    super.key,
+    required this.occupants,
+    required this.selfOccupantId,
+  });
+
+  /// Same glass as the AI role bubbles: a grouped 14-sigma backdrop blur under
+  /// a 13% white fill.
+  static const double _blurSigma = 14;
+
+  final List<WorldChatroomEntity> occupants;
+  final String selfOccupantId;
+
+  bool _isSelf(WorldChatroomEntity entity) {
+    final id = selfOccupantId.trim();
+    if (id.isEmpty) return false;
+    return entity.id.trim() == id;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFFF82B3C);
+    const accentSoft = Color(0xFFFF8A9A);
+    const soft = Color(0xFFF4F3F6);
+    final radius = BorderRadius.circular(14);
+    return Material(
+      type: MaterialType.transparency,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 38,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Stack(
+            fit: StackFit.passthrough,
+            children: [
+              Positioned.fill(
+                child: BackdropFilter.grouped(
+                  blendMode: BlendMode.srcOver,
+                  filter: ImageFilter.blur(
+                    sigmaX: _blurSigma,
+                    sigmaY: _blurSigma,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF151517).withValues(alpha: 0.72),
+                  borderRadius: radius,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.16),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 4, 8, 7),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 4,
+                              decoration: const BoxDecoration(
+                                color: accent,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'IN THE ROOM',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                height: 1,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.95,
+                                color: Colors.white.withValues(alpha: 0.45),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      for (final entity in occupants)
+                        Builder(
+                          builder: (context) {
+                            final isSelf = _isSelf(entity);
+                            return Container(
+                              height: 34,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelf
+                                    ? Colors.white.withValues(alpha: 0.08)
+                                    : null,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Row(
+                                children: [
+                                  GenesisCharacterAvatar(
+                                    url: entity.avatarUrl,
+                                    name: entity.name,
+                                    size: 22,
+                                    borderRadius: 7,
+                                    border: isSelf
+                                        ? Border.all(color: accent, width: 1.5)
+                                        : null,
+                                    showFallbackWhileLoading: false,
+                                    maxDevicePixelRatio:
+                                        MediaQuery.devicePixelRatioOf(context),
+                                  ),
+                                  const SizedBox(width: 9),
+                                  Expanded(
+                                    child: Text(
+                                      entity.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        height: 1,
+                                        fontWeight: isSelf
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                        color: isSelf
+                                            ? soft
+                                            : Colors.white.withValues(
+                                                alpha: 0.73,
+                                              ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelf) ...[
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'YOU',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        height: 1,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.57,
+                                        color: accentSoft,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 1w draws the occupant caret as a 12x12 path at stroke 2.4, so an 8pt box
+/// lands on a 1.6pt stroke. Scaling the shared asset down thinned it out.
+class _OccupantChevron extends StatelessWidget {
+  const _OccupantChevron({required this.color, required this.pointUp});
+
+  static const double _size = 8;
+
+  final Color color;
+  final bool pointUp;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: CustomPaint(
+        painter: _OccupantChevronPainter(color: color, pointUp: pointUp),
+      ),
+    );
+  }
+}
+
+class _OccupantChevronPainter extends CustomPainter {
+  const _OccupantChevronPainter({required this.color, required this.pointUp});
+
+  final Color color;
+  final bool pointUp;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 12;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path()
+      ..moveTo(2.2 * scale, 7.4 * scale)
+      ..lineTo(6 * scale, 3.6 * scale)
+      ..lineTo(9.8 * scale, 7.4 * scale);
+    if (pointUp) {
+      canvas.drawPath(path, paint);
+      return;
+    }
+    canvas
+      ..save()
+      ..translate(size.width / 2, size.height / 2)
+      ..rotate(math.pi)
+      ..translate(-size.width / 2, -size.height / 2)
+      ..drawPath(path, paint)
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(_OccupantChevronPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.pointUp != pointUp;
   }
 }
 

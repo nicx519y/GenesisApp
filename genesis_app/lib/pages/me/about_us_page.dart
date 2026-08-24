@@ -118,7 +118,7 @@ class _AboutDescriptionState extends State<_AboutDescription> {
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
     final bodyStyle = TextStyle(
-      fontSize: 15,
+      fontSize: 13,
       height: 1.55,
       fontWeight: FontWeight.w400,
       color: colors.textBody,

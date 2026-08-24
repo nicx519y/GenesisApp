@@ -134,8 +134,8 @@ class _TilemapSettingsPanel extends StatelessWidget {
                     'Map settings',
                     style: TextStyle(
                       color: foregroundColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -175,7 +175,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
               'Appearance',
               style: TextStyle(
                 color: secondaryColor,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -210,13 +210,13 @@ class _TilemapSettingsPanel extends StatelessWidget {
               'Loading screen',
               style: TextStyle(
                 color: foregroundColor,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
             Text(
               'Shown only on the first Tilemap entry.',
-              style: TextStyle(color: secondaryColor, fontSize: 10),
+              style: TextStyle(color: secondaryColor, fontSize: 9.5),
             ),
             const SizedBox(height: 5),
             _TilemapLoadingStyleEditor(
@@ -229,13 +229,13 @@ class _TilemapSettingsPanel extends StatelessWidget {
               'Initial zoom',
               style: TextStyle(
                 color: foregroundColor,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
             Text(
               'The fixed zoom level used when the map opens.',
-              style: TextStyle(color: secondaryColor, fontSize: 10),
+              style: TextStyle(color: secondaryColor, fontSize: 9.5),
             ),
             _TilemapSettingsSlider(
               label: 'Scale',
@@ -257,13 +257,13 @@ class _TilemapSettingsPanel extends StatelessWidget {
               'Drag boundary',
               style: TextStyle(
                 color: foregroundColor,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
             Text(
               'The shadow == 1 tile bounds are expanded by this thickness.',
-              style: TextStyle(color: secondaryColor, fontSize: 10),
+              style: TextStyle(color: secondaryColor, fontSize: 9.5),
             ),
             _TilemapSettingsSlider(
               label: 'Padding',
@@ -301,14 +301,14 @@ class _TilemapSettingsPanel extends StatelessWidget {
               style: TextStyle(
                 color: foregroundColor,
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
             Text(
               showLocationImageFlow
                   ? 'Applied to named location tile images.'
                   : 'The effect is off; parameters can still be edited.',
-              style: TextStyle(color: secondaryColor, fontSize: 10),
+              style: TextStyle(color: secondaryColor, fontSize: 9.5),
             ),
             _TilemapSettingsSlider(
               label: 'Angle',
@@ -409,7 +409,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
               style: TextStyle(
                 color: foregroundColor,
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 4),
@@ -489,7 +489,7 @@ class _TilemapLoadingStyleEditor extends StatelessWidget {
                 ? const Color(0xFF35352F)
                 : Colors.white,
             iconEnabledColor: foregroundColor,
-            style: TextStyle(color: foregroundColor, fontSize: 12),
+            style: TextStyle(color: foregroundColor, fontSize: 11),
             items: [
               for (final style in TilemapLoadingStyle.values)
                 DropdownMenuItem(value: style, child: Text(_labelFor(style))),
@@ -542,7 +542,7 @@ class _TilemapModeChoice extends StatelessWidget {
                 style: TextStyle(
                   color: foregroundColor,
                   fontSize: 13,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w400,
                 ),
               ),
             ],

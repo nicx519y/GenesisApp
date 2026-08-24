@@ -36,7 +36,7 @@ class GenesisTag extends StatelessWidget {
       ),
       GenesisTagTone.accent => (
         colors.danger.withValues(alpha: 0.18),
-        colors.danger,
+        colors.accentText,
       ),
       GenesisTagTone.danger => (colors.danger, colors.onDanger),
     };

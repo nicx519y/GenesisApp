@@ -265,10 +265,10 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
             textAlign: TextAlign.left,
             style: style.systemMessageTextStyle.copyWith(
               color: usesScenePlate
-                  ? context.genesisChatTheme.tickHeader.withValues(alpha: 0.72)
+                  ? context.genesisChatTheme.narratorForeground
                   : null,
               fontSize: usesScenePlate ? 13 : null,
-              height: usesScenePlate ? 1.6 : 1.45,
+              height: kChatBodyLineHeight,
             ),
           ),
         ],
@@ -344,7 +344,7 @@ class _ChatTickProgressTitleState extends State<_ChatTickProgressTitle> {
       style: TextStyle(
         color: context.genesisChatTheme.tickHeader,
         fontSize: 13,
-        height: 1.2,
+        height: 1.3,
         fontWeight: FontWeight.w600,
       ),
     );
@@ -359,10 +359,9 @@ class _ChatTickHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentTime = message.currentTime.trim();
-    final label = currentTime.isEmpty
-        ? _tickLabel(message)
-        : '${_tickLabel(message)} · ${genesisDisplaySafeText(currentTime)}';
+    // The section title carries the tick number only; the story time shows
+    // up on its own row further down.
+    final label = _tickLabel(message);
     final chatTheme = context.genesisChatTheme;
     if (chatTheme.tickBlurSigma <= 0) {
       return Text(
@@ -397,7 +396,7 @@ class _ChatTickHeader extends StatelessWidget {
               label,
               style: style.systemMessageTextStyle.copyWith(
                 color: chatTheme.tickHeader,
-                fontSize: 14,
+                fontSize: 13,
                 height: 1,
                 fontWeight: FontWeight.w800,
               ),
@@ -417,17 +416,17 @@ class _ChatTickGlobalSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor =
-        style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
     return KeyedSubtree(
       key: const ValueKey<String>('chat-tick-global-section'),
       child: _InlineMarkdownText(
         text: text,
         textAlign: TextAlign.left,
         style: style.systemMessageTextStyle.copyWith(
-          color: textColor.withValues(alpha: 0.72),
+          color: context.genesisChatTheme.narratorForeground,
           fontSize: context.genesisChatTheme.tickBlurSigma > 0 ? 13 : null,
-          height: context.genesisChatTheme.tickBlurSigma > 0 ? 1.6 : null,
+          height: context.genesisChatTheme.tickBlurSigma > 0
+              ? kChatBodyLineHeight
+              : null,
         ),
         softItalicPerToken: true,
       ),

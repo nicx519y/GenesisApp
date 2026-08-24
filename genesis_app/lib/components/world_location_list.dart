@@ -9,12 +9,18 @@ import '../ui/components/recent_chat_marker.dart';
 import '../ui/components/genesis_list_image.dart';
 import '../ui/theme/genesis_semantic_colors.dart';
 import '../ui/tokens/genesis_image_radii.dart';
+import '../ui/tokens/genesis_palette.dart';
 import '../utils/genesis_image_resource.dart';
 import 'world_details_shell.dart';
 import 'world_point.dart';
 
 const String _locationDefaultImageAsset =
     'assets/images/map_default/location_default.webp';
+
+/// 9g: the 52x52 place thumbnail in the compact locations sheet.
+const BorderRadius _compactLocationCoverRadius = BorderRadius.all(
+  Radius.circular(12),
+);
 
 typedef WorldLocationNodeHeaderBuilder =
     Widget? Function(BuildContext context, WorldPoint point, int level);
@@ -628,9 +634,10 @@ class _PointListItem extends StatelessWidget {
                       Icon(
                         Icons.place_outlined,
                         size: 14,
-                        color: context.genesisColors.foregroundStrong,
+                        // 9g: the pin outline is rgba(255,255,255,.8), not bar-title white.
+                        color: GenesisPalette.redesignWhite82,
                       ),
-                      SizedBox(width: 2),
+                      SizedBox(width: 7),
                       Flexible(
                         fit: FlexFit.loose,
                         child: Text(
@@ -650,7 +657,7 @@ class _PointListItem extends StatelessWidget {
                       ],
                     ],
                   ),
-                  SizedBox(height: level >= 2 ? 8 : 4),
+                  SizedBox(height: 8),
                   if (point.users.isNotEmpty)
                     _PointCharacterGroups(
                       users: point.users,
@@ -689,13 +696,24 @@ class _NodeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap == null ? null : () => onTap!(point),
-      child: Padding(
+      child: Container(
+        margin: EdgeInsets.only(left: level * 15.0),
         padding: EdgeInsets.fromLTRB(
-          level * 15.0 + (compactSheetStyle ? 13 : 0),
+          compactSheetStyle ? 13 : 0,
           compactSheetStyle ? 9 : 5,
           0,
           compactSheetStyle ? 2 : 5,
         ),
+        decoration: compactSheetStyle
+            ? const BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: GenesisPalette.redesignWhite22,
+                    width: 2,
+                  ),
+                ),
+              )
+            : null,
         child: Row(
           children: [
             Expanded(
@@ -718,7 +736,7 @@ class _NodeHeader extends StatelessWidget {
                   color: context.genesisColors.textSecondary,
                   fontSize: 9.5,
                   height: 1,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -759,14 +777,19 @@ class _LocationCard extends StatelessWidget {
       key: ValueKey<String>('world-location-card-${point.id}'),
       onTap: onTap == null ? null : () => onTap!(targetPoint),
       child: Container(
-        margin: EdgeInsets.only(left: indent + (compactSheetStyle ? 15 : 0)),
-        padding: EdgeInsets.symmetric(vertical: compactSheetStyle ? 10 : 5),
+        margin: EdgeInsets.only(left: indent),
+        padding: EdgeInsets.fromLTRB(
+          compactSheetStyle ? 15 : 0,
+          compactSheetStyle ? 10 : 5,
+          0,
+          compactSheetStyle ? 10 : 5,
+        ),
         decoration: compactSheetStyle
             ? BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(
-                    color: context.genesisColors.dividerAction,
-                    width: 1,
+                  left: BorderSide(
+                    color: context.genesisColors.border,
+                    width: 1.5,
                   ),
                 ),
               )
@@ -788,9 +811,10 @@ class _LocationCard extends StatelessWidget {
                       Icon(
                         Icons.place_outlined,
                         size: 14,
-                        color: context.genesisColors.foregroundStrong,
+                        // 9g: the pin outline is rgba(255,255,255,.8), not bar-title white.
+                        color: GenesisPalette.redesignWhite82,
                       ),
-                      SizedBox(width: 2),
+                      SizedBox(width: 7),
                       Flexible(
                         fit: FlexFit.loose,
                         child: Text(
@@ -810,7 +834,7 @@ class _LocationCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  SizedBox(height: level >= 2 ? 8 : 4),
+                  SizedBox(height: 8),
                   if (point.users.isNotEmpty)
                     _PointCharacterGroups(
                       users: point.users,
@@ -839,22 +863,22 @@ TextStyle _locationNameStyle(
     return TextStyle(
       fontSize: 13,
       height: 1.15,
-      fontWeight: FontWeight.w700,
-      color: context.genesisColors.foregroundStrong,
+      fontWeight: FontWeight.w800,
+      color: context.genesisColors.textPrimary,
     );
   }
   if (level <= 0) {
     return TextStyle(
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: FontWeight.w600,
-      color: context.genesisColors.foregroundStrong,
+      color: context.genesisColors.textPrimary,
     );
   }
   return TextStyle(
-    fontSize: 14,
+    fontSize: 13,
     height: 1.2,
     fontWeight: level == 1 ? FontWeight.w600 : FontWeight.w400,
-    color: context.genesisColors.foregroundStrong,
+    color: context.genesisColors.textPrimary,
   );
 }
 
@@ -928,11 +952,11 @@ class _PointCharacterGroups extends StatelessWidget {
                       fontSize: 11,
                       height: 1,
                       fontWeight: user.isPlayerControlledRole
-                          ? FontWeight.w700
+                          ? FontWeight.w800
                           : FontWeight.w600,
                       color: user.isPlayerControlledRole
                           ? context.genesisColors.textPrimary
-                          : context.genesisColors.textSecondary,
+                          : context.genesisColors.textBody,
                     ),
                   ),
                 ],
@@ -940,7 +964,7 @@ class _PointCharacterGroups extends StatelessWidget {
             ),
           if (overflowCount > 0)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
               decoration: BoxDecoration(
                 color: context.genesisColors.surfaceTag,
                 borderRadius: BorderRadius.circular(20),
@@ -948,7 +972,7 @@ class _PointCharacterGroups extends StatelessWidget {
               child: Text(
                 '+$overflowCount',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 9.5,
                   height: 1,
                   fontWeight: FontWeight.w600,
                   color: context.genesisColors.textSecondary,
@@ -1028,7 +1052,7 @@ class _PointCharacterGroupRow extends StatelessWidget {
           child: Text(
             names.join(', '),
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               height: 1.2,
               fontWeight: FontWeight.w400,
               color: context.genesisColors.foregroundStrong,
@@ -1052,7 +1076,7 @@ class _PointSummaryRow extends StatelessWidget {
     return Text(
       description,
       style: TextStyle(
-        fontSize: 12,
+        fontSize: 13,
         height: 1.25,
         fontWeight: FontWeight.w400,
         color: context.genesisColors.foregroundStrong,
@@ -1074,7 +1098,12 @@ class _PointListCover extends StatelessWidget {
     return SizedBox(
       width: compactSheetStyle ? 52 : 64,
       height: compactSheetStyle ? 52 : 64,
-      child: _LocationCoverImage(point: point),
+      child: _LocationCoverImage(
+        point: point,
+        borderRadius: compactSheetStyle
+            ? _compactLocationCoverRadius
+            : GenesisImageRadii.content,
+      ),
     );
   }
 }
@@ -1093,15 +1122,24 @@ class _LocationCardCover extends StatelessWidget {
     return SizedBox(
       width: compactSheetStyle ? 52 : 64,
       height: compactSheetStyle ? 52 : 64,
-      child: _LocationCoverImage(point: point),
+      child: _LocationCoverImage(
+        point: point,
+        borderRadius: compactSheetStyle
+            ? _compactLocationCoverRadius
+            : GenesisImageRadii.content,
+      ),
     );
   }
 }
 
 class _LocationCoverImage extends StatelessWidget {
-  const _LocationCoverImage({required this.point});
+  const _LocationCoverImage({
+    required this.point,
+    this.borderRadius = GenesisImageRadii.content,
+  });
 
   final WorldPoint point;
+  final BorderRadius borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -1118,7 +1156,7 @@ class _LocationCoverImage extends StatelessWidget {
           final cacheWidth =
               (logicalWidth * MediaQuery.devicePixelRatioOf(context)).round();
           return ClipRRect(
-            borderRadius: GenesisImageRadii.content,
+            borderRadius: borderRadius,
             child: Image.memory(
               localBytes,
               key: ValueKey<String>('world-location-memory-image-${point.id}'),
@@ -1140,6 +1178,7 @@ class _LocationCoverImage extends StatelessWidget {
           imageUrl: resizedUrl.isNotEmpty ? resizedUrl : rawUrl,
           width: logicalWidth,
           height: logicalHeight,
+          borderRadius: borderRadius,
           placeholderAsset: _locationDefaultImageAsset,
         );
       },

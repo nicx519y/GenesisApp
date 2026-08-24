@@ -28,6 +28,11 @@ void main() {
       'char-2' => false,
       _ => null,
     },
+    roleAvatarUrl: (id) => switch (id) {
+      'char-1' => 'https://cdn.test/alice.png',
+      'char-2' => 'https://cdn.test/bob.png',
+      _ => '',
+    },
   );
 
   group('TextMessageParser', () {
@@ -169,8 +174,14 @@ void main() {
           roleId: 'char-1',
           name: 'Alice',
           isAi: true,
+          avatarUrl: 'https://cdn.test/alice.png',
         ),
-        ChatStoryEventVisibleRoleVm(roleId: 'char-2', name: 'Bob', isAi: false),
+        ChatStoryEventVisibleRoleVm(
+          roleId: 'char-2',
+          name: 'Bob',
+          isAi: false,
+          avatarUrl: 'https://cdn.test/bob.png',
+        ),
       ]);
       expect(payload.storyEvents?.paragraphs, hasLength(1));
       expect(payload.storyEvents?.paragraphs.single.locationName, 'Cafe');

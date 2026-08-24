@@ -48,7 +48,7 @@ class _OpeningLocationField extends StatelessWidget {
                       color: locationName.isEmpty
                           ? context.genesisCreateColors.hint
                           : context.genesisCreateColors.text,
-                      fontSize: 14,
+                      fontSize: 13,
                       height: 1.2,
                     ),
                   ),

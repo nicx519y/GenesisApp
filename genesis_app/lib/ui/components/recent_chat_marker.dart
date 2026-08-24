@@ -94,7 +94,7 @@ class RecentChatTag extends StatelessWidget {
               overflow: TextOverflow.clip,
               style: TextStyle(
                 color: style.foregroundColor,
-                fontSize: 10,
+                fontSize: 9.5,
                 height: 1,
                 fontWeight: FontWeight.w600,
               ),

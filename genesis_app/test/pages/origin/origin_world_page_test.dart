@@ -557,7 +557,7 @@ void main() {
       expect(characterRow, contains("text: 'Goal '"));
       expect(characterRow, contains('TextSpan(text: goal)'));
       expect(bodyStyle, contains('height: 1.4'));
-      expect(bodyStyle, contains('fontSize: 12'));
+      expect(bodyStyle, contains('fontSize: 13'));
       expect(bodyStyle, contains('height: 1.5'));
       expect(bodyStyle, contains('context.genesisColors.textPrimary'));
       expect(bodyStyle, isNot(contains('height: 1.45')));

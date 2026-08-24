@@ -14,7 +14,7 @@ abstract final class GenesisTypography {
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 24,
-    fontWeight: FontWeight.w900,
+    fontWeight: FontWeight.w800,
     height: 1,
     letterSpacing: -0.36,
   );
@@ -23,7 +23,7 @@ abstract final class GenesisTypography {
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 24,
-    fontWeight: FontWeight.w900,
+    fontWeight: FontWeight.w800,
     height: 1,
   );
 
@@ -33,7 +33,7 @@ abstract final class GenesisTypography {
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 30,
-    fontWeight: FontWeight.w900,
+    fontWeight: FontWeight.w800,
     height: 1,
   );
 
@@ -57,15 +57,15 @@ abstract final class GenesisTypography {
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 17,
-    fontWeight: FontWeight.w900,
+    fontWeight: FontWeight.w800,
     height: 1.15,
   );
 
   static const TextStyle navigationAction = TextStyle(
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
-    fontSize: 12,
-    fontWeight: FontWeight.w600,
+    fontSize: 11,
+    fontWeight: FontWeight.w800,
     height: 1,
   );
 
@@ -82,14 +82,14 @@ abstract final class GenesisTypography {
   static const TextStyle body = TextStyle(
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
-    fontSize: 14,
+    fontSize: 13,
     height: 1.4,
   );
 
   static const TextStyle bodyStrong = TextStyle(
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: FontWeight.w600,
     height: 1.4,
   );
@@ -97,8 +97,8 @@ abstract final class GenesisTypography {
   static const TextStyle supporting = TextStyle(
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
-    fontSize: 12,
-    height: 1.4,
+    fontSize: 11,
+    height: 1.45,
   );
 
   static const TextStyle tabLabel = TextStyle(
@@ -112,23 +112,16 @@ abstract final class GenesisTypography {
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
     fontSize: 13,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w800,
     height: 1.2,
   );
 
   static const TextStyle caption = TextStyle(
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,
-    fontSize: 10,
-    fontWeight: FontWeight.w500,
-    height: 1.2,
-  );
-
-  static const TextStyle button = TextStyle(
-    fontFamily: fontFamily,
-    fontFamilyFallback: fontFamilyFallback,
-    fontSize: 14,
+    fontSize: 9.5,
     fontWeight: FontWeight.w600,
+    height: 1.2,
   );
 
   static TextTheme get textTheme => const TextTheme(

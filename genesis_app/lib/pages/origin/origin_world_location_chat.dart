@@ -127,7 +127,7 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             fontSize: 13,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             isLoading: launching,
             loadingSize: 22,
             loadingStrokeWidth: 2.4,

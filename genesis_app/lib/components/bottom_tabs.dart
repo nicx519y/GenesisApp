@@ -20,8 +20,10 @@ class BottomTabs extends StatelessWidget {
     return GenesisBottomNavigation(
       currentIndex: currentIndex,
       onTap: onTap,
-      // 9h/9l: the bottom bar is 68px tall.
-      height: 68,
+      // 9h/9l draw a 68px bar whose last 18px are the home-indicator gap.
+      // GenesisBottomSafePadding contributes the real inset, so this is just
+      // the content band.
+      height: 50,
       items: [
         const GenesisBottomNavigationItem(
           label: 'Home',
@@ -30,7 +32,7 @@ class BottomTabs extends StatelessWidget {
           iconSize: 22,
         ),
         const GenesisBottomNavigationItem(
-          label: 'Worlds',
+          label: 'Worldos',
           iconAsset: bottomNavOriginIconAsset,
           selectedIconAsset: bottomNavOriginPressIconAsset,
           iconSize: 22,

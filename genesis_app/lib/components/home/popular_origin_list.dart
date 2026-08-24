@@ -359,7 +359,7 @@ class _OriginSummary extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: context.genesisColors.accentText,
-            fontSize: 14,
+            fontSize: 13,
             height: 1.1,
             fontWeight: FontWeight.w600,
           ),
@@ -517,7 +517,7 @@ class _OriginStat extends StatelessWidget {
       text: formatStatCount(value),
       textStyle: TextStyle(
         color: context.genesisColors.foregroundStrong,
-        fontSize: 12,
+        fontSize: 13,
         height: 1,
         fontWeight: FontWeight.w400,
       ),
@@ -946,14 +946,14 @@ TextStyle _emptyBodyStyle(BuildContext context) => TextStyle(
 
 TextStyle _metaStyle(BuildContext context) => TextStyle(
   color: context.genesisColors.textMuted,
-  fontSize: 12,
+  fontSize: 11,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
 
 TextStyle _progressTimeMetaStyle(BuildContext context) => TextStyle(
   color: context.genesisColors.textFaint,
-  fontSize: 12,
+  fontSize: 13,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );

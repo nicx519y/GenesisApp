@@ -5,7 +5,6 @@ import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 
 WorldListItem _item({
   String narrator = 'The city chooses a new route.',
@@ -62,7 +61,7 @@ GenesisSemanticColors get _dark =>
     GenesisTheme.worldoDark().extension<GenesisSemanticColors>()!;
 
 void main() {
-  testWidgets('9l row uses a 52x78 cover thumbnail', (tester) async {
+  testWidgets('row cover matches the Me list at 60x78', (tester) async {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.resetDevicePixelRatio);
 
@@ -71,27 +70,24 @@ void main() {
     final thumb = tester.widget<GenesisListImage>(
       find.byType(GenesisListImage).first,
     );
-    expect(thumb.width, 52);
+    expect(thumb.width, 60);
     expect(thumb.height, 78);
-    expect(
-      thumb.borderRadius,
-      BorderRadius.circular(GenesisImageRadii.contentValue),
-    );
+    expect(thumb.borderRadius, BorderRadius.circular(8));
     expect(thumb.maxDevicePixelRatio, 3);
   });
 
-  testWidgets('world name is a 15/800 content title', (tester) async {
+  testWidgets('world name is a 14/600 content title', (tester) async {
     await _pump(tester, _item());
 
     final title = tester.widget<Text>(find.text('Alpha World'));
-    expect(title.style?.fontSize, 15);
-    expect(title.style?.fontWeight, FontWeight.w800);
+    expect(title.style?.fontSize, 14);
+    expect(title.style?.fontWeight, FontWeight.w600);
     expect(title.style?.height, 1.1);
     expect(title.style?.color, _dark.textPrimary);
     expect(title.maxLines, 1);
   });
 
-  testWidgets('story summary is two lines of 11/1.45 secondary text', (
+  testWidgets('story summary is two lines of 12/1.3 secondary text', (
     tester,
   ) async {
     await _pump(tester, _item());
@@ -99,13 +95,14 @@ void main() {
     final summary = tester.widget<Text>(
       find.text('The city chooses a new route.'),
     );
-    expect(summary.style?.fontSize, 11);
-    expect(summary.style?.height, 1.45);
+    expect(summary.style?.fontSize, 12);
+    expect(summary.style?.height, 1.3);
     expect(summary.style?.color, _dark.textSecondary);
     expect(summary.maxLines, 2);
+    expect(summary.overflow, TextOverflow.ellipsis);
   });
 
-  testWidgets('character row is a 20px red-ringed avatar with the tick state', (
+  testWidgets('the character avatar sits on the cover, unringed', (
     tester,
   ) async {
     await _pump(tester, _item());
@@ -115,25 +112,45 @@ void main() {
     );
     expect(avatar.size, 20);
     expect(avatar.borderRadius, 7);
-    expect((avatar.border! as Border).top.color, _dark.primary);
-    expect((avatar.border! as Border).top.width, 2);
+    expect(avatar.border, isNull);
 
-    final name = tester.widget<Text>(find.text('Self Hero'));
-    expect(name.style?.fontSize, 11);
-    expect(name.style?.height, 1);
-    expect(name.style?.fontWeight, FontWeight.w600);
-    expect(name.style?.color, _dark.textBody);
+    // Hangs past the cover's bottom-right corner by 4, less the 2px ring.
+    final coverRect = tester.getRect(find.byType(GenesisListImage).first);
+    final avatarRect = tester.getRect(find.byType(GenesisCharacterAvatar));
+    expect(avatarRect.right, closeTo(coverRect.right + 2, 0.01));
+    expect(avatarRect.bottom, closeTo(coverRect.bottom + 2, 0.01));
+  });
 
-    final tick = tester.widget<Text>(find.text('Tick 3-2'));
-    expect(tick.style?.fontSize, 9.5);
-    expect(tick.style?.fontWeight, FontWeight.w500);
-    expect(tick.style?.color, _dark.textTimestamp);
+  testWidgets('tick state and character read as one accent line', (
+    tester,
+  ) async {
+    await _pump(tester, _item());
+
+    final status = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('world-status-line')),
+    );
+    expect(status.data, 'Tick 3-2 · Self Hero');
+    expect(status.style?.fontSize, 12);
+    expect(status.style?.height, 1.45);
+    expect(status.style?.fontWeight, FontWeight.w400);
+    expect(status.style?.color, _dark.accentText);
   });
 
   testWidgets('a world that has not run shows Not started', (tester) async {
     await _pump(tester, _item(tickNo: 0, subTickNo: 0));
 
-    expect(find.text('Not started'), findsOneWidget);
+    // The tick state shares the single accent line with the player's
+    // character, so it is not a standalone label any more.
+    final status = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('world-status-line')),
+    );
+    expect(status.data, 'Not started · Self Hero');
+
+    await _pump(tester, _item(tickNo: 0, subTickNo: 0, myCharacter: null));
+    final soloStatus = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('world-status-line')),
+    );
+    expect(soloStatus.data, 'Not started');
   });
 
   testWidgets('the 9l row drops the role label and the metric line', (
@@ -171,9 +188,10 @@ void main() {
     final decoration = dot.decoration! as BoxDecoration;
     expect(decoration.color, _dark.primary);
     expect(decoration.shape, BoxShape.circle);
-    expect(tester.getSize(find.byKey(const ValueKey<String>(
-      'world-activity-dot',
-    ))), const Size(6, 6));
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('world-activity-dot'))),
+      const Size(6, 6),
+    );
   });
 
   testWidgets('a quiet world carries no activity dot', (tester) async {
@@ -191,17 +209,21 @@ void main() {
     await _pump(tester, _item(narrator: ''));
 
     expect(find.text('The city chooses a new route.'), findsNothing);
-    // The character row still renders.
-    expect(find.text('Self Hero'), findsOneWidget);
+    // The status line still renders.
+    expect(find.text('Tick 3-2 · Self Hero'), findsOneWidget);
   });
 
-  testWidgets('character row is absent when the user has no character', (
+  testWidgets('without a character the line falls back to the tick alone', (
     tester,
   ) async {
     await _pump(tester, _item(myCharacter: null));
 
     expect(find.byType(GenesisCharacterAvatar), findsNothing);
     expect(find.text('Alpha World'), findsOneWidget);
+    final status = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('world-status-line')),
+    );
+    expect(status.data, 'Tick 3-2');
   });
 
   testWidgets('summary and title share the same left edge', (tester) async {

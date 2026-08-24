@@ -4,6 +4,7 @@ import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
 void main() {
   testWidgets('world bottom tab animates selected visual state', (
@@ -64,7 +65,7 @@ void main() {
         ..rrect(color: colors.surfaceTag)
         ..rrect(color: colors.surfaceTag)
         ..rrect(color: colors.surfaceTag)
-        ..rrect(color: colors.foregroundStrong),
+        ..rrect(color: GenesisPalette.redesignPaper),
     );
 
     await tester.tap(eventsTab);

@@ -197,12 +197,12 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: compact ? 12 : 14,
+          fontSize: compact ? 11 : 13,
           height: compact ? 1 : 1.2,
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
           color: compact
-              ? context.genesisColors.foregroundStrong.withValues(alpha: 0.40)
+              ? context.genesisColors.foregroundStrong.withValues(alpha: 0.32)
               : context.genesisColors.textFaint,
         ),
       ),
@@ -214,8 +214,11 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
           ? Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _DiscussCurrentUserAvatar(size: compact ? 36 : 40),
-                const SizedBox(width: 8),
+                _DiscussCurrentUserAvatar(
+                  size: compact ? 34 : 40,
+                  ringed: !compact,
+                ),
+                SizedBox(width: compact ? 10 : 8),
                 Expanded(child: input),
               ],
             )
@@ -225,9 +228,10 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
 }
 
 class _DiscussCurrentUserAvatar extends StatefulWidget {
-  const _DiscussCurrentUserAvatar({required this.size});
+  const _DiscussCurrentUserAvatar({required this.size, this.ringed = true});
 
   final double size;
+  final bool ringed;
 
   @override
   State<_DiscussCurrentUserAvatar> createState() =>
@@ -296,6 +300,23 @@ class _DiscussCurrentUserAvatarState extends State<_DiscussCurrentUserAvatar> {
   @override
   Widget build(BuildContext context) {
     final size = widget.size;
+    final ringed = widget.ringed;
+    final avatar = GenesisAvatar(
+      name: _displayName,
+      url: _avatarUrl,
+      size: ringed ? size - 3 : size,
+      borderRadius: ringed ? 9.5 : size / 2,
+      fallbackBackgroundColor: context.genesisColors.inputBackground,
+      showFallbackWhileLoading: true,
+    );
+    if (!ringed) {
+      return SizedBox(
+        key: const ValueKey<String>('discuss-post-current-user-avatar'),
+        width: size,
+        height: size,
+        child: avatar,
+      );
+    }
     return Container(
       key: const ValueKey<String>('discuss-post-current-user-avatar'),
       width: size,
@@ -305,14 +326,7 @@ class _DiscussCurrentUserAvatarState extends State<_DiscussCurrentUserAvatar> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: context.genesisColors.danger, width: 1.5),
       ),
-      child: GenesisAvatar(
-        name: _displayName,
-        url: _avatarUrl,
-        size: size - 3,
-        borderRadius: 9.5,
-        fallbackBackgroundColor: context.genesisColors.inputBackground,
-        showFallbackWhileLoading: true,
-      ),
+      child: avatar,
     );
   }
 }

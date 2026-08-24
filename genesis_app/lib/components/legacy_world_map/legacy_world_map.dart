@@ -337,8 +337,9 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
               Positioned.fill(child: overlay),
             if (_locationTrail.isNotEmpty && !widget.showPointsList)
               Positioned(
-                left: 12,
-                top: widget.drillExitTop,
+                // 设计稿 9b:返回上级在左下,与右下的缩放控件同一条基线。
+                left: WorldMapExitLocationButton.mapEdgeGap,
+                bottom: WorldMapExitLocationButton.mapBottomGap,
                 child: WorldMapConstrainedMaxWidth(
                   maxWidth: widget.drillExitMaxWidth,
                   child: WorldMapExitLocationButton(

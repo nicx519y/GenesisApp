@@ -48,8 +48,9 @@ class GenesisCardActionButton extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GenesisTypography.supporting.copyWith(
+              fontSize: 11,
               height: 1,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               color: foreground,
               decoration: TextDecoration.none,
             ),
@@ -65,7 +66,7 @@ class GenesisCardActionButton extends StatelessWidget {
         height: height,
         child: Material(
           key: surfaceKey,
-          color: colors.controlMuted,
+          color: colors.foregroundStrong.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(borderRadius),
           clipBehavior: Clip.antiAlias,
           child: InkWell(

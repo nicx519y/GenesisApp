@@ -25,7 +25,7 @@ class GenesisAppBarActionLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ?? context.genesisColors.textQuaternary;
+    final effectiveColor = color ?? context.genesisColors.textBody;
     final content = ConstrainedBox(
       constraints: const BoxConstraints(
         minWidth: GenesisControlMetrics.minimumTapTarget,
@@ -43,6 +43,8 @@ class GenesisAppBarActionLink extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: GenesisTypography.navigationAction.copyWith(
                   color: effectiveColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

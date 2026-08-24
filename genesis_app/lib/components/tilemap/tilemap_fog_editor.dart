@@ -190,7 +190,7 @@ class _FogCurvePainter extends CustomPainter {
       final textPainter = TextPainter(
         text: TextSpan(
           text: label.value,
-          style: TextStyle(color: secondaryColor, fontSize: 9),
+          style: TextStyle(color: secondaryColor, fontSize: 9.5),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -245,7 +245,7 @@ class _FogCurvePainter extends CustomPainter {
       final positionLabel = TextPainter(
         text: TextSpan(
           text: '${(points[index].position * 100).round()}%',
-          style: TextStyle(color: foregroundColor, fontSize: 9),
+          style: TextStyle(color: foregroundColor, fontSize: 9.5),
         ),
         textDirection: TextDirection.ltr,
       )..layout();

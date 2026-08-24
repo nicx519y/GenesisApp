@@ -72,7 +72,7 @@ void showGenesisToastInOverlay(
                       fontFamily: GenesisTypography.fontFamily,
                       fontFamilyFallback: GenesisTypography.fontFamilyFallback,
                       color: context.genesisColors.onPrimary,
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w400,
                       height: 1.35,
                       decoration: TextDecoration.none,

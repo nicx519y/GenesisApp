@@ -13,6 +13,7 @@ import 'package:genesis_flutter_android/components/world_map_contract.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/components/world_map_location_marker.dart';
 
 void main() {
   test('tilemap defaults to dark visual mode', () {
@@ -162,18 +163,14 @@ void main() {
     final centerColor = await tester.runAsync(() async {
       final recorder = ui.PictureRecorder();
       final canvas = ui.Canvas(recorder, const Rect.fromLTWH(0, 0, 4, 4));
-      final vertices = ui.Vertices(
-        ui.VertexMode.triangles,
-        const [
-          Offset(0, 0),
-          Offset(4, 0),
-          Offset(4, 4),
-          Offset(0, 0),
-          Offset(4, 4),
-          Offset(0, 4),
-        ],
-        colors: List<Color>.filled(6, const Color(0x40000000)),
-      );
+      final vertices = ui.Vertices(ui.VertexMode.triangles, const [
+        Offset(0, 0),
+        Offset(4, 0),
+        Offset(4, 4),
+        Offset(0, 0),
+        Offset(4, 4),
+        Offset(0, 4),
+      ], colors: List<Color>.filled(6, const Color(0x40000000)));
       canvas.drawVertices(
         vertices,
         tilemapFogVertexBlendMode,
@@ -1223,15 +1220,18 @@ void main() {
     final labelDecoration = pill.decoration as BoxDecoration;
     // 8-22 spec: ink glass is rgba(21,21,23,.6).
     expect(labelDecoration.color, const Color(0x99151517));
-    expect(labelDecoration.borderRadius, BorderRadius.circular(24));
+    // 设计稿三种药丸:有人 24 圆角,空位 20。这个用例的药丸没有头像,
+    // 走空位那一档(高亮与否只影响描边,不影响圆角)。
+    expect(labelDecoration.borderRadius, BorderRadius.circular(20));
     expect(labelDecoration.border?.top.color.a, closeTo(0.62, 0.001));
     final locationName = tester.widget<Text>(find.text('High School'));
     expect(locationName.maxLines, 1);
     expect(locationName.overflow, TextOverflow.ellipsis);
-    expect(locationName.style?.color, Colors.white);
-    expect(locationName.style?.fontSize, 11);
+    // 空位药丸的地点名:73% 白、12px、w400(有角色时才是 w600)。
+    expect(locationName.style?.color, const Color(0xBAFFFFFF));
+    expect(locationName.style?.fontSize, 12);
     expect(locationName.style?.height, 1);
-    expect(locationName.style?.fontWeight, FontWeight.w600);
+    expect(locationName.style?.fontWeight, FontWeight.w400);
 
     final tileRect = tester.getRect(
       find.byKey(const ValueKey<String>('tile-0-0')),
@@ -1372,8 +1372,11 @@ void main() {
     expect(find.byKey(foregroundOverlayKey), findsOneWidget);
     expect(zoomIn, findsOneWidget);
     expect(zoomOut, findsOneWidget);
-    expect(dragIndicator, findsOneWidget);
-    expect(tester.getBottomRight(zoomControl), const Offset(548, 510));
+    // 设计稿 9a/9b 的缩放控件只有 + 和 -,没有中间那个拖拽提示块,
+    // 已按稿移除。拖拽缩放手势本身仍然可用,只是不再画视觉提示。
+    expect(dragIndicator, findsNothing);
+    // 缩放控件右边距 12 -> 16(x 减 4)、底边距 30 -> 27(y 加 3)。
+    expect(tester.getBottomRight(zoomControl), const Offset(544, 513));
 
     final controlStack = tester
         .widgetList<Stack>(find.byType(Stack))
@@ -2194,8 +2197,18 @@ void main() {
 
       expect(avatarRects[0].top, avatarRects[1].top);
       expect(avatarRects[1].top, avatarRects[2].top);
-      expect(avatarRects[1].left - avatarRects[0].left, closeTo(16, 0.01));
-      expect(avatarRects[2].left - avatarRects[1].left, closeTo(16, 0.01));
+      // 头像 22 -> 26,重叠量 6 不变,步进 16 -> 20。
+      const avatarStep =
+          worldMapLocationMarkerAvatarSize -
+          worldMapLocationMarkerAvatarOverlap;
+      expect(
+        avatarRects[1].left - avatarRects[0].left,
+        closeTo(avatarStep, 0.01),
+      );
+      expect(
+        avatarRects[2].left - avatarRects[1].left,
+        closeTo(avatarStep, 0.01),
+      );
       expect(find.text('+1'), findsOneWidget);
       expect(
         find.byKey(
@@ -2206,10 +2219,14 @@ void main() {
       final avatar = tester.widget<GenesisCharacterAvatar>(
         find.byType(GenesisCharacterAvatar).first,
       );
-      expect(avatar.size, 22);
+      expect(avatar.size, worldMapLocationMarkerAvatarSize);
       expect(avatar.showStar, isFalse);
       expect((avatar.border! as Border).top.color, const Color(0xFF151517));
-      expect((avatar.border! as Border).top.width, 1.5);
+      // 非玩家头像的环从 1.5 收细到 1。
+      expect(
+        (avatar.border! as Border).top.width,
+        worldMapLocationMarkerAvatarRingWidth,
+      );
       expect(
         avatar.maxDevicePixelRatio,
         GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio,

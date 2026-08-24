@@ -62,9 +62,9 @@ class _InternalCornerRibbon extends StatelessWidget {
                     maxLines: 1,
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 7,
+                      fontSize: 9.5,
                       height: 1,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       letterSpacing: 0.4,
                       decoration: TextDecoration.none,
                     ),

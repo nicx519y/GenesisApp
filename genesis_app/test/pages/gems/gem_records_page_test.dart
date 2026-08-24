@@ -77,7 +77,7 @@ void main() {
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
     final indicator = tabBar.indicator! as GenesisFixedUnderlineIndicator;
-    expect(indicator.width, isNull);
+    expect(indicator.width, 22);
 
     expect(find.byKey(const ValueKey('gem-records-footer')), findsNothing);
     expect(find.byKey(const ValueKey('gem-record-primary-icon')), findsNothing);
@@ -120,7 +120,7 @@ void main() {
     expect(
       tester.getTopLeft(find.text('Message')).dy -
           tester.getTopLeft(find.text('Daily check-in')).dy,
-      closeTo(78, 0.1),
+      closeTo(79, 0.1),
     );
     final messageWorldId = tester.widget<Text>(find.text('w_moonlit'));
     expect(messageWorldId.style?.color, const Color(0x52FFFFFF));
@@ -143,7 +143,7 @@ void main() {
             find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
           )
           .height,
-      closeTo(77, 0.1),
+      closeTo(79, 0.1),
     );
     expect(
       tester
@@ -151,7 +151,7 @@ void main() {
             find.byKey(const ValueKey<String>('gem-record-item-ledger-2')),
           )
           .height,
-      closeTo(77, 0.1),
+      closeTo(79, 0.1),
     );
   });
 

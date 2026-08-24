@@ -9,7 +9,6 @@ import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
@@ -196,6 +195,16 @@ class WorldListItem {
     return 'Tick $lastProgressTickNo$sub';
   }
 
+  /// Home row accent line: the tick state, plus the player's character when
+  /// they have one - `Tick 2-3 · Adrian Vale`.
+  String get statusLine {
+    final character = myCharacter;
+    if (character == null) return tickStateLabel;
+    final name = _mapString(character, const ['name']).trim();
+    if (name.isEmpty) return tickStateLabel;
+    return '$tickStateLabel · $name';
+  }
+
   List<String> get resolvedPreviewImages {
     if (previewImages.isNotEmpty) return previewImages;
     final image = cover.trim();
@@ -208,7 +217,7 @@ class WorldItemCard extends StatelessWidget {
   const WorldItemCard({
     super.key,
     required this.item,
-    this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
+    this.thumbnailBorderRadius = 8,
     this.showRecentChatTag = false,
     this.recentActivityTagLabel = '',
   });
@@ -228,85 +237,106 @@ class WorldItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
 
-    // 9l Home row: 52x78 cover, then world name + recency, a two-line story
-    // summary, and the player's character with its tick state. WID, owner,
-    // the stats strip, the Last Progress header and the tick chip are not
-    // part of this row in the design.
+    // Home row: a 60x78 cover with the player's character tucked into its
+    // bottom-right corner, then the world name + recency, the tick/character
+    // status line, and a two-line story summary.
+    //
+    // The cover follows 9k/Me - 60x78, radius 8 - so a world's artwork is
+    // cropped identically on both pages. GenesisListImage is BoxFit.cover, so
+    // the box aspect *is* the crop.
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _WorldImage(
-          imageUrl: item.cover,
-          width: 52,
-          height: 78,
-          borderRadius: thumbnailBorderRadius,
-        ),
-        const SizedBox(width: 14),
+        _CoverWithCharacter(item: item, borderRadius: thumbnailBorderRadius),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // The title shrink-wraps so the activity dot sits directly
+                  // after the name; only the timestamp goes to the right edge.
                   Expanded(
-                    child: Text(
-                      item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 15,
-                        height: 1.1,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            item.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 14,
+                              height: 1.1,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        // An in-progress world is marked with a 6px red dot
+                        // after the name - one marker, not a per-activity
+                        // coloured pill.
+                        if (_resolvedRecentActivityTagLabel.isNotEmpty) ...[
+                          const SizedBox(width: 7),
+                          Semantics(
+                            label: _resolvedRecentActivityTagLabel,
+                            child: Container(
+                              key: const ValueKey<String>('world-activity-dot'),
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: colors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  // 9l marks an in-progress world with a 6px red dot after the
-                  // name — one marker, not a per-activity coloured pill.
-                  if (_resolvedRecentActivityTagLabel.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Semantics(
-                      label: _resolvedRecentActivityTagLabel,
-                      child: Container(
-                        key: const ValueKey<String>('world-activity-dot'),
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: colors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 7),
                   Text(
                     formatGenesisRelativeTimestamp(item.lastProgressAt),
                     style: TextStyle(
                       color: colors.textTimestamp,
-                      fontSize: 9.5,
+                      fontSize: 10,
                       height: 1,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
                 ],
               ),
+              // Tick state and the player's character read as one accent line
+              // between the title and the summary.
+              const SizedBox(height: 5),
+              Text(
+                item.statusLine,
+                key: const ValueKey<String>('world-status-line'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colors.accentText,
+                  fontSize: 12,
+                  height: 1.45,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
               if (item.progressSummary.isNotEmpty) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 5),
                 Text(
                   item.progressSummary,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: colors.textSecondary,
-                    fontSize: 11,
-                    height: 1.45,
+                    fontSize: 12,
+                    height: 1.3,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
-              _CurrentUserStatusPreview(item: item),
             ],
           ),
         ),
@@ -315,93 +345,63 @@ class WorldItemCard extends StatelessWidget {
   }
 }
 
-class _CurrentUserStatusPreview extends StatelessWidget {
-  const _CurrentUserStatusPreview({required this.item});
+/// The world cover with the player's character avatar tucked into its
+/// bottom-right corner, ringed in the page colour so it reads as a cut-out.
+class _CoverWithCharacter extends StatelessWidget {
+  const _CoverWithCharacter({required this.item, required this.borderRadius});
+
+  static const double coverWidth = 60;
+  static const double coverHeight = 78;
+  static const double avatarSize = 20;
+  static const double frameWidth = 2;
+
+  /// How far the framed avatar hangs past the cover's right and bottom edges.
+  static const double overhang = 4;
 
   final WorldListItem item;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
     final character = item.myCharacter;
-    if (character == null) return const SizedBox.shrink();
-    final playerUid = _mapString(character, const ['player_uid']);
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: _CurrentUserStatusRow(
-        data: _CurrentUserStatusData(
-          metric: item.metric,
-          character: character,
-          currentUid: playerUid,
-        ),
-        tickLabel: item.tickStateLabel,
-      ),
-    );
-  }
-}
-
-class _CurrentUserStatusData {
-  const _CurrentUserStatusData({
-    required this.metric,
-    required this.character,
-    required this.currentUid,
-  });
-
-  final Map<String, dynamic> metric;
-  final Map<String, dynamic> character;
-  final String currentUid;
-}
-
-class _CurrentUserStatusRow extends StatelessWidget {
-  const _CurrentUserStatusRow({required this.data, required this.tickLabel});
-
-  final _CurrentUserStatusData data;
-  final String tickLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.genesisColors;
-    final character = data.character;
-    final name = _mapString(character, const ['name'], fallback: 'Character');
-
-    // 9l Home: a 20px avatar ringed in the action red, the character name, and
-    // the tick state pushed to the right edge.
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        GenesisCharacterAvatar(
-          url: _mapImageUrl(character, const ['avatar']),
-          name: name,
-          size: 20,
-          borderRadius: 7,
-          border: Border.all(color: colors.primary, width: 2),
-          showFallbackWhileLoading: false,
-          maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colors.textBody,
-              fontSize: 11,
-              height: 1,
-              fontWeight: FontWeight.w600,
+    return SizedBox(
+      width: coverWidth,
+      height: coverHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          _WorldImage(
+            imageUrl: item.cover,
+            width: coverWidth,
+            height: coverHeight,
+            borderRadius: borderRadius,
+          ),
+          if (character != null)
+            Positioned(
+              right: -overhang,
+              bottom: -overhang,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: context.genesisColors.pageBackground,
+                  borderRadius: BorderRadius.circular(7 + frameWidth),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(frameWidth),
+                  child: GenesisCharacterAvatar(
+                    url: _mapImageUrl(character, const ['avatar']),
+                    name: _mapString(character, const [
+                      'name',
+                    ], fallback: 'Character'),
+                    size: avatarSize,
+                    borderRadius: 7,
+                    showFallbackWhileLoading: false,
+                    maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          tickLabel,
-          style: TextStyle(
-            color: colors.textTimestamp,
-            fontSize: 9.5,
-            height: 1,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -187,10 +187,18 @@ class _MePageState extends State<MePage> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    AnimatedOpacity(
-                      opacity: _profileCollapsed ? 1 : 0,
-                      duration: const Duration(milliseconds: 120),
-                      child: const GenesisPageTitle(text: 'Me'),
+                    // The collapsed page title sits on the left margin like
+                    // Home and Messages, not centred in the bar.
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 22),
+                        child: AnimatedOpacity(
+                          opacity: _profileCollapsed ? 1 : 0,
+                          duration: const Duration(milliseconds: 120),
+                          child: const GenesisPageTitle(text: 'Me'),
+                        ),
+                      ),
                     ),
                     Align(
                       alignment: Alignment.centerRight,

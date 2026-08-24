@@ -84,7 +84,7 @@ enum _DraftLeaveAction { submit, save, discard }
 enum OriginDraftSubmitStatus { idle, checkingPending, processing }
 
 const TextStyle _editSummaryLabelStyle = TextStyle(
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: FontWeight.w600,
   height: 1.2,
 );
@@ -651,7 +651,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                           : null,
                       fontSize: widget.createHubStyle ? 13 : null,
                       fontWeight: widget.createHubStyle
-                          ? FontWeight.w700
+                          ? FontWeight.w800
                           : null,
                       onPressed: canUseSubmitButton
                           ? () => unawaited(_submit())

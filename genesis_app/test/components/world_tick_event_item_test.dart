@@ -149,7 +149,7 @@ void main() {
           .singleWhere((span) => span.text == ' +18pressure')
           .style
           ?.color,
-      const Color(0xFF338960),
+      const Color(0xFFF82B3C),
     );
     expect(
       deltaSpans
@@ -160,7 +160,7 @@ void main() {
     );
     expect(
       deltaSpans.singleWhere((span) => span.text == ' -4pressure').style?.color,
-      const Color(0xFFFF2442),
+      const Color(0xFFF82B3C),
     );
     expect(
       deltaSpans

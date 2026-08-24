@@ -107,12 +107,12 @@ void main() {
     );
     expect(status.data, 'Not started');
     expect(status.style?.fontSize, 9.5);
-    expect(status.style?.height, 1.3);
-    expect(status.style?.fontWeight, FontWeight.w500);
+    expect(status.style?.height, 1.4);
+    expect(status.style?.fontWeight, FontWeight.w600);
     expect(
       status.style?.color,
       GenesisSemanticColors.worldoLight().immersiveForeground.withValues(
-        alpha: 0.78,
+        alpha: 0.73,
       ),
     );
   });

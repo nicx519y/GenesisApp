@@ -234,7 +234,7 @@ class _WorldTimelineEventRow extends StatelessWidget {
                     child: Container(
                       width: 1.5,
                       color: isGlobal
-                          ? context.genesisColors.danger
+                          ? context.genesisColors.accentText
                           : context.genesisColors.dividerAction,
                     ),
                   ),
@@ -260,7 +260,7 @@ class _WorldTimelineEventRow extends StatelessWidget {
                             color: accent,
                             fontSize: 13,
                             height: 1.15,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
@@ -268,10 +268,10 @@ class _WorldTimelineEventRow extends StatelessWidget {
                         Text(
                           timestamp,
                           style: TextStyle(
-                            color: context.genesisColors.textSecondary,
+                            color: context.genesisColors.textBody,
                             fontSize: 9.5,
                             height: 1,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                     ],
@@ -284,9 +284,9 @@ class _WorldTimelineEventRow extends StatelessWidget {
                   Text(
                     body,
                     style: TextStyle(
-                      color: context.genesisColors.textPrimary,
+                      color: context.genesisColors.textBody,
                       fontSize: 13,
-                      height: 1.6,
+                      height: 1.5,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -296,8 +296,8 @@ class _WorldTimelineEventRow extends StatelessWidget {
                       text: clue!,
                       style: TextStyle(
                         color: context.genesisColors.textMuted,
-                        fontSize: 12,
-                        height: 1.35,
+                        fontSize: 11,
+                        height: 1.45,
                       ),
                     ),
                   ],
@@ -351,7 +351,7 @@ class _WorldTimelineParagraphRow extends StatelessWidget {
     final details = _characterDetails(paragraph, metricUnit: metricUnit);
     final detailStyle = TextStyle(
       color: context.genesisColors.textPrimary,
-      fontSize: 12,
+      fontSize: 13,
       height: 1.5,
     );
     return _WorldTimelineEventRow(
@@ -413,9 +413,9 @@ class _TickHeader extends StatelessWidget {
               'Tick $tickNumber${subTickNumber > 0 ? '-$subTickNumber' : ''}'
               '${date.isEmpty ? '' : ' · $date'}',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 height: 1.2,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w800,
                 color: context.genesisColors.textPrimary,
               ),
               maxLines: 1,
@@ -427,7 +427,7 @@ class _TickHeader extends StatelessWidget {
             Text(
               timeAgo,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 height: 1.2,
                 fontWeight: FontWeight.w400,
                 color: context.genesisColors.textLabelMuted,
@@ -626,21 +626,21 @@ class _ClueText extends StatelessWidget {
 }
 
 TextStyle _labelStyle(BuildContext context) => TextStyle(
-  fontSize: 12,
+  fontSize: 11,
   height: 1.6,
-  fontWeight: FontWeight.w600,
+  fontWeight: FontWeight.w800,
   color: context.genesisColors.textPrimary,
 );
 
 TextStyle _bodyStyle(BuildContext context) => TextStyle(
-  fontSize: 12,
+  fontSize: 11,
   height: 1.6,
   fontWeight: FontWeight.w400,
   color: context.genesisColors.textQuaternary,
 );
 
 TextStyle _timestampStyle(BuildContext context) => TextStyle(
-  fontSize: 12,
+  fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
   color: context.genesisColors.textPrimary,

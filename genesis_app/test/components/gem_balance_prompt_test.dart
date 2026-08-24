@@ -13,6 +13,7 @@ import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
 
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
@@ -34,18 +35,18 @@ void main() {
     final titleStyle = tester
         .widget<Text>(find.text(insufficientGemBalancePrompt))
         .style;
-    expect(titleStyle?.fontWeight, FontWeight.w600);
-    expect(titleStyle?.fontSize, 18);
-    expect(titleStyle?.color, const Color(0xFF111111));
+    expect(titleStyle?.fontWeight, FontWeight.w800);
+    expect(titleStyle?.fontSize, 17);
+    expect(titleStyle?.color, const Color(0xFF131215));
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
     expect(find.byType(GemPurchaseCatalogSection), findsOneWidget);
-    final closeIcon = tester.widget<Icon>(
+    final closeIcon = tester.widget<GenesisCloseIcon>(
       find.descendant(
         of: find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),
-        matching: find.byIcon(Icons.close),
+        matching: find.byType(GenesisCloseIcon),
       ),
     );
-    expect(closeIcon.color, const Color(0xFF111111));
+    expect(closeIcon.color, const Color(0xFF131215));
     expect(find.text('430'), findsOneWidget);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,
@@ -55,16 +56,24 @@ void main() {
           )
           .dx,
     );
+    // A "Packs" section header now sits between the balance panel and the
+    // grid: 22 below the panel, 11 above the first card.
+    expect(find.text('Packs'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Packs')).dy -
+          tester
+              .getBottomLeft(find.byKey(const ValueKey('gem-balance-panel')))
+              .dy,
+      22,
+    );
     expect(
       tester
               .getTopLeft(
                 find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
               )
               .dy -
-          tester
-              .getBottomLeft(find.byKey(const ValueKey('gem-balance-panel')))
-              .dy,
-      10,
+          tester.getBottomLeft(find.text('Packs')).dy,
+      11,
     );
     expect(
       tester.widget<SizedBox>(find.byKey(const ValueKey('gem-balance-panel'))),

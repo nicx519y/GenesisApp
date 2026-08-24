@@ -377,7 +377,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                           'Developer Page',
                           key: const ValueKey<String>('developer-page-title'),
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: context.genesisColors.textPrimary,
                           ),
@@ -531,7 +531,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
             const Text(
               'Active',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: Color(0xFF2E7D32),
                 fontWeight: FontWeight.w600,
               ),
@@ -548,7 +548,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           return Text(
             'Build version: $value. New version reads use the values below.',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               color: context.genesisColors.textSecondary,
               height: 1.35,
             ),

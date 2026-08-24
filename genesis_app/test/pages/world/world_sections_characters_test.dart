@@ -21,7 +21,7 @@ void main() {
       ),
     );
 
-    expect(_richText('Adrian You'), findsOneWidget);
+    expect(_richText('AdrianYou'), findsOneWidget);
     expect(_richText('Adrian (Me)'), findsNothing);
     expect(find.text('56%'), findsOneWidget);
     expect(find.text('Grand Ballroom'), findsOneWidget);
@@ -112,7 +112,7 @@ void main() {
 
     expect(
       tester.widget<Text>(find.text(identity)).style?.color,
-      GenesisPalette.white.withValues(alpha: 0.92),
+      GenesisPalette.redesignWhite73,
     );
     expect(
       tester.widget<Text>(find.text(brief)).style?.color,
@@ -135,7 +135,9 @@ void main() {
 
 Finder _richText(String text) {
   return find.byWidgetPredicate(
-    (widget) => widget is RichText && widget.text.toPlainText() == text,
+    (widget) =>
+        widget is RichText &&
+        widget.text.toPlainText(includePlaceholders: false) == text,
     description: 'RichText "$text"',
   );
 }

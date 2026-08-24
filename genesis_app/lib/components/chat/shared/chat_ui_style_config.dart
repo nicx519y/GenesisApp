@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../ui/tokens/genesis_avatar_radii.dart';
 import '../../../ui/tokens/genesis_palette.dart';
 
 class ChatUiStyleConfig {
@@ -105,6 +104,7 @@ class ChatUiStyleConfig {
     required this.inputBorderRadius,
     // Input field border color.
     this.inputBorderColor = Colors.transparent,
+    this.composerCursorColor,
     // Input field border width.
     this.inputBorderWidth = 0,
     // Input field text style.
@@ -212,7 +212,7 @@ class ChatUiStyleConfig {
     ), // Top chat header background gradient.
     headerTitleTextStyle: TextStyle(
       fontSize: 15, // Header title font size.
-      fontWeight: FontWeight.w600, // Header title font weight.
+      fontWeight: FontWeight.w800, // Header title font weight.
       color: Colors.black, // Header title color.
     ),
     headerSubtitleTextStyle: TextStyle(
@@ -285,7 +285,7 @@ class ChatUiStyleConfig {
     inputBorderRadius: 8, // Input field border radius.
     inputTextStyle: TextStyle(
       color: Colors.black, // Input field text color.
-      fontSize: 14, // Input field font size.
+      fontSize: 13, // Input field font size.
       height: 20 / 14, // Input field text line height.
     ),
     messageListPadding: EdgeInsets.fromLTRB(
@@ -297,12 +297,12 @@ class ChatUiStyleConfig {
     topTitleEmptyHeight: 16, // Top space reserved when there is no top title.
     topTitleBottomPadding: 16, // Bottom spacing below the top title.
     topTitleTextStyle: TextStyle(
-      fontSize: 14, // Top title font size.
+      fontSize: 13, // Top title font size.
       height: 1.2, // Top title line height.
       fontWeight: FontWeight.w600, // Top title font weight.
       color: Colors.black87, // Top title color.
     ),
-    rowBottomPadding: 24, // Bottom spacing for each message row.
+    rowBottomPadding: 14, // Bottom spacing for each message row.
     selfBubbleMaxWidthFactor:
         0.68, // Maximum width factor for the current user's message bubble.
     otherBubbleMaxWidthFactor:
@@ -313,7 +313,7 @@ class ChatUiStyleConfig {
     avatarSideSpacerWidth:
         50, // Space reserved between the far side of the bubble and the list edge.
     senderNameBottomGap:
-        4, // Vertical spacing between the other user's name and bubble.
+        6, // Vertical spacing between the other user's name and bubble.
     statusTextTopGap: 4, // Vertical spacing between status text and the bubble.
     statusTextStyle: TextStyle(
       color: Colors.white70,
@@ -321,7 +321,7 @@ class ChatUiStyleConfig {
     ), // Status text style.
     senderNameTextStyle: TextStyle(
       color: Colors.white, // Other user's name text color.
-      fontSize: 12, // Other user's name font size.
+      fontSize: 13, // Other user's name font size.
       fontWeight: FontWeight.w400, // Other user's name font weight.
     ),
     showSenderNameAboveOtherBubble:
@@ -335,12 +335,12 @@ class ChatUiStyleConfig {
     otherBubbleColor: Colors.white, // Other user's message bubble color.
     bubbleTextStyle: TextStyle(
       color: Colors.black, // Bubble text color.
-      fontSize: 14, // Bubble font size.
+      fontSize: 13, // Bubble font size.
       height: 20 / 14, // Bubble text line height.
       fontWeight: FontWeight.w400, // Bubble font weight.
     ),
-    avatarSize: 40, // Avatar size.
-    avatarBorderRadius: GenesisAvatarRadii.user, // Avatar border radius.
+    avatarSize: 32, // Avatar size.
+    avatarBorderRadius: 10, // Avatar border radius.
     selfAvatarColors: [
       Color(0xFFFFE7B0),
       Color(0xFF9ED7FF),
@@ -369,7 +369,7 @@ class ChatUiStyleConfig {
     dateDividerBottomPadding: 12, // Date divider bottom spacing.
     dateDividerTextStyle: TextStyle(
       color: Color(0xFF777777), // Date divider text color.
-      fontSize: 10, // Date divider font size.
+      fontSize: 9.5, // Date divider font size.
       fontWeight: FontWeight.w400, // Date divider font weight.
     ),
     systemMessageMargin: EdgeInsets.only(bottom: 18), // System message margin.
@@ -487,6 +487,12 @@ class ChatUiStyleConfig {
   final double inputBorderRadius;
   // Input field border color.
   final Color inputBorderColor;
+
+  /// Selection chrome in the composer: the caret, the drag handles, and the
+  /// highlight behind selected text. Null falls back to the app theme, which
+  /// paints all three in the accent - right on a paper background, wrong over
+  /// scene artwork.
+  final Color? composerCursorColor;
   // Input field border width.
   final double inputBorderWidth;
   // Input field text style.
@@ -587,6 +593,7 @@ class ChatUiStyleConfig {
     Color? composerBackgroundColor,
     Gradient? composerBackgroundGradient,
     bool clearComposerBackgroundGradient = false,
+    EdgeInsets? composerPadding,
     double? composerBackdropBlurSigma,
     Color? composerIconColor,
     Color? composerSendButtonColor,
@@ -603,6 +610,7 @@ class ChatUiStyleConfig {
     double? inputMinHeight,
     double? inputBorderRadius,
     Color? inputBorderColor,
+    Color? composerCursorColor,
     double? inputBorderWidth,
     TextStyle? inputTextStyle,
     TextStyle? headerTitleTextStyle,
@@ -666,7 +674,7 @@ class ChatUiStyleConfig {
       headerTrailingPlaceholderWidth: headerTrailingPlaceholderWidth,
       composerBackgroundColor:
           composerBackgroundColor ?? this.composerBackgroundColor,
-      composerPadding: composerPadding,
+      composerPadding: composerPadding ?? this.composerPadding,
       composerIconButtonSize: composerIconButtonSize,
       composerIconSize: composerIconSize,
       composerIconColor: composerIconColor ?? this.composerIconColor,
@@ -708,6 +716,7 @@ class ChatUiStyleConfig {
       inputBackgroundColor: inputBackgroundColor ?? this.inputBackgroundColor,
       inputBorderRadius: inputBorderRadius ?? this.inputBorderRadius,
       inputBorderColor: inputBorderColor ?? this.inputBorderColor,
+      composerCursorColor: composerCursorColor ?? this.composerCursorColor,
       inputBorderWidth: inputBorderWidth ?? this.inputBorderWidth,
       inputTextStyle: inputTextStyle ?? this.inputTextStyle,
       messageListPadding: messageListPadding ?? this.messageListPadding,

@@ -145,19 +145,17 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
               child: GenesisSearchField(
                 key: const ValueKey<String>('origin-feed-search'),
-                height: 44,
+                height: 38,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 backgroundColor: context.genesisColors.inputBackground,
-                borderColor: context.genesisColors.borderStrong,
                 borderRadius: BorderRadius.circular(14),
-                iconColor: context.genesisColors.primary,
+                iconColor: context.genesisColors.foregroundStrong,
                 iconAsset: searchIconAsset,
                 iconSize: genesisSearchIconSize,
                 iconGap: 9,
-                borderWidth: 1.5,
                 hintText: 'Worlds, tags, characters',
                 hintStyle: TextStyle(
-                  color: context.genesisColors.textSubtle,
+                  color: context.genesisColors.textMetadata,
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                   height: 1,
@@ -168,35 +166,16 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
               ),
             ),
           ),
-          DecoratedBox(
+          GenesisTabBar(
             key: const ValueKey<String>('worlds-feed-tabs-divider'),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: context.genesisColors.dividerAction),
-              ),
-            ),
-            child: GenesisTabBar(
-              labels: categories.map((item) => item.name).toList(),
-              verticalPadding: 0,
-              horizontalPadding: 20,
-              labelPadding: const EdgeInsets.only(right: 18),
-              indicatorMatchesLabelWidth: true,
-              indicatorHeight: 2.5,
-              indicatorBottomPadding: 0,
-              tabHeight: 28,
-              labelStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                height: 1.2,
-              ),
-              labelColor: context.genesisColors.textPrimary,
-              unselectedLabelColor: context.genesisOriginColors.feedTabInactive,
-            ),
+            labels: categories.map((item) => item.name).toList(),
+            verticalPadding: 0,
+            horizontalPadding: 20,
+            labelPadding: const EdgeInsets.only(right: 18),
+            indicatorMatchesLabelWidth: true,
+            indicatorHeight: 2.5,
+            indicatorBottomPadding: 0,
+            // Label scale, colours and height all come from GenesisTabBar.
           ),
           Expanded(
             child: TabBarView(

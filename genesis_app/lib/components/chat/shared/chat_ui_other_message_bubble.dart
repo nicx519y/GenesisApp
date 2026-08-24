@@ -85,7 +85,7 @@ class ChatOtherMessageBubble extends StatelessWidget {
                                 GenesisTypography.withFallback(
                                   style.senderNameTextStyle,
                                 ).copyWith(
-                                  color: context.genesisColors.textSubtle,
+                                  color: context.genesisColors.textTimestamp,
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w400,
                                   height: 1,

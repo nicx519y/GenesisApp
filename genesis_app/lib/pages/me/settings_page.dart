@@ -78,7 +78,9 @@ class _SettingsPageState extends State<SettingsPage> {
       contentInputKey: const ValueKey<String>('genesis-feedback-content-input'),
       successMessage: 'Feedback submitted',
       failureMessage: 'Feedback failed',
-      borderColor: context.genesisColors.foregroundStrong.withValues(alpha: 0.14),
+      borderColor: context.genesisColors.foregroundStrong.withValues(
+        alpha: 0.14,
+      ),
       onSubmit: (content) => api.v1.feedback.create(content: content),
     );
   }
@@ -181,7 +183,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       side: BorderSide(color: colors.borderNeutral),
                       borderRadius: BorderRadius.circular(14),
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     const SizedBox(height: 14),
@@ -280,7 +282,7 @@ class _SettingsFooterMetaState extends State<_SettingsFooterMeta> {
           style: TextStyle(
             fontSize: 9.5,
             height: 1,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             color: context.genesisColors.textDisabled,
           ),
         );
@@ -424,7 +426,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                         'Load failed',
                         style: TextStyle(
                           color: colors.textSubtle,
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -456,7 +458,7 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                         'No blocked users yet.',
                         style: TextStyle(
                           color: colors.textPlaceholder,
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -571,7 +573,7 @@ class _BlockedUserTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: colors.navigationSelected,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
@@ -583,7 +585,7 @@ class _BlockedUserTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: colors.textSubtle,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w400,
                       height: 1.2,
                     ),
@@ -598,7 +600,7 @@ class _BlockedUserTile extends StatelessWidget {
               height: 28,
               fullWidth: false,
               padding: EdgeInsets.zero,
-              fontSize: 12,
+              fontSize: 11,
               backgroundColor: backgroundColor,
               foregroundColor: foregroundColor,
               disabledBackgroundColor: backgroundColor,
@@ -707,7 +709,7 @@ class _AccountPageState extends State<AccountPage> {
                     'Account Deletion Agreement',
                     style: TextStyle(
                       color: colors.navigationSelected,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
@@ -724,7 +726,7 @@ class _AccountPageState extends State<AccountPage> {
                     'cannot be recovered upon account deletion.',
                     style: TextStyle(
                       color: colors.textSubtle,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w400,
                       height: 1.55,
                     ),
@@ -737,7 +739,7 @@ class _AccountPageState extends State<AccountPage> {
                     'you to a refund.',
                     style: TextStyle(
                       color: colors.danger,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w400,
                       height: 1.55,
                     ),
@@ -747,7 +749,7 @@ class _AccountPageState extends State<AccountPage> {
             ),
             SafeArea(
               top: false,
-              minimum: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              minimum: const EdgeInsets.fromLTRB(22, 8, 22, 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -781,7 +783,7 @@ class _AccountPageState extends State<AccountPage> {
                               'I have read the Account Deletion Agreement',
                               style: TextStyle(
                                 color: colors.textSubtle,
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w400,
                                 height: 1.25,
                               ),
@@ -835,7 +837,7 @@ class _CurrentLoginAccountCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colors.textSubtle,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w400,
                 height: 1.2,
               ),

@@ -32,8 +32,8 @@ const String createFormDeleteIconAsset =
     'assets/custom-icons/svg/delete-icon.svg';
 const String createFormInfoIconAsset = 'assets/custom-icons/svg/info.svg';
 const TextStyle createFormSupportTextStyle = TextStyle(
-  fontSize: 12,
-  height: 1.25,
+  fontSize: 11,
+  height: 1.45,
 );
 
 final Object createFormTextFieldTapRegionGroup = Object();

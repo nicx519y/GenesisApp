@@ -156,9 +156,9 @@ void main() {
     expect(linearGradient.stops, const <double>[0, 0.32, 0.64, 1]);
     expect(linearGradient.colors, const <Color>[
       GenesisPalette.redesignInk80,
-      GenesisPalette.redesignInk42,
       GenesisPalette.redesignInk50,
-      GenesisPalette.redesignInk88,
+      GenesisPalette.redesignInk50,
+      GenesisPalette.redesignInk80,
     ]);
   });
 

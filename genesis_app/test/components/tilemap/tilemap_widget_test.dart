@@ -1948,7 +1948,10 @@ void main() {
       'world:w_1:branch_b',
     );
     await tester.tap(
-      find.byKey(const ValueKey<String>('tilemap-exit-location')),
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('tilemap-exit-location')),
+        matching: find.byType(InkWell),
+      ),
     );
     for (var frame = 0; frame < 5; frame += 1) {
       await tester.pump();
@@ -2425,8 +2428,13 @@ void main() {
         findsNothing,
       );
 
+      // 设计稿 9b:文案移到按钮外面,可点区域只剩 34x34 的按钮本身,
+      // 所以这里点按钮而不是整行(整行中心会落在不可点的文案上)。
       await tester.tap(
-        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('tilemap-exit-location')),
+          matching: find.byType(InkWell),
+        ),
       );
       await tester.pump();
 
@@ -3797,8 +3805,12 @@ void main() {
         findsOneWidget,
       );
 
+      // 设计稿 9b:返回上级的标签移到 34x34 按钮**外面**,只有按钮本身可点。
       await tester.tap(
-        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('tilemap-exit-location')),
+          matching: find.byType(InkWell),
+        ),
       );
       await tester.pump();
       await tester.pump();

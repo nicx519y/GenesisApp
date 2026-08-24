@@ -109,14 +109,7 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
           children: [
             widget.child,
             if (widget.bottomSpacing > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 24, bottom: 16),
-                child: Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: context.genesisColors.dividerMuted,
-                ),
-              ),
+              SizedBox(height: widget.bottomSpacing),
           ],
         ),
       ),
@@ -176,7 +169,7 @@ class _MyWorldsEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: textTheme.bodyMedium?.copyWith(
                 color: context.genesisColors.textMuted,
-                fontSize: 14,
+                fontSize: 13,
                 height: 1.25,
                 letterSpacing: 0,
               ),

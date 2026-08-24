@@ -20,7 +20,7 @@ void main() {
     final worldThumbnail = find
         .byKey(const ValueKey<String>('genesis-world-list-thumbnail-skeleton'))
         .first;
-    expect(tester.getSize(worldThumbnail), const Size(60, 60));
+    expect(tester.getSize(worldThumbnail), const Size(60, 78));
 
     await tester.pumpWidget(
       const MaterialApp(

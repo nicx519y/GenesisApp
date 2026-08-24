@@ -118,16 +118,16 @@ void main() {
       expect(style.color, isNull);
     }
     expect(GenesisTypography.pageTitle.fontSize, 24);
-    expect(GenesisTypography.pageTitle.fontWeight, FontWeight.w900);
+    expect(GenesisTypography.pageTitle.fontWeight, FontWeight.w800);
     expect(GenesisTypography.pageTitle.height, 1);
     expect(GenesisTypography.pageTitle.letterSpacing, -0.36);
     expect(GenesisTypography.displayTitle.fontSize, 24);
-    expect(GenesisTypography.displayTitle.fontWeight, FontWeight.w900);
+    expect(GenesisTypography.displayTitle.fontWeight, FontWeight.w800);
     expect(GenesisTypography.displayTitle.height, 1);
     expect(GenesisTypography.displayTitle.letterSpacing, isNull);
     expect(GenesisTypography.metricValue, GenesisTypography.displayTitle);
     expect(GenesisTypography.prominentMetricValue.fontSize, 30);
-    expect(GenesisTypography.prominentMetricValue.fontWeight, FontWeight.w900);
+    expect(GenesisTypography.prominentMetricValue.fontWeight, FontWeight.w800);
     expect(GenesisTypography.prominentMetricValue.height, 1);
     expect(GenesisTypography.navigationTitle.fontSize, 17);
     expect(GenesisTypography.navigationTitle.fontWeight, FontWeight.w800);
@@ -136,7 +136,7 @@ void main() {
     expect(GenesisTypography.immersiveTitle.fontWeight, FontWeight.w800);
     expect(GenesisTypography.immersiveTitle.height, 1.1);
     expect(GenesisTypography.contentTitle.fontSize, 17);
-    expect(GenesisTypography.contentTitle.fontWeight, FontWeight.w900);
+    expect(GenesisTypography.contentTitle.fontWeight, FontWeight.w800);
     expect(GenesisTypography.contentTitle.height, 1.15);
     expect(GenesisTypography.sectionTitle.fontSize, 15);
     expect(GenesisTypography.sectionTitle.fontWeight, FontWeight.w800);
@@ -169,15 +169,13 @@ void main() {
     const searchColor = Color(0xFF123456);
     const titleColor = Color(0xFF654321);
     const primaryColor = Color(0xFF246824);
-    const selectedColor = Color(0xFF135790);
-    const unselectedColor = Color(0xFF975310);
+    const secondaryTextColor = Color(0xFF975310);
     final semanticColors = GenesisSemanticColors.worldoLight().copyWith(
       inputBackground: searchColor,
       textPrimary: titleColor,
+      textSecondary: secondaryTextColor,
       danger: Colors.orange,
       primary: primaryColor,
-      navigationSelected: selectedColor,
-      navigationUnselected: unselectedColor,
     );
 
     await tester.pumpWidget(
@@ -247,8 +245,9 @@ void main() {
     expect(prominentSurface.color, Colors.orange);
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(tabBar.labelColor, selectedColor);
-    expect(tabBar.unselectedLabelColor, unselectedColor);
+    // Tab labels sit on the text tiers, not the navigation tiers.
+    expect(tabBar.labelColor, titleColor);
+    expect(tabBar.unselectedLabelColor, secondaryTextColor);
     expect(
       (tabBar.indicator! as GenesisFixedUnderlineIndicator).color,
       Colors.orange,
@@ -692,11 +691,11 @@ void main() {
       tester
           .widget<Material>(find.byKey(const ValueKey('card-select-surface')))
           .color,
-      GenesisPalette.redesignWhite10,
+      GenesisPalette.white.withValues(alpha: 0.16),
     );
     final label = tester.widget<Text>(find.text('Select'));
-    expect(label.style?.fontSize, 12);
-    expect(label.style?.fontWeight, FontWeight.w700);
+    expect(label.style?.fontSize, 11);
+    expect(label.style?.fontWeight, FontWeight.w800);
 
     await tester.tap(find.byKey(const ValueKey('card-edit-action')));
     await tester.tap(find.byKey(const ValueKey('card-select-action')));
@@ -880,7 +879,7 @@ void main() {
       tester.getSize(
         find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
       ),
-      const Size(700, 186),
+      const Size(250, 186),
     );
     expect(find.text('Log out of your account?'), findsOneWidget);
     final dialogRect = tester.getRect(
@@ -905,12 +904,12 @@ void main() {
           dialogRect.height,
       closeTo(0.86, 0.02),
     );
-    expect(title.style?.fontSize, 15);
-    expect(title.style?.fontWeight, FontWeight.w600);
+    expect(title.style?.fontSize, 17);
+    expect(title.style?.fontWeight, FontWeight.w800);
     expect(action.style?.fontSize, 15);
-    expect(action.style?.fontWeight, FontWeight.w600);
+    expect(action.style?.fontWeight, FontWeight.w800);
     expect(action.style?.color, GenesisPalette.redesignAccent);
-    expect(cancel.style?.fontSize, 15);
+    expect(cancel.style?.fontSize, 13);
     expect(cancel.style?.fontWeight, FontWeight.w400);
 
     await tester.tap(find.text('Cancel'));
@@ -919,7 +918,7 @@ void main() {
     expect(result, isNull);
   });
 
-  testWidgets('GenesisActionBox uses 70 percent width on compact screens', (
+  testWidgets('GenesisActionBox keeps its fixed width on compact screens', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -962,7 +961,7 @@ void main() {
             find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
           )
           .width,
-      224,
+      250,
     );
   });
 
@@ -1007,7 +1006,7 @@ void main() {
       tester.getSize(
         find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
       ),
-      const Size(700, 134),
+      const Size(250, 134),
     );
 
     await tester.tap(find.text('OK'));
@@ -1082,15 +1081,15 @@ void main() {
             find.byKey(const ValueKey('genesis-action-box-detached-cancel')),
           )
           .width,
-      800,
+      250,
     );
     expect(find.text('Save the draft before leaving?'), findsOneWidget);
     final firstAction = tester.widget<Text>(find.text('Save'));
     final secondAction = tester.widget<Text>(find.text('Discard'));
     expect(firstAction.style?.fontSize, 15);
-    expect(firstAction.style?.fontWeight, FontWeight.w600);
+    expect(firstAction.style?.fontWeight, FontWeight.w800);
     expect(secondAction.style?.fontSize, 15);
-    expect(secondAction.style?.fontWeight, FontWeight.w600);
+    expect(secondAction.style?.fontWeight, FontWeight.w800);
 
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -1194,28 +1193,28 @@ void main() {
       tester.getSize(
         find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
       ),
-      const Size(700, 140),
+      const Size(250, 140),
     );
     expect(
       tester.getSize(
         find.byKey(const ValueKey('genesis-action-box-title-row')),
       ),
-      const Size(700, 48),
+      const Size(250, 48),
     );
     expect(
       tester.getSize(
         find.byKey(const ValueKey('genesis-action-box-action-row')),
       ),
-      const Size(700, 44),
+      const Size(250, 44),
     );
     expect(
       tester.getSize(
         find.byKey(const ValueKey('genesis-action-box-cancel-row')),
       ),
-      const Size(700, 46),
+      const Size(250, 46),
     );
     expect(tester.getSize(find.text('Compact title')).height, lessThan(48));
-    expect(tester.widget<Text>(find.text('Compact title')).style?.height, 1.4);
+    expect(tester.widget<Text>(find.text('Compact title')).style?.height, 1);
     expect(tester.getSize(find.text('Confirm')).height, lessThan(44));
   });
 
@@ -1257,7 +1256,7 @@ void main() {
         button.style?.shape?.resolve(<WidgetState>{}) as RoundedRectangleBorder;
     expect(shape.borderRadius, GenesisRadii.button);
     final textStyle = button.style?.textStyle?.resolve(<WidgetState>{});
-    expect(textStyle?.fontSize, 16);
+    expect(textStyle?.fontSize, 15);
     expect(textStyle?.fontWeight, FontWeight.w600);
   });
 
@@ -1365,7 +1364,9 @@ void main() {
     );
     expect(navSizedBoxes.any((box) => box.height == 49), isTrue);
 
-    final decoration = tester
+    // The bar reads as part of the page: paper surface, no rule and no lift
+    // above it.
+    final navDecorations = tester
         .widgetList<DecoratedBox>(
           find.descendant(
             of: find.byType(GenesisBottomNavigation),
@@ -1374,10 +1375,17 @@ void main() {
         )
         .map((box) => box.decoration)
         .whereType<BoxDecoration>()
-        .singleWhere((decoration) => decoration.boxShadow != null);
-    expect(decoration.color, GenesisPalette.redesignPaper);
-    expect(decoration.boxShadow, isNotNull);
-    expect(decoration.boxShadow!.single.offset.dy, lessThan(0));
+        .toList();
+    expect(navDecorations, isNotEmpty);
+    expect(
+      navDecorations.first.color,
+      GenesisSemanticColors.worldoLight().navigationBackground,
+    );
+    expect(navDecorations.first.color, GenesisPalette.redesignPaper);
+    expect(
+      navDecorations.where((decoration) => decoration.boxShadow != null),
+      isEmpty,
+    );
 
     final badgePosition = tester.widget<Positioned>(
       find.ancestor(
@@ -1713,7 +1721,10 @@ void main() {
     expect(find.text('Latest'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(tabBar.unselectedLabelColor, GenesisPalette.redesignTextSecondary);
+    expect(
+      tabBar.unselectedLabelColor,
+      GenesisSemanticColors.worldoLight().textSecondary,
+    );
   });
 
   testWidgets('GenesisTabBar supports an explicit controller', (tester) async {

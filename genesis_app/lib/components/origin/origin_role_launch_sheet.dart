@@ -568,7 +568,7 @@ class _SegmentButton extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 height: 1,
                 fontWeight: FontWeight.w600,
                 color: selected
@@ -604,7 +604,7 @@ class _PresetRoleGrid extends StatelessWidget {
         child: Text(
           'No preset role',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: context.genesisColors.textSubtle,
           ),
@@ -702,7 +702,7 @@ class _PresetRoleTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 height: 1.1,
                 fontWeight: FontWeight.w400,
                 color: context.genesisColors.textPrimary,
@@ -736,7 +736,7 @@ class _LaunchedPresetRoleGrid extends StatelessWidget {
         child: Text(
           'No launched world',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: context.genesisColors.textSubtle,
           ),
@@ -819,7 +819,7 @@ class _LaunchedPresetRoleTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, height: 1.1),
+              style: TextStyle(fontSize: 13, height: 1.1),
             ),
             const SizedBox(height: 2),
             Text(
@@ -912,7 +912,7 @@ class OriginCustomRoleForm extends StatelessWidget {
                   child: Text(
                     fillingProfile ? 'Filling...' : 'Fill from my profile',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       height: 1.1,
                       fontWeight: FontWeight.w600,
                       color: context.genesisColors.primary,

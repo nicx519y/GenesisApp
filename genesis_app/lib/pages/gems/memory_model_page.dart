@@ -17,7 +17,8 @@ typedef GemModelCatalogLoader =
     Future<GemModelCatalog> Function(String worldId);
 typedef GemModelSelectionHandler =
     Future<GemModelSelection> Function(String worldId, String modelCode);
-typedef SelectedModelCodeCacheWriter = Future<void> Function(String modelCode);
+typedef SelectedModelCacheWriter =
+    Future<void> Function(String modelCode, String modelTitle);
 
 class MemoryModelPage extends StatefulWidget {
   const MemoryModelPage({
@@ -25,13 +26,13 @@ class MemoryModelPage extends StatefulWidget {
     required this.worldId,
     this.catalogLoader,
     this.selectionHandler,
-    this.selectedModelCodeCacheWriter,
+    this.selectedModelCacheWriter,
   });
 
   final String worldId;
   final GemModelCatalogLoader? catalogLoader;
   final GemModelSelectionHandler? selectionHandler;
-  final SelectedModelCodeCacheWriter? selectedModelCodeCacheWriter;
+  final SelectedModelCacheWriter? selectedModelCacheWriter;
 
   @override
   State<MemoryModelPage> createState() => _MemoryModelPageState();
@@ -89,18 +90,29 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     ).api.v1.gem.selectModel(worldId: widget.worldId, modelCode: modelCode);
   }
 
-  SelectedModelCodeCacheWriter? _resolveSelectedModelCodeCacheWriter() {
-    final writer = widget.selectedModelCodeCacheWriter;
+  SelectedModelCacheWriter? _resolveSelectedModelCacheWriter() {
+    final writer = widget.selectedModelCacheWriter;
     if (writer != null) return writer;
     if (widget.selectionHandler != null) return null;
     final sessionStore = AppServicesScope.read(context).sessionStore;
-    return (modelCode) async {
+    return (modelCode, modelTitle) async {
       final current = await sessionStore.readUserInfo();
-      await sessionStore.saveUserInfo({
-        if (current != null) ...current,
-        'selected_model_code': modelCode,
-      });
+      await sessionStore.saveUserInfo(
+        userInfoWithSelectedGemModel(
+          current,
+          selectedModelCode: modelCode,
+          titlesByCode: modelTitle.trim().isEmpty
+              ? const <String, String>{}
+              : <String, String>{modelCode: modelTitle},
+        ),
+      );
     };
+  }
+
+  String _titleForModelCode(String modelCode) {
+    final code = modelCode.trim();
+    if (code.isEmpty) return '';
+    return _catalog?.titlesByCode()[code] ?? '';
   }
 
   Future<void> _refresh({bool preserveContent = false}) async {
@@ -145,7 +157,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         object2: modelCode,
       );
     }
-    final cacheWriter = _resolveSelectedModelCodeCacheWriter();
+    final cacheWriter = _resolveSelectedModelCacheWriter();
     setState(() => _saving = true);
     try {
       final result = await _saveSelection(modelCode);
@@ -154,7 +166,10 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
           ? modelCode
           : responseModelCode;
       try {
-        await cacheWriter?.call(selectedModelCode);
+        await cacheWriter?.call(
+          selectedModelCode,
+          _titleForModelCode(selectedModelCode),
+        );
       } catch (error) {
         debugPrint('[GemModel] cache selected model failed: $error');
       }
@@ -219,7 +234,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         message: 'Load failed',
         actionSpacing: 14,
         textStyle: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           color: context.genesisColors.textSubtle,
         ),
         onAction: () => unawaited(_refresh()),
@@ -236,7 +251,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
               child: Text(
                 'No models available',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   color: context.genesisColors.textPlaceholder,
                 ),
               ),
@@ -356,7 +371,7 @@ class _ModelBackChevronPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
+      ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final path = Path()
@@ -395,14 +410,16 @@ class _ModelSaveAction extends StatelessWidget {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: context.genesisGemColors.accent,
         disabledBackgroundColor: context.genesisGemColors.accent,
-        overlayColor: context.genesisColors.foregroundStrong.withValues(alpha: 0.08),
-        foregroundColor: context.genesisColors.onPrimary,
-        disabledForegroundColor: context.genesisColors.onPrimary,
+        overlayColor: context.genesisColors.foregroundStrong.withValues(
+          alpha: 0.08,
+        ),
+        foregroundColor: context.genesisColors.textHighEmphasis,
+        disabledForegroundColor: context.genesisColors.textHighEmphasis,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
         textStyle: const TextStyle(
           fontSize: 11,
           height: 1,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
         ),
       ),
       child: saving
@@ -443,9 +460,9 @@ class _GemModelGroupSection extends StatelessWidget {
           group.groupTitle,
           style: TextStyle(
             fontSize: 9.5,
-            height: 12 / 9.5,
-            fontWeight: FontWeight.w500,
-            color: context.genesisColors.textTertiary,
+            height: 1,
+            fontWeight: FontWeight.w600,
+            color: context.genesisColors.textMetadata,
           ),
         ),
         const SizedBox(height: 10),
@@ -554,11 +571,11 @@ class _GemModelTileContent extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: context.genesisGemColors.success,
+                  color: context.genesisGemColors.reward,
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 5),
+              const SizedBox(width: 8),
             ],
             Flexible(
               child: Text(
@@ -586,9 +603,9 @@ class _GemModelTileContent extends StatelessWidget {
                 TextSpan(
                   text: '${model.estimatedNextMessageGems} gems',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     height: 1,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: context.genesisGemColors.reward,
                   ),
                 ),
@@ -599,7 +616,7 @@ class _GemModelTileContent extends StatelessWidget {
               fontSize: 11,
               height: 1,
               fontWeight: FontWeight.w400,
-              color: context.genesisColors.textSubtle,
+              color: context.genesisColors.textMetadata,
             ),
           ),
         ),
@@ -608,9 +625,9 @@ class _GemModelTileContent extends StatelessWidget {
           model.description,
           style: TextStyle(
             fontSize: 11,
-            height: 1.5,
+            height: 1.45,
             fontWeight: FontWeight.w400,
-            color: context.genesisColors.foregroundStrong.withValues(alpha: 0.62),
+            color: context.genesisColors.textSecondary,
           ),
         ),
       ],
@@ -645,12 +662,12 @@ class _GemModelTag extends StatelessWidget {
       child: Text(
         displayLabel,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 9.5,
           height: 1,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           color: hot
               ? context.genesisGemColors.reward
-              : context.genesisColors.onPrimary,
+              : context.genesisColors.textHighEmphasis,
         ),
       ),
     );
@@ -672,7 +689,7 @@ class _GemModelSelectionIndicator extends StatelessWidget {
         border: Border.all(
           color: selected
               ? context.genesisGemColors.accent
-              : context.genesisGemColors.selectionDisabled,
+              : context.genesisColors.foregroundStrong.withValues(alpha: 0.28),
           width: selected ? 2 : 1.5,
         ),
       ),

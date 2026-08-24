@@ -14,7 +14,7 @@ void main() {
       for (final file in Directory(
         root,
       ).listSync(recursive: true).whereType<File>()) {
-        final path = file.path;
+        final path = _posixPath(file.path);
         if (!path.endsWith('.dart') || _allowsPhysicalColors(path)) continue;
         final source = file.readAsStringSync().replaceAll(
           'Colors.transparent',
@@ -44,7 +44,7 @@ void main() {
     ).listSync(recursive: true).whereType<File>()) {
       if (!file.path.endsWith('.dart')) continue;
       if (forbiddenImport.hasMatch(file.readAsStringSync())) {
-        violations.add(file.path);
+        violations.add(_posixPath(file.path));
       }
     }
 
@@ -62,7 +62,7 @@ void main() {
     for (final file in Directory(
       'lib/pages',
     ).listSync(recursive: true).whereType<File>()) {
-      final path = file.path;
+      final path = _posixPath(file.path);
       if (!path.endsWith('.dart') || path.contains('/developer_')) continue;
       final source = file.readAsStringSync();
       final lines = source.split('\n');
@@ -92,7 +92,9 @@ void main() {
       ).listSync(recursive: true).whereType<File>()) {
         if (!file.path.endsWith('.dart')) continue;
         final source = file.readAsStringSync();
-        if (source.contains('isWorldoRedesign')) violations.add(file.path);
+        if (source.contains('isWorldoRedesign')) {
+          violations.add(_posixPath(file.path));
+        }
       }
     }
 
@@ -115,7 +117,7 @@ void main() {
       final source = file.readAsStringSync();
       if (source.contains('GenesisTheme.light()') ||
           source.contains('GenesisTheme.worldoRedesign()')) {
-        violations.add(file.path);
+        violations.add(_posixPath(file.path));
       }
     }
 
@@ -128,6 +130,10 @@ void main() {
     );
   });
 }
+
+/// `Directory.listSync` yields platform separators, so every path is
+/// normalised before it is matched against the posix-style allowlist.
+String _posixPath(String path) => path.replaceAll('\\', '/');
 
 final RegExp _physicalColorPattern = RegExp(
   r'Color\s*\(\s*0x[0-9A-Fa-f]{6,8}\s*\)|\bColors\.[A-Za-z0-9_]+|GenesisColors\.|GenesisPalette\.',

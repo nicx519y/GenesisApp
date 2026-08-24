@@ -440,17 +440,29 @@ extension _WorldPageLocationChat on _WorldPageState {
   _locationChatDescriptorsForWorld(WorldDetail world) {
     final nodes = world.processedLocationTree.flattened;
     if (nodes.isNotEmpty) {
-      return {
+      final namesById = <String, String>{
         for (final node in nodes)
           if (node.id.trim().isNotEmpty)
-            node.id.trim(): WorldLocationChatPanelDescriptor.fromNode(node)
-                .copyWith(
-                  recentChatLocationPathIds: _locationPathIdsForLocationId(
-                    node.id,
-                    world.processedLocationTree,
-                  ),
-                ),
+            node.id.trim(): worldMapString(node.value, const [
+              'location_name',
+              'name',
+            ], fallback: node.id.trim()),
       };
+      final descriptors = <String, WorldLocationChatPanelDescriptor>{};
+      for (final node in nodes) {
+        final nodeId = node.id.trim();
+        if (nodeId.isEmpty) continue;
+        final pathIds = _locationPathIdsForLocationId(
+          node.id,
+          world.processedLocationTree,
+        );
+        descriptors[nodeId] = WorldLocationChatPanelDescriptor.fromNode(node)
+            .copyWith(
+              recentChatLocationPathIds: pathIds,
+              parentLocationName: _parentNameFromPath(pathIds, namesById),
+            );
+      }
+      return descriptors;
     }
 
     final locationIdsById = <String, Map<String, dynamic>>{
@@ -462,22 +474,41 @@ extension _WorldPageLocationChat on _WorldPageState {
         .map((location) => worldMapString(location, const ['location_pid']))
         .where((locationId) => locationId.isNotEmpty)
         .toSet();
-    return {
-      for (final location in world.locations)
-        if (worldMapString(location, const ['location_id', 'id']).isNotEmpty)
-          worldMapString(location, const ['location_id', 'id']):
-              WorldLocationChatPanelDescriptor.fromLocation(
-                location,
-                isLeafLocation: !parentIds.contains(
-                  worldMapString(location, const ['location_id', 'id']),
-                ),
-              ).copyWith(
-                recentChatLocationPathIds: _locationPathIdsFromLocations(
-                  worldMapString(location, const ['location_id', 'id']),
-                  locationIdsById,
-                ),
-              ),
+    final namesById = <String, String>{
+      for (final entry in locationIdsById.entries)
+        entry.key: worldMapString(entry.value, const [
+          'location_name',
+          'name',
+        ], fallback: entry.key),
     };
+    final descriptors = <String, WorldLocationChatPanelDescriptor>{};
+    for (final location in world.locations) {
+      final locationId = worldMapString(location, const ['location_id', 'id']);
+      if (locationId.isEmpty) continue;
+      final pathIds = _locationPathIdsFromLocations(
+        locationId,
+        locationIdsById,
+      );
+      descriptors[locationId] =
+          WorldLocationChatPanelDescriptor.fromLocation(
+            location,
+            isLeafLocation: !parentIds.contains(locationId),
+          ).copyWith(
+            recentChatLocationPathIds: pathIds,
+            parentLocationName: _parentNameFromPath(pathIds, namesById),
+          );
+    }
+    return descriptors;
+  }
+
+  /// The path runs root -> leaf, so the entry before the last one is the
+  /// location the map is showing.
+  static String _parentNameFromPath(
+    List<String> pathIds,
+    Map<String, String> namesById,
+  ) {
+    if (pathIds.length < 2) return '';
+    return namesById[pathIds[pathIds.length - 2]] ?? '';
   }
 
   List<String> _locationPathIdsFromLocations(

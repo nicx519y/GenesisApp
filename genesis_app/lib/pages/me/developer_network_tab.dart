@@ -211,7 +211,7 @@ class _DeveloperNetworkTabState extends State<_DeveloperNetworkTab> {
           text,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             height: 1.4,
             color: context.genesisColors.textFaint,
           ),
@@ -295,8 +295,8 @@ class _DeveloperNetworkRecordCard extends StatelessWidget {
                       Text(
                         record.method,
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(width: 8),

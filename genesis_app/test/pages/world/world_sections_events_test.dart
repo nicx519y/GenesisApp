@@ -239,14 +239,14 @@ void main() {
             .widget<Text>(find.text('A signal reaches the harbor.'))
             .style
             ?.color,
-        GenesisPalette.redesignInk,
+        GenesisPalette.redesignInk80,
       );
       expect(
         tester
             .widget<Text>(find.text('The harbor lights answer in sequence.'))
             .style
             ?.color,
-        GenesisPalette.redesignInk,
+        GenesisPalette.redesignInk80,
       );
       expect(find.text('Follow the light toward the gate.'), findsOneWidget);
       expect(
@@ -341,7 +341,7 @@ void main() {
     expect(find.text('Iris'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Day 4, 20:25')).style?.color,
-      GenesisPalette.redesignInk60,
+      GenesisPalette.redesignInk80,
     );
     expect(
       tester.widget<Text>(find.text(aiRoleName)).style?.color,

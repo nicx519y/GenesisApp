@@ -41,7 +41,7 @@ class _OpeningLocationPickerSheetState
                       'No saved locations',
                       style: TextStyle(
                         color: context.genesisCreateColors.muted,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   )
@@ -137,7 +137,7 @@ class _OpeningLocationOptionRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: context.genesisCreateColors.text,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),

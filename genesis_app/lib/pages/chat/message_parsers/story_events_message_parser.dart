@@ -70,6 +70,7 @@ class StoryEventsMessageParser implements LocationChatMessageParser {
           paragraph,
           roleName: context.roleName,
           roleIsAi: context.roleIsAi,
+          roleAvatarUrl: context.roleAvatarUrl,
           locationId: payloadLocationId,
           locationName: resolvedLocationName,
         ),
@@ -88,6 +89,7 @@ ChatStoryEventParagraphVm parseLocationChatStoryEventParagraph(
   ChatroomStoryEventParagraph paragraph, {
   required String Function(String id) roleName,
   required bool? Function(String id) roleIsAi,
+  String Function(String id)? roleAvatarUrl,
   String locationId = '',
   String locationName = '',
 }) {
@@ -108,6 +110,7 @@ ChatStoryEventParagraphVm parseLocationChatStoryEventParagraph(
           roleId: visibleId.trim(),
           name: name,
           isAi: roleIsAi(visibleId) ?? false,
+          avatarUrl: roleAvatarUrl?.call(visibleId) ?? '',
         ),
       );
     }

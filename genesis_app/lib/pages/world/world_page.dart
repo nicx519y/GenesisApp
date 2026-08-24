@@ -684,7 +684,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               panelTopRadius: 24,
               panelTopOverlap: 8,
               panelTopBandHeight: worldPanelHandleBandHeight,
-              panelTopChild: const Center(child: WorldDetailsDragHandle()),
+              panelTopChild: const WorldDetailsDragHandleBand(),
               scrollPhysics: const NeverScrollableScrollPhysics(),
               persistentTopOverlay: _buildPersistentMapOverlay(
                 topPadding,
@@ -734,7 +734,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                     services: AppServicesScope.read(context),
                     initialWorld: world,
                     worldListenable: _sectionsWorldNotifier,
-                    newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
                     eventsCache: _sectionsEventsCache,
                     currentUid: _currentUid,
                     recentChatLocationIds: _recentChatLocationIds,

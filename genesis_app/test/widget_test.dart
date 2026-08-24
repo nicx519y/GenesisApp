@@ -2572,8 +2572,6 @@ void main() {
     },
   );
 
-
-
   testWidgets(
     'Home first My Worlds and Popular pageviews wait for each first page',
     (WidgetTester tester) async {
@@ -2630,8 +2628,7 @@ void main() {
 
       expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
       expect(_pageViewCount(telemetry, 'home_popular'), 0);
-
-},
+    },
   );
 
   testWidgets(
@@ -2682,12 +2679,12 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('bottom-nav-Home')));
       await tester.pump();
-      await tester.tap(find.text('#Worldo'));
+      // 底部导航第 2 项的文案在 8-22 改版后是 'Worldos'(旧文案 '#Worldo')。
+      await tester.tap(find.byKey(const ValueKey('bottom-nav-Worldos')));
 
       expect(_pageViewCount(telemetry, 'worldo_list_tab'), 2);
     },
   );
-
 
   testWidgets(
     'AppShell owns initial and background-to-foreground billing recovery',
@@ -2952,13 +2949,12 @@ void main() {
 
     // 'Home' appears twice now: the 9l page title and the bottom nav label.
     expect(find.text('Home'), findsNWidgets(2));
-    expect(find.text('Worlds'), findsOneWidget);
+    expect(find.text('Worldos'), findsOneWidget);
     expect(find.text('Create'), findsNothing);
     expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
   });
-
 
   testWidgets('tap header search bar opens search page', (
     WidgetTester tester,
@@ -3057,7 +3053,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Explore').first);
+    // 8-22 redesign: the feed search hint is no longer 'Explore'; find it by key
+    // so future copy changes do not break this test.
+    await tester.tap(find.byKey(const ValueKey<String>('origin-feed-search')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'reborn');
@@ -3079,7 +3077,7 @@ void main() {
     expect(find.text('Worldos'), findsOneWidget);
     expect(find.text('#Search Origin'), findsOneWidget);
     final title = tester.widget<Text>(find.text('#Search Origin'));
-    expect(title.style?.fontSize, 14);
+    expect(title.style?.fontSize, 13);
     expect(title.style?.fontWeight, FontWeight.w600);
     expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Search World'), findsOneWidget);
@@ -3107,7 +3105,7 @@ void main() {
     final subtitle = tester.widget<Text>(
       find.textContaining('OID: o_search_1  Originator: Origin Owner'),
     );
-    expect(subtitle.style?.fontSize, 12);
+    expect(subtitle.style?.fontSize, 13);
     expect(subtitle.style?.fontWeight, FontWeight.w400);
     expect(find.textContaining('Latest Version: V3'), findsOneWidget);
     expect(find.text('WID: w_search_1  Owner: World Owner'), findsOneWidget);
@@ -3144,7 +3142,9 @@ void main() {
     expect(find.textContaining('重生'), findsWidgets);
 
     await tester.enterText(find.byType(TextField), 'zz');
-    await tester.pump(const Duration(milliseconds: 1999));
+    // SearchPage debounces queries by 600ms; the previous results must stay on
+    // screen for the whole debounce window.
+    await tester.pump(const Duration(milliseconds: 599));
     expect(find.textContaining('重生'), findsWidgets);
 
     await tester.pump(const Duration(milliseconds: 1));
@@ -3388,18 +3388,30 @@ void main() {
       find.text('First direct message preview'),
     );
     expect(lastMessage.style?.fontWeight, FontWeight.w400);
-    expect(lastMessage.style?.color, const Color(0xFF666666));
+    expect(lastMessage.style?.color, const Color(0x80131215));
     final timestamp = tester.widget<Text>(
       find.text(formatGenesisTimestamp(transport.lastMessageAt)),
     );
-    expect(timestamp.style?.fontWeight, FontWeight.w400);
-    expect(timestamp.style?.color, const Color(0xFF888888));
+    expect(timestamp.style?.fontWeight, FontWeight.w600);
+    expect(timestamp.style?.color, const Color(0x80131215));
     final dmAvatar = find.byKey(const ValueKey('dm-avatar-dm_test_001'));
     final dmName = find.text('Penny Direct');
     expect(dmAvatar, findsOneWidget);
-    expect(tester.getSize(dmAvatar), const Size(48, 48));
-    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 8);
-    expect(tester.getTopLeft(dmAvatar).dy, tester.getTopLeft(dmName).dy);
+    // 8-22 改版:会话头像 48->44,圆角 8->14
+    // (见 messages_page.dart `_ConversationTile._avatarSize` /
+    // `_avatarBorderRadius`,私有类无法在测试里直接引用)。
+    expect(tester.getSize(dmAvatar), const Size(44, 44));
+    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 14);
+    // 8-22 改版:会话行改成 CrossAxisAlignment.center,头像不再与标题顶对齐,
+    // 而是与「标题+预览」这一整块文字垂直居中对齐。
+    final dmPreview = find.text('First direct message preview');
+    expect(
+      tester.getCenter(dmAvatar).dy,
+      moreOrLessEquals(
+        (tester.getTopLeft(dmName).dy + tester.getBottomLeft(dmPreview).dy) / 2,
+        epsilon: 0.5,
+      ),
+    );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('dm-avatar-dm_test_001-unread-badge')),
@@ -3617,8 +3629,8 @@ void main() {
     expect(textCenter.dy, closeTo(profileEmptyCenterY, 0.1));
 
     final text = tester.widget<Text>(emptyText);
-    expect(text.style?.fontSize, 14);
-    expect(text.style?.color, const Color(0xFF8A8A8A));
+    expect(text.style?.fontSize, 13);
+    expect(text.style?.color, const Color(0x80131215));
     expect(text.style?.fontWeight, FontWeight.w400);
   });
 
@@ -3807,7 +3819,7 @@ void main() {
     );
     expect(messagesTitle.style?.fontSize, 24);
     expect(messagesTitle.style?.height, 1);
-    expect(messagesTitle.style?.fontWeight, FontWeight.w900);
+    expect(messagesTitle.style?.fontWeight, FontWeight.w800);
     expect(messagesTitle.style?.letterSpacing, -0.36);
     expect(messagesTitle.style?.color, const Color(0xFFF4F3F6));
 
@@ -3862,7 +3874,7 @@ void main() {
     // 9j: 9.5/500 on the 45% tier.
     expect(privateChatsStyle?.fontSize, 9.5);
     expect(privateChatsStyle?.height, 1);
-    expect(privateChatsStyle?.fontWeight, FontWeight.w500);
+    expect(privateChatsStyle?.fontWeight, FontWeight.w600);
     expect(privateChatsStyle?.color, const Color(0x73FFFFFF));
 
     final dmAvatar = find.byKey(const ValueKey('dm-avatar-DMC_MOCK_001'));
@@ -3909,7 +3921,9 @@ void main() {
 
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.settings));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('me-header-settings-icon')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Log out'));
     await tester.pumpAndSettle();
@@ -4631,19 +4645,19 @@ void main() {
     expect(find.textContaining('#O_LIKE'), findsNothing);
 
     final title = tester.widget<Text>(find.text('Alex comment your worldo'));
-    expect(title.style?.fontSize, 14);
+    expect(title.style?.fontSize, 13);
     expect(title.style?.fontWeight, FontWeight.w600);
-    expect(title.style?.color, const Color(0xFF111111));
+    expect(title.style?.color, const Color(0xFF131215));
 
     final body = tester.widget<Text>(find.text('Comment text'));
-    expect(body.style?.fontSize, 12);
+    expect(body.style?.fontSize, 13);
     expect(body.style?.fontWeight, FontWeight.w400);
-    expect(body.style?.color, const Color(0xFF111111));
+    expect(body.style?.color, const Color(0xFF131215));
 
     final meta = tester.widget<Text>(find.textContaining('#Comment Origin'));
-    expect(meta.style?.fontSize, 12);
+    expect(meta.style?.fontSize, 11);
     expect(meta.style?.fontWeight, FontWeight.w400);
-    expect(meta.style?.color, const Color(0xFF8A8D93));
+    expect(meta.style?.color, const Color(0x6B131215));
 
     final itemRect = tester.getRect(
       find.byKey(const ValueKey('ntf_comment_001')),
@@ -4675,7 +4689,15 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
-    for (var i = 0; i < 20 && find.byKey(const ValueKey<String>('home-search-square')).evaluate().isEmpty; i += 1) {
+    for (
+      var i = 0;
+      i < 20 &&
+          find
+              .byKey(const ValueKey<String>('home-search-square'))
+              .evaluate()
+              .isEmpty;
+      i += 1
+    ) {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
@@ -4684,11 +4706,11 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Worlds'));
+    await tester.tap(find.text('Worldos'));
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Worlds'), findsOneWidget);
+    expect(find.text('Worldos'), findsOneWidget);
     expect(find.text('Worlds, tags, characters'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
     final tabsDividerFinder = find.byKey(
@@ -4933,7 +4955,6 @@ void main() {
     services.gemWallet.state.removeListener(listener);
   });
 
-
   testWidgets(
     'logged in cold start without My Worlds cache resolves Home from API',
     (WidgetTester tester) async {
@@ -5006,7 +5027,6 @@ void main() {
       expect(worldRequest.uri.queryParameters['rn'], '10');
     },
   );
-
 
   testWidgets(
     'logged in cold start with My Worlds cache opens Home My Worlds',
@@ -5138,7 +5158,11 @@ void main() {
           services: await _testServices(
             transport: transport,
             useMock: false,
-            initialUid: null,
+            // Home's own-worlds feed only requests once a local login session
+            // exists (uid + auth token), so the shell needs a signed-in
+            // session for the Home tab to fetch at all.
+            initialUid: 'u_test',
+            initialAuthToken: 'backend-token',
           ),
           child: const AppShellPage(initialIndex: 1),
         ),
@@ -5154,7 +5178,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
-    await tester.tap(find.text('Worlds'));
+    await tester.tap(find.text('Worldos'));
     await tester.pumpAndSettle();
 
     originRequests = transport.requestsFor('/api/v1/origin/list');
@@ -5183,7 +5207,7 @@ void main() {
     final searchField = tester.widget<GenesisSearchField>(
       find.byKey(const ValueKey<String>('origin-feed-search')),
     );
-    expect(searchField.height, 44);
+    expect(searchField.height, 38);
     expect(searchField.padding, const EdgeInsets.symmetric(horizontal: 14));
     expect(searchField.borderRadius, BorderRadius.circular(14));
     expect(searchField.iconAsset, searchIconAsset);
@@ -5192,17 +5216,19 @@ void main() {
       tester
           .element(find.byKey(const ValueKey<String>('origin-feed-search')))
           .genesisColors
-          .primary,
+          .foregroundStrong,
     );
     expect(searchField.iconSize, genesisSearchIconSize);
     expect(searchField.iconGap, 9);
-    expect(searchField.borderWidth, 1.5);
+    // No rule around the field any more.
+    expect(searchField.borderColor, isNull);
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
     expect(tabBar.labelPadding, const EdgeInsets.only(right: 18));
-    expect(tabBar.labelStyle?.fontSize, 15);
-    expect(tabBar.labelStyle?.fontWeight, FontWeight.w700);
-    expect(tabBar.unselectedLabelStyle?.fontWeight, FontWeight.w500);
+    expect(tabBar.labelStyle?.fontSize, 14);
+    expect(tabBar.labelStyle?.fontWeight, FontWeight.w600);
+    expect(tabBar.unselectedLabelStyle?.fontSize, 14);
+    expect(tabBar.unselectedLabelStyle?.fontWeight, FontWeight.w400);
     expect(tester.getSize(find.widgetWithText(Tab, 'For you')).height, 28);
 
     var originRequests = transport.requestsFor('/api/v1/origin/list');
@@ -5541,8 +5567,7 @@ void main() {
       expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
       expect(find.text('World tick narrator 1'), findsOneWidget);
       expect(find.text('Legacy world progress summary 1'), findsNothing);
-
-},
+    },
   );
 
   testWidgets('Home My Worlds animates an externally deleted world', (
@@ -5589,7 +5614,6 @@ void main() {
     expect(worldItem, findsNothing);
     worldDeletionEvents.value = null;
   });
-
 
   testWidgets(
     'AppShell iOS starts the independent ATT prompt after the first frame',
@@ -8140,7 +8164,7 @@ void main() {
     );
     expect(identityText.maxLines, 1);
     expect(identityText.overflow, TextOverflow.ellipsis);
-    expect(identityText.style?.fontSize, 10);
+    expect(identityText.style?.fontSize, 9.5);
     expect(
       find.descendant(of: portrait, matching: find.text('Knows the path')),
       findsOneWidget,
@@ -8204,8 +8228,8 @@ void main() {
         matching: find.text('Select'),
       ),
     );
-    expect(selectLabel.style?.fontSize, 12);
-    expect(selectLabel.style?.fontWeight, FontWeight.w700);
+    expect(selectLabel.style?.fontSize, 11);
+    expect(selectLabel.style?.fontWeight, FontWeight.w800);
     expect(
       find.descendant(of: roleToggle, matching: find.byType(InkWell)),
       findsNothing,
@@ -8239,7 +8263,7 @@ void main() {
     final detailName = tester.widget<Text>(
       find.descendant(of: details, matching: find.text('Detail Character')),
     );
-    expect(detailName.style?.fontSize, 14);
+    expect(detailName.style?.fontSize, 13);
     expect(detailName.textAlign, TextAlign.start);
     expect(
       find.descendant(of: details, matching: find.text('Identity')),
@@ -8407,11 +8431,8 @@ void main() {
     final characterColors = tester.element(characterRow).genesisColors;
     expect(characterName.style?.color, characterColors.foregroundStrong);
     expect(characterName.style?.fontSize, 13);
-    expect(
-      characterIdentity.style?.color,
-      characterColors.foregroundStrong.withValues(alpha: 0.92),
-    );
-    expect(characterIdentity.style?.fontSize, 12);
+    expect(characterIdentity.style?.color, characterColors.textBody);
+    expect(characterIdentity.style?.fontSize, 13);
     expect(characterTagline.style?.color, characterColors.accentText);
     final infoLaunchAction = find.byKey(
       const ValueKey<String>('origin-info-launch-action'),
@@ -8715,7 +8736,7 @@ void main() {
       find.descendant(of: profileLabel, matching: find.text('Your Profile')),
       findsOneWidget,
     );
-    expect(tester.widget<Text>(find.text('Your Profile')).style?.fontSize, 13);
+    expect(tester.widget<Text>(find.text('Your Profile')).style?.fontSize, 9.5);
     final profilePortraitRect = tester.getRect(profilePortrait);
     final profileLabelRect = tester.getRect(profileLabel);
     expect(profileLabelRect.top, closeTo(profilePortraitRect.top + 12, 0.01));
@@ -8877,9 +8898,10 @@ void main() {
         ),
       );
 
+      // Mirrors _OriginSetupRoleSection._cardHeight (300) at devicePixelRatio 1.
       final provider = OriginRolePortraitImageProvider.fromUrl(
         imageUrl: profileAvatar,
-        outputSize: 240,
+        outputSize: 300,
       );
       final tombstone = find.byKey(
         const ValueKey<String>('origin-opening-sheet-tombstone'),
@@ -9326,7 +9348,7 @@ void main() {
         launchFilledButton.style?.textStyle
             ?.resolve(<WidgetState>{})
             ?.fontWeight,
-        FontWeight.w700,
+        FontWeight.w800,
       );
       final launchShape = launchFilledButton.style?.shape?.resolve(
         <WidgetState>{},
@@ -10144,7 +10166,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     final detailRequests = transport.requestsFor('/api/v1/world/detail');
@@ -10184,7 +10206,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     final stage = tester.widget<WorldMapStage>(find.byType(WorldMapStage));
@@ -10214,7 +10236,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
     await tester.pumpAndSettle();
@@ -10288,7 +10310,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
     await tester.pumpAndSettle();
@@ -10316,7 +10338,7 @@ void main() {
     );
     final otherSpan = otherName.textSpan! as TextSpan;
     final suffixSpan = otherSpan.children!.single as TextSpan;
-    expect(suffixSpan.style?.color, const Color(0xFF888888));
+    expect(suffixSpan.style?.color, const Color(0xCC131215));
   });
 
   testWidgets('World character row marks current player as Me', (
@@ -10334,7 +10356,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
     await tester.pumpAndSettle();
@@ -10359,7 +10381,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     expect(find.text('World Location'), findsWidgets);
@@ -10408,7 +10430,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('World detail w_test_1'), findsNothing);
-    expect(find.text('#World 1'), findsOneWidget);
+    expect(find.text('World 1'), findsOneWidget);
   });
 
   testWidgets('World map starts with root location map url', (
@@ -10450,7 +10472,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsOneWidget);
@@ -10472,7 +10494,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Request');
@@ -10511,7 +10533,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Requested');
@@ -10544,7 +10566,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Launch');
@@ -10881,11 +10903,11 @@ void main() {
       find.text('Create worldo, launch worlds and invite friends'),
     );
     final googleLabel = tester.widget<Text>(find.text('Continue with Google'));
-    expect(title.style?.fontSize, 18);
+    expect(title.style?.fontSize, 17);
     expect(title.style?.fontWeight, FontWeight.w600);
-    expect(subtitle.style?.fontSize, 14);
-    expect(subtitle.style?.color, const Color(0xFF666666));
-    expect(googleLabel.style?.fontSize, 14);
+    expect(subtitle.style?.fontSize, 13);
+    expect(subtitle.style?.color, const Color(0x99131215));
+    expect(googleLabel.style?.fontSize, 13);
     expect(googleLabel.style?.fontWeight, FontWeight.w400);
     final googleIcon = find.byWidgetPredicate(
       (widget) =>
@@ -11192,8 +11214,8 @@ void main() {
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
 
-    expect(find.text('#World Old'), findsOneWidget);
-    expect(find.text('#World New'), findsNothing);
+    expect(find.text('World Old'), findsOneWidget);
+    expect(find.text('World New'), findsNothing);
 
     refreshFuture = tester
         .widget<RefreshIndicator>(
@@ -11203,15 +11225,15 @@ void main() {
     await tester.pump();
 
     expect(transport.worldListRequests, 2);
-    expect(find.text('#World Old'), findsOneWidget);
-    expect(find.text('#World New'), findsNothing);
+    expect(find.text('World Old'), findsOneWidget);
+    expect(find.text('World New'), findsNothing);
 
     transport.completeWorldRefresh();
     await tester.pumpAndSettle();
     await refreshFuture;
 
-    expect(find.text('#World Old'), findsNothing);
-    expect(find.text('#World New'), findsOneWidget);
+    expect(find.text('World Old'), findsNothing);
+    expect(find.text('World New'), findsOneWidget);
   });
 
   test('remote user info with same rendered fields is ignored', () {
@@ -11996,7 +12018,7 @@ void main() {
     expect(titleStyle?.color, Colors.white);
 
     final basicsStyle = tester.widget<Text>(find.text('Basics')).style;
-    expect(basicsStyle?.fontSize, 14);
+    expect(basicsStyle?.fontSize, 13);
     expect(basicsStyle?.fontWeight, FontWeight.w800);
     expect(basicsStyle?.color, Colors.white);
     expect(
@@ -12026,7 +12048,7 @@ void main() {
     expect(createButton.width, double.infinity);
     expect(createButton.borderRadius, BorderRadius.circular(13));
     expect(createButton.fontSize, 13);
-    expect(createButton.fontWeight, FontWeight.w700);
+    expect(createButton.fontWeight, FontWeight.w800);
   });
 
   testWidgets('Create Worldo sheet moves as one drawer and drags closed', (
@@ -12122,7 +12144,7 @@ void main() {
       saveButton.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      const Color(0x66F82B3C),
     );
   });
 
@@ -12252,7 +12274,7 @@ void main() {
       createButton.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      const Color(0x66F82B3C),
     );
   });
 
@@ -12289,7 +12311,7 @@ void main() {
       createButton.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      const Color(0x66F82B3C),
     );
   });
 
@@ -12527,10 +12549,10 @@ void main() {
       final openingDialogueTitle = tester.widget<Text>(
         find.byKey(const ValueKey<String>('opening-dialogue-title')),
       );
-      expect(selectLocationTitle.style?.fontSize, 16);
-      expect(selectLocationTitle.style?.fontWeight, FontWeight.w600);
-      expect(openingDialogueTitle.style?.fontSize, 16);
-      expect(openingDialogueTitle.style?.fontWeight, FontWeight.w600);
+      expect(selectLocationTitle.style?.fontSize, 15);
+      expect(selectLocationTitle.style?.fontWeight, FontWeight.w800);
+      expect(openingDialogueTitle.style?.fontSize, 15);
+      expect(openingDialogueTitle.style?.fontWeight, FontWeight.w800);
       expect(
         tester
             .widget<Text>(
@@ -12658,7 +12680,7 @@ void main() {
             )
             .style
             ?.color,
-        const Color(0xFF666666),
+        const Color(0x99131215),
       );
       final emptyLocationOption = find.byKey(
         const ValueKey<String>('opening-location-option-location_opening_2'),
@@ -13553,7 +13575,7 @@ void main() {
               as BoxDecoration;
       expect(
         tester.widget<Text>(characterUserLabel).style?.color,
-        const Color(0xFF666666),
+        const Color(0x99131215),
       );
       expect(tester.widget<Text>(characterUserLabel).style?.fontSize, 13);
       expect(
@@ -14006,7 +14028,7 @@ void main() {
     expect(charactersCompleted, findsNothing);
     expect(tester.getSize(charactersChevron), const Size.square(20));
     final charactersTitleStyle = tester.widget<Text>(charactersTitle).style;
-    expect(charactersTitleStyle?.fontSize, 14);
+    expect(charactersTitleStyle?.fontSize, 13);
     expect(charactersTitleStyle?.fontWeight, FontWeight.w800);
     expect(charactersTitleStyle?.color, Colors.white);
     final bestRoleSummary = tester.widget<Text>(
@@ -14023,7 +14045,7 @@ void main() {
     expect(bestRoleSummary.softWrap, isFalse);
     expect(bestRoleSummary.overflow, TextOverflow.ellipsis);
     expect(bestRoleSummary.style?.fontSize, 11);
-    expect(bestRoleSummary.style?.color, const Color(0x99FFFFFF));
+    expect(bestRoleSummary.style?.color, const Color(0x99131215));
     expect(find.textContaining('L1 · Region : 1'), findsOneWidget);
     expect(find.textContaining('L2 · Building : 1'), findsOneWidget);
     expect(find.textContaining('L3 · Room : 1'), findsOneWidget);
@@ -14201,14 +14223,17 @@ void main() {
               matching: find.byType(CreateTextFieldBlock),
             ),
           )
-          .every((field) => field.labelFontWeight == FontWeight.w700),
+          .every((field) => field.labelFontWeight == FontWeight.w800),
       isTrue,
     );
     expect(find.text('1/8 (Added / Max)'), findsOneWidget);
     final addCharacterText = tester.widget<Text>(find.text('+ Add Character'));
-    expect(addCharacterText.style?.color, GenesisPalette.redesignAccentSoft);
+    expect(
+      addCharacterText.style?.color,
+      GenesisCreateColors.worldoLight().successText,
+    );
     expect(addCharacterText.style?.fontSize, 13);
-    expect(addCharacterText.style?.fontWeight, FontWeight.w700);
+    expect(addCharacterText.style?.fontWeight, FontWeight.w800);
     expect(
       tester.getCenter(find.text('+ Add Character')).dx,
       closeTo(tester.getCenter(find.byType(Scaffold)).dx, 0.01),
@@ -14377,7 +14402,7 @@ void main() {
     expect(
       tester.widget<CreateInlineAddButton>(find.byType(CreateInlineAddButton)),
       isA<CreateInlineAddButton>()
-          .having((button) => button.fontSize, 'fontSize', 14)
+          .having((button) => button.fontSize, 'fontSize', 13)
           .having((button) => button.centered, 'centered', isTrue),
     );
     expect(
@@ -14553,7 +14578,7 @@ void main() {
           .every(
             (text) =>
                 text.style?.fontSize == 13 &&
-                text.style?.color == const Color(0xFF666666),
+                text.style?.color == const Color(0x99131215),
           ),
       isTrue,
     );
@@ -15845,7 +15870,7 @@ void main() {
     expect(modeSwitch, findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Preview')).style?.color,
-      const Color(0xFF4B6192),
+      const Color(0xFFC41F2E),
     );
     expect(
       tester.widget<Text>(find.text('Preview')).style?.fontWeight,
@@ -16232,7 +16257,7 @@ void main() {
     expect(find.text('Central Station'), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Edit')).style?.color,
-      const Color(0xFF4B6192),
+      const Color(0xFFC41F2E),
     );
     expect(
       tester.widget<Text>(find.text('Edit')).style?.fontWeight,
@@ -17073,7 +17098,7 @@ void main() {
       GenesisCreateColors.worldoLight().successText,
     );
     expect(addEventText.style?.fontSize, 13);
-    expect(addEventText.style?.fontWeight, FontWeight.w700);
+    expect(addEventText.style?.fontWeight, FontWeight.w800);
     expect(
       tester
           .getCenter(
@@ -17193,7 +17218,7 @@ void main() {
       createButton.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      const Color(0x66F82B3C),
     );
   });
 
@@ -17340,7 +17365,7 @@ void main() {
       tester,
       plainText: 'Worldo #Crystal City created!',
       spanText: '#Crystal City',
-      color: const Color(0xFF4B6192),
+      color: const Color(0xFFC41F2E),
     );
     expect(find.text('View'), findsOneWidget);
   });
@@ -17621,7 +17646,7 @@ void main() {
       rootPublish.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      const Color(0x66F82B3C),
     );
     expect(transport.requestsFor('/api/v2/origin/update'), isEmpty);
 
@@ -17824,7 +17849,7 @@ void main() {
       tester,
       plainText: 'Worldo #Edited Origin published!',
       spanText: '#Edited Origin',
-      color: const Color(0xFF4B6192),
+      color: const Color(0xFFC41F2E),
     );
     expect(find.text('View'), findsOneWidget);
   });
@@ -20218,7 +20243,7 @@ void main() {
     expect(find.text('Following Friend 24'), findsNothing);
     expect(find.text('Following'), findsWidgets);
     final followingName = tester.widget<Text>(find.text('Following Friend 01'));
-    expect(followingName.style?.fontWeight, FontWeight.w500);
+    expect(followingName.style?.fontWeight, FontWeight.w600);
     final followingAvatar = find.byKey(
       const ValueKey('follows-avatar-u_following_01'),
     );
@@ -20837,8 +20862,8 @@ void main() {
     final error = find.text('Only one message can be sent before a reply.');
     expect(error, findsOneWidget);
     final errorText = tester.widget<Text>(error);
-    expect(errorText.style?.color, const Color(0xFF999999));
-    expect(errorText.style?.fontSize, 12);
+    expect(errorText.style?.color, const Color(0x6B131215));
+    expect(errorText.style?.fontSize, 11);
     expect(errorText.textAlign, TextAlign.center);
     expect(
       tester.getTopLeft(error).dy,

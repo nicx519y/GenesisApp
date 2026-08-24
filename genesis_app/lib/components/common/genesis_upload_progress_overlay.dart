@@ -73,8 +73,8 @@ class GenesisUploadProgressOverlay extends StatelessWidget {
                               maxLines: 1,
                               style: TextStyle(
                                 color: context.genesisColors.textInverse,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),

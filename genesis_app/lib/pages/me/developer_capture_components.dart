@@ -36,7 +36,7 @@ class _DeveloperCaptureHeader extends StatelessWidget {
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: context.genesisColors.textPrimary,
             ),
@@ -46,7 +46,7 @@ class _DeveloperCaptureHeader extends StatelessWidget {
           count,
           key: countKey,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             color: context.genesisColors.textSubtle,
           ),
         ),
@@ -124,8 +124,8 @@ class _DeveloperCaptureDetailSection extends StatelessWidget {
                   child: Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),

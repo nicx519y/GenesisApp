@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
-import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
 import 'genesis_fixed_underline_indicator.dart';
 
-const double genesisTabHeight = 32;
+const double genesisTabHeight = 28;
 const double genesisTabIndicatorBottomPadding = 3;
 const double genesisTabBarVerticalPadding = 3;
 
@@ -102,6 +101,18 @@ class GenesisTabBar extends StatelessWidget {
   final double tabHeight;
   final ValueChanged<int>? onTap;
 
+  /// Every tab bar in the app: 14/1.2, w600 when active and w400 when idle.
+  static const TextStyle defaultLabelStyle = TextStyle(
+    fontSize: 14,
+    height: 1.2,
+    fontWeight: FontWeight.w600,
+  );
+  static const TextStyle defaultUnselectedLabelStyle = TextStyle(
+    fontSize: 14,
+    height: 1.2,
+    fontWeight: FontWeight.w400,
+  );
+
   @override
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
@@ -109,13 +120,13 @@ class GenesisTabBar extends StatelessWidget {
     final resolvedLabelStyle =
         labelStyle ??
         (labelFontSize == null
-            ? GenesisTypography.bodyStrong
-            : GenesisTypography.bodyStrong.copyWith(fontSize: labelFontSize));
+            ? defaultLabelStyle
+            : defaultLabelStyle.copyWith(fontSize: labelFontSize));
     final resolvedUnselectedLabelStyle =
         unselectedLabelStyle ??
         (labelFontSize == null
-            ? GenesisTypography.body
-            : GenesisTypography.body.copyWith(fontSize: labelFontSize));
+            ? defaultUnselectedLabelStyle
+            : defaultUnselectedLabelStyle.copyWith(fontSize: labelFontSize));
     return Padding(
       padding: EdgeInsets.symmetric(vertical: verticalPadding),
       child: Padding(
@@ -141,9 +152,9 @@ class GenesisTabBar extends StatelessWidget {
             height: indicatorHeight ?? uiTheme.tabIndicatorHeight,
             bottomPadding: indicatorBottomPadding,
           ),
-          labelColor: labelColor ?? colors.navigationSelected,
-          unselectedLabelColor:
-              unselectedLabelColor ?? colors.navigationUnselected,
+          // Idle labels sit on the 56% tier, not the 32% navigation tier.
+          labelColor: labelColor ?? colors.textPrimary,
+          unselectedLabelColor: unselectedLabelColor ?? colors.textSecondary,
           labelStyle: resolvedLabelStyle,
           unselectedLabelStyle: resolvedUnselectedLabelStyle,
           tabs: [

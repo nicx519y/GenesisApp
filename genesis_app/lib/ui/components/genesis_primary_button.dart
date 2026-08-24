@@ -99,7 +99,7 @@ class GenesisButton extends StatelessWidget {
             ? uiTheme.compactButtonHeight
             : uiTheme.regularButtonHeight);
     final effectiveTextStyle = GenesisTypography.bodyStrong.copyWith(
-      fontSize: fontSize ?? (size == GenesisButtonSize.compact ? 14.0 : 16.0),
+      fontSize: fontSize ?? (size == GenesisButtonSize.compact ? 13.0 : 15.0),
       fontWeight: fontWeight ?? FontWeight.w600,
     );
     final effectivePadding =
@@ -123,6 +123,7 @@ class GenesisButton extends StatelessWidget {
             label: label,
             leadingIcon: leadingIcon,
             iconGap: iconGap,
+            fontSize: effectiveTextStyle.fontSize ?? 13,
           );
 
     final VoidCallback? effectiveOnPressed = disabled
@@ -373,11 +374,20 @@ class _GenesisButtonLabel extends StatelessWidget {
     required this.label,
     required this.leadingIcon,
     required this.iconGap,
+    required this.fontSize,
   });
+
+  /// Inter 的字体度量,用于把 icon 对到文字的**墨迹**中线而不是行盒中线。
+  /// ascent 0.9688 / descent 0.2422(合计 1.2109),因此在 forceStrutHeight 的
+  /// 紧行盒里基线落在 0.8em 处;大写字高约 0.727em,墨迹顶边在 0.073em。
+  /// 墨迹中心 =(0.073 + 0.8)/2 = 0.4365em,而行盒中心是 0.5em ——
+  /// 两者差 0.0635em,就是 icon 需要上移的量。
+  static const double _inkCentreOffsetEm = 0.0635;
 
   final String label;
   final Widget? leadingIcon;
   final double iconGap;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -385,14 +395,30 @@ class _GenesisButtonLabel extends StatelessWidget {
     if (icon == null) {
       return Text(label, maxLines: 1, overflow: TextOverflow.ellipsis);
     }
+    // 两步才能对齐,少一步都不够:
+    // 1) forceStrutHeight 把标签压成紧行盒。否则 bodyStrong 的 height 1.4 会让
+    //    12px 文字占掉约 16.8px,行距把 icon 顶高半格。
+    // 2) 紧行盒之后仍然差一点,因为行盒把降部空间也算了进去,而 "Tick now"
+    //    这类文案根本没有降部字母 —— 按盒居中等于把可见字形整体推高。
+    //    这里按 Inter 的度量把 icon 上移 0.0635em,对到文字的墨迹中线。
+    //    Transform 只影响绘制不影响布局,不会改变按钮尺寸。
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        icon,
+        Transform.translate(
+          offset: Offset(0, -fontSize * _inkCentreOffsetEm),
+          child: icon,
+        ),
         SizedBox(width: iconGap),
         Flexible(
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            strutStyle: const StrutStyle(height: 1, forceStrutHeight: true),
+          ),
         ),
       ],
     );

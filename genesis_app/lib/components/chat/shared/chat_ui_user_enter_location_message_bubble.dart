@@ -27,7 +27,7 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
       style.systemMessageTextStyle.copyWith(
         color: chatTheme.enterLocationForeground,
         fontSize: 13,
-        fontWeight: usesScenePlate ? FontWeight.w700 : FontWeight.w600,
+        fontWeight: usesScenePlate ? FontWeight.w800 : FontWeight.w600,
         height: usesScenePlate ? 1 : 16 / 13,
       ),
     );
@@ -44,16 +44,18 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
               : const EdgeInsets.fromLTRB(12, 7, 14, 7),
           decoration: BoxDecoration(
             color: chatTheme.enterLocationBackground,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               CustomPaint(
                 key: const ValueKey<String>('chat-user-enter-location-icon'),
-                size: Size.square(usesScenePlate ? 11 : 14),
+                size: Size.square(usesScenePlate ? 12 : 14),
                 painter: _ChatEnterLocationIconPainter(
-                  color: chatTheme.enterLocationIcon,
+                  color: chatTheme.enterLocationForeground.withValues(
+                    alpha: 0.8,
+                  ),
                 ),
               ),
               const SizedBox(width: 7),
@@ -72,8 +74,9 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
                             TextSpan(
                               text: ' came to ',
                               style: mainTextStyle.copyWith(
-                                color: chatTheme.enterLocationIcon,
-                                fontWeight: FontWeight.w500,
+                                color: chatTheme.enterLocationForeground
+                                    .withValues(alpha: 0.73),
+                                fontWeight: FontWeight.w400,
                               ),
                             ),
                             TextSpan(text: displayParts.locationName),
@@ -115,7 +118,7 @@ class _ChatEnterLocationIconPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
+      ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final centerY = size.height / 2;

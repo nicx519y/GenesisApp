@@ -10,6 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/map_detail_sheet_surface.dart';
+import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world/genesis_world_theme.dart';
 import '../../network/models/location_tree.dart';
@@ -18,6 +19,7 @@ import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_control_icons.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_palette.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import 'world_constants.dart';
 import 'world_map_data.dart';
@@ -169,8 +171,20 @@ class _WorldBottomTagsState extends State<WorldBottomTags>
     final hasMeasuredGeometry = _tabRects.length == worldBottomTagItems.length;
     return Container(
       height: worldMainTabsHeight,
-      color: context.genesisColors.pageBackground,
       alignment: Alignment.centerLeft,
+      // tab 上方的通栏细线。容器本身没有圆角,上边框天然左右顶满 ——
+      // 这正是设计稿 9a 的画法:线与浮窗顶边的圆角互不相干。
+      decoration: BoxDecoration(
+        color: context.genesisColors.pageBackground,
+        border: Border(
+          top: BorderSide(
+            color: context.genesisColors.foregroundStrong.withValues(
+              alpha: worldDetailsPanelTopBorderOpacity,
+            ),
+            width: worldDetailsPanelTopBorderWidth,
+          ),
+        ),
+      ),
       child: DefaultTextStyle(
         style: GenesisTypography.bodyStrong.copyWith(
           color: context.genesisColors.textPrimary,
@@ -199,8 +213,7 @@ class _WorldBottomTagsState extends State<WorldBottomTags>
                           tabRects: _tabRects.values.toList(growable: false),
                           indicatorRect: _currentIndicatorRect,
                           tabColor: context.genesisColors.surfaceTag,
-                          indicatorColor:
-                              context.genesisColors.foregroundStrong,
+                          indicatorColor: GenesisPalette.redesignPaper,
                         ),
                       ),
                     ),
@@ -269,7 +282,7 @@ class WorldBottomTagContent extends StatelessWidget {
           color: !paintBackground
               ? Colors.transparent
               : selected
-              ? context.genesisColors.foregroundStrong
+              ? GenesisPalette.redesignPaper
               : context.genesisColors.surfaceTag,
           borderRadius: BorderRadius.circular(11),
         ),
@@ -283,10 +296,10 @@ class WorldBottomTagContent extends StatelessWidget {
                 TextStyle(
                   color: selected
                       ? context.genesisColors.textInverse
-                      : context.genesisColors.textSecondary,
-                  fontSize: 11,
+                      : context.genesisColors.textBody,
+                  fontSize: 12,
                   height: 1,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -316,7 +329,7 @@ class WorldBottomTagContent extends StatelessWidget {
                     color: context.genesisColors.onDanger,
                     fontSize: 9.5,
                     height: 1,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -373,7 +386,6 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.services,
     required this.initialWorld,
     required this.worldListenable,
-    required this.newUserJoinNoticesListenable,
     required this.eventsCache,
     required this.currentUid,
     required this.recentChatLocationIds,
@@ -387,8 +399,6 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
   final AppServices services;
   final WorldDetail initialWorld;
   final ValueListenable<WorldDetail?> worldListenable;
-  final ValueListenable<List<WorldNewUserJoinNotice>>
-  newUserJoinNoticesListenable;
   final WorldSectionsEventsCache eventsCache;
   final String currentUid;
   final Set<String> recentChatLocationIds;
@@ -454,9 +464,6 @@ class WorldSingleSectionBottomSheetState
     );
     widget.worldListenable.addListener(_handleWorldDetailChanged);
     widget.selectionListenable.addListener(_handleSelectionChanged);
-    widget.newUserJoinNoticesListenable.addListener(
-      _handleNewUserJoinNoticesChanged,
-    );
   }
 
   @override
@@ -478,15 +485,6 @@ class WorldSingleSectionBottomSheetState
       oldWidget.selectionListenable.removeListener(_handleSelectionChanged);
       widget.selectionListenable.addListener(_handleSelectionChanged);
     }
-    if (oldWidget.newUserJoinNoticesListenable !=
-        widget.newUserJoinNoticesListenable) {
-      oldWidget.newUserJoinNoticesListenable.removeListener(
-        _handleNewUserJoinNoticesChanged,
-      );
-      widget.newUserJoinNoticesListenable.addListener(
-        _handleNewUserJoinNoticesChanged,
-      );
-    }
     if (_isEventsSheet &&
         (oldWidget.eventsCache != widget.eventsCache ||
             oldWidget.selectionListenable.value.kind != _selection.kind)) {
@@ -498,9 +496,6 @@ class WorldSingleSectionBottomSheetState
   void dispose() {
     widget.worldListenable.removeListener(_handleWorldDetailChanged);
     widget.selectionListenable.removeListener(_handleSelectionChanged);
-    widget.newUserJoinNoticesListenable.removeListener(
-      _handleNewUserJoinNoticesChanged,
-    );
     _sheetController.dispose();
     _pageController.dispose();
     for (final controller in _pagePreviewScrollControllers) {
@@ -515,11 +510,6 @@ class WorldSingleSectionBottomSheetState
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld();
     }
-    if (mounted) setState(() {});
-  }
-
-  void _handleNewUserJoinNoticesChanged() {
-    if (_selection.kind != WorldBottomSheetKind.detail) return;
     if (mounted) setState(() {});
   }
 
@@ -690,7 +680,7 @@ class WorldSingleSectionBottomSheetState
         targetTickNumber: _selection.eventsTargetTickNumber,
         contentPadding: const EdgeInsets.fromLTRB(
           20,
-          worldInfoHeaderHeight,
+          worldDetailSheetHeaderHeight,
           20,
           32,
         ),
@@ -717,7 +707,12 @@ class WorldSingleSectionBottomSheetState
       metric: world.metric,
       locationNameBuilder: (character) =>
           worldCharacterLocationName(world, character),
-      padding: const EdgeInsets.fromLTRB(20, worldInfoHeaderHeight, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        20,
+        worldDetailSheetHeaderHeight,
+        20,
+        32,
+      ),
     );
   }
 
@@ -732,7 +727,12 @@ class WorldSingleSectionBottomSheetState
       subtitleColor: context.genesisColors.textMuted,
       showCharacterDetails: true,
       scrollController: scrollController,
-      padding: const EdgeInsets.fromLTRB(20, worldInfoHeaderHeight, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        20,
+        worldDetailSheetHeaderHeight,
+        20,
+        32,
+      ),
     );
   }
 
@@ -746,7 +746,12 @@ class WorldSingleSectionBottomSheetState
         recentChatLocationIds: widget.recentChatLocationIds,
         enableOuterScrollHandoff: false,
         lazyBuildRows: true,
-        padding: const EdgeInsets.fromLTRB(20, worldInfoHeaderHeight, 20, 32),
+        padding: const EdgeInsets.fromLTRB(
+          20,
+          worldDetailSheetHeaderHeight,
+          20,
+          32,
+        ),
         compactSheetStyle: true,
         scrollController: scrollController,
         header: _WorldLocationsSummary(
@@ -803,30 +808,19 @@ class WorldSingleSectionBottomSheetState
   }
 
   Widget _buildDetailSectionPage(ScrollController scrollController) {
-    final latestDetailJoinNotice = worldLatestPlayerJoinNotice(
-      _currentWorld.characters,
-    );
-    final newUserJoinNotice = _detailNewUserJoinNotice(
-      latestDetailJoinNotice,
-      widget.newUserJoinNoticesListenable.value,
-    );
     return WorldDetailSectionListView(
       storageKey: 'world-detail-section-bottom-sheet',
       world: _currentWorld,
       currentUid: widget.currentUid,
       scrollController: scrollController,
-      newUserJoinNotice: newUserJoinNotice,
       onDeleteWorld: widget.onDeleteWorld,
-      padding: const EdgeInsets.fromLTRB(20, worldInfoHeaderHeight, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        20,
+        worldDetailSheetHeaderHeight,
+        20,
+        32,
+      ),
     );
-  }
-
-  WorldNewUserJoinNotice? _detailNewUserJoinNotice(
-    WorldNewUserJoinNotice? latestDetailJoinNotice,
-    List<WorldNewUserJoinNotice> socketNotices,
-  ) {
-    if (socketNotices.isNotEmpty) return socketNotices.last;
-    return latestDetailJoinNotice;
   }
 
   Widget _buildSheetPage(
@@ -1000,6 +994,7 @@ class WorldSingleSectionBottomSheetState
                             'world-detail-sheet-surface',
                           ),
                           connectsToBottom: true,
+                          showOutline: false,
                           child: Material(
                             color: Colors.transparent,
                             child: Stack(
@@ -1010,7 +1005,7 @@ class WorldSingleSectionBottomSheetState
                                   left: 0,
                                   right: 0,
                                   top: 0,
-                                  height: worldInfoHeaderHeight,
+                                  height: worldDetailSheetHeaderHeight,
                                   child: ColoredBox(
                                     color: context.genesisColors.pageBackground,
                                     child: WorldSingleSectionSheetHeader(
@@ -1088,7 +1083,7 @@ class _WorldLocationsSummary extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: context.genesisColors.textPrimary,
-                fontSize: 14,
+                fontSize: 13,
                 height: 1,
                 fontWeight: FontWeight.w800,
               ),
@@ -1098,10 +1093,10 @@ class _WorldLocationsSummary extends StatelessWidget {
           Text(
             '$zoneCount zones · $placeCount places',
             style: TextStyle(
-              color: context.genesisColors.textSubtle,
+              color: context.genesisColors.textMetadata,
               fontSize: 9.5,
               height: 1,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1204,7 +1199,7 @@ class WorldSingleSectionSheetHeaderState
       onVerticalDragEnd: _handleVerticalDragEnd,
       onVerticalDragCancel: _handleVerticalDragCancel,
       child: SizedBox(
-        height: 67,
+        height: worldDetailSheetHeaderHeight,
         child: Stack(
           children: [
             Positioned(
@@ -1221,7 +1216,7 @@ class WorldSingleSectionSheetHeaderState
             Positioned(
               left: 20,
               right: 20,
-              top: 29,
+              top: worldDetailSheetHeaderTitleTop,
               child: SizedBox(
                 height: 26,
                 child: Row(
@@ -1233,6 +1228,7 @@ class WorldSingleSectionSheetHeaderState
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GenesisTypography.navigationTitle.copyWith(
+                          height: worldDetailLineHeight,
                           color: context.genesisColors.textPrimary,
                           decoration: TextDecoration.none,
                         ),
@@ -1265,7 +1261,7 @@ class WorldSingleSectionSheetHeaderState
                           shape: const CircleBorder(),
                         ),
                         child: GenesisCloseIcon(
-                          size: 14,
+                          size: 12,
                           color: context.genesisColors.textPrimary,
                         ),
                       ),

@@ -147,7 +147,7 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.sectionGap = 12,
     this.labelInputGap = 8,
     this.avatarEmptyIconLabelGap = 8,
-    this.labelSize = 14,
+    this.labelSize = 13,
     this.labelFontWeight = FontWeight.w600,
     this.avatarEmptyLabelFontWeight = FontWeight.w600,
     this.avatarRemoveLinkFontWeight = FontWeight.w600,
@@ -198,9 +198,9 @@ class OriginCharacterFormFields extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final worldoStyle = createWorldoStyle;
-    final resolvedLabelSize = worldoStyle ? 13.0 : labelSize;
+    final resolvedLabelSize = worldoStyle ? 14.0 : labelSize;
     final resolvedLabelFontWeight = worldoStyle
-        ? FontWeight.w700
+        ? FontWeight.w800
         : labelFontWeight;
     final resolvedLabelInputGap = worldoStyle ? 8.0 : labelInputGap;
     final resolvedFieldGap = worldoStyle ? 16.0 : fieldGap;
@@ -215,7 +215,7 @@ class OriginCharacterFormFields extends StatelessWidget {
       color: context.genesisColors.textTertiary,
       fontSize: 9.5,
       height: 1.5,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w600,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,7 +238,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               emptyLabelFontWeight: worldoStyle
                   ? FontWeight.w600
                   : avatarEmptyLabelFontWeight,
-              emptyLabelFontSize: worldoStyle ? 10 : 12,
+              emptyLabelFontSize: worldoStyle ? 11 : 12,
               emptyIconLabelGap: worldoStyle ? 7 : avatarEmptyIconLabelGap,
               removeLinkFontWeight: avatarRemoveLinkFontWeight,
               emptyBackgroundColor: worldoStyle ? Colors.transparent : null,
@@ -463,7 +463,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               onChanged: (_) => onChanged(),
             ),
           ],
-          SizedBox(height: resolvedSectionGap),
+          SizedBox(height: resolvedFieldGap),
         ],
         if (showGoal) ...[
           CreateTextFieldBlock(
@@ -503,7 +503,7 @@ class OriginCharacterFormFields extends StatelessWidget {
             nextFocusNode: form.focusNodes.bio,
             onChanged: (_) => onChanged(),
           ),
-          SizedBox(height: resolvedSectionGap),
+          SizedBox(height: resolvedFieldGap),
         ],
         CreateTextFieldBlock(
           label: 'Background - Hidden (Optional)',

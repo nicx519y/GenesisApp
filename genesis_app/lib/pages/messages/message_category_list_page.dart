@@ -368,7 +368,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
               'Failed to load messages.',
               style: TextStyle(
                 color: context.genesisColors.textEmptyState,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -387,7 +387,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
               widget.emptyText,
               style: TextStyle(
                 color: context.genesisColors.textEmptyState,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),

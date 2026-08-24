@@ -1,5 +1,17 @@
 part of 'location_chat_page.dart';
 
+/// The cached title for [modelCode], or '' when this device has never learned
+/// it. Keyed by code so a model changed on another device falls through to the
+/// catalog lookup instead of rendering a stale title.
+String selectedModelTitleFromUserInfo(
+  Map<String, dynamic> userInfo,
+  String modelCode,
+) {
+  final code = modelCode.trim();
+  if (code.isEmpty) return '';
+  return gemModelTitlesFromUserInfo(userInfo)[code] ?? '';
+}
+
 String selectedModelCodeFromUserInfo(Map<String, dynamic> userInfo) {
   final direct = asString(userInfo['selected_model_code']).trim();
   if (direct.isNotEmpty) return direct;

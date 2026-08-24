@@ -55,17 +55,9 @@ class GenesisBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.navigationBackground,
-        border: Border(
-          top: BorderSide(
-            color: colors.foregroundStrong.withValues(alpha: 0.1),
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(color: colors.shadow, blurRadius: 8, offset: Offset(0, -2)),
-        ],
-      ),
+      // navigationBackground is the page colour, and there is no rule or lift
+      // above the bar - it reads as part of the background.
+      decoration: BoxDecoration(color: colors.navigationBackground),
       child: GenesisBottomSafePadding(
         minimum: minBottomPadding,
         child: SizedBox(
@@ -178,9 +170,7 @@ class GenesisBottomNavigationTile extends StatelessWidget {
                     color: color,
                     fontSize: 9.5,
                     height: 1,
-                    fontWeight: selected || item.prominent
-                        ? FontWeight.w600
-                        : FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

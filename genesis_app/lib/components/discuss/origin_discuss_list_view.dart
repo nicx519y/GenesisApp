@@ -133,7 +133,7 @@ class _ViewMoreButton extends StatelessWidget {
               : Text(
                   'View More >',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
                     color: context.genesisColors.textFaint,
@@ -166,7 +166,7 @@ class _DiscussHeader extends StatelessWidget {
           'Discuss (${formatStatCount(count)})',
           style: TextStyle(
             color: context.genesisColors.textPrimary,
-            fontSize: 14,
+            fontSize: 13,
             height: 1.1,
             fontWeight: FontWeight.w600,
           ),

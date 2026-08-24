@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
@@ -119,7 +120,7 @@ void main() {
     expect(find.text('500'), findsOneWidget);
 
     final tagStyle = tester.widget<Text>(find.text('Backend New User')).style;
-    expect(tagStyle?.fontSize, 10);
+    expect(tagStyle?.fontSize, 9.5);
     expect(tagStyle?.height, 14 / 10);
     expect(tagStyle?.fontWeight, FontWeight.w400);
     final tagContainer = tester.widget<Container>(
@@ -136,16 +137,16 @@ void main() {
     );
 
     final amountStyle = tester.widget<Text>(find.text('+550')).style;
-    expect(amountStyle?.fontSize, 14);
-    expect(amountStyle?.height, 20 / 14);
-    expect(amountStyle?.fontWeight, FontWeight.w600);
-    expect(amountStyle?.color, const Color(0xFF111111));
+    expect(amountStyle?.fontSize, 17);
+    expect(amountStyle?.height, 1);
+    expect(amountStyle?.fontWeight, FontWeight.w800);
+    expect(amountStyle?.color, const Color(0xFF131215));
 
     final originalAmount = find.text('500');
     final originalAmountStyle = tester.widget<Text>(originalAmount).style;
-    expect(originalAmountStyle?.fontSize, 12);
-    expect(originalAmountStyle?.fontWeight, FontWeight.w400);
-    expect(originalAmountStyle?.color, const Color(0xFF888888));
+    expect(originalAmountStyle?.fontSize, 9.5);
+    expect(originalAmountStyle?.fontWeight, FontWeight.w600);
+    expect(originalAmountStyle?.color, const Color(0xFF9E9E9E));
     expect(originalAmountStyle?.decoration, TextDecoration.lineThrough);
 
     final currentAmountRect = tester.getRect(find.text('+550'));
@@ -153,16 +154,17 @@ void main() {
     final priceButtonRect = tester.getRect(
       find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
     );
-    expect(
-      priceButtonRect.top - originalAmountRect.bottom,
-      closeTo(originalAmountRect.top - currentAmountRect.bottom + 4, 0.1),
-    );
+    // The struck base amount shares one bottom-aligned row with the total,
+    // sitting to its right and above the price button.
+    expect(originalAmountRect.bottom, closeTo(currentAmountRect.bottom, 0.6));
+    expect(originalAmountRect.left, greaterThan(currentAmountRect.right));
+    expect(priceButtonRect.top, greaterThan(originalAmountRect.bottom));
 
     final priceStyle = tester.widget<Text>(find.text('HKD1.49')).style;
-    expect(priceStyle?.fontSize, 12);
-    expect(priceStyle?.height, 14 / 12);
-    expect(priceStyle?.fontWeight, FontWeight.w600);
-    expect(priceStyle?.color, const Color(0xFFFF2442));
+    expect(priceStyle?.fontSize, 11);
+    expect(priceStyle?.height, 1);
+    expect(priceStyle?.fontWeight, FontWeight.w800);
+    expect(priceStyle?.color, const Color(0xE0131215));
     final priceDecoration =
         tester
                 .widget<Container>(
@@ -170,50 +172,66 @@ void main() {
                 )
                 .decoration!
             as BoxDecoration;
-    expect(priceDecoration.color, Colors.white);
-    expect(priceDecoration.border, isNotNull);
+    expect(priceDecoration.color, const Color(0xFFF82B3C));
+    expect(priceDecoration.border, isNull);
+    const iconKey = ValueKey<String>('gem-product-icon-gem_pack_500');
+    final gemIcon = tester.widget<SvgPicture>(find.byKey(iconKey));
+    expect(gemIcon.width, kGemProductIconSize.width);
+    expect(gemIcon.height, kGemProductIconSize.height);
+    // The artwork is fitted inside that box, so only the height is exact.
     expect(
-      tester.getSize(
-        find.byKey(const ValueKey<String>('gem-product-icon-gem_pack_500')),
-      ),
-      const Size(28, 24),
+      tester.getSize(find.byKey(iconKey)).height,
+      kGemProductIconSize.height,
     );
   });
 
   testWidgets('balance panel uses the Gem Wallet typography', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: GemBalancePanel(balance: 430))),
+      const MaterialApp(
+        home: Scaffold(
+          // The panel has no height of its own; give it the unbounded column
+          // it gets in the wallet page so it reports its intrinsic height.
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [GemBalancePanel(balance: 430)],
+          ),
+        ),
+      ),
     );
 
-    expect(
-      tester.getSize(find.byKey(const ValueKey('gem-balance-panel'))).height,
-      88,
-    );
-    final labelStyle = tester.widget<Text>(find.text('My Balance')).style;
-    expect(labelStyle?.fontSize, 14);
-    expect(labelStyle?.height, 18 / 14);
+    final labelStyle = tester.widget<Text>(find.text('My balance')).style;
+    expect(labelStyle?.fontSize, 11);
+    expect(labelStyle?.height, 1);
     expect(labelStyle?.fontWeight, FontWeight.w600);
-    expect(labelStyle?.color, const Color(0xFF666666));
+    expect(labelStyle?.color, const Color(0x99131215));
 
     final balanceStyle = tester.widget<Text>(find.text('430')).style;
     expect(balanceStyle?.fontSize, 30);
-    expect(balanceStyle?.height, 40 / 30);
-    expect(balanceStyle?.fontWeight, FontWeight.w600);
-    expect(balanceStyle?.color, const Color(0xFF333333));
-    expect(
-      tester.getSize(find.byKey(const ValueKey('gem-balance-icon'))),
-      const Size.square(24),
-    );
+    expect(balanceStyle?.height, 1);
+    expect(balanceStyle?.fontWeight, FontWeight.w800);
+    expect(balanceStyle?.color, const Color(0xFF131215));
+    const balanceIconKey = ValueKey('gem-balance-icon');
+    final balanceIcon = tester.widget<SvgPicture>(find.byKey(balanceIconKey));
+    expect(balanceIcon.width, 20);
+    expect(balanceIcon.height, 31);
+    // The artwork is fitted inside that box, so only the height is exact.
+    expect(tester.getSize(find.byKey(balanceIconKey)).height, 31);
     final panelRect = tester.getRect(
       find.byKey(const ValueKey('gem-balance-panel')),
     );
-    final topGap =
-        tester.getRect(find.byKey(const ValueKey('gem-balance-icon'))).top -
-        panelRect.top;
-    final bottomGap =
-        panelRect.bottom - tester.getRect(find.text('430')).bottom;
-    expect(topGap, closeTo(8, 0.1));
-    expect(bottomGap, closeTo(8, 0.1));
+    // Label row (11pt, height 1) then a 6px gap, then the icon/value row that
+    // is as tall as the 31px gem icon: 11 + 6 + 31.
+    expect(panelRect.height, closeTo(48, 0.1));
+    final iconRect = tester.getRect(
+      find.byKey(const ValueKey('gem-balance-icon')),
+    );
+    expect(iconRect.top - panelRect.top, closeTo(17, 0.1));
+    // The value row is bottom-aligned, so the balance sits flush with the
+    // bottom of the panel.
+    expect(
+      panelRect.bottom - tester.getRect(find.text('430')).bottom,
+      closeTo(0, 0.1),
+    );
   });
 
   testWidgets('other products use backend activity label', (tester) async {
@@ -281,22 +299,20 @@ void main() {
     await tester.pump();
 
     expect(purchaseCalls, 0);
-    expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 1);
+    expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 0.4);
     expect(find.byType(ColorFiltered), findsNothing);
-    expect(find.text('Sold Out'), findsOneWidget);
+    expect(find.text('Sold out'), findsOneWidget);
     expect(find.text(r'$1.49'), findsNothing);
     final soldOutButton = tester.widget<Container>(
       find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
     );
-    expect(
-      (soldOutButton.decoration as BoxDecoration).color,
-      Colors.transparent,
-    );
     final soldOutDecoration = soldOutButton.decoration! as BoxDecoration;
-    expect(soldOutDecoration.border, isNotNull);
+    // The sold-out button is a flat subtle-surface fill, no outline.
+    expect(soldOutDecoration.color, const Color(0xFFFAFAFA));
+    expect(soldOutDecoration.border, isNull);
     expect(
-      tester.widget<Text>(find.text('Sold Out')).style?.color,
-      const Color(0xFFD47B89),
+      tester.widget<Text>(find.text('Sold out')).style?.color,
+      const Color(0xFF9E9E9E),
     );
   });
 
@@ -326,7 +342,7 @@ void main() {
     final priceButtonRect = tester.getRect(
       find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
     );
-    expect(stackRect.bottom - priceButtonRect.bottom, 10);
+    expect(stackRect.bottom - priceButtonRect.bottom, 13);
   });
 
   testWidgets('other unavailable products remain greyed out', (tester) async {
@@ -387,7 +403,7 @@ void main() {
     expect(cardSize.height, kGemProductCardHeight);
     expect(cardSize.width, greaterThan(105));
     expect(buttonSize.height, kGemPriceButtonHeight);
-    expect(buttonSize.width, closeTo(cardSize.width - 22, 0.1));
+    expect(buttonSize.width, closeTo(cardSize.width - 28, 0.1));
   });
 }
 

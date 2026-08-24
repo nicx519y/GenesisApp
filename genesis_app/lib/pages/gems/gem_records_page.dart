@@ -229,7 +229,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
             GenesisStateView.empty(
               message: 'No gem records yet.',
               textStyle: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 height: 18 / 12,
                 fontWeight: FontWeight.w400,
                 color: context.genesisColors.textPlaceholder,
@@ -242,16 +242,11 @@ class _GemRecordsPageState extends State<GemRecordsPage>
     return RefreshIndicator(
       color: context.genesisGemColors.accent,
       onRefresh: () => _loadFirstPage(index: index, refreshing: true),
-      child: ListView.separated(
+      child: ListView.builder(
         controller: state.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 2, 20, 24),
         itemCount: state.records.length + (state.isLoadingMore ? 1 : 0),
-        separatorBuilder: (context, _) => Divider(
-          height: 1,
-          thickness: 1,
-          color: context.genesisColors.dividerSubtle,
-        ),
         itemBuilder: (context, itemIndex) {
           if (itemIndex >= state.records.length) {
             return Padding(
@@ -311,24 +306,12 @@ class _GemRecordTabs extends StatelessWidget {
           child: GenesisTabBar(
             controller: controller,
             labels: labels,
-            horizontalPadding: 16,
+            horizontalPadding: 24,
             labelPadding: const EdgeInsets.symmetric(horizontal: 4),
             verticalPadding: 0,
-            indicatorMatchesLabelWidth: true,
+            indicatorWidth: 22,
             indicatorHeight: 2,
             indicatorBottomPadding: 0,
-            labelColor: context.genesisColors.textPrimary,
-            unselectedLabelColor: context.genesisColors.textPlaceholder,
-            labelStyle: const TextStyle(
-              fontSize: 13,
-              height: 1,
-              fontWeight: FontWeight.w700,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 13,
-              height: 1,
-              fontWeight: FontWeight.w500,
-            ),
             expanded: true,
             onTap: onSelected,
           ),
@@ -374,7 +357,7 @@ class _GemRecordTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
-                    height: 1.35,
+                    height: 1.5,
                     fontWeight: FontWeight.w600,
                     color: context.genesisColors.textPrimary,
                   ),
@@ -398,12 +381,12 @@ class _GemRecordTile extends StatelessWidget {
             child: Text(
               amountText,
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 13,
                 height: 1,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 color: isIncome
                     ? context.genesisGemColors.reward
-                    : context.genesisColors.textFaint,
+                    : context.genesisColors.textPlaceholder,
               ),
             ),
           ),
@@ -432,7 +415,7 @@ class _GemRecordDetailLine extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        fontSize: 10,
+        fontSize: 9.5,
         height: 1,
         fontWeight: FontWeight.w400,
         color: isSecondary

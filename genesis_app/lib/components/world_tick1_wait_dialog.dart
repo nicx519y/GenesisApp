@@ -136,7 +136,7 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
                 _hasError
                     ? 'Generation status could not be loaded.'
                     : 'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
-                style: const TextStyle(fontSize: 14, height: 1.35),
+                style: const TextStyle(fontSize: 13, height: 1.35),
               ),
             ),
             actions: _hasError

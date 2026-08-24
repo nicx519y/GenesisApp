@@ -249,7 +249,7 @@ class _OriginCharactersEditorPageState
                             '${_forms.length}/$_maxCharacters (Added / Max)',
                             style: TextStyle(
                               color: context.genesisCreateColors.text,
-                              fontSize: 14,
+                              fontSize: 13,
                               height: 1.2,
                             ),
                           ),
@@ -282,7 +282,7 @@ class _OriginCharactersEditorPageState
                         CreateInlineAddButton(
                           label: '+ Add Character',
                           onTap: _addCharacter,
-                          fontSize: 14,
+                          fontSize: 13,
                           centered: true,
                           contentPadding: const EdgeInsets.fromLTRB(
                             0,
@@ -310,7 +310,7 @@ class _OriginCharactersEditorPageState
                       ? BorderRadius.circular(13)
                       : null,
                   fontSize: createWorldoStyle ? 13 : null,
-                  fontWeight: createWorldoStyle ? FontWeight.w700 : null,
+                  fontWeight: createWorldoStyle ? FontWeight.w800 : null,
                   onPressed: _canUseSaveButton ? _saveCharacters : null,
                   onDisabledPressed: () => _showError(_saveDisabledReason),
                 ),

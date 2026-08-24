@@ -97,8 +97,8 @@ class _TilemapSettingsSwitch extends StatelessWidget {
             label,
             style: TextStyle(
               color: foregroundColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

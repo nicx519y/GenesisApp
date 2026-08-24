@@ -401,10 +401,10 @@ void main() {
     );
     final enterDecoration = enterBubble.decoration! as BoxDecoration;
     expect(enterDecoration.color, GenesisPalette.redesignWhite13);
-    expect((enterDecoration.borderRadius! as BorderRadius).topLeft.x, 18);
+    expect((enterDecoration.borderRadius! as BorderRadius).topLeft.x, 20);
     final enterText = tester.widget<Text>(find.text('Alice came to the cafe'));
     expect(enterText.textSpan?.style?.color, Colors.white);
-    expect(enterText.textSpan?.style?.fontWeight, FontWeight.w700);
+    expect(enterText.textSpan?.style?.fontWeight, FontWeight.w800);
     expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
     expect(find.text('Old Station'), findsNothing);
     expect(find.text('Event'), findsNothing);
@@ -414,7 +414,7 @@ void main() {
             widget is SvgPicture &&
             widget.bytesLoader.toString().contains(eventsIconAsset),
       ),
-      findsNWidgets(2),
+      findsNothing,
     );
     expect(
       find.byWidgetPredicate(
@@ -482,7 +482,7 @@ void main() {
       (tester.getCenter(firstVisibility).dy -
               tester.getCenter(firstTimestamp).dy)
           .abs(),
-      lessThan(1),
+      lessThan(2),
     );
     expect(
       tester.getTopLeft(find.text('Alice found a ticket.')).dy,
@@ -615,11 +615,11 @@ void main() {
     final bubble = tester.widget<Container>(bubbleFinder);
     final decoration = bubble.decoration! as BoxDecoration;
     expect(decoration.color, const Color(0x21FFFFFF));
-    expect((decoration.borderRadius! as BorderRadius).topLeft.x, 18);
+    expect((decoration.borderRadius! as BorderRadius).topLeft.x, 20);
     final icon = find.byKey(
       const ValueKey<String>('chat-user-enter-location-icon'),
     );
-    expect(tester.getSize(icon), const Size.square(11));
+    expect(tester.getSize(icon), const Size.square(12));
     expect(
       Theme.of(
         tester.element(icon),
@@ -632,15 +632,15 @@ void main() {
     );
     expect(text.textAlign, TextAlign.left);
     expect(text.textSpan?.style?.color, Colors.white);
-    expect(text.textSpan?.style?.fontWeight, FontWeight.w700);
+    expect(text.textSpan?.style?.fontWeight, FontWeight.w800);
     final spans = (text.textSpan! as TextSpan).children!.cast<TextSpan>();
     expect(spans.map((span) => span.text), [
       'Adrian',
       ' came to ',
       'Grand Ballroom',
     ]);
-    expect(spans[1].style?.color, GenesisPalette.redesignWhite60);
-    expect(spans[1].style?.fontWeight, FontWeight.w500);
+    expect(spans[1].style?.color, GenesisPalette.white.withValues(alpha: 0.73));
+    expect(spans[1].style?.fontWeight, FontWeight.w400);
 
     await tester.longPress(find.text('Adrian came to Grand Ballroom'));
     await tester.pump();
@@ -886,8 +886,8 @@ void main() {
       findsNothing,
     );
     expect(
-      tester.getSize(find.byKey(const ValueKey('memory-model-entry-chevron'))),
-      const Size(9, 6),
+      tester.getSize(find.byKey(const ValueKey('memory-model-entry-icon'))),
+      const Size.square(12),
     );
 
     await tester.tap(button);
@@ -1020,7 +1020,7 @@ void main() {
                   .decoration!
               as BoxDecoration)
           .color,
-      const Color(0x33FFFFFF),
+      const Color(0x993A3942),
     );
 
     await gesture.up();
@@ -2352,7 +2352,7 @@ void main() {
       const ValueKey<String>('chat-header-compact-back-button'),
     );
     final backRect = tester.getRect(backButton);
-    expect(backRect.size, const Size.square(34));
+    expect(backRect.size, const Size.square(30));
     expect(backRect.left, closeTo(headerRect.left + 16, 0.01));
     expect(tester.getRect(find.text('Grand Ballroom (1)')).left, 56);
     expect(
@@ -2567,13 +2567,13 @@ void main() {
 
       expect(timeRect.left - nameRect.right, closeTo(8, 0.01));
       expect(name.style?.fontFamily, GenesisTypography.fontFamily);
-      expect(name.style?.fontSize, 12);
-      expect(name.style?.fontWeight, FontWeight.w700);
-      expect(name.style?.color, GenesisPalette.white);
+      expect(name.style?.fontSize, 11);
+      expect(name.style?.fontWeight, FontWeight.w800);
+      expect(name.style?.color, GenesisPalette.redesignSoftWhite);
       expect(time.style?.fontFamily, GenesisTypography.fontFamily);
       expect(time.style?.fontSize, 9.5);
       expect(time.style?.fontWeight, FontWeight.w400);
-      expect(time.style?.color, GenesisPalette.redesignWhite55);
+      expect(time.style?.color, GenesisPalette.redesignWhite45);
     },
   );
 
@@ -2699,7 +2699,7 @@ void main() {
 
     final label = tester.widget<Text>(find.text('NPC'));
     expect(label.style?.color, Colors.white);
-    expect(label.style?.fontWeight, FontWeight.w700);
+    expect(label.style?.fontWeight, FontWeight.w800);
   });
 
   testWidgets('redesign NPC avatar stays legible on the dark background', (
@@ -3036,9 +3036,9 @@ void main() {
       find.byKey(const ValueKey<String>('chat-message-bubble-ai-role')),
     );
     final decoration = bubble.decoration! as BoxDecoration;
-    expect(decoration.color, const Color(0x33FFFFFF));
+    expect(decoration.color, const Color(0x993A3942));
     final radius = decoration.borderRadius! as BorderRadius;
-    expect(radius.topLeft, Radius.zero);
+    expect(radius.topLeft.x, 6);
     expect(radius.topRight.x, 14);
     expect(radius.bottomRight.x, 14);
     expect(radius.bottomLeft.x, 14);
@@ -3088,7 +3088,7 @@ void main() {
     );
     expect(
       (userBubble.decoration! as BoxDecoration).color,
-      const Color(0x21FFFFFF),
+      const Color(0x993A3942),
     );
     expect(
       ((userBubble.decoration! as BoxDecoration).borderRadius! as BorderRadius)
@@ -3124,7 +3124,7 @@ void main() {
     );
     expect(
       (playerRoleBubble.decoration! as BoxDecoration).color,
-      const Color(0x21FFFFFF),
+      const Color(0x993A3942),
     );
     expect(
       ((playerRoleBubble.decoration! as BoxDecoration).borderRadius!
@@ -3166,10 +3166,10 @@ void main() {
       const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
     );
     final decoration = bubble.decoration! as BoxDecoration;
-    expect(decoration.color, const Color(0x6BF82B3C));
+    expect(decoration.color, const Color(0x99C41F2E));
     final radius = decoration.borderRadius! as BorderRadius;
     expect(radius.topLeft.x, 14);
-    expect(radius.topRight, Radius.zero);
+    expect(radius.topRight.x, 6);
     expect(radius.bottomRight.x, 14);
     expect(radius.bottomLeft.x, 14);
     final text = tester.widget<Text>(
@@ -3179,8 +3179,9 @@ void main() {
       ),
     );
     expect(text.textSpan?.style?.fontSize, 13);
-    expect(text.textSpan?.style?.height, 1.6);
-    expect(find.byType(BackdropFilter), findsNothing);
+    expect(text.textSpan?.style?.height, kChatBodyLineHeight);
+    // The self bubble now carries the same backdrop glass as the AI bubbles.
+    expect(find.byType(BackdropFilter), findsOneWidget);
   });
 
   testWidgets('system chat message uses normal bubble width and centers', (
@@ -3258,6 +3259,80 @@ void main() {
     );
   });
 
+  testWidgets('narrator icon starts at the same gutter as the role avatar', (
+    WidgetTester tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark().copyWith(
+          platform: TargetPlatform.android,
+        ),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: ChatMessageList(
+              controller: controller,
+              topTitle: '',
+              reverse: false,
+              showDateDividers: false,
+              style: context.genesisChatTheme.locationChat,
+              messages: [
+                ChatMessageVm(
+                  localId: 'role-1',
+                  senderId: 'peer',
+                  senderName: 'Vivienne',
+                  text: 'The doors are still open.',
+                  isMe: false,
+                  status: 'sent',
+                ),
+                ChatMessageVm(
+                  localId: 'narrator-1',
+                  senderId: 'narrator',
+                  senderName: 'Narrator',
+                  text: 'The doors open again.',
+                  isMe: false,
+                  status: 'sent',
+                  senderType: 'narrator',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final style = tester
+        .widget<ChatMessageList>(find.byType(ChatMessageList))
+        .style!;
+    final listPadding = style.messageListPadding;
+    final avatarLeft = tester.getTopLeft(find.byType(ChatAvatar)).dx;
+    final narratorPlateLeft = tester
+        .getTopLeft(find.byKey(const ValueKey('chat-system-message-bubble')))
+        .dx;
+    final narratorIconLeft = tester
+        .getTopLeft(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SvgPicture &&
+                widget.bytesLoader.toString().contains(paragraphIconAsset),
+          ),
+        )
+        .dx;
+
+    // The plate itself starts at the message list gutter, level with the role
+    // avatars; its text then takes the same inner gutter as the tick and story
+    // plates instead of running flush against the plate border.
+    expect(listPadding.left, 10);
+    expect(avatarLeft, listPadding.left);
+    expect(narratorPlateLeft, avatarLeft);
+    expect(
+      narratorIconLeft,
+      narratorPlateLeft + style.systemMessagePadding.left,
+    );
+  });
+
   testWidgets('Worldo narrator matches the transparent scene-plate design', (
     WidgetTester tester,
   ) async {
@@ -3289,23 +3364,30 @@ void main() {
     final surface = tester.widget<Container>(
       find.byKey(const ValueKey('chat-system-message-bubble')),
     );
-    expect((surface.decoration! as BoxDecoration).color, Colors.transparent);
+    // The narrator sits on a 50% page-colour plate: invisible on the solid
+    // background, a scrim over a scene photo.
+    expect(
+      (surface.decoration! as BoxDecoration).color,
+      const Color(0x80151517),
+    );
 
     final text = tester.widget<Text>(find.text('The doors open again.'));
     final textStyle = text.textSpan!.style!;
-    expect(textStyle.color, const Color(0xD9FFFFFF));
+    expect(textStyle.color, const Color(0xBAFFFFFF));
     expect(textStyle.fontSize, 13);
     expect(textStyle.fontWeight, FontWeight.w400);
     expect(textStyle.fontStyle, FontStyle.italic);
-    expect(textStyle.height, 1.6);
+    expect(textStyle.height, kChatBodyLineHeight);
   });
 
   testWidgets('location chat keeps avatars aligned and bars one-third in', (
     WidgetTester tester,
   ) async {
     final style = kLocationChatStyle;
-    final expectedOuterPadding = 10.0;
-    final expectedInnerPadding = ChatUiStyleConfig.standard.avatarSize / 3;
+    final expectedOuterPadding = 16.0;
+    // The system/tick bars stay one 40px-avatar-third inside the gutter; that
+    // spacer is a fixed location-chat constant, not derived from avatarSize.
+    final expectedInnerPadding = 40 / 3;
     final expectedBubbleEdge = expectedOuterPadding + expectedInnerPadding;
 
     expect(style.conversationBackgroundColor, const Color(0xFF111111));
@@ -3414,7 +3496,7 @@ void main() {
     expect(tickBar.right, closeTo(400 - expectedOuterPadding, 1));
     expect(
       narratorText.left,
-      closeTo(expectedBubbleEdge + style.systemMessagePadding.left + 20, 1),
+      closeTo(expectedBubbleEdge + style.systemMessagePadding.left + 22, 1),
     );
     expect(tickText.left, closeTo(expectedBubbleEdge + 14, 1));
   });
@@ -3810,7 +3892,7 @@ void main() {
         ),
       );
 
-      final header = find.text('Tick 1-2 · Day 1, 13:50');
+      final header = find.text('Tick 1-2');
       final globalSection = find.byKey(
         const ValueKey<String>('chat-tick-global-section'),
       );
@@ -3876,9 +3958,10 @@ void main() {
         ),
         findsNothing,
       );
+      // Tick body tracks the narrator tier for whichever theme is active.
       expect(
         tester.widget<Text>(globalText).textSpan?.style?.color,
-        Colors.white.withValues(alpha: 0.72),
+        GenesisPalette.redesignWhite85,
       );
       expect(
         tester.widget<Text>(globalText).textSpan?.style?.fontStyle,
@@ -3898,13 +3981,15 @@ void main() {
       expect(find.text('Event'), findsNothing);
       expect(find.text('Vault'), findsNothing);
       expect(find.text('public'), findsNothing);
+      // The tick time row leads with the drawn Beat record glyph now, so the
+      // shared events asset must not appear anywhere in the bubble.
       expect(
         find.byWidgetPredicate(
           (widget) =>
               widget is SvgPicture &&
               widget.bytesLoader.toString().contains(eventsIconAsset),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.descendant(
@@ -3932,7 +4017,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Character destinations'), findsNothing);
-      expect(routeIcon, findsOneWidget);
+      expect(routeIcon, findsNothing);
       expect(find.text('Elara, Lyra'), findsOneWidget);
       expect(find.text('went to'), findsOneWidget);
       expect(find.text('Room 0'), findsOneWidget);
@@ -3946,7 +4031,17 @@ void main() {
       );
       expect(
         tester.getTopLeft(eventText).dy,
-        lessThan(tester.getTopLeft(routeIcon).dy),
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(
+                  const ValueKey<String>(
+                    'chat-character-movement-location-tick-composite-tick-0',
+                  ),
+                ),
+              )
+              .dy,
+        ),
       );
 
       await tester.tap(
@@ -4011,6 +4106,7 @@ void main() {
                   roleId: 'vivienne',
                   name: 'Vivienne',
                   isAi: true,
+                  avatarUrl: 'assets/images/default_list_image.png',
                 ),
                 ChatStoryEventVisibleRoleVm(
                   roleId: 'adrian',
@@ -4062,7 +4158,7 @@ void main() {
       find.byKey(const ValueKey<String>('chat-tick-message-surface')),
     );
     final surfaceDecoration = surface.decoration! as BoxDecoration;
-    expect(surfaceDecoration.color, const Color(0x99131215));
+    expect(surfaceDecoration.color, const Color(0x99151517));
     expect(surfaceDecoration.borderRadius, BorderRadius.circular(10));
     expect(
       (surfaceDecoration.border! as Border).top.color,
@@ -4093,7 +4189,7 @@ void main() {
       const Size.square(5),
     );
     final headerText = tester.widget<Text>(find.text('Tick 1-2'));
-    expect(headerText.style?.fontSize, 14);
+    expect(headerText.style?.fontSize, 13);
     expect(headerText.style?.fontWeight, FontWeight.w800);
     final header = tester.widget<Container>(
       find.byKey(const ValueKey<String>('chat-tick-header-worldo-tick')),
@@ -4106,19 +4202,28 @@ void main() {
       find.text('The room has started keeping score.'),
     );
     expect(globalText.textSpan?.style?.fontSize, 13);
-    expect(globalText.textSpan?.style?.height, 1.6);
-    expect(
-      globalText.textSpan?.style?.color,
-      Colors.white.withValues(alpha: 0.72),
-    );
+    expect(globalText.textSpan?.style?.height, kChatBodyLineHeight);
+    // Tick body now shares the narrator tier.
+    expect(globalText.textSpan?.style?.color, GenesisPalette.redesignWhite73);
 
-    final eventIcon = tester.widget<SvgPicture>(
-      find.byKey(
-        const ValueKey<String>('chat-story-event-icon-worldo-tick-tick-0'),
+    // Beat record glyph, drawn not loaded, sized to the 13px body run.
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('chat-story-event-icon-worldo-tick-tick-0'),
+        ),
       ),
+      const Size.square(13),
     );
-    expect(eventIcon.width, 12);
-    expect(eventIcon.height, 12);
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('chat-story-event-icon-worldo-tick-tick-0'),
+        ),
+        matching: find.byType(CustomPaint),
+      ),
+      findsOneWidget,
+    );
     final timestamp = tester.widget<Text>(
       find.byKey(
         const ValueKey<String>('chat-story-event-timestamp-worldo-tick-tick-0'),
@@ -4126,7 +4231,10 @@ void main() {
     );
     expect(timestamp.style?.fontSize, 11);
     expect(timestamp.style?.height, 1);
-    expect(timestamp.style?.color, Colors.white.withValues(alpha: 0.55));
+    expect(
+      timestamp.style?.color,
+      GenesisPalette.redesignSoftWhite.withValues(alpha: 0.45),
+    );
     expect(
       tester.getSize(
         find.byKey(
@@ -4134,6 +4242,21 @@ void main() {
         ),
       ),
       const Size.square(18),
+    );
+    expect(
+      tester
+          .widget<GenesisAvatar>(
+            find.descendant(
+              of: find.byKey(
+                const ValueKey<String>(
+                  'chat-tick-visible-role-avatar-vivienne',
+                ),
+              ),
+              matching: find.byType(GenesisAvatar),
+            ),
+          )
+          .url,
+      'assets/images/default_list_image.png',
     );
     final playerAvatar = tester.widget<Container>(
       find.byKey(
@@ -4144,27 +4267,33 @@ void main() {
         (playerAvatar.foregroundDecoration! as BoxDecoration).border! as Border;
     expect(playerBorder.top.color, const Color(0xFFF82B3C));
     expect(playerBorder.top.width, 1.5);
-    expect(tester.widget<Text>(find.text('Vivienne')).style?.fontSize, 12);
+    expect(tester.widget<Text>(find.text('Vivienne')).style?.fontSize, 11);
     expect(
       tester.widget<Text>(find.text('Vivienne')).style?.color,
-      Colors.white.withValues(alpha: 0.72),
+      GenesisPalette.redesignSoftWhite.withValues(alpha: 0.72),
     );
-    expect(tester.widget<Text>(find.text('Adrian')).style?.color, Colors.white);
+    expect(
+      tester.widget<Text>(find.text('Adrian')).style?.color,
+      GenesisPalette.redesignSoftWhite,
+    );
 
     final eventText = tester.widget<Text>(
       find.textContaining("Vivienne's grandfather signals"),
     );
     expect(eventText.textSpan?.style?.fontSize, 13);
-    expect(eventText.textSpan?.style?.height, 1.6);
-    expect(eventText.textSpan?.style?.color, Colors.white);
+    expect(eventText.textSpan?.style?.height, kChatBodyLineHeight);
+    expect(
+      eventText.textSpan?.style?.color,
+      GenesisPalette.redesignSoftWhite.withValues(alpha: 0.73),
+    );
     final clueText = tester.widget<Text>(
       find.textContaining('Keep Vivienne away'),
     );
     expect(clueText.textSpan?.style?.fontSize, 13);
-    expect(clueText.textSpan?.style?.height, 1.6);
+    expect(clueText.textSpan?.style?.height, kChatBodyLineHeight);
     expect(
       clueText.textSpan?.style?.color,
-      Colors.white.withValues(alpha: 0.72),
+      GenesisPalette.redesignSoftWhite.withValues(alpha: 0.72),
     );
 
     final movementSection = tester.widget<Container>(
@@ -4177,9 +4306,9 @@ void main() {
       find.text('Vivienne Ashford, Dorian'),
     );
     expect(movementName.style?.fontSize, 13);
-    expect(movementName.style?.height, 1.6);
-    expect(movementName.style?.fontWeight, FontWeight.w700);
-    expect(movementName.style?.color, Colors.white);
+    expect(movementName.style?.height, 1.3);
+    expect(movementName.style?.fontWeight, FontWeight.w800);
+    expect(movementName.style?.color, GenesisPalette.redesignSoftWhite);
     final location = tester.widget<Text>(find.text('The Library'));
     expect(location.style?.color, const Color(0xFFFF8A9A));
     expect(location.style?.decoration, TextDecoration.underline);
@@ -4187,15 +4316,15 @@ void main() {
       location.style?.decorationColor,
       const Color(0xFFFF8A9A).withValues(alpha: 0.45),
     );
-    final routeIcon = tester.widget<SvgPicture>(
+    // The movement glyph is painted to the design spec now, not an SVG asset.
+    expect(
       find.byWidgetPredicate(
         (widget) =>
             widget is SvgPicture &&
             widget.bytesLoader.toString().contains(routeIconAsset),
       ),
+      findsNothing,
     );
-    expect(routeIcon.width, 12);
-    expect(routeIcon.height, 12);
 
     await tester.tap(
       find.byKey(
@@ -4363,6 +4492,57 @@ void main() {
     expect(reportedHeights.first, initialHeight);
     expect(reportedHeights, contains(threeLineHeight));
     expect(reportedHeights.last, closeTo(tenLineHeight, 1));
+  });
+
+  testWidgets('room composer caret is white, other composers keep the theme', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController(text: 'hello');
+    addTearDown(controller.dispose);
+
+    Future<TextField> inputFor(ChatUiStyleConfig style) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatComposer(
+              controller: controller,
+              inputEnabled: true,
+              sendEnabled: true,
+              sending: false,
+              onSend: () async {},
+              style: style,
+            ),
+          ),
+        ),
+      );
+      return tester.widget<TextField>(find.byType(TextField));
+    }
+
+    TextSelectionThemeData? selectionThemeAround(TextField field) {
+      final scope = find.ancestor(
+        of: find.byWidget(field),
+        matching: find.byType(TextSelectionTheme),
+      );
+      if (scope.evaluate().isEmpty) return null;
+      return tester.widget<TextSelectionTheme>(scope.first).data;
+    }
+
+    // The room is drawn over scene artwork, where the app theme's accent caret,
+    // handles and highlight all read as stray red marks.
+    final room = await inputFor(GenesisChatTheme.worldoDark().locationChat);
+    expect(room.cursorColor, GenesisPalette.white);
+    final roomSelection = selectionThemeAround(room)!;
+    expect(roomSelection.cursorColor, GenesisPalette.white);
+    expect(roomSelection.selectionHandleColor, GenesisPalette.white);
+    expect(
+      roomSelection.selectionColor,
+      GenesisPalette.white.withValues(alpha: 0.32),
+    );
+
+    // Everything else keeps deferring to the app theme.
+    final standard = await inputFor(GenesisChatTheme.worldoDark().standard);
+    expect(standard.cursorColor, isNull);
+    expect(selectionThemeAround(standard), isNull);
   });
 
   testWidgets('chat composer default only shows send action button', (

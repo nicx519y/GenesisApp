@@ -19,13 +19,13 @@ class _FollowStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
     final style = TextStyle(
-      fontSize: compact ? 14 : 16,
+      fontSize: compact ? 13 : 15,
       height: 1,
       color: colors.textPrimary,
       fontWeight: FontWeight.w600,
     );
     final labelStyle = TextStyle(
-      fontSize: compact ? 12 : 14,
+      fontSize: compact ? 11 : 13,
       height: 1,
       color: colors.textMuted,
       fontWeight: FontWeight.w400,
@@ -268,7 +268,7 @@ class _Avatar extends StatelessWidget {
                     color: colors.onDanger,
                     fontSize: 30,
                     height: 1,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     shadows: [
                       Shadow(
                         color: colors.accentText,
@@ -297,12 +297,16 @@ class _Avatar extends StatelessWidget {
                   onTap: updating ? null : onEdit,
                   child: Padding(
                     padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      MyFlutterApp.editImage,
-                      size: 12,
-                      color: redesigned
-                          ? colors.textPrimary
-                          : colors.textInverse,
+                    // Same pencil as the inline text edit affordance, so the
+                    // two edit entry points read as one glyph.
+                    child: SvgPicture.asset(
+                      editPencilLineIconAsset,
+                      width: 12,
+                      height: 12,
+                      colorFilter: ColorFilter.mode(
+                        redesigned ? colors.textPrimary : colors.textInverse,
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ),
                 ),
@@ -354,7 +358,7 @@ class _DisplayNameText extends StatelessWidget {
       style: TextStyle(
         fontSize: 17,
         height: 1,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w800,
         color: context.genesisColors.foregroundStrong,
       ),
     );

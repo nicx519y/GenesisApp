@@ -93,9 +93,8 @@ class GemBillingPurchaseDialog extends StatelessWidget {
                   ),
                   actions: const [],
                   showCancel: false,
-                  borderColor: context.genesisColors.foregroundStrong.withValues(
-                    alpha: 0.14,
-                  ),
+                  borderColor: context.genesisColors.foregroundStrong
+                      .withValues(alpha: 0.14),
                   onActionSelected: (_) => onConfirm(),
                   onCancel: onConfirm,
                 ),
@@ -204,7 +203,7 @@ class _GemBillingPurchaseSuccessDialog extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 13,
                               height: 1,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w400,
                               color: context.genesisColors.textMuted,
                             ),
                           ),
@@ -250,7 +249,7 @@ class _GemBillingPurchaseSuccessDialog extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         height: 1,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         color: context.genesisGemColors.accent,
                       ),
                     ),
@@ -294,7 +293,7 @@ class _ProcessingPaymentTextState extends State<_ProcessingPaymentText> {
   @override
   Widget build(BuildContext context) {
     final style = TextStyle(
-      fontSize: 15,
+      fontSize: 13,
       height: 20 / 15,
       letterSpacing: 0,
       fontWeight: FontWeight.w400,

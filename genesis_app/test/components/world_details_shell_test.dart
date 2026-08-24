@@ -140,9 +140,15 @@ void main() {
     final contentBackground = tester.widget<DecoratedSliver>(
       find.byKey(const ValueKey<String>('world-details-content-background')),
     );
+    // 这层底色现在带和顶栏一致的圆角,否则浮窗左上角的弧会被它填成直边。
     expect(
       contentBackground.decoration,
-      const BoxDecoration(color: GenesisPalette.redesignPaper),
+      BoxDecoration(
+        color: GenesisPalette.redesignPaper,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(WorldDetailsPageScaffold.defaultPanelTopRadius),
+        ),
+      ),
     );
   });
 
@@ -165,28 +171,15 @@ void main() {
         find.byKey(const ValueKey<String>('world-details-panel-top-surface')),
       );
       final decoration = panel.decoration! as BoxDecoration;
-      final foregroundDecoration = panel.foregroundDecoration! as BoxDecoration;
-      final border = foregroundDecoration.border! as Border;
 
       expect(decoration.color, GenesisPalette.redesignBackground);
       expect(
         decoration.borderRadius,
         const BorderRadius.vertical(top: Radius.circular(24)),
       );
-      expect(
-        foregroundDecoration.borderRadius,
-        const BorderRadius.vertical(top: Radius.circular(24)),
-      );
-      expect(border.top.width, worldDetailsPanelTopBorderWidth);
-      expect(
-        border.top.color,
-        GenesisPalette.white.withValues(
-          alpha: worldDetailsPanelTopBorderOpacity,
-        ),
-      );
-      expect(border.left.style, BorderStyle.none);
-      expect(border.right.style, BorderStyle.none);
-      expect(border.bottom.style, BorderStyle.none);
+      // 顶栏不再自己画上边框。设计稿 9a 里浮窗顶边是纯圆角、没有细线;那条通栏
+      // 细线在顶边下方,由 tab 容器的顶边来画(容器无圆角,天然左右顶满)。
+      expect(panel.foregroundDecoration, isNull);
     },
   );
 
@@ -483,12 +476,14 @@ void main() {
     );
     final handleRect = tester.getRect(find.byType(WorldDetailsDragHandle));
     final titleRect = tester.getRect(find.byKey(const ValueKey('panel-title')));
+    // 拉起条不再在带内居中,而是按设计稿钉在距顶边 dragHandleTopInset 处,
+    // 收起态与展开态才对得上。
     expect(
       titleRect.top - handleRect.bottom,
       closeTo(
-        (WorldDetailsPanel.contentTopPadding -
-                    WorldDetailsShell.dragHandleHeight) /
-                2 +
+        WorldDetailsPanel.contentTopPadding -
+            WorldDetailsShell.dragHandleTopInset -
+            WorldDetailsShell.dragHandleHeight +
             WorldDetailsShell.dragHandleTitleGap,
         0.01,
       ),

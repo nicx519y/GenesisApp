@@ -127,7 +127,7 @@ class _DebugPasswordDialogState extends State<_DebugPasswordDialog> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     textStyle: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

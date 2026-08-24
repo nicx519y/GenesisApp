@@ -323,7 +323,7 @@ class _FollowUsersPane extends StatelessWidget {
                     child: Text(
                       emptyText,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         color: context.genesisColors.textSupporting,
                         fontWeight: FontWeight.w400,
                       ),

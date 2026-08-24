@@ -285,17 +285,12 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                     child: SingleChildScrollView(
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: const EdgeInsets.fromLTRB(
-                        10,
-                        _fieldLabelInputGap,
-                        10,
-                        28,
-                      ),
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            padding: EdgeInsets.zero,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -306,8 +301,8 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                   ),
                                   style: TextStyle(
                                     color: context.genesisCreateColors.text,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
                                     height: 1.2,
                                   ),
                                 ),
@@ -337,8 +332,8 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                         style: TextStyle(
                                           color:
                                               context.genesisCreateColors.text,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
                                           height: 1.2,
                                         ),
                                       ),
@@ -350,10 +345,10 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                         'opening-dialogue-count',
                                       ),
                                       style: TextStyle(
-                                        color:
-                                            context.genesisCreateColors.muted,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w400,
+                                        color: context.genesisCreateColors.text
+                                            .withValues(alpha: 0.45),
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w600,
                                         height: 1.2,
                                       ),
                                     ),
@@ -395,10 +390,13 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                     ),
                   ),
                   _KeyboardHiddenBottomAction(
-                    minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
+                    minimum: const EdgeInsets.fromLTRB(20, 22, 20, 30),
                     child: GenesisPrimaryButton(
                       label: _isSaving ? 'Saving...' : 'Save',
-                      width: _primaryActionButtonWidth(context),
+                      height: 44,
+                      borderRadius: BorderRadius.circular(13),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
                       onPressed: _canSave && !_isSaving ? _save : null,
                       onDisabledPressed: () =>
                           showGenesisToast(context, _saveDisabledReason),

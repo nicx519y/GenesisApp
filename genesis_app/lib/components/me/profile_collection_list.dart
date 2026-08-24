@@ -72,7 +72,7 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
       final empty = Text(
         widget.emptyText,
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           color: context.genesisColors.textSupporting,
           fontWeight: FontWeight.w400,
         ),
@@ -267,10 +267,11 @@ class _AnimatedProfileCollectionListItemState
           mainAxisSize: MainAxisSize.min,
           children: [
             GenesisProfileCollectionListItem(item: widget.item),
-            // 9k separates world rows with a 14px gap and no rule — the only
-            // horizontal line on that screen is the bottom bar's top edge.
+            // Rows are separated by whitespace, no rule - the only horizontal
+            // line on this screen is the bottom bar's top edge. 24 matches the
+            // Home list.
             if (widget.showDivider)
-              const SizedBox(height: 14)
+              const SizedBox(height: 24)
             else if (widget.bottomSpacing > 0)
               SizedBox(height: widget.bottomSpacing),
           ],

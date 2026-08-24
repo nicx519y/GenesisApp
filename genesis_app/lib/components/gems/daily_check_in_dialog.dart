@@ -1,12 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../common/genesis_action_box.dart';
-import 'gem_assets.dart';
 import 'gem_colors.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_typography.dart';
 
 const int dailyCheckInPreviewReward = 50;
 const String dailyCheckInTaskCode = 'daily_checkin';
@@ -76,7 +75,9 @@ Future<void> showGemTaskSuccessDialog(
       titleContentSpacing: 10,
       actions: const [],
       showCancel: false,
-      borderColor: context.genesisColors.foregroundStrong.withValues(alpha: 0.14),
+      borderColor: context.genesisColors.foregroundStrong.withValues(
+        alpha: 0.14,
+      ),
     );
   } finally {
     timer.cancel();
@@ -92,23 +93,26 @@ class _GemTaskReward extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
         Text(
           '+$rewardGems',
           key: const ValueKey<String>('gem-task-reward-value'),
-          style: TextStyle(
+          style: GenesisTypography.prominentMetricValue.copyWith(
             color: context.genesisColors.textPrimary,
-            fontSize: 15,
-            height: 1.2,
-            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(width: 4),
-        SvgPicture.asset(
-          gemIconAsset,
+        const SizedBox(width: 7),
+        Text(
+          'Gems',
           key: const ValueKey<String>('gem-task-reward-icon'),
-          width: gemSmallIconSize,
-          height: gemSmallIconSize,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1,
+            fontWeight: FontWeight.w400,
+            color: context.genesisColors.textMuted,
+          ),
         ),
       ],
     );

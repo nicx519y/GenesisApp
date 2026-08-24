@@ -129,7 +129,7 @@ class _DeleteWorldConfirmationTitle extends StatelessWidget {
   static const _baseStyle = TextStyle(
     fontSize: 15,
     height: 1.16,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w800,
   );
   final String name;
 

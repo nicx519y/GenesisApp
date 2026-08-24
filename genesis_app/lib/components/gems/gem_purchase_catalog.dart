@@ -13,6 +13,10 @@ import 'gem_colors.dart';
 const double kGemProductCardHeight = 126;
 const double kGemPriceButtonHeight = 28;
 
+/// Layout box the gem-stack artwork occupies on a product card. The artwork
+/// is fitted inside it, so the painted width can be narrower than [Size.width].
+const Size kGemProductIconSize = Size(42, 34);
+
 class GemPurchaseCatalogSection extends StatelessWidget {
   const GemPurchaseCatalogSection({
     super.key,
@@ -32,11 +36,31 @@ class GemPurchaseCatalogSection extends StatelessWidget {
       children: [
         GemBalancePanel(balance: balance, balanceKey: balanceKey),
         const SizedBox(height: 22),
-        Text(
-          'Gem packs',
-          style: GenesisTypography.sectionTitle.copyWith(
-            color: context.genesisColors.textPrimary,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              'Packs',
+              style: GenesisTypography.sectionTitle.copyWith(
+                color: context.genesisColors.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Struck price = first top-up bonus',
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1,
+                  fontWeight: FontWeight.w400,
+                  color: context.genesisColors.textPlaceholder,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 11),
         catalog,
@@ -68,7 +92,7 @@ class GemBalancePanel extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               height: 1,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
               color: context.genesisColors.textMuted,
             ),
           ),
@@ -96,10 +120,10 @@ class GemBalancePanel extends StatelessWidget {
                 child: Text(
                   'Gems',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     height: 1,
-                    fontWeight: FontWeight.w500,
-                    color: context.genesisColors.textSubtle,
+                    fontWeight: FontWeight.w600,
+                    color: context.genesisColors.textPlaceholder,
                   ),
                 ),
               ),
@@ -191,8 +215,10 @@ class GemProductCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(14, 15, 14, 13),
           decoration: BoxDecoration(
+            // 9p: the sold-out card drops to white 4%, one step under the
+            // white 7% live card.
             color: isSoldOut
-                ? context.genesisColors.surfaceSubtle
+                ? context.genesisColors.foregroundStrong.withValues(alpha: 0.04)
                 : context.genesisColors.inputBackground,
             borderRadius: BorderRadius.circular(14),
           ),
@@ -201,8 +227,8 @@ class GemProductCard extends StatelessWidget {
               SvgPicture.asset(
                 gemStackIconAsset,
                 key: ValueKey<String>('gem-product-icon-${product.productId}'),
-                width: 42,
-                height: 34,
+                width: kGemProductIconSize.width,
+                height: kGemProductIconSize.height,
                 fit: BoxFit.contain,
               ),
               const SizedBox(height: 8),
@@ -233,14 +259,16 @@ class GemProductCard extends StatelessWidget {
                     hasBonusGems ? formatGemInteger(product.baseGems) : 'Gems',
                     maxLines: 1,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 9.5,
                       height: 1,
-                      fontWeight: FontWeight.w400,
-                      color: context.genesisColors.textFaint,
+                      fontWeight: FontWeight.w600,
+                      color: hasBonusGems
+                          ? context.genesisColors.textDisabled
+                          : context.genesisColors.textPlaceholder,
                       decoration: hasBonusGems
                           ? TextDecoration.lineThrough
                           : TextDecoration.none,
-                      decorationColor: context.genesisColors.textFaint,
+                      decorationColor: context.genesisColors.textDisabled,
                     ),
                   ),
                 ],
@@ -270,7 +298,7 @@ class GemProductCard extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         child: Text(
                           isSoldOut
-                              ? 'Sold Out'
+                              ? 'Sold out'
                               : formatGemPrice(
                                   product.priceAmount,
                                   product.priceCurrencyCode,
@@ -279,10 +307,10 @@ class GemProductCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             height: 1,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             color: isSoldOut
                                 ? context.genesisColors.textDisabled
-                                : context.genesisColors.onDanger,
+                                : context.genesisColors.textHighEmphasis,
                           ),
                         ),
                       ),
@@ -314,7 +342,7 @@ class GemProductCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 9.5,
                   height: 14 / 10,
                   fontWeight: FontWeight.w400,
                   color: context.genesisColors.onDanger,

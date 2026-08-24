@@ -51,9 +51,13 @@ void main() {
     final shape = itemMaterial.shape as RoundedRectangleBorder;
     expect(shape.side, BorderSide.none);
     expect(shape.borderRadius, const BorderRadius.all(Radius.circular(14)));
-    final imageTop = tester.getTopLeft(find.byType(GenesisListImage).first).dy;
-    final titleTop = tester.getTopLeft(find.text('Origin 0')).dy;
-    expect(titleTop, closeTo(imageTop, 0.1));
+    final imageRect = tester.getRect(find.byType(GenesisListImage).first);
+    final bodyRect = tester.getRect(
+      find
+          .ancestor(of: find.text('Origin 0'), matching: find.byType(Column))
+          .first,
+    );
+    expect(bodyRect.center.dy, closeTo(imageRect.center.dy, 0.6));
 
     await tester.drag(find.byType(ListView), const Offset(0, -90));
     await tester.pump();
@@ -93,8 +97,8 @@ void main() {
     );
 
     final svg = tester.widget<SvgPicture>(find.byType(SvgPicture));
-    expect(svg.width, moreOrLessEquals(13.75));
-    expect(svg.height, moreOrLessEquals(13.75));
+    expect(svg.width, moreOrLessEquals(15.0));
+    expect(svg.height, moreOrLessEquals(15.0));
     expect(find.text('7'), findsOneWidget);
   });
 

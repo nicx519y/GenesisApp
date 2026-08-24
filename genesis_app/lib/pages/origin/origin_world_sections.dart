@@ -14,22 +14,13 @@ class _WorldViewSection extends StatelessWidget {
       children: [
         const _OriginInfoSectionHeading(title: 'World brief'),
         const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
+        Padding(
           padding: const EdgeInsets.only(top: 12),
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(
-                color: context.genesisColors.foregroundStrong.withValues(
-                  alpha: 0.14,
-                ),
-                width: 1,
-              ),
-            ),
-          ),
           child: Text(
             body,
-            style: _bodyTextStyle(context).copyWith(fontSize: 12, height: 1.65),
+            style: _bodyTextStyle(
+              context,
+            ).copyWith(height: 1.5, color: context.genesisColors.textBody),
           ),
         ),
       ],
@@ -164,7 +155,7 @@ class _OriginInfoSectionHeading extends StatelessWidget {
         Text(
           title,
           style: GenesisTypography.sectionTitle.copyWith(
-            color: colors.foregroundStrong,
+            color: colors.textHeading,
           ),
         ),
         if (count case final count?) ...[
@@ -317,7 +308,7 @@ class _DiscussSection extends StatelessWidget {
                                       .withValues(alpha: 0.72),
                                   fontSize: 9.5,
                                   height: 1,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                               const SizedBox(width: 3),
@@ -392,16 +383,17 @@ class _OriginInfoCommentsPreview extends StatelessWidget {
                       text: comment.authorName,
                       style: TextStyle(
                         color: colors.accentText,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     TextSpan(text: '  ${comment.content}'),
                   ],
                 ),
                 style: TextStyle(
-                  color: colors.foregroundStrong.withValues(alpha: 0.92),
-                  fontSize: 12,
-                  height: 1.6,
+                  color: colors.textBody,
+                  fontSize: 13,
+                  height: 1.5,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -409,10 +401,10 @@ class _OriginInfoCommentsPreview extends StatelessWidget {
               Text(
                 '${comment.likeCount} likes',
                 style: TextStyle(
-                  color: colors.foregroundStrong.withValues(alpha: 0.50),
-                  fontSize: 10,
+                  color: colors.textMetadata,
+                  fontSize: 9.5,
                   height: 1,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -443,9 +435,9 @@ List<Widget> _originInitialDialogueSlivers(
     headerTitleIconColor: context.genesisColors.textSecondary,
     senderNameTextStyle: locationStyle.senderNameTextStyle.copyWith(
       color: context.genesisColors.foregroundStrong,
-      fontSize: 12,
+      fontSize: 11,
       height: 1,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w800,
     ),
     bubbleTextStyle: locationStyle.bubbleTextStyle.copyWith(
       fontSize: 13,
@@ -562,7 +554,7 @@ List<Widget> _originWorldoBriefSlivers(
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GenesisTypography.sectionTitle.copyWith(
-                        color: context.genesisColors.foregroundStrong,
+                        color: context.genesisColors.textHeading,
                         decoration: TextDecoration.none,
                       ),
                     ),
@@ -575,9 +567,9 @@ List<Widget> _originWorldoBriefSlivers(
                 key: const ValueKey<String>('origin-opening-worldo-brief-body'),
                 style: TextStyle(
                   fontSize: 13,
-                  height: 1.65,
+                  height: 1.5,
                   fontWeight: FontWeight.w400,
-                  color: context.genesisColors.textHighEmphasis,
+                  color: context.genesisColors.textBody,
                   decoration: TextDecoration.none,
                 ),
               ),

@@ -32,7 +32,7 @@ extension _WorldPageLayout on _WorldPageState {
           panelTopRadius: 24,
           panelTopOverlap: 8,
           panelTopBandHeight: worldPanelHandleBandHeight,
-          panelTopChild: const Center(child: WorldDetailsDragHandle()),
+          panelTopChild: const WorldDetailsDragHandleBand(),
           scrollPhysics: const NeverScrollableScrollPhysics(),
           persistentTopOverlay: _buildPersistentMapOverlay(
             topPadding,

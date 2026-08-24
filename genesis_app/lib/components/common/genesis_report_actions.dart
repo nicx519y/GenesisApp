@@ -12,7 +12,7 @@ import '../../ui/tokens/genesis_typography.dart';
 import 'genesis_content_submission_dialog.dart';
 
 const TextStyle _genesisActionMenuTextStyle = TextStyle(
-  fontSize: 12,
+  fontSize: 13,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
@@ -165,7 +165,7 @@ class _GenesisActionMenuLayout {
   TextStyle get defaultTextStyle => GenesisTypography.withFallback(
     appearance == GenesisActionMenuAppearance.message
         ? TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             height: 1.2,
             fontWeight: FontWeight.w400,
             color: foregroundColor,

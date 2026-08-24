@@ -897,7 +897,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               primary: false,
               scrollCacheExtent: const ScrollCacheExtent.pixels(900),
               padding: EdgeInsets.only(
-                top: 10,
+                // Matches the Me list: 14px lead-in, 22px page margin below.
+                top: 14,
                 bottom: 36 + _collapseCompensation,
               ),
               physics: const BouncingScrollPhysics(
@@ -928,8 +929,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                   key: ValueKey<String>('home-my-world-$worldId'),
                   isCollapsing: isCollapsing,
                   bottomSpacing: index == _items.length - 1 && !_isLoadingMore
-                      ? 0
-                      : 41,
+                      // Not 0: the collapse ClipRect is sized to the item, and
+                      // the avatar hangs 4px past the cover's bottom edge.
+                      ? 4
+                      : 24,
                   onCollapseCompensationChanged: (value) =>
                       _setCollapseCompensation(worldId, value),
                   onCollapsed: () => _handleWorldCollapseCompleted(worldId),
@@ -937,7 +940,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                     behavior: HitTestBehavior.opaque,
                     onTap: canInteract ? () => unawaited(_openWorld(vm)) : null,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
                       child: WorldItemCard(
                         item: vm,
                         recentActivityTagLabel: activityTagLabel,

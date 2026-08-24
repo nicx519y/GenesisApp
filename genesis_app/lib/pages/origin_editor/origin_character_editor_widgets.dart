@@ -52,7 +52,7 @@ class _CharacterCard extends StatelessWidget {
             createWorldoStyle: createWorldoStyle,
             showFieldNotes: true,
             labelFontWeight: createWorldoStyle
-                ? FontWeight.w700
+                ? FontWeight.w800
                 : FontWeight.w400,
             nextFocusNode: nextFocusNode,
             nameSupportLeading: _BestRoleSelector(
@@ -98,7 +98,7 @@ class _CreateCharactersAppBar extends StatelessWidget
               style: TextStyle(
                 fontSize: 9.5,
                 height: 1,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: context.genesisColors.textTertiary,
               ),
             ),
@@ -131,16 +131,25 @@ class _CreateCharactersAddButton extends StatelessWidget {
           child: SizedBox(
             width: double.infinity,
             height: 44,
-            child: Center(
-              child: Text(
-                '+ Add Character',
-                style: TextStyle(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.add_rounded,
+                  size: 12,
                   color: context.genesisCreateColors.successText,
-                  fontSize: 13,
-                  height: 1,
-                  fontWeight: FontWeight.w700,
                 ),
-              ),
+                const SizedBox(width: 8),
+                Text(
+                  'Add Character',
+                  style: TextStyle(
+                    color: context.genesisCreateColors.successText,
+                    fontSize: 13,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -186,10 +195,10 @@ class _BestRoleSelector extends StatelessWidget {
                   color: createWorldoStyle
                       ? context.genesisColors.textMuted
                       : context.genesisCreateColors.text,
-                  fontSize: createWorldoStyle ? 9.5 : 12,
+                  fontSize: createWorldoStyle ? 9.5 : 11,
                   height: createWorldoStyle ? 1.5 : 1.2,
                   fontWeight: createWorldoStyle
-                      ? FontWeight.w500
+                      ? FontWeight.w600
                       : FontWeight.w400,
                 ),
               ),

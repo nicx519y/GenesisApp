@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +11,8 @@ import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
+
+  _gemModelTitleCacheTests();
 
   testWidgets('initial loading indicator uses the Gem red color', (
     tester,
@@ -36,11 +39,13 @@ void main() {
   });
 
   testWidgets(
-    'selected model dot stays borderless light green in both themes',
+    'selected model dot stays a borderless reward dot in both themes',
     (tester) async {
-      for (final theme in <ThemeData>[
-        GenesisTheme.worldoLight(),
-        GenesisTheme.worldoDark(),
+      // 8-22 spec: the in-use dot moved off the green success slot onto the
+      // per-theme gem reward tone.
+      for (final (theme, gemColors) in <(ThemeData, GenesisGemColors)>[
+        (GenesisTheme.worldoLight(), GenesisGemColors.worldoLight()),
+        (GenesisTheme.worldoDark(), GenesisGemColors.worldoDark()),
       ]) {
         await tester.pumpWidget(
           MaterialApp(
@@ -57,7 +62,7 @@ void main() {
           find.byKey(const ValueKey('gem-model-current-top_pick_v3')),
         );
         final decoration = currentDot.decoration! as BoxDecoration;
-        expect(decoration.color, GenesisGemColors.worldoLight().success);
+        expect(decoration.color, gemColors.reward);
         expect(decoration.border, isNull);
       }
     },
@@ -126,17 +131,17 @@ void main() {
     final saveStyle = saveButton.style?.textStyle?.resolve(<WidgetState>{});
     expect(saveStyle?.fontSize, 11);
     expect(saveStyle?.height, 1);
-    expect(saveStyle?.fontWeight, FontWeight.w700);
+    expect(saveStyle?.fontWeight, FontWeight.w800);
     expect(
       saveButton.style?.foregroundColor?.resolve(<WidgetState>{}),
-      Colors.white,
+      const Color(0xFFF4F3F6),
     );
 
     final groupTitleStyle = tester.widget<Text>(find.text('Recommended')).style;
     expect(groupTitleStyle?.fontSize, 9.5);
-    expect(groupTitleStyle?.height, 12 / 9.5);
-    expect(groupTitleStyle?.fontWeight, FontWeight.w500);
-    expect(groupTitleStyle?.color, const Color(0x80FFFFFF));
+    expect(groupTitleStyle?.height, 1);
+    expect(groupTitleStyle?.fontWeight, FontWeight.w600);
+    expect(groupTitleStyle?.color, const Color(0x73FFFFFF));
 
     final modelTitleStyle = tester.widget<Text>(find.text('Top Pick V3')).style;
     expect(modelTitleStyle?.fontSize, 15);
@@ -150,31 +155,31 @@ void main() {
     expect(estimateStyle?.fontSize, 11);
     expect(estimateStyle?.height, 1);
     expect(estimateStyle?.fontWeight, FontWeight.w400);
-    expect(estimateStyle?.color, const Color(0x8CFFFFFF));
+    expect(estimateStyle?.color, const Color(0x73FFFFFF));
     final estimateText = tester.widget<Text>(
       find.byKey(const ValueKey<String>('gem-model-estimate-top_pick_v3')),
     );
     final estimateSpan = estimateText.textSpan! as TextSpan;
     final gemsSpan = estimateSpan.children!.single as TextSpan;
     expect(gemsSpan.text, '4 gems');
-    expect(gemsSpan.style?.fontSize, 12);
-    expect(gemsSpan.style?.fontWeight, FontWeight.w700);
+    expect(gemsSpan.style?.fontSize, 11);
+    expect(gemsSpan.style?.fontWeight, FontWeight.w800);
     expect(gemsSpan.style?.color, const Color(0xFFFF8A9A));
 
     final descriptionStyle = tester
         .widget<Text>(find.text('Balanced storytelling.'))
         .style;
     expect(descriptionStyle?.fontSize, 11);
-    expect(descriptionStyle?.height, 1.5);
+    expect(descriptionStyle?.height, 1.45);
     expect(descriptionStyle?.fontWeight, FontWeight.w400);
-    expect(descriptionStyle?.color, Colors.white.withValues(alpha: 0.62));
+    expect(descriptionStyle?.color, const Color(0x8FFFFFFF));
 
     expect(find.text('4-320 gems (memory from 2K to 156K)'), findsNothing);
 
     final hotStyle = tester.widget<Text>(find.text('Hot')).style;
-    expect(hotStyle?.fontSize, 10);
+    expect(hotStyle?.fontSize, 9.5);
     expect(hotStyle?.height, 1);
-    expect(hotStyle?.fontWeight, FontWeight.w700);
+    expect(hotStyle?.fontWeight, FontWeight.w800);
     expect(hotStyle?.color, const Color(0xFFFF8A9A));
     expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFF82B3C));
     expect(
@@ -255,6 +260,7 @@ void main() {
     GenesisTelemetry.setSinkForTesting(telemetry);
     final selections = <(String, String)>[];
     final cachedModelCodes = <String>[];
+    final cachedModelTitles = <String>[];
     final selectionCompleter = Completer<GemModelSelection>();
 
     await tester.pumpWidget(
@@ -266,8 +272,9 @@ void main() {
             selections.add((worldId, modelCode));
             return selectionCompleter.future;
           },
-          selectedModelCodeCacheWriter: (modelCode) async {
+          selectedModelCacheWriter: (modelCode, modelTitle) async {
             cachedModelCodes.add(modelCode);
+            cachedModelTitles.add(modelTitle);
           },
         ),
       ),
@@ -331,6 +338,7 @@ void main() {
     await tester.pump();
 
     expect(cachedModelCodes, ['sake_pro']);
+    expect(cachedModelTitles, ['Sake Pro']);
     expect(
       _tileBorder(tester, 'top_pick_v3').color,
       Colors.white.withValues(alpha: 0.14),
@@ -422,6 +430,61 @@ _tagContainer(WidgetTester tester, String tag) {
 
 Widget _testApp({required Widget home}) {
   return MaterialApp(theme: GenesisTheme.worldoDark(), home: home);
+}
+
+void _gemModelTitleCacheTests() {
+  test('catalog exposes every code to title pair', () {
+    expect(_catalog().titlesByCode(), {
+      'top_pick_v3': 'Top Pick V3',
+      'sake_pro': 'Sake Pro',
+    });
+  });
+
+  test('caching a model keeps titles learned earlier', () {
+    final first = userInfoWithSelectedGemModel(
+      const {'uid': 'u_1'},
+      selectedModelCode: 'top_pick_v3',
+      titlesByCode: const {'top_pick_v3': 'Top Pick V3'},
+    );
+    expect(first, {
+      'uid': 'u_1',
+      'selected_model_code': 'top_pick_v3',
+      'selected_model_titles': {'top_pick_v3': 'Top Pick V3'},
+    });
+
+    final second = userInfoWithSelectedGemModel(
+      first,
+      selectedModelCode: 'sake_pro',
+      titlesByCode: const {'sake_pro': 'Sake Pro'},
+    );
+    expect(second['selected_model_code'], 'sake_pro');
+    expect(second['selected_model_titles'], {
+      'top_pick_v3': 'Top Pick V3',
+      'sake_pro': 'Sake Pro',
+    });
+  });
+
+  test('a title-less save still records the code', () {
+    expect(userInfoWithSelectedGemModel(null, selectedModelCode: 'sedna'), {
+      'selected_model_code': 'sedna',
+    });
+  });
+
+  test('titles survive the user info json round trip', () {
+    final decoded = jsonDecode(
+      jsonEncode(
+        userInfoWithSelectedGemModel(
+          const {},
+          selectedModelCode: 'sedna',
+          titlesByCode: const {'sedna': 'Sedna'},
+        ),
+      ),
+    );
+    expect(
+      gemModelTitlesFromUserInfo(Map<String, dynamic>.from(decoded as Map)),
+      {'sedna': 'Sedna'},
+    );
+  });
 }
 
 GemModelCatalog _catalog() {

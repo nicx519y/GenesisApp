@@ -89,7 +89,7 @@ class _SectionRow extends StatelessWidget {
                                           : context
                                                 .genesisColors
                                                 .foregroundStrong,
-                                      fontSize: createHubStyle ? 14 : 16,
+                                      fontSize: createHubStyle ? 13 : 15,
                                       fontWeight: createHubStyle
                                           ? FontWeight.w800
                                           : FontWeight.w400,
@@ -108,7 +108,7 @@ class _SectionRow extends StatelessWidget {
                                       color: context
                                           .genesisCreateColors
                                           .successText,
-                                      fontSize: 14,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       height: 1,
                                     ),
@@ -167,7 +167,7 @@ class _SectionRow extends StatelessWidget {
                                   color: createHubStyle
                                       ? context.genesisColors.textMuted
                                       : context.genesisColors.textQuaternary,
-                                  fontSize: createHubStyle ? 11 : 12,
+                                  fontSize: createHubStyle ? 11 : 11,
                                   height: 1.4,
                                   fontWeight: FontWeight.w400,
                                 ),
@@ -190,13 +190,11 @@ class _SectionRow extends StatelessWidget {
               ],
             ),
           ),
-          if (showDivider)
+          if (showDivider && !createHubStyle)
             Divider(
               height: 1,
               thickness: 1,
-              color: createHubStyle
-                  ? context.genesisColors.borderStrong
-                  : context.genesisCreateColors.divider,
+              color: context.genesisCreateColors.divider,
             ),
         ],
       ),

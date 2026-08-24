@@ -35,6 +35,12 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     await service.dispose();
   }
 
+  String get _selectedModelLabel {
+    if (_selectedModelTitle.isNotEmpty) return _selectedModelTitle;
+    if (_selectedModelCode.isNotEmpty) return _selectedModelCode;
+    return 'Model';
+  }
+
   Future<void> _loadSelectedModelCodeFromCache() async {
     final generation = ++_selectedModelLoadGeneration;
     try {
@@ -42,13 +48,48 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
           await AppServicesScope.read(context).sessionStore.readUserInfo() ??
           const <String, dynamic>{};
       final modelCode = selectedModelCodeFromUserInfo(userInfo);
+      final modelTitle = selectedModelTitleFromUserInfo(userInfo, modelCode);
       if (!mounted || generation != _selectedModelLoadGeneration) return;
-      if (modelCode == _selectedModelCode) return;
-      _setLocationChatState(() => _selectedModelCode = modelCode);
+      if (modelCode != _selectedModelCode ||
+          modelTitle != _selectedModelTitle) {
+        _setLocationChatState(() {
+          _selectedModelCode = modelCode;
+          _selectedModelTitle = modelTitle;
+        });
+      }
+      if (modelTitle.isEmpty) {
+        unawaited(_backfillSelectedModelTitle(modelCode));
+      }
     } catch (error) {
       debugPrint(
         '[WorldChat][Model] load cached selected model failed: $error',
       );
+    }
+  }
+
+  /// Cold start: the cache carries a code the model page has never resolved on
+  /// this device, so the button would render `sedna`. Pull the catalog once,
+  /// then write every code/title pair back so no later room open repeats it.
+  Future<void> _backfillSelectedModelTitle(String modelCode) async {
+    final code = modelCode.trim();
+    if (code.isEmpty || code == _selectedModelTitleLookupCode) return;
+    _selectedModelTitleLookupCode = code;
+    final services = AppServicesScope.read(context);
+    try {
+      final catalog = await services.api.v1.gem.models(worldId: widget.worldId);
+      final titlesByCode = catalog.titlesByCode();
+      final title = titlesByCode[code] ?? '';
+      if (title.isEmpty) return;
+      final current = await services.sessionStore.readUserInfo();
+      await services.sessionStore.saveUserInfo(
+        userInfoWithSelectedGemModel(current, titlesByCode: titlesByCode),
+      );
+      if (!mounted || code != _selectedModelCode) return;
+      _setLocationChatState(() => _selectedModelTitle = title);
+    } catch (error) {
+      // A failed lookup must not pin the button to the raw code forever.
+      _selectedModelTitleLookupCode = '';
+      debugPrint('[WorldChat][Model] resolve model title failed: $error');
     }
   }
 
@@ -73,8 +114,12 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         return;
       }
       if (normalized != _selectedModelCode) {
-        _setLocationChatState(() => _selectedModelCode = normalized);
+        _setLocationChatState(() {
+          _selectedModelCode = normalized;
+          _selectedModelTitle = '';
+        });
       }
+      unawaited(_loadSelectedModelCodeFromCache());
     } finally {
       _openingModelPage = false;
     }

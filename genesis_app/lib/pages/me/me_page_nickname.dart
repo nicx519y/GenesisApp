@@ -91,7 +91,7 @@ class _NickNameInput extends StatelessWidget {
             ),
             style: TextStyle(
               color: colors.textPrimary,
-              fontSize: 14,
+              fontSize: 13,
               height: 1.2,
             ),
             onChanged: (_) => onChanged(),

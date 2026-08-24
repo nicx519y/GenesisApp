@@ -145,7 +145,7 @@ class _JoinRequestListItem extends StatelessWidget {
           'Join request',
           style: TextStyle(
             color: context.genesisColors.textPrimary,
-            fontSize: 14,
+            fontSize: 13,
             height: 1.2,
             fontWeight: FontWeight.w600,
           ),
@@ -172,7 +172,7 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
       TextSpan(
         style: TextStyle(
           color: context.genesisColors.textPrimary,
-          fontSize: 12,
+          fontSize: 13,
           height: 1.25,
           fontWeight: FontWeight.w400,
         ),
@@ -201,7 +201,7 @@ class _JoinRequestSummaryText extends StatelessWidget {
       TextSpan(
         style: TextStyle(
           color: context.genesisColors.textPrimary,
-          fontSize: 12,
+          fontSize: 13,
           height: 1.25,
           fontWeight: FontWeight.w400,
         ),
@@ -236,7 +236,7 @@ class _JoinRequestListStatusText extends StatelessWidget {
         color: item.joinRequestStatusIsMuted
             ? context.genesisMessageColors.statusMuted
             : context.genesisMessageColors.statusPositive,
-        fontSize: 12,
+        fontSize: 11,
         height: 1.2,
         fontWeight: FontWeight.w400,
       ),
@@ -257,7 +257,7 @@ class _StatusText extends StatelessWidget {
         color: item.joinRequestStatusIsMuted
             ? context.genesisMessageColors.statusMuted
             : context.genesisMessageColors.statusPositive,
-        fontSize: 12,
+        fontSize: 11,
         height: 1.2,
         fontWeight: FontWeight.w400,
       ),
@@ -305,42 +305,42 @@ class _CommentNotificationListItem extends StatelessWidget {
 
 TextStyle _notificationTitleStyle(BuildContext context) => TextStyle(
   color: context.genesisColors.textPrimary,
-  fontSize: 14,
+  fontSize: 13,
   height: 1.18,
   fontWeight: FontWeight.w600,
 );
 
 TextStyle _notificationBodyStyle(BuildContext context) => TextStyle(
   color: context.genesisColors.textPrimary,
-  fontSize: 12,
+  fontSize: 13,
   height: 1.25,
   fontWeight: FontWeight.w400,
 );
 
 TextStyle _notificationMetaStyle(BuildContext context) => TextStyle(
   color: context.genesisColors.textMetadata,
-  fontSize: 12,
+  fontSize: 11,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
 
 TextStyle _commentNotificationTitleStyle(BuildContext context) => TextStyle(
   color: context.genesisColors.textPrimary,
-  fontSize: 14,
+  fontSize: 13,
   height: 1.18,
   fontWeight: FontWeight.w600,
 );
 
 TextStyle _commentNotificationBodyStyle(BuildContext context) => TextStyle(
   color: context.genesisColors.textPrimary,
-  fontSize: 12,
+  fontSize: 13,
   height: 1.25,
   fontWeight: FontWeight.w400,
 );
 
 TextStyle _commentNotificationMetaStyle(BuildContext context) => TextStyle(
   color: context.genesisColors.textMetadata,
-  fontSize: 12,
+  fontSize: 11,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );

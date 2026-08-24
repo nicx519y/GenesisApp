@@ -94,7 +94,7 @@ class CreateTextFieldBlock extends StatefulWidget {
     this.maxLines,
     this.prefix,
     this.requiredIndicator = false,
-    this.labelSize = 14,
+    this.labelSize = 13,
     this.labelFontWeight = FontWeight.w600,
     this.labelInputGap = 10,
     this.fieldBorderRadius = 8,
@@ -103,7 +103,7 @@ class CreateTextFieldBlock extends StatefulWidget {
       vertical: 10,
     ),
     this.minimumHeight,
-    this.inputFontSize = 14,
+    this.inputFontSize = 13,
     this.hintFontSize,
     this.inputLineHeight = 1.42,
     this.textAlign = TextAlign.start,
@@ -574,7 +574,7 @@ class _CreateFormNoteText extends StatelessWidget {
         spans.add(
           TextSpan(
             text: value.substring(nextStart + 2, end),
-            style: TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(fontWeight: FontWeight.w800),
           ),
         );
         index = end + 2;

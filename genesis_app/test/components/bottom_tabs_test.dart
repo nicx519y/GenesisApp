@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/bottom_tabs.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_bottom_navigation.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
@@ -32,9 +33,11 @@ void main() {
     ]);
     expect(icons.map((icon) => icon.width), <double>[22, 22, 16, 22, 22]);
     expect(icons.map((icon) => icon.height), <double>[22, 22, 16, 22, 22]);
-    expect(find.text('Worlds'), findsOneWidget);
+    expect(find.text('Worldos'), findsOneWidget);
     expect(find.text('#Worldo'), findsNothing);
 
+    // 9h/9l: the 68px bar is a 50px content band plus the home-indicator gap
+    // that GenesisBottomSafePadding contributes.
     final navigationHeight = tester
         .widgetList<SizedBox>(
           find.descendant(
@@ -42,25 +45,28 @@ void main() {
             matching: find.byType(SizedBox),
           ),
         )
-        .where((box) => box.width == null && box.height == 68);
+        .where((box) => box.width == null && box.height == 50);
     expect(navigationHeight, hasLength(1));
 
-    final navigationDecoration = tester
-        .widgetList<DecoratedBox>(
-          find.descendant(
-            of: find.byType(BottomTabs),
-            matching: find.byType(DecoratedBox),
-          ),
-        )
-        .map((box) => box.decoration)
-        .whereType<BoxDecoration>()
-        .singleWhere((decoration) => decoration.border != null);
-    final border = navigationDecoration.border! as Border;
-    expect(border.top.width, 1);
-    expect(border.top.color.a, closeTo(0.1, 0.0001));
-    expect(border.top.color.r, 1);
-    expect(border.top.color.g, 1);
-    expect(border.top.color.b, 1);
+    final navigationDecoration =
+        tester
+                .widget<DecoratedBox>(
+                  find
+                      .descendant(
+                        of: find.byType(GenesisBottomNavigation),
+                        matching: find.byType(DecoratedBox),
+                      )
+                      .first,
+                )
+                .decoration
+            as BoxDecoration;
+    // The bar reads as part of the page background: no top rule, no lift.
+    expect(
+      navigationDecoration.color,
+      GenesisSemanticColors.worldoDark().navigationBackground,
+    );
+    expect(navigationDecoration.border, isNull);
+    expect(navigationDecoration.boxShadow, isNull);
   });
 
   testWidgets('uses theme-aware selected and unselected icon colors', (

@@ -468,9 +468,9 @@ void main() {
     await tester.pumpWidget(_host(controller));
 
     final author = tester.widget<Text>(find.text('User 1'));
-    expect(author.style?.fontSize, 12);
-    expect(author.style?.fontWeight, FontWeight.w600);
-    expect(author.style?.color, const Color(0xFF888888));
+    expect(author.style?.fontSize, 11);
+    expect(author.style?.fontWeight, FontWeight.w800);
+    expect(author.style?.color, const Color(0x80131215));
     final authorCenter = tester.getCenter(find.text('User 1'));
     final badgeCenter = tester.getCenter(find.byType(DiscussStoryBadge));
     expect((authorCenter.dy - badgeCenter.dy).abs(), lessThan(1));

@@ -24,18 +24,8 @@ class _OriginCharactersSection extends StatelessWidget {
           Text('No characters', style: _mutedBodyTextStyle(context))
         else
           for (final character in sortedCharacters)
-            Container(
+            Padding(
               padding: const EdgeInsets.symmetric(vertical: 11),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color: context.genesisColors.foregroundStrong.withValues(
-                      alpha: 0.14,
-                    ),
-                    width: 1,
-                  ),
-                ),
-              ),
               child: _OriginCharacterRow(
                 character: character,
                 imageUrls: characterAvatarUrls,
@@ -83,7 +73,7 @@ class _OriginCharacterRow extends StatelessWidget {
                   fontSize: 13,
                   height: 1.15,
                   fontWeight: FontWeight.w800,
-                  color: context.genesisColors.foregroundStrong,
+                  color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -108,18 +98,16 @@ class _OriginCharacterRow extends StatelessWidget {
                       TextSpan(
                         text: 'Goal ',
                         style: TextStyle(
-                          color: context.genesisColors.foregroundStrong,
+                          color: context.genesisColors.textMuted,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       TextSpan(text: goal),
                     ],
                   ),
-                  style: _characterBodyTextStyle(context).copyWith(
-                    color: context.genesisColors.foregroundStrong.withValues(
-                      alpha: 0.72,
-                    ),
-                  ),
+                  style: _characterBodyTextStyle(
+                    context,
+                  ).copyWith(color: context.genesisColors.textMuted),
                 ),
               ],
             ],
@@ -234,10 +222,10 @@ TextStyle _bodyTextStyle(BuildContext context) => TextStyle(
 );
 
 TextStyle _characterBodyTextStyle(BuildContext context) => TextStyle(
-  fontSize: 12,
+  fontSize: 13,
   height: 1.5,
   fontWeight: FontWeight.w400,
-  color: context.genesisColors.foregroundStrong.withValues(alpha: 0.92),
+  color: context.genesisColors.textBody,
   decoration: TextDecoration.none,
 );
 
@@ -379,7 +367,7 @@ class _SectionTitle extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               height: 1.2,
               fontWeight: FontWeight.w600,
               color: context.genesisColors.textPrimary,

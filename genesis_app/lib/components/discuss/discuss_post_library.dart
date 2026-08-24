@@ -55,7 +55,7 @@ DiscussImageProcessorForTesting? debugDiscussImageProcessorOverride;
 const int discussPostMaxImages = 6;
 const int _discussComposerMinTextLines = 3;
 const int _discussComposerMaxTextLines = 6;
-const double _discussComposerFontSize = 14;
+const double _discussComposerFontSize = 13;
 const double _discussComposerLineHeight = 1.25;
 const Duration _discussComposerScrimFadeDuration = Duration(milliseconds: 180);
 const Duration _discussComposerSheetDismissDuration = Duration(

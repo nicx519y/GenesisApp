@@ -437,7 +437,7 @@ class _SearchPageState extends State<SearchPage>
                           variant: GenesisSearchFieldVariant.compact,
                           iconAsset: searchIconAsset,
                           iconSize: genesisSearchIconSize,
-                          iconColor: context.genesisColors.primary,
+                          iconColor: context.genesisColors.foregroundStrong,
                           controller: _controller,
                           focusNode: _focusNode,
                           onChanged: _onQueryChanged,
@@ -458,7 +458,7 @@ class _SearchPageState extends State<SearchPage>
                             child: Text(
                               'Cancel',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 13,
                                 color: context.genesisColors.textStrong,
                                 fontWeight: FontWeight.w400,
                               ),

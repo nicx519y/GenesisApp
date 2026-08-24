@@ -297,9 +297,9 @@ class _DiscussActions extends StatelessWidget {
         Text(
           '${item.likeCount}',
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             height: 1.2,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w800,
             color: activeColor,
           ),
         ),

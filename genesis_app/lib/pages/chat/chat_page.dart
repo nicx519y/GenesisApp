@@ -800,8 +800,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: context.genesisColors.textPlaceholder,
-                      fontSize: 12,
-                      height: 1.35,
+                      fontSize: 11,
+                      height: 1.45,
                     ),
                   ),
                 ),

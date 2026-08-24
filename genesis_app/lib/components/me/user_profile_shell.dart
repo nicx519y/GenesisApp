@@ -179,7 +179,7 @@ class _UserProfileContentState extends State<UserProfileContent>
           style: TextStyle(
             color: context.genesisColors.textFaint,
             fontSize: 13,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w400,
           ),
         ),
       );
@@ -345,7 +345,8 @@ class _UserProfileContentState extends State<UserProfileContent>
                   updatingListenable: widget.isUpdatingProfileListenable,
                   onEdit: widget.onEditAvatar,
                   size: 72,
-                  radius: 22,
+                  // 9k: the avatar is a circle (72x72, border-radius 50%).
+                  radius: 36,
                   redesigned: true,
                 ),
                 const SizedBox(width: 14),
@@ -387,9 +388,9 @@ class _UserProfileContentState extends State<UserProfileContent>
                         enabled: !data.deleted,
                         showCopyIcon: false,
                         customTextStyle: TextStyle(
-                          fontSize: 10,
+                          fontSize: 9.5,
                           height: 1,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                           color: context.genesisColors.textFaint,
                         ),
                       ),
@@ -574,7 +575,7 @@ class _GemsBalanceEntry extends StatelessWidget {
               style: TextStyle(
                 fontSize: 15,
                 height: 20 / 16,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w800,
                 color: context.genesisColors.textBody,
               ),
             ),
@@ -582,9 +583,9 @@ class _GemsBalanceEntry extends StatelessWidget {
             Text(
               'Gems',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 height: 18 / 12,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: context.genesisColors.textMuted,
               ),
             ),
@@ -624,7 +625,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9.5,
                       height: 1,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                       color: colors.textTimestamp,
                     ),
                   ),
@@ -656,7 +657,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           height: 1,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                           color: colors.textTimestamp,
                         ),
                       ),
@@ -678,7 +679,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   height: 1,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   color: colors.onDanger,
                 ),
               ),
@@ -708,7 +709,10 @@ class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
   });
 
   static const double _standardHeight = 5 + genesisTabHeight;
-  static const double _worldoMeHeight = 39;
+  // 9k puts 22px between the balance card and the tab labels. The header
+  // column already supplies that 22, so this sliver is exactly the tab
+  // height — 39 left ~7px of dead space above the labels on top of it.
+  static const double _worldoMeHeight = genesisTabHeight;
 
   final Widget child;
   final UserProfileAppearance appearance;
@@ -787,25 +791,10 @@ class _ProfileCollectionTabs extends StatelessWidget {
       labels: ['Creation $originCount', 'Playing $worldCount'],
       horizontalPadding: 22,
       labelPadding: const EdgeInsets.only(right: 20),
-      // 9k: Creation / Playing / Bookmarks are 14/1.2, w700 when active and
-      // w500 when idle, with the idle label on the 45% tier.
-      labelFontSize: 14,
-      labelStyle: const TextStyle(
-        fontSize: 14,
-        height: 1.2,
-        fontWeight: FontWeight.w700,
-      ),
-      unselectedLabelStyle: const TextStyle(
-        fontSize: 14,
-        height: 1.2,
-        fontWeight: FontWeight.w500,
-      ),
-      labelColor: context.genesisColors.textPrimary,
-      unselectedLabelColor: context.genesisColors.textTimestamp,
+      // Label scale, colours and height all come from GenesisTabBar.
       indicatorHeight: 2.5,
       indicatorBottomPadding: 0,
       indicatorMatchesLabelWidth: true,
-      tabHeight: 39,
       onTap: onTap,
     );
   }

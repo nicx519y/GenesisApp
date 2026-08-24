@@ -84,7 +84,7 @@ class _LoginSheetState extends State<LoginSheet> {
           Text(
             'Create worldo, launch worlds and invite friends',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: context.genesisColors.textMuted,
               height: 1.35,
             ),

@@ -140,7 +140,7 @@ class _LegalWebErrorView extends StatelessWidget {
                 url,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: context.genesisColors.textSubtle,
                 ),
               ),

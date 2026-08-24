@@ -15,17 +15,24 @@ import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/pages/world/world_map_data.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:genesis_flutter_android/components/world_map_location_marker.dart';
 
 void main() {
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
   });
 
-  test('world map zoom control uses the dark map color treatment', () {
-    expect(legacyWorldMapZoomControlBackgroundColor, const Color(0x8C131215));
+  test('world map zoom control matches the 9a/9b glass treatment', () {
+    // 设计稿原文:background:rgba(21,21,23,.6);
+    // border:1px solid rgba(255,255,255,.16),没有投影,也没有中间的拖拽提示块。
+    expect(legacyWorldMapZoomControlBackgroundColor, const Color(0x99151517));
+    expect(legacyWorldMapZoomControlBorderColor, const Color(0x29FFFFFF));
+    expect(legacyWorldMapZoomControlBorderWidth, 0.5);
     expect(legacyWorldMapZoomControlEnabledColor, Colors.white);
     expect(legacyWorldMapZoomControlDisabledColor, const Color(0xFF777777));
-    expect(legacyWorldMapZoomGripLineColor, Colors.white);
+    // 与左上返回按钮(GenesisBackButton)对齐:34 / 圆角 11。
+    expect(legacyWorldMapZoomControlWidth, 34);
+    expect(legacyWorldMapZoomControlRadius, 11);
   });
 
   test('initial zoom focus uses location with the most avatars', () {
@@ -127,7 +134,14 @@ void main() {
 
     final avatars = find.byType(GenesisCharacterAvatar);
     expect(avatars, findsNWidgets(3));
-    expect(tester.getSize(avatars.first), const Size(22, 22));
+    // 头像已从设计稿的 22 放大到 26。
+    expect(
+      tester.getSize(avatars.first),
+      const Size(
+        worldMapLocationMarkerAvatarSize,
+        worldMapLocationMarkerAvatarSize,
+      ),
+    );
     expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsNothing);
 
     final first = tester.getTopLeft(avatars.at(0));
@@ -135,8 +149,11 @@ void main() {
     final third = tester.getTopLeft(avatars.at(2));
     expect(second.dy, first.dy);
     expect(third.dy, first.dy);
-    expect(second.dx - first.dx, closeTo(16, 0.01));
-    expect(third.dx - second.dx, closeTo(16, 0.01));
+    // 头像 22 -> 26,重叠量 6 不变,步进 16 -> 20。
+    const avatarStep =
+        worldMapLocationMarkerAvatarSize - worldMapLocationMarkerAvatarOverlap;
+    expect(second.dx - first.dx, closeTo(avatarStep, 0.01));
+    expect(third.dx - second.dx, closeTo(avatarStep, 0.01));
   });
 
   testWidgets('world map keeps long Chinese labels within the maximum width', (
@@ -231,7 +248,8 @@ void main() {
       final paragraph = tester.renderObject<RenderParagraph>(find.text(name));
 
       expect(paragraph.maxLines, 1);
-      expect(labelRect.height, 24);
+      // 空位药丸随地点名字号(11 -> 12)从 24 长到 25。
+      expect(labelRect.height, 25);
       expect(dotRect.top - labelRect.bottom, closeTo(11, 0.01));
     },
   );
@@ -762,15 +780,26 @@ void main() {
       );
     }
 
-    expect(tester.getSize(zoomControl), const Size(30, 68));
+    // 设计稿 9a/9b:width:34px;height:68px。
+    expect(
+      tester.getSize(zoomControl),
+      const Size(legacyWorldMapZoomControlWidth, 68),
+    );
     expect(tester.getSize(zoomDragArea), const Size(48, 88));
     expect(
       tester.getTopLeft(zoomControl).dx,
-      closeTo(_mapSize.width - 42, 0.1),
+      // 右边距 12 -> 16,宽 30 -> 34,所以左边缘距右侧 42 -> 50。
+      closeTo(
+        _mapSize.width -
+            legacyWorldMapZoomControlWidth -
+            legacyWorldMapZoomControlRightGap,
+        0.1,
+      ),
     );
     expect(
       tester.getBottomRight(zoomControl).dy,
-      closeTo(_mapSize.height - 30, 0.1),
+      // 底边距 30 -> 27。
+      closeTo(_mapSize.height - legacyWorldMapZoomControlBottomGap, 0.1),
     );
     expect(
       tester.getBottomRight(zoomDragArea),
@@ -779,13 +808,22 @@ void main() {
     final zoomControlBox = tester.widget<DecoratedBox>(zoomControl);
     final zoomDecoration = zoomControlBox.decoration as BoxDecoration;
     expect(zoomDecoration.color, legacyWorldMapZoomControlBackgroundColor);
-    expect(zoomDecoration.borderRadius, BorderRadius.circular(12));
+    // 圆角与左上返回按钮(GenesisBackButton)对齐:12 -> 11。
+    expect(
+      zoomDecoration.borderRadius,
+      BorderRadius.circular(legacyWorldMapZoomControlRadius),
+    );
     expect(
       zoomDecoration.border?.top.color,
       legacyWorldMapZoomControlBorderColor,
     );
-    expect(zoomDecoration.border?.top.width, 1);
-    expect(zoomDecoration.boxShadow, isNotEmpty);
+    // 描边宽度 1 -> 0.5:1 逻辑 px 在 3x 屏上是 3 个物理像素,比设计稿显重。
+    expect(
+      zoomDecoration.border?.top.width,
+      legacyWorldMapZoomControlBorderWidth,
+    );
+    // 设计稿这个控件没有投影 —— 去掉后描边才不会显得重。
+    expect(zoomDecoration.boxShadow, anyOf(isNull, isEmpty));
     expect(
       zoomInIcon().colorFilter,
       const ColorFilter.mode(
@@ -800,7 +838,9 @@ void main() {
         BlendMode.srcIn,
       ),
     );
-    expect(dragIndicator, findsOneWidget);
+    // 设计稿 9a/9b 的缩放控件只有 + 和 -,没有中间那个拖拽提示块,
+    // 已按稿移除。拖拽缩放手势本身仍然可用,只是不再画视觉提示。
+    expect(dragIndicator, findsNothing);
 
     await tester.tap(zoomIn);
     await tester.pump();
@@ -1188,7 +1228,14 @@ void main() {
 
     final firstCenter = tester.getCenter(avatars.at(0));
     final secondCenter = tester.getCenter(avatars.at(1));
-    expect((firstCenter - secondCenter).distance, closeTo(16, 0.01));
+    // 头像 22 -> 26,重叠量 6 不变,所以圆心间距 16 -> 20。
+    expect(
+      (firstCenter - secondCenter).distance,
+      closeTo(
+        worldMapLocationMarkerAvatarSize - worldMapLocationMarkerAvatarOverlap,
+        0.01,
+      ),
+    );
   });
 
   testWidgets('points list shows all locations and indents by hierarchy', (
@@ -1342,12 +1389,12 @@ void main() {
     final levelThreeStyle = tester.widget<Text>(levelThree).style!;
 
     // 9g Locations: the L1 world row is 14/800.
-    expect(levelOneStyle.fontSize, 14);
+    expect(levelOneStyle.fontSize, 13);
     expect(levelOneStyle.fontWeight, FontWeight.w600);
-    expect(levelTwoStyle.fontSize, 14);
+    expect(levelTwoStyle.fontSize, 13);
     expect(levelTwoStyle.fontWeight, FontWeight.w600);
     expect(levelTwoStyle.height, 1.2);
-    expect(levelThreeStyle.fontSize, 14);
+    expect(levelThreeStyle.fontSize, 13);
     expect(levelThreeStyle.fontWeight, FontWeight.w400);
     expect(levelThreeStyle.height, 1.2);
     expect(

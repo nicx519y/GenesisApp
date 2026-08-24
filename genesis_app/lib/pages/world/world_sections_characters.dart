@@ -221,8 +221,8 @@ class WorldCharacterRow extends StatelessWidget {
     final hasOriginStyleDetails =
         identity.isNotEmpty || brief.isNotEmpty || goal.isNotEmpty;
     final bodyStyle = TextStyle(
-      fontSize: 12,
-      height: 1.5,
+      fontSize: 13,
+      height: worldDetailLineHeight,
       fontWeight: FontWeight.w400,
       color: context.genesisColors.textPrimary,
     );
@@ -258,22 +258,25 @@ class WorldCharacterRow extends StatelessWidget {
                         TextSpan(
                           text: name,
                           children: [
-                            if (suffix.isNotEmpty)
+                            if (suffix.isNotEmpty) ...[
+                              const WidgetSpan(child: SizedBox(width: 7)),
                               TextSpan(
-                                text: ' $suffix',
+                                text: suffix,
                                 style: TextStyle(
-                                  color: statusProgressStyle
-                                      ? context.genesisColors.textSecondary
-                                      : context.genesisColors.textFaint,
+                                  fontSize: 9.5,
+                                  height: worldDetailLineHeight,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.genesisColors.textBody,
                                 ),
                               ),
+                            ],
                           ],
                         ),
                         style: TextStyle(
-                          fontSize: cardStyle || statusProgressStyle ? 14 : 13,
-                          height: 1.15,
+                          fontSize: 13,
+                          height: worldDetailLineHeight,
                           fontWeight: FontWeight.w800,
-                          color: context.genesisColors.foregroundStrong,
+                          color: context.genesisColors.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -286,9 +289,11 @@ class WorldCharacterRow extends StatelessWidget {
                         textAlign: TextAlign.right,
                         style: TextStyle(
                           fontSize: 9.5,
-                          height: 1.15,
-                          fontWeight: FontWeight.w400,
-                          color: context.genesisColors.textSecondary,
+                          height: worldDetailLineHeight,
+                          fontWeight: FontWeight.w600,
+                          // Cast 行右侧的 Player / Character 角标压到 45%
+                          // 白(浅色下是 42% 墨),别和角色名抢注意力。
+                          color: context.genesisColors.textMetadata,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -316,11 +321,11 @@ class WorldCharacterRow extends StatelessWidget {
                               : context.genesisColors.accentText,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Text(
                         worldMetricProgressText(metric, character),
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 9.5,
                           height: 1,
                           fontWeight: FontWeight.w600,
                           color: context.genesisColors.textPrimary,
@@ -336,11 +341,11 @@ class WorldCharacterRow extends StatelessWidget {
                         'world-status-location-${worldCharacterStableId(character)}',
                       ),
                       style: TextStyle(
-                        fontSize: 10,
-                        height: 1.2,
-                        fontWeight: FontWeight.w400,
+                        fontSize: 9.5,
+                        height: 1,
+                        fontWeight: FontWeight.w600,
                         color: isCurrentUser
-                            ? context.genesisColors.danger
+                            ? context.genesisColors.accentText
                             : context.genesisColors.textSecondary,
                       ),
                       maxLines: 1,
@@ -353,9 +358,7 @@ class WorldCharacterRow extends StatelessWidget {
                     Text(
                       identity,
                       style: bodyStyle.copyWith(
-                        color: context.genesisColors.foregroundStrong.withValues(
-                          alpha: 0.92,
-                        ),
+                        color: context.genesisColors.textBody,
                       ),
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
@@ -416,8 +419,8 @@ class WorldCharacterRow extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: cardStyle ? 11 : 12,
-                      height: cardStyle ? 1.3 : 1.5,
+                      fontSize: cardStyle ? 11 : 13,
+                      height: worldDetailLineHeight,
                       fontWeight: FontWeight.w400,
                     ).copyWith(color: subtitleColor),
                     maxLines: 4,
@@ -432,14 +435,8 @@ class WorldCharacterRow extends StatelessWidget {
     );
     if (!cardStyle && !statusProgressStyle) {
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: context.genesisColors.dividerAction,
-              width: 1,
-            ),
-          ),
+        padding: const EdgeInsets.symmetric(
+          vertical: worldCharacterRowVerticalPadding,
         ),
         child: content,
       );
@@ -448,7 +445,8 @@ class WorldCharacterRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
         color: statusProgressStyle
-            ? context.genesisColors.surfaceSubtle
+            // 7% white surface tier.
+            ? context.genesisColors.inputBackground
             : context.genesisColors.surfaceTag,
         borderRadius: BorderRadius.circular(14),
         border: isCurrentUser
@@ -637,8 +635,8 @@ class WorldEmptySection extends StatelessWidget {
         child: Text(
           text,
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
             color: context.genesisColors.textSupporting,
           ),
         ),

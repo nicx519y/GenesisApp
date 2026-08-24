@@ -59,19 +59,18 @@ void main() {
       const ValueKey<String>('discuss-page-comment-row-dis_1'),
     );
     final firstRowContainer = tester.widget<Container>(firstRow);
-    final rowBorder =
-        (firstRowContainer.decoration! as BoxDecoration).border! as Border;
-    expect(rowBorder.top.width, 1);
+    expect(firstRowContainer.decoration, isNull);
+    expect(firstRowContainer.padding, const EdgeInsets.symmetric(vertical: 10));
     final avatar = tester.widget<GenesisAvatar>(
       find.descendant(of: firstRow, matching: find.byType(GenesisAvatar)),
     );
     expect(avatar.size, 34);
-    expect(avatar.borderRadius, 11);
+    expect(avatar.borderRadius, 17);
     final body = tester.widget<Text>(
       find.descendant(of: firstRow, matching: find.text('Discuss item 1')),
     );
     expect(body.style?.fontSize, 13);
-    expect(body.style?.height, 1.6);
+    expect(body.style?.height, 1.5);
     final storyBadge = tester.widget<DiscussStoryBadge>(
       find.descendant(of: firstRow, matching: find.byType(DiscussStoryBadge)),
     );

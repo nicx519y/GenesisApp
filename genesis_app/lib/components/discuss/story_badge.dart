@@ -44,9 +44,9 @@ class DiscussStoryBadge extends StatelessWidget {
           Text(
             '$count',
             style: TextStyle(
-              fontSize: compactRed ? 10 : 11,
+              fontSize: compactRed ? 9.5 : 11,
               height: 1,
-              fontWeight: compactRed ? FontWeight.w700 : FontWeight.w600,
+              fontWeight: compactRed ? FontWeight.w800 : FontWeight.w600,
               color: foreground,
             ),
           ),

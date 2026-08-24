@@ -14,6 +14,9 @@ double customIconAssetRenderSize(String assetName, double baseSize) {
 }
 
 const String copyStatIconAsset = 'assets/custom-icons/svg/copy_icon.svg';
+// 设计稿 9f 的 ID 复制图钉:16 视框里 8x8 方框 + 后层折线,描边 1.92。
+// 按 10px 渲染时描边落在 1.2,和 9.5px 正文同一档。
+const String copyIdIconAsset = 'assets/custom-icons/svg/copy_id.svg';
 const String paragraphIconAsset = 'assets/custom-icons/svg/paragraph_icon.svg';
 const String eventsIconAsset = 'assets/custom-icons/svg/events.svg';
 const String clueIconAsset = 'assets/custom-icons/svg/clue.svg';

@@ -57,7 +57,7 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
     npcAvatarBackground: GenesisPalette.redesignWhite14,
     npcAvatarForeground: GenesisPalette.white,
     npcAvatarBorder: GenesisPalette.redesignWhite18,
-    aiRoleBubbleBackground: GenesisPalette.redesignWhite20,
+    aiRoleBubbleBackground: GenesisPalette.redesignSlateGlass60,
     aiRoleBubbleBlurSigma: 14,
     enterLocationBackground: GenesisPalette.redesignWhite13,
     enterLocationForeground: GenesisPalette.white,
@@ -76,24 +76,24 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
     privateHeaderBackground: GenesisPalette.redesignBackground,
     locationChat: _worldoRedesignLocationChatStyle(kLocationChatStyle),
     locationBackgroundOverlayGradient: _locationBackgroundOverlayGradient,
-    tickBackground: GenesisPalette.redesignInk60,
+    tickBackground: GenesisPalette.redesignInkGlass60,
     tickAccent: GenesisPalette.redesignAccent,
     tickClue: GenesisPalette.redesignAccentDark,
     tickLocation: GenesisPalette.redesignAccentSoft,
-    tickHeader: GenesisPalette.white,
+    tickHeader: GenesisPalette.redesignSoftWhite,
     tickBorder: GenesisPalette.redesignWhite20,
     tickDivider: GenesisPalette.redesignWhite16,
     tickBlurSigma: 14,
     npcAvatarBackground: GenesisPalette.redesignWhite14,
     npcAvatarForeground: GenesisPalette.white,
     npcAvatarBorder: GenesisPalette.redesignWhite18,
-    aiRoleBubbleBackground: GenesisPalette.redesignWhite20,
+    aiRoleBubbleBackground: GenesisPalette.redesignSlateGlass60,
     aiRoleBubbleBlurSigma: 14,
     enterLocationBackground: GenesisPalette.redesignWhite13,
     enterLocationForeground: GenesisPalette.white,
     enterLocationIcon: GenesisPalette.redesignWhite60,
-    narratorBackground: GenesisPalette.transparent,
-    narratorForeground: GenesisPalette.redesignWhite85,
+    narratorBackground: GenesisPalette.redesignInkGlass50,
+    narratorForeground: GenesisPalette.redesignWhite73,
     narratorIcon: GenesisPalette.redesignWhite60,
     newMessageNoticeBackground: GenesisPalette.redesignSkeletonHighlight,
     newMessageNoticeForeground: GenesisPalette.white,
@@ -212,15 +212,20 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
   }
 }
 
+/// Running text in the room - bubbles, narrator, tick and story paragraphs.
+/// Labels, names and timestamps stay on their own tighter line boxes and must
+/// not use this.
+const double kChatBodyLineHeight = 1.3;
+
 const LinearGradient _locationBackgroundOverlayGradient = LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
   stops: <double>[0, 0.32, 0.64, 1],
   colors: <Color>[
     GenesisPalette.redesignInk80,
-    GenesisPalette.redesignInk42,
     GenesisPalette.redesignInk50,
-    GenesisPalette.redesignInk88,
+    GenesisPalette.redesignInk50,
+    GenesisPalette.redesignInk80,
   ],
 );
 
@@ -244,7 +249,12 @@ ChatUiStyleConfig _worldoRedesignChatStyle(ChatUiStyleConfig base) {
     composerSendButtonDisabledColor: GenesisPalette.redesignAccent40,
     composerSendButtonIconColor: GenesisPalette.white,
     inputBackgroundColor: GenesisPalette.redesignWhite07,
-    inputTextStyle: base.inputTextStyle.copyWith(color: GenesisPalette.white),
+    inputTextStyle: base.inputTextStyle.copyWith(
+      color: GenesisPalette.white,
+      fontSize: 13,
+      height: 1,
+      fontWeight: FontWeight.w400,
+    ),
     topTitleTextStyle: base.topTitleTextStyle.copyWith(
       color: GenesisPalette.redesignWhite82,
     ),
@@ -254,9 +264,12 @@ ChatUiStyleConfig _worldoRedesignChatStyle(ChatUiStyleConfig base) {
     senderNameTextStyle: base.senderNameTextStyle.copyWith(
       color: GenesisPalette.redesignWhite72,
     ),
-    selfBubbleColor: GenesisPalette.redesignAccent42,
-    otherBubbleColor: GenesisPalette.redesignWhite13,
-    bubbleTextStyle: base.bubbleTextStyle.copyWith(color: GenesisPalette.white),
+    selfBubbleColor: GenesisPalette.redesignAccentDark60,
+    otherBubbleColor: GenesisPalette.redesignSlateGlass60,
+    bubbleTextStyle: base.bubbleTextStyle.copyWith(
+      color: GenesisPalette.redesignSoftWhite,
+      height: kChatBodyLineHeight,
+    ),
     avatarTextStyle: base.avatarTextStyle.copyWith(color: GenesisPalette.white),
     aiBadgeColor: GenesisPalette.redesignAccent,
     sendingBadgeColor: GenesisPalette.redesignWhite45,
@@ -280,22 +293,22 @@ ChatUiStyleConfig _worldoRedesignLocationChatStyle(ChatUiStyleConfig base) {
     headerBackdropBlurSigma: 0,
     headerTitleTextStyle: themed.headerTitleTextStyle.copyWith(
       color: GenesisPalette.white,
-      fontSize: 14,
-      fontWeight: FontWeight.w700,
+      fontSize: 16,
+      fontWeight: FontWeight.w800,
       height: 1.15,
     ),
     headerSubtitleTextStyle: themed.headerSubtitleTextStyle.copyWith(
       color: GenesisPalette.redesignWhite72,
-      fontSize: 10,
+      fontSize: 9.5,
       fontWeight: FontWeight.w400,
       height: 1.3,
     ),
     headerSubtitleTopGap: 3,
     senderNameTextStyle:
         GenesisTypography.withFallback(themed.senderNameTextStyle).copyWith(
-          color: GenesisPalette.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+          color: GenesisPalette.redesignSoftWhite,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
           height: 1,
         ),
     composerBackgroundColor: GenesisPalette.transparent,
@@ -303,8 +316,7 @@ ChatUiStyleConfig _worldoRedesignLocationChatStyle(ChatUiStyleConfig base) {
     composerSendButtonWidth: 46,
     composerSendButtonHeight: 46,
     composerSendButtonBorderRadius: 14,
-    composerSendButtonBorderColor: GenesisPalette.redesignWhite18,
-    composerSendButtonBorderWidth: 1,
+    composerSendButtonBorderWidth: 0,
     composerSendButtonColor: GenesisPalette.redesignWhite13,
     composerSendButtonDisabledColor: GenesisPalette.redesignWhite13,
     composerSendButtonIconSize: 17,
@@ -312,8 +324,15 @@ ChatUiStyleConfig _worldoRedesignLocationChatStyle(ChatUiStyleConfig base) {
     inputMinHeight: 46,
     inputBackgroundColor: GenesisPalette.redesignWhite12,
     inputBorderRadius: 14,
-    inputBorderColor: GenesisPalette.redesignWhite18,
-    inputBorderWidth: 1.5,
+    inputBorderWidth: 0,
+    composerCursorColor: GenesisPalette.white,
+    // Base is 18 all round; the room runs tighter to the edges.
+    messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
+    // Pre-redesign the narrator plate was inset by one avatar-third so it sat
+    // clear of the gutter. 1w runs it edge to edge instead, so that inset now
+    // only pushes the paragraph icon ~13pt right of the avatars it should line
+    // up with.
+    systemMessageMargin: const EdgeInsets.only(bottom: 18),
     useScenePlateBubbleGeometry: true,
   );
 }

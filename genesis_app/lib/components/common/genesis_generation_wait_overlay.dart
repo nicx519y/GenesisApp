@@ -114,7 +114,7 @@ class _GenesisGenerationWaitOverlayState
         Text(
           widget.message,
           textAlign: TextAlign.left,
-          style: const TextStyle(fontSize: 14, height: 1.4),
+          style: const TextStyle(fontSize: 13, height: 1.4),
         ),
       );
       waitBody = Column(
@@ -473,7 +473,7 @@ class _PerspectiveWaitTextState extends State<_PerspectiveWaitText>
                                     fontSize: 17,
                                     height: 1.32,
                                     color: context.genesisColors.textCinematic,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                                 if (index != lines.length - 1)

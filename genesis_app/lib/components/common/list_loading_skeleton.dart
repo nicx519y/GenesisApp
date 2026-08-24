@@ -55,14 +55,10 @@ class _WorldListSkeleton extends StatelessWidget {
         parent: AlwaysScrollableScrollPhysics(),
       ),
       itemCount: itemCount,
-      separatorBuilder: (context, index) => Divider(
-        height: 25,
-        thickness: 1,
-        color: context.genesisColors.dividerMuted,
-      ),
+      separatorBuilder: (context, index) => const SizedBox(height: 24),
       itemBuilder: (context, index) {
         return const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: 22),
           child: _WorldSkeletonItem(),
         );
       },
@@ -75,41 +71,30 @@ class _WorldSkeletonItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return const Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SkeletonBone(
-              key: ValueKey<String>('genesis-world-list-thumbnail-skeleton'),
-              width: 60,
-              height: 60,
-              borderRadius: GenesisImageRadii.contentValue,
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SkeletonBone(widthFactor: 0.44, height: 14, borderRadius: 4),
-                  SizedBox(height: 7),
-                  _SkeletonLineRow(widths: [74, 86], height: 12),
-                  SizedBox(height: 10),
-                  _SkeletonLineRow(widths: [34, 42, 36, 38], height: 12),
-                ],
-              ),
-            ),
-          ],
+        _SkeletonBone(
+          key: ValueKey<String>('genesis-world-list-thumbnail-skeleton'),
+          width: 60,
+          height: 78,
+          borderRadius: 8,
         ),
-        SizedBox(height: 16),
-        _SkeletonProgressHeader(titleWidth: 104, trailingWidth: 58),
-        SizedBox(height: 10),
-        _SkeletonBone(widthFactor: 0.96, height: 10, borderRadius: 4),
-        SizedBox(height: 7),
-        _SkeletonBone(widthFactor: 0.9, height: 10, borderRadius: 4),
-        SizedBox(height: 7),
-        _SkeletonBone(widthFactor: 0.72, height: 10, borderRadius: 4),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SkeletonBone(widthFactor: 0.42, height: 14, borderRadius: 4),
+              SizedBox(height: 7),
+              _SkeletonBone(widthFactor: 0.5, height: 11, borderRadius: 4),
+              SizedBox(height: 7),
+              _SkeletonBone(widthFactor: 0.96, height: 11, borderRadius: 4),
+              SizedBox(height: 5),
+              _SkeletonBone(widthFactor: 0.7, height: 11, borderRadius: 4),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -210,10 +195,9 @@ class _PopularOriginSkeletonItem extends StatelessWidget {
 }
 
 class _SkeletonProgressHeader extends StatelessWidget {
-  const _SkeletonProgressHeader({required this.titleWidth, this.trailingWidth});
+  const _SkeletonProgressHeader({required this.titleWidth});
 
   final double titleWidth;
-  final double? trailingWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -222,10 +206,6 @@ class _SkeletonProgressHeader extends StatelessWidget {
         const _SkeletonBone(width: 14, height: 14, borderRadius: 7),
         const SizedBox(width: 5),
         _SkeletonBone(width: titleWidth, height: 14, borderRadius: 4),
-        if (trailingWidth case final width?) ...[
-          const Spacer(),
-          _SkeletonBone(width: width, height: 12, borderRadius: 4),
-        ],
       ],
     );
   }

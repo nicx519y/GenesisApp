@@ -162,7 +162,7 @@ class _DeveloperTelemetryUploadPanel extends StatelessWidget {
           Text(
             'Enable individual telemetry channels for debugging.',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               color: context.genesisColors.textSecondary,
               height: 1.35,
             ),
@@ -172,7 +172,7 @@ class _DeveloperTelemetryUploadPanel extends StatelessWidget {
             _telemetryStatusLabel(state),
             key: const ValueKey<String>('developer-telemetry-status'),
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               color: context.genesisColors.textSecondary,
               height: 1.35,
             ),
@@ -253,9 +253,9 @@ class _DeveloperTelemetryChannelSwitch extends StatelessWidget {
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     color: context.genesisColors.textPrimary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ),
@@ -308,7 +308,7 @@ class _DeveloperToggleRow extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: context.genesisColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
@@ -390,7 +390,7 @@ class _DeveloperSliderControl extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   color: context.genesisColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
@@ -639,7 +639,7 @@ class _DeveloperVersionField extends StatelessWidget {
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
           : null,
       textInputAction: TextInputAction.done,
-      style: TextStyle(fontSize: 14, color: context.genesisColors.textPrimary),
+      style: TextStyle(fontSize: 13, color: context.genesisColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
@@ -686,7 +686,7 @@ class _DeveloperEndpointHeader extends StatelessWidget {
                 softWrap: false,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: enabled
                       ? context.genesisColors.textPrimary
                       : context.genesisColors.textDisabled,
@@ -750,7 +750,7 @@ class _DeveloperInfoSingleLineRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: context.genesisColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
@@ -769,7 +769,7 @@ class _DeveloperInfoSingleLineRow extends StatelessWidget {
                 maxLines: 1,
                 softWrap: false,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   color: context.genesisColors.textSecondary,
                   fontWeight: FontWeight.w400,
                 ),
@@ -807,7 +807,7 @@ class _DeveloperInfoRow extends StatelessWidget {
             '$title:',
             textAlign: TextAlign.left,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: context.genesisColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
@@ -821,7 +821,7 @@ class _DeveloperInfoRow extends StatelessWidget {
             child: Text(
               content,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 color: context.genesisColors.textSecondary,
                 fontWeight: FontWeight.w400,
               ),
@@ -856,7 +856,7 @@ class _DeveloperInfoBlock extends StatelessWidget {
           Text(
             '$title:',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: context.genesisColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
@@ -865,7 +865,7 @@ class _DeveloperInfoBlock extends StatelessWidget {
           Text(
             content,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: context.genesisColors.textSecondary,
               fontWeight: FontWeight.w400,
             ),

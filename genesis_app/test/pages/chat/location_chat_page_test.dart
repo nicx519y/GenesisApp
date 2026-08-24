@@ -1322,7 +1322,8 @@ void main() {
     final headerDividerBorder = headerDividerDecoration.border! as Border;
     expect(headerDivider.position, DecorationPosition.foreground);
     expect(headerDividerBorder.bottom.width, 1);
-    expect(headerDividerBorder.bottom.color.a, closeTo(0.14, 0.001));
+    // The room has no rules top or bottom any more.
+    expect(headerDividerBorder.bottom.color.a, 0);
     final composerDivider = tester.widget<DecoratedBox>(
       find.byKey(const ValueKey<String>('location-chat-composer-divider')),
     );
@@ -1331,7 +1332,7 @@ void main() {
     final composerDividerBorder = composerDividerDecoration.border! as Border;
     expect(composerDivider.position, DecorationPosition.foreground);
     expect(composerDividerBorder.top.width, 1);
-    expect(composerDividerBorder.top.color.a, closeTo(0.14, 0.001));
+    expect(composerDividerBorder.top.color.a, 0);
     final messageViewportRect = tester.getRect(
       find.byKey(const ValueKey<String>('location-chat-message-viewport-clip')),
     );
@@ -1367,8 +1368,8 @@ void main() {
     expect(composer.sendLabel, isNull);
     expect(composer.sendIcon, ChatComposerSendIcon.arrowUp);
     expect(composer.style?.inputBackgroundColor, const Color(0x1FFFFFFF));
-    expect(composer.style?.inputBorderColor, const Color(0x2EFFFFFF));
-    expect(composer.style?.inputBorderWidth, 1.5);
+    // The input runs borderless now.
+    expect(composer.style?.inputBorderWidth, 0);
     expect(composer.style?.inputBorderRadius, 14);
     expect(
       tester.getSize(find.byKey(const ValueKey('chat-composer-send-button'))),
@@ -1624,6 +1625,32 @@ void main() {
 
   test('selected model code is empty when cache has no model field', () {
     expect(selectedModelCodeFromUserInfo({'uid': 'u_1'}), isEmpty);
+  });
+
+  test('selected model title comes from the cached code to title map', () {
+    const userInfo = <String, dynamic>{
+      'selected_model_code': 'sedna',
+      'selected_model_titles': {'sedna': 'Sedna', 'sake_pro': 'Sake Pro'},
+    };
+
+    expect(selectedModelTitleFromUserInfo(userInfo, 'sedna'), 'Sedna');
+    // A model switched on another device is a cache miss, not a stale title.
+    expect(selectedModelTitleFromUserInfo(userInfo, 'top_pick_v3'), isEmpty);
+    expect(selectedModelTitleFromUserInfo(userInfo, ''), isEmpty);
+    expect(
+      selectedModelTitleFromUserInfo(const {'uid': 'u_1'}, 'sedna'),
+      isEmpty,
+    );
+  });
+
+  test('location chat model label prefers the title over the raw code', () {
+    final source = _readLocationChatImplementationSource();
+
+    expect(source, contains('modelLabel: _selectedModelLabel'));
+    expect(source, contains('String get _selectedModelLabel {'));
+    expect(source, contains('selectedModelTitleFromUserInfo(userInfo,'));
+    expect(source, contains('_backfillSelectedModelTitle(modelCode)'));
+    expect(source, isNot(contains("modelLabel: _selectedModelCode.isEmpty")));
   });
 
   testWidgets(
@@ -2027,6 +2054,44 @@ void main() {
         ],
       ),
       isTrue,
+    );
+  });
+
+  test('tick visible roles resolve character and entity avatars', () {
+    final roleAvatarsById = locationChatRoleAvatarsByIdForTesting(
+      characters: const [
+        {'char_id': 'mateo', 'avatar': 'https://cdn.test/mateo.png'},
+        {'char_id': 'oracle', 'avatar': ''},
+      ],
+      entitiesById: const {
+        'oracle': WorldChatroomEntity(
+          id: 'oracle',
+          name: 'Oracle',
+          avatarUrl: 'https://cdn.test/oracle.png',
+          type: WorldChatroomEntityType.character,
+          locationId: 'loc-cafe',
+          isAi: true,
+        ),
+      },
+    );
+
+    expect(roleAvatarsById, {
+      'mateo': 'https://cdn.test/mateo.png',
+      'oracle': 'https://cdn.test/oracle.png',
+    });
+    expect(
+      locationChatStoryEventParagraphVmForTesting(
+        const ChatroomStoryEventParagraph(
+          timestamp: 'Day 2, 10:20',
+          visibility: 'char_only',
+          visibleTo: ['mateo', 'oracle'],
+          text: 'Only local roles can see this.',
+          clue: '',
+        ),
+        roleNamesById: const {'mateo': 'Mateo Cruz', 'oracle': 'Oracle'},
+        roleAvatarsById: roleAvatarsById,
+      )?.visibleRoles.map((role) => role.avatarUrl).toList(),
+      ['https://cdn.test/mateo.png', 'https://cdn.test/oracle.png'],
     );
   });
 
@@ -2735,7 +2800,7 @@ void main() {
       await tester.pumpWidget(panel(active: true));
       await tester.pump();
       final title = find.text('The Wisteria Terrace With A Long Name');
-      final count = find.text('(0)');
+      final count = find.text('0');
       final modelEntry = find.byKey(const ValueKey('memory-model-entry'));
       final activeTitleRect = tester.getRect(title);
       final activeCountRect = tester.getRect(count);
@@ -2746,25 +2811,25 @@ void main() {
       expect(header.showTitleIcon, isFalse);
       expect(header.showSubtitleIcon, isFalse);
       expect(header.subtitleIconAsset, isNull);
-      expect(header.style?.headerTitleTextStyle.fontSize, 14);
-      expect(header.style?.headerTitleTextStyle.fontWeight, FontWeight.w700);
+      expect(header.style?.headerTitleTextStyle.fontSize, 16);
+      expect(header.style?.headerTitleTextStyle.fontWeight, FontWeight.w800);
       expect(header.style?.headerTitleTextStyle.color, Colors.white);
-      expect(header.style?.headerSubtitleTextStyle.fontSize, 10);
+      expect(header.style?.headerSubtitleTextStyle.fontSize, 9.5);
       expect(header.style?.headerSubtitleTextStyle.fontWeight, FontWeight.w400);
       expect(
         header.style?.headerSubtitleTextStyle.color,
         const Color(0xB8FFFFFF),
       );
       final countText = tester.widget<Text>(count);
-      expect(countText.style?.fontSize, 11);
-      expect(countText.style?.fontWeight, FontWeight.w500);
-      expect(countText.style?.color, Colors.white.withValues(alpha: 0.5));
+      expect(countText.style?.fontSize, 12);
+      expect(countText.style?.fontWeight, FontWeight.w600);
+      expect(countText.style?.color, Colors.white.withValues(alpha: 0.73));
       final modeText = tester.widget<Text>(
         find.descendant(of: modelEntry, matching: find.text('Model')),
       );
       expect(modeText.style?.fontSize, 11);
       expect(modeText.style?.fontWeight, FontWeight.w600);
-      expect(modeText.style?.color, Colors.white);
+      expect(modeText.style?.color, const Color(0xFFF4F3F6));
       expect(find.byIcon(Icons.place_outlined), findsNothing);
       expect(
         find.byWidgetPredicate(
@@ -3097,7 +3162,7 @@ void main() {
         ),
         findsNWidgets(2),
       );
-      expect(find.text('Alice'), findsNWidgets(2));
+      expect(find.text('Alice'), findsOneWidget);
       expect(find.text('char-unknown'), findsOneWidget);
       expect(find.text('has gone to'), findsNWidgets(2));
       expect(find.text('loc-cafe'), findsOneWidget);
@@ -3184,7 +3249,7 @@ void main() {
     expect(find.byType(ChatTickMessageBubble), findsOneWidget);
     expect(find.byType(ChatStoryEventsMessageBubble), findsNothing);
     expect(find.byType(ChatCharactersMovedMessageBubble), findsNothing);
-    expect(find.text('Tick 1-2 · Day 1, 13:50'), findsOneWidget);
+    expect(find.text('Tick 1-2'), findsOneWidget);
     expect(find.text('Global'), findsNothing);
     expect(find.text('The promise-shaped key pulses.'), findsOneWidget);
     expect(find.text('Event'), findsNothing);
@@ -3514,7 +3579,7 @@ void main() {
             widget is SvgPicture &&
             widget.bytesLoader.toString().contains(eventsIconAsset),
       ),
-      findsNWidgets(2),
+      findsNothing,
     );
     expect(
       find.byWidgetPredicate(
@@ -3759,6 +3824,75 @@ void main() {
         characters: characters,
       ),
       isEmpty,
+    );
+  });
+
+  testWidgets('opening the roster keeps the room where it was scrolled', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'roster-scroll',
+          locationId: 'loc-1',
+          active: false,
+          openingPreviewMessages: <WorldChatroomMessage>[
+            for (var index = 0; index < 24; index += 1)
+              WorldChatroomMessage(
+                messageId: 0,
+                conversationRoundId: 'opening-preview-$index',
+                roundOrder: index,
+                locationId: 'loc-1',
+                senderType: 'character',
+                senderId: 'char-role',
+                senderName: 'Preview Role',
+                content: 'Opening line $index.',
+                createdAt: null,
+              ),
+          ],
+          openingPreviewEntities: const [
+            WorldChatroomEntity(
+              id: 'char-role',
+              name: 'Preview Role',
+              avatarUrl: '',
+              type: WorldChatroomEntityType.character,
+              locationId: 'loc-1',
+              isAi: true,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey('location-chat-message-list')),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    position.jumpTo(position.maxScrollExtent / 2);
+    await tester.pump();
+    final scrolledOffset = position.pixels;
+    expect(scrolledOffset, greaterThan(0));
+    final scrollableElement = tester.element(scrollable);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('location-chat-occupant-pill')),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('location-chat-roster')),
+      findsOneWidget,
+    );
+    // The roster inserts a tap barrier ahead of the chat layer. Without keys on
+    // the Stack children Flutter matches that barrier onto the chat's element
+    // and rebuilds the whole subtree, which drops the scroll position.
+    expect(identical(tester.element(scrollable), scrollableElement), isTrue);
+    expect(
+      tester.state<ScrollableState>(scrollable).position.pixels,
+      scrolledOffset,
     );
   });
 

@@ -82,7 +82,11 @@ class _ChatStoryEventParagraph extends StatelessWidget {
         style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
     final metadataStyle = style.systemMessageTextStyle.copyWith(
       color: textColor.withValues(alpha: 0.72),
-      fontSize: (style.systemMessageTextStyle.fontSize ?? 12) - 1,
+      // one step below the 13px system message on the scale -> 11.
+      // height matches the visible-role names beside it so the two runs share
+      // a line box and stay centred on each other regardless of size.
+      fontSize: (style.systemMessageTextStyle.fontSize ?? 13) - 2,
+      height: 1.3,
     );
     final isPublic = paragraph.visibilityLabel.trim().toLowerCase() == 'public';
     final hasTimestamp = paragraph.timestamp.trim().isNotEmpty;
@@ -100,14 +104,11 @@ class _ChatStoryEventParagraph extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SvgPicture.asset(
-                eventsIconAsset,
+              _ChatStoryEventNoteIcon(
                 key: ValueKey<String>(
                   'chat-story-event-icon-$messageLocalId-$index',
                 ),
-                width: 14,
-                height: 14,
-                colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
+                color: textColor.withValues(alpha: 0.60),
               ),
               if (hasTimestamp) ...[
                 const SizedBox(width: 8),
@@ -138,7 +139,9 @@ class _ChatStoryEventParagraph extends StatelessWidget {
           _InlineMarkdownText(
             text: paragraph.text,
             textAlign: TextAlign.left,
-            style: style.systemMessageTextStyle.copyWith(height: 1.45),
+            style: style.systemMessageTextStyle.copyWith(
+              height: kChatBodyLineHeight,
+            ),
           ),
           if (paragraph.clue.trim().isNotEmpty) ...[
             const SizedBox(height: 5),
@@ -164,7 +167,7 @@ class _ChatStoryEventParagraph extends StatelessWidget {
                     textAlign: TextAlign.left,
                     style: style.systemMessageTextStyle.copyWith(
                       color: textColor.withValues(alpha: 0.72),
-                      height: 1.35,
+                      height: kChatBodyLineHeight,
                     ),
                     softItalic: true,
                   ),
@@ -212,17 +215,11 @@ class _ChatTickSceneStoryEventParagraph extends StatelessWidget {
         children: [
           Transform.translate(
             offset: const Offset(0, -1),
-            child: SvgPicture.asset(
-              eventsIconAsset,
+            child: _ChatStoryEventNoteIcon(
               key: ValueKey<String>(
                 'chat-story-event-icon-$messageLocalId-$index',
               ),
-              width: 12,
-              height: 12,
-              colorFilter: ColorFilter.mode(
-                chatTheme.tickHeader.withValues(alpha: 0.60),
-                BlendMode.srcIn,
-              ),
+              color: chatTheme.tickHeader.withValues(alpha: 0.60),
             ),
           ),
           const SizedBox(width: 9),
@@ -237,7 +234,7 @@ class _ChatTickSceneStoryEventParagraph extends StatelessWidget {
                       'chat-story-event-timestamp-$messageLocalId-$index',
                     ),
                     style: TextStyle(
-                      color: chatTheme.tickHeader.withValues(alpha: 0.55),
+                      color: chatTheme.tickHeader.withValues(alpha: 0.45),
                       fontSize: 11,
                       height: 1,
                       fontWeight: FontWeight.w400,
@@ -252,7 +249,7 @@ class _ChatTickSceneStoryEventParagraph extends StatelessWidget {
                       genesisDisplaySafeText(visibilityLabel),
                       style: TextStyle(
                         color: chatTheme.tickHeader.withValues(alpha: 0.72),
-                        fontSize: 12,
+                        fontSize: 13,
                         height: 1,
                       ),
                     ),
@@ -262,9 +259,9 @@ class _ChatTickSceneStoryEventParagraph extends StatelessWidget {
                   text: paragraph.text,
                   textAlign: TextAlign.left,
                   style: TextStyle(
-                    color: chatTheme.tickHeader,
+                    color: chatTheme.tickHeader.withValues(alpha: 0.73),
                     fontSize: 13,
-                    height: 1.6,
+                    height: kChatBodyLineHeight,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -296,7 +293,7 @@ class _ChatTickSceneStoryEventParagraph extends StatelessWidget {
                           style: TextStyle(
                             color: chatTheme.tickHeader.withValues(alpha: 0.72),
                             fontSize: 13,
-                            height: 1.6,
+                            height: kChatBodyLineHeight,
                             fontWeight: FontWeight.w400,
                           ),
                           softItalic: true,
@@ -355,13 +352,14 @@ class _ChatTickSceneVisibleRole extends StatelessWidget {
           ),
           child: GenesisAvatar(
             name: role.name,
+            url: role.avatarUrl,
             size: 18,
             borderRadius: 6,
             textStyle: TextStyle(
               color: chatTheme.tickHeader,
               fontSize: 9.5,
               height: 1,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
@@ -372,13 +370,74 @@ class _ChatTickSceneVisibleRole extends StatelessWidget {
             color: chatTheme.tickHeader.withValues(
               alpha: isPlayerRole ? 1 : 0.72,
             ),
-            fontSize: 12,
+            fontSize: 11,
             height: 1,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ],
     );
+  }
+}
+
+/// `3 · Inline meta family / Beat record`: a 14-unit rounded rect plus two
+/// rules, stroke 1.4 in those units. Drawn rather than loaded because the
+/// shared events asset is a different glyph, and because scaling an asset this
+/// far down thins the stroke. Sized to the 13px body run it leads.
+class _ChatStoryEventNoteIcon extends StatelessWidget {
+  const _ChatStoryEventNoteIcon({super.key, required this.color});
+
+  static const double _size = 13;
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: CustomPaint(painter: _ChatStoryEventNoteIconPainter(color: color)),
+    );
+  }
+}
+
+class _ChatStoryEventNoteIconPainter extends CustomPainter {
+  const _ChatStoryEventNoteIconPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 14;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(1.5 * scale, 1.5 * scale, 11 * scale, 11 * scale),
+          Radius.circular(2 * scale),
+        ),
+        paint,
+      )
+      ..drawLine(
+        Offset(4 * scale, 5.6 * scale),
+        Offset(10 * scale, 5.6 * scale),
+        paint,
+      )
+      ..drawLine(
+        Offset(4 * scale, 8.6 * scale),
+        Offset(8 * scale, 8.6 * scale),
+        paint,
+      );
+  }
+
+  @override
+  bool shouldRepaint(_ChatStoryEventNoteIconPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
@@ -471,7 +530,7 @@ class _ChatStoryEventVisibleRoleGroup extends StatelessWidget {
           child: Text(
             genesisDisplaySafeText(names.join(', ')),
             softWrap: true,
-            style: TextStyle(color: textColor, fontSize: 12),
+            style: TextStyle(color: textColor, fontSize: 13, height: 1.3),
           ),
         ),
       ],

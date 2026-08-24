@@ -310,7 +310,7 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
                           '$_newFrameCount new frames',
                           style: TextStyle(
                             color: context.genesisColors.textPrimary,
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -344,7 +344,7 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
           text,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             height: 1.4,
             color: context.genesisColors.textFaint,
           ),
@@ -410,8 +410,8 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                       Text(
                         directionLabel,
                         style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -442,7 +442,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 9.5,
                               color: context.genesisColors.textSecondary,
                             ),
                           ),
@@ -699,7 +699,7 @@ class _DeveloperWebSocketTypeFilterSheetState
                         secondary: Text(
                           '${widget.counts[type] ?? 0}',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: context.genesisColors.textSubtle,
                           ),
                         ),

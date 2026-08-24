@@ -472,7 +472,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             iconSize: 22,
                             borderRadius: 13,
                             cropSize: const Size(800, 1200),
-                            emptyLabelFontSize: 12,
+                            emptyLabelFontSize: 11,
                             emptyIconLabelGap: 9,
                             emptyBackgroundColor: Colors.transparent,
                             emptyIconColor:
@@ -568,9 +568,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                           'Custom',
                           style: TextStyle(
                             color: context.genesisCreateColors.text.withValues(
-                              alpha: 0.8,
+                              alpha: 0.73,
                             ),
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -686,7 +686,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                   height: 44,
                   borderRadius: BorderRadius.circular(13),
                   fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   onPressed: _canUseSaveButton ? _onSave : null,
                   onDisabledPressed: () => _showError(_saveDisabledReason),
                 ),
@@ -756,7 +756,7 @@ class _BasicsTextField extends StatelessWidget {
       prefix: prefix,
       requiredIndicator: requiredIndicator,
       labelSize: 13,
-      labelFontWeight: FontWeight.w700,
+      labelFontWeight: FontWeight.w800,
       labelInputGap: 8,
       fieldBorderRadius: fieldBorderRadius,
       fieldPadding: fieldPadding,
@@ -776,7 +776,7 @@ class _BasicsTextField extends StatelessWidget {
       counterTextStyle: TextStyle(
         color: textColor.withValues(alpha: 0.5),
         fontSize: 9.5,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600,
         height: 1.5,
       ),
       focusNode: focusNode,
@@ -821,7 +821,7 @@ class _BasicsFieldLabel extends StatelessWidget {
       style: TextStyle(
         color: context.genesisCreateColors.text,
         fontSize: 13,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w800,
         height: 1.2,
       ),
     );
@@ -862,9 +862,9 @@ class _AdvancedSettingsDivider extends StatelessWidget {
           child: Text(
             'Advanced Settings (Optional)',
             style: TextStyle(
-              color: context.genesisCreateColors.text.withValues(alpha: 0.62),
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
+              color: context.genesisCreateColors.text.withValues(alpha: 0.56),
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
               height: 1.2,
             ),
           ),
@@ -890,7 +890,7 @@ class _SimulationFieldLabel extends StatelessWidget {
     return Text(
       text,
       style: TextStyle(
-        color: context.genesisCreateColors.text.withValues(alpha: 0.8),
+        color: context.genesisCreateColors.text.withValues(alpha: 0.73),
         fontSize: 11,
         fontWeight: FontWeight.w600,
         height: 1.2,
@@ -975,8 +975,8 @@ class _TimeProgressOption extends StatelessWidget {
               color: selected
                   ? context.genesisCreateColors.selectedOptionText
                   : context.genesisCreateColors.text.withValues(alpha: 0.8),
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
               height: 1.2,
             ),
           ),

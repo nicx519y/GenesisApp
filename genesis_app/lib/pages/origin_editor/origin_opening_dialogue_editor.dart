@@ -137,7 +137,7 @@ class _OpeningBestRoleSelector extends StatelessWidget {
             'Suggest a role for user',
             style: TextStyle(
               color: context.genesisCreateColors.text,
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               height: 1.2,
             ),
@@ -231,7 +231,7 @@ class _OpeningBestRoleOption extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: context.genesisCreateColors.text,
-                  fontSize: 12,
+                  fontSize: 13,
                   height: 1.1,
                   fontWeight: FontWeight.w400,
                 ),
@@ -613,7 +613,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
                 softWrap: false,
                 style: TextStyle(
                   color: insertTextColor,
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                   height: 1,
                 ),

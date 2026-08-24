@@ -331,7 +331,7 @@ class _DiscussPageAppBar extends StatelessWidget
                       color: colors.foregroundStrong.withValues(alpha: 0.50),
                       fontSize: 9.5,
                       height: 1,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -579,7 +579,7 @@ class _DiscussOriginSummary extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     height: 1.15,
                     fontWeight: FontWeight.w800,
                     color: context.genesisDiscussColors.actionAccent,
@@ -592,11 +592,9 @@ class _DiscussOriginSummary extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 9.5,
-                    height: 1.3,
-                    fontWeight: FontWeight.w500,
-                    color: context.genesisColors.foregroundStrong.withValues(
-                      alpha: 0.62,
-                    ),
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                    color: context.genesisColors.textSecondary,
                   ),
                 ),
               ],
@@ -629,7 +627,7 @@ class _OriginCover extends StatelessWidget {
       imageUrl: imageUrl,
       width: 44,
       height: 66,
-      borderRadius: BorderRadius.circular(9),
+      borderRadius: BorderRadius.circular(7),
     );
   }
 }

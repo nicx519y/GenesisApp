@@ -8,6 +8,7 @@ import '../ui/components/genesis_search_field.dart';
 import '../ui/components/genesis_tab_bar.dart';
 import '../ui/theme/genesis_semantic_colors.dart';
 import '../ui/theme/genesis_ui_theme.dart';
+import '../ui/tokens/genesis_palette.dart';
 import '../ui/tokens/genesis_typography.dart';
 import 'world_details_shell.dart';
 
@@ -64,6 +65,7 @@ class WorldTopOverlayBar extends StatelessWidget {
         children: [
           GenesisBackButton(
             key: const ValueKey<String>('worldo-title-back-button'),
+            backgroundColor: GenesisPalette.redesignInkGlass50,
             onPressed: onBack ?? () => Navigator.of(context).maybePop(),
           ),
           const SizedBox(width: 10),
@@ -106,7 +108,7 @@ class WorldTopOverlayBar extends StatelessWidget {
                           ),
                           fontSize: 9.5,
                           height: 1.3,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                           shadows: [
                             Shadow(
                               color: context.genesisColors.scrim.withValues(
@@ -144,6 +146,7 @@ class WorldTopOverlayBar extends StatelessWidget {
     return Row(
       children: [
         GenesisBackButton(
+          backgroundColor: GenesisPalette.redesignInkGlass50,
           onPressed: onBack ?? () => Navigator.of(context).maybePop(),
         ),
         SizedBox(width: 10),
@@ -244,7 +247,8 @@ class _WorldoTopGlassButton extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Material(
-          color: context.genesisColors.controlMuted,
+          // 8-22 spec: rgba(21,21,23,.5) ink glass behind blur 10.
+          color: GenesisPalette.redesignInkGlass50,
           child: InkWell(
             onTap: onTap,
             child: SizedBox(

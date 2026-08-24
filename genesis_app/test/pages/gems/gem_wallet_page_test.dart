@@ -119,7 +119,7 @@ void main() {
     expect(find.text('+550'), findsOneWidget);
     expect(find.text('500'), findsOneWidget);
     expect(find.text(r'$1.49'), findsOneWidget);
-    expect(find.text('Struck price = first top-up bonus'), findsNothing);
+    expect(find.text('Struck price = first top-up bonus'), findsOneWidget);
     expect(find.text('New User'), findsOneWidget);
     final productTag = tester.widget<Container>(
       find.byKey(const ValueKey('gem-product-tag-gem_pack_500')),
@@ -162,7 +162,7 @@ void main() {
     expect(taskButtonDecoration.border, isNull);
     expect(
       tester.widget<Text>(find.text('Go')).style?.color,
-      const Color(0xFFF4F3F6),
+      const Color(0xBAFFFFFF),
     );
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,
@@ -200,10 +200,10 @@ void main() {
     );
 
     final recordsStyle = tester.widget<Text>(find.text('Records')).style;
-    expect(recordsStyle?.fontSize, 12);
+    expect(recordsStyle?.fontSize, 11);
     expect(recordsStyle?.height, 1);
     expect(recordsStyle?.fontWeight, FontWeight.w600);
-    expect(recordsStyle?.color, const Color(0x8FFFFFFF));
+    expect(recordsStyle?.color, const Color(0xBAFFFFFF));
     expect(
       tester.getSize(find.byType(GenesisChevronRightIcon)),
       const Size.square(9),
@@ -253,7 +253,7 @@ void main() {
     final actionStyle = tester.widget<Text>(find.text('Go')).style;
     expect(actionStyle?.fontSize, 11);
     expect(actionStyle?.height, 1);
-    expect(actionStyle?.fontWeight, FontWeight.w700);
+    expect(actionStyle?.fontWeight, FontWeight.w800);
     final goButtonSize = tester.getSize(
       find.byKey(const ValueKey<String>('gem-task-action-create_first_worldo')),
     );
@@ -354,7 +354,7 @@ void main() {
     final followStyle = tester.widget<Text>(find.text('Follow')).style;
     expect(followStyle?.fontSize, 11);
     expect(followStyle?.height, 1);
-    expect(followStyle?.fontWeight, FontWeight.w700);
+    expect(followStyle?.fontWeight, FontWeight.w800);
     final followButtonSize = tester.getSize(
       find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),
     );
@@ -447,38 +447,38 @@ void main() {
     expect(requestedScenes, contains('all'));
 
     final tabs = tester.widget<TabBar>(find.byType(TabBar));
-    expect(tabs.labelStyle?.fontSize, 13);
-    expect(tabs.labelStyle?.height, 1);
-    expect(tabs.labelStyle?.fontWeight, FontWeight.w700);
+    expect(tabs.labelStyle?.fontSize, 14);
+    expect(tabs.labelStyle?.height, 1.2);
+    expect(tabs.labelStyle?.fontWeight, FontWeight.w600);
     expect(tabs.labelColor, GenesisSemanticColors.worldoDark().textPrimary);
-    expect(tabs.unselectedLabelStyle?.fontSize, 13);
-    expect(tabs.unselectedLabelStyle?.height, 1);
-    expect(tabs.unselectedLabelStyle?.fontWeight, FontWeight.w500);
+    expect(tabs.unselectedLabelStyle?.fontSize, 14);
+    expect(tabs.unselectedLabelStyle?.height, 1.2);
+    expect(tabs.unselectedLabelStyle?.fontWeight, FontWeight.w400);
     expect(
       tabs.unselectedLabelColor,
-      GenesisSemanticColors.worldoDark().textPlaceholder,
+      GenesisSemanticColors.worldoDark().textSecondary,
     );
 
     final recordTitleStyle = tester
         .widget<Text>(find.text('Daily check-in'))
         .style;
     expect(recordTitleStyle?.fontSize, 13);
-    expect(recordTitleStyle?.height, 1.35);
+    expect(recordTitleStyle?.height, 1.5);
     expect(recordTitleStyle?.fontWeight, FontWeight.w600);
     expect(recordTitleStyle?.color, const Color(0xFFF4F3F6));
 
     final recordTimeStyle = tester
         .widget<Text>(find.text(formatGemRecordTimestamp(1783586400)))
         .style;
-    expect(recordTimeStyle?.fontSize, 10);
+    expect(recordTimeStyle?.fontSize, 9.5);
     expect(recordTimeStyle?.height, 1);
     expect(recordTimeStyle?.fontWeight, FontWeight.w400);
     expect(recordTimeStyle?.color, const Color(0x73FFFFFF));
 
     final amountStyle = tester.widget<Text>(find.text('+50')).style;
-    expect(amountStyle?.fontSize, 15);
+    expect(amountStyle?.fontSize, 13);
     expect(amountStyle?.height, 1);
-    expect(amountStyle?.fontWeight, FontWeight.w800);
+    expect(amountStyle?.fontWeight, FontWeight.w600);
     expect(amountStyle?.color, const Color(0xFFFF8A9A));
 
     await tester.drag(find.byType(TabBarView), const Offset(-420, 0));
@@ -1076,7 +1076,7 @@ void main() {
       find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
       findsNothing,
     );
-    expect(processingActionBoxSize.width, greaterThan(250));
+    expect(processingActionBoxSize.width, 250);
 
     await tester.binding.handlePopRoute();
     await tester.pump(const Duration(milliseconds: 100));
@@ -1590,7 +1590,10 @@ void main() {
         tester.widget<Container>(claimButton).decoration! as BoxDecoration;
     expect(claimButtonDecoration.color, GenesisPalette.redesignAccent);
     expect(claimButtonDecoration.border, isNull);
-    expect(tester.widget<Text>(find.text('Claim')).style?.color, Colors.white);
+    expect(
+      tester.widget<Text>(find.text('Claim')).style?.color,
+      GenesisPalette.redesignInk88,
+    );
 
     final row = find.byKey(
       const ValueKey<String>('gem-join-us-row-discord_follow'),
@@ -1650,7 +1653,7 @@ void main() {
     expect(claimedButtonDecoration.border, isNull);
     expect(
       tester.widget<Text>(find.text('Claimed')).style?.color,
-      GenesisPalette.redesignInk88,
+      GenesisPalette.redesignInk80,
     );
 
     await tester.tap(
@@ -1808,7 +1811,7 @@ void _expectGrantedSuccessDialog(
   );
   expect(grantedAmount.data, '+$grantedText');
   expect(grantedAmount.style?.fontSize, 30);
-  expect(grantedAmount.style?.fontWeight, FontWeight.w900);
+  expect(grantedAmount.style?.fontWeight, FontWeight.w800);
   expect(
     grantedAmount.style?.color,
     successDialogContext.genesisColors.textPrimary,
@@ -1818,7 +1821,7 @@ void _expectGrantedSuccessDialog(
   );
   expect(grantedUnit.data, 'Gems');
   expect(grantedUnit.style?.fontSize, 13);
-  expect(grantedUnit.style?.fontWeight, FontWeight.w500);
+  expect(grantedUnit.style?.fontWeight, FontWeight.w400);
   expect(
     grantedUnit.style?.color,
     successDialogContext.genesisColors.textMuted,
@@ -1850,7 +1853,7 @@ void _expectGrantedSuccessDialog(
   );
   final okText = tester.widget<Text>(find.text('OK'));
   expect(okText.style?.fontSize, 15);
-  expect(okText.style?.fontWeight, FontWeight.w700);
+  expect(okText.style?.fontWeight, FontWeight.w800);
   expect(okText.style?.color, successDialogContext.genesisGemColors.accent);
   expect(
     tester

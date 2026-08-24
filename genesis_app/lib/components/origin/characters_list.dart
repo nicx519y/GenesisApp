@@ -23,7 +23,7 @@ class CharactersList extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               'Characters (${characters.length})',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -144,7 +144,7 @@ class _CharacterTile extends StatelessWidget {
                     child: Text(
                       name,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: context.genesisColors.textPrimary,
                       ),
@@ -171,7 +171,7 @@ class _CharacterTile extends StatelessWidget {
                         tag,
                         style: TextStyle(
                           color: context.genesisColors.danger,
-                          fontSize: 10,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -182,9 +182,9 @@ class _CharacterTile extends StatelessWidget {
               Text(
                 subtitle,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   height: 1.25,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
                   color: context.genesisColors.foregroundStrong.withValues(
                     alpha: 0.78,
                   ),

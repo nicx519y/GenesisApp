@@ -166,7 +166,7 @@ void main() {
     );
 
     final actionLabel = tester.widget<Text>(find.text('Records'));
-    expect(actionLabel.style?.fontSize, 12);
+    expect(actionLabel.style?.fontSize, 11);
     expect(actionLabel.style?.fontWeight, FontWeight.w600);
     expect(actionLabel.style?.height, 1);
     expect(

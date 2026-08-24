@@ -11,7 +11,7 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
             '${_OriginLocationsEditorPageState._maxLocations} (Added / Max)',
             style: TextStyle(
               color: context.genesisCreateColors.text,
-              fontSize: 14,
+              fontSize: 13,
               height: 1.2,
             ),
           ),
@@ -171,7 +171,7 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
                         titleSuffix:
                             '(No. ${l1Index + 1}.${l2Index + 1}.${l3Index + 1})',
                         showBorder: false,
-                        titleFontSize: 14,
+                        titleFontSize: 13,
                         nameFieldLabel: 'Name *',
                         fieldLabelFontWeight: FontWeight.w400,
                         form: l2.children[l3Index],
@@ -243,7 +243,7 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
                           text: ' (No. $displayId)',
                           style: TextStyle(
                             color: context.genesisCreateColors.hint,
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -251,7 +251,7 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
                     ),
                     style: TextStyle(
                       color: context.genesisCreateColors.text,
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
@@ -276,7 +276,7 @@ extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
                 'Name',
                 style: TextStyle(
                   color: context.genesisCreateColors.text,
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                   height: 1.2,
                 ),
@@ -337,27 +337,27 @@ class _LocationsModeSwitch extends StatelessWidget {
               if (switchingToPreview)
                 Icon(
                   Icons.visibility_outlined,
-                  size: 16,
+                  size: 13,
                   color: context.genesisColors.accentText,
                 )
               else
                 SvgPicture.asset(
                   editPencilLineIconAsset,
-                  width: 16,
-                  height: 16,
+                  width: 13,
+                  height: 13,
                   colorFilter: ColorFilter.mode(
                     context.genesisColors.accentText,
                     BlendMode.srcIn,
                   ),
                 ),
-              SizedBox(width: 4),
+              SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   color: context.genesisColors.accentText,
-                  fontSize: 14,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  height: 1.2,
+                  height: 1,
                 ),
               ),
             ],
@@ -487,17 +487,154 @@ class _InlineTreeLocationNameEditor extends StatelessWidget {
 class _LocationEditorNote extends StatelessWidget {
   const _LocationEditorNote({super.key, required this.text});
 
+  static final RegExp _levelLine = RegExp(
+    r'^(L\d)\s*\u00b7\s*(\S+)\s{2,}(.+)$',
+  );
+
   final String text;
 
   @override
   Widget build(BuildContext context) {
     final value = text.trim();
     if (value.isEmpty) return const SizedBox.shrink();
+    final lines = value
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
+    final levels = <_LocationEditorNoteLevel>[];
+    final rest = <String>[];
+    String heading = '';
+    for (final line in lines) {
+      final match = _levelLine.firstMatch(line);
+      if (match != null) {
+        levels.add(
+          _LocationEditorNoteLevel(
+            badge: match.group(1)!,
+            name: match.group(2)!,
+            description: match.group(3)!.trim(),
+          ),
+        );
+      } else if (heading.isEmpty && levels.isEmpty) {
+        heading = line;
+      } else {
+        rest.add(line);
+      }
+    }
+    if (levels.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: CreateFormNote(note: value),
+      );
+    }
+    final colors = context.genesisColors;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: CreateFormNote(note: value),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          // 7% white surface tier.
+          color: colors.inputBackground,
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (heading.isNotEmpty)
+              Text(
+                heading,
+                style: TextStyle(
+                  color: colors.textBody,
+                  fontSize: 11,
+                  height: 1.45,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            for (final (index, level) in levels.indexed) ...[
+              SizedBox(height: index == 0 ? 11 : 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 19,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: colors.surfaceTag,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          level.badge,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 9.5,
+                            height: 1,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Flexible(
+                        child: Text(
+                          level.name,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 11,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    level.description,
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 11,
+                      height: 1.45,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            for (final line in rest) ...[
+              const SizedBox(height: 8),
+              Text(
+                line,
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 11,
+                  height: 1.45,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
+}
+
+class _LocationEditorNoteLevel {
+  const _LocationEditorNoteLevel({
+    required this.badge,
+    required this.name,
+    required this.description,
+  });
+
+  final String badge;
+  final String name;
+  final String description;
 }
 
 class _InlineTreeLocationPreviewHeader extends StatelessWidget {
@@ -539,18 +676,13 @@ class _InlineTreeLocationPreviewHeader extends StatelessWidget {
 }
 
 TextStyle _inlineLocationNameStyle(BuildContext context, int level) {
-  if (level <= 0) {
-    return TextStyle(
-      color: context.genesisColors.foregroundStrong,
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-    );
-  }
+  // L1 15px, L2/L3 13px — all w800/1.15 on soft white.
+  final double fontSize = level <= 0 ? 15 : 13;
   return TextStyle(
-    color: context.genesisColors.foregroundStrong,
-    fontSize: 14,
-    height: 1.2,
-    fontWeight: FontWeight.w600,
+    color: context.genesisColors.textHeading,
+    fontSize: fontSize,
+    height: 1.15,
+    fontWeight: FontWeight.w800,
   );
 }
 
@@ -689,32 +821,32 @@ class _LocationTreeAddL3Button extends StatelessWidget {
         key: buttonKey,
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(11),
           onTap: onTap,
           child: CustomPaint(
             painter: CreateDashedRRectPainter(
               color: context.genesisCreateColors.dash,
-              radius: 4,
-              strokeWidth: 1.2,
+              radius: 11,
+              strokeWidth: 1.5,
             ),
             child: SizedBox(
-              width: 64,
-              height: 64,
+              width: 46,
+              height: 46,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.add,
-                    color: context.genesisCreateColors.accent,
-                    size: 22,
+                    color: context.genesisColors.accentText,
+                    size: 12,
                   ),
                   SizedBox(height: 2),
                   Text(
                     isRequired ? 'L3 *' : 'L3',
                     style: TextStyle(
-                      color: context.genesisCreateColors.accent,
-                      fontSize: 12,
-                      height: 1.2,
+                      color: context.genesisColors.accentText,
+                      fontSize: 9.5,
+                      height: 1,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

@@ -92,7 +92,7 @@ void main() {
       find.byKey(const ValueKey('user-profile-gems-balance')),
     );
     expect(gemBalance.data, '0');
-    expect(gemBalance.style?.fontWeight, FontWeight.w600);
+    expect(gemBalance.style?.fontWeight, FontWeight.w800);
     expect(find.text('--'), findsNothing);
     expect(
       tester.getSize(find.byKey(const ValueKey('user-profile-gem-icon'))),
@@ -266,14 +266,14 @@ void main() {
         .style;
     expect(displayNameStyle?.fontSize, 24);
     expect(displayNameStyle?.height, 1);
-    expect(displayNameStyle?.fontWeight, FontWeight.w900);
+    expect(displayNameStyle?.fontWeight, FontWeight.w800);
     expect(find.byType(GenesisMetricValueText), findsOneWidget);
     final balanceStyle = tester
         .widget<Text>(find.byKey(const ValueKey('user-profile-gems-balance')))
         .style;
     expect(balanceStyle?.fontSize, 24);
     expect(balanceStyle?.height, 1);
-    expect(balanceStyle?.fontWeight, FontWeight.w900);
+    expect(balanceStyle?.fontWeight, FontWeight.w800);
     expect(
       tester.getSize(find.byType(GenesisAvatarFallback)),
       const Size.square(72),
@@ -292,8 +292,8 @@ void main() {
     );
     expect(tester.getSize(find.byType(GenesisListImage)), const Size(60, 78));
     final title = tester.widget<Text>(find.text('Old Money'));
-    expect(title.style?.fontSize, 15);
-    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(title.style?.fontSize, 14);
+    expect(title.style?.fontWeight, FontWeight.w600);
     expect(_assetSvgFinder(originFeedPlayIconAsset), findsOneWidget);
     expect(_assetSvgFinder(originFeedCommentIconAsset), findsOneWidget);
     expect(_assetSvgFinder(originFeedRoleIconAsset), findsOneWidget);

@@ -116,7 +116,7 @@ class _JoinRequestDialogInfoRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: context.genesisColors.textPrimary,
-                  fontSize: 12,
+                  fontSize: 13,
                   height: 1.2,
                   fontWeight: FontWeight.w400,
                 ),
@@ -128,7 +128,7 @@ class _JoinRequestDialogInfoRow extends StatelessWidget {
                 '>',
                 style: TextStyle(
                   color: context.genesisColors.textMetadata,
-                  fontSize: 12,
+                  fontSize: 11,
                   height: 1,
                   fontWeight: FontWeight.w400,
                 ),

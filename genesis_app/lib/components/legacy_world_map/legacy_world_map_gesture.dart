@@ -8,20 +8,26 @@ import '../world_map_interaction_notification.dart';
 
 const double legacyWorldMapMinScale = 1;
 const double legacyWorldMapMaxScale = 2;
-const double legacyWorldMapZoomControlRightGap = 12;
-const double legacyWorldMapZoomControlBottomGap = 30;
-const double legacyWorldMapZoomControlWidth = 30;
+// 设计稿 9a/9b 原文:right:16px; bottom:176px; width:34px; height:68px;
+// border-radius:12px; background:rgba(21,21,23,.6);
+// border:1px solid rgba(255,255,255,.16),没有投影。
+// bottom 176 是相对屏幕底,浮窗高 149,故离浮窗顶边 27。
+const double legacyWorldMapZoomControlRightGap = 16;
+const double legacyWorldMapZoomControlBottomGap = 27;
+const double legacyWorldMapZoomControlWidth = 34;
 const double legacyWorldMapZoomControlHeight = 68;
-const double legacyWorldMapZoomControlRadius = 12;
+// 与左上返回按钮(GenesisBackButton:34 / 圆角 11 / 无描边)对齐。
+const double legacyWorldMapZoomControlRadius = 11;
 const double legacyWorldMapZoomHitAreaWidth = 48;
 const double legacyWorldMapZoomHitAreaHeight = 88;
 const double legacyWorldMapZoomDragExtent = 96;
-const Color legacyWorldMapZoomControlBackgroundColor = Color(0x8C131215);
-const Color legacyWorldMapZoomControlBorderColor = Color(0x80FFFFFF);
+const Color legacyWorldMapZoomControlBackgroundColor = Color(0x99151517);
+// 描边从 50% 白降到设计稿的 16% —— 之前整整重了三倍。
+const Color legacyWorldMapZoomControlBorderColor = Color(0x29FFFFFF);
+// 1px 在 3x 屏上就是 3 个物理像素,比设计稿看着重。取半像素。
+const double legacyWorldMapZoomControlBorderWidth = 0.5;
 const Color legacyWorldMapZoomControlEnabledColor = Color(0xFFFFFFFF);
 const Color legacyWorldMapZoomControlDisabledColor = Color(0xFF777777);
-const Color legacyWorldMapZoomGripBackgroundColor = Color(0x00131215);
-const Color legacyWorldMapZoomGripLineColor = Color(0xFFFFFFFF);
 const String legacyWorldMapZoomInIconAsset =
     'assets/custom-icons/svg/map_zoom_in.svg';
 const String legacyWorldMapZoomOutIconAsset =
@@ -587,15 +593,9 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
               ),
               border: Border.all(
                 color: legacyWorldMapZoomControlBorderColor,
-                width: 1,
+                width: legacyWorldMapZoomControlBorderWidth,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              // 设计稿这个控件没有投影,去掉后描边才不会显得重。
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(
@@ -604,44 +604,39 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
               child: SizedBox(
                 width: legacyWorldMapZoomControlWidth,
                 height: legacyWorldMapZoomControlHeight,
-                child: Stack(
-                  alignment: Alignment.center,
+                child: Column(
                   children: [
-                    Column(
-                      children: [
-                        Expanded(
-                          child: _MapZoomButton(
-                            key: const ValueKey<String>('world-map-zoom-in'),
-                            iconAsset: legacyWorldMapZoomInIconAsset,
-                            label: 'Zoom in on map',
-                            color: canZoomIn
-                                ? legacyWorldMapZoomControlEnabledColor
-                                : legacyWorldMapZoomControlDisabledColor,
-                            onTap: canZoomIn ? onZoomIn : null,
-                          ),
-                        ),
-                        Expanded(
-                          child: _MapZoomButton(
-                            key: const ValueKey<String>('world-map-zoom-out'),
-                            iconAsset: legacyWorldMapZoomOutIconAsset,
-                            label: 'Zoom out of map',
-                            color: canZoomOut
-                                ? legacyWorldMapZoomControlEnabledColor
-                                : legacyWorldMapZoomControlDisabledColor,
-                            onTap: canZoomOut ? onZoomOut : null,
-                          ),
-                        ),
-                      ],
+                    Expanded(
+                      child: _MapZoomButton(
+                        key: const ValueKey<String>('world-map-zoom-in'),
+                        iconAsset: legacyWorldMapZoomInIconAsset,
+                        label: 'Zoom in on map',
+                        color: canZoomIn
+                            ? legacyWorldMapZoomControlEnabledColor
+                            : legacyWorldMapZoomControlDisabledColor,
+                        onTap: canZoomIn ? onZoomIn : null,
+                      ),
                     ),
-                    const SizedBox(
-                      width: 14,
-                      height: 11,
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          key: ValueKey<String>(
-                            'world-map-zoom-drag-indicator',
+                    // 设计稿:第二格带 border-top 1px rgba(255,255,255,.16)。
+                    // 中间原本那个拖拽 grip 设计稿里没有,已移除。
+                    Expanded(
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: legacyWorldMapZoomControlBorderColor,
+                              width: legacyWorldMapZoomControlBorderWidth,
+                            ),
                           ),
-                          painter: _MapZoomGripPainter(),
+                        ),
+                        child: _MapZoomButton(
+                          key: const ValueKey<String>('world-map-zoom-out'),
+                          iconAsset: legacyWorldMapZoomOutIconAsset,
+                          label: 'Zoom out of map',
+                          color: canZoomOut
+                              ? legacyWorldMapZoomControlEnabledColor
+                              : legacyWorldMapZoomControlDisabledColor,
+                          onTap: canZoomOut ? onZoomOut : null,
                         ),
                       ),
                     ),
@@ -654,41 +649,6 @@ class LegacyWorldMapZoomControl extends StatelessWidget {
       ),
     );
   }
-}
-
-class _MapZoomGripPainter extends CustomPainter {
-  const _MapZoomGripPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(3)),
-      Paint()..color = legacyWorldMapZoomGripBackgroundColor,
-    );
-    final paint = Paint()
-      ..color = legacyWorldMapZoomGripLineColor
-      ..strokeWidth = 1
-      ..strokeCap = StrokeCap.round;
-    final center = size.center(Offset.zero);
-    canvas.drawLine(
-      Offset(center.dx - 3, center.dy - 2.5),
-      Offset(center.dx + 3, center.dy - 2.5),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx - 4.5, center.dy),
-      Offset(center.dx + 4.5, center.dy),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx - 3, center.dy + 2.5),
-      Offset(center.dx + 3, center.dy + 2.5),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_MapZoomGripPainter oldDelegate) => false;
 }
 
 class _MapZoomButton extends StatelessWidget {

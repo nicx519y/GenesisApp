@@ -253,7 +253,7 @@ abstract final class GenesisTheme {
         isCollapsed: true,
         hintStyle: TextStyle(
           color: colors.textDisabled,
-          fontSize: 14,
+          fontSize: 13,
           letterSpacing: 0,
         ),
       ),

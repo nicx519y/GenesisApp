@@ -18,6 +18,7 @@ class WorldLocationChatPanelDescriptor {
   const WorldLocationChatPanelDescriptor({
     required this.locationId,
     required this.locationName,
+    this.parentLocationName = '',
     required this.backgroundImageUrl,
     required this.backgroundPreviewImageUrl,
     required this.isLeafLocation,
@@ -87,6 +88,10 @@ class WorldLocationChatPanelDescriptor {
 
   final String locationId;
   final String locationName;
+
+  /// Name of the location one level up - the one the map shows. Blank at the
+  /// tree root.
+  final String parentLocationName;
   final String backgroundImageUrl;
   final String backgroundPreviewImageUrl;
   final bool isLeafLocation;
@@ -96,6 +101,7 @@ class WorldLocationChatPanelDescriptor {
   WorldLocationChatPanelDescriptor copyWith({
     String? locationId,
     String? locationName,
+    String? parentLocationName,
     String? backgroundImageUrl,
     String? backgroundPreviewImageUrl,
     bool? isLeafLocation,
@@ -105,6 +111,7 @@ class WorldLocationChatPanelDescriptor {
     return WorldLocationChatPanelDescriptor(
       locationId: locationId ?? this.locationId,
       locationName: locationName ?? this.locationName,
+      parentLocationName: parentLocationName ?? this.parentLocationName,
       backgroundImageUrl: backgroundImageUrl ?? this.backgroundImageUrl,
       backgroundPreviewImageUrl:
           backgroundPreviewImageUrl ?? this.backgroundPreviewImageUrl,
@@ -446,6 +453,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             worldId: worldId,
             locationId: descriptor.locationId,
             locationName: descriptor.locationName,
+            parentLocationName: descriptor.parentLocationName,
             backgroundImageUrl: descriptor.backgroundImageUrl,
             backgroundPreviewImageUrl: descriptor.backgroundPreviewImageUrl,
             renderBackgroundImage: renderBackgroundImage,

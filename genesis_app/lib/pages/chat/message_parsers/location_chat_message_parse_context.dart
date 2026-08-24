@@ -17,6 +17,7 @@ class LocationChatMessageParseContext {
     required this.locationName,
     required this.roleName,
     required this.roleIsAi,
+    required this.roleAvatarUrl,
     this.hasCachedTimelinePayload = false,
     this.cachedTimelinePayload,
   });
@@ -30,6 +31,7 @@ class LocationChatMessageParseContext {
   final LocationChatIdentityNameResolver locationName;
   final LocationChatIdentityNameResolver roleName;
   final LocationChatIdentityAiResolver roleIsAi;
+  final LocationChatIdentityNameResolver roleAvatarUrl;
   final bool hasCachedTimelinePayload;
   final ChatTimelinePayloadVm? cachedTimelinePayload;
 
@@ -47,6 +49,7 @@ class LocationChatMessageParseContext {
       locationName: locationName,
       roleName: roleName,
       roleIsAi: roleIsAi,
+      roleAvatarUrl: roleAvatarUrl,
       hasCachedTimelinePayload: hasCachedTimelinePayload,
       cachedTimelinePayload: cachedTimelinePayload,
     );

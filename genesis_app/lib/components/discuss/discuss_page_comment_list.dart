@@ -60,17 +60,7 @@ class DiscussPageCommentList extends StatelessWidget {
                 key: ValueKey<String>(
                   'discuss-page-comment-row-${item.discussId}',
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(
-                      color: context.genesisColors.foregroundStrong.withValues(
-                        alpha: 0.14,
-                      ),
-                      width: 1,
-                    ),
-                  ),
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 child: DiscussPagePostRow(
                   controller: controller,
                   item: item,
@@ -230,11 +220,9 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
               Text(
                 widget.item.content,
                 style: TextStyle(
-                  color: context.genesisColors.foregroundStrong.withValues(
-                    alpha: 0.92,
-                  ),
+                  color: context.genesisColors.textBody,
                   fontSize: 13,
-                  height: 1.6,
+                  height: 1.5,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -299,9 +287,9 @@ class _DiscussPageMeta extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: context.genesisColors.foregroundStrong,
-              fontSize: 12,
+              fontSize: 11,
               height: 1,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
@@ -361,7 +349,7 @@ class _ProfileAvatarLink extends StatelessWidget {
       url: item.avatar.trim(),
       name: item.authorName,
       size: _DiscussPagePostRowState._avatarSize,
-      borderRadius: 11,
+      borderRadius: _DiscussPagePostRowState._avatarSize / 2,
     );
     if (item.authorUid.trim().isEmpty || item.authorDeleted) return avatar;
     return GestureDetector(
@@ -435,6 +423,9 @@ class _DiscussPageActions extends StatelessWidget {
             iconAsset: _discussLikeFilledOrOutline(item.isLiked),
             count: item.likeCount,
             color: activeColor,
+            countColor: item.isLiked
+                ? null
+                : context.genesisColors.textMetadata,
           ),
         ),
         const SizedBox(width: 14),
@@ -461,6 +452,7 @@ class _DiscussPageActions extends StatelessWidget {
             color: context.genesisColors.foregroundStrong.withValues(
               alpha: 0.55,
             ),
+            countColor: context.genesisColors.textMetadata,
           ),
         ),
         const Spacer(),
@@ -525,6 +517,7 @@ class _DiscussActionCluster extends StatelessWidget {
     required this.iconAsset,
     required this.count,
     required this.color,
+    this.countColor,
   });
 
   static const double _iconSize = 13;
@@ -532,6 +525,7 @@ class _DiscussActionCluster extends StatelessWidget {
   final String iconAsset;
   final int count;
   final Color color;
+  final Color? countColor;
 
   @override
   Widget build(BuildContext context) {
@@ -552,10 +546,10 @@ class _DiscussActionCluster extends StatelessWidget {
         Text(
           '$count',
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 9.5,
             height: 1,
-            fontWeight: FontWeight.w500,
-            color: color,
+            fontWeight: FontWeight.w600,
+            color: countColor ?? color,
           ),
         ),
       ],
@@ -620,9 +614,9 @@ class _DiscussPageReplyPreview extends StatelessWidget {
                       Text(
                         'View all ${item.replyCount} replies',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           height: 1.25,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
                           color: context.genesisDiscussColors.actionAccent,
                         ),
                       ),
@@ -707,7 +701,7 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        fontSize: 12,
+        fontSize: 11,
         height: 1.25,
         fontWeight: FontWeight.w400,
         color: context.genesisColors.textMuted,

@@ -44,6 +44,11 @@ abstract final class GenesisPalette {
   // from the redesignInk* ramp, which is light-theme text and must stay #131215.
   static const Color redesignInkGlass60 = Color(0x99151517);
   static const Color redesignInkGlass50 = Color(0x80151517);
+
+  /// Character bubble plate. A lifted slate rather than a tint of the
+  /// page colour, so the bubble still reads on the solid background where
+  /// an ink glass would vanish, and still darkens a photo behind it.
+  static const Color redesignSlateGlass60 = Color(0x993A3942);
   static const Color redesignInk90 = Color(0xE6131215);
   static const Color redesignInk88 = Color(0xE0131215);
   static const Color redesignInk80 = Color(0xCC131215);
@@ -52,6 +57,7 @@ abstract final class GenesisPalette {
   static const Color redesignInk42 = Color(0x6B131215);
   static const Color redesignRaised90 = Color(0xE61F1D24);
   static const Color redesignAccent42 = Color(0x6BF82B3C);
+  static const Color redesignAccentDark60 = Color(0x99C41F2E);
   static const Color redesignAccent40 = Color(0x66F82B3C);
   static const Color redesignAccent30 = Color(0x4DF82B3C);
   static const Color redesignAccent14 = Color(0x24F82B3C);
@@ -73,6 +79,7 @@ abstract final class GenesisPalette {
   static const Color redesignWhite45 = Color(0x73FFFFFF);
   static const Color redesignWhite40 = Color(0x66FFFFFF);
   static const Color redesignWhite32 = Color(0x52FFFFFF);
+  static const Color redesignWhite24 = Color(0x3DFFFFFF);
   static const Color redesignWhite22 = Color(0x38FFFFFF);
   static const Color redesignWhite20 = Color(0x33FFFFFF);
   static const Color redesignWhite18 = Color(0x2EFFFFFF);

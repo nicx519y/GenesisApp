@@ -120,7 +120,7 @@ void main() {
     expect(title.style?.fontWeight, FontWeight.w800);
 
     final aboutUs = tester.widget<Text>(find.text('About us'));
-    expect(aboutUs.style?.fontSize, 14);
+    expect(aboutUs.style?.fontSize, 13);
     expect(aboutUs.style?.height, 1);
     expect(aboutUs.style?.fontWeight, FontWeight.w600);
 
@@ -141,7 +141,7 @@ void main() {
     );
     expect(footerMeta.data, 'v1.4.2 · u_settings_test');
     expect(footerMeta.style?.fontSize, 9.5);
-    expect(footerMeta.style?.fontWeight, FontWeight.w500);
+    expect(footerMeta.style?.fontWeight, FontWeight.w600);
     expect(
       tester
           .getBottomLeft(
@@ -170,7 +170,7 @@ void main() {
     final currentLoginAccountText = tester.widget<Text>(
       find.text('Current login account:'),
     );
-    expect(currentLoginAccountText.style?.fontSize, 16);
+    expect(currentLoginAccountText.style?.fontSize, 13);
     expect(find.text('Account Deletion Agreement'), findsOneWidget);
     expect(
       find.text('I have read the Account Deletion Agreement'),
@@ -180,7 +180,7 @@ void main() {
       'I have read the Account Deletion Agreement',
     );
     final agreementText = tester.widget<Text>(agreementTextFinder);
-    expect(agreementText.style?.fontSize, 14);
+    expect(agreementText.style?.fontSize, 13);
     expect(
       tester.getTopLeft(find.byType(Checkbox)).dx,
       closeTo(tester.getTopLeft(find.text('Account Deletion Agreement')).dx, 1),

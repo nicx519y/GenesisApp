@@ -162,7 +162,7 @@ class _OriginStoryEventsEditorPageState
                   height: 44,
                   borderRadius: BorderRadius.circular(13),
                   fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   onPressed: _canUseSaveButton ? _saveEvents : null,
                   onDisabledPressed: () =>
                       _showError('Saving is already in progress.'),
@@ -208,7 +208,9 @@ class _StoryEventCard extends StatelessWidget {
       deleteBackgroundColor: context.genesisCreateColors.fieldFill,
       deleteBorderColor: Colors.transparent,
       deleteBorderRadius: 10,
-      deleteIconColor: context.genesisColors.foregroundStrong.withValues(alpha: 0.6),
+      deleteIconColor: context.genesisColors.foregroundStrong.withValues(
+        alpha: 0.6,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -241,10 +243,12 @@ class _StoryEventCard extends StatelessWidget {
               alpha: 0.45,
             ),
             counterTextStyle: TextStyle(
-              color: context.genesisColors.foregroundStrong.withValues(alpha: 0.5),
+              color: context.genesisColors.foregroundStrong.withValues(
+                alpha: 0.5,
+              ),
               fontSize: 9.5,
               height: 1.5,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
             focusNode: focusNode,
             nextFocusNode: nextFocusNode,
@@ -283,9 +287,11 @@ class _StoryEventsAppBar extends StatelessWidget
               key: const ValueKey<String>('story-events-count'),
               maxLines: 1,
               style: TextStyle(
-                color: context.genesisColors.foregroundStrong.withValues(alpha: 0.5),
+                color: context.genesisColors.foregroundStrong.withValues(
+                  alpha: 0.5,
+                ),
                 fontSize: 9.5,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 height: 1,
               ),
             ),
@@ -313,7 +319,9 @@ class _StoryEventAddButton extends StatelessWidget {
         child: CustomPaint(
           key: const ValueKey<String>('story-events-add-button-border'),
           painter: CreateDashedRRectPainter(
-            color: context.genesisColors.foregroundStrong.withValues(alpha: 0.24),
+            color: context.genesisColors.foregroundStrong.withValues(
+              alpha: 0.24,
+            ),
             radius: 13,
             strokeWidth: 1.5,
           ),
@@ -330,7 +338,7 @@ class _StoryEventAddButton extends StatelessWidget {
                   style: TextStyle(
                     color: accent,
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     height: 1,
                   ),
                 ),

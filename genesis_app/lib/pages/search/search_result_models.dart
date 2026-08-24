@@ -68,6 +68,11 @@ class _SearchResultItem {
     required this.characterCount,
     required this.playerCount,
     required this.memberCount,
+    this.creator = '',
+    this.brief = '',
+    this.tickNo = 0,
+    this.subTickNo = 0,
+    this.characterName = '',
     this.deleted = false,
   });
 
@@ -102,6 +107,8 @@ class _SearchResultItem {
       characterCount: asInt(json['character_cnt']),
       playerCount: asInt(json['player_cnt']),
       memberCount: asInt(json['member_cnt'], fallback: asInt(json['user_cnt'])),
+      creator: _searchCreatorName(json),
+      brief: _searchBrief(json, fallback: asString(json['subtitle'])),
       deleted: switch (tab) {
         _SearchTab.origin => entityDeleted(
           json['deleted'],
@@ -155,6 +162,9 @@ class _SearchResultItem {
     if (fallbackTab == _SearchTab.world ||
         info.containsKey('world_id') ||
         info.containsKey('wid')) {
+      final lastTick = json['last_tick'] is Map
+          ? asJsonMap(json['last_tick'])
+          : const <String, dynamic>{};
       final worldId = asString(
         info['world_id'],
         fallback: asString(info['wid']),
@@ -175,6 +185,11 @@ class _SearchResultItem {
         characterCount: asInt(stats['character_cnt']),
         playerCount: asInt(stats['player_cnt']),
         memberCount: asInt(stats['location_cnt']),
+        creator: _searchCreatorName(info),
+        brief: _searchBrief(info),
+        tickNo: asInt(lastTick['tick_no']),
+        subTickNo: asInt(lastTick['sub_tick_no']),
+        characterName: _searchCharacterName(json['my_character']),
         deleted: entityDeleted(
           json['world_deleted'],
           fallback: entityDeleted(
@@ -205,6 +220,8 @@ class _SearchResultItem {
       characterCount: asInt(stats['character_cnt']),
       playerCount: 0,
       memberCount: asInt(stats['location_cnt']),
+      creator: _searchCreatorName(info),
+      brief: _searchBrief(info),
       deleted: entityDeleted(info['deleted'], fallback: info['origin_deleted']),
     );
   }
@@ -221,6 +238,15 @@ class _SearchResultItem {
   final int characterCount;
   final int playerCount;
   final int memberCount;
+
+  /// Who made it, and the pitch, for the search row's body lines.
+  final String creator;
+  final String brief;
+
+  /// World rows only: last completed tick and the viewer's bound character.
+  final int tickNo;
+  final int subTickNo;
+  final String characterName;
   final bool deleted;
 
   String get displayTitle {
@@ -230,6 +256,39 @@ class _SearchResultItem {
     }
     if (trimmed.isNotEmpty) return trimmed;
     return shortCode.trim().isNotEmpty ? shortCode : entityId;
+  }
+
+  /// Creator handle for the search row. Blank when the payload carries no
+  /// owner at all, so the row can drop the line instead of printing `@-`.
+  String get displayCreator {
+    final value = creator.trim();
+    return value == '-' ? '' : value;
+  }
+
+  String get displayBrief => brief.trim();
+
+  /// Same shape as the Home row: `Tick 2-3` / `Not started`.
+  String get tickStateLabel {
+    if (tickNo <= 0) return 'Not started';
+    final sub = subTickNo > 0 ? '-$subTickNo' : '';
+    return 'Tick $tickNo$sub';
+  }
+
+  /// Home's accent line: the tick state plus the viewer's character.
+  String get statusLine {
+    final name = characterName.trim();
+    if (name.isEmpty) return tickStateLabel;
+    return '$tickStateLabel · $name';
+  }
+
+  /// Only worlds carry a tick line, and only when the payload actually said
+  /// something. Search cannot tell "not started" from "not queried", so a
+  /// zero tick with no character stays off the row instead of claiming
+  /// `Not started`.
+  bool get showStatusLine {
+    return tab == _SearchTab.world &&
+        !deleted &&
+        (tickNo > 0 || characterName.trim().isNotEmpty);
   }
 
   String get displaySubtitle {
@@ -244,6 +303,39 @@ class _SearchResultItem {
     }
     return subtitle.trim().isNotEmpty ? subtitle : shortCode;
   }
+}
+
+/// The viewer's bound character in a world row, when the payload has one.
+String _searchCharacterName(Object? raw) {
+  if (raw is! Map) return '';
+  return _firstSearchString(asJsonMap(raw), const ['name', 'char_name']);
+}
+
+/// Owner / creator display name, shared by every search payload shape.
+String _searchCreatorName(Map<dynamic, dynamic> raw) {
+  return _searchOwnerDisplayName(
+    raw,
+    ownerKeys: const [
+      'owner_name',
+      'created_user_name',
+      'originator',
+      'owner_uid',
+      'created_uid',
+    ],
+  );
+}
+
+/// The world/origin one-line pitch. `display_subtitle` is the curated copy and
+/// `brief` the raw one; `setting` is the world mapper's own fallback.
+String _searchBrief(Map<dynamic, dynamic> raw, {String fallback = ''}) {
+  final brief = _firstSearchString(raw, const [
+    'display_subtitle',
+    'brief',
+    'setting',
+  ]);
+  if (brief.isNotEmpty) return brief;
+  final trimmed = fallback.trim();
+  return _isBlankSearchValue(trimmed) ? '' : trimmed;
 }
 
 String _originSearchSubtitle(

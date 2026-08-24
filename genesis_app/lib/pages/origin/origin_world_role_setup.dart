@@ -145,8 +145,8 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
             child: Text(
               'Pick who you play, and the story starts here.',
               style: TextStyle(
-                fontSize: 12,
-                height: 1.6,
+                fontSize: 13,
+                height: 1.5,
                 fontWeight: FontWeight.w400,
                 color: context.genesisColors.textSecondary,
                 decoration: TextDecoration.none,
@@ -268,7 +268,9 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
               borderRadius: BorderRadius.circular(3),
               color: selected
                   ? context.genesisColors.textHighEmphasis
-                  : context.genesisColors.foregroundStrong.withValues(alpha: 0.25),
+                  : context.genesisColors.foregroundStrong.withValues(
+                      alpha: 0.25,
+                    ),
             ),
           );
         }),
@@ -310,7 +312,7 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 30,
                   height: 1,
-                  fontWeight: FontWeight.w300,
+                  fontWeight: FontWeight.w800,
                   color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
@@ -321,7 +323,7 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   height: 1,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
                   color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
@@ -503,51 +505,56 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                   top: 10,
                   left: 10,
                   child: IgnorePointer(
-                    child: Container(
-                      key: ValueKey<String>(
-                        content.isProfile
-                            ? 'origin-setup-role-profile-label'
-                            : 'origin-setup-role-suggested-label-$stableId',
-                      ),
-                      height: 20,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: context.genesisColors.scrim.withValues(
-                          alpha: 0.6,
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: context.genesisColors.borderStrong,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (content.isRecommended) ...[
-                            Container(
-                              key: ValueKey<String>(
-                                'origin-setup-role-recommended-$stableId',
-                              ),
-                              width: 5,
-                              height: 5,
-                              decoration: BoxDecoration(
-                                color: context.genesisColors.accentText,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                          ],
-                          Text(
-                            topLabel,
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              height: 1,
-                              fontWeight: FontWeight.w600,
-                              color: context.genesisColors.textPrimary,
-                              decoration: TextDecoration.none,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                        child: Container(
+                          key: ValueKey<String>(
+                            content.isProfile
+                                ? 'origin-setup-role-profile-label'
+                                : 'origin-setup-role-suggested-label-$stableId',
+                          ),
+                          height: 20,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: context.genesisColors.pageBackground
+                                .withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: context.genesisColors.borderStrong,
                             ),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (content.isRecommended) ...[
+                                Container(
+                                  key: ValueKey<String>(
+                                    'origin-setup-role-recommended-$stableId',
+                                  ),
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: context.genesisColors.accentText,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                              ],
+                              Text(
+                                topLabel,
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  height: 1,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.genesisColors.textPrimary,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -694,10 +701,10 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9.5,
                     height: 1,
                     fontWeight: FontWeight.w600,
-                    color: context.genesisColors.textSecondary,
+                    color: context.genesisColors.textBody,
                     decoration: TextDecoration.none,
                   ),
                 ),
@@ -709,9 +716,9 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 19,
+                  fontSize: 17,
                   height: 1.05,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
                   color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
@@ -768,7 +775,7 @@ class _OriginSetupRoleDetails extends StatelessWidget {
                 content.name.trim().isEmpty ? '—' : content.name.trim(),
                 textAlign: TextAlign.start,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 13,
                   height: 1.4,
                   fontWeight: FontWeight.w600,
                   color: context.genesisColors.textPrimary,

@@ -33,17 +33,17 @@ const String _postDetailReplyAsset =
     'assets/custom-icons/png/discuss_reply.png';
 const double _postInputReservedHeight = 96;
 const TextStyle _postDetailMetaStyle = TextStyle(
-  fontSize: 12,
+  fontSize: 13,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
 const TextStyle _postDetailNameStyle = TextStyle(
-  fontSize: 14,
+  fontSize: 13,
   height: 1.18,
   fontWeight: FontWeight.w600,
 );
 const TextStyle _postDetailBodyStyle = TextStyle(
-  fontSize: 14,
+  fontSize: 13,
   height: 1.45,
   fontWeight: FontWeight.w400,
 );
@@ -282,7 +282,7 @@ class _PostDetailReplies extends StatelessWidget {
           'All Replies $replyCount',
           style: TextStyle(
             color: context.genesisColors.textHeading,
-            fontSize: 14,
+            fontSize: 13,
             height: 1.15,
             fontWeight: FontWeight.w600,
           ),
@@ -328,9 +328,9 @@ class _PostDetailReplies extends StatelessWidget {
                         'View all ${controller.replyButtonCount(item)} replies',
                         style: TextStyle(
                           color: context.genesisDiscussColors.authorAccent,
-                          fontSize: 12,
+                          fontSize: 11,
                           height: 1.25,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
               ),
@@ -567,9 +567,9 @@ class _PostDetailActionCluster extends StatelessWidget {
           Text(
             '$count',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               height: 1.2,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),
@@ -607,7 +607,7 @@ class _PostDetailCommentBar extends StatelessWidget {
                 'Write a reply',
                 style: TextStyle(
                   color: context.genesisColors.textTimestamp,
-                  fontSize: 14,
+                  fontSize: 13,
                   height: 1.2,
                   fontWeight: FontWeight.w400,
                   letterSpacing: 0,

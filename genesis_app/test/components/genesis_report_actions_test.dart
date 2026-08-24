@@ -26,7 +26,7 @@ void main() {
     expect(find.text('Report'), findsOneWidget);
     expect(find.byType(SvgPicture), findsOneWidget);
     final reportText = tester.widget<Text>(find.text('Report'));
-    expect(reportText.style?.fontSize, 12);
+    expect(reportText.style?.fontSize, 13);
     expect(reportText.style?.color, Colors.white);
     final reportIcon = tester.widget<SvgPicture>(find.byType(SvgPicture));
     expect(
@@ -182,8 +182,8 @@ void main() {
     );
     final copyText = tester.widget<Text>(find.text('Copy'));
     final reportText = tester.widget<Text>(find.text('Report'));
-    expect(copyText.style?.fontSize, 12);
-    expect(reportText.style?.fontSize, 12);
+    expect(copyText.style?.fontSize, 13);
+    expect(reportText.style?.fontSize, 13);
     expect(copyText.style?.fontFamily, 'Inter');
     expect(reportText.style?.fontFamily, 'Inter');
     expect(copyText.style?.color, Colors.white);

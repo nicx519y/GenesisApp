@@ -20,6 +20,7 @@ class ChatSystemMessage extends StatelessWidget {
 
   final String text;
   final bool fullWidth;
+
   final bool useFullAvailableWidth;
   final bool singleLine;
   final TextAlign textAlign;
@@ -118,14 +119,14 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
           padding: const EdgeInsets.only(top: 3),
           child: SvgPicture.asset(
             iconAsset,
-            width: 14,
-            height: 14,
+            width: 13,
+            height: 13,
             fit: BoxFit.contain,
             colorFilter: ColorFilter.mode(resolvedIconColor, BlendMode.srcIn),
             excludeFromSemantics: true,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 9),
         Expanded(
           child: _InlineMarkdownText(
             text: text,

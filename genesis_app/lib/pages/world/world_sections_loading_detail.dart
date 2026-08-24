@@ -172,7 +172,7 @@ class WorldDetailMoreMenuButton extends StatelessWidget {
           label: 'Delete',
           iconAsset: genesisDeleteIconAsset,
           textStyle: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             height: 1.2,
             fontWeight: FontWeight.w400,
             color: canDeleteWorld
@@ -200,14 +200,12 @@ class WorldDetailSection extends StatelessWidget {
   const WorldDetailSection({
     required this.world,
     required this.currentUid,
-    this.newUserJoinNotice,
     this.onDeleteWorld,
     this.showCharacters = true,
   });
 
   final WorldDetail world;
   final String currentUid;
-  final WorldNewUserJoinNotice? newUserJoinNotice;
   final Future<void> Function(BuildContext context, WorldDetail world)?
   onDeleteWorld;
   final bool showCharacters;
@@ -215,7 +213,8 @@ class WorldDetailSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
-    final owner = worldOwnerDisplayName(world);
+    final ownerName = worldOwnerDisplayName(world);
+    final owner = world.ownerDeleted ? ownerName : '@$ownerName';
     final ownerUid = world.ownerUid.trim();
     final version = world.origin.versionNum <= 0 ? 1 : world.origin.versionNum;
     final sourceWorldoOid = world.origin.oid.trim();
@@ -249,6 +248,8 @@ class WorldDetailSection extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GenesisTypography.contentTitle.copyWith(
+                      fontSize: 16,
+                      height: worldDetailLineHeight,
                       color: context.genesisColors.textPrimary,
                     ),
                   ),
@@ -272,8 +273,8 @@ class WorldDetailSection extends StatelessWidget {
                               tag,
                               style: TextStyle(
                                 fontSize: 9.5,
-                                height: 1,
-                                fontWeight: FontWeight.w500,
+                                height: worldDetailLineHeight,
+                                fontWeight: FontWeight.w600,
                                 color: context.genesisColors.textSecondary,
                               ),
                             ),
@@ -289,22 +290,23 @@ class WorldDetailSection extends StatelessWidget {
                         ? deletedEntityDisplayText
                         : null,
                     enabled: !world.deleted,
-                    customTextStyle: worldHeaderMetaTextStyle.copyWith(
-                      fontSize: 9.5,
+                    customTextStyle: worldDetailMetaTextStyle.copyWith(
                       color: context.genesisColors.textSecondary,
                     ),
                     customIconColor: context.genesisColors.textSecondary,
+                    copyIconAsset: copyIdIconAsset,
+                    copyIconSize: worldDetailMetaIconSize,
+                    trailingGap: 4,
                   ),
                   GenesisInlineMetaLabel(
-                    text: 'Owner $owner',
+                    text: 'Owner: $owner',
                     onTap: ownerUid.isEmpty || world.ownerDeleted
                         ? null
                         : () => Navigator.of(context).pushNamed(
                             RouteNames.userInfo,
                             arguments: {'uid': ownerUid},
                           ),
-                    style: worldHeaderMetaTextStyle.copyWith(
-                      fontSize: 9.5,
+                    style: worldDetailMetaTextStyle.copyWith(
                       color: context.genesisColors.textSecondary,
                     ),
                     trailingIcon: ownerUid.isEmpty || world.ownerDeleted
@@ -315,7 +317,7 @@ class WorldDetailSection extends StatelessWidget {
                     trailingGap: 3,
                   ),
                   GenesisInlineMetaLabel(
-                    text: 'Source $sourceOid · V$version',
+                    text: 'Source: $sourceOid · V$version',
                     onTap: !canOpenSourceWorldo
                         ? null
                         : () => Navigator.of(context).pushNamed(
@@ -325,8 +327,7 @@ class WorldDetailSection extends StatelessWidget {
                               'originId': world.originId,
                             },
                           ),
-                    style: worldHeaderMetaTextStyle.copyWith(
-                      fontSize: 9.5,
+                    style: worldDetailMetaTextStyle.copyWith(
                       color: context.genesisColors.textSecondary,
                     ),
                     trailingIcon: canOpenSourceWorldo
@@ -347,6 +348,8 @@ class WorldDetailSection extends StatelessWidget {
                         .withValues(alpha: 0.62),
                     foregroundColor: context.genesisColors.onDanger,
                     fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    borderRadius: BorderRadius.circular(10),
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -356,50 +359,35 @@ class WorldDetailSection extends StatelessWidget {
             ),
           ],
         ),
-        if (newUserJoinNotice != null) ...[
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 30,
-            child: _WorldNewUserJoinNoticeSwitcher(notice: newUserJoinNotice!),
-          ),
-        ],
-        SizedBox(height: 17),
+        SizedBox(height: worldDetailSectionGap),
         WorldDetailSectionTitle(
           icon: MyFlutterApp.eye,
           iconColor: context.genesisColors.danger,
           title: 'World Brief',
         ),
-        const SizedBox(height: 9),
-        Container(
+        const SizedBox(height: worldDetailSectionTitleContentGap),
+        SizedBox(
           width: double.infinity,
-          padding: const EdgeInsets.only(top: 11),
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(
-                color: context.genesisColors.dividerAction,
-                width: 1,
-              ),
-            ),
-          ),
           child: Text(
             brief,
             style: worldDetailBodyTextStyle.copyWith(
-              fontSize: 12,
-              height: 1.6,
-              color: context.genesisColors.textPrimary,
+              fontSize: 13,
+              height: worldDetailLineHeight,
+              color: context.genesisColors.textBody,
             ),
           ),
         ),
-        SizedBox(height: 17),
+        SizedBox(height: worldDetailSectionGap),
         WorldDetailSectionTitle(
           asset: worldSectionCastIconAsset,
           iconSize: 9,
           iconColor: context.genesisColors.danger,
           title: 'Cast',
         ),
-        SizedBox(height: 1),
-        if (showCharacters)
+        if (showCharacters) ...[
+          SizedBox(height: worldDetailCastTitleGap),
           WorldCharactersSection(world: world, currentUid: currentUid),
+        ],
       ],
     );
   }
@@ -427,7 +415,6 @@ class WorldDetailSectionListView extends StatelessWidget {
     required this.world,
     required this.currentUid,
     this.scrollController,
-    this.newUserJoinNotice,
     this.onDeleteWorld,
     this.padding = const EdgeInsets.fromLTRB(20, 0, 20, 32),
   });
@@ -436,7 +423,6 @@ class WorldDetailSectionListView extends StatelessWidget {
   final WorldDetail world;
   final String currentUid;
   final ScrollController? scrollController;
-  final WorldNewUserJoinNotice? newUserJoinNotice;
   final EdgeInsetsGeometry padding;
   final Future<void> Function(BuildContext context, WorldDetail world)?
   onDeleteWorld;
@@ -447,7 +433,6 @@ class WorldDetailSectionListView extends StatelessWidget {
       world.characters,
       currentUid,
     );
-    final hasCharacterRole = sortedCharacters.any(worldIsCharacterRole);
     final itemCount = 1 + math.max(sortedCharacters.length, 1).toInt();
     return WorldSectionListView.builder(
       storageKey: storageKey,
@@ -459,7 +444,6 @@ class WorldDetailSectionListView extends StatelessWidget {
           return WorldDetailSection(
             world: world,
             currentUid: currentUid,
-            newUserJoinNotice: newUserJoinNotice,
             onDeleteWorld: onDeleteWorld,
             showCharacters: false,
           );
@@ -471,7 +455,12 @@ class WorldDetailSectionListView extends StatelessWidget {
         final character = sortedCharacters[characterIndex];
         return Padding(
           padding: EdgeInsets.only(
-            top: characterIndex == 0 ? (hasCharacterRole ? 5 : 0) : 22,
+            // 角色行自身上下各有 worldCharacterRowVerticalPadding 的内边距,
+            // 所以这里只补差额:首行补到 Cast 标题下 worldDetailSectionTitleContentGap,
+            // 行与行之间补到 worldDetailCastRowGap。
+            top: characterIndex == 0
+                ? worldDetailCastTitleGap
+                : worldDetailCastRowGap - worldCharacterRowVerticalPadding * 2,
           ),
           child: WorldCharacterRow(
             character: character,
@@ -500,100 +489,6 @@ String worldInviteShareTextForTesting({
       'https://worldo.ai/download';
 }
 
-class _WorldNewUserJoinNoticeSwitcher extends StatelessWidget {
-  const _WorldNewUserJoinNoticeSwitcher({required this.notice});
-
-  final WorldNewUserJoinNotice notice;
-
-  @override
-  Widget build(BuildContext context) {
-    final currentKey = ValueKey<String>(_noticeAnimationKey(notice));
-    return ClipRect(
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final isIncoming = child.key == currentKey;
-          final offset = isIncoming
-              ? Tween<Offset>(
-                  begin: const Offset(0, 1),
-                  end: Offset.zero,
-                ).animate(animation)
-              : Tween<Offset>(
-                  begin: const Offset(0, -1),
-                  end: Offset.zero,
-                ).animate(animation);
-          return SlideTransition(position: offset, child: child);
-        },
-        child: _WorldNewUserJoinNoticeText(key: currentKey, notice: notice),
-      ),
-    );
-  }
-
-  String _noticeAnimationKey(WorldNewUserJoinNotice notice) {
-    return [
-      notice.characterId,
-      notice.playerUid,
-      notice.playerUsername,
-      notice.characterName,
-      notice.ts?.millisecondsSinceEpoch ?? 0,
-    ].join('|');
-  }
-}
-
-class _WorldNewUserJoinNoticeText extends StatelessWidget {
-  const _WorldNewUserJoinNoticeText({super.key, required this.notice});
-
-  final WorldNewUserJoinNotice notice;
-
-  @override
-  Widget build(BuildContext context) {
-    final baseStyle = TextStyle(
-      color: context.genesisColors.textMuted,
-      fontSize: 12,
-      height: 1.2,
-      fontWeight: FontWeight.w400,
-    );
-    final emphasisStyle = TextStyle(
-      color: context.genesisColors.textPrimary,
-      fontWeight: FontWeight.w600,
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: constraints.maxWidth,
-              child: RichText(
-                maxLines: 2,
-                overflow: TextOverflow.clip,
-                text: TextSpan(
-                  style: baseStyle,
-                  children: [
-                    TextSpan(
-                      text: notice.displayPlayerUsername,
-                      style: emphasisStyle,
-                    ),
-                    const TextSpan(text: ' launched as '),
-                    TextSpan(
-                      text: notice.displayCharacterName,
-                      style: emphasisStyle,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 class WorldDetailSectionTitle extends StatelessWidget {
   const WorldDetailSectionTitle({
     this.icon,
@@ -613,8 +508,11 @@ class WorldDetailSectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Transform.rotate(
-          angle: -0.18,
+        // 设计稿 9f 原文:`width:9px;height:9px;background:#F82B3C;
+        // transform:skewY(-14deg)` —— 是沿 Y 轴斜切成平行四边形,不是旋转。
+        Transform(
+          transform: Matrix4.skewY(worldDetailSectionGlyphSkew),
+          alignment: Alignment.center,
           child: SizedBox.square(
             dimension: 9,
             child: ColoredBox(color: iconColor),
@@ -627,6 +525,7 @@ class WorldDetailSectionTitle extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GenesisTypography.sectionTitle.copyWith(
+              height: worldDetailLineHeight,
               color: context.genesisColors.textPrimary,
             ),
           ),
@@ -682,7 +581,7 @@ class WorldDetailCoverImage extends StatelessWidget {
             child: ClipRRect(
               borderRadius: fixedWidth == null
                   ? GenesisImageRadii.content
-                  : BorderRadius.circular(13),
+                  : BorderRadius.circular(9),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final imageUrl = selectGenesisImageUrl(

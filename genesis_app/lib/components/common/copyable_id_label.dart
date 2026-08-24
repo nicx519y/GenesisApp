@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_center_toast.dart';
@@ -14,10 +15,13 @@ class CopyableIdLabel extends StatelessWidget {
     this.enabled = true,
     this.customTextStyle,
     this.customIconColor,
+    this.copyIconAsset,
+    this.copyIconSize,
+    this.trailingGap = 6,
   });
 
   static const TextStyle textStyle = TextStyle(
-    fontSize: 12,
+    fontSize: 13,
     height: 1.1,
     fontWeight: FontWeight.w400,
   );
@@ -29,6 +33,11 @@ class CopyableIdLabel extends StatelessWidget {
   final bool enabled;
   final TextStyle? customTextStyle;
   final Color? customIconColor;
+
+  /// 传了就用这张 SVG 代替 Material 的 copy 图标,给按设计稿取图的页面用。
+  final String? copyIconAsset;
+  final double? copyIconSize;
+  final double trailingGap;
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +53,13 @@ class CopyableIdLabel extends StatelessWidget {
           CopyableIdLabel.textStyle.copyWith(
             color: context.genesisColors.textMuted,
           ),
-      trailingIcon: enabled && showCopyIcon ? Icons.copy_outlined : null,
+      trailingIcon: enabled && showCopyIcon && copyIconAsset == null
+          ? Icons.copy_outlined
+          : null,
+      trailingIconAsset: enabled && showCopyIcon ? copyIconAsset : null,
       trailingIconColor: customIconColor ?? context.genesisColors.textMuted,
-      trailingGap: 6,
+      trailingIconSize: copyIconSize ?? 16,
+      trailingGap: trailingGap,
     );
   }
 
@@ -69,6 +82,7 @@ class GenesisInlineMetaLabel extends StatelessWidget {
     this.style,
     this.textAlign = TextAlign.left,
     this.trailingIcon,
+    this.trailingIconAsset,
     this.trailingIconColor,
     this.trailingIconSize = 16,
     this.trailingGap = 4,
@@ -79,6 +93,9 @@ class GenesisInlineMetaLabel extends StatelessWidget {
   final TextStyle? style;
   final TextAlign textAlign;
   final IconData? trailingIcon;
+
+  /// SVG 尾图标。与 [trailingIcon] 二选一,同时给时以 SVG 为准。
+  final String? trailingIconAsset;
   final Color? trailingIconColor;
   final double trailingIconSize;
   final double trailingGap;
@@ -86,13 +103,17 @@ class GenesisInlineMetaLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trailingIcon = this.trailingIcon;
+    final trailingIconAsset = this.trailingIconAsset;
+    final trailingColor = trailingIconColor ?? context.genesisColors.textMuted;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
-        child: SizedBox(
-          height: trailingIconSize,
+        // 用 minHeight 而不是定高:图标比文字矮时(9.5px 正文配 10px 图钉)
+        // 定高会把文字行挤出容器。
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: trailingIconSize),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -110,12 +131,20 @@ class GenesisInlineMetaLabel extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (trailingIcon != null) ...[
+              if (trailingIconAsset != null) ...[
+                SizedBox(width: trailingGap),
+                SvgPicture.asset(
+                  trailingIconAsset,
+                  width: trailingIconSize,
+                  height: trailingIconSize,
+                  colorFilter: ColorFilter.mode(trailingColor, BlendMode.srcIn),
+                ),
+              ] else if (trailingIcon != null) ...[
                 SizedBox(width: trailingGap),
                 Icon(
                   trailingIcon,
                   size: trailingIconSize,
-                  color: trailingIconColor ?? context.genesisColors.textMuted,
+                  color: trailingColor,
                 ),
               ],
             ],

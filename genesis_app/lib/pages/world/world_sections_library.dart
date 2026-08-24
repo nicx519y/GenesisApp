@@ -14,6 +14,7 @@ import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../components/world/genesis_world_theme.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
@@ -28,7 +29,6 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import 'world_constants.dart';
 import 'world_header.dart';
-import 'world_models.dart';
 import 'world_value_helpers.dart';
 
 part 'world_sections_loading_detail.dart';

@@ -24,7 +24,7 @@ class GenesisUnreadBadge extends StatelessWidget {
         textAlign: TextAlign.center,
         style: TextStyle(
           color: context.genesisColors.onDanger,
-          fontSize: 10,
+          fontSize: 9.5,
           height: 1,
           fontWeight: FontWeight.w600,
         ),

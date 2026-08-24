@@ -72,7 +72,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                             'LIVE YOUR WORLD',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 9,
                               color: context.genesisColors.textTagline,
@@ -84,8 +84,8 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                             'friends, and continue them anywhere.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 12,
-                              height: 1.35,
+                              fontSize: 11,
+                              height: 1.45,
                               color: context.genesisColors.textMuted,
                             ),
                           ),

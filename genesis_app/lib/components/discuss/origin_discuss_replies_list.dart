@@ -71,9 +71,9 @@ class OriginDiscussRepliesList extends StatelessWidget {
                       : Text(
                           'View all $remainingReplyCount replies',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             height: 1.25,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w800,
                             color: context.genesisDiscussColors.authorAccent,
                           ),
                         ),
@@ -263,7 +263,7 @@ List<String> _imageUrlsFrom(Object? value) {
 }
 
 const _subtleStyle = TextStyle(
-  fontSize: 12,
+  fontSize: 13,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );

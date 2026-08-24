@@ -15,6 +15,12 @@ analyzer:
     - assets/custom-icons/my_flutter_app_icons.dart
     - third_party/firebase_auth/**
     - third_party/in_app_purchase_android/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   # The lint rules applied to this project can be customized in the

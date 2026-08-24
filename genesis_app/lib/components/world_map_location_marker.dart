@@ -10,7 +10,7 @@ import '../ui/components/genesis_character_avatar.dart';
 import 'world_map_avatar_logic.dart';
 import 'world_point.dart';
 
-const double worldMapLocationMarkerAvatarSize = 22;
+const double worldMapLocationMarkerAvatarSize = 26;
 const int worldMapLocationMarkerMaxAvatarCount = 3;
 const double worldMapLocationMarkerAvatarOverlap = 6;
 const double worldMapLocationMarkerStemHeight = 11;
@@ -20,14 +20,43 @@ const double worldMapLocationMarkerMaxNameWidth = 135;
 const Color worldMapLocationMarkerBackground = Color(0x99151517);
 const Color worldMapLocationMarkerEventColor = Color(0xFFF82B3C);
 
+/// 药丸描边的白。设计稿是 `rgba(255,255,255,.2)`。
+const Color worldMapLocationMarkerHairline = Color(0x33FFFFFF);
+
+/// 头像环:设计稿的 `box-shadow:0 0 0 1.5px #151517`。实机上 1.5px 显粗,
+/// 收到 1px。
+const Color worldMapLocationMarkerAvatarRing = Color(0xFF151517);
+const double worldMapLocationMarkerAvatarRingWidth = 1;
+
+/// 设计稿 +N 小块:`width:22px;height:22px;border-radius:7px;`
+/// `background:rgba(255,255,255,.13)`,字 600 9.5px,色 73% 白 ——
+/// 也就是和头像同一个方形圆角规格,不是一颗圆药丸。
+const Color worldMapLocationMarkerOverflowFill = Color(0x21FFFFFF);
+
+/// +N 小块的字号与左右内边距。字号按设计稿的字/框比回算(22:9.5 -> 26:11);
+/// 字重按实机观感提到 800(设计稿是 600),这个块小又压着 72% 透明度。
+const double worldMapLocationMarkerOverflowFontSize = 11;
+const double worldMapLocationMarkerOverflowPadding = 5;
+
+// 8-22 spec: soft white #F4F3F6 for occupied pills, 73% white for empty ones.
 const TextStyle worldMapLocationMarkerNameStyle = TextStyle(
   inherit: false,
   fontFamily: GenesisTypography.fontFamily,
   fontFamilyFallback: GenesisTypography.fontFamilyFallback,
-  color: Colors.white,
-  fontSize: 11,
+  color: Color(0xFFF4F3F6),
+  fontSize: 12,
   height: 1,
   fontWeight: FontWeight.w600,
+);
+
+const TextStyle worldMapLocationMarkerEmptyNameStyle = TextStyle(
+  inherit: false,
+  fontFamily: GenesisTypography.fontFamily,
+  fontFamilyFallback: GenesisTypography.fontFamilyFallback,
+  color: Color(0xBAFFFFFF),
+  fontSize: 12,
+  height: 1,
+  fontWeight: FontWeight.w400,
 );
 
 @immutable
@@ -84,29 +113,37 @@ WorldMapLocationMarkerMetrics resolveWorldMapLocationMarkerMetrics(
       6 + leadingWidth + (leadingWidth > 0 ? 8 : 5) + nameWidth + 11;
   return WorldMapLocationMarkerMetrics(
     pillWidth: pillWidth,
-    pillHeight: visibleAvatarCount > 0 ? 32 : 24,
+    pillHeight: visibleAvatarCount > 0 ? 36 : 25,
   );
 }
 
 double _overflowChipWidth(BuildContext context, int count) {
   final painter = TextPainter(
     text: TextSpan(
+      // 必须与 _WorldMapLocationOverflowChip 真正渲染的样式一致,
+      // 否则量出来的宽度对不上。
       text: '+$count',
       style: const TextStyle(
         inherit: false,
         fontFamily: GenesisTypography.fontFamily,
         fontFamilyFallback: GenesisTypography.fontFamilyFallback,
         color: Colors.white,
-        fontSize: 9.5,
+        fontSize: worldMapLocationMarkerOverflowFontSize,
         height: 1,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w800,
       ),
     ),
     maxLines: 1,
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
   )..layout();
-  return painter.width.ceilToDouble() + 12;
+  // +N 现在是与头像同尺寸的方块,宽度不再随文字变化;
+  // painter 仍保留,便于将来数字变宽时收紧。
+  // 默认与头像同宽的方块;但 "+99" 这类更宽的数字必须撑开,否则文字会溢出。
+  return math.max(
+    worldMapLocationMarkerAvatarSize,
+    painter.width.ceilToDouble() + worldMapLocationMarkerOverflowPadding * 2,
+  );
 }
 
 class WorldMapLocationMarker extends StatelessWidget {
@@ -140,6 +177,8 @@ class WorldMapLocationMarker extends StatelessWidget {
       0,
       avatars.length - visibleAvatars.length,
     );
+    // 设计稿:有人的药丸 border-radius:24px,空位的是 20px。
+    final pillRadius = visibleAvatars.isNotEmpty ? 24.0 : 20.0;
     return Semantics(
       label: name,
       button: onLabelTap != null || onAvatarTap != null,
@@ -160,7 +199,7 @@ class WorldMapLocationMarker extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: onLabelTap,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(pillRadius),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                     child: DecoratedBox(
@@ -169,11 +208,15 @@ class WorldMapLocationMarker extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: worldMapLocationMarkerBackground,
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(pillRadius),
+                        // 设计稿三种变体:有人 .2 / 高亮(有新对话).62 / 空位 .18。
+                        // 深浅不一是状态区分,不是配错色。
                         border: Border.all(
-                          color: Colors.white.withValues(
-                            alpha: highlighted ? 0.62 : 0.20,
-                          ),
+                          color: highlighted
+                              ? Colors.white.withValues(alpha: 0.62)
+                              : visibleAvatars.isNotEmpty
+                              ? worldMapLocationMarkerHairline
+                              : Colors.white.withValues(alpha: 0.18),
                           width: 1,
                         ),
                       ),
@@ -210,7 +253,9 @@ class WorldMapLocationMarker extends StatelessWidget {
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: worldMapLocationMarkerNameStyle,
+                                style: avatars.isEmpty
+                                    ? worldMapLocationMarkerEmptyNameStyle
+                                    : worldMapLocationMarkerNameStyle,
                               ),
                             ),
                           ],
@@ -329,8 +374,11 @@ class _WorldMapLocationAvatarStack extends StatelessWidget {
                     border: Border.all(
                       color: avatar.isPlayerControlledRole
                           ? worldMapLocationMarkerEventColor
-                          : const Color(0xFF151517),
-                      width: avatar.isPlayerControlledRole ? 2 : 1.5,
+                          // 非玩家头像的环:纯白不透明。
+                          : worldMapLocationMarkerAvatarRing,
+                      width: avatar.isPlayerControlledRole
+                          ? 2
+                          : worldMapLocationMarkerAvatarRingWidth,
                     ),
                   ),
                 ),
@@ -351,11 +399,19 @@ class _WorldMapLocationOverflowChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const ValueKey<String>('world-map-location-marker-overflow'),
-      height: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      // 与头像同规格的方形圆角,不是圆药丸。圆角比头像的 7 再放大一档,
+      // 且不描边 —— 它是个计数块,不需要和头像一样被环出来。
+      // 用 minWidth 而不是固定 width:多位数(+99)时能撑开,不会溢出。
+      constraints: const BoxConstraints(
+        minWidth: worldMapLocationMarkerAvatarSize,
+      ),
+      height: worldMapLocationMarkerAvatarSize,
+      padding: const EdgeInsets.symmetric(
+        horizontal: worldMapLocationMarkerOverflowPadding,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(10),
+        color: worldMapLocationMarkerOverflowFill,
+        borderRadius: BorderRadius.circular(9),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -365,9 +421,14 @@ class _WorldMapLocationOverflowChip extends StatelessWidget {
           fontFamily: GenesisTypography.fontFamily,
           fontFamilyFallback: GenesisTypography.fontFamilyFallback,
           color: Colors.white.withValues(alpha: 0.72),
-          fontSize: 9.5,
+          // 设计稿是 22px 方块配 9.5px 字(字/框比 0.43)。头像放大到 26 之后
+          // 方块跟着变大而字号没动,比例掉到 0.365,字在框里就显得又小又轻。
+          // 按原比例回算 26 x 0.43 ≈ 11。
+          // 字重按实机观感提到 800(设计稿是 600)—— 这个数字块尺寸小、又压着
+          // 72% 透明度,600 在设备上读起来偏轻。
+          fontSize: worldMapLocationMarkerOverflowFontSize,
           height: 1,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -384,13 +445,14 @@ class _WorldMapLocationEventBadge extends StatelessWidget {
     final label = count > 99 ? '99+' : '$count';
     return Container(
       key: const ValueKey<String>('world-map-location-event-count'),
-      constraints: const BoxConstraints(minWidth: 16),
+      // 圆角长方形,不是圆形:半径 6 < 高度的一半,并去掉描边 ——
+      // 设计稿 9a 的 #F82B3C 徽标本来就没有描边。
+      constraints: const BoxConstraints(minWidth: 20),
       height: 16,
-      padding: const EdgeInsets.symmetric(horizontal: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
       decoration: BoxDecoration(
         color: worldMapLocationMarkerEventColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF151517), width: 1.5),
+        borderRadius: BorderRadius.circular(6),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -402,7 +464,7 @@ class _WorldMapLocationEventBadge extends StatelessWidget {
           color: Colors.white,
           fontSize: 9.5,
           height: 1,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );

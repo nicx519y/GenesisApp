@@ -103,7 +103,7 @@ class CreateFormCard extends StatelessWidget {
     this.deleteEnabled = true,
     this.onDeleteDisabled,
     this.showBorder = true,
-    this.titleFontSize = 16,
+    this.titleFontSize = 15,
     this.titleSuffix,
     this.padding,
     this.backgroundColor,
@@ -169,7 +169,7 @@ class CreateFormCard extends StatelessWidget {
                           text: ' ${titleSuffix!.trim()}',
                           style: TextStyle(
                             color: context.genesisCreateColors.hint,
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w400,
                           ),
                         ),

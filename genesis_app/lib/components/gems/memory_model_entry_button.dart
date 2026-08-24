@@ -44,7 +44,7 @@ class MemoryModelEntryButton extends StatelessWidget {
     final borderRadius = compact ? 11.5 : 19.0;
     final iconSize = compact ? 16.0 : 18.0;
     final labelStyle = TextStyle(
-      fontSize: 12,
+      fontSize: 13,
       height: 16 / 12,
       fontWeight: FontWeight.w400,
       color: foreground,
@@ -102,11 +102,16 @@ class MemoryModelEntryButton extends StatelessWidget {
     final foreground =
         context.genesisChatTheme.locationChat.headerTitleTextStyle.color ??
         colors.textPrimary;
+    // Content title tier over the scene plate: pure white stays reserved for
+    // bar titles, so the label sits on the soft-white slot.
+    final labelColor =
+        context.genesisChatTheme.locationChat.senderNameTextStyle.color ??
+        foreground;
     final labelStyle = TextStyle(
       fontSize: 11,
       height: 1,
       fontWeight: FontWeight.w600,
-      color: foreground,
+      color: labelColor,
     );
     const borderRadius = BorderRadius.all(Radius.circular(9));
 
@@ -139,19 +144,19 @@ class MemoryModelEntryButton extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    CustomPaint(
+                      key: const ValueKey('memory-model-entry-icon'),
+                      size: const Size.square(12),
+                      painter: _MemoryModelSlidersIconPainter(
+                        color: labelColor,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Text(
                       modelLabel,
                       maxLines: 1,
                       softWrap: false,
                       style: labelStyle,
-                    ),
-                    const SizedBox(width: 6),
-                    CustomPaint(
-                      key: const ValueKey('memory-model-entry-chevron'),
-                      size: const Size(9, 6),
-                      painter: _MemoryModelChevronPainter(
-                        color: foreground.withValues(alpha: 0.75),
-                      ),
                     ),
                   ],
                 ),
@@ -164,28 +169,34 @@ class MemoryModelEntryButton extends StatelessWidget {
   }
 }
 
-class _MemoryModelChevronPainter extends CustomPainter {
-  const _MemoryModelChevronPainter({required this.color});
+/// Two stacked sliders, the room-header mark for the memory model chip.
+class _MemoryModelSlidersIconPainter extends CustomPainter {
+  const _MemoryModelSlidersIconPainter({required this.color});
 
   final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final rail = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final path = Path()
-      ..moveTo(0.5, 0.8)
-      ..lineTo(size.width / 2, size.height - 0.8)
-      ..lineTo(size.width - 0.5, 0.8);
-    canvas.drawPath(path, paint);
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    final knob = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final left = size.width * 0.12;
+    final right = size.width * 0.88;
+    final topY = size.height * 0.32;
+    final bottomY = size.height * 0.72;
+    canvas.drawLine(Offset(left, topY), Offset(right, topY), rail);
+    canvas.drawLine(Offset(left, bottomY), Offset(right, bottomY), rail);
+    canvas.drawCircle(Offset(size.width * 0.36, topY), 1.7, knob);
+    canvas.drawCircle(Offset(size.width * 0.68, bottomY), 1.7, knob);
   }
 
   @override
-  bool shouldRepaint(covariant _MemoryModelChevronPainter oldDelegate) {
+  bool shouldRepaint(covariant _MemoryModelSlidersIconPainter oldDelegate) {
     return oldDelegate.color != color;
   }
 }

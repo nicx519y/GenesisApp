@@ -217,7 +217,7 @@ class _MessagesPageState extends State<MessagesPage> {
               style: TextStyle(
                 fontSize: 9.5,
                 height: 1,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 letterSpacing: 0.1,
                 color: context.genesisColors.textTimestamp,
               ),
@@ -301,9 +301,9 @@ class _MessageMenuButton extends StatelessWidget {
                       maxLines: 1,
                       softWrap: false,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         height: 1,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         color: colors.textPrimary,
                       ),
                     ),
@@ -319,7 +319,7 @@ class _MessageMenuButton extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 9.5,
                         height: 1,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         color: unreadCount > 0
                             ? colors.danger
                             : colors.textTertiary,
@@ -477,7 +477,7 @@ class _ConversationTile extends StatelessWidget {
                               fontSize: 9.5,
                               height: 1,
                               color: context.genesisColors.textFaint,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -577,7 +577,7 @@ class _NoMessagesFooter extends StatelessWidget {
             child: Text(
               'Chat with your friends on Worldo.',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 color: context.genesisColors.textSupporting,
                 fontWeight: FontWeight.w400,
               ),

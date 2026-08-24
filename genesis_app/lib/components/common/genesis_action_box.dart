@@ -42,7 +42,7 @@ Future<T?> showGenesisActionBox<T>({
   );
   return showGenesisDialog<T>(
     context: context,
-    barrierColor: context.genesisColors.scrim.withValues(alpha: 0.32),
+    barrierColor: context.genesisColors.pageBackground.withValues(alpha: 0.62),
     builder: (dialogContext) {
       return GenesisActionBox<T>(
         title: title,
@@ -92,9 +92,9 @@ class GenesisActionBox<T> extends StatelessWidget {
 
   static const double defaultRowHeight = 51;
   static const double defaultTitleHeight = 82;
-  static const double _maxWidth = 800;
+  static const double _width = 250;
   static const BorderRadius _borderRadius = BorderRadius.all(
-    Radius.circular(18),
+    Radius.circular(20),
   );
 
   final String title;
@@ -118,8 +118,8 @@ class GenesisActionBox<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final useDetachedCancelStyle =
         showCancel && (detachCancel || actions.length > 1);
-    final dialogWidth = (MediaQuery.sizeOf(context).width * 0.7)
-        .clamp(0.0, _maxWidth)
+    final dialogWidth = _width
+        .clamp(0.0, MediaQuery.sizeOf(context).width)
         .toDouble();
     return Dialog(
       elevation: 0,
@@ -151,7 +151,7 @@ class GenesisActionBox<T> extends StatelessWidget {
         key: const ValueKey('genesis-action-box-attached-cancel'),
         borderRadius: _borderRadius,
         child: Material(
-          color: context.genesisColors.surface,
+          color: context.genesisColors.surfaceRaised,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -210,7 +210,7 @@ class GenesisActionBox<T> extends StatelessWidget {
           child: ClipRRect(
             borderRadius: _borderRadius,
             child: Material(
-              color: context.genesisColors.surface,
+              color: context.genesisColors.surfaceRaised,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -250,7 +250,7 @@ class GenesisActionBox<T> extends StatelessWidget {
           child: ClipRRect(
             borderRadius: _borderRadius,
             child: Material(
-              color: context.genesisColors.surface,
+              color: context.genesisColors.surfaceRaised,
               child: _CancelRow(
                 label: cancelLabel,
                 height: cancelRowHeight,
@@ -302,9 +302,9 @@ class _TitleRow extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: context.genesisColors.textPrimary,
-                      fontSize: 15,
-                      height: 1.4,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      height: 1,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
               if (content case final content?) ...[
@@ -367,7 +367,7 @@ class _ActionRow<T> extends StatelessWidget {
                 color: color,
                 fontSize: 15,
                 height: 1.2,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -414,7 +414,7 @@ class _CancelRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: context.genesisColors.textPrimary,
-                fontSize: 15,
+                fontSize: 13,
                 height: 1.2,
                 fontWeight: FontWeight.w400,
               ),

@@ -175,21 +175,15 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chatTheme = context.genesisChatTheme;
-    final mutedColor = chatTheme.tickHeader.withValues(alpha: 0.72);
+    final mutedColor = chatTheme.tickHeader.withValues(alpha: 0.56);
     return Row(
       key: ValueKey<String>('chat-character-movement-$messageLocalId-$index'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 3),
-          child: SvgPicture.asset(
-            routeIconAsset,
-            width: 12,
-            height: 12,
-            colorFilter: ColorFilter.mode(
-              chatTheme.tickHeader.withValues(alpha: 0.60),
-              BlendMode.srcIn,
-            ),
+          child: _ChatMovementIcon(
+            color: chatTheme.tickHeader.withValues(alpha: 0.60),
           ),
         ),
         const SizedBox(width: 9),
@@ -204,8 +198,8 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                 style: TextStyle(
                   color: chatTheme.tickHeader,
                   fontSize: 13,
-                  height: 1.6,
-                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               Text(
@@ -213,7 +207,7 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                 style: TextStyle(
                   color: mutedColor,
                   fontSize: 13,
-                  height: 1.6,
+                  height: 1.3,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -234,10 +228,14 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                       Text(
                         locationName,
                         style: TextStyle(
-                          color: chatTheme.tickLocation,
+                          // Where you already stand is plain white: nothing to
+                          // navigate to, so it gets no accent and no caret.
+                          color: canOpenLocation
+                              ? chatTheme.tickLocation
+                              : chatTheme.tickHeader,
                           fontSize: 13,
-                          height: 1.6,
-                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                          fontWeight: FontWeight.w800,
                           decoration: canOpenLocation
                               ? TextDecoration.underline
                               : TextDecoration.none,
@@ -246,12 +244,10 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 3),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 9,
-                        color: chatTheme.tickLocation,
-                      ),
+                      if (canOpenLocation) ...[
+                        const SizedBox(width: 3),
+                        _ChatLocationCaret(color: chatTheme.tickLocation),
+                      ],
                     ],
                   ),
                 ),
@@ -261,5 +257,103 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// 1r draws the movement row with two places joined by a short link: a
+/// 14-unit glyph at stroke 1.4. The app was drawing the two-way route asset,
+/// which is a different symbol.
+class _ChatMovementIcon extends StatelessWidget {
+  const _ChatMovementIcon({required this.color});
+
+  static const double _size = 13;
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: CustomPaint(painter: _ChatMovementIconPainter(color: color)),
+    );
+  }
+}
+
+class _ChatMovementIconPainter extends CustomPainter {
+  const _ChatMovementIconPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 14;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas
+      ..drawCircle(Offset(4 * scale, 4 * scale), 2.2 * scale, paint)
+      ..drawCircle(Offset(10 * scale, 10 * scale), 2.2 * scale, paint)
+      ..drawLine(
+        Offset(5.8 * scale, 5.8 * scale),
+        Offset(8.2 * scale, 8.2 * scale),
+        paint,
+      );
+  }
+
+  @override
+  bool shouldRepaint(_ChatMovementIconPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+/// The caret 1r draws next to a tappable place: a 16-unit path at stroke
+/// 2.84. The Material chevron was a different shape and much lighter.
+class _ChatLocationCaret extends StatelessWidget {
+  const _ChatLocationCaret({required this.color});
+
+  static const double _size = 9;
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: CustomPaint(painter: _ChatLocationCaretPainter(color: color)),
+    );
+  }
+}
+
+class _ChatLocationCaretPainter extends CustomPainter {
+  const _ChatLocationCaretPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 16;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.84 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(
+      Path()
+        ..moveTo(6 * scale, 2.8 * scale)
+        ..lineTo(11.4 * scale, 8 * scale)
+        ..lineTo(6 * scale, 13.2 * scale),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ChatLocationCaretPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }

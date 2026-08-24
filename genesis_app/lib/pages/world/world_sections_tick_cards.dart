@@ -22,9 +22,9 @@ class WorldTickPendingEventPage extends StatelessWidget {
           child: Text(
             'Tick $tickNumber',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               height: 1.2,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w800,
               color: context.genesisColors.textPrimary,
             ),
           ),

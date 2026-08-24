@@ -76,7 +76,7 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
         child: Stack(
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 GenesisListImage(
                   imageUrl: item.imageUrl,
@@ -101,13 +101,11 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: redesigned ? 15 : 14,
-                                height: redesigned ? 1.15 : 1.1,
-                                fontWeight: redesigned
-                                    ? FontWeight.w700
-                                    : FontWeight.w600,
+                                fontSize: redesigned ? 14 : 13,
+                                height: 1.1,
+                                fontWeight: FontWeight.w600,
                                 color: redesigned
-                                    ? context.genesisColors.foregroundStrong
+                                    ? context.genesisColors.textPrimary
                                     : context.genesisColors.accentText,
                               ),
                             ),
@@ -158,11 +156,9 @@ class _Subtitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = TextStyle(
-      fontSize: redesigned ? 10 : 12,
-      color: redesigned
-          ? context.genesisColors.textFaint
-          : context.genesisColors.textSecondary,
-      height: redesigned ? 1.4 : 1.3,
+      fontSize: redesigned ? 12 : 11,
+      color: context.genesisColors.textSecondary,
+      height: 1.3,
     );
     if (!redesigned || !text.contains('\n')) {
       return Text(
@@ -243,22 +239,22 @@ class _Stat extends StatelessWidget {
     final color = usesAccent
         ? context.genesisColors.accentText
         : redesigned
-        ? context.genesisColors.textFaint
+        ? context.genesisColors.textMetadata
         : context.genesisColors.navigationSelected;
     return StatItem(
       icon: icon,
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
-      iconSize: 11,
+      iconSize: 12,
       iconColor: color,
       iconVerticalOffset: redesigned ? 0 : -0.8,
       gap: 4,
       text: formatStatCount(value),
       textStyle: TextStyle(
         color: color,
-        fontSize: redesigned ? 10 : 12,
+        fontSize: redesigned ? 12 : 11,
         height: 1,
-        fontWeight: redesigned ? FontWeight.w500 : FontWeight.w400,
+        fontWeight: FontWeight.w400,
       ),
     );
   }

@@ -11,6 +11,6 @@ void main() {
     );
 
     final text = tester.widget<Text>(find.text(kAiContentDisclaimerText));
-    expect(text.style?.color, const Color(0xFF888888));
+    expect(text.style?.color, const Color(0x80131215));
   });
 }

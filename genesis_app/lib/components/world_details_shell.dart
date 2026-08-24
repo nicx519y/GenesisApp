@@ -8,8 +8,15 @@ import '../ui/theme/genesis_semantic_colors.dart';
 import '../ui/system/genesis_system_ui.dart';
 import 'world_map_interaction_notification.dart';
 
-const double worldDetailsPanelTopBorderOpacity = 0.08;
+// 设计稿 9a 实测:tab 上方那条通栏细线是白色 14%(面板 #151517 上取样反解)。
+const double worldDetailsPanelTopBorderOpacity = 0.14;
 const double worldDetailsPanelTopBorderWidth = 1;
+
+// 注意:不要给这条顶栏挂投影。设计稿的 `box-shadow:0 -14px 40px rgba(0,0,0,.6)`
+// 是挂在**整张浮窗**上的(浮窗一直延伸到屏幕底,所以投影只能往上跑);而这里的
+// 顶栏只是一条 34px 的窄带,同一条投影会往下溢到浮窗内容上形成一道暗块,向上那
+// 半又被父级裁掉。地图与浮窗之间目前不做任何过渡 —— 试过渐变(朝底色收敛会发灰、
+// 朝纯黑收敛会在接缝处出现反向硬边),最后决定直接留硬边界。
 
 @immutable
 class WorldDetailsStatusBarPresentation {
@@ -271,8 +278,15 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
           SliverToBoxAdapter(child: SizedBox(height: mapHeight)),
           DecoratedSliver(
             key: const ValueKey<String>('world-details-content-background'),
+            // 圆角必须跟顶栏一致。这层原先是方角的,而顶栏靠 panelTopOverlap 往上
+            // 探出 8px —— 于是浮窗左上只有最上面 8px 是弧线,再往下就被这层方角
+            // 底色填平,看起来像弧形旁边接了一个平的方块。两层同半径时,顶栏那条
+            // 弧始终是外包络,合起来才是一条完整的弧。
             decoration: BoxDecoration(
               color: context.genesisColors.pageBackground,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(widget.panelTopRadius),
+              ),
             ),
             sliver: SliverMainAxisGroup(
               slivers: [
@@ -351,17 +365,8 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
             boxShadow: widget.panelTopShadow,
             borderRadius: panelTopBorderRadius,
           ),
-          foregroundDecoration: BoxDecoration(
-            borderRadius: panelTopBorderRadius,
-            border: Border(
-              top: BorderSide(
-                color: context.genesisColors.foregroundStrong.withValues(
-                  alpha: worldDetailsPanelTopBorderOpacity,
-                ),
-                width: worldDetailsPanelTopBorderWidth,
-              ),
-            ),
-          ),
+          // 顶边不画线。设计稿 9a 里浮窗顶边是纯圆角、没有细线;那条线在顶边下方
+          // 79px 处且左右完全通栏,由下方 tab 容器的顶边来画。
           child: SizedBox.expand(child: widget.panelTopChild),
         ),
       ),
@@ -468,7 +473,13 @@ class WorldDetailsShell extends StatelessWidget {
   });
 
   static const double dragHandleTitleGap = 10;
-  static const double dragHandleWidth = 55;
+
+  /// 设计稿 9a 实测:拉起条距浮窗顶边 10px、高 4px。收起态与展开态共用这个
+  /// 数值,两态之间过渡时拉起条才不会跳。
+  static const double dragHandleTopInset = 10;
+
+  /// 设计稿原文:`width:38px;height:4px;border-radius:2px;background:rgba(255,255,255,.25)`。
+  static const double dragHandleWidth = 38;
   static const double dragHandleHeight = 4;
 
   final Widget Function(ScrollController) contentBuilder;
@@ -521,7 +532,7 @@ class WorldDetailsShell extends StatelessWidget {
                   children: [
                     SizedBox(
                       height: resolvedPadding.top,
-                      child: Center(child: WorldDetailsDragHandle()),
+                      child: WorldDetailsDragHandleBand(),
                     ),
                     SizedBox(height: WorldDetailsShell.dragHandleTitleGap),
                     Expanded(
@@ -592,6 +603,23 @@ class _WorldDetailsPanelTopPullGestureState
         _dragDy = 0;
       },
       child: widget.child,
+    );
+  }
+}
+
+/// 把拉起条按设计稿钉在距容器顶边 [WorldDetailsShell.dragHandleTopInset] 处。
+/// 收起态和展开态都用它,免得一边居中、一边另一个高度居中而对不上。
+class WorldDetailsDragHandleBand extends StatelessWidget {
+  const WorldDetailsDragHandleBand({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(top: WorldDetailsShell.dragHandleTopInset),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: WorldDetailsDragHandle(),
+      ),
     );
   }
 }

@@ -34,13 +34,13 @@ class ChatMessageBubble extends StatelessWidget {
     final borderRadius = usesSelfScenePlate
         ? const BorderRadius.only(
             topLeft: Radius.circular(14),
-            topRight: Radius.zero,
+            topRight: Radius.circular(6),
             bottomRight: Radius.circular(14),
             bottomLeft: Radius.circular(14),
           )
         : usesAiScenePlate
         ? const BorderRadius.only(
-            topLeft: Radius.zero,
+            topLeft: Radius.circular(6),
             topRight: Radius.circular(14),
             bottomRight: Radius.circular(14),
             bottomLeft: Radius.circular(14),
@@ -67,14 +67,19 @@ class ChatMessageBubble extends StatelessWidget {
       child: _InlineMarkdownText(
         text: text.isEmpty ? '...' : text,
         style: usesAiScenePlate || usesSelfScenePlate
-            ? style.bubbleTextStyle.copyWith(fontSize: 13, height: 1.6)
+            ? style.bubbleTextStyle.copyWith(
+                fontSize: 13,
+                height: kChatBodyLineHeight,
+              )
             : style.bubbleTextStyle,
       ),
     );
     return GestureDetector(
       onTap: onTap,
       onLongPressStart: onLongPressStart,
-      child: usesAiScenePlate
+      child:
+          (usesAiScenePlate || usesSelfScenePlate) &&
+              chatTheme.aiRoleBubbleBlurSigma > 0
           ? _ChatStableBackdropSurface(
               borderRadius: borderRadius,
               sigma: chatTheme.aiRoleBubbleBlurSigma,
@@ -168,19 +173,20 @@ class ChatAvatar extends StatelessWidget {
                   GenesisImageConfig.chatAvatarMaxDevicePixelRatio,
             ),
           ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: borderColor ?? context.genesisColors.textInverse,
-                    width: 1,
+          // Only the deliberate marker ring draws; plain avatars have none.
+          if (borderColor != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: borderColor!, width: 1),
+                    borderRadius: BorderRadius.circular(
+                      style.avatarBorderRadius,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(style.avatarBorderRadius),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -210,7 +216,7 @@ class ChatNpcAvatar extends StatelessWidget {
             style: TextStyle(
               color: context.genesisChatTheme.npcAvatarForeground,
               fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               height: 1,
             ),
           ),

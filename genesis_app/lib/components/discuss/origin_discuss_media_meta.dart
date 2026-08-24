@@ -49,9 +49,9 @@ class _DiscussPreviewMeta extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: context.genesisColors.textFaint,
-              fontSize: 12,
+              fontSize: 11,
               height: 1.18,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
@@ -159,7 +159,7 @@ class _DiscussAvatar extends StatelessWidget {
 }
 
 const _subtleStyle = TextStyle(
-  fontSize: 12,
+  fontSize: 13,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );

@@ -226,8 +226,8 @@ void main() {
     expect(eventsSectionBuilder, contains('overscroll: false'));
     expect(locationsSectionBuilder, contains('ScrollConfiguration'));
     expect(locationsSectionBuilder, contains('overscroll: false'));
-    expect(eventsSectionBuilder, contains('worldInfoHeaderHeight'));
-    expect(locationsSectionBuilder, contains('worldInfoHeaderHeight'));
+    expect(eventsSectionBuilder, contains('worldDetailSheetHeaderHeight'));
+    expect(locationsSectionBuilder, contains('worldDetailSheetHeaderHeight'));
     expect(singleSectionSheet, contains('Expanded('));
     expect(singleSectionSheet, contains('_buildSheetContent('));
     expect(singleSectionSheet, contains('_pagePreviewScrollControllers'));
@@ -252,7 +252,7 @@ void main() {
     expect(source, isNot(contains('showModalBottomSheet<void>')));
     expect(source, contains("'world-detail-sheet-overlay'"));
     expect(bottomTagContent, contains('context.genesisColors.surfaceTag'));
-    expect(bottomTagContent, contains('context.genesisColors.textSecondary'));
+    expect(bottomTagContent, contains('context.genesisColors.textBody'));
     expect(
       bottomTagContent,
       contains('borderRadius: BorderRadius.circular(11)'),
@@ -262,8 +262,8 @@ void main() {
     expect(source, contains('class WorldSingleSectionSheetHeader'));
     expect(source, contains('onVerticalDragEnd'));
     expect(source, contains('top: 12'));
-    expect(source, contains('fontSize: 17'));
-    expect(source, contains('fontWeight: FontWeight.w800'));
+    expect(source, contains('fontSize: 13'));
+    expect(source, contains('fontWeight: FontWeight.w600'));
     expect(source, contains('minimumSize: const Size(26, 26)'));
     expect(source, contains('class _WorldSheetPageIndicator'));
     expect(source, contains('animation: pageController'));
@@ -301,7 +301,8 @@ void main() {
     expect(
       detailSection,
       contains(
-        'if (showCharacters)\n'
+        'if (showCharacters) ...[\n'
+        '          SizedBox(height: worldDetailCastTitleGap),\n'
         '          WorldCharactersSection',
       ),
     );
@@ -321,11 +322,12 @@ void main() {
       sections.indexOf('String worldResizedCharacterAvatarUrl'),
     );
 
-    expect(characterRow, contains('fontSize: 12'));
+    expect(characterRow, contains('fontSize: 13'));
+    expect(characterRow, contains('fontSize: cardStyle ? 11 : 13'));
     expect(characterRow, contains('maxLines: 4'));
     expect(characterRow, contains('context.genesisColors.accentText'));
     expect(characterRow, contains('context.genesisColors.textSecondary'));
-    expect(characterRow, contains('height: 1.5'));
+    expect(characterRow, contains('height: worldDetailLineHeight'));
     expect(characterRow, contains('SizedBox(height: 5)'));
     expect(characterRow, contains('SizedBox(width: 11)'));
     expect(characterRow, isNot(contains('isCharacterRole ? 6 : 0')));
@@ -656,11 +658,16 @@ void main() {
       sections.indexOf('class WorldEventsSectionState'),
       sections.indexOf('class WorldTickPendingEventPage'),
     );
-    final setCurrentPage = sections.substring(
-      sections.indexOf(
-        'bool _setCurrentPageToRequestedTargetOrLatestIfAvailable',
-      ),
-      sections.indexOf('void _jumpToCurrentPage()'),
+    // The events section is a continuous scroll now, so the stale target is
+    // released by _hasPendingTarget and honoured by scrolling to an anchor
+    // rather than by moving a PageView page.
+    final pendingTarget = eventsSectionState.substring(
+      eventsSectionState.indexOf('bool get _hasPendingTarget'),
+      eventsSectionState.indexOf('ScrollController get _scrollController'),
+    );
+    final scrollToTarget = eventsSectionState.substring(
+      eventsSectionState.indexOf('void _scheduleScrollToTargetOrLatest()'),
+      eventsSectionState.indexOf('bool _handleScrollNotification('),
     );
 
     expect(
@@ -680,16 +687,31 @@ void main() {
         'return _eventsCache.page * _eventsPageSize < _eventsCache.total',
       ),
     );
-    expect(setCurrentPage, contains('final resolvedTargetPage'));
-    expect(setCurrentPage, contains('final pendingTargetPage'));
     expect(
-      setCurrentPage,
-      isNot(contains('??\n          _insertionPageForTickNumber')),
+      pendingTarget,
+      contains('if (target == null || _containsTickNumber(target)) return'),
     );
-    expect(eventsSectionState, contains('final hasPendingTargetPage'));
+    // Nothing left to load means the target can never arrive: drop it.
+    expect(
+      pendingTarget,
+      contains(
+        '!widget.initialLoading && !widget.loadingMore && !widget.hasMore',
+      ),
+    );
+    expect(scrollToTarget, contains('_containsTickNumber(target)'));
+    expect(scrollToTarget, contains('Scrollable.ensureVisible('));
+    expect(scrollToTarget, contains('_scrollController.jumpTo(0)'));
+    expect(
+      eventsSectionState,
+      contains('final hasPendingTarget = _hasPendingTarget;'),
+    );
     expect(
       eventsSectionState,
       isNot(contains('final hasRequestedTickPage = _requestedTickNumber')),
+    );
+    expect(
+      sections,
+      isNot(contains('_setCurrentPageToRequestedTargetOrLatestIfAvailable')),
     );
   });
 
@@ -716,7 +738,21 @@ void main() {
       worldSectionsSource.indexOf('class WorldEventsSectionState'),
       worldSectionsSource.indexOf('class WorldTickPendingEventPage'),
     );
-    expect(eventsSection, contains('final ticks = visibleTickPages'));
+    // The rendered list walks the merged ticks newest-first and marks the
+    // first/last row of each tick number, so sub ticks of one tick read as a
+    // single page.
+    expect(
+      eventsSection,
+      contains('final ticks = worldEventTicksAscending(widget.ticks).reversed'),
+    );
+    expect(
+      eventsSection,
+      contains('worldEventTickNumber(ticks[index - 1]) != tickNumber'),
+    );
+    expect(
+      eventsSection,
+      contains('worldEventTickNumber(ticks[index + 1]) != tickNumber'),
+    );
     expect(
       eventsSection,
       contains('subTickNumber: worldEventSubTickNumber(tick)'),

@@ -7,6 +7,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart'
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_control_metrics.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
 
 void main() {
   testWidgets('world map stage positions overlay tabs from top setting', (
@@ -268,7 +269,7 @@ void main() {
     final infoMaterial = tester.widget<Material>(
       find.descendant(of: infoButton, matching: find.byType(Material)),
     );
-    expect(infoMaterial.color, colors.controlMuted);
+    expect(infoMaterial.color, GenesisPalette.redesignInkGlass50);
     expect(infoMaterial.color, backMaterial.color);
 
     await tester.tap(infoButton);
@@ -362,6 +363,6 @@ void main() {
         matching: find.byType(Material),
       ),
     );
-    expect(backMaterial.color, semanticColors.controlMuted);
+    expect(backMaterial.color, GenesisPalette.redesignInkGlass50);
   });
 }

@@ -11,7 +11,10 @@ class ChatHeader extends StatelessWidget {
     required this.connecting,
     required this.onBack,
     this.titleSuffix,
+    this.titleSuffixSemanticsLabel,
     this.titleSuffixStyle,
+    this.titleOverline,
+    this.titleOverlineStyle,
     this.showTitleIcon = true,
     this.showSubtitle = true,
     this.showSubtitleIcon = true,
@@ -28,8 +31,20 @@ class ChatHeader extends StatelessWidget {
   final bool connected;
   final bool connecting;
   final VoidCallback onBack;
-  final String? titleSuffix;
+
+  /// Either a [String] rendered with [titleSuffixStyle], or a [Widget] that is
+  /// placed after the title as-is (used for the location-chat occupant pill).
+  final Object? titleSuffix;
+
+  /// Spoken text for a [Widget] [titleSuffix]; ignored for the [String] path,
+  /// which reads out the suffix itself.
+  final String? titleSuffixSemanticsLabel;
   final TextStyle? titleSuffixStyle;
+
+  /// Small line above the title - the parent location in the room header,
+  /// rendered with a trailing chevron. Hidden when blank.
+  final String? titleOverline;
+  final TextStyle? titleOverlineStyle;
   final bool showTitleIcon;
   final bool showSubtitle;
   final bool showSubtitleIcon;
@@ -55,15 +70,57 @@ class ChatHeader extends StatelessWidget {
     final titleText = _ChatHeaderTitleText(
       title: title,
       suffix: titleSuffix,
+      suffixSemanticsLabel: titleSuffixSemanticsLabel,
       style: style.headerTitleTextStyle,
       suffixStyle: titleSuffixStyle,
     );
+    final overline = titleOverline?.trim() ?? '';
+    final overlineStyle =
+        titleOverlineStyle ??
+        style.headerTitleTextStyle.copyWith(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          height: 1,
+          color: (style.headerTitleTextStyle.color ?? const Color(0xFFFFFFFF))
+              .withValues(alpha: 0.45),
+        );
     final textColumn = Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: alignContentLeft
           ? CrossAxisAlignment.start
           : CrossAxisAlignment.center,
       children: [
+        if (overline.isNotEmpty) ...[
+          Padding(
+            padding: alignContentLeft
+                ? EdgeInsets.zero
+                : EdgeInsets.symmetric(horizontal: headerSidePadding),
+            child: Row(
+              mainAxisAlignment: alignContentLeft
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    overline,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: overlineStyle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Opacity(
+                  opacity: 0.5,
+                  child: GenesisChevronRightIcon(
+                    color: overlineStyle.color ?? style.headerTitleIconColor,
+                    size: 7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+        ],
         Padding(
           padding: alignContentLeft
               ? EdgeInsets.zero
@@ -238,22 +295,29 @@ class _ChatHeaderTitleText extends StatelessWidget {
     required this.title,
     required this.style,
     this.suffix,
+    this.suffixSemanticsLabel,
     this.suffixStyle,
   });
 
   final String title;
-  final String? suffix;
+  final Object? suffix;
+  final String? suffixSemanticsLabel;
   final TextStyle style;
   final TextStyle? suffixStyle;
 
   @override
   Widget build(BuildContext context) {
-    final visibleSuffix = suffix?.trim() ?? '';
+    final suffix = this.suffix;
+    final suffixWidget = suffix is Widget ? suffix : null;
+    final visibleSuffix = suffix is String ? suffix.trim() : '';
+    final spokenSuffix = suffixWidget != null
+        ? (suffixSemanticsLabel?.trim() ?? '')
+        : visibleSuffix;
     final visibleTitle = genesisDisplaySafeText(title);
     return Semantics(
-      label: visibleSuffix.isEmpty
+      label: spokenSuffix.isEmpty
           ? visibleTitle
-          : '$visibleTitle $visibleSuffix',
+          : '$visibleTitle $spokenSuffix',
       excludeSemantics: true,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -266,7 +330,10 @@ class _ChatHeaderTitleText extends StatelessWidget {
               style: style,
             ),
           ),
-          if (visibleSuffix.isNotEmpty) ...[
+          if (suffixWidget != null) ...[
+            const SizedBox(width: 4),
+            suffixWidget,
+          ] else if (visibleSuffix.isNotEmpty) ...[
             const SizedBox(width: 4),
             Text(
               genesisDisplaySafeText(visibleSuffix),
@@ -291,10 +358,17 @@ class _CompactChatHeaderBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 1r/1s/1t/1u: the glass back tile is 30x30 / radius 10 on white 13%.
+    // The 34 / 11 / white 10% defaults stay in place for the standard variant.
     return GenesisBackButton(
       key: const ValueKey<String>('chat-header-compact-back-button'),
       onPressed: onPressed,
       foregroundColor: color,
+      dimension: 30,
+      borderRadius: 10,
+      backgroundColor: context.genesisColors.foregroundStrong.withValues(
+        alpha: 0.13,
+      ),
     );
   }
 }
