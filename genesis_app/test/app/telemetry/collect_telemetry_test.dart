@@ -44,6 +44,51 @@ class _FakeTransport implements HttpTransport {
   }
 }
 
+class _FaultInjectingCollectStore implements CollectEventStore {
+  final MemoryCollectEventStore delegate = MemoryCollectEventStore();
+
+  bool failEnqueue = false;
+  bool failClaim = false;
+  bool failNextDelete = false;
+  int resetCount = 0;
+
+  int get pendingCount => delegate.pendingCountForTesting;
+  int get inFlightCount => delegate.inFlightCountForTesting;
+
+  @override
+  Future<void> enqueue(CollectEvent event) async {
+    if (failEnqueue) throw StateError('enqueue unavailable');
+    await delegate.enqueue(event);
+  }
+
+  @override
+  Future<void> recoverInFlight() => delegate.recoverInFlight();
+
+  @override
+  Future<ClaimedCollectEventBatch?> claimPending({required int limit}) {
+    if (failClaim) throw StateError('claim unavailable');
+    return delegate.claimPending(limit: limit);
+  }
+
+  @override
+  Future<void> deleteClaimed(String batchId) async {
+    if (failNextDelete) {
+      failNextDelete = false;
+      throw StateError('delete unavailable');
+    }
+    await delegate.deleteClaimed(batchId);
+  }
+
+  @override
+  Future<void> releaseClaimed(String batchId) =>
+      delegate.releaseClaimed(batchId);
+
+  @override
+  Future<void> resetConnection() async {
+    resetCount += 1;
+  }
+}
+
 class _TestDeviceIdService implements DeviceIdService {
   const _TestDeviceIdService();
 
@@ -93,6 +138,10 @@ void main() {
     required CollectTelemetryClient client,
     Duration interval = const Duration(hours: 1),
     int batchSize = defaultCollectUploadBatchSize,
+    int maxBatchBytes = defaultCollectUploadBatchBytes,
+    int memoryFallbackLimit = defaultCollectMemoryFallbackLimit,
+    Duration storeTimeout = defaultCollectStoreTimeout,
+    Duration requestTimeout = defaultCollectRequestTimeout,
     DateTime Function()? clock,
     String Function()? idGenerator,
   }) {
@@ -100,6 +149,10 @@ void main() {
       store: store,
       interval: interval,
       batchSize: batchSize,
+      maxBatchBytes: maxBatchBytes,
+      memoryFallbackLimit: memoryFallbackLimit,
+      storeTimeout: storeTimeout,
+      requestTimeout: requestTimeout,
       clock: clock,
       idGenerator: idGenerator,
     )..configure(enabled: true, client: client);
@@ -213,7 +266,7 @@ void main() {
     expect(store.eventsForTesting, isEmpty);
   });
 
-  test('one check claims only the oldest 500 events', () async {
+  test('one check claims only the oldest 100 events', () async {
     final store = MemoryCollectEventStore();
     final client = _FakeCollectClient();
     var nextId = 0;
@@ -222,7 +275,7 @@ void main() {
       client: client,
       idGenerator: () => 'event-${nextId++}',
     );
-    for (var index = 0; index < 501; index += 1) {
+    for (var index = 0; index < 101; index += 1) {
       await value.enqueuePayload(<String, Object?>{
         'action_type': 'event',
         'action': 'event_$index',
@@ -232,9 +285,9 @@ void main() {
     value.start();
     await _waitUntil(() => value.hasTimerForTesting);
 
-    expect(client.batches.single, hasLength(500));
+    expect(client.batches.single, hasLength(100));
     expect(client.batches.single.first.action, 'event_0');
-    expect(client.batches.single.last.action, 'event_499');
+    expect(client.batches.single.last.action, 'event_99');
     expect(store.pendingCountForTesting, 1);
   });
 
@@ -304,6 +357,185 @@ void main() {
     expect(store.inFlightCountForTesting, 0);
   });
 
+  test('a hung upload times out without permanently locking checks', () async {
+    final store = MemoryCollectEventStore();
+    var uploadCount = 0;
+    final client = _FakeCollectClient(
+      onCollect: (_) {
+        uploadCount += 1;
+        if (uploadCount == 1) return Completer<void>().future;
+        return Future<void>.value();
+      },
+    );
+    final value = uploader(
+      store: store,
+      client: client,
+      requestTimeout: const Duration(milliseconds: 10),
+    );
+    await value.enqueuePayload(const <String, Object?>{
+      'action_type': 'event',
+      'action': 'hung_once',
+    });
+
+    await value.checkNow();
+
+    expect(value.isCheckingForTesting, isFalse);
+    expect(store.pendingCountForTesting, 1);
+    expect(value.health.consecutiveUploadFailures, 1);
+
+    await value.checkNow(force: true);
+
+    expect(uploadCount, 2);
+    expect(store.eventsForTesting, isEmpty);
+    expect(value.health.consecutiveUploadFailures, 0);
+  });
+
+  test(
+    'a permanent poison event is isolated without blocking later events',
+    () async {
+      final store = MemoryCollectEventStore();
+      final acceptedActions = <String>[];
+      final client = _FakeCollectClient(
+        onCollect: (events) async {
+          if (events.any((event) => event.action == 'poison')) {
+            throw const CollectUploadException(
+              message: 'invalid payload',
+              kind: CollectUploadFailureKind.permanent,
+              statusCode: 400,
+            );
+          }
+          acceptedActions.addAll(events.map((event) => event.action));
+        },
+      );
+      var nextId = 0;
+      final value = uploader(
+        store: store,
+        client: client,
+        idGenerator: () => 'event-${nextId++}',
+      );
+      for (final action in <String>[
+        'before_poison',
+        'poison',
+        'after_poison',
+      ]) {
+        await value.enqueuePayload(<String, Object?>{
+          'action_type': 'event',
+          'action': action,
+        });
+      }
+
+      await value.checkNow();
+
+      expect(acceptedActions, <String>['before_poison', 'after_poison']);
+      expect(value.deadLettersForTesting.single.action, 'poison');
+      expect(value.health.deadLetterCount, 1);
+      expect(store.eventsForTesting, isEmpty);
+    },
+  );
+
+  test(
+    'SQLite enqueue failure falls back to memory and uploads directly',
+    () async {
+      final store = _FaultInjectingCollectStore()..failEnqueue = true;
+      final client = _FakeCollectClient();
+      final value = uploader(
+        store: store,
+        client: client,
+        storeTimeout: const Duration(milliseconds: 20),
+      );
+
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'memory_fallback',
+      });
+      expect(value.health.storeStatus, CollectStoreStatus.unavailable);
+      expect(value.health.memoryFallbackCount, 1);
+
+      await value.checkNow(force: true);
+
+      expect(client.batches.single.single.action, 'memory_fallback');
+      expect(value.health.memoryFallbackCount, 0);
+    },
+  );
+
+  test('memory fallback is bounded and reports dropped events', () async {
+    final store = _FaultInjectingCollectStore()..failEnqueue = true;
+    final client = _FakeCollectClient();
+    final value = uploader(
+      store: store,
+      client: client,
+      memoryFallbackLimit: 2,
+    );
+
+    for (final action in <String>['oldest', 'middle', 'latest']) {
+      await value.enqueuePayload(<String, Object?>{
+        'action_type': 'event',
+        'action': action,
+      });
+    }
+
+    expect(value.health.memoryFallbackCount, 2);
+    expect(value.health.droppedEventCount, 1);
+
+    await value.checkNow(force: true);
+    expect(client.batches.single.map((event) => event.action), <String>[
+      'middle',
+      'latest',
+    ]);
+  });
+
+  test('a failed claim does not lock later checks', () async {
+    final store = _FaultInjectingCollectStore();
+    final client = _FakeCollectClient();
+    final value = uploader(store: store, client: client);
+    await value.enqueuePayload(const <String, Object?>{
+      'action_type': 'event',
+      'action': 'after_sqlite_recovery',
+    });
+    store.failClaim = true;
+
+    await value.checkNow();
+
+    expect(value.isCheckingForTesting, isFalse);
+    expect(value.health.storeStatus, CollectStoreStatus.unavailable);
+    expect(client.batches, isEmpty);
+
+    store.failClaim = false;
+    await value.checkNow(force: true);
+
+    expect(client.batches.single.single.action, 'after_sqlite_recovery');
+    expect(value.health.storeStatus, CollectStoreStatus.healthy);
+  });
+
+  test(
+    'server success plus local delete failure does not block later rows',
+    () async {
+      final store = _FaultInjectingCollectStore()..failNextDelete = true;
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'accepted_but_not_deleted',
+      });
+
+      await value.checkNow();
+
+      expect(store.inFlightCount, 1);
+      expect(store.pendingCount, 0);
+
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'later_event',
+      });
+      await value.checkNow(force: true);
+
+      expect(client.batches, hasLength(2));
+      expect(client.batches.last.single.action, 'later_event');
+      expect(store.inFlightCount, 1);
+      expect(store.pendingCount, 0);
+    },
+  );
+
   test(
     'startup recovers an in-flight batch from the previous process',
     () async {
@@ -372,6 +604,57 @@ void main() {
 
     expect(recovered?.events.single.eventId, 'sqlite-event');
   });
+
+  test(
+    'SQLite store can reopen itself after its connection is reset',
+    () async {
+      sqfliteFfiInit();
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'genesis-collect-reset-test-',
+      );
+      final databasePath = '${tempDirectory.path}/collect.db';
+      final store = SqfliteCollectEventStore(
+        databaseFactoryOverride: databaseFactoryFfi,
+        databasePath: databasePath,
+      );
+      addTearDown(() async {
+        await store.close();
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      await store.enqueue(
+        const CollectEvent(
+          eventId: 'before-reset',
+          actionType: 'event',
+          action: 'before_reset',
+          appTimestamp: 1,
+          object1: '',
+          object2: '',
+          object3: '',
+        ),
+      );
+
+      await store.resetConnection();
+      await store.enqueue(
+        const CollectEvent(
+          eventId: 'after-reset',
+          actionType: 'event',
+          action: 'after_reset',
+          appTimestamp: 2,
+          object1: '',
+          object2: '',
+          object3: '',
+        ),
+      );
+
+      final batch = await store.claimPending(limit: 10);
+      expect(batch?.events.map((event) => event.eventId), <String>[
+        'before-reset',
+        'after-reset',
+      ]);
+    },
+  );
 
   test('SQLite version 1 queue migrates with an environment column', () async {
     sqfliteFfiInit();
@@ -474,6 +757,24 @@ void main() {
       expect(client.batches.single.single.action, 'after_resume');
     },
   );
+
+  test('app background triggers a best-effort immediate upload', () async {
+    final store = MemoryCollectEventStore();
+    final client = _FakeCollectClient();
+    final value = uploader(store: store, client: client);
+
+    value.start();
+    await _waitUntil(() => value.hasTimerForTesting);
+    await value.enqueuePayload(const <String, Object?>{
+      'action_type': 'event',
+      'action': 'before_background',
+    });
+
+    value.handleAppBackgrounded();
+    await _waitUntil(() => client.batches.isNotEmpty);
+
+    expect(client.batches.single.single.action, 'before_background');
+  });
 
   test(
     'startup first report is queued before initialize without consumption',
@@ -622,7 +923,15 @@ void main() {
     );
     await expectLater(
       client.collectBatch(const <CollectEvent>[event]),
-      throwsStateError,
+      throwsA(
+        isA<CollectUploadException>()
+            .having(
+              (error) => error.kind,
+              'kind',
+              CollectUploadFailureKind.permanent,
+            )
+            .having((error) => error.errNo, 'errNo', 1001),
+      ),
     );
     transport.response = const TransportResponse(
       statusCode: 200,
@@ -631,7 +940,13 @@ void main() {
     );
     await expectLater(
       client.collectBatch(const <CollectEvent>[event]),
-      throwsFormatException,
+      throwsA(
+        isA<CollectUploadException>().having(
+          (error) => error.kind,
+          'kind',
+          CollectUploadFailureKind.transient,
+        ),
+      ),
     );
     transport.response = const TransportResponse(
       statusCode: 500,
@@ -640,7 +955,15 @@ void main() {
     );
     await expectLater(
       client.collectBatch(const <CollectEvent>[event]),
-      throwsStateError,
+      throwsA(
+        isA<CollectUploadException>()
+            .having(
+              (error) => error.kind,
+              'kind',
+              CollectUploadFailureKind.transient,
+            )
+            .having((error) => error.statusCode, 'statusCode', 500),
+      ),
     );
   });
 

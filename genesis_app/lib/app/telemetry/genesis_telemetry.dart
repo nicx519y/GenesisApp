@@ -128,6 +128,8 @@ class GenesisTelemetry {
   @visibleForTesting
   static GenesisTelemetryContext get contextForTesting => _context;
 
+  static CollectTelemetryHealth get collectHealth => _collectUploader.health;
+
   @visibleForTesting
   static void setSinkForTesting(GenesisTelemetrySink sink) {
     _sink = sink;
@@ -238,6 +240,10 @@ class GenesisTelemetry {
 
   static void handleAppResumed() {
     _collectUploader.handleAppResumed();
+  }
+
+  static void handleAppBackgrounded() {
+    _collectUploader.handleAppBackgrounded();
   }
 
   @visibleForTesting
@@ -440,6 +446,7 @@ class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {
             'action': 'app_background',
           },
         );
+        GenesisTelemetry.handleAppBackgrounded();
       case AppLifecycleState.resumed:
         GenesisTelemetry.handleAppResumed();
         _reportForeground();

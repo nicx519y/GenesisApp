@@ -85,13 +85,21 @@ void main() {
 
     final client = await initializeWith(sessionStore);
 
-    expect(client.headers.single, isNot(contains('X-UID')));
+    expect(client.headers, isNotEmpty);
+    expect(
+      client.headers.every((headers) => !headers.containsKey('X-UID')),
+      isTrue,
+    );
   });
 
   test('starts Collect anonymously when there is no persisted UID', () async {
     final client = await initializeWith(MemoryUserSessionStore());
 
-    expect(client.headers.single, isNot(contains('X-UID')));
+    expect(client.headers, isNotEmpty);
+    expect(
+      client.headers.every((headers) => !headers.containsKey('X-UID')),
+      isTrue,
+    );
   });
 
   test(
@@ -99,7 +107,11 @@ void main() {
     () async {
       final client = await initializeWith(_ThrowingUidSessionStore());
 
-      expect(client.headers.single, isNot(contains('X-UID')));
+      expect(client.headers, isNotEmpty);
+      expect(
+        client.headers.every((headers) => !headers.containsKey('X-UID')),
+        isTrue,
+      );
     },
   );
 }
