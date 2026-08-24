@@ -32,7 +32,6 @@ class AppShellPage extends StatefulWidget {
   const AppShellPage({
     super.key,
     required this.initialIndex,
-    this.homeInitialTabIndex,
     this.startupPlatform,
     this.trackingAuthorizationStatus =
         AppTrackingTransparencyService.authorizationStatus,
@@ -41,7 +40,6 @@ class AppShellPage extends StatefulWidget {
   });
 
   final int initialIndex;
-  final int? homeInitialTabIndex;
   final TargetPlatform? startupPlatform;
   final AttAuthorizationStatusReader trackingAuthorizationStatus;
   final AttAuthorizationRequester requestTrackingAuthorization;
@@ -59,7 +57,6 @@ class _AppShellPageState extends State<AppShellPage>
   late final ValueNotifier<bool> _homeTabActiveNotifier;
   late final ValueNotifier<int> _homeTabActivationNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
-  int? _homeInitialTabIndexOverride;
   late final bool _shouldResolveColdStartHomeTarget;
   var _coldStartHomeTargetResolved = true;
   var _hasRecordedInitialTabPageView = false;
@@ -96,9 +93,7 @@ class _AppShellPageState extends State<AppShellPage>
     _homeTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 0);
     _homeTabActivationNotifier = ValueNotifier<int>(0);
     _meTabActivationNotifier = ValueNotifier<int>(0);
-    _homeInitialTabIndexOverride = widget.homeInitialTabIndex;
-    _shouldResolveColdStartHomeTarget =
-        widget.initialIndex == 0 && widget.homeInitialTabIndex == null;
+    _shouldResolveColdStartHomeTarget = widget.initialIndex == 0;
     _coldStartHomeTargetResolved = !_shouldResolveColdStartHomeTarget;
     _visitedTabIndexes = _coldStartHomeTargetResolved
         ? <int>{_selectedIndex}
@@ -258,11 +253,6 @@ class _AppShellPageState extends State<AppShellPage>
     final openHome = hasSession && hasMyWorldsCache;
     setState(() {
       _selectedIndex = openHome ? 0 : 1;
-      _homeInitialTabIndexOverride = openHome
-          ? HomePage.myWorldsTabIndex
-          : hasSession
-          ? null
-          : HomePage.popularTabIndex;
       _visitedTabIndexes
         ..clear()
         ..add(_selectedIndex);
@@ -507,7 +497,6 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _handleMeLoggedOut() {
-    _homeInitialTabIndexOverride = HomePage.popularTabIndex;
     _resetSessionBoundState(selectedIndex: 4);
     unawaited(
       AppServicesScope.read(context).directMessageConversations.loadFromDb(),
@@ -516,7 +505,6 @@ class _AppShellPageState extends State<AppShellPage>
 
   void _handleSessionChanged() {
     if (!mounted) return;
-    _homeInitialTabIndexOverride = null;
     _resetSessionBoundState(selectedIndex: _selectedIndex);
     final services = AppServicesScope.read(context);
     services.billing?.resetForSession();
@@ -586,7 +574,6 @@ class _AppShellPageState extends State<AppShellPage>
     return _tabPageCache.putIfAbsent(index, () {
       return switch (index) {
         0 => HomePage(
-          initialTabIndex: _homeInitialTabIndexOverride,
           activationListenable: _homeTabActivationNotifier,
           isActiveListenable: _homeTabActiveNotifier,
           isFirstPageViewReported: _isFirstContentPageViewReported,

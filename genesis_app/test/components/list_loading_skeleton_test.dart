@@ -25,32 +25,6 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: GenesisListLoadingSkeleton.popularOriginList(itemCount: 2),
-        ),
-      ),
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-      ),
-      findsOneWidget,
-    );
-    final popularThumbnail = find
-        .byKey(
-          const ValueKey<String>(
-            'genesis-popular-origin-list-thumbnail-skeleton',
-          ),
-        )
-        .first;
-    expect(tester.getSize(popularThumbnail), const Size(60, 60));
-    final popularHero = find
-        .byKey(const ValueKey<String>('genesis-popular-origin-hero-skeleton'))
-        .first;
-    expect(tester.getSize(popularHero), const Size(107, 160.5));
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
           body: GenesisListLoadingSkeleton.originGrid(itemCount: 2),
         ),
       ),

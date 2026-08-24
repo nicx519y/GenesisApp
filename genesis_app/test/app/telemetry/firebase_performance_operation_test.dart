@@ -84,12 +84,12 @@ void main() {
 
   test('failure and cancellation remain distinct GA4 outcomes', () async {
     final failed = await FirebasePerformanceOperation.start(
-      surface: FirebasePerformanceSurface.popular,
+      surface: FirebasePerformanceSurface.myWorlds,
       phase: FirebasePerformancePhase.request,
       attempt: 1,
     );
     final cancelled = await FirebasePerformanceOperation.start(
-      surface: FirebasePerformanceSurface.popular,
+      surface: FirebasePerformanceSurface.myWorlds,
       phase: FirebasePerformancePhase.request,
       attempt: 2,
     );
@@ -115,7 +115,7 @@ void main() {
     );
   });
 
-  test('all ten trace names remain stable', () {
+  test('all remaining trace names remain stable', () {
     expect(
       <String>{
         for (final surface in FirebasePerformanceSurface.values)
@@ -125,8 +125,6 @@ void main() {
       <String>{
         'my_worlds_first_request',
         'my_worlds_first_render',
-        'popular_first_request',
-        'popular_first_render',
         'worldo_first_request',
         'worldo_first_render',
         'world_page_request',

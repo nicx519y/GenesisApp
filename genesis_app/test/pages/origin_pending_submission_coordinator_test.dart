@@ -86,11 +86,9 @@ void main() {
         navigatorKey: genesisNavigatorKey,
         onGenerateRoute: (settings) {
           if (settings.name == RouteNames.home) {
-            final args = settings.arguments as Map?;
             return MaterialPageRoute<void>(
               settings: settings,
-              builder: (_) =>
-                  Scaffold(body: Text('home_tab=${args?['home_tab']}')),
+              builder: (_) => const Scaffold(body: Text('home')),
             );
           }
           if (settings.name == RouteNames.originWorld) {
@@ -263,11 +261,9 @@ void main() {
           onGenerateRoute: (settings) {
             switch (settings.name) {
               case RouteNames.home:
-                final args = settings.arguments as Map?;
                 return MaterialPageRoute<void>(
                   settings: settings,
-                  builder: (_) =>
-                      Scaffold(body: Text('home_tab=${args?['home_tab']}')),
+                  builder: (_) => const Scaffold(body: Text('home')),
                 );
               case RouteNames.originWorld:
                 final args = settings.arguments as Map?;
@@ -326,7 +322,7 @@ void main() {
 
       await genesisNavigatorKey.currentState!.maybePop();
       await tester.pumpAndSettle();
-      expect(find.text('home_tab=my_world'), findsOneWidget);
+      expect(find.text('home'), findsOneWidget);
     });
   }
 }

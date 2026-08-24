@@ -1,21 +1,21 @@
 class BlockedUserReviewReturn {
   const BlockedUserReviewReturn._();
 
-  static bool _pendingHomePopularRefresh = false;
+  static bool _pendingHomeRefresh = false;
 
-  static void markPendingHomePopularRefresh() {
-    _pendingHomePopularRefresh = true;
+  static void markPendingHomeRefresh() {
+    _pendingHomeRefresh = true;
   }
 
-  static bool get hasPendingHomePopularRefresh => _pendingHomePopularRefresh;
+  static bool get hasPendingHomeRefresh => _pendingHomeRefresh;
 
-  static bool consumePendingHomePopularRefresh() {
-    final pending = _pendingHomePopularRefresh;
-    _pendingHomePopularRefresh = false;
+  static bool consumePendingHomeRefresh() {
+    final pending = _pendingHomeRefresh;
+    _pendingHomeRefresh = false;
     return pending;
   }
 
   static void resetForTesting() {
-    _pendingHomePopularRefresh = false;
+    _pendingHomeRefresh = false;
   }
 }
