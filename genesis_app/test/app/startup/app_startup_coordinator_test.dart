@@ -17,7 +17,33 @@ class _TestDeviceIdService implements DeviceIdService {
   Future<String> getDeviceId() async => 'device-test-1';
 }
 
+class _NeverCompletingDeviceIdService implements DeviceIdService {
+  _NeverCompletingDeviceIdService(this.calls);
+
+  final List<String> calls;
+
+  @override
+  Future<String> getDeviceId() {
+    calls.add('device_id');
+    return Completer<String>().future;
+  }
+}
+
+class _RetryingDeviceIdService implements DeviceIdService {
+  int calls = 0;
+
+  @override
+  Future<String> getDeviceId() {
+    calls += 1;
+    if (calls == 1) return Completer<String>().future;
+    return Future<String>.value('device-recovered');
+  }
+}
+
 class _FakeCollectClient implements CollectTelemetryClient {
+  _FakeCollectClient({this.onCollect});
+
+  final VoidCallback? onCollect;
   final List<Map<String, String>> headers = <Map<String, String>>[];
 
   @override
@@ -25,6 +51,7 @@ class _FakeCollectClient implements CollectTelemetryClient {
     List<CollectEvent> events, {
     Map<String, String> headers = const <String, String>{},
   }) async {
+    onCollect?.call();
     this.headers.add(Map<String, String>.of(headers));
   }
 }
@@ -58,9 +85,15 @@ void main() {
   });
 
   Future<_FakeCollectClient> initializeWith(
-    MemoryUserSessionStore sessionStore,
-  ) async {
-    final client = _FakeCollectClient();
+    MemoryUserSessionStore sessionStore, {
+    DeviceIdService deviceIdService = const _TestDeviceIdService(),
+    Future<AppVersionInfo> Function()? appVersionReader,
+    Duration appVersionTimeout = const Duration(seconds: 1),
+    Duration deviceIdTimeout = const Duration(seconds: 2),
+    List<Duration> metadataRetryDelays = const <Duration>[],
+    VoidCallback? onCollect,
+  }) async {
+    final client = _FakeCollectClient(onCollect: onCollect);
     uploader = CollectTelemetryUploader(
       store: MemoryCollectEventStore(),
       interval: const Duration(hours: 1),
@@ -68,12 +101,18 @@ void main() {
     GenesisTelemetry.setCollectUploaderForTesting(uploader);
     services = ServiceRegistry.build(
       config: const AppConfig(apiEnvironment: 'test', useMock: true),
-      deviceIdOverride: const _TestDeviceIdService(),
+      deviceIdOverride: deviceIdService,
       sessionStoreOverride: sessionStore,
     );
     AppStartupCoordinator.recordStartupFirstReport();
 
-    await AppStartupCoordinator.initializeTelemetry(services: services);
+    await AppStartupCoordinator.initializeTelemetry(
+      services: services,
+      appVersionReader: appVersionReader,
+      appVersionTimeout: appVersionTimeout,
+      deviceIdTimeout: deviceIdTimeout,
+      metadataRetryDelays: metadataRetryDelays,
+    );
     await _waitUntil(() => uploader.hasTimerForTesting);
     return client;
   }
@@ -113,6 +152,56 @@ void main() {
       );
     },
   );
+
+  test('metadata timeouts do not block Collect startup', () async {
+    AppStartupCoordinator.configure();
+    final calls = <String>[];
+
+    final client = await initializeWith(
+      MemoryUserSessionStore(),
+      appVersionReader: () {
+        calls.add('app_version');
+        return Completer<AppVersionInfo>().future;
+      },
+      deviceIdService: _NeverCompletingDeviceIdService(calls),
+      appVersionTimeout: const Duration(milliseconds: 5),
+      deviceIdTimeout: const Duration(milliseconds: 5),
+      onCollect: () => calls.add('collect'),
+    );
+
+    expect(calls, <String>['app_version', 'device_id', 'collect']);
+    expect(uploader.isStartedForTesting, isTrue);
+    expect(client.headers, isNotEmpty);
+    expect(
+      client.headers.every((headers) => !headers.containsKey('X-Device-ID')),
+      isTrue,
+    );
+  });
+
+  test('missing metadata is retried without clearing the user id', () async {
+    final deviceIdService = _RetryingDeviceIdService();
+    final client = await initializeWith(
+      MemoryUserSessionStore(),
+      deviceIdService: deviceIdService,
+      deviceIdTimeout: const Duration(milliseconds: 5),
+      metadataRetryDelays: const <Duration>[Duration(milliseconds: 20)],
+    );
+    GenesisTelemetry.setUserId('user-after-start');
+
+    await _waitUntil(
+      () => GenesisTelemetry.contextForTesting.deviceId == 'device-recovered',
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'metadata_retry_test',
+    );
+    await GenesisTelemetry.waitForCollectWritesForTesting();
+    await uploader.checkNow(force: true);
+
+    expect(deviceIdService.calls, 2);
+    expect(client.headers.last['X-Device-ID'], 'device-recovered');
+    expect(client.headers.last['X-UID'], 'user-after-start');
+  });
 }
 
 Future<void> _waitUntil(

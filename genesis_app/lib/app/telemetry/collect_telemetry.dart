@@ -549,6 +549,18 @@ class CollectTelemetryUploader {
     _context = context;
   }
 
+  void updateMetadataContext({
+    required String platform,
+    required String appVersion,
+    required String deviceId,
+  }) {
+    _context = _context.copyWith(
+      platform: platform,
+      appVersion: appVersion,
+      deviceId: deviceId,
+    );
+  }
+
   void setAppEnvironment(String value) {
     _context = _context.copyWith(appEnvironment: value.trim());
   }
