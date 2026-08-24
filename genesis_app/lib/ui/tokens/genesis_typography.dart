@@ -45,6 +45,9 @@ abstract final class GenesisTypography {
     height: 1,
   );
 
+  /// 地图顶栏的世界名。设计稿 9a/9b:17/800/1.1。
+  /// 只有 world_top_overlay_bar 和 world_header 两处在用;顶栏返回按钮是顶对齐,
+  /// 靠标题列的 `EdgeInsets.only(top: 2)` 配平,改动 fontSize/height 会连带错位。
   static const TextStyle immersiveTitle = TextStyle(
     fontFamily: fontFamily,
     fontFamilyFallback: fontFamilyFallback,

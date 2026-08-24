@@ -275,7 +275,7 @@ class WorldInfoHeader extends StatelessWidget {
         ? ''
         : 'Tick ${world.tickCount}'
               '${world.subTickNo > 0 ? '-${world.subTickNo}' : ''}'
-              '${messageCount > 0 ? ' · $messageCount messages' : ''}';
+              '${messageCount > 0 ? ' · $messageCount Messages' : ''}';
     final actionLabel = action.kind == WorldHeaderActionKind.progress
         ? 'Tick now'
         : action.label;
@@ -331,7 +331,8 @@ class WorldInfoHeader extends StatelessWidget {
                         ),
                       ),
                       if (tickLabel.isNotEmpty) ...[
-                        const SizedBox(height: 6),
+                        // Playing 行与 Tick 行之间留 6 显得挤,拉到 8。
+                        const SizedBox(height: 8),
                         Text(
                           tickLabel,
                           key: const ValueKey<String>('world-playing-tick'),
@@ -339,7 +340,7 @@ class WorldInfoHeader extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: context.genesisColors.textMuted,
-                            fontSize: 12,
+                            fontSize: 11,
                             height: 1,
                             fontWeight: FontWeight.w400,
                           ),
