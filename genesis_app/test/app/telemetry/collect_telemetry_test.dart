@@ -839,40 +839,35 @@ void main() {
     expect(client.batches.single.single.object1, 'sku_1');
   });
 
-  test(
-    'cold start and lifecycle transitions queue simple Collect events once',
-    () async {
-      final store = MemoryCollectEventStore();
-      final client = _FakeCollectClient();
-      final value = uploader(store: store, client: client);
-      GenesisTelemetry.setCollectUploaderForTesting(value);
-      final observer = GenesisTelemetryLifecycleObserver(
-        startedAt: DateTime.now().subtract(const Duration(milliseconds: 25)),
-        initialState: AppLifecycleState.resumed,
-      );
+  test('lifecycle transitions queue simple Collect events once', () async {
+    final store = MemoryCollectEventStore();
+    final client = _FakeCollectClient();
+    final value = uploader(store: store, client: client);
+    GenesisTelemetry.setCollectUploaderForTesting(value);
+    final observer = GenesisTelemetryLifecycleObserver(
+      initialState: AppLifecycleState.resumed,
+    );
 
-      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
-      observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
-      observer.didChangeAppLifecycleState(AppLifecycleState.hidden);
-      observer.didChangeAppLifecycleState(AppLifecycleState.paused);
-      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
-      await GenesisTelemetry.waitForCollectWritesForTesting();
+    observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
+    observer.didChangeAppLifecycleState(AppLifecycleState.hidden);
+    observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+    observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    await GenesisTelemetry.waitForCollectWritesForTesting();
 
-      expect(store.eventsForTesting.map((event) => event.action), <String>[
-        'app_start',
-        'app_foreground',
-        'app_background',
-        'app_foreground',
-      ]);
-      for (final event in store.eventsForTesting) {
-        expect(event.actionType, 'event');
-        expect(event.object1, isEmpty);
-        expect(event.object2, isEmpty);
-        expect(event.object3, isEmpty);
-      }
-      expect(client.batches, isEmpty);
-    },
-  );
+    expect(store.eventsForTesting.map((event) => event.action), <String>[
+      'app_foreground',
+      'app_background',
+      'app_foreground',
+    ]);
+    for (final event in store.eventsForTesting) {
+      expect(event.actionType, 'event');
+      expect(event.object1, isEmpty);
+      expect(event.object2, isEmpty);
+      expect(event.object3, isEmpty);
+    }
+    expect(client.batches, isEmpty);
+  });
 
   test('Sdk client posts batch envelope and requires err_no zero', () async {
     final transport = _FakeTransport(

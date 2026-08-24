@@ -419,32 +419,13 @@ Object _safeTelemetryValue(Object? value) {
 }
 
 class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {
-  GenesisTelemetryLifecycleObserver({
-    DateTime? startedAt,
-    AppLifecycleState? initialState,
-  }) : _startedAt = startedAt ?? DateTime.now() {
-    final startupDurationMs = DateTime.now()
-        .difference(_startedAt)
-        .inMilliseconds;
-    GenesisTelemetry.event(
-      'app_start',
-      category: 'app.lifecycle',
-      data: <String, Object?>{
-        'startup_duration_ms': startupDurationMs,
-        'start_type': 'cold',
-      },
-      collectPayload: <String, Object?>{
-        'action_type': 'event',
-        'action': 'app_start',
-      },
-    );
+  GenesisTelemetryLifecycleObserver({AppLifecycleState? initialState}) {
     if ((initialState ?? WidgetsBinding.instance.lifecycleState) ==
         AppLifecycleState.resumed) {
       _reportForeground();
     }
   }
 
-  final DateTime _startedAt;
   bool _isForeground = false;
 
   @override

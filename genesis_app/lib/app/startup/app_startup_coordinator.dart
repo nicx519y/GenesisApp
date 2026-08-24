@@ -11,7 +11,6 @@ import '../telemetry/genesis_telemetry.dart';
 class AppStartupCoordinator {
   AppStartupCoordinator._();
 
-  static DateTime? _startedAt;
   static AppVersionInfo? _appVersion;
   static Future<void>? _telemetryInitialization;
   static bool _warmUpStarted = false;
@@ -30,11 +29,7 @@ class AppStartupCoordinator {
 
   static bool get isPostLaunchWorkAllowed => _postLaunchWorkAllowed.value;
 
-  static void configure({
-    required DateTime startedAt,
-    AppVersionInfo? appVersion,
-  }) {
-    _startedAt = startedAt;
+  static void configure({AppVersionInfo? appVersion}) {
     _appVersion = appVersion;
     // ATT is an independent post-launch prompt. It never gates startup work.
     _postLaunchWorkAllowed.value = true;
@@ -77,9 +72,7 @@ class AppStartupCoordinator {
     GenesisTelemetry.startCollectUploader();
     if (_telemetryLifecycleObserverAdded) return;
     _telemetryLifecycleObserverAdded = true;
-    final observer = GenesisTelemetryLifecycleObserver(
-      startedAt: _startedAt ?? DateTime.now(),
-    );
+    final observer = GenesisTelemetryLifecycleObserver();
     _telemetryLifecycleObserver = observer;
     WidgetsBinding.instance.addObserver(observer);
   }
@@ -95,7 +88,6 @@ class AppStartupCoordinator {
 
   @visibleForTesting
   static void resetForTesting() {
-    _startedAt = null;
     _appVersion = null;
     _telemetryInitialization = null;
     _warmUpStarted = false;

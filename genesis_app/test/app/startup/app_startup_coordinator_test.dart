@@ -45,7 +45,6 @@ void main() {
   setUp(() {
     debugDefaultTargetPlatformOverride = TargetPlatform.linux;
     AppStartupCoordinator.configure(
-      startedAt: DateTime.fromMillisecondsSinceEpoch(1),
       appVersion: const AppVersionInfo(versionName: '1.2.3'),
     );
   });
