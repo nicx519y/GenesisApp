@@ -1,4 +1,6 @@
 import AppTrackingTransparency
+import CryptoKit
+import Darwin
 import FirebaseAnalytics
 import Flutter
 import ImageIO
@@ -7,6 +9,13 @@ import Security
 import StoreKit
 import UIKit
 import UniformTypeIdentifiers
+
+private struct DeviceIdResolution {
+  let value: String
+  let source: String
+  let readStatus: OSStatus
+  let writeStatus: OSStatus?
+}
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, PHPickerViewControllerDelegate {
@@ -28,6 +37,7 @@ import UniformTypeIdentifiers
   private var pendingDiscussImagePickerNormalizeForUpload = false
   private var httpProtocolProbes: [UUID: GenesisHttpProtocolProbe] = [:]
   private var storeKit2AnalyticsInFlightIds = Set<UInt64>()
+  private var cachedDeviceIdResolution: DeviceIdResolution?
 
   override func application(
     _ application: UIApplication,
@@ -182,6 +192,8 @@ import UniformTypeIdentifiers
       switch call.method {
       case "getDeviceId", "getAndroidId":
         result(self.deviceId())
+      case "getDeviceIdentitySnapshot":
+        result(self.deviceIdentitySnapshot())
       case "setUid":
         let args = call.arguments as? [String: Any]
         let uid = (args?["uid"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -673,23 +685,72 @@ import UniformTypeIdentifiers
   }
 
   private func deviceId() -> String {
-    if let existing = readKeychainDeviceId() {
+    return resolveDeviceId().value
+  }
+
+  private func resolveDeviceId() -> DeviceIdResolution {
+    if let cached = cachedDeviceIdResolution {
+      return cached
+    }
+
+    let keychainRead = readKeychainDeviceId()
+    let resolution: DeviceIdResolution
+    if let existing = keychainRead.value {
       let normalized = normalizeDeviceId(existing)
-      if normalized != existing {
-        saveKeychainDeviceId(normalized)
+      let writeStatus = normalized == existing ? nil : saveKeychainDeviceId(normalized)
+      resolution = DeviceIdResolution(
+        value: normalized,
+        source: "keychain_existing",
+        readStatus: keychainRead.status,
+        writeStatus: writeStatus
+      )
+    } else {
+      let legacy = prefs.string(forKey: deviceIdKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      let hasLegacy = !legacy.isEmpty
+      let value = hasLegacy ? normalizeDeviceId(legacy) : UUID().uuidString
+      let source: String
+      if keychainRead.status != errSecItemNotFound {
+        source = "keychain_error"
+      } else if hasLegacy {
+        source = "user_defaults_migration"
+      } else {
+        source = "generated_uuid"
       }
-      return normalized
+      resolution = DeviceIdResolution(
+        value: value,
+        source: source,
+        readStatus: keychainRead.status,
+        writeStatus: saveKeychainDeviceId(value)
+      )
     }
+    cachedDeviceIdResolution = resolution
+    return resolution
+  }
 
-    if let legacy = prefs.string(forKey: deviceIdKey), !legacy.isEmpty {
-      let normalized = normalizeDeviceId(legacy)
-      saveKeychainDeviceId(normalized)
-      return normalized
+  private func deviceIdentitySnapshot() -> [String: Any] {
+    let resolution = resolveDeviceId()
+    let bundleId = Bundle.main.bundleIdentifier ?? ""
+    let prefix = appIdPrefix()
+    let accessGroup = prefix.isEmpty || bundleId.isEmpty ? "" : "\(prefix).\(bundleId)"
+    var snapshot: [String: Any] = [
+      "platform": "ios",
+      "device_id": resolution.value,
+      "device_id_source": resolution.source,
+      "keychain_read_status": Int(resolution.readStatus),
+      "bundle_id": bundleId,
+      "app_id_prefix": prefix,
+      "keychain_access_group_hash": sha256Hex(accessGroup),
+      "gateway_public_key_hash": (try? gatewayPublicKeySha256()) ?? "",
+      "idfv_hash": sha256Hex(UIDevice.current.identifierForVendor?.uuidString ?? ""),
+      "device_model": hardwareModel(),
+      "os_build": operatingSystemBuild()
+    ]
+    if let writeStatus = resolution.writeStatus {
+      snapshot["keychain_write_status"] = Int(writeStatus)
+    } else {
+      snapshot["keychain_write_status"] = NSNull()
     }
-
-    let value = UUID().uuidString
-    saveKeychainDeviceId(value)
-    return value
+    return snapshot
   }
 
   private func normalizeDeviceId(_ value: String) -> String {
@@ -700,26 +761,29 @@ import UniformTypeIdentifiers
     return normalized
   }
 
-  private func readKeychainDeviceId() -> String? {
+  private func readKeychainDeviceId() -> (value: String?, status: OSStatus) {
     var query = keychainDeviceIdQuery()
     query[kSecReturnData as String] = true
     query[kSecMatchLimit as String] = kSecMatchLimitOne
 
     var item: CFTypeRef?
     let status = SecItemCopyMatching(query as CFDictionary, &item)
-    guard status == errSecSuccess,
-          let data = item as? Data,
+    guard status == errSecSuccess else {
+      return (nil, status)
+    }
+    guard let data = item as? Data,
           let value = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
           !value.isEmpty else {
-      return nil
+      return (nil, errSecDecode)
     }
-    return value
+    return (value, status)
   }
 
-  private func saveKeychainDeviceId(_ value: String) {
+  @discardableResult
+  private func saveKeychainDeviceId(_ value: String) -> OSStatus {
     let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !normalized.isEmpty, let data = normalized.data(using: .utf8) else {
-      return
+      return errSecParam
     }
 
     SecItemDelete(keychainDeviceIdQuery() as CFDictionary)
@@ -727,7 +791,7 @@ import UniformTypeIdentifiers
     var item = keychainDeviceIdQuery()
     item[kSecValueData as String] = data
     item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-    SecItemAdd(item as CFDictionary, nil)
+    return SecItemAdd(item as CFDictionary, nil)
   }
 
   private func keychainDeviceIdQuery() -> [String: Any] {
@@ -739,6 +803,14 @@ import UniformTypeIdentifiers
   }
 
   private func gatewayPublicKeyBase64Url() throws -> String {
+    return base64Url(try gatewayPublicKeySpkiData())
+  }
+
+  private func gatewayPublicKeySha256() throws -> String {
+    return sha256Hex(try gatewayPublicKeySpkiData())
+  }
+
+  private func gatewayPublicKeySpkiData() throws -> Data {
     let privateKey = try ensureGatewayPrivateKey()
     guard let publicKey = SecKeyCopyPublicKey(privateKey) else {
       throw NSError(domain: "GatewayKey", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing public key"])
@@ -748,7 +820,7 @@ import UniformTypeIdentifiers
       throw error?.takeRetainedValue() as Error? ??
         NSError(domain: "GatewayKey", code: 2, userInfo: [NSLocalizedDescriptionKey: "Public key export failed"])
     }
-    return base64Url(spkiDerForP256PublicKey(publicData))
+    return spkiDerForP256PublicKey(publicData)
   }
 
   private func signGatewayCanonical(_ canonical: String) throws -> String {
@@ -836,6 +908,43 @@ import UniformTypeIdentifiers
       .replacingOccurrences(of: "+", with: "-")
       .replacingOccurrences(of: "/", with: "_")
       .replacingOccurrences(of: "=", with: "")
+  }
+
+  private func sha256Hex(_ value: String) -> String {
+    guard !value.isEmpty else { return "" }
+    return sha256Hex(Data(value.utf8))
+  }
+
+  private func sha256Hex(_ data: Data) -> String {
+    return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+  }
+
+  private func appIdPrefix() -> String {
+    let raw = normalizedString(Bundle.main.object(forInfoDictionaryKey: "AppIdentifierPrefix"))
+    guard !raw.contains("$(") else { return "" }
+    return raw.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+  }
+
+  private func hardwareModel() -> String {
+    var systemInfo = utsname()
+    uname(&systemInfo)
+    return withUnsafePointer(to: &systemInfo.machine) {
+      $0.withMemoryRebound(to: CChar.self, capacity: 1) {
+        String(cString: $0)
+      }
+    }
+  }
+
+  private func operatingSystemBuild() -> String {
+    var size = 0
+    guard sysctlbyname("kern.osversion", nil, &size, nil, 0) == 0, size > 0 else {
+      return ""
+    }
+    var value = [CChar](repeating: 0, count: size)
+    guard sysctlbyname("kern.osversion", &value, &size, nil, 0) == 0 else {
+      return ""
+    }
+    return String(cString: value)
   }
 
   private func signInDiagnostics() -> [String: Any] {

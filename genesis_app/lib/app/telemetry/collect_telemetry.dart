@@ -560,15 +560,27 @@ class CollectTelemetryUploader {
   Future<void> enqueuePayload(
     Map<String, Object?> payload, {
     bool includeIdentityHeaders = true,
+  }) async {
+    await enqueuePayloadWithResult(
+      payload,
+      includeIdentityHeaders: includeIdentityHeaders,
+    );
+  }
+
+  Future<bool> enqueuePayloadWithResult(
+    Map<String, Object?> payload, {
+    bool includeIdentityHeaders = true,
   }) {
-    if (!_enabled) return Future<void>.value();
+    if (!_enabled) return Future<bool>.value(false);
     if (_disposed) {
       _droppedEventCount += 1;
-      return Future<void>.value();
+      return Future<bool>.value(false);
     }
     final actionType = _boundedString(payload['action_type'], 64).trim();
     final action = _boundedString(payload['action'], 128).trim();
-    if (actionType.isEmpty || action.isEmpty) return Future<void>.value();
+    if (actionType.isEmpty || action.isEmpty) {
+      return Future<bool>.value(false);
+    }
     final CollectEvent event;
     try {
       event = CollectEvent(
@@ -585,12 +597,12 @@ class CollectTelemetryUploader {
     } catch (error) {
       _droppedEventCount += 1;
       _recordError('event_build', error);
-      return Future<void>.value();
+      return Future<bool>.value(false);
     }
     final previousWrite = _pendingWrites;
     final write = _writeAfter(previousWrite, event);
     _pendingWrites = write.catchError((_) {});
-    return write;
+    return write.then((_) => true);
   }
 
   Future<void> _writeAfter(

@@ -23,6 +23,7 @@ import '../config/app_config.dart';
 import '../config/platform_config.dart';
 import '../debug/location_chat_debug_storage.dart';
 import '../gems/gem_wallet_store.dart';
+import '../telemetry/device_info_telemetry.dart';
 import '../version/app_version_check_service.dart';
 import '../../platform/billing/app_store_billing_platform.dart';
 import '../../platform/billing/billing_service.dart';
@@ -44,11 +45,15 @@ class AppServices {
     required this.directMessageMessages,
     required this.appVersionCheck,
     required this.externalUrlOpener,
+    DeviceInfoTelemetryReporter? deviceInfoTelemetry,
     this.gatewayAuth,
     GemWalletStore? gemWallet,
     this.billing,
     ValueNotifier<int>? sessionRevision,
-  }) : gemWallet =
+  }) : deviceInfoTelemetry =
+           deviceInfoTelemetry ??
+           DeviceInfoTelemetryReporter(deviceIdService: deviceId),
+       gemWallet =
            gemWallet ??
            GemWalletStore(
              loadWallet: api.v1.gem.wallet,
@@ -69,6 +74,7 @@ class AppServices {
   final DirectMessageMessageStore directMessageMessages;
   final AppVersionCheckService appVersionCheck;
   final ExternalUrlOpener externalUrlOpener;
+  final DeviceInfoTelemetryReporter deviceInfoTelemetry;
   final GatewayAuthCoordinator? gatewayAuth;
   final GemWalletStore gemWallet;
   final BillingService? billing;
@@ -99,6 +105,9 @@ class ServiceRegistry {
   }) {
     final platformConfig = DefaultPlatformConfig(appConfig: config);
     final deviceId = deviceIdOverride ?? const NativeDeviceIdService();
+    final deviceInfoTelemetry = DeviceInfoTelemetryReporter(
+      deviceIdService: deviceId,
+    );
     final sessionStore = sessionStoreOverride ?? NativeUserSessionStore();
     final identityAuth =
         identityAuthOverride ??
@@ -216,6 +225,7 @@ class ServiceRegistry {
       identityAuth: identityAuth,
       sessionStore: sessionStore,
       prepareBackendRequest: gatewayAuthCoordinator?.prepare,
+      onLoginSuccess: deviceInfoTelemetry.reportLoginSuccess,
     );
     final gemWallet = GemWalletStore(
       loadWallet: api.v1.gem.wallet,
@@ -279,6 +289,7 @@ class ServiceRegistry {
       directMessageMessages: directMessageMessages,
       appVersionCheck: appVersionCheck,
       externalUrlOpener: const NativeExternalUrlOpener(),
+      deviceInfoTelemetry: deviceInfoTelemetry,
       gatewayAuth: gatewayAuthCoordinator,
       gemWallet: gemWallet,
       billing: billing,

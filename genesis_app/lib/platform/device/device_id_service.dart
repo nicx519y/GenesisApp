@@ -19,3 +19,19 @@ class DeviceIdDiagnostics {
 abstract interface class DeviceIdDiagnosticsService {
   Future<DeviceIdDiagnostics> getDeviceIdDiagnostics();
 }
+
+class DeviceIdentitySnapshot {
+  const DeviceIdentitySnapshot({
+    required this.platform,
+    required this.deviceId,
+    required this.fields,
+  });
+
+  final String platform;
+  final String deviceId;
+  final Map<String, Object?> fields;
+}
+
+abstract interface class DeviceIdentitySnapshotService {
+  Future<DeviceIdentitySnapshot> getDeviceIdentitySnapshot();
+}

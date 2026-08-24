@@ -4,7 +4,10 @@ import '../channels/genesis_method_channels.dart';
 import 'device_id_service.dart';
 
 class NativeDeviceIdService
-    implements DeviceIdService, DeviceIdDiagnosticsService {
+    implements
+        DeviceIdService,
+        DeviceIdDiagnosticsService,
+        DeviceIdentitySnapshotService {
   const NativeDeviceIdService();
 
   @override
@@ -35,6 +38,34 @@ class NativeDeviceIdService
       androidId: _displayValue(details['android_id']),
       aaid: _displayValue(details['aaid']),
       deviceId: _displayValue(details['device_id']) ?? 'unknown',
+    );
+  }
+
+  @override
+  Future<DeviceIdentitySnapshot> getDeviceIdentitySnapshot() async {
+    final details = await GenesisMethodChannels.device
+        .invokeMapMethod<String, Object?>(
+          GenesisMethodChannels.getDeviceIdentitySnapshot,
+        );
+    if (details == null) {
+      return DeviceIdentitySnapshot(
+        platform: Platform.isAndroid ? 'android' : 'ios',
+        deviceId: await getDeviceId(),
+        fields: const <String, Object?>{},
+      );
+    }
+    final deviceId = '${details['device_id'] ?? ''}'.trim();
+    final platform = '${details['platform'] ?? ''}'.trim();
+    return DeviceIdentitySnapshot(
+      platform: platform.isEmpty
+          ? (Platform.isAndroid ? 'android' : 'ios')
+          : platform,
+      deviceId: deviceId.isEmpty ? await getDeviceId() : deviceId,
+      fields: <String, Object?>{
+        for (final entry in details.entries)
+          if (entry.key != 'platform' && entry.key != 'device_id')
+            entry.key: entry.value,
+      },
     );
   }
 

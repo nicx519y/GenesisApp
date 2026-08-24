@@ -335,10 +335,28 @@ class GenesisTelemetry {
     Object? object2,
     Object? object3,
   }) {
+    unawaited(
+      collectLogAndWait(
+        actionType: actionType,
+        action: action,
+        object1: object1,
+        object2: object2,
+        object3: object3,
+      ),
+    );
+  }
+
+  static Future<bool> collectLogAndWait({
+    required String actionType,
+    required String action,
+    Object? object1,
+    Object? object2,
+    Object? object3,
+  }) async {
     final normalizedActionType = actionType.trim();
     final normalizedAction = action.trim();
     if (!_enabled || normalizedActionType.isEmpty || normalizedAction.isEmpty) {
-      return;
+      return false;
     }
     final payload = <String, Object?>{
       'action_type': normalizedActionType,
@@ -347,7 +365,7 @@ class GenesisTelemetry {
       'object2': object2,
       'object3': object3,
     };
-    unawaited(_collectUploader.enqueuePayload(payload));
+    final enqueued = await _collectUploader.enqueuePayloadWithResult(payload);
     unawaited(
       _sink.record(
         GenesisTelemetryEvent(
@@ -358,6 +376,7 @@ class GenesisTelemetry {
         ),
       ),
     );
+    return enqueued;
   }
 
   static void setUserId(String? uid) {
