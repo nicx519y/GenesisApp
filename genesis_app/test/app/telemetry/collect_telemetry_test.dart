@@ -179,6 +179,15 @@ void main() {
       clock: () => DateTime.fromMillisecondsSinceEpoch(1784692855123),
       idGenerator: () => 'event-1',
     );
+    value.setContext(
+      const CollectUploadContext(
+        platform: 'android',
+        appVersion: '1.2.3',
+        appEnvironment: 'production',
+        deviceId: 'device-1',
+        userId: 'user-1',
+      ),
+    );
 
     await value.enqueuePayload(const <String, Object?>{
       'action_type': 'pageview',
@@ -196,6 +205,12 @@ void main() {
       'object2': '',
       'object3': '',
     });
+    expect(event.platform, 'android');
+    expect(event.appVersion, '1.2.3');
+    expect(event.appEnvironment, 'production');
+    expect(event.deviceId, 'device-1');
+    expect(event.userId, 'user-1');
+    expect(event.contextCaptured, isTrue);
     expect(client.batches, isEmpty);
   });
 
@@ -316,6 +331,109 @@ void main() {
     expect(client.batches[1].single.action, 'production_event');
     expect(client.headers[1]['x-app-environment'], 'production');
   });
+
+  test(
+    'queued events keep the identity captured when they were created',
+    () async {
+      final store = MemoryCollectEventStore();
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      value.setContext(
+        const CollectUploadContext(
+          platform: 'android',
+          appVersion: '1.2.3',
+          appEnvironment: 'production',
+          deviceId: 'device-1',
+          userId: 'user-a',
+        ),
+      );
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'user_a_event',
+      });
+      value.setUserId('user-b');
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'user_b_event',
+      });
+
+      await value.checkNow();
+      await value.checkNow();
+
+      expect(client.batches, hasLength(2));
+      expect(client.batches[0].single.action, 'user_a_event');
+      expect(client.headers[0]['X-UID'], 'user-a');
+      expect(client.batches[1].single.action, 'user_b_event');
+      expect(client.headers[1]['X-UID'], 'user-b');
+      expect(
+        client.headers.every((headers) => headers['X-Device-ID'] == 'device-1'),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'events without identity headers are uploaded in a separate batch',
+    () async {
+      final store = MemoryCollectEventStore();
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      value.setContext(
+        const CollectUploadContext(
+          platform: 'ios',
+          appVersion: '2.0.0',
+          appEnvironment: 'production',
+          deviceId: 'device-2',
+          userId: 'user-2',
+        ),
+      );
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'identity_event',
+      });
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'anonymous_event',
+      }, includeIdentityHeaders: false);
+
+      await value.checkNow();
+      await value.checkNow();
+
+      expect(client.batches, hasLength(2));
+      expect(client.headers[0]['X-UID'], 'user-2');
+      expect(client.headers[0]['X-Device-ID'], 'device-2');
+      expect(client.headers[1].containsKey('X-UID'), isFalse);
+      expect(client.headers[1].containsKey('X-Device-ID'), isFalse);
+      expect(client.headers[1]['X-Platform'], 'ios');
+    },
+  );
+
+  test(
+    'events queued before context initialization use startup context',
+    () async {
+      final store = MemoryCollectEventStore();
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'startup_first_report',
+      });
+      expect(store.eventsForTesting.single.contextCaptured, isFalse);
+      value.setContext(
+        const CollectUploadContext(
+          platform: 'android',
+          appVersion: '1.2.3',
+          appEnvironment: 'production',
+          deviceId: 'device-startup',
+        ),
+      );
+
+      await value.checkNow();
+
+      expect(client.headers.single['X-App-Version'], '1.2.3');
+      expect(client.headers.single['X-Device-ID'], 'device-startup');
+    },
+  );
 
   test('failed upload releases claimed events for retry', () async {
     final store = MemoryCollectEventStore();
@@ -589,6 +707,11 @@ void main() {
         object1: '',
         object2: '',
         object3: '',
+        appEnvironment: 'production',
+        platform: 'android',
+        appVersion: '1.2.3',
+        deviceId: 'device-sqlite',
+        userId: 'user-sqlite',
       ),
     );
     await firstStore.claimPending(limit: 500);
@@ -602,7 +725,73 @@ void main() {
     await reopenedStore.recoverInFlight();
     final recovered = await reopenedStore.claimPending(limit: 500);
 
-    expect(recovered?.events.single.eventId, 'sqlite-event');
+    final recoveredEvent = recovered?.events.single;
+    expect(recoveredEvent?.eventId, 'sqlite-event');
+    expect(recoveredEvent?.platform, 'android');
+    expect(recoveredEvent?.appVersion, '1.2.3');
+    expect(recoveredEvent?.deviceId, 'device-sqlite');
+    expect(recoveredEvent?.userId, 'user-sqlite');
+    expect(recoveredEvent?.contextCaptured, isTrue);
+  });
+
+  test('SQLite claims different identity snapshots separately', () async {
+    sqfliteFfiInit();
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'genesis-collect-identity-group-test-',
+    );
+    final databasePath = '${tempDirectory.path}/collect.db';
+    final store = SqfliteCollectEventStore(
+      databaseFactoryOverride: databaseFactoryFfi,
+      databasePath: databasePath,
+    );
+    addTearDown(() async {
+      await store.close();
+      if (tempDirectory.existsSync()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+    await store.enqueue(
+      const CollectEvent(
+        eventId: 'user-a-event',
+        actionType: 'event',
+        action: 'user_a',
+        appTimestamp: 1,
+        object1: '',
+        object2: '',
+        object3: '',
+        appEnvironment: 'production',
+        platform: 'android',
+        appVersion: '1.2.3',
+        deviceId: 'device-1',
+        userId: 'user-a',
+      ),
+    );
+    await store.enqueue(
+      const CollectEvent(
+        eventId: 'user-b-event',
+        actionType: 'event',
+        action: 'user_b',
+        appTimestamp: 2,
+        object1: '',
+        object2: '',
+        object3: '',
+        appEnvironment: 'production',
+        platform: 'android',
+        appVersion: '1.2.3',
+        deviceId: 'device-1',
+        userId: 'user-b',
+      ),
+    );
+
+    final first = await store.claimPending(limit: 100);
+    expect(first?.events.map((event) => event.eventId), <String>[
+      'user-a-event',
+    ]);
+    await store.deleteClaimed(first!.batchId);
+    final second = await store.claimPending(limit: 100);
+    expect(second?.events.map((event) => event.eventId), <String>[
+      'user-b-event',
+    ]);
   });
 
   test(
@@ -714,6 +903,76 @@ void main() {
 
     expect(batch?.events.single.eventId, 'legacy-event');
     expect(batch?.events.single.appEnvironment, isEmpty);
+    expect(batch?.events.single.platform, isEmpty);
+    expect(batch?.events.single.contextCaptured, isFalse);
+  });
+
+  test('SQLite version 2 queue migrates with identity columns', () async {
+    sqfliteFfiInit();
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'genesis-collect-identity-migration-test-',
+    );
+    final databasePath = '${tempDirectory.path}/collect.db';
+    final legacyDatabase = await databaseFactoryFfi.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: (db, _) async {
+          await db.execute('''
+            CREATE TABLE collect_events (
+              sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+              event_id TEXT NOT NULL UNIQUE,
+              action_type TEXT NOT NULL,
+              action TEXT NOT NULL,
+              app_timestamp INTEGER NOT NULL,
+              object1 TEXT NOT NULL,
+              object2 TEXT NOT NULL,
+              object3 TEXT NOT NULL,
+              app_environment TEXT NOT NULL DEFAULT '',
+              include_identity_headers INTEGER NOT NULL,
+              state TEXT NOT NULL,
+              batch_id TEXT
+            )
+          ''');
+        },
+      ),
+    );
+    await legacyDatabase.insert('collect_events', <String, Object?>{
+      'event_id': 'version-2-event',
+      'action_type': 'event',
+      'action': 'version_2',
+      'app_timestamp': 2,
+      'object1': '',
+      'object2': '',
+      'object3': '',
+      'app_environment': 'production',
+      'include_identity_headers': 1,
+      'state': 'pending',
+      'batch_id': null,
+    });
+    await legacyDatabase.close();
+
+    final migratedStore = SqfliteCollectEventStore(
+      databaseFactoryOverride: databaseFactoryFfi,
+      databasePath: databasePath,
+    );
+    addTearDown(() async {
+      await migratedStore.close();
+      if (tempDirectory.existsSync()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+
+    final batch = await migratedStore.claimPending(limit: 500);
+    final event = batch?.events.single;
+
+    expect(event?.eventId, 'version-2-event');
+    expect(event?.appEnvironment, 'production');
+    expect(event?.platform, isEmpty);
+    expect(event?.appVersion, isEmpty);
+    expect(event?.deviceId, isEmpty);
+    expect(event?.userId, isEmpty);
+    expect(event?.contextCaptured, isFalse);
   });
 
   test('concurrent checks do not overlap an active request', () async {

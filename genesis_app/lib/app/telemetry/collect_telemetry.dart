@@ -83,7 +83,12 @@ class CollectEvent {
     required this.object2,
     required this.object3,
     this.appEnvironment = '',
+    this.platform = '',
+    this.appVersion = '',
+    this.deviceId = '',
+    this.userId = '',
     this.includeIdentityHeaders = true,
+    this.contextCaptured = true,
   });
 
   final String eventId;
@@ -94,7 +99,12 @@ class CollectEvent {
   final String object2;
   final String object3;
   final String appEnvironment;
+  final String platform;
+  final String appVersion;
+  final String deviceId;
+  final String userId;
   final bool includeIdentityHeaders;
+  final bool contextCaptured;
 
   Map<String, Object> toWireMap() {
     return <String, Object>{
@@ -168,14 +178,23 @@ class SqfliteCollectEventStore implements CollectEventStore {
     return factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onCreate: (db, _) async {
           await db.execute(_createCollectEventsSql);
           await db.execute(_createCollectEventsStateIndexSql);
+          await db.execute(_createCollectEventsUploadContextIndexSql);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) {
             await db.execute(_addCollectAppEnvironmentSql);
+          }
+          if (oldVersion < 3) {
+            await db.execute(_addCollectPlatformSql);
+            await db.execute(_addCollectAppVersionSql);
+            await db.execute(_addCollectDeviceIdSql);
+            await db.execute(_addCollectUserIdSql);
+            await db.execute(_addCollectContextCapturedSql);
+            await db.execute(_createCollectEventsUploadContextIndexSql);
           }
         },
       ),
@@ -213,11 +232,31 @@ class SqfliteCollectEventStore implements CollectEventStore {
         limit: 1,
       );
       if (oldestRows.isEmpty) return null;
-      final appEnvironment = '${oldestRows.single['app_environment'] ?? ''}';
+      final oldest = _eventFromRow(oldestRows.single);
+      final where = <String>[
+        'state = ?',
+        'app_environment = ?',
+        'include_identity_headers = ?',
+        'context_captured = ?',
+      ];
+      final whereArgs = <Object>[
+        _pendingState,
+        oldest.appEnvironment,
+        oldest.includeIdentityHeaders ? 1 : 0,
+        oldest.contextCaptured ? 1 : 0,
+      ];
+      if (oldest.contextCaptured) {
+        where.addAll(<String>['platform = ?', 'app_version = ?']);
+        whereArgs.addAll(<Object>[oldest.platform, oldest.appVersion]);
+        if (oldest.includeIdentityHeaders) {
+          where.addAll(<String>['device_id = ?', 'user_id = ?']);
+          whereArgs.addAll(<Object>[oldest.deviceId, oldest.userId]);
+        }
+      }
       final rows = await txn.query(
         'collect_events',
-        where: 'state = ? AND app_environment = ?',
-        whereArgs: <Object>[_pendingState, appEnvironment],
+        where: where.join(' AND '),
+        whereArgs: whereArgs,
         orderBy: 'sequence_id ASC',
         limit: limit,
       );
@@ -316,9 +355,9 @@ class MemoryCollectEventStore implements CollectEventStore {
         _rows.where((row) => row.state == _pendingState).toList(growable: false)
           ..sort((a, b) => a.sequence.compareTo(b.sequence));
     if (pending.isEmpty) return null;
-    final appEnvironment = pending.first.event.appEnvironment;
+    final oldest = pending.first.event;
     final selected = pending
-        .where((row) => row.event.appEnvironment == appEnvironment)
+        .where((row) => _hasSameUploadContext(row.event, oldest))
         .take(limit)
         .toList(growable: false);
     final batchId = newCollectEventId();
@@ -515,6 +554,7 @@ class CollectTelemetryUploader {
   bool _started = false;
   bool _checking = false;
   bool _disposed = false;
+  bool _contextCaptured = false;
   CollectStoreStatus _storeStatus = CollectStoreStatus.healthy;
   int _droppedEventCount = 0;
   int _consecutiveUploadFailures = 0;
@@ -547,6 +587,7 @@ class CollectTelemetryUploader {
 
   void setContext(CollectUploadContext context) {
     _context = context;
+    _contextCaptured = true;
   }
 
   void updateMetadataContext({
@@ -559,6 +600,7 @@ class CollectTelemetryUploader {
       appVersion: appVersion,
       deviceId: deviceId,
     );
+    _contextCaptured = true;
   }
 
   void setAppEnvironment(String value) {
@@ -603,8 +645,13 @@ class CollectTelemetryUploader {
         object1: _boundedString(payload['object1'], 2048),
         object2: _boundedString(payload['object2'], 2048),
         object3: _boundedString(payload['object3'], 2048),
-        appEnvironment: _context.appEnvironment,
+        appEnvironment: _context.appEnvironment.trim(),
+        platform: _context.platform.trim(),
+        appVersion: _context.appVersion.trim(),
+        deviceId: _context.deviceId.trim(),
+        userId: _context.userId.trim(),
         includeIdentityHeaders: includeIdentityHeaders,
+        contextCaptured: _contextCaptured,
       );
     } catch (error) {
       _droppedEventCount += 1;
@@ -715,9 +762,9 @@ class CollectTelemetryUploader {
 
   Future<bool> _uploadMemoryFallback() async {
     if (_memoryFallback.isEmpty) return true;
-    final environment = _memoryFallback.first.appEnvironment;
+    final oldest = _memoryFallback.first;
     final batch = _memoryFallback
-        .where((event) => event.appEnvironment == environment)
+        .where((event) => _hasSameUploadContext(event, oldest))
         .take(_batchSize)
         .toList(growable: false);
     final completed = await _uploadWithIsolation(batch);
@@ -742,17 +789,8 @@ class CollectTelemetryUploader {
     }
 
     try {
-      final includeIdentity = events.every(
-        (event) => event.includeIdentityHeaders,
-      );
       await _client!
-          .collectBatch(
-            events,
-            headers: _headers(
-              includeIdentity: includeIdentity,
-              appEnvironment: events.first.appEnvironment,
-            ),
-          )
+          .collectBatch(events, headers: _headers(events.first))
           .timeout(_requestTimeout);
       return true;
     } catch (error) {
@@ -904,19 +942,22 @@ class CollectTelemetryUploader {
     }
   }
 
-  Map<String, String> _headers({
-    required bool includeIdentity,
-    required String appEnvironment,
-  }) {
+  Map<String, String> _headers(CollectEvent event) {
+    final platform = event.contextCaptured ? event.platform : _context.platform;
+    final appVersion = event.contextCaptured
+        ? event.appVersion
+        : _context.appVersion;
+    final deviceId = event.contextCaptured ? event.deviceId : _context.deviceId;
+    final userId = event.contextCaptured ? event.userId : _context.userId;
     return <String, String>{
       for (final entry in <String, String?>{
-        'X-Platform': _collectPlatformHeaderValue(_context.platform),
-        'X-App-Version': _context.appVersion,
-        'x-app-environment': appEnvironment.trim().isEmpty
+        'X-Platform': _collectPlatformHeaderValue(platform),
+        'X-App-Version': appVersion,
+        'x-app-environment': event.appEnvironment.trim().isEmpty
             ? _context.appEnvironment
-            : appEnvironment,
-        if (includeIdentity) 'X-Device-ID': _context.deviceId,
-        if (includeIdentity) 'X-UID': _context.userId,
+            : event.appEnvironment,
+        if (event.includeIdentityHeaders) 'X-Device-ID': deviceId,
+        if (event.includeIdentityHeaders) 'X-UID': userId,
       }.entries)
         if ((entry.value ?? '').trim().isNotEmpty)
           entry.key: entry.value!.trim(),
@@ -943,7 +984,12 @@ Map<String, Object?> _eventToRow(CollectEvent event) {
     'object2': event.object2,
     'object3': event.object3,
     'app_environment': event.appEnvironment,
+    'platform': event.platform,
+    'app_version': event.appVersion,
+    'device_id': event.deviceId,
+    'user_id': event.userId,
     'include_identity_headers': event.includeIdentityHeaders ? 1 : 0,
+    'context_captured': event.contextCaptured ? 1 : 0,
     'state': _pendingState,
     'batch_id': null,
   };
@@ -959,8 +1005,27 @@ CollectEvent _eventFromRow(Map<String, Object?> row) {
     object2: '${row['object2'] ?? ''}',
     object3: '${row['object3'] ?? ''}',
     appEnvironment: '${row['app_environment'] ?? ''}',
+    platform: '${row['platform'] ?? ''}',
+    appVersion: '${row['app_version'] ?? ''}',
+    deviceId: '${row['device_id'] ?? ''}',
+    userId: '${row['user_id'] ?? ''}',
     includeIdentityHeaders: (row['include_identity_headers'] as int? ?? 1) != 0,
+    contextCaptured: (row['context_captured'] as int? ?? 0) != 0,
   );
+}
+
+bool _hasSameUploadContext(CollectEvent left, CollectEvent right) {
+  if (left.appEnvironment != right.appEnvironment ||
+      left.includeIdentityHeaders != right.includeIdentityHeaders ||
+      left.contextCaptured != right.contextCaptured) {
+    return false;
+  }
+  if (!left.contextCaptured) return true;
+  if (left.platform != right.platform || left.appVersion != right.appVersion) {
+    return false;
+  }
+  if (!left.includeIdentityHeaders) return true;
+  return left.deviceId == right.deviceId && left.userId == right.userId;
 }
 
 String _stringValue(Object? value) {
@@ -1046,7 +1111,12 @@ const _createCollectEventsSql = '''
     object2 TEXT NOT NULL,
     object3 TEXT NOT NULL,
     app_environment TEXT NOT NULL DEFAULT '',
+    platform TEXT NOT NULL DEFAULT '',
+    app_version TEXT NOT NULL DEFAULT '',
+    device_id TEXT NOT NULL DEFAULT '',
+    user_id TEXT NOT NULL DEFAULT '',
     include_identity_headers INTEGER NOT NULL,
+    context_captured INTEGER NOT NULL DEFAULT 0,
     state TEXT NOT NULL,
     batch_id TEXT
   )
@@ -1057,7 +1127,47 @@ const _createCollectEventsStateIndexSql = '''
   ON collect_events(state, sequence_id)
 ''';
 
+const _createCollectEventsUploadContextIndexSql = '''
+  CREATE INDEX idx_collect_events_upload_context
+  ON collect_events(
+    state,
+    app_environment,
+    include_identity_headers,
+    context_captured,
+    platform,
+    app_version,
+    device_id,
+    user_id,
+    sequence_id
+  )
+''';
+
 const _addCollectAppEnvironmentSql = '''
   ALTER TABLE collect_events
   ADD COLUMN app_environment TEXT NOT NULL DEFAULT ''
+''';
+
+const _addCollectPlatformSql = '''
+  ALTER TABLE collect_events
+  ADD COLUMN platform TEXT NOT NULL DEFAULT ''
+''';
+
+const _addCollectAppVersionSql = '''
+  ALTER TABLE collect_events
+  ADD COLUMN app_version TEXT NOT NULL DEFAULT ''
+''';
+
+const _addCollectDeviceIdSql = '''
+  ALTER TABLE collect_events
+  ADD COLUMN device_id TEXT NOT NULL DEFAULT ''
+''';
+
+const _addCollectUserIdSql = '''
+  ALTER TABLE collect_events
+  ADD COLUMN user_id TEXT NOT NULL DEFAULT ''
+''';
+
+const _addCollectContextCapturedSql = '''
+  ALTER TABLE collect_events
+  ADD COLUMN context_captured INTEGER NOT NULL DEFAULT 0
 ''';
