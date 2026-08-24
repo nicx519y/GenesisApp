@@ -10284,6 +10284,9 @@ void main() {
   testWidgets('Origin pull refresh reloads first page', (
     WidgetTester tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       MaterialApp(
@@ -10303,6 +10306,51 @@ void main() {
     expect(originRequests, hasLength(2));
     expect(originRequests.last.uri.queryParameters['pn'], '1');
     expect(originRequests.last.uri.queryParameters['rn'], '20');
+    await tester.pump();
+    final loadEvents = telemetry.events
+        .where((event) => event.name == 'worldo_list_load')
+        .toList();
+    expect(loadEvents, hasLength(1));
+    expect(loadEvents.single.data['object1'], 'refresh');
+    expect(loadEvents.single.data['object2'], 1);
+  });
+
+  testWidgets('Origin For you pagination tracks the requested next page', (
+    WidgetTester tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final originFeedScroll = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byKey(
+          const PageStorageKey<String>('origin-feed-For you-foryou'),
+        ),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    originFeedScroll.position.jumpTo(originFeedScroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/origin/list').length, greaterThan(1));
+    await tester.pump();
+    final loadEvents = telemetry.events
+        .where((event) => event.name == 'worldo_list_load')
+        .toList();
+    expect(loadEvents, hasLength(1));
+    expect(loadEvents.single.data['object1'], 'load_more');
+    expect(loadEvents.single.data['object2'], 2);
   });
 
   testWidgets('Origin pull refresh keeps current list until response returns', (

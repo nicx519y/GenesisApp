@@ -257,6 +257,16 @@ class _OriginFeedState extends State<_OriginFeed>
   bool get _isPrimaryFeed =>
       widget.index == 0 && widget.category.scene == 'foryou';
 
+  void _trackForYouListLoad({required String type, required int page}) {
+    if (!_isPrimaryFeed) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_list_load',
+      object1: type,
+      object2: page,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -393,7 +403,16 @@ class _OriginFeedState extends State<_OriginFeed>
         _scrollController.position.extentAfter > _loadMoreThreshold) {
       return;
     }
-    _loadNextPage();
+    if (!_hasMore || _isInitialLoading || _isLoadingMore || _isRefreshing) {
+      return;
+    }
+    _trackForYouListLoad(type: 'load_more', page: _nextPage);
+    unawaited(_loadNextPage());
+  }
+
+  Future<void> _refreshFromPull() {
+    _trackForYouListLoad(type: 'refresh', page: 1);
+    return _refreshItems();
   }
 
   Future<_OriginListPage> _fetchPage(int page) async {
@@ -621,7 +640,7 @@ class _OriginFeedState extends State<_OriginFeed>
     }
 
     return RefreshIndicator(
-      onRefresh: _refreshItems,
+      onRefresh: _refreshFromPull,
       child: _items.isEmpty
           ? ListView(
               key: PageStorageKey<String>(
