@@ -9,10 +9,6 @@ BoxDecoration _originDetailSheetDecoration(BuildContext context) {
   return mapDetailSheetDecoration(context);
 }
 
-BoxDecoration _originDetailSheetOutlineDecoration(BuildContext context) {
-  return mapDetailSheetOutlineDecoration(context);
-}
-
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
@@ -617,68 +613,64 @@ class _OriginDetailDraggableSheetState
               return DecoratedBox(
                 key: const ValueKey<String>('origin-detail-sheet-surface'),
                 decoration: _originDetailSheetDecoration(context),
-                child: DecoratedBox(
-                  position: DecorationPosition.foreground,
-                  decoration: _originDetailSheetOutlineDecoration(context),
-                  child: ClipRRect(
-                    borderRadius: _originDetailSheetBorderRadius,
-                    child: Padding(
-                      key: const ValueKey<String>(
-                        'origin-detail-bottom-safe-area',
+                child: ClipRRect(
+                  borderRadius: _originDetailSheetBorderRadius,
+                  child: Padding(
+                    key: const ValueKey<String>(
+                      'origin-detail-bottom-safe-area',
+                    ),
+                    padding: EdgeInsets.only(
+                      bottom: GenesisSafeAreaInsets.bottom(
+                        context,
+                        minimum: originWorldDetailBottomSafeAreaMinimum,
                       ),
-                      padding: EdgeInsets.only(
-                        bottom: GenesisSafeAreaInsets.bottom(
-                          context,
-                          minimum: originWorldDetailBottomSafeAreaMinimum,
-                        ),
-                      ),
-                      child: ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(
-                          context,
-                        ).copyWith(overscroll: false),
-                        child: Stack(
-                          children: [
-                            NotificationListener<ScrollEndNotification>(
-                              onNotification: _handlePageScrollEnd,
-                              child: PageView.builder(
-                                key: const ValueKey<String>(
-                                  'origin-detail-sheet-pages',
-                                ),
-                                controller: _pageController,
-                                itemCount: 2,
-                                physics: const PageScrollPhysics(),
-                                itemBuilder: (context, page) {
-                                  final pageScrollController =
-                                      page == _currentPage
-                                      ? scrollController
-                                      : page == _originOpeningPageIndex
-                                      ? _openingPreviewScrollController
-                                      : _infoPreviewScrollController;
-                                  return page == _originOpeningPageIndex
-                                      ? _buildOpeningPage(
-                                          pageScrollController,
-                                          initialDialoguePreview,
-                                        )
-                                      : _buildInfoPage(pageScrollController);
-                                },
+                    ),
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(
+                        context,
+                      ).copyWith(overscroll: false),
+                      child: Stack(
+                        children: [
+                          NotificationListener<ScrollEndNotification>(
+                            onNotification: _handlePageScrollEnd,
+                            child: PageView.builder(
+                              key: const ValueKey<String>(
+                                'origin-detail-sheet-pages',
                               ),
+                              controller: _pageController,
+                              itemCount: 2,
+                              physics: const PageScrollPhysics(),
+                              itemBuilder: (context, page) {
+                                final pageScrollController =
+                                    page == _currentPage
+                                    ? scrollController
+                                    : page == _originOpeningPageIndex
+                                    ? _openingPreviewScrollController
+                                    : _infoPreviewScrollController;
+                                return page == _originOpeningPageIndex
+                                    ? _buildOpeningPage(
+                                        pageScrollController,
+                                        initialDialoguePreview,
+                                      )
+                                    : _buildInfoPage(pageScrollController);
+                              },
                             ),
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              top: originDetailSheetHandleTopOffsetForTesting,
-                              child: IgnorePointer(
-                                child: _buildAnimatedPageIndicator(),
-                              ),
+                          ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: originDetailSheetHandleTopOffsetForTesting,
+                            child: IgnorePointer(
+                              child: _buildAnimatedPageIndicator(),
                             ),
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: _buildCollapsedOpeningRoleAction(),
-                            ),
-                          ],
-                        ),
+                          ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: _buildCollapsedOpeningRoleAction(),
+                          ),
+                        ],
                       ),
                     ),
                   ),

@@ -287,27 +287,29 @@ class WorldInfoHeader extends StatelessWidget {
           height: worldInfoHeaderHeight - 1,
           child: Padding(
             // 设计稿 `padding:0 20px 13px` 是相对浮窗边缘量的;这里外层容器
-            // 已经带了 12px,内层只补 8 —— 8+12=20 才是头像盒的左边,2px 红环
-            // 再外扩到 18,与下方 Detail 药丸的左边缘对齐。
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 13),
+            // 已经带了 12px,内层补 6 —— 12+6=18,头像盒(红环外缘)与下方
+            // Detail 药丸的左边缘对齐,图像左边仍落在 20。
+            padding: const EdgeInsets.fromLTRB(6, 0, 8, 13),
             child: Row(
               children: [
                 Container(
                   key: const ValueKey<String>('world-playing-avatar'),
-                  // 设计稿原文:头像 `width:40px;height:40px;border-radius:12px`
-                  // 外加 `box-shadow:0 0 0 2px #F82B3C` 的 2px 红环 = 外框 44。
-                  width: 44,
-                  height: 44,
+                  // 与详情页 Cast 行同规格:外框 worldCharacterAvatarLogicalSize、
+                  // 圆角 worldCharacterAvatarRadius,2px 红环收在框内。
+                  width: worldCharacterAvatarLogicalSize,
+                  height: worldCharacterAvatarLogicalSize,
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     color: context.genesisColors.danger,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(
+                      worldCharacterAvatarRadius,
+                    ),
                   ),
                   child: GenesisAvatar(
                     name: characterName,
                     url: avatarUrl,
-                    size: 40,
-                    borderRadius: 12,
+                    size: worldCharacterAvatarLogicalSize - 4,
+                    borderRadius: worldCharacterAvatarRadius - 2,
                     alignment: Alignment.topCenter,
                     showFallbackWhileLoading: false,
                   ),

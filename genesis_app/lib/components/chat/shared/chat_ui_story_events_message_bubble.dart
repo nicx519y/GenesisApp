@@ -275,14 +275,11 @@ class _ChatTickSceneStoryEventParagraph extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(top: 3),
-                        child: SvgPicture.asset(
-                          clueIconAsset,
-                          width: 12,
-                          height: 12,
-                          colorFilter: ColorFilter.mode(
-                            chatTheme.tickClue,
-                            BlendMode.srcIn,
+                        child: _ChatStoryEventKeyIcon(
+                          key: ValueKey<String>(
+                            'chat-story-event-key-icon-$messageLocalId-$index',
                           ),
+                          color: chatTheme.tickClue,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -377,6 +374,62 @@ class _ChatTickSceneVisibleRole extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// 1r's clue key: the bow sits top-left, the shaft runs to the bottom-right
+/// corner with one tooth off it - a 14-unit glyph at stroke 1.4, same family
+/// and size as the movement glyph beside it. The shared clue asset is the
+/// mirrored, filled version of this and scales down with thinned edges, so
+/// the row draws the 1r geometry instead.
+class _ChatStoryEventKeyIcon extends StatelessWidget {
+  const _ChatStoryEventKeyIcon({super.key, required this.color});
+
+  static const double _size = 13;
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: CustomPaint(painter: _ChatStoryEventKeyIconPainter(color: color)),
+    );
+  }
+}
+
+class _ChatStoryEventKeyIconPainter extends CustomPainter {
+  const _ChatStoryEventKeyIconPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 14;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas
+      ..drawCircle(Offset(4.4 * scale, 4.4 * scale), 2.6 * scale, paint)
+      ..drawLine(
+        Offset(6.4 * scale, 6.4 * scale),
+        Offset(12 * scale, 12 * scale),
+        paint,
+      )
+      ..drawLine(
+        Offset(9.6 * scale, 9.6 * scale),
+        Offset(11 * scale, 8.2 * scale),
+        paint,
+      );
+  }
+
+  @override
+  bool shouldRepaint(_ChatStoryEventKeyIconPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 

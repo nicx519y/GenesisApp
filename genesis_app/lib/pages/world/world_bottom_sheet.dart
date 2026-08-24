@@ -754,13 +754,6 @@ class WorldSingleSectionBottomSheetState
         ),
         compactSheetStyle: true,
         scrollController: scrollController,
-        header: _WorldLocationsSummary(
-          worldName: _currentWorld.name,
-          zoneCount: locationData.locationNodes.length,
-          placeCount: locationData.points
-              .where((point) => point.isLeafLocation)
-              .length,
-        ),
         onPointTap: (point) {
           final locationId = point.sceneId.trim().isNotEmpty
               ? point.sceneId.trim()
@@ -1053,54 +1046,6 @@ class WorldSingleSectionBottomSheetState
           ),
         );
       },
-    );
-  }
-}
-
-class _WorldLocationsSummary extends StatelessWidget {
-  const _WorldLocationsSummary({
-    required this.worldName,
-    required this.zoneCount,
-    required this.placeCount,
-  });
-
-  final String worldName;
-  final int zoneCount;
-  final int placeCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Expanded(
-            child: Text(
-              worldName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: context.genesisColors.textPrimary,
-                fontSize: 13,
-                height: 1,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 9),
-          Text(
-            '$zoneCount zones · $placeCount places',
-            style: TextStyle(
-              color: context.genesisColors.textMetadata,
-              fontSize: 9.5,
-              height: 1,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

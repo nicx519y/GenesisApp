@@ -19,8 +19,9 @@ const double worldSheetTitleBottomGap = 8;
 const double worldPanelHandleBandHeight = 26;
 const double worldMainTabsHeight = 45;
 const double worldBottomTagHeight = 34;
-// 设计稿原文:Playing 行 `padding:0 20px 13px`,头像 40 + 2px 红环 = 44。
-const double worldInfoHeaderHeight = 57;
+// Playing 行:头像外框 48(与详情页 Cast 行同规格,红环内置)+ 13 下内边距
+// + 1 分隔线。
+const double worldInfoHeaderHeight = 62;
 // 34 是设计稿里最常用的控件高度(34 次):Home 搜索方块、Info 玻璃片、
 // 9i 的 Select 按钮都是它。原先的 40 比同级控件高一档。
 const double worldInfoHeaderContentHeight = 34;
@@ -33,7 +34,13 @@ const double worldSecondaryMapControlWidth = 160;
 const double worldTimePillHorizontalPadding = 12;
 const double worldMapContentTopOffset =
     worldMapTabsHeight + worldTimePillTopGap + worldTimePillHeight + 8;
+/// Detail/Cast 行头像的显示 = 拉取尺寸。设计稿 9f 是 40,放大一档到 48
+/// (56 试过,太大)。
 const double worldCharacterAvatarLogicalSize = 48;
+
+/// Detail/Cast 行头像圆角。设计稿 9f 头像原生就是 12,
+/// 也落在封面(9)与 Status 卡片头像(13)之间。
+const double worldCharacterAvatarRadius = 12;
 const int worldMainPageCount = 1;
 
 const TextStyle worldHeaderMetaTextStyle = TextStyle(
@@ -81,12 +88,14 @@ const double worldDetailSheetHeaderHeight = 68;
 /// 标题行在固定头里的起始位置(页码条整段的下沿)。
 const double worldDetailSheetHeaderTitleTop = 30;
 
-/// 分区之间的间距。设计稿 9f 里 World brief / Cast 两处标题都是 `margin-top:17px`。
-const double worldDetailSectionGap = 17;
+/// 详情页纵向节奏,三档从紧到松:
+///   标题→正文 12  <  Cast 行间 24  <  分区间 28
+/// 标题必须离自己的正文最近(邻近原则),分区断点必须比行间距大才读得出来。
+/// 设计稿 9f 原文是 20/17,标题反而比分区间距更远,这里按上述层级修正。
+const double worldDetailSectionGap = 28;
 
-/// 分区标题到它下面第一块内容的间距。设计稿 brief 是 9+11、Cast 是 10+11,
-/// 落地统一到 20 —— 原先 Cast 那侧只有 12~17,和 brief 对不齐。
-const double worldDetailSectionTitleContentGap = 20;
+/// 分区标题到它下面第一块内容的间距,约为 Cast 行间距的一半。
+const double worldDetailSectionTitleContentGap = 12;
 
 /// Cast 标题到第一个角色行要补的间距。角色行自身还带
 /// worldCharacterRowVerticalPadding 的上内边距,两者相加才是

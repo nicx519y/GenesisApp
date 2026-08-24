@@ -177,14 +177,24 @@ void main() {
 
       expect(find.text('Tick 1-1'), findsOneWidget);
       expect(find.text('Tick 0-1'), findsOneWidget);
-      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+      expect(find.textContaining(kAiContentDisclaimerText), findsOneWidget);
+      // 声明与 tick 卡片同宽,不额外内缩左右(曾两次被旧编辑器缓冲盖回)。
+      final disclaimerWidget = tester.widget<AiContentDisclaimer>(
+        find.byType(AiContentDisclaimer),
+      );
       expect(
-        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
+        disclaimerWidget.padding,
+        const EdgeInsets.fromLTRB(0, 0, 0, 18),
+      );
+
+      // 正序展示:声明在最顶,往下依次是最早到最新的 tick。
+      expect(
+        tester.getTopLeft(find.textContaining(kAiContentDisclaimerText)).dy,
         lessThan(tester.getTopLeft(find.text('Tick 0-1')).dy),
       );
       expect(
-        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
-        greaterThan(tester.getTopLeft(find.text('Tick 1-1')).dy),
+        tester.getTopLeft(find.text('Tick 0-1')).dy,
+        lessThan(tester.getTopLeft(find.text('Tick 1-1')).dy),
       );
     },
   );
@@ -249,11 +259,12 @@ void main() {
         GenesisPalette.redesignInk80,
       );
       expect(find.text('Follow the light toward the gate.'), findsOneWidget);
+      // hint 的钥匙改为与对话页 tick 框同款的手绘钥匙。
       expect(
         find.byWidgetPredicate(
           (widget) =>
-              widget is SvgPicture &&
-              widget.bytesLoader.toString().contains(clueIconAsset),
+              widget is CustomPaint &&
+              widget.painter.runtimeType.toString() == '_EventKeyIconPainter',
         ),
         findsOneWidget,
       );
@@ -343,42 +354,47 @@ void main() {
       tester.widget<Text>(find.text('Day 4, 20:25')).style?.color,
       GenesisPalette.redesignInk80,
     );
-    expect(
-      tester.widget<Text>(find.text(aiRoleName)).style?.color,
-      GenesisPalette.redesignInk60,
-    );
-    expect(
-      tester.widget<Text>(find.text('Iris')).style?.color,
-      GenesisPalette.redesignInk60,
-    );
-    final aiIcon = find.byWidgetPredicate(
+
+    // 角色气泡与对话页 tick 框同款:名字 11/800,玩家全亮,AI 72%。
+    final aiName = tester.widget<Text>(find.text(aiRoleName));
+    final playerName = tester.widget<Text>(find.text('Iris'));
+    expect(aiName.style?.fontSize, 11);
+    expect(aiName.style?.fontWeight, FontWeight.w800);
+    expect((aiName.style?.color)?.a, closeTo(0.72, 0.001));
+    expect((playerName.style?.color)?.a, closeTo(1, 0.001));
+
+    // 玩家头像带 1.5px 红环,AI 没有;旧的 stat icon 不再出现。
+    bool hasRoleRing(String name) => find
+        .ancestor(of: find.text(name), matching: find.byType(Container))
+        .evaluate()
+        .any((element) {
+          final decoration =
+              (element.widget as Container).foregroundDecoration;
+          return decoration is BoxDecoration &&
+              decoration.border is Border &&
+              (decoration.border! as Border).top.width == 1.5;
+        });
+    expect(hasRoleRing('Iris'), isFalse); // 环在头像上,不在名字的祖先里
+    final rings = find.byWidgetPredicate(
       (widget) =>
-          widget is SvgPicture &&
-          widget.bytesLoader.toString().contains(characterStatIconAsset),
+          widget is Container &&
+          widget.foregroundDecoration is BoxDecoration &&
+          (widget.foregroundDecoration! as BoxDecoration).border is Border,
     );
-    final userIcon = find.byWidgetPredicate(
-      (widget) =>
-          widget is SvgPicture &&
-          widget.bytesLoader.toString().contains(userStatIconAsset),
-    );
-    expect(aiIcon, findsOneWidget);
-    expect(userIcon, findsOneWidget);
+    expect(rings, findsOneWidget);
+    for (final asset in [characterStatIconAsset, userStatIconAsset]) {
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SvgPicture &&
+              widget.bytesLoader.toString().contains(asset),
+        ),
+        findsNothing,
+      );
+    }
     expect(
       tester.getTopLeft(find.text('Day 4, 20:25')).dy,
       lessThan(tester.getTopLeft(find.text(aiRoleName)).dy),
-    );
-    expect(tester.getSize(find.text(aiRoleName)).width, greaterThan(224));
-    expect(
-      tester.getSize(find.text(aiRoleName)).height,
-      greaterThanOrEqualTo(11),
-    );
-    expect(
-      tester.getTopLeft(aiIcon).dy,
-      closeTo(tester.getTopLeft(find.text(aiRoleName)).dy + 2, 0.1),
-    );
-    expect(
-      tester.getTopLeft(find.text('Iris')).dy,
-      greaterThanOrEqualTo(tester.getTopLeft(find.text(aiRoleName)).dy),
     );
   });
 
@@ -429,7 +445,7 @@ void main() {
     expect(find.textContaining('Sub tick').evaluate().length, lessThan(500));
   });
 
-  testWidgets('upward scroll reveals the previous tick in the same list', (
+  testWidgets('pulling toward history reveals the previous tick in the same list', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -484,7 +500,7 @@ void main() {
         )
         .controller!
         .offset;
-    await tester.drag(list, const Offset(0, -300));
+    await tester.drag(list, const Offset(0, 300));
     await tester.pumpAndSettle();
 
     expect(find.text('Previous tick body'), findsOneWidget);
@@ -499,7 +515,7 @@ void main() {
     );
   });
 
-  testWidgets('upward pull near the history edge requests older ticks', (
+  testWidgets('pull toward the history edge requests older ticks', (
     tester,
   ) async {
     var loadMoreCount = 0;
@@ -540,7 +556,7 @@ void main() {
     expect(find.text('Tick 4 body'), findsOneWidget);
     await tester.drag(
       find.byType(CustomScrollView).last,
-      const Offset(0, -300),
+      const Offset(0, 300),
     );
     await tester.pumpAndSettle();
 
@@ -612,19 +628,19 @@ void main() {
     await tester.pump();
 
     final list = find.byKey(const ValueKey<String>('world-events-tick-list'));
-    await tester.drag(list, const Offset(0, -1000));
+    await tester.drag(list, const Offset(0, 1000));
     await tester.pumpAndSettle();
 
     expect(loadMoreCount, 1);
     expect(scrollController.offset, greaterThan(0));
     expect(find.byType(PageView), findsNothing);
-    await tester.drag(list, const Offset(0, -400));
+    await tester.drag(list, const Offset(0, 400));
     await tester.pumpAndSettle();
     expect(find.text('Loaded older tick body'), findsOneWidget);
   });
 
   testWidgets(
-    'scroll-to-top button appears after scrolling and returns latest',
+    'back-to-latest button appears after scrolling and returns latest',
     (tester) async {
       final scrollController = ScrollController();
       addTearDown(scrollController.dispose);
@@ -674,7 +690,7 @@ void main() {
 
       expect(button, findsOneWidget);
       expect(buttonOpacity().opacity, 0);
-      await tester.drag(list, const Offset(0, -700));
+      await tester.drag(list, const Offset(0, 700));
       await tester.pumpAndSettle();
 
       expect(scrollController.offset, greaterThan(320));
@@ -687,7 +703,7 @@ void main() {
       final buttonIcon = tester.widget<Icon>(
         find.descendant(of: button, matching: find.byType(Icon)),
       );
-      expect(buttonIcon.icon, Icons.keyboard_double_arrow_up_rounded);
+      expect(buttonIcon.icon, Icons.keyboard_double_arrow_down_rounded);
       expect(buttonIcon.size, 22);
       await tester.tap(button);
       await tester.pumpAndSettle();

@@ -228,7 +228,6 @@ void main() {
     expect(locationsSectionBuilder, contains('overscroll: false'));
     expect(eventsSectionBuilder, contains('worldDetailSheetHeaderHeight'));
     expect(locationsSectionBuilder, contains('worldDetailSheetHeaderHeight'));
-    expect(singleSectionSheet, contains('Expanded('));
     expect(singleSectionSheet, contains('_buildSheetContent('));
     expect(singleSectionSheet, contains('_pagePreviewScrollControllers'));
     expect(

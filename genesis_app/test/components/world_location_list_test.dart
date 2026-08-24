@@ -233,7 +233,7 @@ void main() {
       const MaterialApp(
         home: Scaffold(
           body: SizedBox(
-            width: 390,
+            width: 560,
             child: WorldLocationList(
               points: <WorldPoint>[],
               locationNodes: <WorldMapLocationNode>[
@@ -275,7 +275,131 @@ void main() {
     expect(nameParagraph.didExceedMaxLines, isFalse);
     expect(
       tester.getRect(find.text(groupName)).right,
-      lessThan(tester.getRect(find.text('Empty')).left),
+      lessThan(tester.getRect(find.text('1 place · Empty')).left),
     );
+  });
+
+  testWidgets('compact tree hangs one 5d-style guide per L2 block', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            height: 800,
+            child: WorldLocationList(
+              points: <WorldPoint>[],
+              locationNodes: <WorldMapLocationNode>[
+                WorldMapLocationNode(
+                  id: 'zone',
+                  point: WorldPoint(
+                    id: 'zone',
+                    name: 'Ashford Estate',
+                    type: WorldPointType.castle,
+                    position: Offset.zero,
+                    users: <UserAvatar>[],
+                    isLeafLocation: false,
+                  ),
+                  children: <WorldMapLocationNode>[
+                    WorldMapLocationNode(
+                      id: 'main-house',
+                      point: WorldPoint(
+                        id: 'main-house',
+                        name: 'The Main House',
+                        type: WorldPointType.castle,
+                        position: Offset.zero,
+                        users: <UserAvatar>[],
+                        isLeafLocation: false,
+                      ),
+                      children: <WorldMapLocationNode>[
+                        WorldMapLocationNode(
+                          id: 'ballroom',
+                          point: WorldPoint(
+                            id: 'ballroom',
+                            name: 'Grand Ballroom',
+                            type: WorldPointType.castle,
+                            position: Offset.zero,
+                            users: <UserAvatar>[],
+                          ),
+                        ),
+                      ],
+                    ),
+                    WorldMapLocationNode(
+                      id: 'east-wing',
+                      point: WorldPoint(
+                        id: 'east-wing',
+                        name: 'The East Wing',
+                        type: WorldPointType.castle,
+                        position: Offset.zero,
+                        users: <UserAvatar>[],
+                        isLeafLocation: false,
+                      ),
+                      children: <WorldMapLocationNode>[
+                        WorldMapLocationNode(
+                          id: 'library',
+                          point: WorldPoint(
+                            id: 'library',
+                            name: 'The Library',
+                            type: WorldPointType.castle,
+                            position: Offset.zero,
+                            users: <UserAvatar>[],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+              compactSheetStyle: true,
+              enableOuterScrollHandoff: false,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // L1 15/600,L2、L3 13/600。
+    for (final (name, size) in [
+      ('Ashford Estate', 15.0),
+      ('The Main House', 13.0),
+      ('Grand Ballroom', 13.0),
+    ]) {
+      final text = tester.widget<Text>(find.text(name));
+      expect(text.style!.fontSize, size, reason: name);
+      expect(text.style!.fontWeight, FontWeight.w600, reason: name);
+    }
+
+    bool hasGuide(String name) => find
+        .ancestor(of: find.text(name), matching: find.byType(DecoratedBox))
+        .evaluate()
+        .any((element) {
+          final decoration =
+              (element.widget as DecoratedBox).decoration as BoxDecoration;
+          return decoration.border is Border &&
+              (decoration.border! as Border).left.width == 1;
+        });
+
+    // L1 无线;L2 头与 L3 行挂同一条 1px 线。
+    expect(hasGuide('Ashford Estate'), isFalse);
+    expect(hasGuide('The Main House'), isTrue);
+    expect(hasGuide('Grand Ballroom'), isTrue);
+
+    // 两个 L2 块之间有 12px 无线空隙(断点):
+    // 上一块的末行底边到下一块 L2 头的线顶差 12。
+    Rect guideRect(String name) => tester.getRect(
+      find
+          .ancestor(of: find.text(name), matching: find.byType(DecoratedBox))
+          .last,
+    );
+    final firstBlockLeaf = guideRect('Grand Ballroom');
+    final secondBlockHead = guideRect('The East Wing');
+    expect(secondBlockHead.top - firstBlockLeaf.bottom, closeTo(12, 0.01));
+    // 断点两侧的线落在同一 x 上。
+    expect(secondBlockHead.left, firstBlockLeaf.left);
+
+    // 计数只在 L1 上:地点数 + 在场人数。
+    expect(find.text('2 places · Empty'), findsOneWidget);
+    expect(find.text('Empty'), findsNothing);
   });
 }

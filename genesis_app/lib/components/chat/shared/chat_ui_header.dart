@@ -79,7 +79,7 @@ class ChatHeader extends StatelessWidget {
         titleOverlineStyle ??
         style.headerTitleTextStyle.copyWith(
           fontSize: 12,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
           height: 1,
           color: (style.headerTitleTextStyle.color ?? const Color(0xFFFFFFFF))
               .withValues(alpha: 0.45),

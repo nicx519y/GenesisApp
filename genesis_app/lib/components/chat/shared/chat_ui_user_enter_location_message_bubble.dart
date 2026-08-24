@@ -27,7 +27,7 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
       style.systemMessageTextStyle.copyWith(
         color: chatTheme.enterLocationForeground,
         fontSize: 13,
-        fontWeight: usesScenePlate ? FontWeight.w800 : FontWeight.w600,
+        fontWeight: FontWeight.w600,
         height: usesScenePlate ? 1 : 16 / 13,
       ),
     );

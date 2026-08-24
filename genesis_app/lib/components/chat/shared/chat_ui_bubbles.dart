@@ -194,17 +194,22 @@ class ChatAvatar extends StatelessWidget {
 }
 
 class ChatNpcAvatar extends StatelessWidget {
-  const ChatNpcAvatar({super.key});
+  const ChatNpcAvatar({super.key, this.style});
+
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? context.genesisChatTheme.standard;
     return SizedBox.square(
       key: ValueKey('chat-npc-avatar'),
       dimension: _npcChatAvatarSize,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.genesisChatTheme.npcAvatarBackground,
-          shape: BoxShape.circle,
+          // Same rounded square as the role and user avatars - the circle was
+          // the one avatar shape in the room that didn't match.
+          borderRadius: BorderRadius.circular(style.avatarBorderRadius),
           border: Border.all(
             color: context.genesisChatTheme.npcAvatarBorder,
             width: 1,

@@ -347,6 +347,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
                 widget.recentChatLocationIds,
               ),
               onTap: widget.onNodeHeaderTap,
+              placeCount: _countLeafPlaces(node),
             ),
       );
       rows.addAll(_buildEagerNodeRowsAtLevel(node.children, level + 1));
@@ -468,6 +469,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
             widget.recentChatLocationIds,
           ),
           onTap: widget.onNodeHeaderTap,
+          placeCount: _countLeafPlaces(node),
         );
   }
 
@@ -651,7 +653,7 @@ class _PointListItem extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (showRecentChatIcon) ...[
+                      if (showRecentChatIcon && !compactSheetStyle) ...[
                         SizedBox(width: 5),
                         const RecentChatIcon(),
                       ],
@@ -684,6 +686,7 @@ class _NodeHeader extends StatelessWidget {
     required this.compactSheetStyle,
     required this.showRecentChatIcon,
     required this.onTap,
+    this.placeCount = 0,
   });
 
   final WorldPoint point;
@@ -692,62 +695,115 @@ class _NodeHeader extends StatelessWidget {
   final bool showRecentChatIcon;
   final ValueChanged<WorldPoint>? onTap;
 
+  /// 该 zone 下叶子地点的数量,只在 L1 头右侧展示。
+  final int placeCount;
+
   @override
   Widget build(BuildContext context) {
+    final row = Row(
+      children: [
+        Expanded(
+          child: Text(
+            compactSheetStyle ? point.name : '- ${point.name}',
+            style: _locationNameStyle(
+              context,
+              level,
+              compactSheetStyle: compactSheetStyle,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        // 计数只留在 L1:地点数 + 在场人数。
+        if (compactSheetStyle && level == 0) ...[
+          const SizedBox(width: 12),
+          Text(
+            '$placeCount ${placeCount == 1 ? 'place' : 'places'} · '
+            '${point.users.isEmpty ? 'Empty' : '${point.users.length} here'}',
+            style: TextStyle(
+              color: context.genesisColors.textSecondary,
+              fontSize: 9.5,
+              height: 1,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        if (showRecentChatIcon && !compactSheetStyle) ...[
+          SizedBox(width: 5),
+          const RecentChatIcon(),
+        ],
+      ],
+    );
+    if (!compactSheetStyle) {
+      return InkWell(
+        onTap: onTap == null ? null : () => onTap!(point),
+        child: Container(
+          margin: EdgeInsets.only(left: level * 15.0),
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: row,
+        ),
+      );
+    }
     return InkWell(
       onTap: onTap == null ? null : () => onTap!(point),
-      child: Container(
-        margin: EdgeInsets.only(left: level * 15.0),
-        padding: EdgeInsets.fromLTRB(
-          compactSheetStyle ? 13 : 0,
-          compactSheetStyle ? 9 : 5,
-          0,
-          compactSheetStyle ? 2 : 5,
-        ),
-        decoration: compactSheetStyle
-            ? const BoxDecoration(
-                border: Border(
-                  left: BorderSide(
-                    color: GenesisPalette.redesignWhite22,
-                    width: 2,
-                  ),
-                ),
-              )
-            : null,
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                compactSheetStyle ? point.name : '- ${point.name}',
-                style: _locationNameStyle(
-                  context,
-                  level,
-                  compactSheetStyle: compactSheetStyle,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (compactSheetStyle) ...[
-              const SizedBox(width: 12),
-              Text(
-                point.users.isEmpty ? 'Empty' : '${point.users.length} here',
-                style: TextStyle(
-                  color: context.genesisColors.textSecondary,
-                  fontSize: 9.5,
-                  height: 1,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-            if (showRecentChatIcon) ...[
-              SizedBox(width: 5),
-              const RecentChatIcon(),
-            ],
-          ],
-        ),
+      child: _LocationTreeGuides(
+        level: level,
+        // L1 头维持 9/2 的呼吸;L2 头贴住自己那段线的顶端(5d 里
+        // L2 标题就在块顶),断点由 breakAbove 的 12px 提供。
+        padding: level <= 0
+            ? const EdgeInsets.fromLTRB(0, 9, 0, 2)
+            : const EdgeInsets.fromLTRB(0, 0, 0, 2),
+        breakAbove: level >= 1,
+        child: row,
       ),
     );
+  }
+}
+
+/// 树形导引线,样式对齐设计稿 5d:L1 不挂线;每个 L2 块(L2 头 + 它的
+/// L3 行)外侧一条 `1px rgba(255,255,255,.12)` 的竖线、内容内缩 13,
+/// L3 行再内缩 6。L2 头上方留 12px 的无线空隙 —— 线在每个 L2 处自然断开。
+/// 列表是逐行懒构建的,每行画自己那段线,段与段在块内首尾相接。
+class _LocationTreeGuides extends StatelessWidget {
+  const _LocationTreeGuides({
+    required this.level,
+    required this.padding,
+    required this.child,
+    this.breakAbove = false,
+  });
+
+  /// 0 = L1 头(无线),>=1 = L2 块内的行(挂线)。
+  final int level;
+  final EdgeInsets padding;
+  final Widget child;
+
+  /// 设计稿 5d 每个 L2 块 `margin-top:12`:这段外边距上没有线,
+  /// 相邻两个 L2 块的线就断开了。只在 L2 头上打开。
+  final bool breakAbove;
+
+  static const double _lineContentInset = 13;
+  static const double _leafExtraInset = 6;
+  static const double _blockGap = 12;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(padding: padding, child: child);
+    if (level <= 0) return content;
+    final lined = DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(
+          left: BorderSide(color: GenesisPalette.redesignWhite12, width: 1),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: _lineContentInset + (level - 1) * _leafExtraInset,
+        ),
+        child: content,
+      ),
+    );
+    if (!breakAbove) return lined;
+    return Padding(padding: const EdgeInsets.only(top: _blockGap), child: lined);
   }
 }
 
@@ -773,28 +829,7 @@ class _LocationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final description = point.locationDescription.trim();
-    return InkWell(
-      key: ValueKey<String>('world-location-card-${point.id}'),
-      onTap: onTap == null ? null : () => onTap!(targetPoint),
-      child: Container(
-        margin: EdgeInsets.only(left: indent),
-        padding: EdgeInsets.fromLTRB(
-          compactSheetStyle ? 15 : 0,
-          compactSheetStyle ? 10 : 5,
-          0,
-          compactSheetStyle ? 10 : 5,
-        ),
-        decoration: compactSheetStyle
-            ? BoxDecoration(
-                border: Border(
-                  left: BorderSide(
-                    color: context.genesisColors.border,
-                    width: 1.5,
-                  ),
-                ),
-              )
-            : null,
-        child: Row(
+    final body = Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _LocationCardCover(
@@ -828,7 +863,7 @@ class _LocationCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (showRecentChatIcon) ...[
+                      if (showRecentChatIcon && !compactSheetStyle) ...[
                         SizedBox(width: 5),
                         const RecentChatIcon(),
                       ],
@@ -848,8 +883,21 @@ class _LocationCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
+        );
+    return InkWell(
+      key: ValueKey<String>('world-location-card-${point.id}'),
+      onTap: onTap == null ? null : () => onTap!(targetPoint),
+      child: compactSheetStyle
+          ? _LocationTreeGuides(
+              level: level,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: body,
+            )
+          : Container(
+              margin: EdgeInsets.only(left: indent),
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: body,
+            ),
     );
   }
 }
@@ -860,10 +908,11 @@ TextStyle _locationNameStyle(
   bool compactSheetStyle = false,
 }) {
   if (compactSheetStyle) {
+    // L1 提到 15,L2/L3 维持 13;字重统一 600。
     return TextStyle(
-      fontSize: 13,
+      fontSize: level <= 0 ? 15 : 13,
       height: 1.15,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w600,
       color: context.genesisColors.textPrimary,
     );
   }
@@ -880,6 +929,16 @@ TextStyle _locationNameStyle(
     fontWeight: level == 1 ? FontWeight.w600 : FontWeight.w400,
     color: context.genesisColors.textPrimary,
   );
+}
+
+/// 统计一个节点下叶子地点的数量(与叶子行的判定一致)。
+int _countLeafPlaces(WorldMapLocationNode node) {
+  if (node.children.isEmpty) return node.point.isLeafLocation ? 1 : 0;
+  var count = 0;
+  for (final child in node.children) {
+    count += _countLeafPlaces(child);
+  }
+  return count;
 }
 
 bool _pointMatchesLocationIds(WorldPoint point, Set<String> locationIds) {
@@ -926,23 +985,25 @@ class _PointCharacterGroups extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // 与对话页 tick 的角色气泡同规格:18px、圆角 6、
+                  // 玩家红环 1.5px 压在图上。
                   Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
+                    width: 18,
+                    height: 18,
+                    foregroundDecoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(6),
                       border: user.isPlayerControlledRole
                           ? Border.all(
                               color: context.genesisColors.danger,
-                              width: 2,
+                              width: 1.5,
                             )
                           : null,
                     ),
                     child: GenesisListImage(
                       imageUrl: user.avatarUrl,
-                      width: 16,
-                      height: 16,
-                      borderRadius: BorderRadius.circular(5),
+                      width: 18,
+                      height: 18,
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   const SizedBox(width: 5),
@@ -952,7 +1013,7 @@ class _PointCharacterGroups extends StatelessWidget {
                       fontSize: 11,
                       height: 1,
                       fontWeight: user.isPlayerControlledRole
-                          ? FontWeight.w800
+                          ? FontWeight.w700
                           : FontWeight.w600,
                       color: user.isPlayerControlledRole
                           ? context.genesisColors.textPrimary

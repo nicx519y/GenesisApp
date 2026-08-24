@@ -72,80 +72,84 @@ class ChatComposer extends StatelessWidget {
                     SizedBox(width: style.composerLeadingGap),
                   ],
                   Expanded(
-                    child: Container(
-                      key: const ValueKey<String>('chat-composer-input'),
-                      constraints: BoxConstraints(
-                        minHeight: style.inputMinHeight,
-                        maxHeight: style.inputMaxHeight,
-                      ),
-                      decoration: BoxDecoration(
-                        color: style.inputBackgroundColor,
-                        borderRadius: BorderRadius.circular(
-                          style.inputBorderRadius,
+                    child: _ChatComposerInputSurface(
+                      style: style,
+                      borderRadius: style.inputBorderRadius,
+                      child: Container(
+                        key: const ValueKey<String>('chat-composer-input'),
+                        constraints: BoxConstraints(
+                          minHeight: style.inputMinHeight,
+                          maxHeight: style.inputMaxHeight,
                         ),
-                        border: style.inputBorderWidth > 0
-                            ? Border.all(
-                                color: style.inputBorderColor,
-                                width: style.inputBorderWidth,
-                              )
-                            : null,
-                      ),
-                      child: Row(
-                        children: [
-                          if (leadingShortcutLabel != null)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: _ComposerShortcutButton(
-                                label: leadingShortcutLabel!,
-                                onPressed: onLeadingShortcutPressed,
-                                style: style,
-                              ),
-                            ),
-                          Expanded(
-                            child: _ComposerSelectionScope(
-                              color: style.composerCursorColor,
-                              child: TextField(
-                                controller: controller,
-                                focusNode: focusNode,
-                                enabled: inputEnabled,
-                                minLines: style.inputMinLines,
-                                maxLines: style.inputMaxLines,
-                                keyboardType: submitFromKeyboard
-                                    ? TextInputType.text
-                                    : TextInputType.multiline,
-                                textInputAction: submitFromKeyboard
-                                    ? TextInputAction.send
-                                    : TextInputAction.newline,
-                                onTapOutside: (_) => FocusManager
-                                    .instance
-                                    .primaryFocus
-                                    ?.unfocus(),
-                                onTap: onInputTap,
-                                cursorColor: style.composerCursorColor,
-                                onSubmitted: submitFromKeyboard
-                                    ? (_) {
-                                        if (sendEnabled) unawaited(onSend());
-                                      }
-                                    : null,
-                                style: GenesisTypography.withFallback(
-                                  style.inputTextStyle,
+                        decoration: BoxDecoration(
+                          color: style.inputBackgroundColor,
+                          borderRadius: BorderRadius.circular(
+                            style.inputBorderRadius,
+                          ),
+                          border: style.inputBorderWidth > 0
+                              ? Border.all(
+                                  color: style.inputBorderColor,
+                                  width: style.inputBorderWidth,
+                                )
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            if (leadingShortcutLabel != null)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: _ComposerShortcutButton(
+                                  label: leadingShortcutLabel!,
+                                  onPressed: onLeadingShortcutPressed,
+                                  style: style,
                                 ),
-                                decoration: InputDecoration(
-                                  border: InputBorder.none,
-                                  hintText: hintText,
-                                  contentPadding: EdgeInsets.fromLTRB(
-                                    leadingShortcutLabel == null
-                                        ? style.inputHorizontalPadding
-                                        : 9,
-                                    style.inputVerticalPadding,
-                                    style.inputHorizontalPadding,
-                                    style.inputVerticalPadding,
+                              ),
+                            Expanded(
+                              child: _ComposerSelectionScope(
+                                color: style.composerCursorColor,
+                                child: TextField(
+                                  controller: controller,
+                                  focusNode: focusNode,
+                                  enabled: inputEnabled,
+                                  minLines: style.inputMinLines,
+                                  maxLines: style.inputMaxLines,
+                                  keyboardType: submitFromKeyboard
+                                      ? TextInputType.text
+                                      : TextInputType.multiline,
+                                  textInputAction: submitFromKeyboard
+                                      ? TextInputAction.send
+                                      : TextInputAction.newline,
+                                  onTapOutside: (_) => FocusManager
+                                      .instance
+                                      .primaryFocus
+                                      ?.unfocus(),
+                                  onTap: onInputTap,
+                                  cursorColor: style.composerCursorColor,
+                                  onSubmitted: submitFromKeyboard
+                                      ? (_) {
+                                          if (sendEnabled) unawaited(onSend());
+                                        }
+                                      : null,
+                                  style: GenesisTypography.withFallback(
+                                    style.inputTextStyle,
+                                  ),
+                                  decoration: InputDecoration(
+                                    border: InputBorder.none,
+                                    hintText: hintText,
+                                    contentPadding: EdgeInsets.fromLTRB(
+                                      leadingShortcutLabel == null
+                                          ? style.inputHorizontalPadding
+                                          : 9,
+                                      style.inputVerticalPadding,
+                                      style.inputHorizontalPadding,
+                                      style.inputVerticalPadding,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -377,72 +381,76 @@ class _ComposerSendButton extends StatelessWidget {
       key: const ValueKey('chat-composer-send-button'),
       width: style.composerSendButtonWidth,
       height: style.composerSendButtonHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(
-            style.composerSendButtonBorderRadius,
+      child: _ChatComposerInputSurface(
+        style: style,
+        borderRadius: style.composerSendButtonBorderRadius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(
+              style.composerSendButtonBorderRadius,
+            ),
+            border: style.composerSendButtonBorderWidth > 0
+                ? Border.all(
+                    color: style.composerSendButtonBorderColor,
+                    width: style.composerSendButtonBorderWidth,
+                  )
+                : null,
           ),
-          border: style.composerSendButtonBorderWidth > 0
-              ? Border.all(
-                  color: style.composerSendButtonBorderColor,
-                  width: style.composerSendButtonBorderWidth,
-                )
-              : null,
-        ),
-        child: TextButton(
-          style: TextButton.styleFrom(
-            fixedSize: Size(
-              style.composerSendButtonWidth,
-              style.composerSendButtonHeight,
-            ),
-            minimumSize: Size(
-              style.composerSendButtonWidth,
-              style.composerSendButtonHeight,
-            ),
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            foregroundColor: style.composerSendButtonIconColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                style.composerSendButtonBorderRadius,
+          child: TextButton(
+            style: TextButton.styleFrom(
+              fixedSize: Size(
+                style.composerSendButtonWidth,
+                style.composerSendButtonHeight,
+              ),
+              minimumSize: Size(
+                style.composerSendButtonWidth,
+                style.composerSendButtonHeight,
+              ),
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: style.composerSendButtonIconColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  style.composerSendButtonBorderRadius,
+                ),
               ),
             ),
-          ),
-          onPressed: enabled ? onPressed : null,
-          child: sending
-              ? SizedBox(
-                  width: style.composerSendButtonLoadingSize,
-                  height: style.composerSendButtonLoadingSize,
-                  child: CircularProgressIndicator(
-                    strokeWidth: style.composerSendButtonLoadingStrokeWidth,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      style.composerSendButtonIconColor,
+            onPressed: enabled ? onPressed : null,
+            child: sending
+                ? SizedBox(
+                    width: style.composerSendButtonLoadingSize,
+                    height: style.composerSendButtonLoadingSize,
+                    child: CircularProgressIndicator(
+                      strokeWidth: style.composerSendButtonLoadingStrokeWidth,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        style.composerSendButtonIconColor,
+                      ),
+                    ),
+                  )
+                : label == null
+                ? icon == ChatComposerSendIcon.arrowUp
+                      ? CustomPaint(
+                          size: Size.square(style.composerSendButtonIconSize),
+                          painter: _ComposerUpArrowPainter(
+                            color: style.composerSendButtonIconColor,
+                          ),
+                        )
+                      : Icon(
+                          Icons.send,
+                          color: style.composerSendButtonIconColor,
+                          size: style.composerSendButtonIconSize,
+                        )
+                : Text(
+                    genesisDisplaySafeText(label!),
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      color: style.composerSendButtonIconColor,
+                      fontSize: 13,
                     ),
                   ),
-                )
-              : label == null
-              ? icon == ChatComposerSendIcon.arrowUp
-                    ? CustomPaint(
-                        size: Size.square(style.composerSendButtonIconSize),
-                        painter: _ComposerUpArrowPainter(
-                          color: style.composerSendButtonIconColor,
-                        ),
-                      )
-                    : Icon(
-                        Icons.send,
-                        color: style.composerSendButtonIconColor,
-                        size: style.composerSendButtonIconSize,
-                      )
-              : Text(
-                  genesisDisplaySafeText(label!),
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: TextStyle(
-                    color: style.composerSendButtonIconColor,
-                    fontSize: 13,
-                  ),
-                ),
+          ),
         ),
       ),
     );
@@ -504,6 +512,33 @@ class _ComposerSelectionScope extends StatelessWidget {
         selectionColor: color.withValues(alpha: _selectionOpacity),
         selectionHandleColor: color,
       ),
+      child: child,
+    );
+  }
+}
+
+/// Puts the room's glass under a composer surface - the input field and the
+/// send square share it. 1u draws both as translucent white over a 14-sigma
+/// backdrop blur; the blur is what averages bright scene art into a ground
+/// their white foregrounds stay legible on. Zero sigma (every other composer)
+/// adds nothing to the tree.
+class _ChatComposerInputSurface extends StatelessWidget {
+  const _ChatComposerInputSurface({
+    required this.style,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  final ChatUiStyleConfig style;
+  final double borderRadius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (style.inputBackdropBlurSigma <= 0) return child;
+    return _ChatStableBackdropSurface(
+      borderRadius: BorderRadius.circular(borderRadius),
+      sigma: style.inputBackdropBlurSigma,
       child: child,
     );
   }

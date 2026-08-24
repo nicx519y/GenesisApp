@@ -246,7 +246,7 @@ void main() {
       expect(find.byType(ChatAiContentDisclaimerMessageBubble), findsOneWidget);
       expect(find.byType(AiContentDisclaimer), findsOneWidget);
       expect(find.byType(ChatSystemMessage), findsNothing);
-      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+      expect(find.textContaining(kAiContentDisclaimerText), findsOneWidget);
       expect(
         find.byKey(
           const ValueKey<String>(
@@ -257,7 +257,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.longPress(find.text(kAiContentDisclaimerText));
+      await tester.longPress(find.textContaining(kAiContentDisclaimerText));
       await tester.pump();
       expect(longPressCount, 0);
     },
@@ -404,7 +404,7 @@ void main() {
     expect((enterDecoration.borderRadius! as BorderRadius).topLeft.x, 20);
     final enterText = tester.widget<Text>(find.text('Alice came to the cafe'));
     expect(enterText.textSpan?.style?.color, Colors.white);
-    expect(enterText.textSpan?.style?.fontWeight, FontWeight.w800);
+    expect(enterText.textSpan?.style?.fontWeight, FontWeight.w600);
     expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
     expect(find.text('Old Station'), findsNothing);
     expect(find.text('Event'), findsNothing);
@@ -632,7 +632,7 @@ void main() {
     );
     expect(text.textAlign, TextAlign.left);
     expect(text.textSpan?.style?.color, Colors.white);
-    expect(text.textSpan?.style?.fontWeight, FontWeight.w800);
+    expect(text.textSpan?.style?.fontWeight, FontWeight.w600);
     final spans = (text.textSpan! as TextSpan).children!.cast<TextSpan>();
     expect(spans.map((span) => span.text), [
       'Adrian',
@@ -737,9 +737,9 @@ void main() {
       ),
     );
 
-    expect(find.text(notice), findsOneWidget);
+    expect(find.textContaining(notice), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text(notice)).dy,
+      tester.getTopLeft(find.textContaining(notice)).dy,
       lessThan(
         tester
             .getTopLeft(find.byKey(const ValueKey('chat-tick-message-bubble')))
@@ -949,7 +949,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text(notice), findsOneWidget);
+    expect(find.textContaining(notice), findsOneWidget);
     expect(tester.getSize(find.byType(ChatOldestEdgeContent)), noticeSize);
     expect(tester.getTopLeft(firstMessage).dy, firstMessageTop);
   });
@@ -1073,7 +1073,7 @@ void main() {
         closeTo(scrollableRect.top + 18, 1),
       );
       expect(
-        tester.getBottomLeft(find.text('Oldest edge notice')).dy,
+        tester.getBottomLeft(find.textContaining('Oldest edge notice')).dy,
         lessThanOrEqualTo(scrollableRect.top + 18),
       );
 
@@ -1084,7 +1084,7 @@ void main() {
       expect(
         tester.getTopLeft(find.byKey(const ValueKey('m1'))).dy,
         closeTo(
-          tester.getBottomLeft(find.text('Oldest edge notice')).dy + 16,
+          tester.getBottomLeft(find.textContaining('Oldest edge notice')).dy + 16,
           1,
         ),
       );
@@ -1138,7 +1138,7 @@ void main() {
     expect(position.pixels, 0);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('m1'))).dy,
-      closeTo(tester.getBottomLeft(find.text('Oldest edge notice')).dy + 16, 1),
+      closeTo(tester.getBottomLeft(find.textContaining('Oldest edge notice')).dy + 16, 1),
     );
   });
 
@@ -1163,9 +1163,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(coordinator.controller.position.maxScrollExtent, 0);
-    expect(find.text('Oldest edge notice'), findsOneWidget);
+    expect(find.textContaining('Oldest edge notice'), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('Oldest edge notice')).dy,
+      tester.getTopLeft(find.textContaining('Oldest edge notice')).dy,
       greaterThanOrEqualTo(tester.getTopLeft(find.byType(Scrollable).first).dy),
     );
   });
@@ -1270,7 +1270,7 @@ void main() {
 
       final scrollable = find.byType(Scrollable).first;
       final position = tester.state<ScrollableState>(scrollable).position;
-      final noticeTop = tester.getTopLeft(find.text('Oldest edge notice')).dy;
+      final noticeTop = tester.getTopLeft(find.textContaining('Oldest edge notice')).dy;
 
       expect(position.minScrollExtent, 0);
       expect(position.maxScrollExtent, 0);
@@ -1279,7 +1279,7 @@ void main() {
       await tester.pump();
 
       expect(position.pixels, 0);
-      expect(tester.getTopLeft(find.text('Oldest edge notice')).dy, noticeTop);
+      expect(tester.getTopLeft(find.textContaining('Oldest edge notice')).dy, noticeTop);
     },
   );
 
@@ -1749,7 +1749,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.position.pixels, 0);
-      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+      expect(find.textContaining(kAiContentDisclaimerText), findsOneWidget);
     },
   );
 
@@ -2694,7 +2694,12 @@ void main() {
     );
     final decoration = avatarBox.decoration as BoxDecoration;
     expect(decoration.color, GenesisPalette.redesignWhite14);
-    expect(decoration.shape, BoxShape.circle);
+    // Rounded square like the role and user avatars, not a circle.
+    expect(decoration.shape, BoxShape.rectangle);
+    expect(
+      decoration.borderRadius,
+      BorderRadius.circular(kLocationChatStyle.avatarBorderRadius),
+    );
     expect(decoration.border?.top.color, GenesisPalette.redesignWhite18);
 
     final label = tester.widget<Text>(find.text('NPC'));
@@ -2719,6 +2724,14 @@ void main() {
     final decoration = avatarBox.decoration as BoxDecoration;
     expect(decoration.color, const Color(0x24FFFFFF));
     expect(decoration.border?.top.color, const Color(0x2EFFFFFF));
+    // Rounded square like every other avatar in the room, not a circle.
+    expect(decoration.shape, BoxShape.rectangle);
+    expect(
+      decoration.borderRadius,
+      BorderRadius.circular(
+        GenesisChatTheme.worldoDark().standard.avatarBorderRadius,
+      ),
+    );
     expect(tester.widget<Text>(find.text('NPC')).style?.color, Colors.white);
   });
 
@@ -3257,6 +3270,100 @@ void main() {
       _textFragmentColor(systemText, 'cold'),
       GenesisPalette.redesignInk50,
     );
+  });
+
+  testWidgets('tick plate spans the bubble column, narrator the full width', (
+    WidgetTester tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.worldoDark().copyWith(
+          platform: TargetPlatform.android,
+        ),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: ChatMessageList(
+              controller: controller,
+              topTitle: '',
+              reverse: false,
+              showDateDividers: false,
+              style: context.genesisChatTheme.locationChat,
+              messages: [
+                // Long enough that both bubbles hit their max width, so their
+                // outer edges mark the bubble column's true limits.
+                ChatMessageVm(
+                  localId: 'role-1',
+                  senderId: 'peer',
+                  senderName: 'Vivienne',
+                  text:
+                      'The doors are still open, and the whole board is '
+                      'watching to see which of us walks through them first '
+                      'tonight, so choose carefully before you move.',
+                  isMe: false,
+                  status: 'sent',
+                ),
+                ChatMessageVm(
+                  localId: 'self-1',
+                  senderId: 'me',
+                  senderName: 'Adrian',
+                  text:
+                      'Then we should go through them together and let the '
+                      'board watch all it likes, because there is nothing '
+                      'left in this room worth staying for anyway.',
+                  isMe: true,
+                  status: 'sent',
+                ),
+                ChatMessageVm(
+                  localId: 'narrator-1',
+                  senderId: 'narrator',
+                  senderName: 'Narrator',
+                  text: 'The doors open again.',
+                  isMe: false,
+                  status: 'sent',
+                  senderType: 'narrator',
+                ),
+                ChatMessageVm(
+                  localId: 'tick-1',
+                  senderId: 'tick',
+                  senderName: 'Tick',
+                  text: '',
+                  isMe: false,
+                  status: 'sent',
+                  senderType: 'tick',
+                  timelinePayload: const ChatTickPayloadVm(
+                    globalText: 'The room has started keeping score.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    Rect rectOf(String key) =>
+        tester.getRect(find.byKey(ValueKey<String>(key)));
+
+    final role = rectOf('chat-message-bubble-role-1');
+    final self = rectOf('chat-message-bubble-self-1');
+    final narrator = rectOf('chat-system-message-bubble');
+    final tick = rectOf('chat-tick-message-surface');
+
+    // The tick plate spans the bubble column: from a full-width self bubble's
+    // left edge to a full-width AI bubble's right edge.
+    expect(tick.left, closeTo(self.left, 0.01));
+    expect(tick.right, closeTo(role.right, 0.01));
+
+    // Narrator is the widest tier, the tick sits inside it, and even a
+    // max-width bubble is narrower still.
+    expect(tick.width, lessThan(narrator.width));
+    expect(role.width, lessThan(tick.width));
+    expect(self.width, lessThan(tick.width));
+    expect(narrator.left, lessThan(tick.left));
+    expect(narrator.right, greaterThan(tick.right));
   });
 
   testWidgets('narrator icon starts at the same gutter as the role avatar', (
@@ -4307,7 +4414,7 @@ void main() {
     );
     expect(movementName.style?.fontSize, 13);
     expect(movementName.style?.height, 1.3);
-    expect(movementName.style?.fontWeight, FontWeight.w800);
+    expect(movementName.style?.fontWeight, FontWeight.w600);
     expect(movementName.style?.color, GenesisPalette.redesignSoftWhite);
     final location = tester.widget<Text>(find.text('The Library'));
     expect(location.style?.color, const Color(0xFFFF8A9A));

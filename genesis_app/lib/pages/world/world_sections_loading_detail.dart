@@ -29,10 +29,10 @@ class WorldInfoHeaderLoadingSkeleton extends StatelessWidget {
           SizedBox(
             height: worldInfoHeaderHeight - 1,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(8, 0, 8, 13),
+              padding: EdgeInsets.fromLTRB(6, 0, 8, 13),
               child: Row(
                 children: [
-                  WorldLoadingBone(width: 40, height: 40, radius: 12),
+                  WorldLoadingBone(width: 48, height: 48, radius: 10),
                   SizedBox(width: 11),
                   Expanded(
                     child: Column(

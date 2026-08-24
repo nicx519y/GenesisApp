@@ -104,6 +104,7 @@ class ChatUiStyleConfig {
     required this.inputBorderRadius,
     // Input field border color.
     this.inputBorderColor = Colors.transparent,
+    this.inputBackdropBlurSigma = 0,
     this.composerCursorColor,
     // Input field border width.
     this.inputBorderWidth = 0,
@@ -488,6 +489,11 @@ class ChatUiStyleConfig {
   // Input field border color.
   final Color inputBorderColor;
 
+  /// Backdrop blur under the input field's fill. Zero leaves the field flat;
+  /// the room pairs its translucent fill with glass so scene art behind the
+  /// composer averages out instead of shining through the text.
+  final double inputBackdropBlurSigma;
+
   /// Selection chrome in the composer: the caret, the drag handles, and the
   /// highlight behind selected text. Null falls back to the app theme, which
   /// paints all three in the accent - right on a paper background, wrong over
@@ -610,6 +616,7 @@ class ChatUiStyleConfig {
     double? inputMinHeight,
     double? inputBorderRadius,
     Color? inputBorderColor,
+    double? inputBackdropBlurSigma,
     Color? composerCursorColor,
     double? inputBorderWidth,
     TextStyle? inputTextStyle,
@@ -716,6 +723,8 @@ class ChatUiStyleConfig {
       inputBackgroundColor: inputBackgroundColor ?? this.inputBackgroundColor,
       inputBorderRadius: inputBorderRadius ?? this.inputBorderRadius,
       inputBorderColor: inputBorderColor ?? this.inputBorderColor,
+      inputBackdropBlurSigma:
+          inputBackdropBlurSigma ?? this.inputBackdropBlurSigma,
       composerCursorColor: composerCursorColor ?? this.composerCursorColor,
       inputBorderWidth: inputBorderWidth ?? this.inputBorderWidth,
       inputTextStyle: inputTextStyle ?? this.inputTextStyle,

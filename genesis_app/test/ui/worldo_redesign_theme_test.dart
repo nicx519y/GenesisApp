@@ -101,7 +101,7 @@ void main() {
     }
 
     expect(redesign.locationChat.headerHeight, 54);
-    expect(redesign.locationChat.inputMinHeight, 46);
+    expect(redesign.locationChat.inputMinHeight, 40);
     expect(
       redesign.locationChat.messageListPadding,
       light.locationChat.messageListPadding,

@@ -199,7 +199,7 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                   color: chatTheme.tickHeader,
                   fontSize: 13,
                   height: 1.3,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
@@ -235,7 +235,7 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                               : chatTheme.tickHeader,
                           fontSize: 13,
                           height: 1.3,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           decoration: canOpenLocation
                               ? TextDecoration.underline
                               : TextDecoration.none,

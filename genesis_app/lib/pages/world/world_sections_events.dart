@@ -332,6 +332,9 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
             child: CustomScrollView(
               key: const ValueKey<String>('world-events-tick-list'),
               controller: _scrollController,
+              // 数据保持最新在前、翻转渲染:视觉上最旧在顶、最新在底(正序),
+              // offset 0 仍是"最新",滚动/加载更早页的逻辑不变。
+              reverse: true,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverPadding(
@@ -351,7 +354,8 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
                       }
                       if (entry.showsAiDisclaimer) {
                         return const AiContentDisclaimer(
-                          padding: EdgeInsets.fromLTRB(10, 0, 10, 18),
+                          // 与 tick 卡片同宽:不再额外内缩左右 10。
+                          padding: EdgeInsets.fromLTRB(0, 0, 0, 18),
                           textAlign: TextAlign.left,
                         );
                       }
@@ -414,7 +418,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
                 curve: Curves.easeOut,
                 child: Semantics(
                   button: true,
-                  label: 'Back to top',
+                  label: 'Back to latest',
                   child: Material(
                     key: const ValueKey<String>('world-events-scroll-to-top'),
                     color: context.genesisColors.controlMuted,
@@ -427,9 +431,10 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
                       child: SizedBox.square(
                         dimension: 36,
                         child: Icon(
-                          Icons.keyboard_double_arrow_up_rounded,
+                          Icons.keyboard_double_arrow_down_rounded,
                           size: 22,
-                          color: context.genesisColors.primary,
+                          // 白色(浅色主题下为墨色),不再用红色 primary。
+                          color: context.genesisColors.textPrimary,
                         ),
                       ),
                     ),
@@ -447,11 +452,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     final ticks = worldEventTicksAscending(widget.ticks).reversed.toList();
     final entries = <_WorldEventListEntry>[];
     final pendingTickNumber = _hasPendingTarget ? _requestedTickNumber : null;
-    final earliestTickNumber = ticks.isEmpty
-        ? null
-        : worldEventTickNumber(ticks.last);
     var pendingAdded = false;
-    var disclaimerAdded = false;
 
     for (var index = 0; index < ticks.length; index += 1) {
       final tick = ticks[index];
@@ -464,13 +465,6 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
       }
       final isFirstInTick =
           index == 0 || worldEventTickNumber(ticks[index - 1]) != tickNumber;
-      if (!disclaimerAdded &&
-          !widget.hasMore &&
-          isFirstInTick &&
-          tickNumber == earliestTickNumber) {
-        entries.add(const _WorldEventListEntry.disclaimer());
-        disclaimerAdded = true;
-      }
       final isLastInTick =
           index == ticks.length - 1 ||
           worldEventTickNumber(ticks[index + 1]) != tickNumber;
@@ -484,6 +478,10 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     }
     if (!pendingAdded && pendingTickNumber != null) {
       entries.add(_WorldEventListEntry.pending(pendingTickNumber));
+    }
+    if (!widget.hasMore && ticks.isNotEmpty) {
+      // 列表 reverse 渲染,追加在末尾 = 显示在最顶(故事开头之上)。
+      entries.add(const _WorldEventListEntry.disclaimer());
     }
     return entries;
   }

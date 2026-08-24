@@ -234,8 +234,12 @@ class WorldCharacterRow extends StatelessWidget {
           url: avatarUrl,
           name: name,
           showStar: false,
-          size: cardStyle || statusProgressStyle ? 44 : 40,
-          borderRadius: cardStyle || statusProgressStyle ? 13 : 12,
+          size: cardStyle || statusProgressStyle
+              ? 44
+              : worldCharacterAvatarLogicalSize,
+          borderRadius: cardStyle || statusProgressStyle
+              ? 13
+              : worldCharacterAvatarRadius,
           border:
               (!statusProgressStyle && !isCharacterRole) ||
                   (statusProgressStyle && isCurrentUser)
@@ -245,190 +249,192 @@ class WorldCharacterRow extends StatelessWidget {
         ),
         SizedBox(width: 11),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          text: name,
-                          children: [
-                            if (suffix.isNotEmpty) ...[
-                              const WidgetSpan(child: SizedBox(width: 7)),
-                              TextSpan(
-                                text: suffix,
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  height: worldDetailLineHeight,
-                                  fontWeight: FontWeight.w600,
-                                  color: context.genesisColors.textBody,
-                                ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        text: name,
+                        children: [
+                          if (suffix.isNotEmpty) ...[
+                            const WidgetSpan(child: SizedBox(width: 7)),
+                            TextSpan(
+                              text: suffix,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                height: worldDetailLineHeight,
+                                fontWeight: FontWeight.w600,
+                                color: context.genesisColors.textBody,
                               ),
-                            ],
+                            ),
                           ],
-                        ),
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: worldDetailLineHeight,
-                          fontWeight: FontWeight.w800,
-                          color: context.genesisColors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (!statusProgressStyle) ...[
-                      SizedBox(width: 8),
-                      Text(
-                        roleLabel,
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          height: worldDetailLineHeight,
-                          fontWeight: FontWeight.w600,
-                          // Cast 行右侧的 Player / Character 角标压到 45%
-                          // 白(浅色下是 42% 墨),别和角色名抢注意力。
-                          color: context.genesisColors.textMetadata,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-                if (statusProgressStyle) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _WorldStatusProgressBar(
-                          progressKey: ValueKey<String>(
-                            'world-status-progress-${worldCharacterStableId(character)}',
-                          ),
-                          value: worldMetricProgressValue(metric, character),
-                          semanticsValue: worldMetricProgressText(
-                            metric,
-                            character,
-                          ),
-                          backgroundColor: context.genesisColors.surfaceTag,
-                          valueColor: isCurrentUser
-                              ? context.genesisColors.danger
-                              : context.genesisColors.accentText,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        worldMetricProgressText(metric, character),
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          height: 1,
-                          fontWeight: FontWeight.w600,
-                          color: context.genesisColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (locationName.isNotEmpty) ...[
-                    const SizedBox(height: 7),
-                    Text(
-                      locationName,
-                      key: ValueKey<String>(
-                        'world-status-location-${worldCharacterStableId(character)}',
+                        ],
                       ),
                       style: TextStyle(
+                        fontSize: 13,
+                        height: worldDetailLineHeight,
+                        fontWeight: FontWeight.w800,
+                        color: context.genesisColors.textPrimary,
+                      ),
+                      // 首行不套 1.3 的上半行距,名字的视觉顶边才能和
+                      // 头像顶边对齐;折行间距不受影响。
+                      textHeightBehavior: const TextHeightBehavior(
+                        applyHeightToFirstAscent: false,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!statusProgressStyle) ...[
+                    SizedBox(width: 8),
+                    Text(
+                      roleLabel,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
                         fontSize: 9.5,
-                        height: 1,
+                        height: worldDetailLineHeight,
                         fontWeight: FontWeight.w600,
-                        color: isCurrentUser
-                            ? context.genesisColors.accentText
-                            : context.genesisColors.textSecondary,
+                        // Cast 行右侧的 Player / Character 角标压到 45%
+                        // 白(浅色下是 42% 墨),别和角色名抢注意力。
+                        color: context.genesisColors.textMetadata,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ] else if (showAiCharacterDetails) ...[
-                  if (identity.isNotEmpty) ...[
-                    SizedBox(height: 5),
-                    Text(
-                      identity,
-                      style: bodyStyle.copyWith(
-                        color: context.genesisColors.textBody,
-                      ),
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  if (brief.isNotEmpty) ...[
-                    SizedBox(height: 5),
-                    Text(
-                      brief,
-                      style: bodyStyle.copyWith(
-                        color: context.genesisColors.accentText,
-                      ),
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  if (goal.isNotEmpty) ...[
-                    SizedBox(height: 5),
-                    Text.rich(
-                      TextSpan(
-                        style: bodyStyle.copyWith(
-                          color: context.genesisColors.textSecondary,
+                ],
+              ),
+              if (statusProgressStyle) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _WorldStatusProgressBar(
+                        progressKey: ValueKey<String>(
+                          'world-status-progress-${worldCharacterStableId(character)}',
                         ),
-                        children: [
-                          TextSpan(
-                            text: 'Goal: ',
-                            style: TextStyle(
-                              color: context.genesisColors.textPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(text: goal),
-                        ],
+                        value: worldMetricProgressValue(metric, character),
+                        semanticsValue: worldMetricProgressText(
+                          metric,
+                          character,
+                        ),
+                        backgroundColor: context.genesisColors.surfaceTag,
+                        valueColor: isCurrentUser
+                            ? context.genesisColors.danger
+                            : context.genesisColors.accentText,
                       ),
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                  if (!hasOriginStyleDetails) ...[
-                    SizedBox(height: 5),
+                    const SizedBox(width: 8),
                     Text(
-                      'No character details yet.',
-                      style: bodyStyle.copyWith(color: subtitleColor),
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
+                      worldMetricProgressText(metric, character),
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        height: 1,
+                        fontWeight: FontWeight.w600,
+                        color: context.genesisColors.textPrimary,
+                      ),
                     ),
                   ],
-                ] else if (showCharacterDetails) ...[
-                  SizedBox(height: 5),
+                ),
+                if (locationName.isNotEmpty) ...[
+                  const SizedBox(height: 7),
                   Text(
-                    subtitle,
-                    style: bodyStyle,
-                    maxLines: 4,
+                    locationName,
+                    key: ValueKey<String>(
+                      'world-status-location-${worldCharacterStableId(character)}',
+                    ),
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      height: 1,
+                      fontWeight: FontWeight.w600,
+                      color: isCurrentUser
+                          ? context.genesisColors.accentText
+                          : context.genesisColors.textSecondary,
+                    ),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                ] else ...[
-                  SizedBox(height: cardStyle ? 8 : 6),
+                ],
+              ] else if (showAiCharacterDetails) ...[
+                if (identity.isNotEmpty) ...[
+                  SizedBox(height: 5),
                   Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: cardStyle ? 11 : 13,
-                      height: worldDetailLineHeight,
-                      fontWeight: FontWeight.w400,
-                    ).copyWith(color: subtitleColor),
+                    identity,
+                    style: bodyStyle.copyWith(
+                      color: context.genesisColors.textBody,
+                    ),
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
+                if (brief.isNotEmpty) ...[
+                  SizedBox(height: 5),
+                  Text(
+                    brief,
+                    style: bodyStyle.copyWith(
+                      color: context.genesisColors.accentText,
+                    ),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (goal.isNotEmpty) ...[
+                  SizedBox(height: 5),
+                  Text.rich(
+                    TextSpan(
+                      style: bodyStyle.copyWith(
+                        color: context.genesisColors.textSecondary,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: 'Goal: ',
+                          style: TextStyle(
+                            color: context.genesisColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        TextSpan(text: goal),
+                      ],
+                    ),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (!hasOriginStyleDetails) ...[
+                  SizedBox(height: 5),
+                  Text(
+                    'No character details yet.',
+                    style: bodyStyle.copyWith(color: subtitleColor),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ] else if (showCharacterDetails) ...[
+                SizedBox(height: 5),
+                Text(
+                  subtitle,
+                  style: bodyStyle,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ] else ...[
+                SizedBox(height: cardStyle ? 8 : 6),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: cardStyle ? 11 : 13,
+                    height: worldDetailLineHeight,
+                    fontWeight: FontWeight.w400,
+                  ).copyWith(color: subtitleColor),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ],

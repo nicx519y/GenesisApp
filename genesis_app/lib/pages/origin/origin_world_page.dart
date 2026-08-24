@@ -294,14 +294,17 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final devicePixelRatio = genesisImageDevicePixelRatio(
       MediaQuery.devicePixelRatioOf(context),
     );
-    final outputSize = (_OriginSetupRoleSection._cardHeight * devicePixelRatio)
+    final outputWidth = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
         .ceil();
-    final cacheKey = '$avatarUrl@$outputSize';
+    final outputHeight =
+        (_OriginSetupRoleSection._cardHeight * devicePixelRatio).ceil();
+    final cacheKey = '$avatarUrl@${outputWidth}x$outputHeight';
     if (!_preloadedProfileRoleAvatarKeys.add(cacheKey)) return;
 
     final provider = OriginRolePortraitImageProvider.fromUrl(
       imageUrl: avatarUrl,
-      outputSize: outputSize,
+      outputWidth: outputWidth,
+      outputHeight: outputHeight,
     );
     unawaited(
       precacheImage(

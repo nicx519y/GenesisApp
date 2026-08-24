@@ -25,7 +25,8 @@ void main() {
     final sourceProvider = _SolidImageProvider(color: const Color(0xFFFF0000));
     final provider = OriginRolePortraitImageProvider(
       sourceProvider: sourceProvider,
-      outputSize: 16,
+      outputWidth: 12,
+      outputHeight: 16,
     );
     ImageInfo? imageInfo;
 
@@ -35,7 +36,7 @@ void main() {
 
     final composite = imageInfo;
     expect(composite, isNotNull);
-    expect(composite!.image.width, 16);
+    expect(composite!.image.width, 12);
     expect(composite.image.height, 16);
     final sourceStatus = await sourceProvider.obtainCacheStatus(
       configuration: ImageConfiguration.empty,
@@ -51,10 +52,56 @@ void main() {
     });
     final data = pixels;
     expect(data, isNotNull);
-    final topRed = _redChannel(data!, x: 8, y: 1, width: 16);
-    final bottomRed = _redChannel(data, x: 8, y: 15, width: 16);
+    final topRed = _redChannel(data!, x: 6, y: 1, width: 12);
+    final bottomRed = _redChannel(data, x: 6, y: 15, width: 12);
     expect(topRed, greaterThan(230));
     expect(bottomRed, lessThan(topRed));
+
+    composite.dispose();
+    await provider.evict();
+  });
+
+  testWidgets('keeps a square source un-cropped with the card panel below', (
+    tester,
+  ) async {
+    final sourceProvider = _SolidImageProvider(
+      color: const Color(0xFFFF0000),
+      width: 16,
+      height: 16,
+    );
+    final provider = OriginRolePortraitImageProvider(
+      sourceProvider: sourceProvider,
+      outputWidth: 12,
+      outputHeight: 16,
+    );
+    ImageInfo? imageInfo;
+
+    await tester.runAsync(() async {
+      imageInfo = await _resolveImage(provider);
+    });
+
+    final composite = imageInfo;
+    expect(composite, isNotNull);
+    expect(composite!.image.width, 12);
+    expect(composite.image.height, 16);
+
+    ByteData? pixels;
+    await tester.runAsync(() async {
+      pixels = await composite.image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
+    });
+    final data = pixels;
+    expect(data, isNotNull);
+    // fitWidth draws the 16x16 source as 12x12 at the top; the row below the
+    // artwork holds only the translucent gradient, proving the sides were not
+    // cover-cropped away to fill the full card height.
+    final topRed = _redChannel(data!, x: 6, y: 1, width: 12);
+    final belowArtAlpha = _alphaChannel(data, x: 6, y: 14, width: 12);
+    final topAlpha = _alphaChannel(data, x: 6, y: 1, width: 12);
+    expect(topRed, greaterThan(230));
+    expect(topAlpha, 255);
+    expect(belowArtAlpha, lessThan(255));
 
     composite.dispose();
     await provider.evict();
@@ -68,6 +115,15 @@ int _redChannel(
   required int width,
 }) {
   return data.getUint8((y * width + x) * 4);
+}
+
+int _alphaChannel(
+  ByteData data, {
+  required int x,
+  required int y,
+  required int width,
+}) {
+  return data.getUint8((y * width + x) * 4 + 3);
 }
 
 Future<ImageInfo> _resolveImage(ImageProvider<Object> provider) {
@@ -93,9 +149,15 @@ Future<ImageInfo> _resolveImage(ImageProvider<Object> provider) {
 
 @immutable
 class _SolidImageProvider extends ImageProvider<_SolidImageProvider> {
-  const _SolidImageProvider({required this.color});
+  const _SolidImageProvider({
+    required this.color,
+    this.width = 8,
+    this.height = 16,
+  });
 
   final Color color;
+  final int width;
+  final int height;
 
   @override
   Future<_SolidImageProvider> obtainKey(ImageConfiguration configuration) {
@@ -113,10 +175,13 @@ class _SolidImageProvider extends ImageProvider<_SolidImageProvider> {
   Future<ImageInfo> _createImage() async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
-    canvas.drawRect(const Rect.fromLTWH(0, 0, 8, 16), Paint()..color = color);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+      Paint()..color = color,
+    );
     final picture = recorder.endRecording();
     try {
-      return ImageInfo(image: await picture.toImage(8, 16));
+      return ImageInfo(image: await picture.toImage(width, height));
     } finally {
       picture.dispose();
     }
@@ -124,9 +189,12 @@ class _SolidImageProvider extends ImageProvider<_SolidImageProvider> {
 
   @override
   bool operator ==(Object other) {
-    return other is _SolidImageProvider && other.color == color;
+    return other is _SolidImageProvider &&
+        other.color == color &&
+        other.width == width &&
+        other.height == height;
   }
 
   @override
-  int get hashCode => color.hashCode;
+  int get hashCode => Object.hash(color, width, height);
 }

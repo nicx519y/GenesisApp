@@ -142,11 +142,13 @@ class _OriginInitialDialoguePreview {
   const _OriginInitialDialoguePreview({
     required this.locationId,
     required this.locationName,
+    required this.currentTime,
     required this.messages,
   });
 
   final String locationId;
   final String locationName;
+  final String currentTime;
   final List<ChatMessageVm> messages;
 }
 
@@ -222,11 +224,20 @@ _OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
       })
       .toList(growable: false);
 
+  final currentTime = sourceMessages
+      .map(
+        (message) => message.senderType == 'tick'
+            ? message.content.trim()
+            : message.currentTime.trim(),
+      )
+      .firstWhere((time) => time.isNotEmpty, orElse: () => '');
+
   return _OriginInitialDialoguePreview(
     locationId: locationId,
     locationName: location?.name.trim().isNotEmpty == true
         ? location!.name.trim()
         : locationId,
+    currentTime: currentTime,
     messages: messages,
   );
 }

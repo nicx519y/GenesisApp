@@ -31,7 +31,7 @@ class ChatOtherMessageBubble extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: onAvatarTap,
                 child: _isNpcSender(message.senderId)
-                    ? const ChatNpcAvatar()
+                    ? ChatNpcAvatar(style: style)
                     : ChatAvatar(
                         label: chatInitials(message.senderName),
                         imageUrl: message.avatarUrl,

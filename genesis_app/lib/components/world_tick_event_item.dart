@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../icons/custom_icon_assets.dart';
+import '../ui/components/genesis_avatar.dart';
 import '../ui/components/genesis_soft_italic_text.dart';
+import '../ui/tokens/genesis_palette.dart';
 import '../ui/theme/genesis_semantic_colors.dart';
 import '../utils/genesis_timestamp_formatter.dart';
 import 'world/genesis_world_theme.dart';
@@ -148,16 +150,15 @@ class _WorldTimelineTickItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
               color: context.genesisColors.surfaceTag,
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              'Tick $tickNumber${subTickNumber > 0 ? '-$subTickNumber' : ''}'
-              '${date.isEmpty ? '' : ' · $date'}',
+              'Tick $tickNumber${subTickNumber > 0 ? '-$subTickNumber' : ''}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: context.genesisColors.textPrimary,
-                fontSize: 11,
+                fontSize: 13,
                 height: 1,
                 fontWeight: FontWeight.w600,
               ),
@@ -169,8 +170,11 @@ class _WorldTimelineTickItem extends StatelessWidget {
             body: body,
             timestamp: '',
             isGlobal: true,
-            drawLine: paragraphs.isNotEmpty,
+            drawLine: true,
+            isLastRow: paragraphs.isEmpty,
           ),
+          // 每个事件行都带左侧竖线;末行的线在最后一条信息处收住,
+          // 不贯穿底部间距连到下一个 tick 药丸。
           for (var index = 0; index < paragraphs.length; index++)
             _WorldTimelineParagraphRow(
               paragraph: paragraphs[index],
@@ -178,7 +182,8 @@ class _WorldTimelineTickItem extends StatelessWidget {
               charactersById: charactersById,
               metricUnit: metricUnit,
               showClue: showParagraphClue,
-              drawLine: index < paragraphs.length - 1,
+              drawLine: true,
+              isLastRow: index == paragraphs.length - 1,
             ),
         ],
       ),
@@ -193,6 +198,7 @@ class _WorldTimelineEventRow extends StatelessWidget {
     required this.timestamp,
     required this.isGlobal,
     required this.drawLine,
+    this.isLastRow = false,
     this.metadata,
     this.clue,
     this.characterDetails,
@@ -203,6 +209,9 @@ class _WorldTimelineEventRow extends StatelessWidget {
   final String timestamp;
   final bool isGlobal;
   final bool drawLine;
+
+  /// tick 内最后一行:竖线在内容底(15px 行距之上)收住。
+  final bool isLastRow;
   final Widget? metadata;
   final String? clue;
   final Widget? characterDetails;
@@ -212,105 +221,127 @@ class _WorldTimelineEventRow extends StatelessWidget {
     final accent = isGlobal
         ? context.genesisColors.accentText
         : context.genesisColors.textPrimary;
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 12,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 3),
-                  child: Icon(
-                    isGlobal ? Icons.adjust_rounded : Icons.place_outlined,
-                    size: isGlobal ? 12 : 13,
-                    color: accent,
-                  ),
-                ),
-                if (drawLine) ...[
-                  const SizedBox(height: 5),
-                  Expanded(
-                    child: Container(
-                      width: 1.5,
-                      color: isGlobal
-                          ? context.genesisColors.accentText
-                          : context.genesisColors.dividerAction,
-                    ),
-                  ),
-                ],
-              ],
+    const iconSize = 13.0;
+    // 13px 标签行高约 15,图标 13 要与首行文字居中对齐:top = (15-13)/2。
+    const iconTop = 1.0;
+    final lineWidth = isGlobal ? 1.5 : 1.0;
+    // 不能用 IntrinsicHeight 拉伸左侧竖线:行内的角色气泡带网络头像
+    // (GenesisStaticNetworkImage 里有 LayoutBuilder),intrinsic/dry-layout
+    // 一碰到它就抛异常。改用 Stack 把线钉在图标下方、贯到行底。
+    return Stack(
+      children: [
+        if (drawLine)
+          Positioned(
+            left: 6 - lineWidth / 2,
+            top: iconTop + iconSize + 5,
+            // 末行的线收在最后一条信息底部(内容自带 15 的行距),
+            // 中间行贯到行底与下一行相接。
+            bottom: isLastRow ? 15 : 0,
+            child: Container(
+              // 灰线与 locations 页的导引线同规格(1px 白 12%);
+              // Global 的粉线保持 1.5。
+              width: lineWidth,
+              color: isGlobal
+                  ? context.genesisColors.accentText
+                  : GenesisPalette.redesignWhite12,
             ),
           ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: accent,
-                            fontSize: 13,
-                            height: 1.15,
-                            fontWeight: FontWeight.w800,
-                          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 12,
+              child: Padding(
+                padding: const EdgeInsets.only(top: iconTop),
+                child: isGlobal
+                    // 主页底 bar Worldos 的同一枚 icon;13px 下描边
+                    // 2.3×13/22 ≈ 1.36,与 13px 的地点 pin 一档。
+                    ? SvgPicture.asset(
+                        bottomNavOriginIconAsset,
+                        width: iconSize,
+                        height: iconSize,
+                        colorFilter: ColorFilter.mode(
+                          accent,
+                          BlendMode.srcIn,
                         ),
+                      )
+                    : Icon(
+                        Icons.place_outlined,
+                        size: iconSize,
+                        color: accent,
                       ),
-                      if (timestamp.isNotEmpty)
-                        Text(
-                          timestamp,
-                          style: TextStyle(
-                            color: context.genesisColors.textBody,
-                            fontSize: 9.5,
-                            height: 1,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (metadata != null) ...[
-                    const SizedBox(height: 8),
-                    metadata!,
-                  ],
-                  const SizedBox(height: 8),
-                  Text(
-                    body,
-                    style: TextStyle(
-                      color: context.genesisColors.textBody,
-                      fontSize: 13,
-                      height: 1.5,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  if ((clue ?? '').isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    _ClueText(
-                      text: clue!,
-                      style: TextStyle(
-                        color: context.genesisColors.textMuted,
-                        fontSize: 11,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                  if (characterDetails != null) ...[
-                    const SizedBox(height: 6),
-                    characterDetails!,
-                  ],
-                ],
               ),
             ),
-          ),
-        ],
-      ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: accent,
+                              fontSize: 13,
+                              height: 1.15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (timestamp.isNotEmpty)
+                          Text(
+                            timestamp,
+                            style: TextStyle(
+                              color: context.genesisColors.textBody,
+                              fontSize: 9.5,
+                              height: 1,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (metadata != null) ...[
+                      const SizedBox(height: 8),
+                      metadata!,
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      body,
+                      style: TextStyle(
+                        color: context.genesisColors.textBody,
+                        fontSize: 13,
+                        height: 1.5,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    if ((clue ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _ClueText(
+                        text: clue!,
+                        style: TextStyle(
+                          color: context.genesisColors.textMuted,
+                          fontSize: 11,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                    if (characterDetails != null) ...[
+                      const SizedBox(height: 6),
+                      characterDetails!,
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -323,6 +354,7 @@ class _WorldTimelineParagraphRow extends StatelessWidget {
     required this.metricUnit,
     required this.showClue,
     required this.drawLine,
+    this.isLastRow = false,
   });
 
   final Map<String, dynamic> paragraph;
@@ -331,6 +363,7 @@ class _WorldTimelineParagraphRow extends StatelessWidget {
   final String metricUnit;
   final bool showClue;
   final bool drawLine;
+  final bool isLastRow;
 
   @override
   Widget build(BuildContext context) {
@@ -360,18 +393,10 @@ class _WorldTimelineParagraphRow extends StatelessWidget {
       timestamp: timestamp,
       isGlobal: false,
       drawLine: drawLine,
+      isLastRow: isLastRow,
       metadata: visibleRoles.isEmpty
           ? null
-          : _EventMetadata(
-              timestamp: null,
-              visibleRoles: visibleRoles,
-              style: TextStyle(
-                color: context.genesisColors.textSecondary,
-                fontSize: 11,
-                height: 1,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          : _EventVisibleRoleChips(roles: visibleRoles),
       clue: showClue ? _mapString(paragraph, const ['clue']) : null,
       characterDetails: details.isEmpty
           ? null
@@ -611,11 +636,12 @@ class _ClueText extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 2),
-          child: SvgPicture.asset(
-            clueIconAsset,
-            width: 14,
-            height: 14,
-            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          // 与对话页 tick 框的钥匙同一几何(14 单位、1.4 描边),
+          // 颜色沿用本页的 textQuaternary,不取聊天侧的粉色。
+          child: SizedBox(
+            width: 13,
+            height: 13,
+            child: CustomPaint(painter: _EventKeyIconPainter(color: iconColor)),
           ),
         ),
         SizedBox(width: 5),
@@ -731,6 +757,75 @@ class _TimestampLabel extends StatelessWidget {
         ),
         SizedBox(width: 4),
         Flexible(child: Text(text, style: resolvedStyle)),
+      ],
+    );
+  }
+}
+
+/// 与对话页 tick 框的 `_ChatTickSceneVisibleRole` 同规格的角色气泡:
+/// 18px 头像、圆角 6、玩家红环 1.5px 压在图上、名字 11/800
+/// (玩家全亮,AI 72%)。
+class _EventVisibleRoleChips extends StatelessWidget {
+  const _EventVisibleRoleChips({required this.roles});
+
+  final List<_VisibleRole> roles;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [for (final role in roles) _EventVisibleRoleChip(role: role)],
+    );
+  }
+}
+
+class _EventVisibleRoleChip extends StatelessWidget {
+  const _EventVisibleRoleChip({required this.role});
+
+  final _VisibleRole role;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.genesisColors;
+    final isPlayerRole = !role.isAi;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 18,
+          height: 18,
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: isPlayerRole
+                ? Border.all(color: colors.danger, width: 1.5)
+                : null,
+          ),
+          child: GenesisAvatar(
+            name: role.name,
+            url: role.avatar,
+            size: 18,
+            borderRadius: 6,
+            textStyle: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 9.5,
+              height: 1,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          role.name,
+          style: TextStyle(
+            color: colors.textPrimary.withValues(
+              alpha: isPlayerRole ? 1 : 0.72,
+            ),
+            fontSize: 11,
+            height: 1,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ],
     );
   }
@@ -865,10 +960,15 @@ String _locationName(
 }
 
 class _VisibleRole {
-  const _VisibleRole({required this.name, required this.isAi});
+  const _VisibleRole({
+    required this.name,
+    required this.isAi,
+    this.avatar = '',
+  });
 
   final String name;
   final bool isAi;
+  final String avatar;
 }
 
 List<_VisibleRole> _visibleRoles(
@@ -892,6 +992,7 @@ List<_VisibleRole> _visibleRoles(
       _VisibleRole(
         name: name,
         isAi: _mapString(character, const ['player_uid']).isEmpty,
+        avatar: _mapString(character, const ['avatar']),
       ),
     );
   }
@@ -986,4 +1087,39 @@ String _mapString(
     if (text.isNotEmpty) return text;
   }
   return fallback;
+}
+
+/// 对话页 tick 框钥匙 icon 的同款几何:14 单位圆环+斜杆+一齿,描边 1.4。
+class _EventKeyIconPainter extends CustomPainter {
+  const _EventKeyIconPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 14;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas
+      ..drawCircle(Offset(4.4 * scale, 4.4 * scale), 2.6 * scale, paint)
+      ..drawLine(
+        Offset(6.4 * scale, 6.4 * scale),
+        Offset(12 * scale, 12 * scale),
+        paint,
+      )
+      ..drawLine(
+        Offset(9.6 * scale, 9.6 * scale),
+        Offset(11 * scale, 8.2 * scale),
+        paint,
+      );
+  }
+
+  @override
+  bool shouldRepaint(_EventKeyIconPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
 }

@@ -401,10 +401,10 @@ void main() {
         matching: find.byType(Scrollable),
       );
       final position = tester.state<ScrollableState>(scrollable).position;
-      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+      expect(find.textContaining(kAiContentDisclaimerText), findsOneWidget);
       expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
       expect(
-        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
+        tester.getTopLeft(find.textContaining(kAiContentDisclaimerText)).dy,
         lessThan(tester.getTopLeft(find.text('The location wakes.')).dy),
       );
 
@@ -413,7 +413,7 @@ void main() {
 
       expect(position.pixels, 0);
       expect(
-        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
+        tester.getTopLeft(find.textContaining(kAiContentDisclaimerText)).dy,
         lessThan(tester.getTopLeft(find.text('The location wakes.')).dy),
       );
     },

@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_control_icons.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
@@ -94,8 +95,8 @@ void main() {
       find.byKey(const ValueKey<String>('world-map-title')),
     );
     expect(title.data, 'Old Money');
-    expect(title.style?.fontSize, 17);
-    expect(title.style?.height, 1.1);
+    expect(title.style?.fontSize, GenesisTypography.immersiveTitle.fontSize);
+    expect(title.style?.height, GenesisTypography.immersiveTitle.height);
     expect(title.style?.fontWeight, FontWeight.w800);
     expect(
       title.style?.color,
@@ -157,7 +158,7 @@ void main() {
 
     expect(
       tester.getSize(find.byKey(const ValueKey('world-playing-avatar'))),
-      const Size.square(40),
+      const Size.square(worldCharacterAvatarLogicalSize),
     );
     expect(find.text('Playing Adrian'), findsOneWidget);
     expect(find.text('Tick 7-2'), findsOneWidget);

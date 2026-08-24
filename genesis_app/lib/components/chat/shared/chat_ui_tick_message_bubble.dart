@@ -168,9 +168,23 @@ class _ChatTickSurface extends StatelessWidget {
               ],
             ),
     );
+    // The plate belongs to the bubble column, not the full message column: its
+    // edges land on the bubbles' outer limits - where a full-width self bubble
+    // starts on the left and a full-width AI bubble ends on the right, i.e. one
+    // avatarSideSpacerWidth in from each gutter. The narrator runs the full
+    // width instead, which is what separates the two tiers. Styles whose
+    // systemMessageMargin already carries that inset keep it as is - the two
+    // are the same offset, not stacked.
+    final margin = style.systemMessageMargin;
+    final plateMargin = usesScenePlate
+        ? margin.copyWith(
+            left: math.max(margin.left, style.avatarSideSpacerWidth),
+            right: math.max(margin.right, style.avatarSideSpacerWidth),
+          )
+        : margin;
     return Padding(
       key: bubbleKey,
-      padding: style.systemMessageMargin,
+      padding: plateMargin,
       child: GestureDetector(
         onLongPressStart: onLongPressStart,
         child: usesScenePlate

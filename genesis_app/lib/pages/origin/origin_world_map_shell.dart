@@ -171,44 +171,40 @@ class _OriginDetailLoadingSheet extends StatelessWidget {
           child: DecoratedBox(
             key: const ValueKey<String>('origin-detail-loading-sheet'),
             decoration: _originDetailSheetDecoration(context),
-            child: DecoratedBox(
-              position: DecorationPosition.foreground,
-              decoration: _originDetailSheetOutlineDecoration(context),
-              child: ClipRRect(
-                borderRadius: _originDetailSheetBorderRadius,
-                child: Padding(
-                  key: const ValueKey<String>(
-                    'origin-detail-loading-bottom-safe-area',
+            child: ClipRRect(
+              borderRadius: _originDetailSheetBorderRadius,
+              child: Padding(
+                key: const ValueKey<String>(
+                  'origin-detail-loading-bottom-safe-area',
+                ),
+                padding: EdgeInsets.only(
+                  bottom: GenesisSafeAreaInsets.bottom(
+                    context,
+                    minimum: originWorldDetailBottomSafeAreaMinimum,
                   ),
-                  padding: EdgeInsets.only(
-                    bottom: GenesisSafeAreaInsets.bottom(
-                      context,
-                      minimum: originWorldDetailBottomSafeAreaMinimum,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(
+                      height: originDetailSheetHeaderHeightForTesting,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: originDetailSheetHandleTopOffsetForTesting,
+                            child: _OriginSheetPageIndicator(page: 0.0),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(
-                        height: originDetailSheetHeaderHeightForTesting,
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              top: originDetailSheetHandleTopOffsetForTesting,
-                              child: _OriginSheetPageIndicator(page: 0.0),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: hasInitialDialogue
-                            ? const _OriginInitialDialogueLoadingContent()
-                            : const _OriginRoleSetupLoadingContent(),
-                      ),
-                    ],
-                  ),
+                    Expanded(
+                      child: hasInitialDialogue
+                          ? const _OriginInitialDialogueLoadingContent()
+                          : const _OriginRoleSetupLoadingContent(),
+                    ),
+                  ],
                 ),
               ),
             ),

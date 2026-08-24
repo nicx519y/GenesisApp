@@ -272,12 +272,15 @@ void main() {
       ),
       findsWidgets,
     );
+    // The bar itself stays flat (sigma 0 above); the two glass layers belong
+    // to the input field and the send square, which pair their translucent
+    // fills with a backdrop blur.
     expect(
       find.descendant(
         of: find.byType(ChatComposer),
         matching: find.byType(BackdropFilter),
       ),
-      findsNothing,
+      findsNWidgets(2),
     );
 
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
@@ -1368,12 +1371,15 @@ void main() {
     expect(composer.sendLabel, isNull);
     expect(composer.sendIcon, ChatComposerSendIcon.arrowUp);
     expect(composer.style?.inputBackgroundColor, const Color(0x1FFFFFFF));
+    // The 12% fill only works over the 1u glass; flat, bright scene art
+    // shines through it and drowns the input text.
+    expect(composer.style?.inputBackdropBlurSigma, 14);
     // The input runs borderless now.
     expect(composer.style?.inputBorderWidth, 0);
     expect(composer.style?.inputBorderRadius, 14);
     expect(
       tester.getSize(find.byKey(const ValueKey('chat-composer-send-button'))),
-      const Size.square(46),
+      const Size.square(40),
     );
     expect(
       find.descendant(
@@ -2697,7 +2703,7 @@ void main() {
     );
     expect(messageList.messages.last.text, 'Only available history message');
     expect(find.byType(ChatAiContentDisclaimerMessageBubble), findsOneWidget);
-    expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+    expect(find.textContaining(kAiContentDisclaimerText), findsOneWidget);
   });
 
   testWidgets('resolved empty location chat shows the AI disclaimer bubble', (
@@ -2738,7 +2744,7 @@ void main() {
     );
     expect(messageList.messages, hasLength(1));
     expect(messageList.messages.single.isAiContentDisclaimer, isTrue);
-    expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+    expect(find.textContaining(kAiContentDisclaimerText), findsOneWidget);
 
     await tester.pumpWidget(build(active: true));
     await tester.pump();
@@ -2812,7 +2818,7 @@ void main() {
       expect(header.showSubtitleIcon, isFalse);
       expect(header.subtitleIconAsset, isNull);
       expect(header.style?.headerTitleTextStyle.fontSize, 16);
-      expect(header.style?.headerTitleTextStyle.fontWeight, FontWeight.w800);
+      expect(header.style?.headerTitleTextStyle.fontWeight, FontWeight.w600);
       expect(header.style?.headerTitleTextStyle.color, Colors.white);
       expect(header.style?.headerSubtitleTextStyle.fontSize, 9.5);
       expect(header.style?.headerSubtitleTextStyle.fontWeight, FontWeight.w400);

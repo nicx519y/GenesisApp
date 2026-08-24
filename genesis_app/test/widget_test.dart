@@ -6797,10 +6797,10 @@ void main() {
       13,
     );
     expect(openingLocation, findsOneWidget);
-    expect(
-      (tester.widget<Padding>(openingLocation).padding as EdgeInsets).bottom,
-      7,
+    final openingHeaderPadding = tester.widget<Padding>(
+      find.ancestor(of: openingLocation, matching: find.byType(Padding)).first,
     );
+    expect((openingHeaderPadding.padding as EdgeInsets).bottom, 7);
     expect(
       tester.getTopLeft(brief).dy,
       lessThan(tester.getTopLeft(openingLocation).dy),
@@ -6820,15 +6820,17 @@ void main() {
     final buildContext = tester.element(
       find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
     );
-    final firstOpeningRow =
-        openingDelegate.builder(buildContext, 0) as ChatMessageRow;
-    final lastOpeningRow =
-        openingDelegate.builder(
-              buildContext,
-              openingDelegate.estimatedChildCount! - 1,
-            )
-            as ChatMessageRow;
-    expect(firstOpeningRow.style?.rowBottomPadding, 10);
+    ChatMessageRow openingRowAt(int index) {
+      final built = openingDelegate.builder(buildContext, index)!;
+      return (built as Theme).child as ChatMessageRow;
+    }
+
+    final firstOpeningRow = openingRowAt(0);
+    final lastOpeningRow = openingRowAt(
+      openingDelegate.estimatedChildCount! - 1,
+    );
+    // Row spacing mirrors the location-chat page style.
+    expect(firstOpeningRow.style?.rowBottomPadding, 14);
     expect(lastOpeningRow.style?.rowBottomPadding, 0);
   });
 
@@ -7934,8 +7936,9 @@ void main() {
       'https://cdn.example.com/avatar_1080x1080.jpg'
       '?x-oss-process=image/resize,w_360,image/format,webp',
     );
-    expect(provider.outputSize, 450);
-    expect(sourceProvider.cacheWidth, 450);
+    expect(provider.outputWidth, 324);
+    expect(provider.outputHeight, 450);
+    expect(sourceProvider.cacheWidth, 324);
     expect(sourceProvider.cacheHeight, 450);
   });
 
@@ -8898,10 +8901,11 @@ void main() {
         ),
       );
 
-      // Mirrors _OriginSetupRoleSection._cardHeight (300) at devicePixelRatio 1.
+      // Mirrors _OriginSetupRoleSection's 216x300 card at devicePixelRatio 1.
       final provider = OriginRolePortraitImageProvider.fromUrl(
         imageUrl: profileAvatar,
-        outputSize: 300,
+        outputWidth: 216,
+        outputHeight: 300,
       );
       final tombstone = find.byKey(
         const ValueKey<String>('origin-opening-sheet-tombstone'),
@@ -24828,7 +24832,7 @@ void main() {
     expect(position.minScrollExtent, 0);
     expect(position.maxScrollExtent, 0);
     expect(position.pixels, 0);
-    expect(find.text(kAiContentDisclaimerText), findsNothing);
+    expect(find.textContaining(kAiContentDisclaimerText), findsNothing);
   });
 
   testWidgets('location opening tick includes the AI disclaimer first bubble', (
@@ -24870,7 +24874,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+    expect(find.textContaining(kAiContentDisclaimerText), findsOneWidget);
 
     final scrollable = find
         .descendant(
@@ -24878,7 +24882,7 @@ void main() {
           matching: find.byType(Scrollable),
         )
         .first;
-    final noticeTop = tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy;
+    final noticeTop = tester.getTopLeft(find.textContaining(kAiContentDisclaimerText)).dy;
     final position = tester.state<ScrollableState>(scrollable).position;
 
     expect(position.minScrollExtent, 0);
@@ -25036,7 +25040,7 @@ void main() {
             matching: find.byType(Scrollable),
           )
           .first;
-      final noticeFinder = find.text(kAiContentDisclaimerText);
+      final noticeFinder = find.textContaining(kAiContentDisclaimerText);
       expect(noticeFinder, findsOneWidget);
       const tickBubbleKey = ValueKey('chat-tick-message-bubble');
       var position = tester.state<ScrollableState>(scrollable).position;
@@ -25116,7 +25120,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(position.pixels, 0);
-    expect(find.text(kAiContentDisclaimerText), findsNothing);
+    expect(find.textContaining(kAiContentDisclaimerText), findsNothing);
   });
 
   testWidgets('location chat shows new message notice when not at bottom', (

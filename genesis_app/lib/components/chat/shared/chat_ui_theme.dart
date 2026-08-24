@@ -48,7 +48,7 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
     locationBackgroundOverlayGradient: _locationBackgroundOverlayGradient,
     tickBackground: GenesisPalette.redesignInk60,
     tickAccent: GenesisPalette.redesignAccent,
-    tickClue: GenesisPalette.redesignAccentDark,
+    tickClue: GenesisPalette.redesignAccentSoft,
     tickLocation: GenesisPalette.redesignAccentSoft,
     tickHeader: GenesisPalette.white,
     tickBorder: GenesisPalette.redesignWhite20,
@@ -78,7 +78,7 @@ class GenesisChatTheme extends ThemeExtension<GenesisChatTheme> {
     locationBackgroundOverlayGradient: _locationBackgroundOverlayGradient,
     tickBackground: GenesisPalette.redesignInkGlass60,
     tickAccent: GenesisPalette.redesignAccent,
-    tickClue: GenesisPalette.redesignAccentDark,
+    tickClue: GenesisPalette.redesignAccentSoft,
     tickLocation: GenesisPalette.redesignAccentSoft,
     tickHeader: GenesisPalette.redesignSoftWhite,
     tickBorder: GenesisPalette.redesignWhite20,
@@ -294,7 +294,7 @@ ChatUiStyleConfig _worldoRedesignLocationChatStyle(ChatUiStyleConfig base) {
     headerTitleTextStyle: themed.headerTitleTextStyle.copyWith(
       color: GenesisPalette.white,
       fontSize: 16,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w600,
       height: 1.15,
     ),
     headerSubtitleTextStyle: themed.headerSubtitleTextStyle.copyWith(
@@ -313,16 +313,23 @@ ChatUiStyleConfig _worldoRedesignLocationChatStyle(ChatUiStyleConfig base) {
         ),
     composerBackgroundColor: GenesisPalette.transparent,
     composerBackdropBlurSigma: 0,
-    composerSendButtonWidth: 46,
-    composerSendButtonHeight: 46,
+    // 1u draws the composer row at 46; trimmed to 40 by request - the input
+    // read as slightly too tall in the room. Button follows so the row's two
+    // squares stay matched.
+    composerSendButtonWidth: 40,
+    composerSendButtonHeight: 40,
     composerSendButtonBorderRadius: 14,
     composerSendButtonBorderWidth: 0,
     composerSendButtonColor: GenesisPalette.redesignWhite13,
     composerSendButtonDisabledColor: GenesisPalette.redesignWhite13,
     composerSendButtonIconSize: 17,
     composerActionGap: 9,
-    inputMinHeight: 46,
+    inputMinHeight: 40,
+    // 1u: 12% white fill over a 14-sigma backdrop blur. The fill alone is not
+    // enough - a bright scene shines straight through and the white input text
+    // drowns; the blur is what averages the art into a readable ground.
     inputBackgroundColor: GenesisPalette.redesignWhite12,
+    inputBackdropBlurSigma: 14,
     inputBorderRadius: 14,
     inputBorderWidth: 0,
     composerCursorColor: GenesisPalette.white,

@@ -94,8 +94,10 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final devicePixelRatio = genesisImageDevicePixelRatio(
       MediaQuery.devicePixelRatioOf(context),
     );
-    final decodeSize = (_OriginSetupRoleSection._cardHeight * devicePixelRatio)
+    final decodeWidth = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
         .ceil();
+    final decodeHeight =
+        (_OriginSetupRoleSection._cardHeight * devicePixelRatio).ceil();
     final lastIndex = math.min(currentIndex + 2, avatarSources.length - 1);
     for (var index = currentIndex; index <= lastIndex; index += 1) {
       final avatarUrl = _originRoleCardAvatarUrl(
@@ -103,12 +105,13 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
         _resolveAssetUrl(avatarSources[index]),
       );
       if (avatarUrl.isEmpty) continue;
-      final cacheKey = '$avatarUrl@$decodeSize';
+      final cacheKey = '$avatarUrl@${decodeWidth}x$decodeHeight';
       if (!_preloadedAvatarKeys.add(cacheKey)) continue;
 
       final provider = OriginRolePortraitImageProvider.fromUrl(
         imageUrl: avatarUrl,
-        outputSize: decodeSize,
+        outputWidth: decodeWidth,
+        outputHeight: decodeHeight,
       );
       unawaited(
         precacheImage(
@@ -897,16 +900,18 @@ class _OriginSetupRoleImage extends StatelessWidget {
     final devicePixelRatio = genesisImageDevicePixelRatio(
       MediaQuery.devicePixelRatioOf(context),
     );
-    final outputSize = (math.max(width, height) * devicePixelRatio).ceil();
+    final outputWidth = (width * devicePixelRatio).ceil();
+    final outputHeight = (height * devicePixelRatio).ceil();
     return Image(
       image: OriginRolePortraitImageProvider.fromUrl(
         imageUrl: url,
-        outputSize: outputSize,
+        outputWidth: outputWidth,
+        outputHeight: outputHeight,
       ),
       width: width,
       height: height,
       fit: BoxFit.cover,
-      alignment: Alignment.center,
+      alignment: Alignment.topCenter,
       gaplessPlayback: true,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded || frame != null) return child;

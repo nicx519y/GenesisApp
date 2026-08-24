@@ -421,11 +421,11 @@ List<Widget> _originInitialDialogueSlivers(
   _OriginInitialDialoguePreview preview,
 ) {
   final locationStyle = context.genesisChatTheme.locationChat;
+  // Message geometry (row spacing, avatar, bubble, narrator plate) comes
+  // straight from the location-chat style so the preview reads like the chat
+  // room; only the sheet inset and theme-aware ink colors are local.
   final style = locationStyle.copyWith(
     messageListPadding: const EdgeInsets.fromLTRB(22, 11, 22, 10),
-    rowBottomPadding: 10,
-    avatarSize: 32,
-    avatarSideSpacerWidth: 32,
     headerTitleTextStyle: locationStyle.headerTitleTextStyle.copyWith(
       color: context.genesisColors.foregroundStrong,
       fontSize: 13,
@@ -435,50 +435,74 @@ List<Widget> _originInitialDialogueSlivers(
     headerTitleIconColor: context.genesisColors.textSecondary,
     senderNameTextStyle: locationStyle.senderNameTextStyle.copyWith(
       color: context.genesisColors.foregroundStrong,
-      fontSize: 11,
-      height: 1,
-      fontWeight: FontWeight.w800,
-    ),
-    bubbleTextStyle: locationStyle.bubbleTextStyle.copyWith(
-      fontSize: 13,
-      height: 1.6,
-    ),
-    systemMessageTextStyle: locationStyle.systemMessageTextStyle.copyWith(
-      color: context.genesisColors.textHighEmphasis,
-      fontSize: 13,
-      height: 1.6,
-      fontStyle: FontStyle.italic,
     ),
   );
+  // The sheet has no scene artwork behind the bubbles, so the chat room's
+  // glass backdrop would blur a flat color; drop it and keep the plate fills.
+  final baseTheme = Theme.of(context);
+  final noGlassExtensions = List<ThemeExtension<dynamic>>.of(
+    baseTheme.extensions.values.where((value) => value is! GenesisChatTheme),
+  )..add(context.genesisChatTheme.copyWith(aiRoleBubbleBlurSigma: 0));
+  final noGlassTheme = baseTheme.copyWith(extensions: noGlassExtensions);
   final padding = style.messageListPadding;
   final brief = _originWorldoBrief(origin);
+  final currentTime = preview.currentTime;
   return <Widget>[
     SliverToBoxAdapter(
       child: Padding(
-        key: const ValueKey<String>('origin-opening-location'),
         padding: EdgeInsets.fromLTRB(
           padding.left,
           brief.isEmpty ? 6 : 11,
           padding.right,
           7,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.place_outlined,
-              size: 14,
-              color: style.headerTitleIconColor,
-            ),
-            SizedBox(width: style.headerTitleIconGap),
-            Expanded(
-              child: Text(
-                preview.locationName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.left,
-                style: style.headerTitleTextStyle,
+            if (currentTime.isNotEmpty) ...[
+              Row(
+                key: const ValueKey<String>('origin-opening-time'),
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: 14,
+                    color: style.headerTitleIconColor,
+                  ),
+                  SizedBox(width: style.headerTitleIconGap),
+                  Expanded(
+                    child: Text(
+                      currentTime,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.left,
+                      style: style.headerTitleTextStyle,
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 7),
+            ],
+            Row(
+              key: const ValueKey<String>('origin-opening-location'),
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.place_outlined,
+                  size: 14,
+                  color: style.headerTitleIconColor,
+                ),
+                SizedBox(width: style.headerTitleIconGap),
+                Expanded(
+                  child: Text(
+                    preview.locationName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.left,
+                    style: style.headerTitleTextStyle,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -500,11 +524,14 @@ List<Widget> _originInitialDialogueSlivers(
                   ),
                 )
               : style;
-          return ChatMessageRow(
-            key: ValueKey<String>(message.localId),
-            message: message,
-            showDateDivider: false,
-            style: messageStyle,
+          return Theme(
+            data: noGlassTheme,
+            child: ChatMessageRow(
+              key: ValueKey<String>(message.localId),
+              message: message,
+              showDateDivider: false,
+              style: messageStyle,
+            ),
           );
         },
       ),

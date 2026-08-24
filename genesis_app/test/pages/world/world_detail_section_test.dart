@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections_library.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
@@ -133,6 +134,19 @@ void main() {
     await _pumpDetail(tester);
 
     expect(find.textContaining('launched as'), findsNothing);
+  });
+
+  testWidgets('cast avatars match the shared display-and-fetch size', (tester) async {
+    await _pumpDetail(tester);
+
+    final avatars = tester.widgetList<GenesisCharacterAvatar>(
+      find.byType(GenesisCharacterAvatar),
+    );
+    expect(avatars, isNotEmpty);
+    for (final avatar in avatars) {
+      expect(avatar.size, worldCharacterAvatarLogicalSize);
+      expect(avatar.borderRadius, worldCharacterAvatarRadius);
+    }
   });
 
   testWidgets('cast rows sit $worldDetailCastRowGap apart', (tester) async {
