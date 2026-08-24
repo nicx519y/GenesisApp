@@ -289,26 +289,39 @@ class ApiClient {
   }) async {
     final stopwatch = Stopwatch()..start();
     final uri = _resolveUri(path, query);
-    final runtimeHeaders = await _resolveRequestHeaders();
-    final mergedHeaders = <String, String>{
-      ..._defaultHeaders,
-      ...runtimeHeaders,
-      ...?headers,
-    };
+    final collectRequest = _BusinessApiCollectRequest.maybeStart(uri);
 
-    final prepared = _prepareBody(body, mergedHeaders);
+    late final TransportRequest request;
+    try {
+      final runtimeHeaders = await _resolveRequestHeaders();
+      final mergedHeaders = <String, String>{
+        ..._defaultHeaders,
+        ...runtimeHeaders,
+        ...?headers,
+      };
+      final prepared = _prepareBody(body, mergedHeaders);
 
-    final request = TransportRequest(
-      method: method,
-      uri: uri,
-      headers: mergedHeaders,
-      bodyBytes: prepared.bodyBytes,
-      timeoutMs: _timeoutMs,
-      decodeResponseBody: responseType != ApiResponseType.bytes,
-      onSendProgress: onSendProgress,
-      onReceiveProgress: onReceiveProgress,
-      cancellationToken: cancellationToken,
-    );
+      request = TransportRequest(
+        method: method,
+        uri: uri,
+        headers: mergedHeaders,
+        bodyBytes: prepared.bodyBytes,
+        timeoutMs: _timeoutMs,
+        decodeResponseBody: responseType != ApiResponseType.bytes,
+        onSendProgress: onSendProgress,
+        onReceiveProgress: onReceiveProgress,
+        cancellationToken: cancellationToken,
+      );
+    } on NetworkRequestCancelledException {
+      collectRequest?.failure('cancelled');
+      rethrow;
+    } on ApiException catch (error) {
+      collectRequest?.failure(_businessApiFailureReason(error));
+      rethrow;
+    } catch (_) {
+      collectRequest?.failure('unknown');
+      rethrow;
+    }
 
     TransportResponse transportResponse;
     var attempt = 1;
@@ -322,6 +335,7 @@ class ApiClient {
         break;
       } on NetworkRequestCancelledException catch (e) {
         stopwatch.stop();
+        collectRequest?.failure('cancelled');
         _recordHttpTelemetry(
           request: request,
           duration: stopwatch.elapsed,
@@ -349,6 +363,7 @@ class ApiClient {
           continue;
         }
         stopwatch.stop();
+        collectRequest?.failure(_businessApiFailureReason(error));
         _recordHttpTelemetry(
           request: request,
           duration: stopwatch.elapsed,
@@ -379,6 +394,7 @@ class ApiClient {
           continue;
         }
         stopwatch.stop();
+        collectRequest?.failure(_businessApiFailureReason(apiError));
         _recordHttpTelemetry(
           request: request,
           duration: stopwatch.elapsed,
@@ -420,11 +436,16 @@ class ApiClient {
       data: decoded,
       uri: uri,
     );
+    collectRequest?.inspectResponse(
+      response: apiResponse,
+      responseType: responseType,
+    );
 
     final processor = responseProcessor ?? _responseProcessor;
     try {
       final processed = processor(apiResponse);
       stopwatch.stop();
+      collectRequest?.success(attempt);
       _recordHttpTelemetry(
         request: request,
         response: apiResponse,
@@ -436,6 +457,9 @@ class ApiClient {
       return processed as T;
     } on Object catch (error) {
       stopwatch.stop();
+      collectRequest?.failure(
+        _businessApiFailureReason(error, response: apiResponse),
+      );
       _recordHttpTelemetry(
         request: request,
         response: apiResponse,
@@ -570,6 +594,122 @@ int? _apiErrNo(Object? data) {
   if (raw is int) return raw;
   if (raw is num) return raw.toInt();
   return int.tryParse(raw?.toString() ?? '');
+}
+
+class _BusinessApiCollectRequest {
+  _BusinessApiCollectRequest._({required this.path, required this.requestId});
+
+  static _BusinessApiCollectRequest? maybeStart(Uri uri) {
+    if (!uri.path.startsWith('/api/')) return null;
+    try {
+      final request = _BusinessApiCollectRequest._(
+        path: uri.path,
+        requestId: newCollectEventId(),
+      );
+      request._record(action: 'api_request_start', object3: '');
+      return request;
+    } catch (_) {
+      // Telemetry must never prevent the business request from running.
+      return null;
+    }
+  }
+
+  final String path;
+  final String requestId;
+  bool _terminalRecorded = false;
+
+  void success(int attempt) {
+    if (_terminalRecorded) return;
+    _terminalRecorded = true;
+    _record(action: 'api_request_success', object3: 'attempt_$attempt');
+  }
+
+  void failure(String reason) {
+    if (_terminalRecorded) return;
+    _terminalRecorded = true;
+    _record(action: 'api_request_failed', object3: reason);
+  }
+
+  void inspectResponse({
+    required ApiResponse response,
+    required ApiResponseType responseType,
+  }) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      failure('http_${response.statusCode}');
+      return;
+    }
+    if (_isMalformedJsonResponse(responseType, response.body)) {
+      failure('decode');
+      return;
+    }
+    final errNo = _apiErrNo(response.data);
+    if (errNo != null && errNo != 0) {
+      failure('business_$errNo');
+    }
+  }
+
+  void _record({required String action, required String object3}) {
+    try {
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: action,
+        object1: path,
+        object2: requestId,
+        object3: object3,
+      );
+    } catch (_) {
+      // Telemetry must never change the business request result.
+    }
+  }
+}
+
+bool _isMalformedJsonResponse(ApiResponseType responseType, String body) {
+  if (responseType != ApiResponseType.json || body.trim().isEmpty) return false;
+  try {
+    jsonDecode(body);
+    return false;
+  } catch (_) {
+    return true;
+  }
+}
+
+String _businessApiFailureReason(Object error, {ApiResponse? response}) {
+  if (error is NetworkRequestCancelledException) return 'cancelled';
+  if (error is! ApiException) return 'response';
+
+  switch (error.transportErrorKind) {
+    case TransportErrorKind.timeout:
+      return 'timeout';
+    case TransportErrorKind.connection:
+      return 'connection';
+    case TransportErrorKind.badCertificate:
+      return 'bad_certificate';
+    case TransportErrorKind.cancelled:
+      return 'cancelled';
+    case TransportErrorKind.unknown:
+    case null:
+      break;
+  }
+
+  switch (error.kind) {
+    case ApiExceptionKind.timeout:
+      return 'timeout';
+    case ApiExceptionKind.httpStatus:
+      final statusCode = error.statusCode ?? response?.statusCode;
+      return statusCode == null ? 'http_status' : 'http_$statusCode';
+    case ApiExceptionKind.business:
+      final errNo = error.code ?? _apiErrNo(response?.data);
+      return errNo == null ? 'business' : 'business_$errNo';
+    case ApiExceptionKind.response:
+      return 'response';
+    case ApiExceptionKind.gatewayAuth:
+      return 'gateway_auth';
+    case ApiExceptionKind.cancelled:
+      return 'cancelled';
+    case ApiExceptionKind.transport:
+    case ApiExceptionKind.unknown:
+      return 'unknown';
+  }
 }
 
 Object? _tryDecodeJson(String input) {
