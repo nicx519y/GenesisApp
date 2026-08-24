@@ -62,7 +62,7 @@ class _HomeHeader extends StatelessWidget {
     return GenesisTopSafeArea(
       backgroundColor: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         child: SizedBox(
           height: kGenesisTopBarHeight,
           child: Transform.translate(
