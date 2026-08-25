@@ -97,7 +97,7 @@ void main() {
     expect(subtitle.style?.fontSize, 11);
     expect(subtitle.style?.height, 1.45);
     expect(subtitle.maxLines, isNull);
-    final title = tester.widget<Text>(find.text('#Alpha Empire'));
+    final title = tester.widget<Text>(find.text('Alpha Empire'));
     expect(title.style?.color, const Color(0xFFF4F3F6));
     expect(title.style?.fontWeight, FontWeight.w800);
     final clip = tester.widget<ClipRRect>(find.byType(ClipRRect).first);
@@ -197,7 +197,7 @@ void main() {
       ),
     );
 
-    final titleFinder = find.text('#$longTitle');
+    final titleFinder = find.text('$longTitle');
     final title = tester.widget<Text>(titleFinder);
     expect(title.maxLines, isNull);
     expect(title.overflow, isNull);

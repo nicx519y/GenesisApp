@@ -190,21 +190,24 @@ class OriginItemCard extends StatelessWidget {
         ),
         const SizedBox(height: 5),
         Text(
-          originDisplayName(item.title),
+          // 双列推荐页的标题不加 # 前缀(originDisplayName 会加)。
+          // Home 的 popular 列表和搜索结果仍走 originDisplayName,不受影响。
+          item.title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: colors.textPrimary,
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             height: 1.3,
           ),
         ),
         // 视觉间距对齐:两个 SizedBox 都写 5 时看起来并不相等 —— 封面底是硬边,
-        // 标题上方只多出「ascent 减大写字高」的 3.38(14 x 0.2413)加半行距 0.62,
-        // 合计约 9;而标题到简介之间还夹着标题的降部空白 3.38 + 简介上方的 3.43,
-        // 合计约 12.4。这里把这一处收到 1.5,两处的**可见**间距才一致。
-        const SizedBox(height: 1.5),
+        // 标题上方只多出「ascent 减大写字高」3.14(13 x 0.2413)加半行距 0.58,
+        // 合计约 8.7;而标题到简介之间还夹着标题降部 3.14 + 简介上方 3.14,
+        // 合计约 11.9。差 3.14,所以这一处收到 1.9,两处的**可见**间距才一致。
+        // (字号一改就要重算:标题 13 / 简介 11 对应 1.9,原先 14 / 12 时是 1.5。)
+        const SizedBox(height: 1.9),
         Text(
           item.subtitle,
           maxLines: 3,
@@ -212,7 +215,7 @@ class OriginItemCard extends StatelessWidget {
           style: TextStyle(
             color: colors.textSecondary,
             fontWeight: FontWeight.w400,
-            fontSize: 12,
+            fontSize: 11,
             height: 1.3,
           ),
         ),
