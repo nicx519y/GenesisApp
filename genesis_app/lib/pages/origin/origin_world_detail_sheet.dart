@@ -4,7 +4,6 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
     required this.minChildSize,
-    required this.collapseRequest,
     required this.expandRequest,
     required this.autoExpansionPending,
     required this.onRaisedChanged,
@@ -23,7 +22,6 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
 
   final OriginDetail origin;
   final double minChildSize;
-  final int collapseRequest;
   final int expandRequest;
   final bool autoExpansionPending;
   final ValueChanged<bool> onRaisedChanged;
@@ -50,11 +48,17 @@ class _OriginDetailDraggableSheetState
   static const double _extentUpdateEpsilon = 0.001;
   static const int _extentSettleFrameCount = 2;
   static const _snapAnimationDuration = Duration(milliseconds: 260);
+  static const double _sheetPageSwipeThreshold = 40;
+  static const double _sheetPageFlingVelocity = 400;
 
   late final DraggableScrollableController _sheetController;
   final Completer<void> _sheetReady = Completer<void>();
   ScrollController? _sheetScrollController;
+  OriginDiscussListController? _discussController;
   late _OriginInitialDialoguePreview? _initialDialoguePreview;
+  var _currentUid = '';
+  var _sheetPageIndex = 0;
+  var _horizontalDragDistance = 0.0;
   var _isFullyExpanded = false;
   var _isRaised = false;
   var _extentCommandGeneration = 0;
@@ -99,13 +103,20 @@ class _OriginDetailDraggableSheetState
       _initialDialoguePreview = _originFirstInitialDialoguePreview(
         widget.origin,
       );
+      if (oldWidget.origin.oid != widget.origin.oid) {
+        _sheetPageIndex = 0;
+        final discussController = _discussController;
+        if (discussController != null) {
+          _configureDiscuss(discussController);
+          unawaited(discussController.refreshFirstPage());
+          unawaited(_loadCurrentUid());
+        }
+      }
     }
     if (oldWidget.minChildSize != widget.minChildSize) {
       _syncRaisedStateAfterBuild();
     }
-    if (oldWidget.collapseRequest != widget.collapseRequest) {
-      _collapseToMinChildSize();
-    } else if (oldWidget.expandRequest != widget.expandRequest) {
+    if (oldWidget.expandRequest != widget.expandRequest) {
       _expandToMaxChildSize();
     }
   }
@@ -118,18 +129,8 @@ class _OriginDetailDraggableSheetState
       _sheetReady.complete();
     }
     _sheetController.dispose();
+    _discussController?.dispose();
     super.dispose();
-  }
-
-  void _collapseToMinChildSize() {
-    _cancelExtentSettleWait();
-    final commandGeneration = ++_extentCommandGeneration;
-    unawaited(
-      _animateToRequestedExtent(
-        commandGeneration: commandGeneration,
-        expanded: false,
-      ),
-    );
   }
 
   void _expandToMaxChildSize() {
@@ -337,6 +338,111 @@ class _OriginDetailDraggableSheetState
     _scheduleSheetReadyCheck();
   }
 
+  void _handleSheetHorizontalDragStart(DragStartDetails details) {
+    _horizontalDragDistance = 0;
+  }
+
+  void _handleSheetHorizontalDragUpdate(DragUpdateDetails details) {
+    _horizontalDragDistance += details.primaryDelta ?? 0;
+  }
+
+  void _handleSheetHorizontalDragCancel() {
+    _horizontalDragDistance = 0;
+  }
+
+  void _handleSheetHorizontalDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final distance = _horizontalDragDistance;
+    _horizontalDragDistance = 0;
+    if (distance.abs() < _sheetPageSwipeThreshold &&
+        velocity.abs() < _sheetPageFlingVelocity) {
+      return;
+    }
+    final direction = velocity.abs() >= _sheetPageFlingVelocity
+        ? velocity
+        : distance;
+    final nextIndex = direction < 0 ? 1 : 0;
+    if (nextIndex == _sheetPageIndex) return;
+
+    if (nextIndex == 1) _ensureDiscussController();
+    final scrollController = _sheetScrollController;
+    if (scrollController != null && scrollController.hasClients) {
+      scrollController.jumpTo(0);
+    }
+    setState(() => _sheetPageIndex = nextIndex);
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: nextIndex == 1 ? 'worldo_detail_intro' : 'worldo_detail_sheet',
+      object1: widget.origin.oid,
+    );
+  }
+
+  OriginDiscussListController _ensureDiscussController() {
+    final existing = _discussController;
+    if (existing != null) return existing;
+    final controller = OriginDiscussListController();
+    _discussController = controller;
+    _configureDiscuss(controller);
+    unawaited(controller.loadInitialIfNeeded());
+    unawaited(_loadCurrentUid());
+    return controller;
+  }
+
+  void _configureDiscuss(OriginDiscussListController controller) {
+    controller.configure(
+      oid: widget.origin.oid,
+      loader: ({required String oid, required int pn, required int rn}) =>
+          loadOriginDiscussPage(context, oid, pn: pn, rn: rn),
+    );
+  }
+
+  Future<void> _loadCurrentUid() async {
+    final uid =
+        (await AppServicesScope.read(context).sessionStore.readUid())?.trim() ??
+        '';
+    if (!mounted || uid == _currentUid) return;
+    setState(() => _currentUid = uid);
+  }
+
+  List<Widget> _originInfoSlivers() {
+    final discussController = _ensureDiscussController();
+    final children = <Widget>[
+      _OriginSheetHeaderContent(
+        origin: widget.origin,
+        currentUid: _currentUid,
+        onOriginChanged: widget.onOriginChanged,
+      ),
+      const SizedBox(height: originDetailSectionGapForTesting),
+      _WorldViewSection(origin: widget.origin),
+    ];
+    if (_originPreviewTick(widget.origin) case final tick?) {
+      children.addAll([
+        const SizedBox(height: originDetailSectionGapForTesting),
+        _LaunchPreviewSection(origin: widget.origin, previewTick: tick),
+      ]);
+    }
+    children.addAll([
+      const SizedBox(height: originDetailSectionGapForTesting),
+      CopyWorldProgressSection(originId: widget.origin.oid),
+      const SizedBox(height: originDetailSectionGapForTesting),
+      _DiscussSection(origin: widget.origin, controller: discussController),
+      const SizedBox(height: originDetailSectionGapForTesting),
+      _OriginCharactersSection(characters: widget.origin.characters),
+    ]);
+    return [
+      SliverPadding(
+        key: PageStorageKey<String>('origin-intro-${widget.origin.oid}'),
+        padding: EdgeInsets.fromLTRB(
+          originDetailSheetHorizontalPaddingForTesting,
+          8,
+          originDetailSheetHorizontalPaddingForTesting,
+          24,
+        ),
+        sliver: SliverList(delegate: SliverChildListDelegate(children)),
+      ),
+    ];
+  }
+
   void _scheduleSheetReadyCheck() {
     if (_sheetReady.isCompleted || _sheetReadyCheckScheduled) return;
     _sheetReadyCheckScheduled = true;
@@ -393,56 +499,61 @@ class _OriginDetailDraggableSheetState
                     behavior: ScrollConfiguration.of(
                       context,
                     ).copyWith(overscroll: false),
-                    child: CustomScrollView(
-                      controller: scrollController,
-                      key: PageStorageKey<String>(
-                        'origin-detail-bottom-sheet-${widget.origin.oid}',
-                      ),
-                      physics: const ClampingScrollPhysics(),
-                      slivers: [
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: const _OriginSheetHeaderDelegate(
-                            topPadding: 0,
-                          ),
+                    child: GestureDetector(
+                      key: const ValueKey<String>('origin-detail-sheet-pages'),
+                      behavior: HitTestBehavior.translucent,
+                      onHorizontalDragStart: _handleSheetHorizontalDragStart,
+                      onHorizontalDragUpdate: _handleSheetHorizontalDragUpdate,
+                      onHorizontalDragEnd: _handleSheetHorizontalDragEnd,
+                      onHorizontalDragCancel: _handleSheetHorizontalDragCancel,
+                      child: CustomScrollView(
+                        controller: scrollController,
+                        key: PageStorageKey<String>(
+                          'origin-detail-bottom-sheet-${widget.origin.oid}',
                         ),
-                        if (widget.autoExpansionPending)
-                          SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: KeyedSubtree(
-                              key: const ValueKey<String>(
-                                'origin-opening-sheet-tombstone',
+                        physics: const ClampingScrollPhysics(),
+                        slivers: [
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: _OriginSheetHeaderDelegate(
+                              topPadding: 0,
+                              pageIndex: _sheetPageIndex,
+                            ),
+                          ),
+                          if (widget.autoExpansionPending)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: KeyedSubtree(
+                                key: const ValueKey<String>(
+                                  'origin-opening-sheet-tombstone',
+                                ),
+                                child: initialDialoguePreview != null
+                                    ? const _OriginInitialDialogueLoadingContent()
+                                    : const _OriginRoleSetupLoadingContent(),
                               ),
-                              child: initialDialoguePreview != null
-                                  ? const _OriginInitialDialogueLoadingContent()
-                                  : const _OriginRoleSetupLoadingContent(),
+                            )
+                          else if (_sheetPageIndex == 0) ...[
+                            ..._originWorldoBriefSlivers(widget.origin),
+                            if (initialDialoguePreview != null)
+                              ..._originInitialDialogueSlivers(
+                                widget.origin,
+                                initialDialoguePreview,
+                              ),
+                            SliverToBoxAdapter(
+                              child: _OriginSetupRoleSection(
+                                characters: widget.origin.characters,
+                                launching: widget.launching,
+                                profileRole: widget.profileRole,
+                                onSelectRole: widget.onSelectRole,
+                                onSelectProfileRole: widget.onSelectProfileRole,
+                                onEditProfileRole: widget.onEditProfileRole,
+                                onCustomizeRole: widget.onCustomizeRole,
+                              ),
                             ),
-                          )
-                        else ...[
-                          ..._originWorldoBriefSlivers(widget.origin),
-                          if (initialDialoguePreview != null)
-                            ..._originInitialDialogueSlivers(
-                              widget.origin,
-                              initialDialoguePreview,
-                            ),
-                          SliverToBoxAdapter(
-                            child: _OriginSetupRoleSection(
-                              characters: widget.origin.characters,
-                              launching: widget.launching,
-                              profileRole: widget.profileRole,
-                              onSelectRole: widget.onSelectRole,
-                              onSelectProfileRole: widget.onSelectProfileRole,
-                              onEditProfileRole: widget.onEditProfileRole,
-                              onCustomizeRole: widget.onCustomizeRole,
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: SizedBox(
-                              height: _OriginBottomLaunchBar.heightFor(context),
-                            ),
-                          ),
+                          ] else
+                            ..._originInfoSlivers(),
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -455,120 +566,60 @@ class _OriginDetailDraggableSheetState
   }
 }
 
-class _OriginIntroList extends StatefulWidget {
-  const _OriginIntroList({
-    required this.origin,
-    required this.topPadding,
-    required this.onOriginChanged,
-  });
-
-  final OriginDetail origin;
-  final double topPadding;
-  final VoidCallback onOriginChanged;
-
-  @override
-  State<_OriginIntroList> createState() => _OriginIntroListState();
-}
-
-class _OriginIntroListState extends State<_OriginIntroList> {
-  late final OriginDiscussListController _discussController;
-  var _currentUid = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _discussController = OriginDiscussListController();
-    _configureDiscuss();
-    unawaited(_discussController.loadInitialIfNeeded());
-    unawaited(_loadCurrentUid());
-  }
-
-  @override
-  void didUpdateWidget(covariant _OriginIntroList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.origin.oid != widget.origin.oid) {
-      _configureDiscuss();
-      unawaited(_discussController.refreshFirstPage());
-      unawaited(_loadCurrentUid());
-    }
-  }
-
-  @override
-  void dispose() {
-    _discussController.dispose();
-    super.dispose();
-  }
-
-  void _configureDiscuss() {
-    _discussController.configure(
-      oid: widget.origin.oid,
-      loader: ({required String oid, required int pn, required int rn}) =>
-          loadOriginDiscussPage(context, oid, pn: pn, rn: rn),
-    );
-  }
-
-  Future<void> _loadCurrentUid() async {
-    final uid =
-        (await AppServicesScope.read(context).sessionStore.readUid())?.trim() ??
-        '';
-    if (!mounted || uid == _currentUid) return;
-    setState(() => _currentUid = uid);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final children = <Widget>[
-      _OriginSheetHeaderContent(
-        origin: widget.origin,
-        currentUid: _currentUid,
-        onOriginChanged: widget.onOriginChanged,
-      ),
-      const SizedBox(height: originDetailSectionGapForTesting),
-      _WorldViewSection(origin: widget.origin),
-    ];
-    if (_originPreviewTick(widget.origin) case final tick?) {
-      children.addAll([
-        const SizedBox(height: originDetailSectionGapForTesting),
-        _LaunchPreviewSection(origin: widget.origin, previewTick: tick),
-      ]);
-    }
-    children.addAll([
-      const SizedBox(height: originDetailSectionGapForTesting),
-      CopyWorldProgressSection(originId: widget.origin.oid),
-      const SizedBox(height: originDetailSectionGapForTesting),
-      _DiscussSection(origin: widget.origin, controller: _discussController),
-      const SizedBox(height: originDetailSectionGapForTesting),
-      _OriginCharactersSection(characters: widget.origin.characters),
-    ]);
-    return ListView(
-      key: PageStorageKey<String>('origin-intro-${widget.origin.oid}'),
-      padding: EdgeInsets.fromLTRB(
-        originDetailSheetHorizontalPaddingForTesting,
-        widget.topPadding + 8,
-        originDetailSheetHorizontalPaddingForTesting,
-        24,
-      ),
-      physics: const ClampingScrollPhysics(),
-      children: children,
-    );
-  }
-}
-
 class _OriginSheetDragHandle extends StatelessWidget {
-  const _OriginSheetDragHandle();
+  const _OriginSheetDragHandle({this.pageIndex});
+
+  static const Color _activeColor = Color(0xFF666666);
+  static const Color _inactiveDotColor = Color(0xFFB7B7B7);
+  static const Color _loadingHandleColor = Color(0xFFD2D2D2);
+
+  final int? pageIndex;
+
+  Widget _buildHandle({required Color color, Key? key}) {
+    return Container(
+      key: key,
+      width: 40,
+      height: 5,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(3),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final currentPageIndex = pageIndex;
+    if (currentPageIndex == null) {
+      return SizedBox(
+        height: 14,
+        child: Center(child: _buildHandle(color: _loadingHandleColor)),
+      );
+    }
+
+    final activeHandle = _buildHandle(
+      key: const ValueKey<String>('origin-sheet-page-handle'),
+      color: _activeColor,
+    );
+    final inactiveDot = Container(
+      key: const ValueKey<String>('origin-sheet-page-dot'),
+      width: 6,
+      height: 6,
+      decoration: const BoxDecoration(
+        color: _inactiveDotColor,
+        shape: BoxShape.circle,
+      ),
+    );
+
     return SizedBox(
       height: 14,
       child: Center(
-        child: Container(
-          width: 64,
-          height: 5,
-          decoration: BoxDecoration(
-            color: const Color(0xFFD2D2D2),
-            borderRadius: BorderRadius.circular(3),
-          ),
+        child: Row(
+          key: const ValueKey<String>('origin-sheet-page-indicator'),
+          mainAxisSize: MainAxisSize.min,
+          children: currentPageIndex == 0
+              ? [activeHandle, const SizedBox(width: 8), inactiveDot]
+              : [inactiveDot, const SizedBox(width: 8), activeHandle],
         ),
       ),
     );
@@ -576,9 +627,13 @@ class _OriginSheetDragHandle extends StatelessWidget {
 }
 
 class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _OriginSheetHeaderDelegate({required this.topPadding});
+  const _OriginSheetHeaderDelegate({
+    required this.topPadding,
+    required this.pageIndex,
+  });
 
   final double topPadding;
+  final int pageIndex;
 
   @override
   double get minExtent => topPadding + originDetailSheetHeaderHeightForTesting;
@@ -600,7 +655,7 @@ class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
             left: 0,
             right: 0,
             top: topPadding + originDetailSheetHandleTopOffsetForTesting,
-            child: const _OriginSheetDragHandle(),
+            child: _OriginSheetDragHandle(pageIndex: pageIndex),
           ),
         ],
       ),
@@ -609,7 +664,8 @@ class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _OriginSheetHeaderDelegate oldDelegate) {
-    return oldDelegate.topPadding != topPadding;
+    return oldDelegate.topPadding != topPadding ||
+        oldDelegate.pageIndex != pageIndex;
   }
 }
 

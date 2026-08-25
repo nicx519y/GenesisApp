@@ -1,21 +1,15 @@
 part of 'origin_world_page.dart';
 
 extension _OriginWorldPageMapShell on _OriginWorldPageState {
-  Widget _buildPersistentMapOverlay(
-    double top, {
-    int locationCount = 0,
-    bool tabsInteractive = true,
-  }) {
+  Widget _buildPersistentMapOverlay(double top, {OriginDetail? origin}) {
     return Positioned(
       left: 12,
       right: 60,
       top: top + 8,
-      child: WorldTopOverlayBar(
-        pointsCount: locationCount,
-        controller: _tabController,
-        onTabTap: _handleMapModeTabTap,
-        secondaryTabIsIntro: true,
-        tabsEnabled: tabsInteractive,
+      child: _OriginWorldNameOverlay(
+        worldoName: origin == null
+            ? ''
+            : originDisplayName(origin.name, fallback: origin.oid),
       ),
     );
   }
@@ -25,7 +19,6 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
     required Widget mapOverlay,
     required Widget map,
     Widget Function(double minChildSize)? bottomSheetOverlayBuilder,
-    Widget? bottomOverlay,
     Widget? topOverlay,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -65,13 +58,6 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
                   Positioned.fill(
                     child: bottomSheetOverlayBuilder(sheetMinChildSize),
                   ),
-                if (bottomOverlay != null)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: bottomOverlay,
-                  ),
                 if (topOverlay != null) topOverlay,
               ],
             );
@@ -89,10 +75,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
         origin != null && _originHasInitialDialogueLoadingContent(origin);
     return _buildMapOnlyScaffold(
       topPadding: topPadding,
-      mapOverlay: _buildPersistentMapOverlay(
-        topPadding,
-        tabsInteractive: false,
-      ),
+      mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
       map: ColoredBox(
         key: const ValueKey<String>('origin-map-loading-background'),
         color: _tilemapLoadingBackgroundColor,
@@ -101,7 +84,63 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
         minChildSize: minChildSize,
         hasInitialDialogue: hasInitialDialogue,
       ),
-      bottomOverlay: const _OriginBottomLaunchBarLoading(),
+    );
+  }
+}
+
+class _OriginWorldNameOverlay extends StatelessWidget {
+  const _OriginWorldNameOverlay({required this.worldoName});
+
+  static const Color _backgroundColor = Color(0xE6FFFFFF);
+
+  final String worldoName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: const ValueKey<String>('origin-top-overlay-bar'),
+      children: [
+        Container(
+          width: genesisSearchFieldHeight,
+          height: genesisSearchFieldHeight,
+          decoration: BoxDecoration(
+            color: _backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            iconSize: 18,
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+            padding: EdgeInsets.zero,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            height: genesisSearchFieldHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _backgroundColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              worldoName,
+              key: const ValueKey<String>('origin-top-worldo-name'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF4B6192),
+                fontSize: 16,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -318,147 +357,6 @@ class _OriginLoadingBone extends StatelessWidget {
       widthFactor: widthFactor,
       alignment: Alignment.centerLeft,
       child: bone,
-    );
-  }
-}
-
-class _OriginBottomLaunchBarLoading extends StatelessWidget {
-  const _OriginBottomLaunchBarLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRect(
-      key: const ValueKey<String>('origin-bottom-launch-loading'),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: originWorldDetailSheetBackgroundColor,
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 8,
-              offset: Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 13),
-          child: GenesisBottomSafePadding(
-            minimum: GenesisBottomNavigation.minBottomPadding,
-            child: const SizedBox(
-              height: GenesisBottomNavigation.defaultHeight,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _OriginLoadingBone(width: 128, height: 19),
-                    ),
-                  ),
-                  SizedBox(width: 18),
-                  _OriginLoadingBone(
-                    key: ValueKey<String>('origin-loading-launch-button'),
-                    width: 140,
-                    height: 35,
-                    radius: 8,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OriginBottomLaunchBar extends StatelessWidget {
-  const _OriginBottomLaunchBar({
-    required this.origin,
-    required this.launching,
-    required this.onLaunch,
-  });
-
-  static double heightFor(BuildContext context) {
-    return GenesisBottomNavigation.defaultHeight +
-        GenesisSafeAreaInsets.bottom(
-          context,
-          minimum: GenesisBottomNavigation.minBottomPadding,
-        );
-  }
-
-  final OriginDetail origin;
-  final bool launching;
-  final VoidCallback onLaunch;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      key: const ValueKey<String>('origin-bottom-launch-blur'),
-      decoration: const BoxDecoration(
-        color: originWorldDetailSheetBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 13),
-        child: GenesisBottomSafePadding(
-          minimum: GenesisBottomNavigation.minBottomPadding,
-          child: SizedBox(
-            height: GenesisBottomNavigation.defaultHeight,
-            child: Row(
-              children: [
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      originDisplayName(origin.name, fallback: origin.oid),
-                      key: const ValueKey<String>('origin-bottom-origin-name'),
-                      maxLines: 1,
-                      softWrap: false,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        height: 1.2,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF4B6192),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                GenesisPrimaryButton(
-                  label: 'Launch',
-                  leadingIcon: SvgPicture.asset(
-                    launchIconAsset,
-                    key: const ValueKey<String>('origin-bottom-launch-icon'),
-                    width: 14,
-                    height: 14,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                  iconGap: 6,
-                  onPressed: launching ? null : onLaunch,
-                  width: 140,
-                  height: 35,
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  isLoading: launching,
-                  loadingSize: 22,
-                  loadingStrokeWidth: 2.4,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

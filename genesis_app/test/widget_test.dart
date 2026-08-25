@@ -6118,7 +6118,7 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('origin-bottom-launch-loading')),
-      findsOneWidget,
+      findsNothing,
     );
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -6201,12 +6201,8 @@ void main() {
       final loadingSheet = find.byKey(
         const ValueKey<String>('origin-detail-loading-sheet'),
       );
-      final loadingLaunchBar = find.byKey(
-        const ValueKey<String>('origin-bottom-launch-loading'),
-      );
       final loadingMapRect = tester.getRect(mapViewport);
       final loadingSheetRect = tester.getRect(loadingSheet);
-      final loadingLaunchBarRect = tester.getRect(loadingLaunchBar);
       expect(
         tester.getSize(
           find.byKey(const ValueKey<String>('origin-loading-role-card')),
@@ -6214,14 +6210,20 @@ void main() {
         const Size(240, 333),
       );
       expect(
-        tester.getSize(
-          find.byKey(const ValueKey<String>('origin-loading-launch-button')),
-        ),
-        const Size(140, 35),
+        find.byKey(const ValueKey<String>('origin-loading-launch-button')),
+        findsNothing,
       );
       expect(find.byType(WorldMap), findsNothing);
       expect(find.byType(Tilemap), findsNothing);
       expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey<String>('origin-top-worldo-name')),
+            )
+            .data,
+        isEmpty,
+      );
       expect(
         loadingMapRect.height,
         originWorldMapHeightFor(
@@ -6245,7 +6247,6 @@ void main() {
       expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
       expect(tester.getRect(mapViewport), loadingMapRect);
       expect(tester.getRect(loadingSheet), loadingSheetRect);
-      expect(tester.getRect(loadingLaunchBar), loadingLaunchBarRect);
 
       for (
         var frame = 0;
@@ -6266,10 +6267,8 @@ void main() {
         loadingSheetRect,
       );
       expect(
-        tester.getRect(
-          find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
-        ),
-        loadingLaunchBarRect,
+        find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
+        findsNothing,
       );
 
       originMapCompleter.complete(transport._jsonResponse({}));
@@ -6387,15 +6386,80 @@ void main() {
       'location_id': 'root',
     });
 
-    await tester.tap(find.text('Info.'));
+    final sheetPages = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-pages'),
+    );
+    expect(sheetPages, findsOneWidget);
+    expect(find.text('Map'), findsNothing);
+    expect(find.text('Info.'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-top-worldo-name')),
+      findsOneWidget,
+    );
+    final topWorldoName = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('origin-top-worldo-name')),
+    );
+    expect(topWorldoName.data, '#Origin detail o_test_1');
+    expect(topWorldoName.style?.color, const Color(0xFF4B6192));
+    expect(topWorldoName.style?.fontSize, 16);
+    expect(topWorldoName.style?.fontWeight, FontWeight.w600);
+    final sheetPageHandle = find.byKey(
+      const ValueKey<String>('origin-sheet-page-handle'),
+    );
+    final sheetPageDot = find.byKey(
+      const ValueKey<String>('origin-sheet-page-dot'),
+    );
+    expect(sheetPageHandle, findsOneWidget);
+    expect(sheetPageDot, findsOneWidget);
+    expect(tester.getSize(sheetPageHandle), const Size(40, 5));
+    expect(tester.getSize(sheetPageDot), const Size.square(6));
+    expect(
+      (tester.widget<Container>(sheetPageDot).decoration as BoxDecoration)
+          .color,
+      const Color(0xFFB7B7B7),
+    );
+    expect(
+      (tester.widget<Container>(sheetPageHandle).decoration as BoxDecoration)
+          .color,
+      const Color(0xFF666666),
+    );
+    expect(
+      tester.getCenter(sheetPageHandle).dx,
+      lessThan(tester.getCenter(sheetPageDot).dx),
+    );
+    var sheetPagesRect = tester.getRect(sheetPages);
+    await tester.dragFrom(
+      Offset(sheetPagesRect.right - 24, sheetPagesRect.top + 16),
+      Offset(-sheetPagesRect.width * 0.8, 0),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(Tilemap), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    expect(
+      find.byKey(const ValueKey<String>('origin-info-stats-row')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getCenter(sheetPageHandle).dx,
+      greaterThan(tester.getCenter(sheetPageDot).dx),
+    );
 
-    await tester.tap(find.text('Map'));
+    sheetPagesRect = tester.getRect(sheetPages);
+    await tester.dragFrom(
+      Offset(sheetPagesRect.left + 24, sheetPagesRect.top + 16),
+      Offset(sheetPagesRect.width * 0.8, 0),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(Tilemap), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    expect(
+      tester.getCenter(sheetPageHandle).dx,
+      lessThan(tester.getCenter(sheetPageDot).dx),
+    );
   });
 
   testWidgets('origin detail sheet pauses all Tilemap animations', (
@@ -6459,12 +6523,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final launchBar = find.byKey(
-      const ValueKey<String>('origin-bottom-launch-blur'),
-    );
-    expect(launchBar, findsOneWidget);
     expect(
-      find.descendant(of: launchBar, matching: find.byType(BackdropFilter)),
+      find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
       findsNothing,
     );
 
@@ -6733,7 +6793,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final navigationBar = find.byType(WorldTopOverlayBar);
+      final navigationBar = find.byKey(
+        const ValueKey<String>('origin-top-overlay-bar'),
+      );
       final settingsButton = find.byKey(
         const ValueKey<String>('tilemap-settings-button'),
       );
@@ -6741,6 +6803,11 @@ void main() {
           tester.view.physicalSize.width / tester.view.devicePixelRatio;
 
       expect(navigationBar, findsOneWidget);
+      expect(find.byType(WorldTopOverlayBar), findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('origin-top-worldo-name')),
+        findsOneWidget,
+      );
       expect(settingsButton, findsNothing);
       expect(
         tester.getTopRight(navigationBar).dx,
@@ -7829,7 +7896,7 @@ void main() {
     expect(suggestedLabel, findsNothing);
   });
 
-  testWidgets('Origin detail launch bar launches a world', (
+  testWidgets('Origin detail role setup launches without a bottom bar', (
     WidgetTester tester,
   ) async {
     final telemetry = _CapturingTelemetrySink();
@@ -7880,40 +7947,29 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(FilledButton, 'Launch'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Launch'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('origin-bottom-origin-name')),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('#Origin detail o_test_1'), findsOneWidget);
+    expect(find.text('#Origin detail o_test_1'), findsWidgets);
     expect(
-      find.ancestor(
-        of: find.byKey(const ValueKey<String>('origin-bottom-origin-name')),
-        matching: find.byType(FittedBox),
-      ),
+      find.byKey(const ValueKey<String>('origin-top-worldo-name')),
       findsOneWidget,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-bottom-launch-icon')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .getSize(
-            find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
-          )
-          .height,
-      GenesisBottomNavigation.defaultHeight +
-          GenesisBottomNavigation.minBottomPadding,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-setup-custom-form')),
       findsNothing,
     );
+    await _revealOriginCustomRoleCard(tester);
     expect(
       find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
       findsOneWidget,
@@ -8151,9 +8207,15 @@ void main() {
     );
     await tester.pump();
     expect(bottomSheetScrollController.offset, greaterThan(0));
-    await tester.tap(find.text('Info.'));
+    final sheetPages = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-pages'),
+    );
+    var sheetPagesRect = tester.getRect(sheetPages);
+    await tester.dragFrom(
+      Offset(sheetPagesRect.right - 24, sheetPagesRect.top + 16),
+      Offset(-sheetPagesRect.width * 0.8, 0),
+    );
     await tester.pumpAndSettle();
-    expect(bottomSheetScrollController.offset, 0);
     expect(
       find.byKey(const ValueKey<String>('origin-info-stats-row')),
       findsOneWidget,
@@ -8170,8 +8232,13 @@ void main() {
       find.byKey(const ValueKey<String>('origin-info-stat-character')),
       findsOneWidget,
     );
-    await tester.fling(
-      find.byKey(const PageStorageKey<String>('origin-intro-o_test_1')),
+    final infoScrollRect = tester.getRect(
+      find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      ),
+    );
+    await tester.flingFrom(
+      Offset(infoScrollRect.center.dx, infoScrollRect.top + 24),
       const Offset(0, -3000),
       2000,
     );
@@ -8185,17 +8252,14 @@ void main() {
       ),
     );
     expect(infoAvatar.imageUrl, setupAvatar.imageUrl);
-    await tester.tap(find.text('Map'));
-    await tester.pumpAndSettle();
-    final launchButtonFinder = find.widgetWithText(FilledButton, 'Launch');
-    expect(tester.getSize(launchButtonFinder), const Size(140, 35));
-    final launchButton = tester.widget<FilledButton>(launchButtonFinder);
-    expect(
-      launchButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
-      16,
+    sheetPagesRect = tester.getRect(sheetPages);
+    await tester.dragFrom(
+      Offset(sheetPagesRect.left + 24, sheetPagesRect.top + 16),
+      Offset(sheetPagesRect.width * 0.8, 0),
     );
-    await tester.tap(launchButtonFinder);
     await tester.pumpAndSettle();
+    expect(find.widgetWithText(FilledButton, 'Launch'), findsNothing);
+    await _openOriginRoleSheetFromCustomCard(tester);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -8306,8 +8370,7 @@ void main() {
         transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
         hasLength(1),
       );
-      await tester.tap(find.text('Launch'));
-      await tester.pump();
+      await _openOriginRoleSheetFromCustomCard(tester);
 
       expect(find.byKey(const ValueKey('origin-role-sheet')), findsOneWidget);
       expect(
@@ -8401,7 +8464,8 @@ void main() {
       );
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
 
-      await tester.tap(find.text('Launch'));
+      await _openOriginRoleSheetFromCustomCard(tester);
+      await tester.tap(find.text('Launched'));
       await tester.pumpAndSettle();
 
       final historyRequests = transport.requestsFor(
@@ -8970,8 +9034,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump();
 
-    await tester.tap(find.text('Launch'));
-    await tester.pumpAndSettle();
+    await _openOriginRoleSheetFromCustomCard(tester);
     await tester.tap(find.text('Preset'));
     await tester.pumpAndSettle();
     await tester.tap(
@@ -9139,7 +9202,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Info.'));
+    final sheetPages = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-pages'),
+    );
+    final sheetPagesRect = tester.getRect(sheetPages);
+    await tester.dragFrom(
+      Offset(sheetPagesRect.right - 24, sheetPagesRect.top + 16),
+      Offset(-sheetPagesRect.width * 0.8, 0),
+    );
     await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 500), const Offset(0, -420));
     await tester.pumpAndSettle();
@@ -9548,8 +9618,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Launch'));
-    await tester.pumpAndSettle();
+    await _openOriginRoleSheetFromCustomCard(tester);
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -9622,8 +9691,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Launch'));
-    await tester.pumpAndSettle();
+    await _openOriginRoleSheetFromCustomCard(tester);
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -9786,8 +9854,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Launch'));
-    await tester.pumpAndSettle();
+    await _openOriginRoleSheetFromCustomCard(tester);
 
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
@@ -9819,8 +9886,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Launch'));
-      await tester.pumpAndSettle();
+      await _openOriginRoleSheetFromCustomCard(tester);
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -24799,6 +24865,35 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));
   });
+}
+
+Future<void> _openOriginRoleSheetFromCustomCard(WidgetTester tester) async {
+  await _revealOriginCustomRoleCard(tester);
+  final customCard = find.byKey(
+    const ValueKey<String>('origin-setup-role-custom-card'),
+  );
+  expect(customCard, findsOneWidget);
+  final customCardAction = find.descendant(
+    of: customCard,
+    matching: find.byType(InkWell),
+  );
+  tester.widget<InkWell>(customCardAction).onTap!();
+  await tester.pumpAndSettle();
+}
+
+Future<void> _revealOriginCustomRoleCard(WidgetTester tester) async {
+  final customCard = find.byKey(
+    const ValueKey<String>('origin-setup-role-custom-card'),
+  );
+  final sheet = find.byKey(const ValueKey<String>('origin-detail-sheet-pages'));
+  for (
+    var attempt = 0;
+    attempt < 8 && customCard.evaluate().isEmpty;
+    attempt++
+  ) {
+    await tester.drag(sheet, const Offset(0, -400));
+    await tester.pumpAndSettle();
+  }
 }
 
 Future<void> _dragOriginPanelUntilVisible(

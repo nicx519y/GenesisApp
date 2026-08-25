@@ -28,7 +28,6 @@ import '../../components/origin/stat_item.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/world_map.dart';
-import '../../components/world_top_overlay_bar.dart';
 import '../../network/genesis_http_cache_manager.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -43,7 +42,6 @@ import '../../network/models/origin.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_bottom_navigation.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
@@ -107,13 +105,9 @@ const double originDetailSectionTitleIconGapForTesting = 8;
 
 enum _OriginWorldPageRenderStage { framework, detailShell, content }
 
-class _OriginWorldPageState extends State<OriginWorldPage>
-    with SingleTickerProviderStateMixin {
+class _OriginWorldPageState extends State<OriginWorldPage> {
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
       kGenesisLightStatusIconsSystemUiOverlayStyle;
-  static const SystemUiOverlayStyle _transparentDarkStatusBarStyle =
-      kGenesisDefaultSystemUiOverlayStyle;
-  late final TabController _tabController;
   OriginDetail? _origin;
   Object? _initialLoadError;
   _OriginWorldPageRenderStage _renderStage =
@@ -138,8 +132,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
   bool _launching = false;
-  bool _showIntroPage = false;
-  int _detailSheetCollapseRequest = 0;
   int _detailSheetExpandRequest = 0;
   bool _entryDetailResponsePending = true;
   bool _waitingForOpeningSheetExpansion = false;
@@ -151,16 +143,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       LocationChatBackgroundPreloader();
   Set<String> _currentTilemapLocationIds = const <String>{};
 
-  SystemUiOverlayStyle get _baseStatusBarStyle => _showIntroPage
-      ? _transparentDarkStatusBarStyle
-      : _transparentStatusBarStyle;
+  SystemUiOverlayStyle get _baseStatusBarStyle => _transparentStatusBarStyle;
 
   @override
   void initState() {
     super.initState();
     tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
     _tilemapVisualModeLoad = _loadTilemapVisualMode();
-    _tabController = TabController(length: 2, vsync: this);
     _scheduleInitialOriginLoadAfterFrameworkFrame();
   }
 
@@ -200,12 +189,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _activeChatLocation = null;
       _currentTilemapLocationIds = const <String>{};
       _locationChatBackgroundPreloader.preload(const <Object?>[]);
-      _showIntroPage = false;
       _detailSheetExpandRequest = 0;
       _entryDetailResponsePending = true;
       _waitingForOpeningSheetExpansion = false;
       _detailSheetRaisedNotifier.value = false;
-      _tabController.index = 0;
       _scheduleInitialOriginLoadAfterFrameworkFrame();
     }
   }
@@ -233,7 +220,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     _locationChatBackgroundPreloader.dispose();
     _detailSheetRaisedNotifier.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -652,19 +638,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void _handleOriginPopBlocked() {
     if (_activeChatLocation == null) return;
     _closeLocationChat();
-  }
-
-  void _handleMapModeTabTap(int index) {
-    final nextShowsIntroPage = index == 1;
-    GenesisTelemetry.collectLog(
-      actionType: 'pageview',
-      action: nextShowsIntroPage ? 'worldo_detail_intro' : 'worldo_map',
-      object1: widget.oid,
-    );
-    setState(() {
-      _showIntroPage = nextShowsIntroPage;
-      _detailSheetCollapseRequest += 1;
-    });
   }
 
   Future<void> _showLaunchRoleSheet(
@@ -1116,9 +1089,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         : origin.allLocations.isNotEmpty
         ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
         : points;
-    final locationCount = listLocationNodes.isNotEmpty
-        ? _originLeafLocationNodeCount(listLocationNodes)
-        : listPoints.length;
     final deferTilemapRendering =
         origin.definitionVersion == 2 && _waitingForOpeningSheetExpansion;
     final Widget map = deferTilemapRendering
@@ -1149,16 +1119,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 listPoints: listPoints,
                 listLocationNodes: listLocationNodes,
                 mapImageUrl: mapImageUrl,
-                dimmed: _showIntroPage,
-                showPointsList: _showIntroPage,
-                pointsListBuilder: _showIntroPage
-                    ? (context) => _OriginIntroList(
-                        origin: origin,
-                        topPadding: topPadding + 8 + 48,
-                        onOriginChanged: _refreshOriginDetail,
-                      )
-                    : null,
-                initialZoomScale: _showIntroPage ? 1 : 1.2,
+                initialZoomScale: 1.2,
                 enableAvatarScaleReboundHint: true,
                 pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,
@@ -1171,7 +1132,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 locationNodes: listLocationNodes,
                 preferredFocusLocationId:
                     origin.initLocationGroup?.locationId.trim() ?? '',
-                showVisualModeToggle: !_showIntroPage,
+                showVisualModeToggle: true,
                 animationsPaused: detailSheetRaised,
                 locationImageFlowPaused: detailSheetRaised,
                 visualModeToggleTop: topPadding + 8,
@@ -1191,16 +1152,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       },
       child: _buildMapOnlyScaffold(
         topPadding: topPadding,
-        mapOverlay: _buildPersistentMapOverlay(
-          topPadding,
-          locationCount: locationCount,
-          tabsInteractive: !_waitingForOpeningSheetExpansion,
-        ),
+        mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
         bottomSheetOverlayBuilder: (minChildSize) =>
             _OriginDetailDraggableSheet(
               origin: origin,
               minChildSize: minChildSize,
-              collapseRequest: _detailSheetCollapseRequest,
               expandRequest: _detailSheetExpandRequest,
               autoExpansionPending: _waitingForOpeningSheetExpansion,
               onRaisedChanged: _handleDetailSheetRaisedChanged,
@@ -1222,11 +1178,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
               onCustomizeRole: () =>
                   _showLaunchRoleSheet(origin, initialCustomTab: true),
             ),
-        bottomOverlay: _OriginBottomLaunchBar(
-          origin: origin,
-          launching: _launching,
-          onLaunch: () => _showLaunchRoleSheet(origin),
-        ),
         topOverlay: _buildLocationChatOverlay(origin),
         map: WorldKeepAlivePage(child: map),
       ),

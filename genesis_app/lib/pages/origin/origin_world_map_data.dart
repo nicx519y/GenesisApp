@@ -109,18 +109,6 @@ List<WorldMapLocationNode> _originMapLocationNodes(
       .toList(growable: false);
 }
 
-int _originLeafLocationNodeCount(List<WorldMapLocationNode> nodes) {
-  var count = 0;
-  for (final node in nodes) {
-    if (node.children.isEmpty) {
-      count += 1;
-    } else {
-      count += _originLeafLocationNodeCount(node.children);
-    }
-  }
-  return count;
-}
-
 String _originRootMapImageUrl(List<LocationTreeNode<OriginLocation>> nodes) {
   for (final node in nodes) {
     final url = _resolveAssetUrl(node.value.mapUrl);
